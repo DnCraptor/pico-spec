@@ -276,34 +276,35 @@ void VIDEO::vgataskinit(void *unused) {
 
         Mode += Config::scanlines;
 
-///        OSD::scrW = vidmodes[Mode][vmodeproperties::hRes];
-///        OSD::scrH = (vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv]) >> Config::scanlines;
+        OSD::scrW = vidmodes[Mode][vmodeproperties::hRes];
+        OSD::scrH = (vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv]) >> Config::scanlines;
 
     } else {
 
         Mode = 16 + (Config::arch == "48K" ? 0 : (Config::arch == "128K" ? 2 : 4)) + (Config::aspect_16_9 ? 1 : 0);
         
-///        OSD::scrW = vidmodes[Mode][vmodeproperties::hRes];
-///        OSD::scrH = vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv];
+        OSD::scrW = vidmodes[Mode][vmodeproperties::hRes];
+        OSD::scrH = vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv];
 
     }
 
-///    vga.VGA6Bit_useinterrupt=true;
+    vga.VGA6Bit_useinterrupt = true; // ????
     
     // CRT Centering
     if (Config::videomode == 2) {
-///        vga.CenterH = Config::CenterH;
-///        vga.CenterV = Config::CenterV;
+        vga.CenterH = Config::CenterH;
+        vga.CenterV = Config::CenterV;
     }
     
     // Init mode
-///    vga.init(Mode, redPins, grePins, bluPins, HSYNC_PIN, VSYNC_PIN);    
+    vga.init(Mode, redPins, grePins, bluPins, HSYNC_PIN, VSYNC_PIN);    
     
     for (;;){}    
 
 }
 
 ///TaskHandle_t VIDEO::videoTaskHandle;
+static __aligned(4) uint8_t SAVE_RECT[0x9000] = {0};
 
 void VIDEO::Init() {
 
@@ -326,9 +327,9 @@ void VIDEO::Init() {
 ///        OSD::scrW = vidmodes[Mode][vmodeproperties::hRes];
 ///        OSD::scrH = (vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv]) >> Config::scanlines;
         
-///        vga.VGA6Bit_useinterrupt=false;
+        vga.VGA6Bit_useinterrupt = false;
 
-///        vga.init( Mode, redPins, grePins, bluPins, HSYNC_PIN, VSYNC_PIN);
+        vga.init( Mode, redPins, grePins, bluPins, HSYNC_PIN, VSYNC_PIN);
 
     }
 
@@ -338,20 +339,20 @@ void VIDEO::Init() {
     for (int i = 0; i < NUM_SPECTRUM_COLORS; i++) {
         // printf("RGBAXMask: %d, SBits: %d\n",(int)VIDEO::vga.RGBAXMask,(int)VIDEO::vga.SBits);
         // printf("Before: %d -> %d, ",i,(int)spectrum_colors[i]);
-///        spectrum_colors[i] = (spectrum_colors[i] & VIDEO::vga.RGBAXMask) | VIDEO::vga.SBits;
+        spectrum_colors[i] = (spectrum_colors[i] & VIDEO::vga.RGBAXMask) | VIDEO::vga.SBits;
         // printf("After : %d -> %d\n",i,(int)spectrum_colors[i]);
     }
 
     // precalcAluBytes(); // Alloc and calc AluBytes
 
-///    for (int n = 0; n < 16; n++)
-///        AluByte[n] = (unsigned int *)AluBytes[bitRead(VIDEO::vga.SBits,7)][n];
+    for (int n = 0; n < 16; n++)
+        AluByte[n] = (unsigned int *)AluBytes[bitRead(VIDEO::vga.SBits,7)][n];
 
     precalcULASWAP();   // precalculate ULA SWAP values
 
     precalcborder32();  // Precalc border 32 bits values
 
-///    SaveRect = (uint32_t *) heap_caps_malloc(0x9000, MALLOC_CAP_INTERNAL | MALLOC_CAP_32BIT);
+///    SaveRect = (uint32_t *) SAVE_RECT; ///heap_caps_malloc(0x9000, MALLOC_CAP_INTERNAL | MALLOC_CAP_32BIT);
 
 }
 
@@ -459,7 +460,7 @@ IRAM_ATTR void VIDEO::MainScreen_Blank(unsigned int statestoadd, bool contended)
 
         if (brdChange) DrawBorder(); // Needed to avoid tearing in demos like Gabba (Pentagon)
         
-///        lineptr32 = (uint32_t *)(vga.frameBuffer[linedraw_cnt]) + (is169 ? 13: 8);
+        lineptr32 = (uint32_t *)(vga.frameBuffer[linedraw_cnt]) + (is169 ? 13: 8);
 
         coldraw_cnt = 0;
 
@@ -492,7 +493,7 @@ IRAM_ATTR void VIDEO::MainScreen_Blank_Snow(unsigned int statestoadd, bool conte
 
         if (brdChange) DrawBorder();
 
-///        lineptr32 = (uint32_t *)(vga.frameBuffer[linedraw_cnt]) + (is169 ? 13: 8);
+        lineptr32 = (uint32_t *)(vga.frameBuffer[linedraw_cnt]) + (is169 ? 13: 8);
 
         coldraw_cnt = 0;
 
@@ -531,7 +532,7 @@ IRAM_ATTR void VIDEO::MainScreen_Blank_Snow_Opcode(bool contended) {
 
         if (brdChange) DrawBorder();
 
-///        lineptr32 = (uint32_t *)(vga.frameBuffer[linedraw_cnt]) + (is169 ? 13: 8);
+        lineptr32 = (uint32_t *)(vga.frameBuffer[linedraw_cnt]) + (is169 ? 13: 8);
 
         coldraw_cnt = 0;
 
@@ -976,7 +977,7 @@ IRAM_ATTR void VIDEO::TopBorder_Blank() {
     if (CPU::tstates >= tStatesBorder) {
         brdcol_cnt = 0;
         brdlin_cnt = 0;
-///        brdptr32 = (uint32_t *)(vga.frameBuffer[brdlin_cnt]) + (is169 ? 5 : 0);
+        brdptr32 = (uint32_t *)(vga.frameBuffer[brdlin_cnt]) + (is169 ? 5 : 0);
         DrawBorder = &TopBorder;
         DrawBorder();
     }
@@ -996,7 +997,7 @@ IRAM_ATTR void VIDEO::TopBorder() {
 
         if (brdcol_cnt == 40) {
             brdlin_cnt++;
-///            brdptr32 = (uint32_t *)(vga.frameBuffer[brdlin_cnt]) + (is169 ? 5 : 0);
+            brdptr32 = (uint32_t *)(vga.frameBuffer[brdlin_cnt]) + (is169 ? 5 : 0);
             brdcol_cnt = 0;
             lastBrdTstate += Z80Ops::is128 ? 68 : 64;
             if (brdlin_cnt == (is169 ? 4 : 24)) {                                
@@ -1054,7 +1055,7 @@ IRAM_ATTR void VIDEO::BottomBorder() {
 
         if (brdcol_cnt == 40) {
             brdlin_cnt++;
-///            brdptr32 = (uint32_t *)(vga.frameBuffer[brdlin_cnt]) + (is169 ? 5 : 0);
+            brdptr32 = (uint32_t *)(vga.frameBuffer[brdlin_cnt]) + (is169 ? 5 : 0);
             brdcol_cnt = 0;
             lastBrdTstate += Z80Ops::is128 ? 68 : 64;                        
             if (brdlin_cnt == (is169 ? 200 : 240)) {                
@@ -1087,7 +1088,7 @@ IRAM_ATTR void VIDEO::BottomBorder_OSD() {
 
         if (brdcol_cnt == 40) {
             brdlin_cnt++;
-///            brdptr32 = (uint32_t *)(vga.frameBuffer[brdlin_cnt]) + (is169 ? 5 : 0);
+            brdptr32 = (uint32_t *)(vga.frameBuffer[brdlin_cnt]) + (is169 ? 5 : 0);
             brdcol_cnt = 0;
             lastBrdTstate += Z80Ops::is128 ? 68 : 64;                                    
             if (brdlin_cnt == 240) {
@@ -1114,7 +1115,7 @@ IRAM_ATTR void VIDEO::TopBorder_Blank_Pentagon() {
         brdcol_end = is169 ? 170 : 160;        
         brdcol_end1 = is169 ? 26 : 16;
         brdlin_cnt = 0;
-///        brdptr16 = (uint16_t *)(vga.frameBuffer[brdlin_cnt]);
+        brdptr16 = (uint16_t *)(vga.frameBuffer[brdlin_cnt]);
         DrawBorder = &TopBorder_Pentagon;
         DrawBorder();
     }
@@ -1133,7 +1134,7 @@ IRAM_ATTR void VIDEO::TopBorder_Pentagon() {
 
         if (brdcol_cnt == brdcol_end) {
             brdlin_cnt++;
-///            brdptr16 = (uint16_t *)(vga.frameBuffer[brdlin_cnt]);            
+            brdptr16 = (uint16_t *)(vga.frameBuffer[brdlin_cnt]);
             brdcol_cnt = is169 ? 10 : 0;
             lastBrdTstate += 64;
             if (brdlin_cnt == (is169 ? 4 : 24)) {
@@ -1162,7 +1163,7 @@ IRAM_ATTR void VIDEO::MiddleBorder_Pentagon() {
             brdcol_cnt = 144 + (is169 ? 10 : 0);
         } else if (brdcol_cnt == brdcol_end) {
             brdlin_cnt++;
-///            brdptr16 = (uint16_t *)(vga.frameBuffer[brdlin_cnt]);                        
+            brdptr16 = (uint16_t *)(vga.frameBuffer[brdlin_cnt]);
             brdcol_cnt = is169 ? 10 : 0;
             lastBrdTstate += 64;
             if (brdlin_cnt == (is169 ? 196 : 216)) {
@@ -1188,7 +1189,7 @@ IRAM_ATTR void VIDEO::BottomBorder_Pentagon() {
 
         if (brdcol_cnt == brdcol_end) {
             brdlin_cnt++;
-///            brdptr16 = (uint16_t *)(vga.frameBuffer[brdlin_cnt]);
+            brdptr16 = (uint16_t *)(vga.frameBuffer[brdlin_cnt]);
             brdcol_cnt = is169 ? 10 : 0;
             lastBrdTstate += 64;
             if (brdlin_cnt == (is169 ? 200 : 240)) {
@@ -1216,7 +1217,7 @@ IRAM_ATTR void VIDEO::BottomBorder_OSD_Pentagon() {
 
         if (brdcol_cnt == brdcol_end) {
             brdlin_cnt++;
-///            brdptr16 = (uint16_t *)(vga.frameBuffer[brdlin_cnt]);
+            brdptr16 = (uint16_t *)(vga.frameBuffer[brdlin_cnt]);
             brdcol_cnt = is169 ? 10 : 0;
             brdcol_cnt = 0;
             lastBrdTstate += 64;
