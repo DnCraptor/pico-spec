@@ -44,6 +44,7 @@ visit https://zxespectrum.speccy.org/contacto
 using namespace std;
 
 #include "MemESP.h"
+#include "ff.h"
 
 // Defines
 #define ASCII_NL 10
@@ -99,18 +100,18 @@ private:
 };
 
 #ifndef ESP32_SDL2_WRAPPER
-#define MOUNT_POINT_SPIFFS "/data"
+#define MOUNT_POINT_SPIFFS "/spec"
 #define MOUNT_POINT_SD "/sd"
 #else
-#define MOUNT_POINT_SPIFFS "./data"
+#define MOUNT_POINT_SPIFFS "./spec"
 #define MOUNT_POINT_SD "./sd"
 #endif
 
 // Use internal spiffs first
 #ifndef ESP32_SDL2_WRAPPER
-#define DISK_BOOT_FILENAME "/data/boot.cfg"
+#define DISK_BOOT_FILENAME "/spec/boot.cfg"
 #else
-#define DISK_BOOT_FILENAME "./data/boot.cfg"
+#define DISK_BOOT_FILENAME "./spec/boot.cfg"
 #endif
 #define DISK_ROM_DIR "/r"
 #define DISK_SNA_DIR "/s"
@@ -131,47 +132,50 @@ private:
 // inline utility functions for uniform access to file/memory
 // and making it easy to to implement SNA/Z80 functions
 
-static inline uint8_t readByteFile(FILE *f)
+static inline uint8_t readByteFile(FIL& f)
 {
     uint8_t result;
-
-    if (fread(&result, 1, 1, f) != 1) {
+    UINT br;
+    if (f_read(&f, &result, 1, &br) != FR_OK || br != 1) {
         return -1;
     }
-
     return result;
 }
 
-static inline uint16_t readWordFileLE(FILE *f)
+static inline uint16_t readWordFileLE(FIL& f)
 {
     uint8_t lo = readByteFile(f);
     uint8_t hi = readByteFile(f);
     return lo | (hi << 8);
 }
 
-static inline uint16_t readWordFileBE(FILE *f)
+static inline uint16_t readWordFileBE(FIL& f)
 {
     uint8_t hi = readByteFile(f);
     uint8_t lo = readByteFile(f);
     return lo | (hi << 8);
 }
 
-static inline size_t readBlockFile(FILE *f, uint8_t* dstBuffer, size_t size)
+static inline size_t readBlockFile(FIL& f, uint8_t* dstBuffer, size_t size)
 {
-    return fread(dstBuffer, 0x4000, 1, f);
+    UINT br;
+    f_read(&f, dstBuffer, 0x4000, &br);
+    return br;
 }
 
-static inline void writeByteFile(uint8_t value, FILE *f)
+static inline void writeByteFile(uint8_t value, FIL& f)
 {
-    fwrite(&value,1,1,f);
+    UINT bw;
+    f_write(&f, &value, 1, &bw);
 }
 
-static inline void writeWordFileLE(uint16_t value, FILE *f)
+static inline void writeWordFileLE(uint16_t value, FIL& f)
 {
+    UINT bw;
     uint8_t lo =  value       & 0xFF;
     uint8_t hi = (value >> 8) & 0xFF;
-    fwrite(&lo,1,1,f);
-    fwrite(&hi,1,1,f);
+    f_write(&f, &lo, 1, &bw);
+    f_write(&f, &hi, 1, &bw);
 }
 
 // static inline void writeWordFileBE(uint16_t value, File f)

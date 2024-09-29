@@ -39,6 +39,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include <inttypes.h>
 #include <vector>
 #include <string>
+#include "ff.h"
 
 using namespace std;
 
@@ -143,8 +144,8 @@ class Tape {
 public:
 
     // Tape
-    static FILE *tape;
-    static FILE *cswBlock;    
+    static FIL tape;
+    static FIL cswBlock;    
     static string tapeFileName;
     static string tapeSaveName;
     static int tapeFileType;

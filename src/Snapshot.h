@@ -42,7 +42,7 @@ visit https://zxespectrum.speccy.org/contacto
 
 using namespace std;
 
-/// bool LoadSnapshot(string filename, string force_arch, string force_romset);
+///bool LoadSnapshot(string filename, string force_arch, string force_romset);
 
 class FileSNA
 {

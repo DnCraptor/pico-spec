@@ -659,7 +659,6 @@ void ESPectrum::setup()
     CPU::reset();
 
     // Load snapshot if present in Config::
-/***
     if (Config::ram_file != NO_RAM_FILE) {
 
         FileUtils::SNA_Path = Config::SNA_Path;
@@ -680,19 +679,16 @@ void ESPectrum::setup()
         FileUtils::fileTypes[DISK_DSKFILE].fdMode = Config::DSK_fdMode;
         FileUtils::fileTypes[DISK_DSKFILE].fileSearch = Config::DSK_fileSearch;
 
-///        LoadSnapshot(Config::ram_file,"","");
+///        LoadSnapshot(Config::ram_file, "", "");
 
         Config::last_ram_file = Config::ram_file;
         Config::ram_file = NO_RAM_FILE;
         Config::save("ram");
-
     }
-*/
 ///    if (Config::slog_on) showMemInfo("ZX-ESPectrum-IDF setup finished.");
 
     // Create loop function as task: it doesn't seem better than calling from main.cpp and increases RAM consumption (4096 bytes for stack).
     // xTaskCreatePinnedToCore(&ESPectrum::loop, "loopTask", 4096, NULL, 1, &loopTaskHandle, 0);
-
 }
 /***
 //=======================================================================================

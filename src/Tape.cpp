@@ -52,8 +52,8 @@ using namespace std;
 #include "messages.h"
 #include "Z80_JLS/z80.h"
 
-FILE *Tape::tape;
-FILE *Tape::cswBlock;
+FIL Tape::tape;
+FIL Tape::cswBlock;
 string Tape::tapeFileName = "none";
 string Tape::tapeSaveName = "none";
 int Tape::tapeFileType = TAPE_FTYPE_EMPTY;
@@ -127,19 +127,19 @@ int Tape::inflateCSW(int blocknumber, long startPos, long data_length) {
     char destFileName[16]; // Nombre del archivo descomprimido
     uint8_t s_inbuf[BUF_SIZE];
     uint8_t s_outbuf[BUF_SIZE];
-    FILE *pOutfile;
+    FIL pOutfile;
     z_stream stream;
 
     // printf(MOUNT_POINT_SD "/.csw%04d.tmp\n",blocknumber);
 
-    sprintf(destFileName,MOUNT_POINT_SD "/.csw%04d.tmp",blocknumber);
+    sprintf(destFileName, MOUNT_POINT_SD "/.csw%04d.tmp",blocknumber);
 
     // Move to input file compressed data position
-    fseek(tape, startPos, SEEK_SET);
+    f_lseek(&tape, startPos);
 
     // Open output file.
-    pOutfile = fopen(destFileName, "wb");
-    if (!pOutfile) {
+    if (FR_OK != f_open(&pOutfile, destFileName, FA_WRITE | FA_CREATE_ALWAYS)) {
+        // TODO:
         printf("Failed opening output file!\n");
         return EXIT_FAILURE;
     }
@@ -171,8 +171,8 @@ int Tape::inflateCSW(int blocknumber, long startPos, long data_length) {
 
             // Input buffer is empty, so read more bytes from input file.
             uint n = my_min(BUF_SIZE, infile_remaining);
-
-            if (fread(s_inbuf, 1, n, tape) != n) {
+            UINT br;
+            if (f_read(&tape, s_inbuf, n, &br) != FR_OK || br != n) {
                 printf("Failed reading from input file!\n");
                 return EXIT_FAILURE;
             }
@@ -189,7 +189,8 @@ int Tape::inflateCSW(int blocknumber, long startPos, long data_length) {
         if ((status == Z_STREAM_END) || (!stream.avail_out)) {
             // Output buffer is full, or decompression is done, so write buffer to output file.
             uint n = BUF_SIZE - stream.avail_out;
-            if (fwrite(s_outbuf, 1, n, pOutfile) != n) {
+            UINT bw;
+            if (f_write(&pOutfile, s_outbuf, n, &bw) != FR_OK && bw != n) {
                 printf("Failed writing to output file!\n");
                 return EXIT_FAILURE;
             }
@@ -211,10 +212,7 @@ int Tape::inflateCSW(int blocknumber, long startPos, long data_length) {
         return EXIT_FAILURE;
     }
 
-    if (EOF == fclose(pOutfile)) {
-        printf("Failed writing to output file!\n");
-        return EXIT_FAILURE;
-    }
+    f_close(&pOutfile);
 
     // printf("Total input bytes: %u\n", (mz_uint32)stream.total_in);
     // printf("Total output bytes: %u\n", (mz_uint32)stream.total_out);
@@ -239,7 +237,7 @@ void Tape::LoadTape(string mFile) {
         // Flashload .tap if needed
         if ((keySel ==  "R") && (Config::flashload) && (Config::romSet != "ZX81+") && (Config::romSet != "48Kcs") && (Config::romSet != "128Kcs")) {
 
-                OSD::osdCenteredMsg(OSD_TAPE_FLASHLOAD, LEVEL_INFO, 0);
+///                OSD::osdCenteredMsg(OSD_TAPE_FLASHLOAD, LEVEL_INFO, 0);
 
                 uint8_t OSDprev = VIDEO::OSD;
 
@@ -295,31 +293,19 @@ void Tape::LoadTape(string mFile) {
 }
 
 void Tape::Init() {
-
-    tape = NULL;
+    f_close(&tape);
     tapeFileType = TAPE_FTYPE_EMPTY;
-
 }
 
 void Tape::TAP_Open(string name) {
-   
-    if (tape != NULL) {
-        fclose(tape);
-        tape = NULL;
-        tapeFileType = TAPE_FTYPE_EMPTY;
-    }
-
-    string fname = ""; /// FileUtils::MountPoint + "/" + FileUtils::TAP_Path + "/" + name;
-
-    tape = fopen(fname.c_str(), "rb");
-    if (tape == NULL) {
-        OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR, LEVEL_ERROR);
+    f_close(&tape);
+    tapeFileType = TAPE_FTYPE_EMPTY;
+    string fname = FileUtils::MountPoint + "/" + FileUtils::TAP_Path + "/" + name;
+    if (f_open(&tape, fname.c_str(), FA_READ) != FR_OK) {
+///        OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR, LEVEL_ERROR);
         return;
     }
-
-    fseek(tape,0,SEEK_END);
-    tapeFileSize = ftell(tape);
-    rewind(tape);
+    tapeFileSize = f_size(&tape);
     if (tapeFileSize == 0) return;
     
     tapeFileName = name;
@@ -381,7 +367,7 @@ void Tape::TAP_Open(string name) {
                 uint8_t tst = readByteFile(tape);
             }
 
-            fseek(tape,6,SEEK_CUR);
+            f_lseek(&tape, f_tell(&tape) + 6);
 
             // Get the checksum.
             uint8_t checksum = readByteFile(tape);
@@ -409,7 +395,7 @@ void Tape::TAP_Open(string name) {
                 contentOffset = 2;
             }
 
-            fseek(tape,contentLength,SEEK_CUR);
+            f_lseek(&tape, f_tell(&tape) + contentLength);
 
             // Get the checksum.
             uint8_t checksum = readByteFile(tape);
@@ -430,7 +416,7 @@ void Tape::TAP_Open(string name) {
     tapeCurBlock = 0;
     tapeNumBlocks = tapeListIndex;
 
-    rewind(tape);
+    f_lseek(&tape, 0);
 
     tapeFileType = TAPE_FTYPE_TAP;
 
@@ -468,12 +454,12 @@ uint32_t Tape::CalcTapBlockPos(int block) {
     // printf("TapeBlockRest: %d\n",TapeBlockRest);
     // printf("Tapecurblock: %d\n",Tape::tapeCurBlock);
 
-    fseek(tape,CurrentPos,SEEK_SET);
+    f_lseek(&tape, CurrentPos);
 
     while (TapeBlockRest-- != 0) {
         uint16_t tapeBlkLen=(readByteFile(tape) | (readByteFile(tape) << 8));
         // printf("Tapeblklen: %d\n",tapeBlkLen);
-        fseek(tape,tapeBlkLen,SEEK_CUR);
+        f_lseek(&tape, f_tell(&tape) + tapeBlkLen);
         CurrentPos += tapeBlkLen + 2;
     }
 
@@ -564,8 +550,8 @@ string Tape::tapeBlockReadData(int Blocknum) {
 
 void Tape::Play() {
 
-    if (tape == NULL) {
-        OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR, LEVEL_ERROR);
+    if (!tape.obj.fs) {
+///        OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR, LEVEL_ERROR);
         return;
     }
 
@@ -608,7 +594,7 @@ void Tape::TAP_GetBlock() {
     if (tapeCurBlock >= tapeNumBlocks) {
         tapeCurBlock = 0;
         Stop();
-        rewind(tape);
+        f_lseek(&tape, 0);
         return;
     }
 
@@ -661,9 +647,8 @@ IRAM_ATTR void Tape::Read() {
                     tapeNext = CSW_SampleRate * CSW_PulseLenght;
                 } else { // Z-RLE
                     CSW_PulseLenght = readByteFile(cswBlock);
-                    if (feof(cswBlock)) {
-                        fclose(cswBlock);
-                        cswBlock = NULL;
+                    if (f_eof(&cswBlock)) {
+                        f_close(&cswBlock);
                         tapeCurByte = readByteFile(tape);
                         if (tapeBlkPauseLen == 0) {
                             tapeCurBlock++;
@@ -1067,7 +1052,7 @@ IRAM_ATTR void Tape::Read() {
                 tapeEarBit = 1;
                 tapeCurBlock = 0;
                 Stop();
-                rewind(tape);
+                f_lseek(&tape, 0);
                 tapeNext = 0xFFFFFFFF;
                 break;
             case TAPE_PHASE_TAIL:
@@ -1093,15 +1078,13 @@ IRAM_ATTR void Tape::Read() {
 
 void Tape::Save() {
 
-	FILE *fichero;
+	FIL fichero;
     unsigned char xxor,salir_s;
 	uint8_t dato;
 	int longitud;
-
-    fichero = fopen(tapeSaveName.c_str(), "ab");
-    if (fichero == NULL)
+    if (f_open(&fichero, tapeSaveName.c_str(), FA_WRITE | FA_CREATE_ALWAYS) != FR_OK)
     {
-        OSD::osdCenteredMsg(OSD_TAPE_SAVE_ERR, LEVEL_ERROR);
+///        OSD::osdCenteredMsg(OSD_TAPE_SAVE_ERR, LEVEL_ERROR);
         return;
     }
 
@@ -1111,12 +1094,11 @@ void Tape::Save() {
 	longitud+=2;
 	
 	dato=(uint8_t)(longitud%256);
-	fprintf(fichero,"%c",dato);
+    writeByteFile(dato, fichero);
 	dato=(uint8_t)(longitud/256);
-	fprintf(fichero,"%c",dato); // file length
+    writeByteFile(dato, fichero); // file length
 
-	fprintf(fichero,"%c",Z80::getRegA()); // flag
-
+    writeByteFile(Z80::getRegA(), fichero); // flag
 	xxor^=Z80::getRegA();
 
 	salir_s = 0;
@@ -1125,32 +1107,24 @@ void Tape::Save() {
 	 		salir_s = 2;
 	 	if (!salir_s) {
             dato = MemESP::readbyte(Z80::getRegIX());
-			fprintf(fichero,"%c",dato);
+            writeByteFile(dato, fichero);
 	 		xxor^=dato;
 	        Z80::setRegIX(Z80::getRegIX() + 1);
 	        Z80::setRegDE(Z80::getRegDE() - 1);
 	 	}
 	} while (!salir_s);
-	fprintf(fichero,"%c",xxor);
+    writeByteFile(xxor, fichero);
 	Z80::setRegIX(Z80::getRegIX() + 2);
-
-    fclose(fichero);
-
+    f_close(&fichero);
 }
 
 bool Tape::FlashLoad() {
-
-    if (tape == NULL) {
-
-        string fname = ""; /// FileUtils::MountPoint + "/" + FileUtils::TAP_Path + "/" + tapeFileName;        
-
-        tape = fopen(fname.c_str(), "rb");
-        if (tape == NULL) {
+    if (!tape.obj.fs) {
+        string fname = FileUtils::MountPoint + "/" + FileUtils::TAP_Path + "/" + tapeFileName;        
+        if (f_open(&tape, fname.c_str(), FA_READ) != FR_OK) {
             return false;
         }
-
         CalcTapBlockPos(tapeCurBlock);
-
     }
 
     // printf("--< BLOCK: %d >--------------------------------\n",(int)tapeCurBlock);    
@@ -1172,7 +1146,7 @@ bool Tape::FlashLoad() {
             return true;
         } else {
             tapeCurBlock = 0;
-            rewind(tape);
+            f_lseek(&tape, 0);
             return false;
         }
     }
@@ -1191,11 +1165,11 @@ bool Tape::FlashLoad() {
     if ((addr2 + nBytes) <= 0x4000) {
 
         // printf("Case 1\n");
-
+        UINT br;
         if (page != 0 )
-            fread(&MemESP::ramCurrent[page][addr2], nBytes, 1, tape);
+            f_read(&tape, &MemESP::ramCurrent[page][addr2], nBytes, &br);
         else {
-            fseek(tape,nBytes, SEEK_CUR);
+            f_lseek(&tape, f_tell(&tape) + nBytes);
         }
 
         while ((count < nBytes) && (count < blockLen - 1)) {
@@ -1214,8 +1188,8 @@ bool Tape::FlashLoad() {
         do {
 
             if ((page > 0) && (page < 4)) {
-
-                fread(&MemESP::ramCurrent[page][addr2], chunk1, 1, tape);
+                UINT br;
+                f_read(&tape, &MemESP::ramCurrent[page][addr2], chunk1, &br);
 
                 for (int i=0; i < chunk1; i++) {
                     Z80::Xor(MemESP::readbyte(addr));
@@ -1257,7 +1231,7 @@ bool Tape::FlashLoad() {
         if (nBytes != (blockLen -2)) CalcTapBlockPos(tapeCurBlock);
     } else {
         tapeCurBlock = 0;
-        rewind(tape);
+        f_lseek(&tape, 0);
     }
 
     Z80::setRegIX(addr);

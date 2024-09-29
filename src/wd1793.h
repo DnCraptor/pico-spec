@@ -41,6 +41,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include <inttypes.h>
 #include <string>
 #include <cstring>
+#include "ff.h"
 
 using namespace std;
 
@@ -88,7 +89,7 @@ class WDDrive {
         unsigned char Heads;
         unsigned char Sectors;
         unsigned short SectorSize;
-        FILE *DiskFile;
+        FIL DiskFile;
         bool IsSCLFile;
         int sclDataOffset;
         string FName;

@@ -47,23 +47,13 @@ using namespace std;
 // #pragma GCC optimize("O3")
 
 void WD1793::Init() {
-
     for( int i = 0 ; i < 4; i++ ) {
-
-        if (Drive[i].DiskFile != NULL) {
-            fclose(Drive[i].DiskFile);
-            Drive[i].DiskFile = NULL;
-        }
-
+        f_close(&Drive[i].DiskFile);
         Drive[i].IsSCLFile = false;
         Drive[i].FName.clear();
-
         sclConverted=false;
-
     }
-
     EnterIdle();
-
 }
 
 void WD1793::EnterIdle() {
@@ -298,11 +288,10 @@ void WD1793::ReadRawOneSectorData(unsigned char UnitNum,  unsigned char C,  unsi
         // printf("SeekPtr no Offset: %d\n", seekptr);
         seekptr += Drive[UnitNum].sclDataOffset;
         // printf("SeekPtr Offset: %d\n",seekptr);        
-        fseek(Drive[UnitNum].DiskFile, seekptr, SEEK_SET);
-        fread(DataBuffer,1,Drive[UnitNum].SectorSize,Drive[UnitNum].DiskFile);
-
+        f_lseek(&Drive[UnitNum].DiskFile, seekptr);
+        UINT br;
+        f_read(&Drive[UnitNum].DiskFile, DataBuffer, Drive[UnitNum].SectorSize, &br);
         // printf("<WD1793 - ReadRawOneSectorData> No SCL track0. Unit %d, seekptr %d\n", (int)UnitNum, seekptr);
-
     }
 
     DataPosn = 0;
@@ -311,13 +300,12 @@ void WD1793::ReadRawOneSectorData(unsigned char UnitNum,  unsigned char C,  unsi
 
 // write one sector at CHS on specified unit from Drive's sector data buffer
 void WD1793::WriteRawOneSectorData(unsigned char UnitNum,  unsigned char C,  unsigned char H,  unsigned char S) {
-
     if (!(Drive[UnitNum].IsSCLFile)) {
         int seekptr = ( ( C * Drive[UnitNum].Heads + H ) * Drive[UnitNum].Sectors * Drive[UnitNum].SectorSize ) + ( S * Drive[UnitNum].SectorSize );
-        fseek(Drive[UnitNum].DiskFile,seekptr,SEEK_SET);
-        fwrite(DataBuffer,1,Drive[UnitNum].SectorSize, Drive[UnitNum].DiskFile);
+        f_lseek(&Drive[UnitNum].DiskFile, seekptr);
+        UINT bw;
+        f_write(&Drive[UnitNum].DiskFile, DataBuffer, Drive[UnitNum].SectorSize, &bw);
     }
-
 }
 
 #else
@@ -386,31 +374,20 @@ void WD1793::EjectDisks() {
 
 void WD1793::EjectDisk(unsigned char UnitNum) 
 {
-
     if(Drive[UnitNum].Available) {
-
-        if (Drive[UnitNum].DiskFile != NULL) {
-            fclose(Drive[UnitNum].DiskFile);
-            Drive[UnitNum].DiskFile = NULL;
-        }
+        f_close(&Drive[UnitNum].DiskFile);
         Drive[UnitNum].Available = false;
-
         if (UnitNum == CurrentUnit) sclConverted = false;
-
     }
-
 }
 
 bool WD1793::InsertDisk(unsigned char UnitNum, string Filename) {       
 
     uint8_t diskType;   
     char magic[9];     
-
     // close any open disk in this unit
     EjectDisk(UnitNum);
-
-    Drive[UnitNum].DiskFile = fopen(Filename.c_str(), "r+b");
-    if (Drive[UnitNum].DiskFile != NULL) {
+    if (f_open(&Drive[UnitNum].DiskFile, Filename.c_str(), FA_READ) == FR_OK) {
 
         Drive[UnitNum].Available = true;
         Drive[UnitNum].Heads = 1;
@@ -418,24 +395,24 @@ bool WD1793::InsertDisk(unsigned char UnitNum, string Filename) {
         Drive[UnitNum].SectorSize = 256;
         Drive[UnitNum].FName = Filename;
 
-        fgets(magic,9, Drive[UnitNum].DiskFile);
+        UINT br;
+        char* min = magic;
+        for (int i = 0; i < 9 && *min; ++i, ++min) {
+            f_read(&Drive[UnitNum].DiskFile, min, 1, &br);
+        }
         // printf("%s\n",magic);
-        
+       
         if (strcmp(magic,"SINCLAIR") == 0) {
             // SCL file
             // printf("SCL disk loaded\n");
             Drive[UnitNum].IsSCLFile=true;
             diskType = 0x16;
             // SCLtoTRD(Track0,UnitNum);
-
         } else {
-
             Drive[UnitNum].IsSCLFile=false;
             Drive[UnitNum].sclDataOffset = 0;
-
-            fseek(Drive[UnitNum].DiskFile,2048 + 227,SEEK_SET);    
-            fread(&diskType,1,1,Drive[UnitNum].DiskFile);
-
+            f_lseek(&Drive[UnitNum].DiskFile, 2048 + 227);
+            f_read(&Drive[UnitNum].DiskFile, &diskType, 1, &br);
         }
 
         switch(diskType) {
@@ -675,8 +652,9 @@ void WD1793::SCLtoTRD(unsigned char* track0, unsigned char UnitNum) {
     // Reset track 0 info
     memset(track0,0,2304);
 
-    fseek(Drive[UnitNum].DiskFile,8,SEEK_SET);
-    fread(&numberOfFiles,1,1,Drive[UnitNum].DiskFile);
+    f_lseek(&Drive[UnitNum].DiskFile, 8);
+    UINT br;
+    f_read(&Drive[UnitNum].DiskFile, &numberOfFiles, 1, &br);
 
     // printf("Number of files: %d\n",(int)numberOfFiles);
 
@@ -694,13 +672,13 @@ void WD1793::SCLtoTRD(unsigned char* track0, unsigned char UnitNum) {
     for (int i = 0; i < numberOfFiles; i++) {
 
         int n = i << 4;
-
+        UINT br;
         for (int j = 0; j < 13; j++) {
-            fread(&data,1,1,Drive[UnitNum].DiskFile);
+            f_read(&Drive[UnitNum].DiskFile, &data, 1, &br);
             track0[n + j] = data;
         }
         
-        fread(&data,1,1,Drive[UnitNum].DiskFile); // Filelenght
+        f_read(&Drive[UnitNum].DiskFile, &data, 1, &br); // Filelenght
         track0[n + 13] = data;
 
         // printf("File #: %d, Filelenght: %d\n",i + 1,(int)data);

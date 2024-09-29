@@ -4583,7 +4583,7 @@ void Z80::decodeDDFD(RegisterPair& regIXY) {
                     // printf("Saving header!\n");
                     regIXY.word++;
                     // remove .tap output file if exists
-/***                   
+
                     // Get save name
                     string name;
                     uint16_t header_data = REG_IX;
@@ -4592,8 +4592,7 @@ void Z80::decodeDDFD(RegisterPair& regIXY) {
                     rtrim(name);
                     Tape::tapeSaveName = FileUtils::MountPoint + "/" + FileUtils::TAP_Path + "/" + name + ".tap";
 
-                    struct stat stat_buf;
-                    */
+///                    struct stat stat_buf;
                     SaveRes = DLG_YES;
                     /***
                     if (stat(Tape::tapeSaveName.c_str(), &stat_buf) == 0) {
@@ -4601,11 +4600,11 @@ void Z80::decodeDDFD(RegisterPair& regIXY) {
                         string msg = OSD_TAPE_SAVE_EXIST[Config::lang];
                         SaveRes = OSD::msgDialog(title,msg);
                     }
-*/
+                    */
                     if (SaveRes == DLG_YES) {
                         REG_DE--;
                         regA = 0x00;
-///                        Tape::Save();
+                        Tape::Save();
                         REG_PC = 0x555;
                     }
                 } else {
@@ -4622,7 +4621,7 @@ void Z80::decodeDDFD(RegisterPair& regIXY) {
                         regIXY.word++;
                         regA = 0xFF;
 
-///                        Tape::Save();
+                        Tape::Save();
 
                         REG_PC = 0x555;
 
