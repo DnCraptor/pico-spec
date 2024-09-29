@@ -97,8 +97,8 @@ void sound_output(int samples, const BYTE *wave1, const BYTE *wave2, const BYTE 
 }
 
 /* Renderer loop on Pico's second core */
-#define DISP_WIDTH 256
-#define DISP_HEIGHT 240
+#define DISP_WIDTH 320
+#define DISP_HEIGHT 200
 
 #if USE_PS2_KBD
 static bool isInReport(hid_keyboard_report_t const* report, const unsigned char keycode) {
@@ -264,6 +264,15 @@ int main() {
     sem_release(&vga_start_semaphore);
 
     ESPectrum::setup();
+
+    for (int i = 0; i < 36; i++) {
+        sleep_ms(33);
+        gpio_put(PICO_DEFAULT_LED_PIN, true);
+        sleep_ms(33);
+        gpio_put(PICO_DEFAULT_LED_PIN, false);
+    }
+
+
     ESPectrum::loop();
     __unreachable();
 }

@@ -313,9 +313,9 @@ void VIDEO::Init() {
 ///        xTaskCreatePinnedToCore(&VIDEO::vgataskinit, "videoTask", 1024, NULL, 5, &videoTaskHandle, 1);
 
         // Wait for vertical sync to ensure vga.init is done
-        for (;;) {
-            if (ESPectrum::vsync) break;
-        }
+///        for (;;) {
+///            if (ESPectrum::vsync) break;
+///        }
         
     } else {
 

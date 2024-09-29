@@ -574,8 +574,8 @@ void ESPectrum::setup()
     // VIDEO
     //=======================================================================================
 
-////    VIDEO::Init();
-////    VIDEO::Reset();
+    VIDEO::Init();
+    VIDEO::Reset();
     
 ///    if (Config::slog_on) showMemInfo("VGA started");
 
@@ -1547,8 +1547,8 @@ IRAM_ATTR void ESPectrum::AYGetSample() {
 // MAIN LOOP
 //=======================================================================================
 extern "C" void graphics_set_buffer(uint8_t* buffer, uint16_t width, uint16_t height); /// TODO: <--
-#define DISP_WIDTH 256
-#define DISP_HEIGHT 240
+#define DISP_WIDTH 320
+#define DISP_HEIGHT 200
 #include <hardware/pio.h>
 
 void ESPectrum::loop() {    
@@ -1576,7 +1576,7 @@ for(;;) {
 
         gpio_put(PICO_DEFAULT_LED_PIN, in);
         in = !in;
-
+memset(VIDEO::grmem, 0xFF, DISP_WIDTH * DISP_HEIGHT);
 graphics_set_buffer(VIDEO::grmem, DISP_WIDTH, DISP_HEIGHT);
 
     ts_start = time_us_64(); /// esp_timer_get_time();
