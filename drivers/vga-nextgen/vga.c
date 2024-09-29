@@ -14,6 +14,7 @@
 
 /// TODO: .h
 uint8_t* getLineBuffer(int line);
+void ESPectrum_vsync();
 
 uint16_t pio_program_VGA_instructions[] = {
     //     .wrap_target
@@ -80,6 +81,7 @@ void __time_critical_func() dma_handler_VGA() {
     screen_line++;
 
     if (screen_line == N_lines_total) {
+        ESPectrum_vsync();
         screen_line = 0;
         frame_number++;
         input_buffer = getLineBuffer(screen_line);

@@ -54,6 +54,10 @@ extern "C" uint8_t* getLineBuffer(int line) {
     return (uint8_t*)VIDEO::vga.frameBuffer[line];
 }
 
+extern "C" void ESPectrum_vsync() {
+    ESPectrum::vsync = true;
+}
+
 uint16_t VIDEO::spectrum_colors[NUM_SPECTRUM_COLORS] = {
     BLACK,     BLUE,     RED,     MAGENTA,     GREEN,     CYAN,     YELLOW,     WHITE,
     BRI_BLACK, BRI_BLUE, BRI_RED, BRI_MAGENTA, BRI_GREEN, BRI_CYAN, BRI_YELLOW, BRI_WHITE, ORANGE
