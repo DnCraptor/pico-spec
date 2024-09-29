@@ -14,7 +14,6 @@
 VGA::VGA(const int i2sIndex) : I2S(i2sIndex) {}
 
 bool VGA::init(int mode, const int *pinMap, const int bitCount, const int clockPin) {
-	
 	this->mode = mode;
 	int xres = vidmodes[mode][vmodeproperties::hRes];
 	int yres = vidmodes[mode][vmodeproperties::vRes] / vidmodes[mode][vmodeproperties::vDiv];
@@ -22,11 +21,8 @@ bool VGA::init(int mode, const int *pinMap, const int bitCount, const int clockP
 	propagateResolution(xres, yres);
 	allocateLineBuffers();
 	initParallelOutputMode(pinMap, mode, bitCount, clockPin);
-
 	startTX();
-
 	return true;
-
 }
 
 void VGA::allocateLineBuffers() {} 

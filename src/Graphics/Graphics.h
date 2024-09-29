@@ -13,6 +13,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include "Font.h"
+#include <hardware/pio.h>
 
 template<typename Color>
 
@@ -64,14 +65,10 @@ class Graphics {
 	}
 
 	virtual bool allocateFrameBuffers()	{
-
 		if(yres <= 0 || xres <= 0)
 			return false;
-
 		frameBuffer = allocateFrameBuffer();
-
 		return true;
-
 	}
 
 	virtual void setResolution(int xres, int yres) {

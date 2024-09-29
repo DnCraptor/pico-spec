@@ -40,7 +40,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Snapshot.h"
 #include "Config.h"
 #include "FileUtils.h"
-///#include "OSDMain.h"
+#include "OSDMain.h"
 #include "Ports.h"
 #include "MemESP.h"
 #include "CPU.h"
@@ -1542,38 +1542,27 @@ IRAM_ATTR void ESPectrum::AYGetSample() {
 //=======================================================================================
 // MAIN LOOP
 //=======================================================================================
-extern "C" void graphics_set_buffer(uint8_t* buffer, uint16_t width, uint16_t height); /// TODO: <--
-#define DISP_WIDTH 320
-#define DISP_HEIGHT 200
-#include <hardware/pio.h>
-
 void ESPectrum::loop() {    
 
 // // Video adjustment
-// VIDEO::vga.clear(zxColor(3,0)); // For overscan testing. Remove once adjusted
-// for(;;) {
-
+VIDEO::vga.clear(zxColor(3,0)); // For overscan testing. Remove once adjusted
+for(;;) {
 //     processKeyboard();
 
-//     VIDEO::vga.fillRect(165,126,20,20,zxColor(4,1));
-//     VIDEO::vga.fillRect(0,0,20,20,zxColor(4,1));
-//     VIDEO::vga.fillRect(331,0,20,20,zxColor(4,1));
-//     VIDEO::vga.fillRect(0,251,20,20,zxColor(4,1));
-//     VIDEO::vga.fillRect(331,251,20,20,zxColor(4,1));
+     VIDEO::vga.fillRect(165,126,20,20,zxColor(4,1));
+     VIDEO::vga.fillRect(0,0,20,20,zxColor(4,1));
+     VIDEO::vga.fillRect(331,0,20,20,zxColor(4,1));
+     VIDEO::vga.fillRect(0,251,20,20,zxColor(4,1));
+     VIDEO::vga.fillRect(331,251,20,20,zxColor(4,1));
 
-//     VIDEO::vga.line(331,271,340,271,zxColor(0,0));
-//     VIDEO::vga.line(10,271,19,271,zxColor(0,0));
-//     VIDEO::vga.line(10,0,19,0,zxColor(0,0));
-//     VIDEO::vga.line(331,0,340,0,zxColor(0,0));
+     VIDEO::vga.line(331,271,340,271,zxColor(0,0));
+     VIDEO::vga.line(10,271,19,271,zxColor(0,0));
+     VIDEO::vga.line(10,0,19,0,zxColor(0,0));
+     VIDEO::vga.line(331,0,340,0,zxColor(0,0));
 
-// }
-bool in = true;
+ }
+
 for(;;) {
-
-        gpio_put(PICO_DEFAULT_LED_PIN, in);
-        in = !in;
-memset(VIDEO::grmem, 0xFF, DISP_WIDTH * DISP_HEIGHT);
-graphics_set_buffer(VIDEO::grmem, DISP_WIDTH, DISP_HEIGHT);
 
     ts_start = time_us_64(); /// esp_timer_get_time();
 

@@ -1,4 +1,3 @@
-///////////////////////////////////////////////////////////////////////////////
 //
 // z80cpp - Z80 emulator core
 //
@@ -38,7 +37,6 @@ uint8_t page;
 // #define FETCH_OPCODE(result,address) page = address >> 14; VIDEO::Draw(4,MemESP::ramContended[page]); result = MemESP::ramCurrent[page][address & 0x3fff];
 #define PEEK8(result,address) page = address >> 14; VIDEO::Draw(3,MemESP::ramContended[page]); result = MemESP::ramCurrent[page][address & 0x3fff];
 
-///////////////////////////////////////////////////////////////////////////////
 // miembros estáticos
 
 uint8_t Z80::opCode;
@@ -70,8 +68,6 @@ uint8_t Z80::sz53n_addTable[256];
 uint8_t Z80::sz53pn_addTable[256];
 uint8_t Z80::sz53n_subTable[256];
 uint8_t Z80::sz53pn_subTable[256];
-
-///////////////////////////////////////////////////////////////////////////////
 
 // Constructor de la clase
 void Z80::create() {
