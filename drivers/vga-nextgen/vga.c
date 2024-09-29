@@ -201,7 +201,8 @@ if (!text_buffer) return;
 
     //зона прорисовки изображения
     //начальные точки буферов
-    uint8_t* input_buffer_8bit = input_buffer;/// + y / 2 * 80 + (y & 1) * 8192;
+    uint8_t* input_buffer_8bit ///= input_buffer + y / 2 * 80 + (y & 1) * 8192;
+             = getLineBuffer(y);
 
     uint16_t* output_buffer_16bit = (uint16_t *)(*output_buffer);
     output_buffer_16bit += shift_picture / 2; //смещение началы вывода на размер синхросигнала
@@ -233,8 +234,8 @@ if (!text_buffer) return;
     uint8_t* output_buffer_8bit;
     switch (graphics_mode) {
         case GRAPHICSMODE_DEFAULT:
-            for (int i = width; i--;) {
-                *output_buffer_16bit++ = current_palette[*input_buffer_8bit++];
+            for  (int x = 0; x < width; ++x) {
+                *output_buffer_16bit++ = current_palette[input_buffer_8bit[x ^ 2]];
             }
             break;
         default:
