@@ -38,7 +38,7 @@ visit https://zxespectrum.speccy.org/contacto
 
 #include <inttypes.h>
 #include "ESPectrum.h"
-///#include "ESP32Lib/VGA/VGA6Bit.h"
+#include "VGA/VGA6Bit.h"
 
 #define SPEC_W 256
 #define SPEC_H 192
@@ -142,7 +142,7 @@ public:
   static uint16_t offBmp[SPEC_H];
   static uint16_t offAtt[SPEC_H];
 
-///  static VGA6Bit vga;
+  static VGA6Bit vga;
 
   static uint8_t borderColor;
   static uint32_t border32[8];

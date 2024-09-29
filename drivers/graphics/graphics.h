@@ -12,7 +12,7 @@ extern "C" {
 #ifdef HDMI
 #include "hdmi.h"
 #endif
-#ifdef VGA
+#ifdef VGA_DRV
 #include "vga.h"
 #endif
 #ifdef TV

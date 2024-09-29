@@ -47,7 +47,7 @@ visit https://zxespectrum.speccy.org/contacto
 
 #pragma GCC optimize("O3")
 
-///VGA6Bit VIDEO::vga;
+VGA6Bit VIDEO::vga;
 
 uint16_t VIDEO::spectrum_colors[NUM_SPECTRUM_COLORS] = {
     BLACK,     BLUE,     RED,     MAGENTA,     GREEN,     CYAN,     YELLOW,     WHITE,
@@ -66,7 +66,7 @@ int VIDEO::tStatesBorder;
 uint8_t* VIDEO::grmem;
 uint16_t VIDEO::offBmp[SPEC_H];
 uint16_t VIDEO::offAtt[SPEC_H];
-uint32_t* VIDEO::SaveRect;
+uint32_t* VIDEO::SaveRect = 0;
 int VIDEO::VsyncFinetune[2];
 uint32_t VIDEO::framecnt = 0;
 uint8_t VIDEO::dispUpdCycle;
@@ -113,7 +113,7 @@ static const uint8_t wait_st[128] = {
     6, 5, 4, 3, 2, 1, 0, 0, 6, 5, 4, 3, 2, 1, 0, 0,
     6, 5, 4, 3, 2, 1, 0, 0, 6, 5, 4, 3, 2, 1, 0, 0,
 }; // sequence of wait states
-/***
+
 IRAM_ATTR void VGA6Bit::interrupt(void *arg) {
 
     // // VGA6Bit * staticthis = (VGA6Bit *)arg;
@@ -132,7 +132,7 @@ IRAM_ATTR void VGA6Bit::interrupt(void *arg) {
         return;
     }
 
-    int64_t currentmicros = esp_timer_get_time();
+    int64_t currentmicros = time_us_64(); /// esp_timer_get_time();
 
     if (prevmicros) {
 
@@ -164,7 +164,7 @@ IRAM_ATTR void VGA6Bit::interrupt(void *arg) {
     prevmicros = currentmicros;
 
 }
-*/
+
 void (*VIDEO::Draw)(unsigned int, bool) = &VIDEO::Blank;
 void (*VIDEO::Draw_Opcode)(bool) = &VIDEO::Blank_Opcode;
 void (*VIDEO::Draw_OSD169)(unsigned int, bool) = &VIDEO::MainScreen;

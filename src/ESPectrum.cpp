@@ -42,7 +42,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "FileUtils.h"
 ///#include "OSDMain.h"
 #include "Ports.h"
-///#include "MemESP.h"
+#include "MemESP.h"
 #include "CPU.h"
 #include "Video.h"
 #include "messages.h"
@@ -585,7 +585,7 @@ void ESPectrum::setup()
     // INIT FILESYSTEM
     //=======================================================================================
     
-///    FileUtils::initFileSystem();
+    FileUtils::initFileSystem();
 
 ///    if (Config::slog_on) showMemInfo("File system started");
 
@@ -634,11 +634,11 @@ void ESPectrum::setup()
 ///    AySound::reset();
 
     // Init tape
-///    Tape::Init();
-///    Tape::tapeFileName = "none";
-///    Tape::tapeStatus = TAPE_STOPPED;
-///    Tape::SaveStatus = SAVE_STOPPED;
-///    Tape::romLoading = false;
+    Tape::Init();
+    Tape::tapeFileName = "none";
+    Tape::tapeStatus = TAPE_STOPPED;
+    Tape::SaveStatus = SAVE_STOPPED;
+    Tape::romLoading = false;
 
     // Init CPU
     Z80::create();

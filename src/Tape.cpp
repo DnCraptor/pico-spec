@@ -156,7 +156,7 @@ int Tape::inflateCSW(int blocknumber, long startPos, long data_length) {
 
     uint32_t *speccyram = (uint32_t *)MemESP::ram[1];
 
-///    memcpy(VIDEO::SaveRect,speccyram,0x8000);
+    if (VIDEO::SaveRect) memcpy(VIDEO::SaveRect, speccyram, 0x8000);
     memset(MemESP::ram[1],0,0x8000);
     
     if (inflateInit(&stream, MemESP::ram[1])) {
@@ -218,7 +218,7 @@ int Tape::inflateCSW(int blocknumber, long startPos, long data_length) {
     // printf("Total output bytes: %u\n", (mz_uint32)stream.total_out);
     // printf("Success.\n");
 
-///    memcpy(speccyram,VIDEO::SaveRect,0x8000);
+    if (VIDEO::SaveRect) memcpy(speccyram, VIDEO::SaveRect, 0x8000);
 
     return EXIT_SUCCESS;
 
