@@ -1570,7 +1570,7 @@ for(;;) {
 
     audbufcnt = 0;
     audbufcntover = 0;
-    audbufcntAY = 0;    
+    audbufcntAY = 0;  
 
     CPU::loop();
 

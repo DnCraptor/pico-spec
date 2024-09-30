@@ -454,13 +454,9 @@ void VIDEO::Reset() {
     lastBrdTstate = tStatesBorder;
     brdChange = false;
     brdnextframe = true;
-
 }
 
-///////////////////////////////////////////////////////////////////////////////
 //  VIDEO DRAW FUNCTIONS
-///////////////////////////////////////////////////////////////////////////////
-
 IRAM_ATTR void VIDEO::MainScreen_Blank(unsigned int statestoadd, bool contended) {    
     
     CPU::tstates += statestoadd;
@@ -950,7 +946,6 @@ IRAM_ATTR void VIDEO::EndFrame() {
     brdChange = false;
 
     framecnt++;
-
 }
 
 //----------------------------------------------------------------------------------------------------------------
@@ -982,7 +977,6 @@ static int brdcol_cnt = 0;
 static int brdlin_cnt = 0;
 
 IRAM_ATTR void VIDEO::TopBorder_Blank() {
-
     if (CPU::tstates >= tStatesBorder) {
         brdcol_cnt = 0;
         brdlin_cnt = 0;
@@ -990,7 +984,6 @@ IRAM_ATTR void VIDEO::TopBorder_Blank() {
         DrawBorder = &TopBorder;
         DrawBorder();
     }
-
 }    
 
 IRAM_ATTR void VIDEO::TopBorder() {
@@ -1021,7 +1014,6 @@ IRAM_ATTR void VIDEO::TopBorder() {
 }    
 
 IRAM_ATTR void VIDEO::MiddleBorder() {
-
     while (lastBrdTstate <= CPU::tstates) {
 
         *brdptr32++ = brd;
@@ -1037,7 +1029,7 @@ IRAM_ATTR void VIDEO::MiddleBorder() {
             brdcol_cnt = 36;
         } else if (brdcol_cnt == 40) {
             brdlin_cnt++;
-///            brdptr32 = (uint32_t *)(vga.frameBuffer[brdlin_cnt]) + (is169 ? 5 : 0);  
+            brdptr32 = (uint32_t *)(vga.frameBuffer[brdlin_cnt]) + (is169 ? 5 : 0);  
             brdcol_cnt = 0;          
             lastBrdTstate += Z80Ops::is128 ? 68 : 64;            
             if (brdlin_cnt == (is169 ? 196 : 216)) {                                

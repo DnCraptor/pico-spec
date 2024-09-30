@@ -123,7 +123,7 @@ IRAM_ATTR void CPU::loop() {
     }
 
     while (tstates < statesInFrame) Z80::execute();
-    
+
     VIDEO::EndFrame();
 
     global_tstates += statesInFrame; // increase global Tstates
