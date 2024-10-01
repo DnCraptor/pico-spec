@@ -1567,7 +1567,28 @@ for(;;) {
 
     // Send audioBuffer to pwmaudio
 ///    if (ESP_delay) xQueueSend(audioTaskQueue, &param, portMAX_DELAY);
-
+/*
+     VIDEO::vga.fillRect(0,0,20,20,BLACK);
+     VIDEO::vga.fillRect(20,0,20,20,BLUE);
+     VIDEO::vga.fillRect(40,0,20,20,RED);
+     VIDEO::vga.fillRect(60,0,20,20,MAGENTA);
+     VIDEO::vga.fillRect(80,0,20,20,GREEN);
+     VIDEO::vga.fillRect(100,0,20,20,CYAN);
+     VIDEO::vga.fillRect(120,0,20,20,YELLOW);
+     VIDEO::vga.fillRect(140,0,20,20,WHITE);
+     VIDEO::vga.fillRect(160,0,20,20,BRI_BLACK);
+     VIDEO::vga.fillRect(180,0,20,20,BRI_BLUE);
+     VIDEO::vga.fillRect(200,0,20,20,BRI_RED);
+     VIDEO::vga.fillRect(220,0,20,20,BRI_MAGENTA);
+     VIDEO::vga.fillRect(240,0,20,20,BRI_GREEN);
+     VIDEO::vga.fillRect(260,0,20,20,BRI_CYAN);
+     VIDEO::vga.fillRect(280,0,20,20,BRI_YELLOW);
+     VIDEO::vga.fillRect(300,0,20,20,BRI_WHITE);
+     VIDEO::vga.fillRect(0,20,20,20,ORANGE);
+     VIDEO::vga.fillRect(0,40,20,20,BLACK);
+     VIDEO::vga.fillRect(20,20,20,20,BLACK);
+     while(1);
+*/
     audbufcnt = 0;
     audbufcntover = 0;
     audbufcntAY = 0;  

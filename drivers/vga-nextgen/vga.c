@@ -55,9 +55,6 @@ static int graphics_buffer_shift_y = 0;
 static bool is_flash_line = false;
 static bool is_flash_frame = false;
 
-//буфер 1к графической палитры
-static uint16_t palette[2][256];
-
 static uint32_t bg_color[2];
 static uint16_t palette16_mask = 0;
 
@@ -231,13 +228,16 @@ if (!text_buffer) return;
     if (width < 0) return; // TODO: detect a case
 
     // Индекс палитры в зависимости от настроек чередования строк и кадров
-    uint16_t* current_palette = palette[(y & is_flash_line) + (frame_number & is_flash_frame) & 1];
+///    uint16_t* current_palette = palette[(y & is_flash_line) + (frame_number & is_flash_frame) & 1];
 
     uint8_t* output_buffer_8bit;
     switch (graphics_mode) {
         case GRAPHICSMODE_DEFAULT:
             for  (int x = 0; x < width; ++x) {
-                *output_buffer_16bit++ = current_palette[input_buffer_8bit[x ^ 2]];
+              ///  *output_buffer_16bit++ = palette[input_buffer_8bit[x ^ 2] & 0b00111111];
+                register uint8_t cx = input_buffer_8bit[x ^ 2] & 0b00111111;
+                uint16_t c = (cx >> 4) | (cx & 0b1100) | ((cx & 0b11) << 4); // swap R and B
+                *output_buffer_16bit++ = (c << 8 | c) & 0x3f3f | palette16_mask;
             }
             break;
         default:
@@ -308,10 +308,10 @@ void graphics_set_mode(enum graphics_mode_t mode) {
     //корректировка  палитры по маске бит синхры
     bg_color[0] = bg_color[0] & 0x3f3f3f3f | palette16_mask | palette16_mask << 16;
     bg_color[1] = bg_color[1] & 0x3f3f3f3f | palette16_mask | palette16_mask << 16;
-    for (int i = 0; i < 256; i++) {
-        palette[0][i] = palette[0][i] & 0x3f3f | palette16_mask;
-        palette[1][i] = palette[1][i] & 0x3f3f | palette16_mask;
-    }
+///    for (int i = 0; i < 256; i++) {
+///        palette[0][i] = palette[0][i] & 0x3f3f | palette16_mask;
+///        palette[1][i] = palette[1][i] & 0x3f3f | palette16_mask;
+///    }
 
     //инициализация шаблонов строк и синхросигнала
     if (!lines_pattern_data) //выделение памяти, если не выделено
@@ -387,6 +387,7 @@ void graphics_set_bgcolor(const uint32_t color888) {
 }
 
 void graphics_set_palette(const uint8_t i, const uint32_t color888) {
+    /**
     const uint8_t conv0[] = { 0b00, 0b00, 0b01, 0b10, 0b10, 0b10, 0b11, 0b11 };
     const uint8_t conv1[] = { 0b00, 0b01, 0b01, 0b01, 0b10, 0b11, 0b11, 0b11 };
 
@@ -400,25 +401,11 @@ void graphics_set_palette(const uint8_t i, const uint32_t color888) {
 
     palette[0][i] = (c_hi << 8 | c_lo) & 0x3f3f | palette16_mask;
     palette[1][i] = (c_lo << 8 | c_hi) & 0x3f3f | palette16_mask;
+    */
 }
 
 void graphics_init() {
     //инициализация палитры по умолчанию
-#if 1
-    const uint8_t conv0[] = { 0b00, 0b00, 0b01, 0b10, 0b10, 0b10, 0b11, 0b11 };
-    const uint8_t conv1[] = { 0b00, 0b01, 0b01, 0b01, 0b10, 0b11, 0b11, 0b11 };
-    for (int i = 0; i < 256; i++) {
-        const uint8_t b = i & 0b11;
-        const uint8_t r = i >> 5 & 0b111;
-        const uint8_t g = i >> 2 & 0b111;
-
-        const uint8_t c_hi = 0xc0 | conv0[r] << 4 | conv0[g] << 2 | b;
-        const uint8_t c_lo = 0xc0 | conv1[r] << 4 | conv1[g] << 2 | b;
-
-        palette[0][i] = c_hi << 8 | c_lo;
-        palette[1][i] = c_lo << 8 | c_hi;
-    }
-#endif
     //текстовая палитра
     for (int i = 0; i < 16; i++) {
         const uint8_t b = i & 1 ? (i >> 3 ? 3 : 2) : 0;
@@ -440,8 +427,6 @@ void graphics_init() {
         gpio_set_dir(VGA_BASE_PIN + i, GPIO_OUT);
         pio_gpio_init(PIO_VGA, VGA_BASE_PIN + i);
     }; //резервируем под выход PIO
-
-    //pio_sm_config c = pio_vga_program_get_default_config(offset);
 
     pio_sm_set_consecutive_pindirs(PIO_VGA, sm, VGA_BASE_PIN, 8, true); //конфигурация пинов на выход
 
@@ -486,7 +471,6 @@ void graphics_init() {
     channel_config_set_read_increment(&c1, false);
     channel_config_set_write_increment(&c1, false);
     channel_config_set_chain_to(&c1, dma_chan); // chain to other channel
-    //channel_config_set_dreq(&c1, DREQ_PIO0_TX0);
 
     dma_channel_configure(
         dma_chan_ctrl,
@@ -496,14 +480,10 @@ void graphics_init() {
         1, //
         false // Don't start yet
     );
-    //dma_channel_set_read_addr(dma_chan, &DMA_BUF_ADDR[0], false);
 
     graphics_set_mode(GRAPHICSMODE_DEFAULT);
-
     irq_set_exclusive_handler(VGA_DMA_IRQ, dma_handler_VGA);
-
     dma_channel_set_irq0_enabled(dma_chan_ctrl, true);
-
     irq_set_enabled(VGA_DMA_IRQ, true);
     dma_start_channel_mask(1u << dma_chan);
 }
