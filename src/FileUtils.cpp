@@ -71,7 +71,7 @@ void FileUtils::initFileSystem() {
 ///    if (!SDReady) SDReady = mountSDCard(PIN_NUM_MISO_LILYGO_ESPECTRUM,PIN_NUM_MOSI_LILYGO_ESPECTRUM,PIN_NUM_CLK_LILYGO_ESPECTRUM,PIN_NUM_CS_LILYGO_ESPECTRUM);
 
     // Try to mount SD card on Olimex ESP32-SBC-FABGL Board
-///    if ((!ZXKeyb::Exists) && (!SDReady)) SDReady = mountSDCard(PIN_NUM_MISO_SBCFABGL,PIN_NUM_MOSI_SBCFABGL,PIN_NUM_CLK_SBCFABGL,PIN_NUM_CS_SBCFABGL);
+    if ((!ZXKeyb::Exists) && (!SDReady)) SDReady = true; ///mountSDCard(PIN_NUM_MISO_SBCFABGL,PIN_NUM_MOSI_SBCFABGL,PIN_NUM_CLK_SBCFABGL,PIN_NUM_CS_SBCFABGL);
 
 }
 
@@ -590,9 +590,9 @@ bool FileUtils::hasTZXextension(string filename)
     return false;
 
 }
-/***
-void FileUtils::deleteFilesWithExtension(const char *folder_path, const char *extension) {
 
+void FileUtils::deleteFilesWithExtension(const char *folder_path, const char *extension) {
+/***
     DIR *dir;
     struct dirent *entry;
     dir = opendir(folder_path);
@@ -617,9 +617,9 @@ void FileUtils::deleteFilesWithExtension(const char *folder_path, const char *ex
     }
 
     closedir(dir);
-
-}
 */
+}
+
 // uint16_t FileUtils::countFileEntriesFromDir(String path) {
 //     String entries = getFileEntriesFromDir(path);
 //     unsigned short count = 0;

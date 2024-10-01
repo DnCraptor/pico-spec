@@ -190,8 +190,8 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
 
         // Sound (AY-3-8912)
         if (ESPectrum::AY_emu) {
-///            if ((address & 0xC002) == 0xC000)
-///                return AySound::getRegisterData();
+            if ((address & 0xC002) == 0xC000)
+                return AySound::getRegisterData();
         }
 
         if (!Z80Ops::isPentagon) {
@@ -319,10 +319,10 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         if ((ESPectrum::AY_emu) && ((address & 0x8002) == 0x8000)) {
 
             if ((address & 0x4000) != 0) {
-///                AySound::selectRegister(data);
+                AySound::selectRegister(data);
             } else {
                 ESPectrum::AYGetSample();
-///                AySound::setRegisterData(data);
+                AySound::setRegisterData(data);
             }
 
             VIDEO::Draw(3, !Z80Ops::isPentagon);   // I/O Contention (Late)
@@ -339,10 +339,10 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         if ((ESPectrum::AY_emu) && ((address & 0x8002) == 0x8000)) {
 
             if ((address & 0x4000) != 0) {
-///                AySound::selectRegister(data);
+                AySound::selectRegister(data);
             } else {
                 ESPectrum::AYGetSample();
-///                AySound::setRegisterData(data);
+                AySound::setRegisterData(data);
             }
 
             ioContentionLate(MemESP::ramContended[rambank]);

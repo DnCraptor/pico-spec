@@ -323,9 +323,9 @@ void VIDEO::Init() {
 ///        xTaskCreatePinnedToCore(&VIDEO::vgataskinit, "videoTask", 1024, NULL, 5, &videoTaskHandle, 1);
 
         // Wait for vertical sync to ensure vga.init is done
-///        for (;;) {
-///            if (ESPectrum::vsync) break;
-///        }
+        for (;;) {
+            if (ESPectrum::vsync) break;
+        }
         
     } else {
 
@@ -333,8 +333,8 @@ void VIDEO::Init() {
 
         Mode += Config::scanlines;
 
-///        OSD::scrW = vidmodes[Mode][vmodeproperties::hRes];
-///        OSD::scrH = (vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv]) >> Config::scanlines;
+        OSD::scrW = vidmodes[Mode][vmodeproperties::hRes];
+        OSD::scrH = (vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv]) >> Config::scanlines;
         
         vga.VGA6Bit_useinterrupt = false;
 

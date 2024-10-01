@@ -68,13 +68,12 @@ visit https://zxespectrum.speccy.org/contacto
 #endif
 
 using namespace std;
-/***
+
 //=======================================================================================
 // KEYBOARD
 //=======================================================================================
 fabgl::PS2Controller ESPectrum::PS2Controller;
 bool ESPectrum::ps2kbd2 = false;
-*/
 
 //=======================================================================================
 // AUDIO
@@ -113,12 +112,11 @@ int ESPectrum::TapeNameScroller = 0;
 
 bool ESPectrum::trdos = false;
 WD1793 ESPectrum::Betadisk;
-/***
 
 //=======================================================================================
 // ARDUINO FUNCTIONS
 //=======================================================================================
-
+/**
 #ifndef ESP32_SDL2_WRAPPER
 #define NOP() asm volatile ("nop")
 #else
@@ -168,7 +166,7 @@ int ESPectrum::ESPoffset = 0;
 int ESPectrum::ESPtestvar = 0;
 int ESPectrum::ESPtestvar1 = 0;
 int ESPectrum::ESPtestvar2 = 0;
-/***
+
 void ShowStartMsg() {
     
     fabgl::VirtualKeyItem Nextkey;
@@ -213,7 +211,7 @@ void ShowStartMsg() {
         sprintf(msg,Config::lang ? "Este mensaje se cerrar" "\xA0" " en %02d segundos" : "This message will close in %02d seconds",i);
         VIDEO::vga.setTextColor(zxColor(7, 0), zxColor(1, 0));
         VIDEO::vga.print(msg);
-        vTaskDelay(1000 / portTICK_PERIOD_MS);
+        sleep_ms(1);
     }
 
     VIDEO::vga.clear(zxColor(7,0));
@@ -221,26 +219,9 @@ void ShowStartMsg() {
     // Disable StartMsg
     Config::StartMsg = false;
     Config::save("StartMsg");
-
-    // while (1) {
-
-    //     if (ZXKeyb::Exists) ZXKeyb::ZXKbdRead();
-
-    //     ESPectrum::readKbdJoy();
-
-    //     if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
-    //         if (ESPectrum::readKbd(&Nextkey)) {
-    //             if(!Nextkey.down) continue;
-    //             if (Nextkey.vk == fabgl::VK_F1 || Nextkey.vk == fabgl::VK_ESCAPE || Nextkey.vk == fabgl::VK_RETURN || Nextkey.vk == fabgl::VK_JOY1A || Nextkey.vk == fabgl::VK_JOY1B || Nextkey.vk == fabgl::VK_JOY2A || Nextkey.vk == fabgl::VK_JOY2B) break;
-    //         }
-    //     }
-
-    //     vTaskDelay(5 / portTICK_PERIOD_MS);
-
-    // }
-
 }
 
+/**
 void showMemInfo(const char* caption = "ZX-ESPectrum-IDF") {
 
 #ifndef ESP32_SDL2_WRAPPER
@@ -295,7 +276,7 @@ printf("========================================================================
 #endif
 
 }
-
+*/
 //=======================================================================================
 // BOOT KEYBOARD
 //=======================================================================================
@@ -383,7 +364,7 @@ void ESPectrum::bootKeyboard() {
     }
 
 }
-*/
+
 //=======================================================================================
 // SETUP
 //=======================================================================================
@@ -404,12 +385,12 @@ void ESPectrum::setup()
     //=======================================================================================
     // PHYSICAL KEYBOARD (SINCLAIR 8 + 5 MEMBRANE KEYBOARD)
     //=======================================================================================
-///    ZXKeyb::setup();
+    ZXKeyb::setup();
    
     //=======================================================================================
     // LOAD CONFIG
     //=======================================================================================
-///    Config::load();
+    Config::load();
 
     // printf("---------------------------------\n");
     // printf("Ram file: %s\n",Config::ram_file.c_str());
@@ -462,13 +443,13 @@ void ESPectrum::setup()
     //=======================================================================================
     // INIT PS/2 KEYBOARD
     //=======================================================================================
-/**
+
     ESPectrum::ps2kbd2 = (Config::ps2_dev2 != 0);
     
     if (ZXKeyb::Exists) {
-        PS2Controller.begin(ps2kbd2 ? PS2Preset::KeyboardPort0 : PS2Preset::zxKeyb, KbdMode::CreateVirtualKeysQueue);
+///        PS2Controller.begin(ps2kbd2 ? PS2Preset::KeyboardPort0 : PS2Preset::zxKeyb, KbdMode::CreateVirtualKeysQueue);
     } else {
-        PS2Controller.begin(ps2kbd2 ? PS2Preset::KeyboardPort0_KeybJoystickPort1 : PS2Preset::KeyboardPort0, KbdMode::CreateVirtualKeysQueue);
+///        PS2Controller.begin(ps2kbd2 ? PS2Preset::KeyboardPort0_KeybJoystickPort1 : PS2Preset::KeyboardPort0, KbdMode::CreateVirtualKeysQueue);
     }
 
     ps2kbd2 &= !ZXKeyb::Exists;
@@ -493,15 +474,13 @@ void ESPectrum::setup()
 
     #ifndef ESP32_SDL2_WRAPPER
 
-    if (Config::slog_on) {
-        showMemInfo("Keyboard started");
-    }
+///    if (Config::slog_on) { showMemInfo("Keyboard started"); }
 
     // Get chip information
-    esp_chip_info_t chip_info;
-    esp_chip_info(&chip_info);
-    Config::esp32rev = chip_info.revision;
-
+///    esp_chip_info_t chip_info;
+///    esp_chip_info(&chip_info);
+///    Config::esp32rev = chip_info.revision;
+/***
     if (Config::slog_on) {
 
         printf("\n");
@@ -521,7 +500,7 @@ void ESPectrum::setup()
         showMemInfo();
 
     }
-    
+*/
     #endif
 
     //=======================================================================================
@@ -531,7 +510,7 @@ void ESPectrum::setup()
     // printf("Waiting boot keys\n");
     bootKeyboard();
     // printf("End Waiting boot keys\n");
-*/
+
     //=======================================================================================
     // MEMORY SETUP
     //=======================================================================================
@@ -579,7 +558,7 @@ void ESPectrum::setup()
     
 ///    if (Config::slog_on) showMemInfo("VGA started");
 
-///    if (Config::StartMsg) ShowStartMsg(); // Show welcome message
+    if (Config::StartMsg) ShowStartMsg(); // Show welcome message
 
     //=======================================================================================
     // INIT FILESYSTEM
@@ -593,7 +572,7 @@ void ESPectrum::setup()
     // AUDIO
     //=======================================================================================
 
-///    overSamplebuf = (uint32_t *) heap_caps_malloc(ESP_AUDIO_SAMPLES_PENTAGON << 2, MALLOC_CAP_INTERNAL | MALLOC_CAP_32BIT);  
+    overSamplebuf = (uint32_t *) heap_caps_malloc(ESP_AUDIO_SAMPLES_PENTAGON << 2, MALLOC_CAP_INTERNAL | MALLOC_CAP_32BIT);  
 ///    if (overSamplebuf == NULL) printf("Can't allocate oversamplebuffer\n");
 
     // Set samples per frame and AY_emu flag depending on arch
@@ -628,10 +607,10 @@ void ESPectrum::setup()
 ///    xTaskCreatePinnedToCore(&ESPectrum::audioTask, "audioTask", 1024 /*1536*/, NULL, configMAX_PRIORITIES - 1, &audioTaskHandle, 1);
 
     // AY Sound
-///    AySound::init();
-///    AySound::set_sound_format(Audio_freq,1,8);
-///    AySound::set_stereo(AYEMU_MONO,NULL);
-///    AySound::reset();
+    AySound::init();
+    AySound::set_sound_format(Audio_freq,1,8);
+    AySound::set_stereo(AYEMU_MONO,NULL);
+    AySound::reset();
 
     // Init tape
     Tape::Init();
@@ -690,7 +669,7 @@ void ESPectrum::setup()
     // Create loop function as task: it doesn't seem better than calling from main.cpp and increases RAM consumption (4096 bytes for stack).
     // xTaskCreatePinnedToCore(&ESPectrum::loop, "loopTask", 4096, NULL, 1, &loopTaskHandle, 0);
 }
-/***
+
 //=======================================================================================
 // RESET
 //=======================================================================================
@@ -699,12 +678,12 @@ void ESPectrum::reset()
 
     // Ports
     for (int i = 0; i < 128; i++) Ports::port[i] = 0xBF;
-    if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON || Config::joyPS2 == JOYPS2_KEMPSTON) Ports::port[0x1f] = 0; // Kempston
-    if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER || Config::joyPS2 == JOYPS2_FULLER) Ports::port[0x7f] = 0xff; // Fuller
+///    if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON || Config::joyPS2 == JOYPS2_KEMPSTON) Ports::port[0x1f] = 0; // Kempston
+///    if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER || Config::joyPS2 == JOYPS2_FULLER) Ports::port[0x7f] = 0xff; // Fuller
 
     // Read joystick default definition
-    for (int n = 0; n < 24; n++)
-        ESPectrum::JoyVKTranslation[n] = (fabgl::VirtualKey) Config::joydef[n];
+///    for (int n = 0; n < 24; n++)
+///        ESPectrum::JoyVKTranslation[n] = (fabgl::VirtualKey) Config::joydef[n];
 
     // Memory
     MemESP::romInUse = 0;
@@ -732,9 +711,8 @@ void ESPectrum::reset()
     Betadisk.EnterIdle();
 
     Tape::tapeFileName = "none";
-    if (Tape::tape != NULL) {
-        fclose(Tape::tape);
-        Tape::tape = NULL;
+    if (Tape::tape.obj.fs != NULL) {
+        f_close(&Tape::tape);
     }
     Tape::tapeStatus = TAPE_STOPPED;
     Tape::tapePhase = TAPE_PHASE_STOPPED;
@@ -776,13 +754,13 @@ void ESPectrum::reset()
     if (prevAudio_freq != Audio_freq) {
         
         // printf("Resetting pwmaudio to freq: %d\n",Audio_freq);
-
+/***
         esp_err_t res;
         res = pwm_audio_set_sample_rate(Audio_freq);
         if (res != ESP_OK) {
             printf("Can't set sample rate\n");
         }
-
+*/
         // pwm_audio_stop();
         // delay(100); // Maybe this fix random sound lost ?
         // pwm_audio_set_param(Audio_freq,LEDC_TIMER_8_BIT,1);
@@ -810,7 +788,7 @@ IRAM_ATTR bool ESPectrum::readKbd(fabgl::VirtualKeyItem *Nextkey) {
     // Global keys
     if (Nextkey->down) {
         if (Nextkey->vk == fabgl::VK_PRINTSCREEN) { // Capture framebuffer to BMP file in SD Card (thx @dcrespo3d!)
-            CaptureToBmp();
+///            CaptureToBmp();
             r = false;
         } else
         if (Nextkey->vk == fabgl::VK_SCROLLLOCK) { // Change CursorAsJoy setting
@@ -830,19 +808,14 @@ IRAM_ATTR bool ESPectrum::readKbd(fabgl::VirtualKeyItem *Nextkey) {
 // Read second ps/2 port and inject on first queue
 //
 IRAM_ATTR void ESPectrum::readKbdJoy() {
-
     if (ps2kbd2) {
-
         fabgl::VirtualKeyItem NextKey;
         auto KbdJoy = PS2Controller.keybjoystick();    
-
         while (KbdJoy->virtualKeyAvailable()) {
             PS2Controller.keybjoystick()->getNextVirtualKey(&NextKey);
             ESPectrum::PS2Controller.keyboard()->injectVirtualKey(NextKey.vk, NextKey.down, false);
         }
-
     }
-
 }
 
 fabgl::VirtualKey ESPectrum::JoyVKTranslation[24];
@@ -865,7 +838,6 @@ fabgl::VirtualKey ESPectrum::VK_ESPECTRUM_TAB = fabgl::VK_TAB;
 fabgl::VirtualKey ESPectrum::VK_ESPECTRUM_GRAVEACCENT = fabgl::VK_GRAVEACCENT;
 
 IRAM_ATTR void ESPectrum::processKeyboard() {
-// void ESPectrum::processKeyboard() {    
 
     static uint8_t PS2cols[8] = { 0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf };    
     static int zxDelay = 0;
@@ -956,16 +928,16 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                     // printf("Alt + backSpace!\n");
                     // Soft reset
                     if (Config::last_ram_file != NO_RAM_FILE) {
-                        LoadSnapshot(Config::last_ram_file,"","");
+///                        LoadSnapshot(Config::last_ram_file,"","");
                         Config::ram_file = Config::last_ram_file;
                     } else ESPectrum::reset();
                     return;
                 }
             }
 
-            if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON || Config::joyPS2 == JOYPS2_KEMPSTON) Ports::port[0x1f] = 0;
-            if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER || Config::joyPS2 == JOYPS2_FULLER) Ports::port[0x7f] = 0xff;
-
+///            if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON || Config::joyPS2 == JOYPS2_KEMPSTON) Ports::port[0x1f] = 0;
+///            if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER || Config::joyPS2 == JOYPS2_FULLER) Ports::port[0x7f] = 0xff;
+/**
             if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON) {
 
                 for (int i = fabgl::VK_KEMPSTON_RIGHT; i <= fabgl::VK_KEMPSTON_ALTFIRE; i++)
@@ -998,11 +970,11 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                 }
 
             }
-
+*/
             jShift = !(Kbd->isVKDown(fabgl::VK_LSHIFT) || Kbd->isVKDown(fabgl::VK_RSHIFT));
            
             if (Config::CursorAsJoy) {
-
+/**
                 // Kempston Joystick emulation
                 if (Config::joyPS2 == JOYPS2_KEMPSTON) {
 
@@ -1085,7 +1057,7 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                     }
 
                 }
-
+*/
             } else {
 
                 // Cursor Keys
@@ -1110,7 +1082,7 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                 }
 
             }
-
+/**
             // Keypad PS/2 Joystick emulation
             if (Config::joyPS2 == JOYPS2_KEMPSTON) {
 
@@ -1244,7 +1216,7 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                 };
 
             }
-
+*/
             // Check keyboard status and map it to Spectrum Ports
             
             bitWrite(PS2cols[0], 0, (jShift) 
@@ -1342,7 +1314,6 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
             zxDelay = 15;
 
             int64_t osd_start = esp_timer_get_time();
-
             if (!bitRead(ZXKeyb::ZXcols[3],0)) {
                 OSD::do_OSD(fabgl::VK_F1,0);
             } else
@@ -1389,7 +1360,7 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                 OSD::do_OSD(fabgl::VK_F2,true);
             } else
             if (!bitRead(ZXKeyb::ZXcols[1],1)) { // S -> Screen capture
-                CaptureToBmp();
+///                CaptureToBmp();
             } else
             if (!bitRead(ZXKeyb::ZXcols[5],1)) { // O -> Poke
                 OSD::pokeDialog();
@@ -1420,39 +1391,30 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                 zxDelay = 0;
 
             if (zxDelay) {
-
                 // Set all keys as not pressed
                 for (uint8_t i = 0; i < 8; i++) ZXKeyb::ZXcols[i] = 0xbf;
-
                 // Refresh border
                 VIDEO::brdnextframe = true;                
-
                 ESPectrum::ts_start += esp_timer_get_time() - osd_start;
-
                 return;
             }
-        
         }
 
         // Combine both keyboards
         for (uint8_t rowidx = 0; rowidx < 8; rowidx++) {
             Ports::port[rowidx] = PS2cols[rowidx] & ZXKeyb::ZXcols[rowidx];
         }
-
     } else {
-
         if (r) {
             for (uint8_t rowidx = 0; rowidx < 8; rowidx++) {
                 Ports::port[rowidx] = PS2cols[rowidx];
             }
         }
-
     }
-
 }
 
+/**
 // static int bmax = 0;
-
 // static int sndalive = 0;
 
 //=======================================================================================
@@ -1534,7 +1496,7 @@ IRAM_ATTR void ESPectrum::AYGetSample() {
     // AY audiobuffer generation (oversample)
     uint32_t audbufpos = CPU::tstates / (Z80Ops::is128 ? 114 : 112);
     if (audbufpos > audbufcntAY) {
-///        AySound::gen_sound(audbufpos - audbufcntAY, audbufcntAY);
+        AySound::gen_sound(audbufpos - audbufcntAY, audbufcntAY);
         audbufcntAY = audbufpos;
     }
 }
@@ -1600,7 +1562,7 @@ for(;;) {
     faudioBit = lastaudioBit;
     faudbufcntAY = audbufcntAY;
 ///    if (ESP_delay) xQueueSend(audioTaskQueue, &param, portMAX_DELAY);
-///    processKeyboard();
+    processKeyboard();
     // Update stats every 50 frames
     if (VIDEO::OSD && VIDEO::framecnt >= 50) {
         if (VIDEO::OSD & 0x04) {
@@ -1617,7 +1579,6 @@ for(;;) {
             }
         }
         if ((VIDEO::OSD & 0x04) == 0) {
-            /***
             if (VIDEO::OSD == 1 && Tape::tapeStatus==TAPE_LOADING) {
                 snprintf(OSD::stats_lin1, sizeof(OSD::stats_lin1), " %-12s %04d/%04d ", Tape::tapeFileName.substr(0 + ESPectrum::TapeNameScroller, 12).c_str(), Tape::tapeCurBlock + 1, Tape::tapeNumBlocks);
                 float percent = (float)((Tape::tapebufByteCount + Tape::tapePlayOffset) * 100) / (float)Tape::tapeFileSize;
@@ -1630,7 +1591,6 @@ for(;;) {
                 snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2), "FPS:%6.2f / FND:%6.2f ", VIDEO::framecnt / (ESPectrum::totalseconds / 1000000), VIDEO::framecnt / (ESPectrum::totalsecondsnodelay / 1000000));
                 OSD::drawStats();
             }
-            */
             totalseconds = 0;
             totalsecondsnodelay = 0;
             VIDEO::framecnt = 0;

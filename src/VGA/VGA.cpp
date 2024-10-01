@@ -27,13 +27,13 @@ bool VGA::init(int mode, const int *pinMap, const int bitCount, const int clockP
 
 void VGA::allocateLineBuffers() {} 
 
+/**
 // complete ringbuffer from frame
 void VGA::allocateLineBuffers(void **frameBuffer) {
 
 	dmaBufferDescriptorCount = (vidmodes[mode][vmodeproperties::vFront] + vidmodes[mode][vmodeproperties::vSync] + vidmodes[mode][vmodeproperties::vBack] + vidmodes[mode][vmodeproperties::vRes]) * 2;
 
 	int inactiveSamples = (vidmodes[mode][vmodeproperties::hFront] + vidmodes[mode][vmodeproperties::hSync] + vidmodes[mode][vmodeproperties::hBack] + 3) & 0xfffffffc;
-/**
 	void *vSyncInactiveBuffer = DMABufferDescriptor::allocateBuffer(inactiveSamples, true);
 	void *vSyncActiveBuffer = DMABufferDescriptor::allocateBuffer(vidmodes[mode][vmodeproperties::hRes], true);
 	void *inactiveBuffer = DMABufferDescriptor::allocateBuffer(inactiveSamples, true);
@@ -111,5 +111,5 @@ void VGA::allocateLineBuffers(void **frameBuffer) {
 	}
 
 	// printf("buffer descriptors count: %d\n",d);
-*/
 }
+*/

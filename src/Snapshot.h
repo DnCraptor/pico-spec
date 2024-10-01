@@ -39,6 +39,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include <stdio.h>
 #include <inttypes.h>
 #include <string>
+#include "ff.h"
 
 using namespace std;
 
@@ -60,8 +61,8 @@ public:
     static void loader48();    
     static void loader128();        
 private:
-    static void loadCompressedMemData(FILE *f, uint16_t dataLen, uint16_t memStart, uint16_t memlen);
-    static void loadCompressedMemPage(FILE *f, uint16_t dataLen, uint8_t* memPage, uint16_t memlen);
+    static void loadCompressedMemData(FIL& f, uint16_t dataLen, uint16_t memStart, uint16_t memlen);
+    static void loadCompressedMemPage(FIL& f, uint16_t dataLen, uint8_t* memPage, uint16_t memlen);
 };
 
 class FileP

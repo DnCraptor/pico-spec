@@ -37,6 +37,7 @@ visit https://zxespectrum.speccy.org/contacto
 #define ESPECTRUM_OSD_H
 
 ///#include "fabgl.h"
+#include "fabutils.h"
 #include <string>
 #include <algorithm>
 
@@ -84,7 +85,7 @@ public:
     static void osdAt(uint8_t row, uint8_t col);
     static void drawOSD(bool bottom_info);
     static void drawStats();
-///    static void do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL);
+    static void do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL);
     static void HWInfo();
 
     // Error

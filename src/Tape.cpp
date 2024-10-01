@@ -237,7 +237,7 @@ void Tape::LoadTape(string mFile) {
         // Flashload .tap if needed
         if ((keySel ==  "R") && (Config::flashload) && (Config::romSet != "ZX81+") && (Config::romSet != "48Kcs") && (Config::romSet != "128Kcs")) {
 
-///                OSD::osdCenteredMsg(OSD_TAPE_FLASHLOAD, LEVEL_INFO, 0);
+                OSD::osdCenteredMsg(OSD_TAPE_FLASHLOAD, LEVEL_INFO, 0);
 
                 uint8_t OSDprev = VIDEO::OSD;
 
@@ -302,7 +302,7 @@ void Tape::TAP_Open(string name) {
     tapeFileType = TAPE_FTYPE_EMPTY;
     string fname = FileUtils::MountPoint + "/" + FileUtils::TAP_Path + "/" + name;
     if (f_open(&tape, fname.c_str(), FA_READ) != FR_OK) {
-///        OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR, LEVEL_ERROR);
+        OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR, LEVEL_ERROR);
         return;
     }
     tapeFileSize = f_size(&tape);
@@ -551,7 +551,7 @@ string Tape::tapeBlockReadData(int Blocknum) {
 void Tape::Play() {
 
     if (!tape.obj.fs) {
-///        OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR, LEVEL_ERROR);
+        OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR, LEVEL_ERROR);
         return;
     }
 
@@ -1084,7 +1084,7 @@ void Tape::Save() {
 	int longitud;
     if (f_open(&fichero, tapeSaveName.c_str(), FA_WRITE | FA_CREATE_ALWAYS) != FR_OK)
     {
-///        OSD::osdCenteredMsg(OSD_TAPE_SAVE_ERR, LEVEL_ERROR);
+        OSD::osdCenteredMsg(OSD_TAPE_SAVE_ERR, LEVEL_ERROR);
         return;
     }
 

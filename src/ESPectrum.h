@@ -41,6 +41,7 @@ visit https://zxespectrum.speccy.org/contacto
 ///#include "fabgl.h"
 #include "wd1793.h"
 #include <pico/time.h>
+#include "fabutils.h"
 
 using namespace std;
 
@@ -62,6 +63,22 @@ using namespace std;
 #define ESP_VOLUME_DEFAULT -8
 #define ESP_VOLUME_MAX 0
 #define ESP_VOLUME_MIN -16
+
+#include "keyboard.h"
+#include "kbjoystick.h"
+
+#define esp_timer_get_time() time_us_64()
+
+namespace fabgl {
+    class PS2Controller {
+        Keyboard kbd;
+        KeybJoystick kbj;
+    public:
+        Keyboard* keyboard() { return &kbd; }
+        KeybJoystick* keybjoystick() { return &kbj; }
+    };
+};
+
 class ESPectrum
 {
 public:
@@ -73,14 +90,14 @@ public:
     // Kbd
     static void processKeyboard();
     static void bootKeyboard();
-///    static bool readKbd(fabgl::VirtualKeyItem *Nextkey);
+    static bool readKbd(fabgl::VirtualKeyItem *Nextkey);
     static void readKbdJoy();
-///    static fabgl::PS2Controller PS2Controller;
-///    static fabgl::VirtualKey JoyVKTranslation[24];
-///    static fabgl::VirtualKey VK_ESPECTRUM_FIRE1;
-///    static fabgl::VirtualKey VK_ESPECTRUM_FIRE2;
-///    static fabgl::VirtualKey VK_ESPECTRUM_TAB;
-///    static fabgl::VirtualKey VK_ESPECTRUM_GRAVEACCENT;
+    static fabgl::PS2Controller PS2Controller;
+    static fabgl::VirtualKey JoyVKTranslation[24];
+    static fabgl::VirtualKey VK_ESPECTRUM_FIRE1;
+    static fabgl::VirtualKey VK_ESPECTRUM_FIRE2;
+    static fabgl::VirtualKey VK_ESPECTRUM_TAB;
+    static fabgl::VirtualKey VK_ESPECTRUM_GRAVEACCENT;
 
     // Audio
     static void BeeperGetSample();
