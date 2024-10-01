@@ -4,11 +4,11 @@
 #include "FileUtils.h"
 #include "fabutils.h"
 
-string   Config::arch = "48K";
-string   Config::romSet = "48K";
+string   Config::arch = "Pentagon";///"48K";
+string   Config::romSet = "128K";///"48K";
 string   Config::romSet48 = "48K";
 string   Config::romSet128 = "128K";
-string   Config::pref_arch = "48K";
+string   Config::pref_arch = "128K";///"48K";
 string   Config::pref_romSet_48 = "48K";
 string   Config::pref_romSet_128 = "128K";
 string   Config::ram_file = NO_RAM_FILE;
@@ -17,7 +17,7 @@ string   Config::last_ram_file = NO_RAM_FILE;
 bool     Config::slog_on = false;
 bool     Config::aspect_16_9 = false;
 uint8_t  Config::videomode = 0; // 0 -> SAFE VGA, 1 -> 50HZ VGA, 2 -> 50HZ CRT
-uint8_t  Config::esp32rev = 0;
+///uint8_t  Config::esp32rev = 0;
 uint8_t  Config::lang = 0;
 bool     Config::AY48 = true;
 bool     Config::Issue2 = true;

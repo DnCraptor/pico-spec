@@ -624,12 +624,12 @@ void ESPectrum::setup()
 
     // Set Ports starting values
     for (int i = 0; i < 128; i++) Ports::port[i] = 0xBF;
-///    if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON || Config::joyPS2 == JOYPS2_KEMPSTON) Ports::port[0x1f] = 0; // Kempston
-///    if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER || Config::joyPS2 == JOYPS2_FULLER) Ports::port[0x7f] = 0xff; // Fuller
+    if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON || Config::joyPS2 == JOYPS2_KEMPSTON) Ports::port[0x1f] = 0; // Kempston
+    if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER || Config::joyPS2 == JOYPS2_FULLER) Ports::port[0x7f] = 0xff; // Fuller
 
     // Read joystick default definition
-///    for (int n = 0; n < 24; n++)
-///        ESPectrum::JoyVKTranslation[n] = (fabgl::VirtualKey) Config::joydef[n];
+    for (int n = 0; n < 24; n++)
+        ESPectrum::JoyVKTranslation[n] = (fabgl::VirtualKey) Config::joydef[n];
 
     // Init disk controller
     Betadisk.Init();
@@ -678,12 +678,12 @@ void ESPectrum::reset()
 
     // Ports
     for (int i = 0; i < 128; i++) Ports::port[i] = 0xBF;
-///    if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON || Config::joyPS2 == JOYPS2_KEMPSTON) Ports::port[0x1f] = 0; // Kempston
-///    if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER || Config::joyPS2 == JOYPS2_FULLER) Ports::port[0x7f] = 0xff; // Fuller
+    if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON || Config::joyPS2 == JOYPS2_KEMPSTON) Ports::port[0x1f] = 0; // Kempston
+    if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER || Config::joyPS2 == JOYPS2_FULLER) Ports::port[0x7f] = 0xff; // Fuller
 
     // Read joystick default definition
-///    for (int n = 0; n < 24; n++)
-///        ESPectrum::JoyVKTranslation[n] = (fabgl::VirtualKey) Config::joydef[n];
+    for (int n = 0; n < 24; n++)
+        ESPectrum::JoyVKTranslation[n] = (fabgl::VirtualKey) Config::joydef[n];
 
     // Memory
     MemESP::romInUse = 0;
@@ -935,9 +935,9 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                 }
             }
 
-///            if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON || Config::joyPS2 == JOYPS2_KEMPSTON) Ports::port[0x1f] = 0;
-///            if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER || Config::joyPS2 == JOYPS2_FULLER) Ports::port[0x7f] = 0xff;
-/**
+            if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON || Config::joyPS2 == JOYPS2_KEMPSTON) Ports::port[0x1f] = 0;
+            if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER || Config::joyPS2 == JOYPS2_FULLER) Ports::port[0x7f] = 0xff;
+
             if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON) {
 
                 for (int i = fabgl::VK_KEMPSTON_RIGHT; i <= fabgl::VK_KEMPSTON_ALTFIRE; i++)
@@ -970,11 +970,10 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                 }
 
             }
-*/
+
             jShift = !(Kbd->isVKDown(fabgl::VK_LSHIFT) || Kbd->isVKDown(fabgl::VK_RSHIFT));
            
             if (Config::CursorAsJoy) {
-/**
                 // Kempston Joystick emulation
                 if (Config::joyPS2 == JOYPS2_KEMPSTON) {
 
@@ -1057,9 +1056,7 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                     }
 
                 }
-*/
             } else {
-
                 // Cursor Keys
                 if (Kbd->isVKDown(fabgl::VK_RIGHT)) {
                     jShift = false;
@@ -1082,7 +1079,7 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                 }
 
             }
-/**
+
             // Keypad PS/2 Joystick emulation
             if (Config::joyPS2 == JOYPS2_KEMPSTON) {
 
@@ -1216,7 +1213,7 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                 };
 
             }
-*/
+
             // Check keyboard status and map it to Spectrum Ports
             
             bitWrite(PS2cols[0], 0, (jShift) 
