@@ -125,6 +125,9 @@ input_bits_t keyboard_bits = { false, false, false, false, false, false, false, 
 input_bits_t gamepad1_bits = { false, false, false, false, false, false, false, false };
 static input_bits_t gamepad2_bits = { false, false, false, false, false, false, false, false };
 
+#include "fabutils.h"
+void kbdPushData(const fabgl::VirtualKey& virtualKey, bool down);
+
 void __not_in_flash_func(process_kbd_report)(hid_keyboard_report_t const* report,
                                              hid_keyboard_report_t const* prev_report) {
     keyboard_bits.start = isInReport(report, HID_KEY_ENTER);
@@ -135,7 +138,14 @@ void __not_in_flash_func(process_kbd_report)(hid_keyboard_report_t const* report
     keyboard_bits.down = isInReport(report, HID_KEY_ARROW_DOWN);
     keyboard_bits.left = isInReport(report, HID_KEY_ARROW_LEFT);
     keyboard_bits.right = isInReport(report, HID_KEY_ARROW_RIGHT);
+    if (keyboard_bits.down) {
+        fabgl::VirtualKey virtualKey = fabgl::VirtualKey::VK_DOWN;
+        kbdPushData(virtualKey, true);
+        sleep_ms(30);
+        kbdPushData(virtualKey, false);
+    }
 }
+
 
 Ps2Kbd_Mrmltr ps2kbd(
     pio1,

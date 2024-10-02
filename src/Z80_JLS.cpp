@@ -4590,13 +4590,12 @@ void Z80::decodeDDFD(RegisterPair& regIXY) {
 
 ///                    struct stat stat_buf;
                     SaveRes = DLG_YES;
-                    /***
-                    if (stat(Tape::tapeSaveName.c_str(), &stat_buf) == 0) {
+///                    if (stat(Tape::tapeSaveName.c_str(), &stat_buf) == 0)
+                    {
                         string title = OSD_TAPE_SAVE[Config::lang];
                         string msg = OSD_TAPE_SAVE_EXIST[Config::lang];
-                        SaveRes = OSD::msgDialog(title,msg);
+                        SaveRes = OSD::msgDialog(title, msg);
                     }
-                    */
                     if (SaveRes == DLG_YES) {
                         REG_DE--;
                         regA = 0x00;

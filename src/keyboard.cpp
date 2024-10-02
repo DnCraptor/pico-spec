@@ -33,7 +33,7 @@
 #include "freertos/queue.h"
 */
 #include "keyboard.h"
-
+#include <hardware/timer.h>
 
 #pragma GCC optimize ("O2")
 
@@ -46,7 +46,7 @@ namespace fabgl {
 Keyboard::Keyboard()
   : m_keyboardAvailable(false),
 ///    m_SCodeToVKConverterTask(nullptr),
-///    m_virtualKeyQueue(nullptr),
+    m_virtualKeyQueue(),
 ///    m_scancodeSet(2),
     m_lastDeadKey(VK_NONE),
     m_codepage(nullptr)
@@ -63,7 +63,6 @@ Keyboard::~Keyboard()
 void Keyboard::begin(bool generateVirtualKeys, bool createVKQueue, int PS2Port, bool doReset)
 {
 ///  PS2Device::begin(PS2Port);
-
   m_CTRL       = false;
   m_LALT       = false;
   m_RALT       = false;
@@ -78,9 +77,7 @@ void Keyboard::begin(bool generateVirtualKeys, bool createVKQueue, int PS2Port, 
   m_scrollLockLED  = false;
 
 ///  m_uiApp = nullptr;
-
   reset(doReset);
-
   enableVirtualKeys(generateVirtualKeys, createVKQueue);
 }
 
@@ -203,7 +200,7 @@ void Keyboard::updateLEDs()
 
 int Keyboard::scancodeAvailable()
 {
-  return 0; /// TODO: dataAvailable();
+  return dataAvailable();
 }
 
 
@@ -570,16 +567,17 @@ void Keyboard::injectVirtualKey(VirtualKeyItem const & item, bool insert)
     m_VKMap[(int)item.vk >> 3] |= 1 << ((int)item.vk & 7);
   else
     m_VKMap[(int)item.vk >> 3] &= ~(1 << ((int)item.vk & 7));
-/**
+
   // has VK queue? Insert VK into it.
-  if (m_virtualKeyQueue) {
-    auto ticksToWait = (m_uiApp ? 0 : portMAX_DELAY);  // 0, and not portMAX_DELAY to avoid uiApp locks
+///  if (m_virtualKeyQueue) {
+///    auto ticksToWait = (m_uiApp ? 0 : portMAX_DELAY);  // 0, and not portMAX_DELAY to avoid uiApp locks
     if (insert)
-      xQueueSendToFront(m_virtualKeyQueue, &item, ticksToWait);
+      m_virtualKeyQueue.push(item); // TODO: front?
+///      xQueueSendToFront(m_virtualKeyQueue, &item, ticksToWait);
     else
-      xQueueSendToBack(m_virtualKeyQueue, &item, ticksToWait);
-  }
-*/
+      m_virtualKeyQueue.push(item);
+///      xQueueSendToBack(m_virtualKeyQueue, &item, ticksToWait);
+///  }
 }
 
 
@@ -673,16 +671,11 @@ void Keyboard::SCodeToVKConverterTask(void * pvParameters)
   uint8_t ALTNUMValue = 0;  // current value (0 = no value, 0 is not allowed)
 
   while (true) {
-
     VirtualKeyItem item;
-
     if (keyboard->blockingGetVirtualKey(&item)) {
-
       // onVirtualKey may set item.vk = VK_NONE!
       keyboard->onVirtualKey(&item.vk, item.down);
-
       if (item.vk != VK_NONE) {
-
         // manage left-ALT + NUM
         if (!isALT(item.vk) && keyboard->m_LALT) {
           // ALT was down, is this a keypad number?
@@ -711,13 +704,9 @@ void Keyboard::SCodeToVKConverterTask(void * pvParameters)
           // normal case
           keyboard->postVirtualKeyItem(item);
         }
-
       }
-
     }
-
   }
-
 }
 
 
@@ -732,15 +721,24 @@ bool Keyboard::isVKDown(VirtualKey virtualKey)
   return r;
 }
 
-bool Keyboard::getNextVirtualKey(VirtualKeyItem * item, int timeOutMS)
+static bool xQueueReceive(std::queue<VirtualKeyItem>& q, VirtualKeyItem* item, uint64_t timeOutMkS) {
+  uint64_t t1 = time_us_64();
+  do {
+    if ( !q.empty() ) {
+      *item = q.front();
+      q.pop();
+      return true;
+    }
+  } while (t1 + timeOutMkS < time_us_64());
+  return false;
+}
+
+bool Keyboard::getNextVirtualKey(VirtualKeyItem* item, int timeOutMS)
 {
-/**
-  bool r = (m_SCodeToVKConverterTask && item && xQueueReceive(m_virtualKeyQueue, item, msToTicks(timeOutMS)) == pdTRUE);
-  if (r && m_scancodeSet == 1)
+  bool r = item && xQueueReceive(m_virtualKeyQueue, item, timeOutMS * 1000ull);
+  if (r && m_scancodeSet == 1) /// TODO: ???
     convertScancode2to1(item);
   return r;
-*/
-  return VK_NONE;
 }
 
 VirtualKey Keyboard::getNextVirtualKey(bool * keyDown, int timeOutMS)
@@ -756,16 +754,15 @@ VirtualKey Keyboard::getNextVirtualKey(bool * keyDown, int timeOutMS)
 
 int Keyboard::virtualKeyAvailable()
 {
-/**
-  return m_virtualKeyQueue ? uxQueueMessagesWaiting(m_virtualKeyQueue) : 0;
-  */
-  return 0;
+  return m_virtualKeyQueue.size();
 }
 
 
 void Keyboard::emptyVirtualKeyQueue()
 {
-///  xQueueReset(m_virtualKeyQueue);
+  while ( !m_virtualKeyQueue.empty() ) {
+    m_virtualKeyQueue.pop();
+  }
 }
 
 void Keyboard::convertScancode2to1(VirtualKeyItem * item)

@@ -75,6 +75,13 @@ using namespace std;
 fabgl::PS2Controller ESPectrum::PS2Controller;
 bool ESPectrum::ps2kbd2 = false;
 
+void kbdPushData(const fabgl::VirtualKey& virtualKey, bool down) {
+    fabgl::Keyboard* kbd = ESPectrum::PS2Controller.keyboard();
+    if ( kbd ) {
+        kbd->injectVirtualKey(virtualKey, down);
+    }
+}
+
 //=======================================================================================
 // AUDIO
 //=======================================================================================
