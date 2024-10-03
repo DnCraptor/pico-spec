@@ -32,15 +32,13 @@ public:
 };
 inline void memcpy(ext32buffer& dst, const void* src, size_t sz) {
   const uint32_t* src32 = static_cast<const uint32_t*>(src);
-  for ( size_t i = 0; i < sz; i += 4) {
-    size_t i32 = i >> 2;
-    dst[i32] = src32[i32];
+  for ( size_t i = 0; i < (sz >> 2); ++i) {
+    dst[i] = src32[i];
   }
 }
 inline void memcpy(void* dst, const ext32buffer& src, size_t sz) {
   uint32_t* dst32 = static_cast<uint32_t*>(dst);
-  for ( size_t i = 0; i < sz; i += 4) {
-    size_t i32 = i >> 2;
-    dst32[i32] = src[i32];
+  for ( size_t i = 0; i < (sz >> 2); ++i) {
+    dst32[i] = src[i];
   }
 }

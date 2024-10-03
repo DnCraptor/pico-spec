@@ -68,6 +68,8 @@ visit https://zxespectrum.speccy.org/contacto
 */
 #include <string>
 
+void fputs(const char* b, FIL& f);
+
 using namespace std;
 
 #define MENU_REDRAW true
@@ -213,8 +215,7 @@ void OSD::drawStats() {
 
 static bool persistSave(uint8_t slotnumber)
 {
-    /**
-    struct stat stat_buf;
+    FILINFO stat_buf;
     char persistfname[sizeof(DISK_PSNA_FILE) + 7];
     char persistfinfo[sizeof(DISK_PSNA_FILE) + 7];    
 
@@ -227,15 +228,15 @@ static bool persistSave(uint8_t slotnumber)
 
     // Create dir if it doesn't exist
     string dir = FileUtils::MountPoint + DISK_PSNA_DIR;
-    if (stat(dir.c_str(), &stat_buf) != 0) {
-        if (mkdir(dir.c_str(),0775) != 0) {
+    if (f_stat(dir.c_str(), &stat_buf) != FR_OK) {
+        if (f_mkdir(dir.c_str()) != FR_OK) {
             printf("persistSave: problem creating persist save dir\n");
             return false;
         }
     }
 
     // Slot isn't void
-    if (stat(finfo.c_str(), &stat_buf) == 0) {
+    if (f_stat(finfo.c_str(), &stat_buf) == FR_OK) {
         string title = OSD_PSNA_SAVE[Config::lang];
         string msg = OSD_PSNA_EXISTS[Config::lang];
         uint8_t res = OSD::msgDialog(title,msg);
@@ -245,21 +246,17 @@ static bool persistSave(uint8_t slotnumber)
     OSD::osdCenteredMsg(OSD_PSNA_SAVING, LEVEL_INFO, 0);
 
     // Save info file
-    FILE *f = fopen(finfo.c_str(), "w");
-    if (f == NULL) {
-
+    FIL f;
+    if (f_open(&f, finfo.c_str(), FA_WRITE | FA_CREATE_ALWAYS) != FR_OK) {
         printf("Error opening %s\n",persistfinfo);
         return false;
-
-    } else {
-
-        fputs((Config::arch + "\n" + Config::romSet + "\n").c_str(),f);    // Put architecture and romset on info file
-        fclose(f);    
-
-        if (!FileSNA::save(FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfname)) OSD::osdCenteredMsg(OSD_PSNA_SAVE_ERR, LEVEL_WARN);
-    
     }
-*/
+
+    fputs((Config::arch + "\n" + Config::romSet + "\n").c_str(),f);    // Put architecture and romset on info file
+    f_close(&f);
+    if (!FileSNA::save(FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfname))
+        OSD::osdCenteredMsg(OSD_PSNA_SAVE_ERR, LEVEL_WARN);
+    
     return true;
 
 }
@@ -1484,7 +1481,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 menu_level = 3;
                                 menu_curopt = 1;
                                 menu_saverect = true;
-                                /**
                                 while (1) {
                                     string joy_menu = MENU_DEFJOY[Config::lang];
                                     joy_menu.replace(joy_menu.find("#",0),1,(string)" " + char(48 + opt2)); 
@@ -1520,7 +1516,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                         break;
                                     }
                                 }
-                                */
                             } else {
                                 menu_curopt = 4;
                                 break;

@@ -1,5 +1,4 @@
 /*
-
 ESPectrum, a Sinclair ZX Spectrum emulator for Espressif ESP32 SoC
 
 Copyright (c) 2023, 2024 Víctor Iborra [Eremus] and 2023 David Crespo [dcrespo3d]

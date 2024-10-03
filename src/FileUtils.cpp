@@ -80,72 +80,12 @@ inline void fclose(FIL& f) {
 }
 
 void FileUtils::initFileSystem() {
-
-    // Try to mount SD card on LILYGO TTGO VGA32 Board or ESPectrum Board
-///    if (!SDReady) SDReady = mountSDCard(PIN_NUM_MISO_LILYGO_ESPECTRUM,PIN_NUM_MOSI_LILYGO_ESPECTRUM,PIN_NUM_CLK_LILYGO_ESPECTRUM,PIN_NUM_CS_LILYGO_ESPECTRUM);
-
-    // Try to mount SD card on Olimex ESP32-SBC-FABGL Board
-    if ((!ZXKeyb::Exists) && (!SDReady)) SDReady = true; ///mountSDCard(PIN_NUM_MISO_SBCFABGL,PIN_NUM_MOSI_SBCFABGL,PIN_NUM_CLK_SBCFABGL,PIN_NUM_CS_SBCFABGL);
-
+    if ((!ZXKeyb::Exists) && (!SDReady)) SDReady = true;
 }
 
 bool FileUtils::mountSDCard(int PIN_MISO, int PIN_MOSI, int PIN_CLK, int PIN_CS) {
-/**
-    // Init SD Card
-    esp_err_t ret;
-
-    esp_vfs_fat_sdmmc_mount_config_t mount_config = {
-        .format_if_mount_failed = false,
-        .max_files = 8,
-        .allocation_unit_size = 16 * 1024
-    };
-    
-    sdmmc_host_t host = SDSPI_HOST_DEFAULT();
-
-    spi_bus_config_t bus_cfg = {
-        .mosi_io_num = PIN_MOSI,
-        .miso_io_num = PIN_MISO,
-        .sclk_io_num = PIN_CLK,
-        .quadwp_io_num = -1,
-        .quadhd_io_num = -1,
-        .max_transfer_sz = 4000,
-    };
-    
-    ret = spi_bus_initialize(SPI2_HOST, &bus_cfg, SPI_DMA_CH1);
-    if (ret != ESP_OK) {
-        printf("SD Card init: Failed to initialize bus.\n");
-        vTaskDelay(20 / portTICK_PERIOD_MS);    
-        return false;
-    }
-
-    vTaskDelay(20 / portTICK_PERIOD_MS);    
-
-    sdspi_device_config_t slot_config =  {
-    .host_id   = SDSPI_DEFAULT_HOST,
-    .gpio_cs   = GPIO_NUM_13,
-    .gpio_cd   = SDSPI_SLOT_NO_CD,
-    .gpio_wp   = SDSPI_SLOT_NO_WP,
-    .gpio_int  = GPIO_NUM_NC, \
-    };
-    slot_config.gpio_cs = (gpio_num_t) PIN_CS;
-    slot_config.host_id = SPI2_HOST;
-
-    ret = esp_vfs_fat_sdspi_mount(MOUNT_POINT_SD, &host, &slot_config, &mount_config, &FileUtils::card);
-    if (ret != ESP_OK) {
-        if (ret == ESP_FAIL) {
-            printf("Failed to mount filesystem.\n");
-        } else {
-            printf("Failed to initialize the card.\n");
-        }
-        spi_bus_free(SPI2_HOST);
-        vTaskDelay(20 / portTICK_PERIOD_MS);    
-        return false;
-    }
-
-    vTaskDelay(20 / portTICK_PERIOD_MS);
-*/
+    /// TODO: (already mount)
     return true;
-
 }
 
 void FileUtils::unmountSDCard() {
@@ -602,32 +542,28 @@ bool FileUtils::hasTZXextension(string filename)
 }
 
 void FileUtils::deleteFilesWithExtension(const char *folder_path, const char *extension) {
-/***
-    DIR *dir;
-    struct dirent *entry;
-    dir = opendir(folder_path);
-
-    if (dir == NULL) {
+    DIR dir;
+    FILINFO entry;
+    if (f_opendir(&dir, folder_path) != FR_OK) {
         // perror("Unable to open directory");
         return;
     }
 
-    while ((entry = readdir(dir)) != NULL) {
-        if (strcmp(entry->d_name, ".") != 0 && strcmp(entry->d_name, "..") != 0) {
-            if (strstr(entry->d_name, extension) != NULL) {
+    while (f_readdir(&dir, &entry) == FR_OK && entry.fname[0] != '\0') {
+        if (strcmp(entry.fname, ".") != 0 && strcmp(entry.fname, "..") != 0) {
+            if (strstr(entry.fname, extension) != NULL) {
                 char file_path[512];
-                snprintf(file_path, sizeof(file_path), "%s/%s", folder_path, entry->d_name);
+                snprintf(file_path, sizeof(file_path), "%s/%s", folder_path, entry.fname);
                 if (remove(file_path) == 0) {
-                    printf("Deleted file: %s\n", entry->d_name);
+                    printf("Deleted file: %s\n", entry.fname);
                 } else {
-                    printf("Failed to delete file: %s\n", entry->d_name);
+                    printf("Failed to delete file: %s\n", entry.fname);
                 }
             }
         }
     }
 
-    closedir(dir);
-*/
+    f_closedir(&dir);
 }
 
 // uint16_t FileUtils::countFileEntriesFromDir(String path) {

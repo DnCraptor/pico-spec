@@ -37,7 +37,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "ESPectrum.h"
 
 uint8_t ZXKeyb::ZXcols[8] = { 0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf };
-bool ZXKeyb::Exists;
+bool ZXKeyb::Exists = false;
 
 void ZXKeyb::setup()
 {

@@ -795,7 +795,7 @@ IRAM_ATTR bool ESPectrum::readKbd(fabgl::VirtualKeyItem *Nextkey) {
     // Global keys
     if (Nextkey->down) {
         if (Nextkey->vk == fabgl::VK_PRINTSCREEN) { // Capture framebuffer to BMP file in SD Card (thx @dcrespo3d!)
-///            CaptureToBmp();
+            CaptureToBmp();
             r = false;
         } else
         if (Nextkey->vk == fabgl::VK_SCROLLLOCK) { // Change CursorAsJoy setting
@@ -1366,7 +1366,7 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                 OSD::do_OSD(fabgl::VK_F2,true);
             } else
             if (!bitRead(ZXKeyb::ZXcols[1],1)) { // S -> Screen capture
-///                CaptureToBmp();
+                CaptureToBmp();
             } else
             if (!bitRead(ZXKeyb::ZXcols[5],1)) { // O -> Poke
                 OSD::pokeDialog();
