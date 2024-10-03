@@ -55,7 +55,7 @@ struct input_bits_t {
   bool up: true;
   bool down: true;
 };
-extern input_bits_t keyboard_bits;
+///extern input_bits_t keyboard_bits;
 extern input_bits_t gamepad1_bits;
 
 static void process_kbd_report(hid_keyboard_report_t const *report);
@@ -151,6 +151,7 @@ static inline bool find_key_in_report(hid_keyboard_report_t const *report, uint8
 static void process_kbd_report(hid_keyboard_report_t const *report)
 {
   static hid_keyboard_report_t prev_report = { 0, 0, {0} }; // previous report to check key released
+/**
   keyboard_bits.start = find_key_in_report(report, HID_KEY_ENTER);
   keyboard_bits.select = find_key_in_report(report, HID_KEY_BACKSPACE);
   keyboard_bits.a = find_key_in_report(report, HID_KEY_Z);
@@ -159,7 +160,7 @@ static void process_kbd_report(hid_keyboard_report_t const *report)
   keyboard_bits.down = find_key_in_report(report, HID_KEY_ARROW_DOWN);
   keyboard_bits.left = find_key_in_report(report, HID_KEY_ARROW_LEFT);
   keyboard_bits.right = find_key_in_report(report, HID_KEY_ARROW_RIGHT);
-
+*/
   //------------- example code ignore control (non-printable) key affects -------------//
   for(uint8_t i=0; i<6; i++)
   {

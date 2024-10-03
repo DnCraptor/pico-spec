@@ -58,7 +58,8 @@ public:
   Ps2Kbd_Mrmltr(
     PIO pio,
     uint base_gpio,
-    std::function<void(hid_keyboard_report_t *curr, hid_keyboard_report_t *prev)> keyHandler);
+    std::function<void(hid_keyboard_report_t *curr, hid_keyboard_report_t *prev)> keyHandler
+  );
   
   void init_gpio();
   

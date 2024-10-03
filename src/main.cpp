@@ -96,19 +96,6 @@ void sound_output(int samples, const BYTE *wave1, const BYTE *wave2, const BYTE 
     }
 }
 
-/* Renderer loop on Pico's second core */
-#define DISP_WIDTH 320
-#define DISP_HEIGHT 240
-
-#if USE_PS2_KBD
-static bool isInReport(hid_keyboard_report_t const* report, const unsigned char keycode) {
-    for (unsigned char i: report->keycode) {
-        if (i == keycode) {
-            return true;
-        }
-    }
-    return false;
-}
 
 struct input_bits_t {
     bool a: true;
@@ -121,40 +108,166 @@ struct input_bits_t {
     bool down: true;
 };
 
-input_bits_t keyboard_bits = { false, false, false, false, false, false, false, false };
 input_bits_t gamepad1_bits = { false, false, false, false, false, false, false, false };
 static input_bits_t gamepad2_bits = { false, false, false, false, false, false, false, false };
+
+/* Renderer loop on Pico's second core */
+#define DISP_WIDTH 320
+#define DISP_HEIGHT 240
+
+#if USE_PS2_KBD
 
 #include "fabutils.h"
 void kbdPushData(const fabgl::VirtualKey& virtualKey, bool down);
 
+static fabgl::VirtualKey hid2vk(uint8_t c) {
+    switch ( c )
+    {
+    case HID_KEY_A: return fabgl::VirtualKey::VK_A;
+    case HID_KEY_B: return fabgl::VirtualKey::VK_B;
+    case HID_KEY_C: return fabgl::VirtualKey::VK_C;
+    case HID_KEY_D: return fabgl::VirtualKey::VK_D;
+    case HID_KEY_E: return fabgl::VirtualKey::VK_E;
+    case HID_KEY_F: return fabgl::VirtualKey::VK_F;
+    case HID_KEY_G: return fabgl::VirtualKey::VK_G;
+    case HID_KEY_H: return fabgl::VirtualKey::VK_H;
+    case HID_KEY_I: return fabgl::VirtualKey::VK_I;
+    case HID_KEY_J: return fabgl::VirtualKey::VK_J;
+    case HID_KEY_K: return fabgl::VirtualKey::VK_K;
+    case HID_KEY_L: return fabgl::VirtualKey::VK_L;
+    case HID_KEY_M: return fabgl::VirtualKey::VK_M;
+    case HID_KEY_N: return fabgl::VirtualKey::VK_N;
+    case HID_KEY_O: return fabgl::VirtualKey::VK_O;
+    case HID_KEY_P: return fabgl::VirtualKey::VK_P;
+    case HID_KEY_Q: return fabgl::VirtualKey::VK_Q;
+    case HID_KEY_R: return fabgl::VirtualKey::VK_R;
+    case HID_KEY_S: return fabgl::VirtualKey::VK_S;
+    case HID_KEY_T: return fabgl::VirtualKey::VK_T;
+    case HID_KEY_U: return fabgl::VirtualKey::VK_U;
+    case HID_KEY_V: return fabgl::VirtualKey::VK_V;
+    case HID_KEY_W: return fabgl::VirtualKey::VK_W;
+    case HID_KEY_X: return fabgl::VirtualKey::VK_X;
+    case HID_KEY_Y: return fabgl::VirtualKey::VK_Y;
+    case HID_KEY_Z: return fabgl::VirtualKey::VK_Z;
+    case HID_KEY_1: return fabgl::VirtualKey::VK_1;
+    case HID_KEY_2: return fabgl::VirtualKey::VK_2;
+    case HID_KEY_3: return fabgl::VirtualKey::VK_3;
+    case HID_KEY_4: return fabgl::VirtualKey::VK_4;
+    case HID_KEY_5: return fabgl::VirtualKey::VK_5;
+    case HID_KEY_6: return fabgl::VirtualKey::VK_6;
+    case HID_KEY_7: return fabgl::VirtualKey::VK_7;
+    case HID_KEY_8: return fabgl::VirtualKey::VK_8;
+    case HID_KEY_9: return fabgl::VirtualKey::VK_9;
+    case HID_KEY_0: return fabgl::VirtualKey::VK_0;
+    case HID_KEY_ENTER: return fabgl::VirtualKey::VK_RETURN;
+    case HID_KEY_ESCAPE: return fabgl::VirtualKey::VK_ESCAPE;
+    case HID_KEY_BACKSPACE: return fabgl::VirtualKey::VK_BACKSPACE;
+    case HID_KEY_TAB: return fabgl::VirtualKey::VK_TAB;
+    case HID_KEY_SPACE: return fabgl::VirtualKey::VK_SPACE;
+    case HID_KEY_MINUS: return fabgl::VirtualKey::VK_MINUS;
+    case HID_KEY_EQUAL: return fabgl::VirtualKey::VK_EQUALS;
+    case HID_KEY_BRACKET_LEFT: return fabgl::VirtualKey::VK_LEFTBRACKET;
+    case HID_KEY_BRACKET_RIGHT: return fabgl::VirtualKey::VK_RIGHTBRACKET;
+    case HID_KEY_BACKSLASH: return fabgl::VirtualKey::VK_BACKSLASH;
+    case HID_KEY_EUROPE_1: return fabgl::VirtualKey::VK_EURO;
+    case HID_KEY_SEMICOLON: return fabgl::VirtualKey::VK_SEMICOLON;
+    case HID_KEY_APOSTROPHE: return fabgl::VirtualKey::VK_QUOTE;
+    case HID_KEY_GRAVE: return fabgl::VirtualKey::VK_GRAVEACCENT; /// TODO:
+    case HID_KEY_COMMA: return fabgl::VirtualKey::VK_COMMA;
+    case HID_KEY_PERIOD: return fabgl::VirtualKey::VK_PERIOD;
+    case HID_KEY_SLASH: return fabgl::VirtualKey::VK_SLASH;
+    case HID_KEY_CAPS_LOCK: return fabgl::VirtualKey::VK_CAPSLOCK;
+    case HID_KEY_F1: return fabgl::VirtualKey::VK_F1;
+    case HID_KEY_F2: return fabgl::VirtualKey::VK_F2;
+    case HID_KEY_F3: return fabgl::VirtualKey::VK_F3;
+    case HID_KEY_F4: return fabgl::VirtualKey::VK_F4;
+    case HID_KEY_F5: return fabgl::VirtualKey::VK_F5;
+    case HID_KEY_F6: return fabgl::VirtualKey::VK_F6;
+    case HID_KEY_F7: return fabgl::VirtualKey::VK_F7;
+    case HID_KEY_F8: return fabgl::VirtualKey::VK_F8;
+    case HID_KEY_F9: return fabgl::VirtualKey::VK_F9;
+    case HID_KEY_F10: return fabgl::VirtualKey::VK_F10;
+    case HID_KEY_F11: return fabgl::VirtualKey::VK_F11;
+    case HID_KEY_F12: return fabgl::VirtualKey::VK_F12;
+    case HID_KEY_PRINT_SCREEN: return fabgl::VirtualKey::VK_PRINTSCREEN;
+    case HID_KEY_SCROLL_LOCK: return fabgl::VirtualKey::VK_SCROLLLOCK;
+    case HID_KEY_PAUSE: return fabgl::VirtualKey::VK_PAUSE;
+    case HID_KEY_INSERT: return fabgl::VirtualKey::VK_INSERT;
+    case HID_KEY_HOME: return fabgl::VirtualKey::VK_HOME;
+    case HID_KEY_PAGE_UP: return fabgl::VirtualKey::VK_PAGEUP;
+    case HID_KEY_DELETE: return fabgl::VirtualKey::VK_DELETE;
+    case HID_KEY_END: return fabgl::VirtualKey::VK_END;
+    case HID_KEY_PAGE_DOWN: return fabgl::VirtualKey::VK_PAGEDOWN;
+    case HID_KEY_ARROW_RIGHT: return fabgl::VirtualKey::VK_RIGHT;
+    case HID_KEY_ARROW_LEFT: return fabgl::VirtualKey::VK_LEFT;
+    case HID_KEY_ARROW_DOWN: return fabgl::VirtualKey::VK_DOWN;
+    case HID_KEY_ARROW_UP: return fabgl::VirtualKey::VK_UP;
+    case HID_KEY_NUM_LOCK: return fabgl::VirtualKey::VK_NUMLOCK;
+    case HID_KEY_KEYPAD_DIVIDE: return fabgl::VirtualKey::VK_KP_DIVIDE;
+    case HID_KEY_KEYPAD_MULTIPLY: return fabgl::VirtualKey::VK_KP_MULTIPLY;
+    case HID_KEY_KEYPAD_SUBTRACT: return fabgl::VirtualKey::VK_KP_MINUS;
+    case HID_KEY_KEYPAD_ADD: return fabgl::VirtualKey::VK_KP_PLUS;
+    case HID_KEY_KEYPAD_ENTER: return fabgl::VirtualKey::VK_KP_ENTER;
+    case HID_KEY_KEYPAD_1: return fabgl::VirtualKey::VK_KP_1;
+    case HID_KEY_KEYPAD_2: return fabgl::VirtualKey::VK_KP_2;
+    case HID_KEY_KEYPAD_3: return fabgl::VirtualKey::VK_KP_3;
+    case HID_KEY_KEYPAD_4: return fabgl::VirtualKey::VK_KP_4;
+    case HID_KEY_KEYPAD_5: return fabgl::VirtualKey::VK_KP_5;
+    case HID_KEY_KEYPAD_6: return fabgl::VirtualKey::VK_KP_6;
+    case HID_KEY_KEYPAD_7: return fabgl::VirtualKey::VK_KP_7;
+    case HID_KEY_KEYPAD_8: return fabgl::VirtualKey::VK_KP_8;
+    case HID_KEY_KEYPAD_9: return fabgl::VirtualKey::VK_KP_9;
+    case HID_KEY_KEYPAD_0: return fabgl::VirtualKey::VK_KP_0;
+    case HID_KEY_KEYPAD_DECIMAL: return fabgl::VirtualKey::VK_KP_PERIOD;
+    case HID_KEY_EUROPE_2: return fabgl::VirtualKey::VK_EURO; /// TODO: ensure
+    case HID_KEY_APPLICATION: return fabgl::VirtualKey::VK_APPLICATION;
+///    case HID_KEY_POWER: return fabgl::VirtualKey::VK_;
+    case HID_KEY_KEYPAD_EQUAL: return fabgl::VirtualKey::VK_KP_ENTER;
+///    case HID_KEY_F13: return fabgl::VirtualKey::VK_;
+    case HID_KEY_EXECUTE: return fabgl::VirtualKey::VK_RETURN;
+//    case HID_KEY_HELP: return fabgl::VirtualKey::VK_;
+//    case HID_KEY_MENU: return fabgl::VirtualKey::VK_;
+    case HID_KEY_RETURN: return fabgl::VirtualKey::VK_RETURN;
+    case HID_KEY_CONTROL_LEFT: return fabgl::VirtualKey::VK_LCTRL;
+    case HID_KEY_SHIFT_LEFT: return fabgl::VirtualKey::VK_LSHIFT;
+    case HID_KEY_ALT_LEFT: return fabgl::VirtualKey::VK_LALT;
+    case HID_KEY_GUI_LEFT: return fabgl::VirtualKey::VK_LGUI;
+    case HID_KEY_CONTROL_RIGHT: return fabgl::VirtualKey::VK_RCTRL;
+    case HID_KEY_SHIFT_RIGHT: return fabgl::VirtualKey::VK_RSHIFT;
+    case HID_KEY_ALT_RIGHT: return fabgl::VirtualKey::VK_RALT;
+    case HID_KEY_GUI_RIGHT: return fabgl::VirtualKey::VK_RGUI;
+    /// TODO: ensure it is enough
+    default:
+        return fabgl::VirtualKey::VK_NONE;
+    }
+}
+
 void __not_in_flash_func(process_kbd_report)(hid_keyboard_report_t const* report,
                                              hid_keyboard_report_t const* prev_report) {
-    keyboard_bits.start = isInReport(report, HID_KEY_ENTER);
-    keyboard_bits.select = isInReport(report, HID_KEY_BACKSPACE);
-    keyboard_bits.a = isInReport(report, HID_KEY_Z);
-    keyboard_bits.b = isInReport(report, HID_KEY_X);
-    keyboard_bits.up = isInReport(report, HID_KEY_ARROW_UP);
-    keyboard_bits.down = isInReport(report, HID_KEY_ARROW_DOWN);
-    keyboard_bits.left = isInReport(report, HID_KEY_ARROW_LEFT);
-    keyboard_bits.right = isInReport(report, HID_KEY_ARROW_RIGHT);
-    if (keyboard_bits.down) {
-        fabgl::VirtualKey virtualKey = fabgl::VirtualKey::VK_DOWN;
-        kbdPushData(virtualKey, true);
-        sleep_ms(30);
-        kbdPushData(virtualKey, false);
+
+    for (unsigned char cc: report->keycode) {
+        bool found = false;
+        for (unsigned char pc: prev_report->keycode) {
+            if ( pc == cc ) {
+                found = true;
+                break;
+            }
+        }
+        if ( !found ) { // new one is selected
+            kbdPushData(hid2vk(cc), true);
+        }
     }
-    if (keyboard_bits.up) {
-        fabgl::VirtualKey virtualKey = fabgl::VirtualKey::VK_UP;
-        kbdPushData(virtualKey, true);
-        sleep_ms(30);
-        kbdPushData(virtualKey, false);
-    }
-    if (keyboard_bits.start) {
-        fabgl::VirtualKey virtualKey = fabgl::VirtualKey::VK_RETURN;
-        kbdPushData(virtualKey, true);
-        sleep_ms(30);
-        kbdPushData(virtualKey, false);
+    for (unsigned char pc: prev_report->keycode) {
+        bool found = false;
+        for (unsigned char cc: report->keycode) {
+            if ( pc == cc ) {
+                found = true;
+                break;
+            }
+        }
+        if ( !found ) { // old not more is selected
+            kbdPushData(hid2vk(pc), false);
+        }
     }
 }
 
@@ -162,7 +275,8 @@ void __not_in_flash_func(process_kbd_report)(hid_keyboard_report_t const* report
 Ps2Kbd_Mrmltr ps2kbd(
     pio1,
     0,
-    process_kbd_report);
+    process_kbd_report
+);
 #endif
 
 #if USE_NESPAD
