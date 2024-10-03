@@ -39,6 +39,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include <inttypes.h>
 #include "ESPectrum.h"
 #include "VGA/VGA6Bit.h"
+#include "ext32buffer.h"
 
 #define SPEC_W 256
 #define SPEC_H 192
@@ -80,27 +81,6 @@ visit https://zxespectrum.speccy.org/contacto
 #define ORANGE      0b00000111 // used in ESPectrum logo text
 
 #define NUM_SPECTRUM_COLORS 17
-
-class ext32buffer {
-  uint32_t t[0xFF]; // W/A
-public:
-  inline uint32_t& operator[](size_t a) { return t[a & 0xFF]; }
-  inline const uint32_t& operator[](size_t a) const { return t[a & 0xFF]; }
-};
-inline void memcpy(ext32buffer& dst, const void* src, size_t sz) {
-  const uint32_t* src32 = static_cast<const uint32_t*>(src);
-  for ( size_t i = 0; i < sz; i += 4) {
-    size_t i32 = i >> 2;
-    dst[i32] = src32[i32];
-  }
-}
-inline void memcpy(void* dst, const ext32buffer& src, size_t sz) {
-  uint32_t* dst32 = static_cast<uint32_t*>(dst);
-  for ( size_t i = 0; i < sz; i += 4) {
-    size_t i32 = i >> 2;
-    dst32[i32] = src[i32];
-  }
-}
 
 class VIDEO
 {
