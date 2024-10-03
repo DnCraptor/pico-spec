@@ -65,6 +65,20 @@ DISK_FTYPE FileUtils::fileTypes[3] = {
     {".trd,.TRD,.scl,.SCL",".d",2,2,0,""}
 };
 
+size_t fwrite(const void* v, size_t sz1, size_t sz2, FIL& f);
+void fputs(const char* b, FIL& f) {
+    size_t sz = strlen(b);
+    UINT bw;
+    f_write(&f, b, sz, &bw);
+    f_write(&f, "\n", 1, &bw);
+}
+void fgets(char* b, size_t sz, FIL& f);
+#define ftell(x) f_tell(&x)
+#define feof(x) f_eof(&x)
+inline void fclose(FIL& f) {
+    f_close(&f);
+}
+
 void FileUtils::initFileSystem() {
 
     // Try to mount SD card on LILYGO TTGO VGA32 Board or ESPectrum Board
@@ -252,7 +266,7 @@ void FileUtils::unmountSDCard() {
 //     return filelist;
 
 // }
-/***
+
 void FileUtils::DirToFile(string fpath, uint8_t ftype) {
 
     char fileName[8];
@@ -274,8 +288,10 @@ void FileUtils::DirToFile(string fpath, uint8_t ftype) {
     // printf("\n");
 
     string fdir = fpath.substr(0,fpath.length() - 1);
-    DIR* dir = opendir(fdir.c_str());
-    if (dir == NULL) {
+    DIR f_dir;
+    DIR* dir = &f_dir;;
+    FRESULT res = f_opendir(dir, fdir.c_str());
+    if (res != FR_OK) {
         printf("Error opening %s\n",fpath.c_str());
         return;
     }
@@ -293,23 +309,22 @@ void FileUtils::DirToFile(string fpath, uint8_t ftype) {
     struct dirent* de;
 
     // Count items to process
-    rewinddir(dir);
-    while ((de = readdir(dir)) != nullptr) {        
-        if (de->d_type == DT_REG || de->d_type == DT_DIR) {
-            item_count++;
-        }
+    f_rewinddir(dir);
+    FILINFO fileInfo;
+    while (f_readdir(&f_dir, &fileInfo) == FR_OK && fileInfo.fname[0] != '\0') {
+        item_count++;
     }
-    rewinddir(dir);
+    f_rewinddir(dir);
 
     unsigned long h = 0, high; // Directory Hash
 
     OSD::elements = 0;
     OSD::ndirs = 0;
 
-    while ((de = readdir(dir)) != nullptr) {        
-        string fname = de->d_name;
+    while (f_readdir(&f_dir, &fileInfo) == FR_OK && fileInfo.fname[0] != '\0') {
+        string fname = fileInfo.fname;
         // if (fname[0] == 'A') printf("Fname: %s\n",fname.c_str());
-        if (de->d_type == DT_REG || de->d_type == DT_DIR) {
+        {
             if (fname.compare(0,1,".") != 0) {
                 // if (fname[0] == 'A') printf("Fname2: %s\n",fname.c_str());
                 // if ((de->d_type == DT_DIR) || (std::find(filexts.begin(),filexts.end(),fname.substr(fname.size()-4)) != filexts.end())) {
@@ -318,11 +333,11 @@ void FileUtils::DirToFile(string fpath, uint8_t ftype) {
                 // if ((de->d_type == DT_DIR) || ((fname.size() > 3) && (std::find(filexts.begin(),filexts.end(),fname.substr(fname.size()-4)) != filexts.end()))) {
                 
                 size_t fpos = fname.find_last_of(".");
-                if ((de->d_type == DT_DIR) || ((fpos != string::npos) && (std::find(filexts.begin(),filexts.end(),fname.substr(fpos)) != filexts.end()))) {                                    
+                if ((fileInfo.fattrib & AM_DIR) || ((fpos != string::npos) && (std::find(filexts.begin(),filexts.end(),fname.substr(fpos)) != filexts.end()))) {
 
                     // if (fname[0] == 'A') printf("Fname3: %s\n",fname.c_str());
 
-                    if (de->d_type == DT_DIR) {
+                    if (fileInfo.fattrib & AM_DIR) {
                         filenames.push_back((char(32) + fname).c_str());
                         OSD::ndirs++;
                     } else {
@@ -343,15 +358,16 @@ void FileUtils::DirToFile(string fpath, uint8_t ftype) {
                         // Dump current chunk
                         sort(filenames.begin(),filenames.end()); // Sort vector
                         sprintf(fileName, "%d", chunk_cnt);
-                        FILE *f = fopen((fpath + fileTypes[ftype].indexFilename + fileName).c_str(), "w");
-                        if (f==NULL) {
+                        FIL f;
+                        if (f_open(&f, (fpath + fileTypes[ftype].indexFilename + fileName).c_str(), FA_WRITE | FA_CREATE_ALWAYS) != FR_OK) {
                             printf("Error opening filelist chunk\n");
                             // Close progress dialog
-                            OSD::progressDialog("","",0,2);
+                            OSD::progressDialog("", "" , 0, 2);
                             return;
                         }
-                        for (int n=0; n < MAX_FNAMES_PER_CHUNK; n++) fputs((filenames[n] + std::string(63 - filenames[n].size(), ' ') + "\n").c_str(),f);
-                        fclose(f);
+                        for (int n=0; n < MAX_FNAMES_PER_CHUNK; n++)
+                            fputs((filenames[n] + std::string(63 - filenames[n].size(), ' ') + "\n").c_str(), f);
+                        f_close(&f);
                         filenames.clear();
                         cnt = 0;
                         chunk_cnt++;
@@ -375,7 +391,7 @@ void FileUtils::DirToFile(string fpath, uint8_t ftype) {
         cnt++;
     }
 
-    closedir(dir);
+    f_closedir(dir);
 
     filexts.clear(); // Clear vector
     std::vector<std::string>().swap(filexts); // free memory    
@@ -384,15 +400,15 @@ void FileUtils::DirToFile(string fpath, uint8_t ftype) {
         // Dump last chunk
         sort(filenames.begin(),filenames.end()); // Sort vector
         sprintf(fileName, "%d", chunk_cnt);
-        FILE *f = fopen((fpath + fileTypes[ftype].indexFilename + fileName).c_str(), "w");
-        if (f == NULL) {
+        FIL f;
+        if (f_open(&f, (fpath + fileTypes[ftype].indexFilename + fileName).c_str(), FA_WRITE | FA_CREATE_ALWAYS) != FR_OK) {
             printf("Error opening last filelist chunk\n");
             // Close progress dialog
             OSD::progressDialog("","",0,2);
             return;
         }
         for (int n=0; n < cnt;n++) fputs((filenames[n] + std::string(63 - filenames[n].size(), ' ') + "\n").c_str(),f);
-        fclose(f);
+        f_close(&f);
     }
 
     filenames.clear(); // Clear vector
@@ -412,14 +428,13 @@ void FileUtils::DirToFile(string fpath, uint8_t ftype) {
 
     // Add directory hash to last line of file
     // printf("Hashcode: %lu\n",h);
-    FILE *fout;
-    fout  = fopen((fpath + fileTypes[ftype].indexFilename).c_str(), "a");
+    FIL fout;
+    f_open(&fout, (fpath + fileTypes[ftype].indexFilename).c_str(), FA_WRITE | FA_OPEN_APPEND);
     fputs(to_string(h).c_str(),fout);
-    fclose(fout);
-    fout = NULL;
+    f_close(&fout);
 
     // Close progress dialog
-    OSD::progressDialog("","",0,2);
+    OSD::progressDialog("", "", 0, 2);
 
 }
 
@@ -435,21 +450,21 @@ void FileUtils::Mergefiles(string fpath, uint8_t ftype, int chunk_cnt) {
     // printf("%s\n",textout2.c_str());                                
 
     // Merge sort
-    FILE *file1,*file2,*fout;
+    FIL file1, file2, fout;
     char fname1[64];
     char fname2[64];
 
-    file1 = fopen((fpath + fileTypes[ftype].indexFilename + "0").c_str(), "r");
-    file2 = fopen((fpath + fileTypes[ftype].indexFilename + "1").c_str(), "r");
+    f_open(&file1, (fpath + fileTypes[ftype].indexFilename + "0").c_str(), FA_READ);
+    f_open(&file2, (fpath + fileTypes[ftype].indexFilename + "1").c_str(), FA_READ);
     string bufout="";
     int bufcnt = 0;
 
     int  n = 1;
-    while (file2 != NULL) {
+    while (file2.obj.fs != NULL) {
 
         sprintf(fileName, ".tmp%d", n);
         // printf("Creating %s\n",fileName);
-        fout  = fopen((fpath + fileName).c_str(), "w");
+        f_open(&fout, (fpath + fileName).c_str(), FA_WRITE | FA_CREATE_ALWAYS);
 
         fgets(fname1, sizeof(fname1), file1);
         fgets(fname2, sizeof(fname2), file2);
@@ -499,7 +514,7 @@ void FileUtils::Mergefiles(string fpath, uint8_t ftype, int chunk_cnt) {
 
         // Next cycle: open t<n> for read
         sprintf(fileName, ".tmp%d", n);
-        file1 = fopen((fpath + fileName).c_str(), "r");
+        f_open(&file1, (fpath + fileName).c_str(), FA_READ);
 
         OSD::progressDialog("","",(float) 100 / ((float) chunk_cnt / (float) n),1);
 
@@ -508,7 +523,7 @@ void FileUtils::Mergefiles(string fpath, uint8_t ftype, int chunk_cnt) {
         n++;
 
         sprintf(fileName, "%d", n);
-        file2 = fopen((fpath + fileTypes[ftype].indexFilename + fileName).c_str(), "r");
+        f_open(&file2, (fpath + fileTypes[ftype].indexFilename + fileName).c_str(), FA_READ);
 
         // printf("n Opened: %d\n",(int)n);
 
@@ -534,13 +549,8 @@ void FileUtils::Mergefiles(string fpath, uint8_t ftype, int chunk_cnt) {
         remove((fpath + fileName).c_str());
         OSD::progressDialog("","",(float) 100 / ((float) chunk_cnt / (float) n),1);
     }
-
-    file1 = NULL;
-    file2 = NULL;
-    fout = NULL;
-
 }
-*/
+
 bool FileUtils::hasSNAextension(string filename)
 {
     

@@ -75,7 +75,7 @@ int VIDEO::tStatesBorder;
 uint8_t* VIDEO::grmem;
 uint16_t VIDEO::offBmp[SPEC_H];
 uint16_t VIDEO::offAtt[SPEC_H];
-uint32_t* VIDEO::SaveRect = 0;
+ext32buffer VIDEO::SaveRect;
 int VIDEO::VsyncFinetune[2];
 uint32_t VIDEO::framecnt = 0;
 uint8_t VIDEO::dispUpdCycle;

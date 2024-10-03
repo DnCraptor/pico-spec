@@ -665,7 +665,7 @@ void ESPectrum::setup()
         FileUtils::fileTypes[DISK_DSKFILE].fdMode = Config::DSK_fdMode;
         FileUtils::fileTypes[DISK_DSKFILE].fileSearch = Config::DSK_fileSearch;
 
-///        LoadSnapshot(Config::ram_file, "", "");
+        LoadSnapshot(Config::ram_file, "", "");
 
         Config::last_ram_file = Config::ram_file;
         Config::ram_file = NO_RAM_FILE;
@@ -935,9 +935,11 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                     // printf("Alt + backSpace!\n");
                     // Soft reset
                     if (Config::last_ram_file != NO_RAM_FILE) {
-///                        LoadSnapshot(Config::last_ram_file,"","");
+                        LoadSnapshot(Config::last_ram_file, "", "");
                         Config::ram_file = Config::last_ram_file;
-                    } else ESPectrum::reset();
+                    }
+                    else
+                        ESPectrum::reset();
                     return;
                 }
             }

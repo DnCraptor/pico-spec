@@ -382,7 +382,7 @@ bool check_and_create_directory(const char* path) {
     }
 }
 
-static size_t fwrite(uint8_t* v, size_t sz1, size_t sz2, FIL& f) {
+size_t fwrite(const void* v, size_t sz1, size_t sz2, FIL& f) {
     UINT bw;
     if (f_write(&f, v, sz1 * sz2, &bw) != FR_OK) return -1;
     return sz2;

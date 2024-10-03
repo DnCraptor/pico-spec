@@ -58,7 +58,7 @@ using namespace std;
 
 #include "ff.h"
 
-///FIL dirfile;
+static FIL dirfile;
 unsigned int OSD::elements;
 unsigned int OSD::fdSearchElements;
 unsigned int OSD::ndirs;
@@ -68,9 +68,27 @@ int OSD::timeScroll;
 uint8_t OSD::fdCursorFlash;
 bool OSD::fdSearchRefresh;    
 
+size_t fread(uint8_t* v, size_t sz1, size_t sz2, FIL& f);
+int fseek (FIL& stream, long offset, int origin);
+inline void fclose(FIL& f) {
+    f_close(&f);
+}
+inline void rewind(FIL& f) {
+    f_lseek(&f, 0);
+}
+void fgets(char* b, size_t sz, FIL& f) {
+    UINT br;
+    char c;
+    do {
+        f_read(&f, b, 1, &br);
+        c = *b++;
+    } while (br == 1 && c != '\n' && !f_eof(&f) && sz--);
+}
+#define ftell(x) f_tell(&x)
+#define feof(x) f_eof(&x)
+
 // Run a new file menu
 string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols, uint8_t mfrows) {
-
     // struct stat stat_buf;
     long dirfilesize;    
     bool reIndex;
@@ -119,7 +137,6 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
     // char fsessid[32];
 
     // fdSearchRefresh = true;
-
     while(1) {
 
         fdCursorFlash = 0;
@@ -142,10 +159,9 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
         // }
 
         // fclose(dirfile);
-/**
+
         // Open dir file for read
-        dirfile = fopen((filedir + FileUtils::fileTypes[ftype].indexFilename).c_str(), "r");
-        if (dirfile == NULL) {
+        if (f_open(&dirfile, (filedir + FileUtils::fileTypes[ftype].indexFilename).c_str(), FA_READ) != FR_OK) {
 
             // printf("No dir file found: reindexing\n");
             reIndex = true;
@@ -153,8 +169,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
         } else {
 
             // stat((filedir + FileUtils::fileTypes[ftype].indexFilename).c_str(), &stat_buf);
-            fseek(dirfile,0,SEEK_END);
-            dirfilesize = ftell(dirfile);
+            dirfilesize = f_size(&dirfile);
             
             // if (!sessid_ok) {
 
@@ -234,15 +249,12 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
             FileUtils::DirToFile(filedir, ftype); // Prepare filelist
 
             // stat((filedir + FileUtils::fileTypes[ftype].indexFilename).c_str(), &stat_buf);
-
-            dirfile = fopen((filedir + FileUtils::fileTypes[ftype].indexFilename).c_str(), "r");
-            if (dirfile == NULL) {
+            if (f_open(&dirfile, (filedir + FileUtils::fileTypes[ftype].indexFilename).c_str(), FA_READ) != FR_OK) {
                 printf("Error opening index file\n");
                 return "";
             }
 
-            fseek(dirfile,0,SEEK_END);
-            dirfilesize = ftell(dirfile);
+            dirfilesize = f_size(&dirfile);
 
             // Reset position
             FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
@@ -252,7 +264,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
         if (FileUtils::fileTypes[ftype].fdMode) {
 
                 // Recalc items number
-                long prevpos = ftell(dirfile);
+                long prevpos = f_tell(&dirfile);
 
                 unsigned int foundcount = 0;
                 fdSearchElements = 0;
@@ -263,7 +275,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                 std::transform(search.begin(), search.end(), search.begin(), ::toupper);
                 while(1) {
                     fgets(buf, sizeof(buf), dirfile);
-                    if (feof(dirfile)) break;
+                    if (f_eof(&dirfile)) break;
                     if (buf[0] == ASCII_SPC) {
                             foundcount++;
                             // printf("%s",buf);
@@ -303,8 +315,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
 
             fdSearchElements = elements;
 
-        }        
-*/
+        }
 
         // printf("Focus: %d, Begin_row: %d, real_rows: %d, mf_rows: %d\n",(int) FileUtils::fileTypes[ftype].focus,(int) FileUtils::fileTypes[ftype].begin_row,(int) real_rows, (int) mf_rows);
         if ((real_rows > mf_rows) && ((FileUtils::fileTypes[ftype].begin_row + mf_rows - 2) > real_rows)) {
@@ -378,7 +389,6 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             // printf("%d %d\n",(int)letra,fsearch);
                             if (letra != fsearch) { 
                                 // Seek first ocurrence of letter/number
-                                /***
                                 long prevpos = ftell(dirfile);
                                 char buf[128];
                                 int cnt = 0;
@@ -412,7 +422,6 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                                     click();
                                 } else
                                     fseek(dirfile,prevpos,SEEK_SET);
-*/
                             }
                         }
 
@@ -523,8 +532,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             }
                         } else {
                             if (fdir != "/") {
-///                                fclose(dirfile);
-///                                dirfile = NULL;
+                                fclose(dirfile);
                                 fdir.pop_back();
                                 fdir = fdir.substr(0,fdir.find_last_of("/") + 1);
                                 FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
@@ -534,9 +542,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             }       
                         }                  
                     } else if (Menukey.vk == fabgl::VK_RETURN || Menukey.vk == fabgl::VK_SPACE || Menukey.vk == fabgl::VK_JOY1B || Menukey.vk == fabgl::VK_JOY2B || Menukey.vk == fabgl::VK_JOY1C || Menukey.vk == fabgl::VK_JOY2C) {
-///                        fclose(dirfile);
-///                        dirfile = NULL;
-
+                        fclose(dirfile);
                         filedir = rowGet(menu,FileUtils::fileTypes[ftype].focus);
                         // printf("%s\n",filedir.c_str());
                         if (filedir[0] == ASCII_SPC) {
@@ -587,8 +593,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             }
                             menu_saverect = false;
                         }
-///                        fclose(dirfile);
-///                        dirfile = NULL;
+                        fclose(dirfile);
                         click();
                         return "";
                     }
@@ -628,7 +633,6 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                 }
 
                 if (fdSearchRefresh) {
-                    /**
                     // Recalc items number
                     long prevpos = ftell(dirfile);
                     unsigned int foundcount = 0;
@@ -666,18 +670,12 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                     } else {
                         fseek(dirfile,prevpos,SEEK_SET);
                     }
-*/
                     fdSearchRefresh = false;
                 }
-
             }
-
             sleep_ms(5);
-
         }
-
     }
-
 }
 
 // Redraw inside rows
@@ -691,16 +689,13 @@ void OSD::fd_Redraw(string title, string fdir, uint8_t ftype) {
         menu = title + "\n" + ( fdir.length() == 1 ? fdir : fdir.substr(0,fdir.length()-1)) + "\n";
         char buf[128];
         if (FileUtils::fileTypes[ftype].fdMode == 0 || FileUtils::fileTypes[ftype].fileSearch == "") {
-            /**
             fseek(dirfile, (FileUtils::fileTypes[ftype].begin_row - 2) * 64,SEEK_SET);
             for (int i = 2; i < virtual_rows; i++) {
                 fgets(buf, sizeof(buf), dirfile);
                 if (feof(dirfile)) break;
                 menu += buf;
             }
-            */
         } else {
-            /**
             rewind(dirfile);
             int i = 2;
             int count = 2;
@@ -728,7 +723,6 @@ void OSD::fd_Redraw(string title, string fdir, uint8_t ftype) {
                     }
                 }
             }
-            */
         }
 
         fd_PrintRow(1, IS_INFO); // Print status bar

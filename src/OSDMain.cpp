@@ -31,6 +31,7 @@ To Contact the dev team you can write to zxespectrum@gmail.com or
 visit https://zxespectrum.speccy.org/contacto
 
 */
+#include <hardware/watchdog.h>
 
 #include "OSDMain.h"
 #include "FileUtils.h"
@@ -148,17 +149,8 @@ IRAM_ATTR void OSD::click() {
 }
 
 void OSD::esp_hard_reset() {
-    // RESTART ESP32 (This is the most similar way to hard resetting it)
-    /**
-#ifndef ESP32_SDL2_WRAPPER
-    rtc_wdt_protect_off();
-    rtc_wdt_set_stage(RTC_WDT_STAGE0, RTC_WDT_STAGE_ACTION_RESET_RTC);
-    rtc_wdt_set_time(RTC_WDT_STAGE0, 100);
-    rtc_wdt_enable();
-    rtc_wdt_protect_on();
+    watchdog_enable(1, true);
     while (true);
-#endif
-*/
 }
 
 // // Cursor to OSD first row,col
@@ -314,11 +306,11 @@ static bool persistLoad(uint8_t slotnumber)
 
         f_close(&f);
 
-///        if (!LoadSnapshot(FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfname, persist_arch, persist_romset)) {
-///            OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
-///            return false;
-///        }
-///        else
+        if (!LoadSnapshot(FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfname, persist_arch, persist_romset)) {
+            OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
+            return false;
+        }
+        else
         {
             Config::ram_file = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfname;
             Config::last_ram_file = Config::ram_file;
@@ -451,7 +443,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
             if (mFile != "") {
                 mFile.erase(0, 1);
                 string fname = FileUtils::MountPoint + "/" + FileUtils::SNA_Path + "/" + mFile;
-///                LoadSnapshot(fname,"","");
+                LoadSnapshot(fname, "", "");
                 Config::ram_file = fname;
                 Config::last_ram_file = fname;
             }
@@ -682,11 +674,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                         menu_level = 2;
                         menu_saverect = true;
                         if (sna_mnu == 1) {
-                            string mFile = fileDialog(FileUtils::SNA_Path, MENU_SNA_TITLE[Config::lang],DISK_SNAFILE,28,16);
+                            string mFile = fileDialog(FileUtils::SNA_Path, MENU_SNA_TITLE[Config::lang], DISK_SNAFILE, 28, 16);
                             if (mFile != "") {
                                 mFile.erase(0, 1);
                                 string fname = FileUtils::MountPoint + "/" + FileUtils::SNA_Path + "/" + mFile;
-///                                LoadSnapshot(fname,"","");
+                                LoadSnapshot(fname, "", "");
                                 Config::ram_file = fname;
                                 Config::last_ram_file = fname;
                                 return;
@@ -1038,7 +1030,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                     if (opt2 == 1) {
                         // Soft
                         if (Config::last_ram_file != NO_RAM_FILE) {
-///                            LoadSnapshot(Config::last_ram_file,"","");
+                            LoadSnapshot(Config::last_ram_file, "", "");
                             Config::ram_file = Config::last_ram_file;
                         } else ESPectrum::reset();
                         return;
@@ -3405,7 +3397,7 @@ void OSD::joyDialog(uint8_t joynum) {
     };
 
     string keymenu = MENU_JOYSELKEY[Config::lang];
-///    int joytype = joynum == 1 ? Config::joystick1 : Config::joystick2;
+    int joytype = joynum == 1 ? Config::joystick1 : Config::joystick2;
 
     string selkeymenu[5] = {
         MENU_JOY_AZ,
@@ -3417,7 +3409,6 @@ void OSD::joyDialog(uint8_t joynum) {
 
     selkeymenu[2] = (Config::lang ? "Especial\n" : "Special\n");
     selkeymenu[2] += MENU_JOY_SPECIAL;
-/**
     if (joytype == JOY_KEMPSTON) {
         keymenu += "Kempston \n";
         selkeymenu[4] = MENU_JOY_KEMPSTON;
@@ -3426,7 +3417,6 @@ void OSD::joyDialog(uint8_t joynum) {
         keymenu += "Fuller   \n";
         selkeymenu[4] = MENU_JOY_FULLER;
     }
-*/
     int curDropDown = 2;
     uint8_t joyDialogMode = 0; // 0 -> Define, 1 -> Test
 
@@ -3697,9 +3687,8 @@ void OSD::joyDialog(uint8_t joynum) {
                                         if (opt2 == 6) {
                                             joyDropdown[curDropDown][6] = fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE;
                                         }
-
-///                                        if (joytype == JOY_FULLER)
-///                                            joyDropdown[curDropDown][6] += 6;
+                                        if (joytype == JOY_FULLER)
+                                            joyDropdown[curDropDown][6] += 6;
 
                                     }
 
