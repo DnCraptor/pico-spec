@@ -436,7 +436,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
         else if (KeytoESP == fabgl::VK_F2) {
             menu_level = 0;
             menu_saverect = false;
-            string mFile = fileDialog(FileUtils::SNA_Path, MENU_SNA_TITLE[Config::lang],DISK_SNAFILE,51,22);
+            string mFile = fileDialog(FileUtils::SNA_Path, MENU_SNA_TITLE[Config::lang], DISK_SNAFILE, 51, 22);
             if (mFile != "") {
                 mFile.erase(0, 1);
                 string fname = FileUtils::MountPoint + "/" + FileUtils::SNA_Path + "/" + mFile;
@@ -1846,83 +1846,68 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     string title = OSD_FIRMW_UPDATE[Config::lang];
                                     string msg = OSD_DLG_SURE[Config::lang];
                                     uint8_t res = msgDialog(title,msg);
-
                                     if (res == DLG_YES) {
-/**
                                         // Open firmware file
-                                        FILE *firmware = fopen("/sd/firmware.upg", "rb");
-                                        if (firmware == NULL) {
+                                        FIL firmware;
+                                        if (f_open(&firmware, MOUNT_POINT_SD "/firmware.upg", FA_READ) != FR_OK) {
                                             osdCenteredMsg(OSD_NOFIRMW_ERR[Config::lang], LEVEL_WARN, 2000);
                                         } else {
-                                            esp_err_t res = updateFirmware(firmware);
-                                            fclose(firmware);
+                                            bool res = updateFirmware(&firmware);
+                                            f_close(&firmware);
                                             string errMsg = OSD_FIRMW_ERR[Config::lang];
                                             errMsg += " Code = " + to_string(res);
                                             osdCenteredMsg(errMsg, LEVEL_ERROR, 3000);
                                         }
-                                    */
                                     } else {
                                         menu_curopt = 1;
                                         menu_level = 2;                                       
                                         menu_saverect = false;
                                     }
-
                                 } else if (opt2 == 2) {
-
                                     string title = OSD_ROM[Config::lang];
                                     title += " 48K   ";            
                                     string msg = OSD_DLG_SURE[Config::lang];
                                     uint8_t res = msgDialog(title,msg);
-
                                     if (res == DLG_YES) {
-/**
                                         // Flash custom ROM 48K
-                                        FILE *customrom = fopen("/sd/48custom.rom", "rb");
-                                        if (customrom == NULL) {
+                                        FIL customrom;
+                                        if (f_open(&customrom, MOUNT_POINT_SD"/48custom.rom", FA_READ) != FR_OK) {
                                             osdCenteredMsg(OSD_NOROMFILE_ERR[Config::lang], LEVEL_WARN, 2000);
                                         } else {
-                                            esp_err_t res = updateROM(customrom, 1);
-                                            fclose(customrom);
+                                            bool res = updateROM(&customrom, 1);
+                                            f_close(&customrom);
                                             string errMsg = OSD_ROM_ERR[Config::lang];
                                             errMsg += " Code = " + to_string(res);
                                             osdCenteredMsg(errMsg, LEVEL_ERROR, 3000);
                                         }
-*/
                                     } else {
                                         menu_curopt = 2;
                                         menu_level = 2;                                       
                                         menu_saverect = false;
                                     }
-
                                 } else if (opt2 == 3) {                                    
-
                                     string title = OSD_ROM[Config::lang];
                                     title += " 128K  ";
                                     string msg = OSD_DLG_SURE[Config::lang];
                                     uint8_t res = msgDialog(title,msg);
-
                                     if (res == DLG_YES) {
-/**
                                         // Flash custom ROM 128K
-                                        FILE *customrom = fopen("/sd/128custom.rom", "rb");
-                                        if (customrom == NULL) {
+                                        FIL customrom;
+                                        if (f_open(&customrom, MOUNT_POINT_SD"/128custom.rom", FA_READ) != FR_OK) {
                                             osdCenteredMsg(OSD_NOROMFILE_ERR[Config::lang], LEVEL_WARN, 2000);
                                         } else {
-                                            esp_err_t res = updateROM(customrom, 2);
-                                            fclose(customrom);
+                                            bool res = updateROM(&customrom, 2);
+                                            f_close(&customrom);
                                             string errMsg = OSD_ROM_ERR[Config::lang];
                                             errMsg += " Code = " + to_string(res);
                                             osdCenteredMsg(errMsg, LEVEL_ERROR, 3000);
                                         }
-*/
                                     } else {
                                         menu_curopt = 3;
                                         menu_level = 2;                                       
                                         menu_saverect = false;
                                     }
-
                                 }
-
                             } else {
                                 menu_curopt = 9;
                                 break;
@@ -2345,8 +2330,8 @@ void OSD::HWInfo() {
 }
 
 #define FWBUFFSIZE 4096
+bool OSD::updateROM(FIL *customrom, uint8_t arch) {
 /**
-esp_err_t OSD::updateROM(FILE *customrom, uint8_t arch) {
 
     // get the currently running partition
     const esp_partition_t *partition = esp_ota_get_running_partition();
@@ -2706,21 +2691,20 @@ esp_err_t OSD::updateROM(FILE *customrom, uint8_t arch) {
     progressDialog(dlgTitle,OSD_FIRMW_END[Config::lang],0,1);
 
     delay(1000);
-
+*/
     // Firmware written: reboot
     OSD::esp_hard_reset();
-
+    return true;
 }
 
-esp_err_t OSD::updateFirmware(FILE *firmware) {
-
-char ota_write_data[FWBUFFSIZE + 1] = { 0 };
-
-// get the currently running partition
-const esp_partition_t *partition = esp_ota_get_running_partition();
-if (partition == NULL) {
-    return ESP_ERR_NOT_FOUND;
-}
+bool OSD::updateFirmware(FIL* firmware) {
+    /**
+    char ota_write_data[FWBUFFSIZE + 1] = { 0 };
+    // get the currently running partition
+    const esp_partition_t *partition = esp_ota_get_running_partition();
+    if (partition == NULL) {
+        return ESP_ERR_NOT_FOUND;
+    }
 
 // Grab next update target
 // const esp_partition_t *target = esp_ota_get_next_update_partition(NULL);
@@ -2799,12 +2783,12 @@ Config::StartMsg = true;
 Config::save("StartMsg");
 
 delay(1000);
-
-// Firmware written: reboot
-OSD::esp_hard_reset();
-
-}
 */
+    // Firmware written: reboot
+    OSD::esp_hard_reset();
+    return true;
+}
+
 void OSD::progressDialog(string title, string msg, int percent, int action) {
 
     static unsigned short h;
@@ -2886,9 +2870,7 @@ void OSD::progressDialog(string title, string msg, int percent, int action) {
         int barsize = (70 * percent) / 100;
         VIDEO::vga.fillRect(progress_x, progress_y, barsize, OSD_FONT_H, zxColor(5,1));
         VIDEO::vga.fillRect(progress_x + barsize, progress_y, 70 - barsize, OSD_FONT_H, zxColor(7,1));        
-
     } else if (action == 2) { // CLOSE
-
         // Restore backbuffer data
         SaveRectpos = j;
         for (int  m = y; m < y + h; m++) {
@@ -2898,9 +2880,7 @@ void OSD::progressDialog(string title, string msg, int percent, int action) {
                 j++;
             }
         }
-
     }
-
 }
 
 uint8_t OSD::msgDialog(string title, string msg) {

@@ -134,110 +134,71 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
     VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(5, 0));
     VIDEO::vga.print(std::string(cols, ' ').c_str());    
 
-    // char fsessid[32];
-
-    // fdSearchRefresh = true;
     while(1) {
-
         fdCursorFlash = 0;
-
         reIndex = false;
         string filedir = FileUtils::MountPoint + fdir;
-
-        // // Get / Create sessid
-        // bool sessid_ok = false;
-        // if (stat((filedir + ".sessid").c_str(), &stat_buf) == 0) {
-        //     dirfile = fopen((filedir + ".sessid").c_str(), "r");
-        //     fgets(fsessid, sizeof(fsessid), dirfile);
-        //     printf("FSessId: %s Sessid: %u\n",fsessid,ESPectrum::sessid);
-        //     if (stoul(fsessid) == ESPectrum::sessid) sessid_ok = true;
-        // }
-
-        // if (!sessid_ok) {
-        //     dirfile = fopen((filedir + ".sessid").c_str(), "w");
-        //     fputs(to_string(ESPectrum::sessid).c_str(),dirfile);
-        // }
-
-        // fclose(dirfile);
-
         // Open dir file for read
         if (f_open(&dirfile, (filedir + FileUtils::fileTypes[ftype].indexFilename).c_str(), FA_READ) != FR_OK) {
-
             // printf("No dir file found: reindexing\n");
             reIndex = true;
-
         } else {
-
-            // stat((filedir + FileUtils::fileTypes[ftype].indexFilename).c_str(), &stat_buf);
             dirfilesize = f_size(&dirfile);
-            
-            // if (!sessid_ok) {
-
-                // Read dir hash from file
-                // fseek(dirfile, (stat_buf.st_size >> 5) << 5,SEEK_SET);
-                fseek(dirfile, (dirfilesize >> 6) << 6,SEEK_SET);                
-
-                char fhash[32];
-                fgets(fhash, sizeof(fhash), dirfile);
-                // printf("File Hash: %s\n",fhash);
-
-                // Count dir items and calc hash
-                DIR *dir;
-                struct dirent* de;
-
-                std::vector<std::string> filexts;
-                size_t pos = 0;
-                string ss = FileUtils::fileTypes[ftype].fileExts;
-                while ((pos = ss.find(",")) != std::string::npos) {
-                    filexts.push_back(ss.substr(0, pos));
-                    ss.erase(0, pos + 1);
-                }
-                filexts.push_back(ss.substr(0));
-
-                unsigned long hash = 0, high; // Name checksum variables
-
-                string fdir = filedir.substr(0,filedir.length() - 1);
-                DIR f_dir;
-                FRESULT res = f_opendir(&f_dir, fdir.c_str());
-                if (res == FR_OK) {
-                    elements = 0;
-                    ndirs = 0;
-                    FILINFO fileInfo;
-                    while (f_readdir(&f_dir, &fileInfo) == FR_OK && fileInfo.fname[0] != '\0') {
-                        string fname = fileInfo.fname;
-                        if (fname.compare(0,1,".") != 0) {
-                            size_t fpos = fname.find_last_of(".");
-                            if ((fileInfo.fattrib & AM_DIR) || ((fpos != string::npos) && (std::find(filexts.begin(),filexts.end(),fname.substr(fpos)) != filexts.end()))) {                                    
-                                // Calculate name checksum
-                                for (int i = 0; i < fname.length(); i++) {
-                                    hash = (hash << 4) + fname[i];
-                                    if (high = hash & 0xF0000000) hash ^= high >> 24;
-                                    hash &= ~high;
-                                }
-                                if (fileInfo.fattrib & AM_DIR)
-                                    ndirs++;
-                                else
-                                    elements++; // Count elements in dir
+            // Read dir hash from file
+            // fseek(dirfile, (stat_buf.st_size >> 5) << 5,SEEK_SET);
+            fseek(dirfile, (dirfilesize >> 6) << 6, SEEK_SET);
+            char fhash[32];
+            fgets(fhash, sizeof(fhash), dirfile);
+            // printf("File Hash: %s\n",fhash);
+            // Count dir items and calc hash
+            struct dirent* de;
+            std::vector<std::string> filexts;
+            size_t pos = 0;
+            string ss = FileUtils::fileTypes[ftype].fileExts;
+            while ((pos = ss.find(",")) != std::string::npos) {
+                filexts.push_back(ss.substr(0, pos));
+                ss.erase(0, pos + 1);
+            }
+            filexts.push_back(ss.substr(0));
+            unsigned long hash = 0, high; // Name checksum variables
+            string fdir = filedir.substr(0,filedir.length() - 1);
+            DIR f_dir;
+            DIR *dir = &f_dir;
+            FRESULT res = f_opendir(&f_dir, fdir.c_str());
+            if (res == FR_OK) {
+                elements = 0;
+                ndirs = 0;
+                FILINFO fileInfo;
+                while (f_readdir(&f_dir, &fileInfo) == FR_OK && fileInfo.fname[0] != '\0') {
+                    string fname = fileInfo.fname;
+                    if (fname.compare(0,1,".") != 0) {
+                        size_t fpos = fname.find_last_of(".");
+                        if ((fileInfo.fattrib & AM_DIR) || ((fpos != string::npos) && (std::find(filexts.begin(),filexts.end(),fname.substr(fpos)) != filexts.end()))) {                                    
+                            // Calculate name checksum
+                            for (int i = 0; i < fname.length(); i++) {
+                                hash = (hash << 4) + fname[i];
+                                if (high = hash & 0xF0000000) hash ^= high >> 24;
+                                hash &= ~high;
                             }
+                            if (fileInfo.fattrib & AM_DIR)
+                                ndirs++;
+                            else
+                                elements++; // Count elements in dir
                         }
                     }
-                    f_closedir(&f_dir);
-                } else {
-                    printf("Error opening %s\n",filedir.c_str()); /// TODO:
-                    return "";
                 }
-
-                filexts.clear(); // Clear vector
-                std::vector<std::string>().swap(filexts); // free memory   
-
-                // If calc hash and file hash are different refresh dir index
-                if (stoul(fhash) != hash) {
-                    fclose(dirfile);
-                    reIndex = true;
-                }
-
-            // }
-
+                f_closedir(&f_dir);
+            } else {
+                printf("Error opening %s\n",filedir.c_str()); /// TODO:
+                return "";
+            }
+            filexts.clear(); // Clear vector
+            std::vector<std::string>().swap(filexts); // free memory   
+            // If calc hash and file hash are different refresh dir index
+            if (stoul(fhash) != hash) {
+                fclose(dirfile);
+                reIndex = true;
+            }
         }
         // // Force reindex (for testing)
         // fclose(dirfile);
@@ -245,20 +206,15 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
 
         // There was no index or hashes are different: reIndex
         if (reIndex) {
-
             FileUtils::DirToFile(filedir, ftype); // Prepare filelist
-
             // stat((filedir + FileUtils::fileTypes[ftype].indexFilename).c_str(), &stat_buf);
             if (f_open(&dirfile, (filedir + FileUtils::fileTypes[ftype].indexFilename).c_str(), FA_READ) != FR_OK) {
                 printf("Error opening index file\n");
                 return "";
             }
-
             dirfilesize = f_size(&dirfile);
-
             // Reset position
             FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
-
         }
 
         if (FileUtils::fileTypes[ftype].fdMode) {

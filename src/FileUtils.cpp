@@ -81,18 +81,16 @@ inline void fclose(FIL& f) {
 
 void FileUtils::initFileSystem() {
     if ((!ZXKeyb::Exists) && (!SDReady)) SDReady = true;
+    mountSDCard();
 }
 
-bool FileUtils::mountSDCard(int PIN_MISO, int PIN_MOSI, int PIN_CLK, int PIN_CS) {
-    /// TODO: (already mount)
-    return true;
+static FATFS fs;
+bool FileUtils::mountSDCard() {
+    return f_mount(&fs, "SD", 1) == FR_OK;
 }
 
 void FileUtils::unmountSDCard() {
-    // Unmount partition and disable SPI peripheral
-///    esp_vfs_fat_sdcard_unmount(MOUNT_POINT_SD, card);
-    // //deinitialize the bus after all devices are removed
-///    spi_bus_free(SPI2_HOST);
+    f_unmount("SD");
 }
 
 // String FileUtils::getAllFilesFrom(const String path) {
@@ -208,12 +206,9 @@ void FileUtils::unmountSDCard() {
 // }
 
 void FileUtils::DirToFile(string fpath, uint8_t ftype) {
-
     char fileName[8];
-
     std::vector<std::string> filenames;
     filenames.reserve(MAX_FNAMES_PER_CHUNK);
-
     // Populate filexts with valid filename extensions
     std::vector<std::string> filexts;
     size_t pos = 0;
@@ -232,14 +227,15 @@ void FileUtils::DirToFile(string fpath, uint8_t ftype) {
     DIR* dir = &f_dir;;
     FRESULT res = f_opendir(dir, fdir.c_str());
     if (res != FR_OK) {
-        printf("Error opening %s\n",fpath.c_str());
+        string msg = "Error opening "; msg += fpath;
+        /// TODO: error dialog
+        OSD::progressDialog("ERROR", msg, 100, 0);
+while(1);
         return;
     }
-
     // Remove previous dir file
     remove((fpath + fileTypes[ftype].indexFilename).c_str());
-
-    OSD::progressDialog(OSD_FILE_INDEXING[Config::lang],OSD_FILE_INDEXING_1[Config::lang],0,0);
+    OSD::progressDialog(OSD_FILE_INDEXING[Config::lang], OSD_FILE_INDEXING_1[Config::lang], 0, 0);
 
     // Read filenames from medium into vector, sort it, and dump into MAX_FNAMES_PER_CHUNK filenames long files
     int cnt = 0;
