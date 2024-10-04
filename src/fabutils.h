@@ -51,6 +51,8 @@
 #include "soc/frc_timer_reg.h"
 #include "rom/lldesc.h"
 */
+#include "ff.h"
+
 #ifdef ARDUINO
 #include "Arduino.h"
 #endif
@@ -817,7 +819,7 @@ public:
    *
    * @return Same result of fopen C function
    */
-  FILE * openFile(char const * filename, char const * mode);
+  FIL& openFile(char const * filename, char const * mode);
 
   /**
    * @brief Returns the drive type of current directory

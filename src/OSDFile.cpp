@@ -151,7 +151,6 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
             fgets(fhash, sizeof(fhash), dirfile);
             // printf("File Hash: %s\n",fhash);
             // Count dir items and calc hash
-            struct dirent* de;
             std::vector<std::string> filexts;
             size_t pos = 0;
             string ss = FileUtils::fileTypes[ftype].fileExts;

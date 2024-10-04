@@ -2,32 +2,33 @@
 #include "ff.h"
 
 class ext32buffer {
-  static const size_t b_sz = 128;
-  size_t off = 0; // in 4-bytes
-  uint32_t t[b_sz] = { 0 };
+  FIL f;
+  size_t prev;
+  uint32_t v;
   inline void sync_buf(size_t a) {
-    FIL f;
-    f_open(&f, "spec_page.tmp", FA_WRITE | FA_READ | FA_CREATE_ALWAYS);
     UINT brw;
-    f_lseek(&f, off << 2);
-    f_write(&f, t, b_sz << 2, &brw);
-    off = a & 0xFFFFFF80; // alligned 512 bytes (4*128)
-    f_lseek(&f, off << 2);
-    f_read(&f, t, b_sz << 2, &brw);
+    f_lseek(&f, prev << 2);
+    f_write(&f, &v, sizeof(v), &brw);
+    prev = a;
+    f_lseek(&f, a << 2);
+    f_read(&f, &v, sizeof(v), &brw);
     f_close(&f);
   }
 public:
+  inline ext32buffer(): prev(0), v(0) {
+    f_open(&f, "/tmp/spec_page.tmp", FA_WRITE | FA_READ | FA_CREATE_ALWAYS);
+  }
   inline uint32_t& operator[](size_t a) {
-    if (a < off || a >= off + b_sz) {
+    if (a != prev) {
       sync_buf(a);
     }
-    return t[a - off];
+    return v;
   }
   inline const uint32_t& operator[](size_t a) const {
-    if (a < off || a >= off + b_sz) {
+    if (a != prev) {
       const_cast<ext32buffer*>(this)->sync_buf(a);
     }
-    return t[a - off];
+    return v;
   }
 };
 inline void memcpy(ext32buffer& dst, const void* src, size_t sz) {

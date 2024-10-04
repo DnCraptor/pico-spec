@@ -2479,7 +2479,7 @@ bool OSD::updateROM(FIL *customrom, uint8_t arch) {
     rom_off += 8;
     rom_off_128 += 8;    
 
-    // FILE *file;
+    // FIL file;
     // file = fopen("/sd/firmware.out", "wb");
     // if (file==NULL) {
     //     printf("FileSNA: Error opening firmware.out for writing");

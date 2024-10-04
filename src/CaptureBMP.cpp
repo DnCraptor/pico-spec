@@ -43,6 +43,8 @@ visit https://zxespectrum.speccy.org/contacto
 ///#include "esp_vfs.h"
 #include "ff.h"
 
+size_t fwrite(const void* v, size_t sz1, size_t sz2, FIL& f);
+
 void CaptureToBmp()
 {
     char filename[] = "ESP00000.bmp";
@@ -108,8 +110,8 @@ void CaptureToBmp()
     std::string fullfn = (string) MOUNT_POINT_SD + DISK_SCR_DIR + "/" + filename;
 
     // open file for writing
-    FILE* pf = fopen(fullfn.c_str(), "wb");
-    if (NULL == pf) {
+    FIL pf;
+    if (f_open(&pf, fullfn.c_str(), FA_CREATE_ALWAYS | FA_WRITE) != FR_OK) {
         delete[] linebuf;
         printf("Capture BMP: unable to open file %s for writing\n", fullfn.c_str());
         return;
@@ -152,7 +154,7 @@ void CaptureToBmp()
     }
 
     // cleanup
-    fclose(pf);
+    f_close(&pf);
 
     delete[] linebuf;
 

@@ -82,6 +82,14 @@ inline void fclose(FIL& f) {
 void FileUtils::initFileSystem() {
     if ((!ZXKeyb::Exists) && (!SDReady)) SDReady = true;
     mountSDCard();
+    f_mkdir("/tmp");
+    f_mkdir(MOUNT_POINT_SD);
+    f_mkdir(MOUNT_POINT_SD DISK_ROM_DIR);
+    f_mkdir(MOUNT_POINT_SD DISK_SNA_DIR);
+    f_mkdir(MOUNT_POINT_SD DISK_TAP_DIR);
+    f_mkdir(MOUNT_POINT_SD DISK_DSK_DIR);
+    f_mkdir(MOUNT_POINT_SD DISK_SCR_DIR);
+    f_mkdir(MOUNT_POINT_SD DISK_PSNA_DIR);
 }
 
 static FATFS fs;
@@ -227,14 +235,15 @@ void FileUtils::DirToFile(string fpath, uint8_t ftype) {
     DIR* dir = &f_dir;;
     FRESULT res = f_opendir(dir, fdir.c_str());
     if (res != FR_OK) {
-        string msg = "Error opening "; msg += fpath;
+        string msg = "Unable to open dir: "; msg += fdir;
         /// TODO: error dialog
-        OSD::progressDialog("ERROR", msg, 100, 0);
-while(1);
+        OSD::progressDialog("ERROR", msg, 0, 0);
+        while(1);
         return;
     }
+    string dirfile = fpath + fileTypes[ftype].indexFilename;
     // Remove previous dir file
-    remove((fpath + fileTypes[ftype].indexFilename).c_str());
+    f_unlink(dirfile.c_str());
     OSD::progressDialog(OSD_FILE_INDEXING[Config::lang], OSD_FILE_INDEXING_1[Config::lang], 0, 0);
 
     // Read filenames from medium into vector, sort it, and dump into MAX_FNAMES_PER_CHUNK filenames long files
@@ -242,7 +251,6 @@ while(1);
     int chunk_cnt = 0;
     int item_count = 0;
     int items_processed = 0;
-    struct dirent* de;
 
     // Count items to process
     f_rewinddir(dir);
@@ -251,7 +259,6 @@ while(1);
         item_count++;
     }
     f_rewinddir(dir);
-
     unsigned long h = 0, high; // Directory Hash
 
     OSD::elements = 0;
@@ -480,9 +487,9 @@ void FileUtils::Mergefiles(string fpath, uint8_t ftype, int chunk_cnt) {
     // Remove temp files
     for (int n = 0; n <= chunk_cnt; n++) {
         sprintf(fileName, "%d", n);
-        remove((fpath + fileTypes[ftype].indexFilename + fileName).c_str());
+        f_unlink((fpath + fileTypes[ftype].indexFilename + fileName).c_str());
         sprintf(fileName, ".tmp%d", n);
-        remove((fpath + fileName).c_str());
+        f_unlink((fpath + fileName).c_str());
         OSD::progressDialog("","",(float) 100 / ((float) chunk_cnt / (float) n),1);
     }
 }
@@ -550,7 +557,7 @@ void FileUtils::deleteFilesWithExtension(const char *folder_path, const char *ex
             if (strstr(entry.fname, extension) != NULL) {
                 char file_path[512];
                 snprintf(file_path, sizeof(file_path), "%s/%s", folder_path, entry.fname);
-                if (remove(file_path) == 0) {
+                if (f_unlink(file_path) == 0) {
                     printf("Deleted file: %s\n", entry.fname);
                 } else {
                     printf("Failed to delete file: %s\n", entry.fname);

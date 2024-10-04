@@ -3083,22 +3083,22 @@ static WCHAR* mz_utf8z_to_widechar(const char* str)
   return wStr;
 }
 
-static FILE *mz_fopen(const char *pFilename, const char *pMode)
+static FIL& mz_fopen(const char *pFilename, const char *pMode)
 {
   WCHAR* wFilename = mz_utf8z_to_widechar(pFilename);
   WCHAR* wMode = mz_utf8z_to_widechar(pMode);
-  FILE* pFile = NULL;
+  FIL pFile = NULL;
   errno_t err = _wfopen_s(&pFile, wFilename, wMode);
   free(wFilename);
   free(wMode);
   return err ? NULL : pFile;
 }
 
-static FILE *mz_freopen(const char *pPath, const char *pMode, FILE *pStream)
+static FIL& mz_freopen(const char *pPath, const char *pMode, FIL& pStream)
 {
   WCHAR* wPath = mz_utf8z_to_widechar(pPath);
   WCHAR* wMode = mz_utf8z_to_widechar(pMode);
-  FILE* pFile = NULL;
+  FIL pFile = NULL;
   errno_t err = _wfreopen_s(&pFile, wPath, wMode, pStream);
   free(wPath);
   free(wMode);
