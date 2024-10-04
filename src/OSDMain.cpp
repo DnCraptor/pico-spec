@@ -436,11 +436,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
         else if (KeytoESP == fabgl::VK_F2) {
             menu_level = 0;
             menu_saverect = false;
-            string fdir = "/";
-            string mFile = fileDialog(fdir, MENU_SNA_TITLE[Config::lang], DISK_SNAFILE, 51, 22);
+            string mFile = fileDialog(FileUtils::SNA_Path, MENU_SNA_TITLE[Config::lang], DISK_SNAFILE, 51, 22);
             if (mFile != "") {
                 mFile.erase(0, 1);
-                string fname = fdir + mFile;
+                string fname = FileUtils::SNA_Path + mFile;
                 LoadSnapshot(fname, "", "");
                 Config::ram_file = fname;
                 Config::last_ram_file = fname;
@@ -672,11 +671,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                         menu_level = 2;
                         menu_saverect = true;
                         if (sna_mnu == 1) {
-                            string fdir = "/";
-                            string mFile = fileDialog(fdir, MENU_SNA_TITLE[Config::lang], DISK_SNAFILE, 28, 16);
+                            string mFile = fileDialog(FileUtils::SNA_Path, MENU_SNA_TITLE[Config::lang], DISK_SNAFILE, 28, 16);
                             if (mFile != "") {
                                 mFile.erase(0, 1);
-                                string fname = fdir + mFile;
+                                string fname = FileUtils::SNA_Path + mFile;
                                 LoadSnapshot(fname, "", "");
                                 Config::ram_file = fname;
                                 Config::last_ram_file = fname;

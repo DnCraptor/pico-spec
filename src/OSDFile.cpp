@@ -146,7 +146,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
         filenames.clear();
         elements = 0;
         ndirs = 0;
-        if (fdir.size() <= 1) {
+        if (fdir.size() > 1) {
             filenames.push_back("  ..");
             ++ndirs;
         }
