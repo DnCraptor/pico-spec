@@ -300,9 +300,9 @@ void Tape::Init() {
 void Tape::TAP_Open(string name) {
     f_close(&tape);
     tapeFileType = TAPE_FTYPE_EMPTY;
-    string fname = FileUtils::MountPoint + "/" + FileUtils::TAP_Path + "/" + name;
+    string fname = FileUtils::TAP_Path + name;
     if (f_open(&tape, fname.c_str(), FA_READ) != FR_OK) {
-        OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR, LEVEL_ERROR);
+        OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR "\n" + fname + "\n", LEVEL_ERROR);
         return;
     }
     tapeFileSize = f_size(&tape);
@@ -1120,7 +1120,7 @@ void Tape::Save() {
 
 bool Tape::FlashLoad() {
     if (!tape.obj.fs) {
-        string fname = FileUtils::MountPoint + "/" + FileUtils::TAP_Path + "/" + tapeFileName;        
+        string fname = FileUtils::TAP_Path + tapeFileName;        
         if (f_open(&tape, fname.c_str(), FA_READ) != FR_OK) {
             return false;
         }

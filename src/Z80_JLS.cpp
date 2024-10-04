@@ -4586,7 +4586,7 @@ void Z80::decodeDDFD(RegisterPair& regIXY) {
                     for (int i=0; i < 10; i++)
                         name += MemESP::ramCurrent[header_data++ >> 14][header_data & 0x3fff];
                     rtrim(name);
-                    Tape::tapeSaveName = FileUtils::MountPoint + "/" + FileUtils::TAP_Path + "/" + name + ".tap";
+                    Tape::tapeSaveName = FileUtils::TAP_Path + name + ".tap";
 
 ///                    struct stat stat_buf;
                     SaveRes = DLG_YES;

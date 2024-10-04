@@ -417,7 +417,7 @@ void Tape::TZX_Open(string name) {
 
     FileUtils::deleteFilesWithExtension(FileUtils::MountPoint.c_str(),".tmp");
 
-    string fname = FileUtils::MountPoint + "/" + FileUtils::TAP_Path + "/" + name;
+    string fname = FileUtils::TAP_Path + name;
 
     if (f_open(&tape, fname.c_str(), FA_READ) != FR_OK) {
         OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR, LEVEL_ERROR);
