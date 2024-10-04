@@ -65,27 +65,16 @@ using namespace std;
 
 // Change running snapshot
 bool LoadSnapshot(string filename, string force_arch, string force_romset) {
-
     bool res = false;
-
     uint8_t OSDprev = VIDEO::OSD;
-    
     if (FileUtils::hasSNAextension(filename)) {
-
-        // OSD::osdCenteredMsg(MSG_LOADING_SNA + (string) ": " + filename.substr(filename.find_last_of("/") + 1), LEVEL_INFO, 0);
-
+        //OSD::osdCenteredMsg(MSG_LOADING_SNA + (string) ": " + filename.substr(filename.find_last_of("/") + 1), LEVEL_INFO, 0);
         res = FileSNA::load(filename, force_arch, force_romset);
-
     } else if (FileUtils::hasZ80extension(filename)) {
-
-        // OSD::osdCenteredMsg(MSG_LOADING_Z80 + (string) ": " + filename.substr(filename.find_last_of("/") + 1), LEVEL_INFO, 0);
-
+        //OSD::osdCenteredMsg(MSG_LOADING_Z80 + (string) ": " + filename.substr(filename.find_last_of("/") + 1), LEVEL_INFO, 0);
         res = FileZ80::load(filename);
-
     } else if (FileUtils::hasPextension(filename)) {
-
         res = FileP::load(filename);
-
     }
 
     if (res && OSDprev) {
@@ -108,36 +97,28 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
 
     if (f_open(&file, sna_fn.c_str(), FA_READ) != FR_OK)
     {
-        printf("FileSNA: Error opening %s\n",sna_fn.c_str());
+        OSD::osdCenteredMsg("Error opening file:\n" + sna_fn + "\n", LEVEL_INFO, 5000);
         return false;
     }
     sna_size = f_size(&file);
-
     // Check snapshot arch
     if (sna_size == SNA_48K_SIZE) {
-
         snapshotArch = "48K";
-
     } else if ((sna_size == SNA_128K_SIZE1) || (sna_size == SNA_128K_SIZE2)) {
-
         // If using some 128K arch it keeps unmodified. If not, we choose Pentagon because is SNA format default
         if (!Z80Ops::is48)
             snapshotArch = Config::arch;
         else    
             snapshotArch = "Pentagon";
-
     } else {
-        printf("FileSNA::load: bad SNA %s: size = %d\n", sna_fn.c_str(), sna_size);
+        OSD::osdCenteredMsg("Bad SNA:\n" + sna_fn + "\nsize: " + to_string(sna_size) + "\n", LEVEL_INFO, 5000);
         return false;
     }
 
     // Manage arch change
     if (Config::arch != "48K") {
-
         if (snapshotArch == "48K") {
-
                 Config::requestMachine("48K", force_romset);
-
                 // Condition this to 50hz mode
                 if(Config::videomode) {
 
@@ -163,15 +144,10 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
                     Config::save();
                     OSD::esp_hard_reset(); 
                 }                           
-        
         } else {
-            
             if ((force_arch != "") && ((Config::arch != force_arch) || (Config::romSet != force_romset))) {
-                
                 snapshotArch = force_arch;
-
                 Config::requestMachine(force_arch, force_romset);
-
                 // Condition this to 50hz mode
                 if(Config::videomode) {
 
@@ -197,15 +173,10 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
                     Config::save();
                     OSD::esp_hard_reset();                            
                 }
-
             }
-
         }
-
     } else if (Config::arch == "48K") {
-
         if (snapshotArch != "48K") {
-
             if (force_arch == "")
                 Config::requestMachine("Pentagon", "");
             else {
@@ -238,11 +209,8 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
                 Config::save();
                 OSD::esp_hard_reset();                            
             }
-
         }
-
     }
-    
     ESPectrum::reset();
 
     // printf("FileSNA::load: Opening %s: size = %d\n", sna_fn.c_str(), sna_size);
@@ -287,14 +255,11 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
     readBlockFile(file, MemESP::ram[0], 0x4000);
 
     if (Z80Ops::is48) {
-
         // in 48K mode, pop PC from stack
         uint16_t SP = Z80::getRegSP();
         Z80::setRegPC(MemESP::readword(SP));
         Z80::setRegSP(SP + 2);
-
     } else {
-
         // in 128K mode, recover stored PC
         uint16_t sna_PC = readWordFileLE(file);
         Z80::setRegPC(sna_PC);

@@ -114,8 +114,8 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
     w = (cols * OSD_FONT_W) + 2;
     h = ((mf_rows + 1) * OSD_FONT_H) + 2;
     
-    // menu = title + "\n" + fdir + "\n";
-    menu = title + "\n" + ( fdir.length() == 1 ? fdir : fdir.substr(0,fdir.length()-1)) + "\n";
+    menu = title + "\n" + fdir + "\n";
+    ///menu = title + "\n" + ( fdir.length() == 1 ? fdir : fdir.substr(0,fdir.length()-1)) + "\n";
     WindowDraw(); // Draw menu outline
     fd_PrintRow(1, IS_INFO);    // Path
 
@@ -144,21 +144,29 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
         }
         filexts.push_back(ss.substr(0));
         filenames.clear();
+        elements = 0;
+        ndirs = 0;
+        if (fdir.size() <= 1) {
+            filenames.push_back("  ..");
+            ++ndirs;
+        }
         DIR f_dir;
         if (f_opendir(&f_dir, fdir.c_str()) == FR_OK) {
-            elements = 0;
-            ndirs = 0;
             FILINFO fileInfo;
             while (f_readdir(&f_dir, &fileInfo) == FR_OK && fileInfo.fname[0] != '\0') {
                 string fname = fileInfo.fname;
                 if (fname.compare(0,1,".") != 0) {
                     size_t fpos = fname.find_last_of(".");
                     if ((fileInfo.fattrib & AM_DIR) || ((fpos != string::npos) && (std::find(filexts.begin(),filexts.end(),fname.substr(fpos)) != filexts.end()))) {                                    
-                        if (fileInfo.fattrib & AM_DIR)
+                        if (fileInfo.fattrib & AM_DIR) {
                             ndirs++;
-                        else
+                            filenames.push_back((char(32) + fname).c_str());
+                    }
+                        else {
                             elements++; // Count elements in dir
-                        filenames.push_back(fname);
+                            filenames.push_back(fname);
+                        }
+                        ///std::transform(fname.begin(), fname.end(), fname.begin(), ::toupper);
                     }
                 }
             }
@@ -365,13 +373,10 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             }
                         } else {
                             if (fdir != "/") {
-                                /***
-                                fclose(dirfile);
                                 fdir.pop_back();
                                 fdir = fdir.substr(0,fdir.find_last_of("/") + 1);
                                 FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
                                 // printf("Fdir: %s\n",fdir.c_str());
-                                */
                                 click();
                                 break;
                             }       

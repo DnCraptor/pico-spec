@@ -380,7 +380,7 @@ void FileUtils::DirToFile(string fpath, uint8_t ftype) {
     OSD::progressDialog("", "", 0, 2);
 
 }
-*/
+
 void FileUtils::Mergefiles(string fpath, uint8_t ftype, int chunk_cnt) {
 
     char fileName[8];
@@ -493,55 +493,42 @@ void FileUtils::Mergefiles(string fpath, uint8_t ftype, int chunk_cnt) {
         OSD::progressDialog("","",(float) 100 / ((float) chunk_cnt / (float) n),1);
     }
 }
+*/
 
 bool FileUtils::hasSNAextension(string filename)
 {
     
     if (filename.substr(filename.size()-4,4) == ".sna") return true;
     if (filename.substr(filename.size()-4,4) == ".SNA") return true;
-
     return false;
-
 }
 
 bool FileUtils::hasZ80extension(string filename)
 {
-
     if (filename.substr(filename.size()-4,4) == ".z80") return true;
     if (filename.substr(filename.size()-4,4) == ".Z80") return true;
-
     return false;
-
 }
 
 bool FileUtils::hasPextension(string filename)
 {
-
     if (filename.substr(filename.size()-2,2) == ".p") return true;
     if (filename.substr(filename.size()-2,2) == ".P") return true;
-
     return false;
-
 }
 
 bool FileUtils::hasTAPextension(string filename)
 {
-    
     if (filename.substr(filename.size()-4,4) == ".tap") return true;
     if (filename.substr(filename.size()-4,4) == ".TAP") return true;
-
     return false;
-
 }
 
 bool FileUtils::hasTZXextension(string filename)
 {
-    
     if (filename.substr(filename.size()-4,4) == ".tzx") return true;
     if (filename.substr(filename.size()-4,4) == ".TZX") return true;
-
     return false;
-
 }
 
 void FileUtils::deleteFilesWithExtension(const char *folder_path, const char *extension) {
