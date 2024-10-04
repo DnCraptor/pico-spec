@@ -212,7 +212,7 @@ void FileUtils::unmountSDCard() {
 //     return filelist;
 
 // }
-
+/**
 void FileUtils::DirToFile(string fpath, uint8_t ftype) {
     char fileName[8];
     std::vector<std::string> filenames;
@@ -380,7 +380,7 @@ void FileUtils::DirToFile(string fpath, uint8_t ftype) {
     OSD::progressDialog("", "", 0, 2);
 
 }
-
+*/
 void FileUtils::Mergefiles(string fpath, uint8_t ftype, int chunk_cnt) {
 
     char fileName[8];
