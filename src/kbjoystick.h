@@ -82,6 +82,8 @@ public:
 
   KeybJoystick();
   ~KeybJoystick();
+  // not used:
+  bool dataAvailable();
 
   /**
    * @brief Initializes Keyboard specifying CLOCK and DATA GPIOs.
@@ -420,7 +422,7 @@ private:
   bool                      m_keyboardAvailable;  // self test passed and support for scancode set 2
 
 ///  TaskHandle_t              m_SCodeToVKConverterTask; // Task that converts scancodes to virtual key and populates m_virtualKeyQueue
-  std::queue<uint16_t>      m_virtualKeyQueue;
+  std::queue<VirtualKeyItem>m_virtualKeyQueue;
 
   uint8_t                   m_VKMap[(int)(VK_LAST + 7) / 8];
 

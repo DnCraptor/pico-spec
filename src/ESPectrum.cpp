@@ -77,8 +77,12 @@ bool ESPectrum::ps2kbd2 = false;
 
 void kbdPushData(const fabgl::VirtualKey& virtualKey, bool down) {
     fabgl::Keyboard* kbd = ESPectrum::PS2Controller.keyboard();
+    fabgl::KeybJoystick* kbdj = ESPectrum::PS2Controller.keybjoystick();
     if ( kbd ) {
         kbd->injectVirtualKey(virtualKey, down);
+    }
+    if ( ESPectrum::ps2kbd2 && kbdj ) {
+        kbdj->injectVirtualKey(virtualKey, down);
     }
 }
 

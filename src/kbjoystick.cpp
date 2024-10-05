@@ -43,12 +43,10 @@ namespace fabgl {
 
 ///int KeybJoystick::scancodeToVirtualKeyTaskStackSize = FABGLIB_DEFAULT_SCODETOVK_TASK_STACK_SIZE;
 
-
-
 KeybJoystick::KeybJoystick()
   : m_keyboardAvailable(false),
 ///    m_SCodeToVKConverterTask(nullptr),
-///    m_virtualKeyQueue(nullptr),
+    m_virtualKeyQueue(),
     m_scancodeSet(2),
     m_lastDeadKey(VK_NONE),
     m_codepage(nullptr)
@@ -80,9 +78,7 @@ void KeybJoystick::begin(bool generateVirtualKeys, bool createVKQueue, int PS2Po
   m_scrollLockLED  = false;
 
 ///  m_uiApp = nullptr;
-
   reset();
-
   enableVirtualKeys(generateVirtualKeys, createVKQueue);
 }
 
@@ -148,6 +144,7 @@ bool KeybJoystick::reset()
 
   send_cmdSetScancodeSet(2);
 */
+  m_keyboardAvailable = true;
   return m_keyboardAvailable;
 }
 
@@ -201,7 +198,7 @@ void KeybJoystick::updateLEDs()
 
 int KeybJoystick::scancodeAvailable()
 {
-  return 0; //// dataAvailable();
+  return dataAvailable();
 }
 
 
@@ -418,8 +415,8 @@ VirtualKey KeybJoystick::VKtoAlternateVK(VirtualKey in_vk, bool down, KeyboardLa
 
   return vk == VK_NONE ? in_vk : vk;
 }
-
 */
+
 bool KeybJoystick::blockingGetVirtualKey(VirtualKeyItem * item)
 {
   item->vk         = VK_NONE;
@@ -585,6 +582,12 @@ void KeybJoystick::injectVirtualKey(VirtualKeyItem const & item, bool insert)
       xQueueSendToBack(m_virtualKeyQueue, &item, ticksToWait);
   }
   */
+    if (insert)
+      m_virtualKeyQueue.push(item); // TODO: front?
+///      xQueueSendToFront(m_virtualKeyQueue, &item, ticksToWait);
+    else
+      m_virtualKeyQueue.push(item);
+///      xQueueSendToBack(m_virtualKeyQueue, &item, ticksToWait);
 }
 
 
@@ -760,13 +763,15 @@ VirtualKey KeybJoystick::getNextVirtualKey(bool * keyDown, int timeOutMS)
 
 int KeybJoystick::virtualKeyAvailable()
 {
-  return 0; /// m_virtualKeyQueue ? uxQueueMessagesWaiting(m_virtualKeyQueue) : 0;
+  return m_virtualKeyQueue.size();
 }
 
 
 void KeybJoystick::emptyVirtualKeyQueue()
 {
-///  xQueueReset(m_virtualKeyQueue);
+  while ( !m_virtualKeyQueue.empty() ) {
+    m_virtualKeyQueue.pop();
+  }
 }
 
 
