@@ -76,7 +76,6 @@ bool LoadSnapshot(string filename, string force_arch, string force_romset) {
     } else if (FileUtils::hasPextension(filename)) {
         res = FileP::load(filename);
     }
-
     if (res && OSDprev) {
         VIDEO::OSD = OSDprev;
         if (Config::aspect_16_9)
@@ -85,9 +84,7 @@ bool LoadSnapshot(string filename, string force_arch, string force_romset) {
             VIDEO::Draw_OSD43  = Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
         ESPectrum::TapeNameScroller = 0;
     }    
-
     return res;
-
 }
 
 bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
@@ -515,29 +512,24 @@ bool FileZ80::load(string z80_fn) {
     FIL file;
     if (f_open(&file, z80_fn.c_str(), FA_READ) != FR_OK)
     {
-        printf("FileZ80: Error opening %s\n",z80_fn.c_str());
+        OSD::osdCenteredMsg("Z80 load: unable to open\n" + z80_fn + "\n", LEVEL_ERROR);
         return false;
     }
-
     // Check Z80 version and arch
     uint8_t z80version;
     uint8_t mch;
     string z80_arch = "";
     uint16_t ahb_len;
-
-    fseek(file,6,SEEK_SET);
-
-    if (mkword(readByteFile(file),readByteFile(file)) != 0) { // Version 1
-
+    fseek(file, 6, SEEK_SET);
+    uint8_t b1 = readByteFile(file);
+    if (mkword(b1, readByteFile(file)) != 0) { // Version 1
         z80version = 1;
         mch = 0;
         z80_arch = "48K";
-
     } else { // Version 2 o 3
-
         fseek(file,30,SEEK_SET);
-        ahb_len = mkword(readByteFile(file),readByteFile(file));
-
+        b1 = readByteFile(file);
+        ahb_len = mkword(b1, readByteFile(file));
         // additional header block length
         if (ahb_len == 23)
             z80version = 2;
@@ -545,14 +537,11 @@ bool FileZ80::load(string z80_fn) {
             z80version = 3;
         else {
             OSD::osdCenteredMsg("Z80 load: unknown version", LEVEL_ERROR);
-            printf("Z80.load: unknown version, ahblen = %u\n", (unsigned int) ahb_len);
             f_close(&file);
             return false;
         }
-
-        fseek(file,34,SEEK_SET);
+        fseek(file, 34, SEEK_SET);
         mch = readByteFile(file); // Machine
-
         if (z80version == 2) {
             if (mch == 0) z80_arch = "48K";
             if (mch == 1) z80_arch = "48K"; // + if1
@@ -573,14 +562,10 @@ bool FileZ80::load(string z80_fn) {
             if (mch == 12) z80_arch = "128K"; // Spectrum +2
             if (mch == 13) z80_arch = "128K"; // Spectrum +2A            
         }
-
     }
-
     // printf("Z80 version %u, AHB Len: %u, machine code: %u\n",(unsigned char)z80version,(unsigned int)ahb_len, (unsigned char)mch);
-
     if (z80_arch == "") {
         OSD::osdCenteredMsg("Z80 load: unknown machine", LEVEL_ERROR);
-        printf("Z80.load: unknown machine, machine code = %u\n", (unsigned char)mch);
         f_close(&file);
         return false;
     }
@@ -590,11 +575,8 @@ bool FileZ80::load(string z80_fn) {
 
     // Manage arch change
     if (Config::arch != z80_arch) {
-
         string z80_romset = "";
-
         // printf("z80_arch: %s mch: %d pref_romset48: %s pref_romset128: %s z80_romset: %s\n",z80_arch.c_str(),mch,Config::pref_romSet_48.c_str(),Config::pref_romSet_128.c_str(),z80_romset.c_str());
-
         if (z80_arch == "48K") {
             if (Config::pref_romSet_48 == "48K" || Config::pref_romSet_48 == "48Kes")
                 z80_romset = Config::pref_romSet_48;
@@ -614,7 +596,6 @@ bool FileZ80::load(string z80_fn) {
         // printf("z80_arch: %s mch: %d pref_romset48: %s pref_romset128: %s z80_romset: %s\n",z80_arch.c_str(),mch,Config::pref_romSet_48.c_str(),Config::pref_romSet_128.c_str(),z80_romset.c_str());
         
         Config::requestMachine(z80_arch, z80_romset);
-
         // Condition this to 50hz mode
         if(Config::videomode) {
 
@@ -638,72 +619,51 @@ bool FileZ80::load(string z80_fn) {
 
             Config::ram_file = z80_fn;
             Config::save();
+            OSD::osdCenteredMsg("Z80 load: reboot is required", LEVEL_INFO, 5000);
             OSD::esp_hard_reset(); 
         }                           
     } else {
-
         if (z80_arch == "128K") {
-            
             string z80_romset = "";
-            
             // printf("z80_arch: %s mch: %d pref_romset48: %s pref_romset128: %s z80_romset: %s\n",z80_arch.c_str(),mch,Config::pref_romSet_48.c_str(),Config::pref_romSet_128.c_str(),z80_romset.c_str());
-
             if (mch == 12) { // +2
-
                 if (Config::romSet != "+2" && Config::romSet != "+2es" && Config::romSet != "128Kcs") {
-
                     if (Config::pref_romSet_128 == "+2" || Config::pref_romSet_128 == "+2es")
                         z80_romset = Config::pref_romSet_128;
                     else
                         z80_romset = "+2";
-
                     Config::requestMachine(z80_arch, z80_romset);        
-
                 }
-
             } else {
-
                 if (Config::romSet != "128K" && Config::romSet != "128Kes" && Config::romSet != "128Kcs") {
-
                     if (Config::pref_romSet_128 == "128K" || Config::pref_romSet_128 == "128Kes")
                         z80_romset = Config::pref_romSet_128;
                     else
                         z80_romset = "128K";
-
                     Config::requestMachine(z80_arch, z80_romset);        
                 }
-
             }
-
             // printf("z80_arch: %s mch: %d pref_romset48: %s pref_romset128: %s z80_romset: %s\n",z80_arch.c_str(),mch,Config::pref_romSet_48.c_str(),Config::pref_romSet_128.c_str(),z80_romset.c_str());
-
         }
-
     }
-    
     ESPectrum::reset();
     uint32_t file_size = f_tell(&file);
-
     uint32_t dataOffset = 0;
-
     // stack space for header, should be enough for
     // version 1 (30 bytes)
     // version 2 (55 bytes) (30 + 2 + 23)
     // version 3 (87 bytes) (30 + 2 + 55) or (86 bytes) (30 + 2 + 54)
     uint8_t header[87];
-
     // read first 30 bytes
     for (uint8_t i = 0; i < 30; i++) {
         header[i] = readByteFile(file);
         dataOffset ++;
     }
-
     // additional vars
     uint8_t b12, b29;
-
     // begin loading registers
-    Z80::setRegA  (       header[0]);
-    Z80::setFlags (       header[1]);
+    Z80::setRegA (header[0]);
+    Z80::setFlags(header[1]);
     
     // Z80::setRegBC (mkword(header[2], header[3]));
     Z80::setRegC(header[2]);    
@@ -864,7 +824,8 @@ bool FileZ80::load(string z80_fn) {
                 MemESP::rom[0], MemESP::rom[2], MemESP::rom[1],
                 MemESP::ram[0], MemESP::ram[1], MemESP::ram[2], MemESP::ram[3],
                 MemESP::ram[4], MemESP::ram[5], MemESP::ram[6], MemESP::ram[7],
-                MemESP::rom[3] };
+                MemESP::rom[3]
+            };
 
             // const char* pagenames[12] = { "rom0", "IDP", "rom1",
             //     "ram0", "ram1", "ram2", "ram3", "ram4", "ram5", "ram6", "ram7", "MFR" };
@@ -906,24 +867,18 @@ bool FileZ80::load(string z80_fn) {
             MemESP::ramContended[3] = Z80Ops::isPentagon ? false : (MemESP::bankLatch & 0x01 ? true: false);
 
             VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7] : MemESP::ram[5];
-
         }
     }
-
     f_close(&file);
-
     return true;
-
 }
 
 void FileZ80::loadCompressedMemData(FIL& f, uint16_t dataLen, uint16_t memoff, uint16_t memlen) {
-
     uint16_t dataOff = 0;
     uint8_t ed_cnt = 0;
     uint8_t repcnt = 0;
     uint8_t repval = 0;
     uint16_t memidx = 0;
-
     while(dataOff < dataLen && memidx < memlen) {
         uint8_t databyte = readByteFile(f);
         if (ed_cnt == 0) {
