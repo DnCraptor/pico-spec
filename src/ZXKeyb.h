@@ -38,6 +38,7 @@ visit https://zxespectrum.speccy.org/contacto
 
 #include <inttypes.h>
 
+/// TODO: completely remove it
 class ZXKeyb {
 
 public:
@@ -47,7 +48,7 @@ public:
     static void ZXKbdRead();
 
     static uint8_t ZXcols[8];
-    static bool Exists;
+    const static bool Exists = false;
 
 private:
 

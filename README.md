@@ -5,9 +5,9 @@ In progress...<br/>
 
 ![ESPectrum](https://zxespectrum.speccy.org/wp-content/uploads/2023/05/ESPectrum-logo-v02-2.png)
 
-This is an emulator of the Sinclair ZX Spectrum computer running on Espressif ESP32 SoC powered boards.
+This is an emulator of the Sinclair ZX Spectrum computer running on Murmulator RP2040 SoC powered boards.
 
-Currently, it can be used with Lilygo's TTGo VGA32 board, Antonio Villena's ESPectrum board and ESP32-SBC-FabGL board from Olimex.
+Currently, it can be used with Raspberry Pico Pi board, installed on ZX Murmulator board (VGA versions).
 
 Just connect a VGA monitor or CRT TV (with special VGA-RGB cable needed), a PS/2 keyboard, prepare a SD Card as needed and power via microUSB.
 
@@ -96,7 +96,7 @@ There's also no need to sort files using external utilities: the emulator create
 - F9 Volume down
 - F10 Volume up
 - F11 Hard reset
-- F12 Reset ESP32
+- F12 Reset RP2040
 - CTRL + F1 Hardware info
 - CTRL + F2 Turbo mode
 - CTRL + F5..F8 Screen centering in CRT 15K/50hz mode
@@ -120,7 +120,7 @@ Press CAPS SHIFT + SYMBOL SHIFT and:
 - 9 Volume down
 - 0 Volume up
 - Q Hard reset
-- W Reset ESP32
+- W Reset RP2040
 - I Hardware info
 - T Turbo mode
 - Z,X,C,V Screen centering in CRT 15K/50hz mode
@@ -169,7 +169,7 @@ Pin assignment in `hardpins.h` is set to match the boards we've tested emulator 
 - Pete Todd, developer of the original project [PaseVGA](https://github.com/retrogubbins/paseVGA).
 - Ramón Martínez ["Rampa"](https://github.com/rampa069) and Jorge Fuertes ["Queru"](https://github.com/jorgefuertes) who improved PaseVGA in the first [ZX-ESPectrum](https://github.com/rampa069/ZX-ESPectrum).
 - Z80 Emulation derived from [z80cpp](https://github.com/jsanchezv/z80cpp), authored by José Luis Sánchez.
-- VGA Driver from [ESP32Lib by BitLuni](https://github.com/bitluni/ESP32Lib).
+- VGA Driver by Murmulator comunity
 - AY-3-8912 emulation from [libayemu by Alexander Sashnov](https://asashnov.github.io/libayemu.html).
 - PS2 Driver from Fabrizio di Vittorio for his [FabGL library](https://github.com/fdivitto/FabGL).
 - [Paul Farrow](http://www.fruitcake.plus.com/index.html) for his kind permission to include his amazing ZX81+ IF2 ROM.

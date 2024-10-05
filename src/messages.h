@@ -54,7 +54,7 @@ visit https://zxespectrum.speccy.org/contacto
 #define ERR_DIR_OPEN "Cannot open directory!"
 
 // OSD
-#define OSD_TITLE  " ESPectrum - The ESP32 powered emulator "
+#define OSD_TITLE  " ESPectrum - RP2040-port "
 // #define OSD_BOTTOM " SCIENCE LEADS TO PROGRESS              "
 #define OSD_BOTTOM " zxespectrum.speccy.org     " EMU_VERSION
 
@@ -345,12 +345,12 @@ static const char *MENU_SCANLINES[2] = { "Scanlines\n", "Scanlines\n" };
     "Reset Menu\n"\
     "Soft reset\n"\
     "Hard reset\t(F11)\n"\
-    "ESP32 reset\t(F12)\n"
+    "RP2040 reset\t(F12)\n"
 #define MENU_RESET_ES \
     "Resetear\n"\
     "Reset parcial\n"\
     "Reset completo\t(F11)\n"\
-    "Resetear ESP32\t(F12)\n"
+    "Resetear RP2040\t(F12)\n"
 static const char *MENU_RESET[2] = { MENU_RESET_EN, MENU_RESET_ES };
 
 #define MENU_PERSIST_SAVE_EN \
@@ -620,7 +620,7 @@ static const char *AboutMsg[2][9] = {
 	"from Pete Todd and Rampa & Queru\r"\
 	"\r"\
 	"\nC1Z80 emulation by JL Sanchez\r"\
-	"\nD1VGA driver by BitLuni\r"\
+	"\nD1VGA driver by Murmulator comunity\r"\
 	"\nE1AY-3-8912 library by A. Sashnov\r"\
 	"\nF1PS2 driver by Fabrizio di Vittorio\r"
 	,
@@ -768,7 +768,7 @@ static const char *AboutMsg[2][9] = {
     " [F8]         CPU / Tape load stats\n"\
     " [F9-F10]     Volume down-up\n"\
 	" [F11]        Hard reset\n"\
-    " [F12]        Reset ESP32\n"\
+    " [F12]        Reset RP2040\n"\
     " [CTRL+F1]    Hardware info\n"\
     " [CTRL+F2]    Turbo mode\n"\
     " [CTRL+F5-F7] Center CRT Screen\n"\
@@ -792,7 +792,7 @@ static const char *AboutMsg[2][9] = {
     " [F8]         Status CPU / Carga cinta\n"\
     " [F9-F10]     Bajar-Subir volumen\n"\
     " [F11]        Reset completo\n"\
-    " [F12]        Resetear ESP32\n"\
+    " [F12]        Resetear RP2040\n"\
     " [CTRL+F1]    Info hardware\n"\
     " [CTRL+F2]    Modo turbo\n"\
     " [CTRL+F5-F7] Centrar pantalla CRT\n"\

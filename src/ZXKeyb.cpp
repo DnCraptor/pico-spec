@@ -37,11 +37,10 @@ visit https://zxespectrum.speccy.org/contacto
 #include "ESPectrum.h"
 
 uint8_t ZXKeyb::ZXcols[8] = { 0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf };
-bool ZXKeyb::Exists = false;
 
 void ZXKeyb::setup()
 {
-    /**
+/**
     // setup shift register pins as outputs
     gpio_set_direction((gpio_num_t)SR_CLK, (gpio_mode_t)GPIO_MODE_OUTPUT);
     gpio_set_direction((gpio_num_t)SR_LOAD, (gpio_mode_t)GPIO_MODE_OUTPUT);
@@ -53,11 +52,11 @@ void ZXKeyb::setup()
     gpio_set_direction((gpio_num_t)KM_COL_2, (gpio_mode_t)GPIO_MODE_INPUT);
     gpio_set_direction((gpio_num_t)KM_COL_3, (gpio_mode_t)GPIO_MODE_INPUT);
     gpio_set_direction((gpio_num_t)KM_COL_4, (gpio_mode_t)GPIO_MODE_INPUT);
-*/
-    // Check if membrane keyboard is present
-///    putRows(0xFF);
-    Exists = true;///gpio_get_level((gpio_num_t)KM_COL_1) && gpio_get_level((gpio_num_t)KM_COL_2) && gpio_get_level((gpio_num_t)KM_COL_4);
 
+    // Check if membrane keyboard is present
+    putRows(0xFF);
+    Exists = gpio_get_level((gpio_num_t)KM_COL_1) && gpio_get_level((gpio_num_t)KM_COL_2) && gpio_get_level((gpio_num_t)KM_COL_4);
+*/
 }
 
 void ZXKeyb::process() {

@@ -2200,82 +2200,57 @@ string OSD::rowGet(string menu, unsigned short row) {
     return "<Unknown menu row>";
 }
 
+#include <hardware/flash.h>
+#include <pico/multicore.h>
+
+static void get_cpu_flash_jedec_id(uint8_t _rx[4]) {
+    static uint8_t rx[4] = {0};
+    if (rx[0] == 0) {
+        uint8_t tx[4] = {0x9f};
+        multicore_lockout_start_blocking();
+        const uint32_t ints = save_and_disable_interrupts();
+        flash_do_cmd(tx, rx, 4);
+        restore_interrupts(ints);
+        multicore_lockout_end_blocking();
+    }
+    *(unsigned*)_rx = *(unsigned*)rx;
+}
+
+inline static uint32_t get_cpu_flash_size(void) {
+    uint8_t rx[4] = {0};
+    get_cpu_flash_jedec_id(rx);
+    return 1u << rx[3];
+}
+
 void OSD::HWInfo() {
-
     fabgl::VirtualKeyItem Nextkey;
-
     click();
-
     // Draw Hardware and memory info
     drawOSD(true);
     osdAt(2, 0);
 
     VIDEO::vga.setTextColor(zxColor(7, 0), zxColor(1, 0));
 
-    // Get chip information
-///    esp_chip_info_t chip_info;
-///    esp_chip_info(&chip_info);
-
     VIDEO::vga.print(" Hardware info\n");
     VIDEO::vga.print(" --------------------------------------\n");
 
-    // string chipmodel[6]={"","ESP32","ESP32-S2","","ESP32-S3","ESP32-C3"};
-    // string textout = " Chip model    : " + chipmodel[chip_info.model] + "\n";
-    // VIDEO::vga.print(textout.c_str());
-/**
-    // Chip models for ESP32
-    string textout = " Chip model    : ";
-    uint32_t chip_ver = esp_efuse_get_pkg_ver();
-    uint32_t pkg_ver = chip_ver & 0x7;
-    switch (pkg_ver) {
-        case EFUSE_RD_CHIP_VER_PKG_ESP32D0WDQ6 :
-            if (chip_info.revision == 3)
-                textout += "ESP32-D0WDQ6-V3";  
-            else
-                textout += "ESP32-D0WDQ6";
-            break;
-        case EFUSE_RD_CHIP_VER_PKG_ESP32D0WDQ5 :
-            if (chip_info.revision == 3)
-                textout += "ESP32-D0WD-V3";  
-            else
-                textout += "ESP32-D0WD";
-            break;                
-        case EFUSE_RD_CHIP_VER_PKG_ESP32D2WDQ5 :
-            textout += "ESP32-D2WD";
-            break;            
-        case EFUSE_RD_CHIP_VER_PKG_ESP32PICOD2 :
-            textout += "ESP32-PICO-D2";
-            break;            
-        case EFUSE_RD_CHIP_VER_PKG_ESP32PICOD4 :
-            textout += "ESP32-PICO-D4";
-            break;            
-        case EFUSE_RD_CHIP_VER_PKG_ESP32PICOV302 :
-            textout += "ESP32-PICO-V3-02";
-            break;            
-        case /*EFUSE_RD_CHIP_VER_PKG_ESP32D0WDR2V3* / 7 : // Not defined in ESP-IDF version we're using
-             textout += "ESP32-D0WDR2-V3";
-            break;             
-        default:
-            textout += "Unknown";
-    }
-    textout += "\n";
+    string textout =
+        " Chip model    : RP2040\n"
+        " Chip cores    : 2\n"
+        " Chip RAM      : 264 KB\n"
+    ;
     VIDEO::vga.print(textout.c_str());    
 
-    textout = " Chip cores    : " + to_string(chip_info.cores) + "\n";
+    uint32_t fsz = get_cpu_flash_size();
+    textout = " Flash size    : " + to_string(fsz / 1024 / 1024) + " MB\n";
     VIDEO::vga.print(textout.c_str());
 
-    textout = " Chip revision : " + to_string(chip_info.revision) + "\n";
-    VIDEO::vga.print(textout.c_str());
-
-    textout = " Flash size    : " + to_string(spi_flash_get_chip_size() / (1024 * 1024)) + (chip_info.features & CHIP_FEATURE_EMB_FLASH ? "MB embedded" : "MB external") + "\n";
-    VIDEO::vga.print(textout.c_str());
-
-    multi_heap_info_t info;    
-    heap_caps_get_info(&info, MALLOC_CAP_SPIRAM);
-    uint32_t psramsize = (info.total_free_bytes + info.total_allocated_bytes) >> 10;
-    textout = " PSRAM size    : " + ( psramsize == 0 ? "N/A or disabled" : to_string(psramsize) + " MB") + "\n";
-    VIDEO::vga.print(textout.c_str());
-
+///    multi_heap_info_t info;    
+///    heap_caps_get_info(&info, MALLOC_CAP_SPIRAM);
+///    uint32_t psramsize = (info.total_free_bytes + info.total_allocated_bytes) >> 10;
+///    textout = " PSRAM size    : " + ( psramsize == 0 ? "N/A or disabled" : to_string(psramsize) + " MB") + "\n";
+///    VIDEO::vga.print(textout.c_str());
+/**
     textout = " IDF Version   : " + (string)(esp_get_idf_version()) + "\n";
     VIDEO::vga.print(textout.c_str());
 
