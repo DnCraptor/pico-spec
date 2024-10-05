@@ -1,4 +1,7 @@
-# pico-spec - ESPectrum port for ZX Murmulator (Raspberry Pi Pico)
+# pico-spec
+
+ESPectrum (1.2) port for ZX Murmulator dev. board (Raspberry Pi Pico - RP2040 SoC)<br/>
+
 In progress...<br/>
 <br/>
 [Original repo](https://github.com/EremusOne/ESPectrum)
