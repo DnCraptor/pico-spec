@@ -206,7 +206,8 @@ void Config::load() {
     string nvs = MOUNT_POINT_SD "/storage.nvs";
     FRESULT err = f_open(&handle, nvs.c_str(), FA_READ);
     if (err != FR_OK) {
-        OSD::osdCenteredMsg("Error opening file:\n" + nvs + "\n", LEVEL_ERROR, 5000);
+///        OSD::osdCenteredMsg("Error opening file:\n" + nvs + "\n", LEVEL_ERROR, 5000);
+        return;
     } else {
         vector<string> sts;
         UINT br;
