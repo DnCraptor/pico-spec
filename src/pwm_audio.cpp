@@ -19,10 +19,17 @@ volatile int16_t* pcm_end_callback(volatile size_t* size) {
     return NULL;
 }
 
+static int16_t* buff = NULL;
 
 esp_err_t pwm_audio_write(uint8_t *inbuf, size_t len, size_t* bytes_written, uint32_t wait_ms) {
-    pcm_set_buffer((int16_t*)inbuf, 1, len, pcm_end_callback);
-    *bytes_written = len;
+    int16_t* b = new int16_t[len];
+    for (size_t i = 0; i < len; ++i) {
+        b[i] = (int16_t)inbuf[i] << 7;
+    }
+    pcm_set_buffer(b, 1, len, pcm_end_callback);
+    if (buff) delete[] buff;
+    buff = b;
+    if (bytes_written) *bytes_written = len;
     return ESP_OK;
 }
 

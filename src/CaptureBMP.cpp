@@ -40,7 +40,6 @@ visit https://zxespectrum.speccy.org/contacto
 #include "messages.h"
 #include "Config.h"
 #include "OSDMain.h"
-///#include "esp_vfs.h"
 #include "ff.h"
 
 size_t fwrite(const void* v, size_t sz1, size_t sz2, FIL& f);

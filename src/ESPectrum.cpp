@@ -50,21 +50,10 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Tape.h"
 #include "Z80_JLS/z80.h"
 #include "pwm_audio.h"
-///#include "fabgl.h"
 #include "wd1793.h"
 
 #ifndef ESP32_SDL2_WRAPPER
 #include "ZXKeyb.h"
-/**
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "driver/timer.h"
-#include "soc/timer_group_struct.h"
-#include "esp_timer.h"
-#include "esp_system.h"
-#include "esp_spi_flash.h"
-// #include "bootloader_random.h"
-*/
 #endif
 
 using namespace std;
@@ -111,6 +100,7 @@ int ESPectrum::faudioBit = 0;
 int ESPectrum::samplesPerFrame;
 bool ESPectrum::AY_emu = false;
 int ESPectrum::Audio_freq = 44100;
+static int prevAudio_freq = 44100;
 unsigned char ESPectrum::audioSampleDivider;
 static int audioBitBuf = 0;
 static unsigned char audioBitbufCount = 0;
@@ -619,6 +609,7 @@ void ESPectrum::setup()
 ///    xTaskCreatePinnedToCore(&ESPectrum::audioTask, "audioTask", 1024 /*1536*/, NULL, configMAX_PRIORITIES - 1, &audioTaskHandle, 1);
     pwm_audio_set_volume(aud_volume);
     pcm_setup(Audio_freq);
+    prevAudio_freq = Audio_freq;
 
     // AY Sound
     AySound::init();
@@ -689,7 +680,6 @@ void ESPectrum::setup()
 //=======================================================================================
 void ESPectrum::reset()
 {
-
     // Ports
     for (int i = 0; i < 128; i++) Ports::port[i] = 0xBF;
     if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON || Config::joyPS2 == JOYPS2_KEMPSTON) Ports::port[0x1f] = 0; // Kempston
@@ -742,7 +732,7 @@ void ESPectrum::reset()
     lastaudioBit=0;
 
     // Set samples per frame and AY_emu flag depending on arch
-    int prevAudio_freq = Audio_freq;
+    prevAudio_freq = Audio_freq;
     if (Config::arch == "48K") {
         samplesPerFrame=ESP_AUDIO_SAMPLES_48; 
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;
@@ -776,12 +766,6 @@ void ESPectrum::reset()
             printf("Can't set sample rate\n");
         }
 */
-        // pwm_audio_stop();
-        // delay(100); // Maybe this fix random sound lost ?
-        // pwm_audio_set_param(Audio_freq,LEDC_TIMER_8_BIT,1);
-        // pwm_audio_start();
-        // pwm_audio_set_volume(aud_volume);
-
     }
     
     // Reset AY emulation
@@ -791,7 +775,6 @@ void ESPectrum::reset()
     AySound::reset();
 
     CPU::reset();
-
 }
 
 //=======================================================================================
@@ -1533,7 +1516,23 @@ void ESPectrum::loop() {
     faudbufcnt = audbufcnt;
     faudioBit = lastaudioBit;
     faudbufcntAY = audbufcntAY;
-///    if (ESP_delay) xQueueSend(audioTaskQueue, &param, portMAX_DELAY);
+    if (ESP_delay) {
+        ///xQueueSend(audioTaskQueue, &param, portMAX_DELAY);
+        if (AY_emu) {
+            if (faudbufcntAY < samplesPerFrame) {
+                AySound::gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
+            }
+            for (int i = 0; i < samplesPerFrame; i++) {
+                int beeper = (overSamplebuf[i] / audioSampleDivider) + AySound::SamplebufAY[i];
+                audioBuffer[i] = beeper > 255 ? 255 : beeper; // Clamp
+            }
+        } else {
+            for (int i = 0; i < samplesPerFrame; i++) {
+                audioBuffer[i] = overSamplebuf[i] / audioSampleDivider;
+            }
+        }
+        pwm_audio_write((uint8_t *) audioBuffer, samplesPerFrame, 0, 0);
+    }
     processKeyboard();
     // Update stats every 50 frames
     if (VIDEO::OSD && VIDEO::framecnt >= 50) {
