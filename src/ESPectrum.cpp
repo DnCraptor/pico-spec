@@ -1518,6 +1518,15 @@ void ESPectrum::loop() {
     faudbufcntAY = audbufcntAY;
     if (ESP_delay) {
         ///xQueueSend(audioTaskQueue, &param, portMAX_DELAY);
+        // Finish fill of beeper oversampled audio buffers
+        for (;faudbufcnt < (samplesPerFrame * audioSampleDivider); faudbufcnt++) {
+            audioBitBuf += faudioBit;
+            if(++audioBitbufCount == audioSampleDivider) {
+                overSamplebuf[audbufcntover++] = audioBitBuf;
+                audioBitBuf = 0;
+                audioBitbufCount = 0; 
+            }
+        }
         if (AY_emu) {
             if (faudbufcntAY < samplesPerFrame) {
                 AySound::gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);

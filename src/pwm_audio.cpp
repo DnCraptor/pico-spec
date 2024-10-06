@@ -26,7 +26,7 @@ esp_err_t pwm_audio_write(uint8_t *inbuf, size_t len, size_t* bytes_written, uin
     for (size_t i = 0; i < len; ++i) {
         b[i] = (int16_t)inbuf[i] << 7;
     }
-    pcm_set_buffer(b, 1, len, pcm_end_callback);
+    pcm_set_buffer(b, 1, len, NULL);
     if (buff) delete[] buff;
     buff = b;
     if (bytes_written) *bytes_written = len;
