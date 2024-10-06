@@ -97,7 +97,7 @@ void kbdPushData(const fabgl::VirtualKey& virtualKey, bool down) {
 // AUDIO
 //=======================================================================================
 uint8_t ESPectrum::audioBuffer[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
-uint32_t* ESPectrum::overSamplebuf;
+uint32_t ESPectrum::overSamplebuf[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
 signed char ESPectrum::aud_volume = ESP_VOLUME_DEFAULT;
 // signed char ESPectrum::aud_volume = ESP_VOLUME_MAX; // For .tap player test
 
@@ -587,10 +587,6 @@ void ESPectrum::setup()
     //=======================================================================================
     // AUDIO
     //=======================================================================================
-
-    overSamplebuf = (uint32_t *) heap_caps_malloc(ESP_AUDIO_SAMPLES_PENTAGON << 2, MALLOC_CAP_INTERNAL | MALLOC_CAP_32BIT);  
-///    if (overSamplebuf == NULL) printf("Can't allocate oversamplebuffer\n");
-
     // Set samples per frame and AY_emu flag depending on arch
     if (Config::arch == "48K") {
         samplesPerFrame=ESP_AUDIO_SAMPLES_48; 
@@ -1520,52 +1516,10 @@ IRAM_ATTR void ESPectrum::AYGetSample() {
 // MAIN LOOP
 //=======================================================================================
 void ESPectrum::loop() {    
-/*
-// Video adjustment
-VIDEO::vga.clear(zxColor(3,0)); // For overscan testing. Remove once adjusted
-for(;;) {
-//     processKeyboard();
-
-     VIDEO::vga.fillRect(165,126,20,20,zxColor(4,1));
-     VIDEO::vga.fillRect(0,0,20,20,zxColor(4,1));
-     VIDEO::vga.fillRect(331,0,20,20,zxColor(4,1));
-     VIDEO::vga.fillRect(0,251,20,20,zxColor(4,1));
-     VIDEO::vga.fillRect(331,251,20,20,zxColor(4,1));
-
-     VIDEO::vga.line(331,271,340,271,zxColor(0,0));
-     VIDEO::vga.line(10,271,19,271,zxColor(0,0));
-     VIDEO::vga.line(10,0,19,0,zxColor(0,0));
-     VIDEO::vga.line(331,0,340,0,zxColor(0,0));
-
- }
-*/
-for(;;) {
-    ts_start = time_us_64(); /// esp_timer_get_time();
+  for(;;) {
+    ts_start = time_us_64();
 
     // Send audioBuffer to pwmaudio
-///    if (ESP_delay) xQueueSend(audioTaskQueue, &param, portMAX_DELAY);
-/*
-     VIDEO::vga.fillRect(0,0,20,20,BLACK);
-     VIDEO::vga.fillRect(20,0,20,20,BLUE);
-     VIDEO::vga.fillRect(40,0,20,20,RED);
-     VIDEO::vga.fillRect(60,0,20,20,MAGENTA);
-     VIDEO::vga.fillRect(80,0,20,20,GREEN);
-     VIDEO::vga.fillRect(100,0,20,20,CYAN);
-     VIDEO::vga.fillRect(120,0,20,20,YELLOW);
-     VIDEO::vga.fillRect(140,0,20,20,WHITE);
-     VIDEO::vga.fillRect(160,0,20,20,BRI_BLACK);
-     VIDEO::vga.fillRect(180,0,20,20,BRI_BLUE);
-     VIDEO::vga.fillRect(200,0,20,20,BRI_RED);
-     VIDEO::vga.fillRect(220,0,20,20,BRI_MAGENTA);
-     VIDEO::vga.fillRect(240,0,20,20,BRI_GREEN);
-     VIDEO::vga.fillRect(260,0,20,20,BRI_CYAN);
-     VIDEO::vga.fillRect(280,0,20,20,BRI_YELLOW);
-     VIDEO::vga.fillRect(300,0,20,20,BRI_WHITE);
-     VIDEO::vga.fillRect(0,20,20,20,ORANGE);
-     VIDEO::vga.fillRect(0,40,20,20,BLACK);
-     VIDEO::vga.fillRect(20,20,20,20,BLACK);
-     while(1);
-*/
     audbufcnt = 0;
     audbufcntover = 0;
     audbufcntAY = 0;  
@@ -1652,9 +1606,7 @@ for(;;) {
             sync_cnt = 0;
         } 
     }
-
     totalseconds += time_us_64() - ts_start;
-}
-
+ }
 }
 

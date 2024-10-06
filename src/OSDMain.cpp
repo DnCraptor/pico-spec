@@ -44,7 +44,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "MemESP.h"
 #include "Tape.h"
 #include "ZXKeyb.h"
-///#include "pwm_audio.h"
+#include "pwm_audio.h"
 #include "Z80_JLS/z80.h"
 #include "roms.h"
 #include "ff.h"
@@ -134,20 +134,15 @@ static const uint8_t click128[116] = {   0,8,32,32,32,32,32,32,32,32,32,32,32,32
                                     };
 
 IRAM_ATTR void OSD::click() {
-
     size_t written;
-
-    if (Config::tape_player) return; // Disable interface click on tape player mode
-/**
+    if (Config::tape_player)
+        return; // Disable interface click on tape player mode
     pwm_audio_set_volume(ESP_VOLUME_MAX);
-
     if (Z80Ops::is48)
-        pwm_audio_write((uint8_t *) click48, 12, &written,  5 / portTICK_PERIOD_MS);
+        pwm_audio_write((uint8_t *) click48, 12, &written,  5);
     else
-        pwm_audio_write((uint8_t *) click128, 116, &written, 5 / portTICK_PERIOD_MS);
-
+        pwm_audio_write((uint8_t *) click128, 116, &written, 5);
     pwm_audio_set_volume(ESPectrum::aud_volume);
-*/
 }
 
 void OSD::esp_hard_reset() {

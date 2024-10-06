@@ -12,6 +12,7 @@
 #include <hardware/flash.h>
 
 #include "ESPectrum.h"
+#include "pwm_audio.h"
 
 #include "graphics.h"
 
@@ -41,60 +42,6 @@ struct semaphore vga_start_semaphore;
 #include "Video.h"
 
 static FATFS fs;
-
-static i2s_config_t i2s_config;
-
-#define SND_FREQ 44100
-#define SND_DIV 60
-#define SND_CH 2
-#define SND_CNT (SND_FREQ / SND_DIV)
-#define buffermax (SND_CNT * SND_CH)
-
-static void init_sound() {
-    i2s_config = i2s_get_default_config();
-    i2s_config.sample_freq = SND_FREQ;
-    i2s_config.dma_trans_count = (uint16_t) SND_CNT;
-    i2s_volume(&i2s_config, 0);
-    i2s_init(&i2s_config);
-}
-
-typedef struct __attribute__((__packed__)) {
-    uint8_t snd_vol;
-} SETTINGS;
-
-static SETTINGS settings = {
-    .snd_vol = 8,
-};
-
-void sound_output(int samples, const BYTE *wave1, const BYTE *wave2, const BYTE *wave3, const BYTE *wave4,
-                         const BYTE *wave5) {
-    static int16_t samples_out[2][buffermax * 2];
-    static int i_active_buf = 0;
-    static int inx = 0;
-    static int max = 0;
-    static int min = 30000;
-    for (int i = 0; i < samples; i++) {
-        int r, l;
-        int w1 = *wave1++;
-        int w2 = *wave2++;
-        int w3 = *wave3++;
-        int w4 = *wave4++;
-        int w5 = *wave5++;
-        l = w1 * 6 + w2 * 3 + w3 * 5 + w4 * 3 * 17 + w5 * 2 * 32;
-        r = w1 * 3 + w2 * 6 + w3 * 5 + w4 * 3 * 17 + w5 * 2 * 32;
-        max = MAX(l, max);
-        min = MIN(l, min);
-        l -= 4000;
-        r -= 4000;
-        samples_out[i_active_buf][inx * 2] = (int16_t) l * settings.snd_vol;
-        samples_out[i_active_buf][inx * 2 + 1] = (int16_t) r * settings.snd_vol;
-        if (inx++ >= i2s_config.dma_trans_count) {
-            inx = 0;
-            i2s_dma_write(&i2s_config, reinterpret_cast<const int16_t *>(samples_out[i_active_buf]));
-            i_active_buf ^= 1;
-        }
-    }
-}
 
 struct input_bits_t {
     bool a: true;
@@ -370,6 +317,7 @@ void __scratch_x("render") render_core() {
 #endif
     uint64_t last_input_tick = tick;
     while (true) {
+        pcm_call();
 #ifdef TFT
         if (tick >= last_renderer_tick + frame_tick) {
             refresh_lcd();
@@ -441,6 +389,9 @@ int main() {
     sem_init(&vga_start_semaphore, 0, 1);
     multicore_launch_core1(render_core);
     sem_release(&vga_start_semaphore);
+
+    init_sound();
+    pcm_setup(SOUND_FREQUENCY);
 
     ESPectrum::setup();
     ESPectrum::loop();

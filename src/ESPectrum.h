@@ -103,7 +103,7 @@ public:
     static void BeeperGetSample();
     static void AYGetSample();
     static uint8_t audioBuffer[ESP_AUDIO_SAMPLES_PENTAGON];
-    static uint32_t* overSamplebuf;
+    static uint32_t overSamplebuf[ESP_AUDIO_SAMPLES_PENTAGON];
     static unsigned char audioSampleDivider;
     static signed char aud_volume;
     static uint32_t audbufcnt;
