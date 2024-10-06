@@ -1,7 +1,5 @@
 #pragma once
 
-#define SOUND_FREQUENCY 44100
-
 void init_sound();
 void pcm_setup(int hz);
 void pcm_cleanup(void);

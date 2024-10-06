@@ -49,7 +49,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "AySound.h"
 #include "Tape.h"
 #include "Z80_JLS/z80.h"
-///#include "pwm_audio.h"
+#include "pwm_audio.h"
 ///#include "fabgl.h"
 #include "wd1793.h"
 
@@ -110,7 +110,7 @@ int ESPectrum::lastaudioBit = 0;
 int ESPectrum::faudioBit = 0;
 int ESPectrum::samplesPerFrame;
 bool ESPectrum::AY_emu = false;
-int ESPectrum::Audio_freq;
+int ESPectrum::Audio_freq = 44100;
 unsigned char ESPectrum::audioSampleDivider;
 static int audioBitBuf = 0;
 static unsigned char audioBitbufCount = 0;
@@ -617,6 +617,8 @@ void ESPectrum::setup()
 ///    audioTaskQueue = xQueueCreate(1, sizeof(uint8_t *));
     // Latest parameter = Core. In ESPIF, main task runs on core 0 by default. In Arduino, loop() runs on core 1.
 ///    xTaskCreatePinnedToCore(&ESPectrum::audioTask, "audioTask", 1024 /*1536*/, NULL, configMAX_PRIORITIES - 1, &audioTaskHandle, 1);
+    pwm_audio_set_volume(aud_volume);
+    pcm_setup(Audio_freq);
 
     // AY Sound
     AySound::init();
@@ -766,6 +768,7 @@ void ESPectrum::reset()
     if (prevAudio_freq != Audio_freq) {
         
         // printf("Resetting pwmaudio to freq: %d\n",Audio_freq);
+        pcm_setup(Audio_freq);
 /***
         esp_err_t res;
         res = pwm_audio_set_sample_rate(Audio_freq);
