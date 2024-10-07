@@ -1396,14 +1396,15 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                         }
                                         uint8_t opt2 = menuRun(asp_menu);
                                         if (opt2) {
+                                            /***
                                             if (opt2 == 1)
                                                 Config::aspect_16_9 = false;
                                             else
                                                 Config::aspect_16_9 = true;
-
+                                            */
                                             if (Config::aspect_16_9 != prev_asp) {
                                                 Config::ram_file = "none";
-                                                Config::save("asp169");
+                                                ///Config::save("asp169");
                                                 Config::save("ram");
                                                 esp_hard_reset();
                                             }

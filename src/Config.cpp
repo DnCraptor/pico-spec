@@ -18,7 +18,7 @@ string   Config::ram_file = NO_RAM_FILE;
 string   Config::last_ram_file = NO_RAM_FILE;
 
 bool     Config::slog_on = false;
-bool     Config::aspect_16_9 = false;
+const bool     Config::aspect_16_9 = false;
 uint8_t  Config::videomode = 0; // 0 -> SAFE VGA, 1 -> 50HZ VGA, 2 -> 50HZ CRT
 ///uint8_t  Config::esp32rev = 0;
 uint8_t  Config::lang = 0;
@@ -237,7 +237,7 @@ void Config::load() {
         nvs_get_str(handle, "ram", ram_file, sts);
 ///        nvs_get_str(handle, "slog", slog, sts);
         nvs_get_str(handle, "sdstorage", FileUtils::MountPoint, sts);
-        nvs_get_b(handle, "asp169", aspect_16_9, sts);
+///        nvs_get_b(handle, "asp169", aspect_16_9, sts);
         nvs_get_u8(handle, "videomode", Config::videomode, sts);
         nvs_get_b(handle, "AY48", AY48, sts);
         nvs_get_b(handle, "Issue2", Issue2, sts);
