@@ -108,12 +108,8 @@ void pcm_call() {
     if (!m_let_process_it) {
         return;
     }
-    static uint16_t outL = 0;
-    static uint16_t outR = 0;
-    pwm_set_gpio_level(PWM_PIN0, outR); // Право
-    pwm_set_gpio_level(PWM_PIN1, outL); // Лево
-    outL = outR = 0;
-
+    uint16_t outL = 0;
+    uint16_t outR = 0;
     if (!m_channels || !m_buff || m_off >= m_size) {
         m_let_process_it = false;
         return;
@@ -130,14 +126,16 @@ void pcm_call() {
     } else {
         outR = outL;
     }
-    if (m_cb && m_off >= m_size) {
-        m_buff = m_cb(&m_size);
-        m_off = 0;
-    }
     /** TODO: vol
     outL =
     outR = 
     */
+    pwm_set_gpio_level(PWM_PIN0, outR); // Право
+    pwm_set_gpio_level(PWM_PIN1, outL); // Лево
+    if (m_cb && m_off >= m_size) {
+        m_buff = m_cb(&m_size);
+        m_off = 0;
+    }
     m_let_process_it = false;
 #endif
     return;
