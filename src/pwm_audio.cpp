@@ -57,6 +57,7 @@ static i2s_config_t i2s_config = {
         .dma_trans_count = 0,
         .dma_buf = NULL,
         .volume = 0,
+        .program_offset = 0
 	};
 #else
 static void PWM_init_pin(uint8_t pinN, uint16_t max_lvl) {
@@ -101,13 +102,7 @@ static volatile bool m_let_process_it = false;
 #endif
 
 static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core#1?
-#ifdef I2S_SOUND
-    size_t size = 0;
-    int16_t* buff = (int16_t*)m_cb(&size);
-    i2s_config.dma_buf = buff;
-    i2s_config.dma_trans_count = size >> 1;
-    i2s_dma_write(&i2s_config, buff);
-#else
+#ifndef I2S_SOUND
     m_let_process_it = true;
 #endif
     return true;
@@ -136,10 +131,6 @@ void pcm_call() {
     } else {
         outR = outL;
     }
-    /** TODO: vol
-    outL =
-    outR = 
-    */
     pwm_set_gpio_level(PWM_PIN0, outR); // Право
     pwm_set_gpio_level(PWM_PIN1, outL); // Лево
     if (m_channels == 1) {
@@ -160,7 +151,6 @@ void pcm_cleanup(void) {
 #ifdef I2S_SOUND
     i2s_volume(&i2s_config, 0);
     i2s_deinit(&i2s_config);
-    // TODO: stop DMA?
 #else
     uint16_t o = 0;
     pwm_set_gpio_level(PWM_PIN0, o); // Право
@@ -170,16 +160,16 @@ void pcm_cleanup(void) {
 #endif
 }
 
+/// size - bytes
 void pcm_setup(int hz, size_t size) {
 #ifdef I2S_SOUND
     if (i2s_config.dma_buf) {
         pcm_cleanup();
     }
     i2s_config.sample_freq = hz;
-    i2s_config.channel_count = 1;
+    i2s_config.channel_count = 2;
     i2s_config.dma_trans_count = size >> 2;
     i2s_init(&i2s_config);
-///	add_repeating_timer_us(1000000 * i2s_config.size * i2s_config.channel_count / hz, timer_callback, NULL, &m_timer);
 #else
     if (m_timer.delay_us) {
         pcm_cleanup();
@@ -195,9 +185,8 @@ void pcm_setup(int hz, size_t size) {
 void pcm_set_buffer(int16_t* buff, uint8_t channels, size_t size, pcm_end_callback_t cb) {
     m_cb = cb;
 #ifdef I2S_SOUND
-    i2s_config.channel_count = channels;
-    i2s_config.dma_trans_count = size >> 1; ///i2s_config.sample_freq / (size << 1); // Number of 32 bits words to transfer
-//    i2s_config.dma_buf = buff;
+    i2s_config.channel_count = 2; // let ignore momo for this chip
+    i2s_config.dma_trans_count = size; ///i2s_config.sample_freq / (size << 1); // Number of 32 bits words to transfer
     i2s_volume(&i2s_config, vol);
     i2s_dma_write(&i2s_config, buff);
 #else

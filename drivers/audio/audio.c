@@ -155,9 +155,11 @@ void i2s_deinit(i2s_config_t *i2s_config) {
  *             one for the left channel and one for the right channel
  *        len: length of sample in 32 bits words
  */
-void i2s_write(const i2s_config_t *i2s_config,const int16_t *samples,const size_t len) {
-    for(size_t i=0;i<len;i++) {
-        pio_sm_put_blocking(i2s_config->pio, i2s_config->sm, (uint32_t)samples[i]);
+void i2s_write(const i2s_config_t *i2s_config,const int16_t *samples, const size_t len) {
+    for (register size_t i = 0; i < len; ++i) {
+        register uint32_t t = (uint32_t)(samples[i]);
+        register uint32_t v = t << 16 | t;
+        pio_sm_put_blocking(i2s_config->pio, i2s_config->sm, v);
     }
 }
 
@@ -178,13 +180,10 @@ void i2s_dma_write(i2s_config_t *i2s_config,const int16_t *samples) {
         i2s_config->dma_buf[i] = (65536/2+(samples[i]))>>(4+i2s_config->volume);
     }
 #else
-///    if(i2s_config->volume == 0) {
-        memcpy(i2s_config->dma_buf, samples, i2s_config->dma_trans_count * sizeof(int32_t));
-///    } else {
-///        for(uint16_t i=0;i<i2s_config->dma_trans_count*2;i++) {
-///            i2s_config->dma_buf[i] = samples[i] >> i2s_config->volume;
-///        }
-    ///}
+    for (register size_t i = 0; i < (i2s_config->dma_trans_count << 1); ++i) {
+        register uint32_t t = (uint32_t)(samples[i]);
+        i2s_config->dma_buf[i >> 1] = t << 16 | t;
+    }
 #endif    
     /* Initiate the DMA transfer */
     dma_channel_transfer_from_buffer_now(i2s_config->dma_channel,
