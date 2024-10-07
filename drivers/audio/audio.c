@@ -180,9 +180,9 @@ void i2s_dma_write(i2s_config_t *i2s_config,const int16_t *samples) {
         i2s_config->dma_buf[i] = (65536/2+(samples[i]))>>(4+i2s_config->volume);
     }
 #else
-    for (register size_t i = 0; i < (i2s_config->dma_trans_count << 1); ++i) {
+    for (register size_t i = 0; i < (i2s_config->dma_trans_count); ++i) {
         register uint32_t t = (uint32_t)(samples[i]);
-        i2s_config->dma_buf[i >> 1] = t << 16 | t;
+        i2s_config->dma_buf[i] = t << 16 | t;
     }
 #endif    
     /* Initiate the DMA transfer */
