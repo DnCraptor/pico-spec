@@ -118,13 +118,10 @@ void Config::requestMachine(string newArch, string newRomSet)
             MemESP::rom[0] = (uint8_t *) gb_rom_0_128k_es;
             MemESP::rom[1] = (uint8_t *) gb_rom_1_128k_es;
         } else if (romSet128 == "128Kcs") {
-
             MemESP::rom[0] = (uint8_t *) gb_rom_0_128k_custom;
             MemESP::rom[0] += 8;
-
             MemESP::rom[1] = (uint8_t *) gb_rom_0_128k_custom;
             MemESP::rom[1] += 16392;
-
         } else if (romSet128 == "+2") {
             MemESP::rom[0] = (uint8_t *) gb_rom_0_plus2;
             MemESP::rom[1] = (uint8_t *) gb_rom_1_plus2;
@@ -146,17 +143,6 @@ void Config::requestMachine(string newArch, string newRomSet)
     }
 
     MemESP::rom[4] = (uint8_t *) gb_rom_4_trdos_503;
-
-    // MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
-    // MemESP::ramCurrent[1] = MemESP::ram[5];
-    // MemESP::ramCurrent[2] = MemESP::ram[2];
-    // MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
-
-    // MemESP::ramContended[0] = false;
-    // MemESP::ramContended[1] = arch == "Pentagon" ? false : true;
-    // MemESP::ramContended[2] = false;
-    // MemESP::ramContended[3] = false;
-  
 }
 
 static bool nvs_get_str(FIL& handle, const char* key, string& v, const vector<string>& sts) {

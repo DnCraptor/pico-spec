@@ -113,7 +113,14 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
     // Size
     w = (cols * OSD_FONT_W) + 2;
     h = ((mf_rows + 1) * OSD_FONT_H) + 2;
-    
+
+    DIR f_dir;
+    bool res = f_opendir(&f_dir, fdir.c_str()) == FR_OK;
+    if (!res) {
+        fdir = "/";
+        res = f_opendir(&f_dir, fdir.c_str()) == FR_OK;
+    }
+
     menu = title + "\n" + fdir + "\n";
     ///menu = title + "\n" + ( fdir.length() == 1 ? fdir : fdir.substr(0,fdir.length()-1)) + "\n";
     WindowDraw(); // Draw menu outline
@@ -150,8 +157,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
             filenames.push_back("  ..");
             ++ndirs;
         }
-        DIR f_dir;
-        if (f_opendir(&f_dir, fdir.c_str()) == FR_OK) {
+        if (res) {
             FILINFO fileInfo;
             while (f_readdir(&f_dir, &fileInfo) == FR_OK && fileInfo.fname[0] != '\0') {
                 string fname = fileInfo.fname;

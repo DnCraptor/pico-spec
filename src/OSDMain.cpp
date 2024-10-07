@@ -432,6 +432,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
             menu_saverect = false;
             string mFile = fileDialog(FileUtils::SNA_Path, MENU_SNA_TITLE[Config::lang], DISK_SNAFILE, 51, 22);
             if (mFile != "") {
+                Config::save();
                 mFile.erase(0, 1);
                 string fname = FileUtils::SNA_Path + mFile;
                 LoadSnapshot(fname, "", "");
@@ -474,6 +475,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
             menu_saverect = false;  
             string mFile = fileDialog(FileUtils::TAP_Path, MENU_TAP_TITLE[Config::lang],DISK_TAPFILE,51,22);
             if (mFile != "") {
+                Config::save();
                 Tape::LoadTape(mFile);
             }
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
@@ -667,6 +669,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                         if (sna_mnu == 1) {
                             string mFile = fileDialog(FileUtils::SNA_Path, MENU_SNA_TITLE[Config::lang], DISK_SNAFILE, 28, 16);
                             if (mFile != "") {
+                                Config::save();
                                 mFile.erase(0, 1);
                                 string fname = FileUtils::SNA_Path + mFile;
                                 LoadSnapshot(fname, "", "");
@@ -734,6 +737,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                             // Select TAP File
                             string mFile = fileDialog(FileUtils::TAP_Path, MENU_TAP_TITLE[Config::lang],DISK_TAPFILE,28,16);
                             if (mFile != "") {
+                                Config::save();
                                 Tape::LoadTape(mFile);
                                 return;
                             }
@@ -835,6 +839,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     menu_saverect = true;
                                     string mFile = fileDialog(FileUtils::DSK_Path, MENU_DSK_TITLE[Config::lang],DISK_DSKFILE,26,15);
                                     if (mFile != "") {
+                                        Config::save();
                                         mFile.erase(0, 1);
                                         string fname = FileUtils::MountPoint + "/" + FileUtils::DSK_Path + "/" + mFile;
                                         ESPectrum::Betadisk.EjectDisk(dsk_num - 1);
@@ -1865,15 +1870,21 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     uint8_t res = msgDialog(title,msg);
                                     if (res == DLG_YES) {
                                         // Flash custom ROM 48K
-                                        FIL customrom;
-                                        if (f_open(&customrom, MOUNT_POINT_SD"/48custom.rom", FA_READ) != FR_OK) {
-                                            osdCenteredMsg(OSD_NOROMFILE_ERR[Config::lang], LEVEL_WARN, 2000);
-                                        } else {
-                                            bool res = updateROM(&customrom, 1);
-                                            f_close(&customrom);
-                                            string errMsg = OSD_ROM_ERR[Config::lang];
-                                            errMsg += " Code = " + to_string(res);
-                                            osdCenteredMsg(errMsg, LEVEL_ERROR, 3000);
+                                        string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang],DISK_ROMFILE,26,15);
+                                        if (mFile != "") {
+                                            mFile.erase(0, 1);
+                                            string fname = FileUtils::ROM_Path + "/" + mFile;
+                                            FIL customrom;
+                                            if (f_open(&customrom, fname.c_str(), FA_READ) != FR_OK) {
+                                                osdCenteredMsg(OSD_NOROMFILE_ERR[Config::lang], LEVEL_WARN, 2000);
+                                            } else {
+                                                bool res = updateROM(&customrom, 1);
+                                                f_close(&customrom);
+                                                string errMsg = OSD_ROM_ERR[Config::lang];
+                                                errMsg += " Code = " + to_string(res);
+                                                osdCenteredMsg(errMsg, LEVEL_ERROR, 3000);
+                                            }
+                                            return;
                                         }
                                     } else {
                                         menu_curopt = 2;
@@ -1887,15 +1898,21 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     uint8_t res = msgDialog(title,msg);
                                     if (res == DLG_YES) {
                                         // Flash custom ROM 128K
-                                        FIL customrom;
-                                        if (f_open(&customrom, MOUNT_POINT_SD"/128custom.rom", FA_READ) != FR_OK) {
-                                            osdCenteredMsg(OSD_NOROMFILE_ERR[Config::lang], LEVEL_WARN, 2000);
-                                        } else {
-                                            bool res = updateROM(&customrom, 2);
-                                            f_close(&customrom);
-                                            string errMsg = OSD_ROM_ERR[Config::lang];
-                                            errMsg += " Code = " + to_string(res);
-                                            osdCenteredMsg(errMsg, LEVEL_ERROR, 3000);
+                                        string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang],DISK_ROMFILE,26,15);
+                                        if (mFile != "") {
+                                            mFile.erase(0, 1);
+                                            string fname = FileUtils::ROM_Path + "/" + mFile;
+                                            FIL customrom;
+                                            if (f_open(&customrom, fname.c_str(), FA_READ) != FR_OK) {
+                                                osdCenteredMsg(OSD_NOROMFILE_ERR[Config::lang], LEVEL_WARN, 2000);
+                                            } else {
+                                                bool res = updateROM(&customrom, 2);
+                                                f_close(&customrom);
+                                                string errMsg = OSD_ROM_ERR[Config::lang];
+                                                errMsg += " Code = " + to_string(res);
+                                                osdCenteredMsg(errMsg, LEVEL_ERROR, 3000);
+                                            }
+                                            return;
                                         }
                                     } else {
                                         menu_curopt = 3;
@@ -2301,25 +2318,29 @@ void OSD::HWInfo() {
 
 #define FWBUFFSIZE 4096
 bool OSD::updateROM(FIL *customrom, uint8_t arch) {
+    void* target = NULL;
+    string dlgTitle = OSD_ROM[Config::lang];
+    // Flash custom ROM 48K
+    if ( arch == 1 ) {
+        target = (void*)gb_rom_0_128k_custom;
+        dlgTitle += " 48K   ";
+    }
+    // Flash custom ROM 128K
+    else if ( arch == 2 ) {
+        target = (void*)gb_rom_0_128k_custom;
+        dlgTitle += " 128K  ";
+    }
+    if ( !target ) {
+        return false;
+    }
+    Config::romSet = "128Kcs";
+    Config::save();
 /**
-
     // get the currently running partition
     const esp_partition_t *partition = esp_ota_get_running_partition();
     if (partition == NULL) {
         return ESP_ERR_NOT_FOUND;
     }
-
-    // printf("Running partition:\n");
-    // printf("address: 0x%lX\n", partition->address);
-    // printf("size: %ld\n", partition->size); // size of partition, not binary
-    // printf("partition label: %s\n", partition->label);
-
-    // Grab next update target
-    // const esp_partition_t *target = esp_ota_get_next_update_partition(NULL);
-
-    // char splabel[17]="esp0";
-    // if (strcmp(partition->label,splabel)==0) strcpy(splabel,"esp1"); else strcpy(splabel,"esp1");
-    // const esp_partition_t *target = esp_partition_find_first(ESP_PARTITION_TYPE_APP,ESP_PARTITION_SUBTYPE_ANY, (const char *) splabel);
 
     string splabel;
     if (strcmp(partition->label,"esp0")==0) splabel = "esp1"; else splabel= "esp0";
@@ -2327,10 +2348,6 @@ bool OSD::updateROM(FIL *customrom, uint8_t arch) {
     if (target == NULL) {
         return ESP_ERR_NOT_FOUND;
     }
-
-    // printf("Running partition %s type %d subtype %d at offset 0x%x.\n", partition->label, partition->type, partition->subtype, partition->address);
-    // printf("Target  partition %s type %d subtype %d at offset 0x%x.\n", target->label, target->type, target->subtype, target->address);
-    
     // Get firmware size
     fseek(customrom, 0, SEEK_END);
     long bytesfirmware = ftell(customrom);
@@ -2338,7 +2355,6 @@ bool OSD::updateROM(FIL *customrom, uint8_t arch) {
 
     // printf("Custom ROM lenght: %ld\n", bytesfirmware);
 
-    string dlgTitle = OSD_ROM[Config::lang];
 
     if (arch == 1) {
 
@@ -2347,7 +2363,6 @@ bool OSD::updateROM(FIL *customrom, uint8_t arch) {
             return ESP_ERR_INVALID_SIZE;
         }
 
-        dlgTitle += " 48K   ";
 
     } else {
 
@@ -2356,15 +2371,9 @@ bool OSD::updateROM(FIL *customrom, uint8_t arch) {
             return ESP_ERR_INVALID_SIZE;
         }
 
-        dlgTitle += " 128K  ";
     }        
 
     uint8_t data[FWBUFFSIZE] = { 0 };
-
-    // printf("MAGIC -> ");
-    // for(int i=0;i<8;i++)
-    //     printf("%c",magic[i]);
-    // printf("\n");
 
     int sindex = 0;
     int sindex128 = 0;
@@ -2372,11 +2381,6 @@ bool OSD::updateROM(FIL *customrom, uint8_t arch) {
     uint32_t rom_off_128;
     uint8_t magic[8] =	{ 0x45, 0x53, 0x50, 0x52, 0x00, 0x34, 0x38, 0x4B }; // MAGIC -> "ESPR_48K" ;
     uint8_t magic128[8] = { 0x45, 0x53, 0x50, 0x52, 0x00, 0x31, 0x32, 0x38 }; // MAGIC -> "ESPR_128"
-
-    // for (int n=0; n<8; n++) {
-    //     magic[n] = gb_rom_0_48k_custom[n];
-    //     magic128[n] = gb_rom_0_128k_custom[n];
-    // }
 
     magic[4] = 0x5F;
     magic128[4] = 0x5F;    
@@ -2444,19 +2448,9 @@ bool OSD::updateROM(FIL *customrom, uint8_t arch) {
     // Copy active to target injecting new custom roms
     uint32_t psize = partition->size;
 
-    // printf("Before -> %ld\n",psize);
-
     rom_off += 8;
     rom_off_128 += 8;    
 
-    // FIL file;
-    // file = fopen("/sd/firmware.out", "wb");
-    // if (file==NULL) {
-    //     printf("FileSNA: Error opening firmware.out for writing");
-    //     return;
-    // }
-
-    
     progressDialog(dlgTitle,OSD_ROM_WRITE[Config::lang],0,1);
 
     for(uint32_t i=0; i < partition->size; i += FWBUFFSIZE) {
@@ -2482,9 +2476,6 @@ bool OSD::updateROM(FIL *customrom, uint8_t arch) {
                     return result;
                 }
 
-                // for (int m=0;m<FWBUFFSIZE;m++)
-                //     writeByteFile(data[m], file);
-
             } else {
                 printf("esp_partition_read failed, err=0x%x.\n", result);
                 progressDialog("","",0,2); 
@@ -2496,43 +2487,6 @@ bool OSD::updateROM(FIL *customrom, uint8_t arch) {
     }
 
     progressDialog("","",25,1);
-
-    // for(uint32_t i=0; i < partition->size; i += FWBUFFSIZE) {
-    //     esp_err_t result = esp_partition_read(target, i, data, FWBUFFSIZE);
-    //     for (int m=0;m<FWBUFFSIZE;m++)
-    //         writeByteFile(data[m], file);
-    // }
-
-    // fclose(file);
-
-    // printf("After -> %ld\n",psize);
-
-    // for(int n=0;n<256;n++) tst[n]=0xFF;
-
-    // for (int i=0; i < 0x4000; i += 256) {
-    //     // for (int n=0;n<256;n++) {
-    //     //     tst[n] = gb_rom_0_plus2_es[i + n];
-    //     // }
-    //     result = esp_partition_write(target, rom_off + i, tst, 256);
-    //     if (result != ESP_OK) {
-    //         printf("esp_partition_write failed, err=0x%x.\n", result);
-    //         return;
-    //     }
-    // }
-
-    // for (int i= 0; i < 0x4000; i += 256) {
-    //     // for (int n=0;n<256;n++) {
-    //     //     tst[n] = gb_rom_1_plus2_es[i + n];
-    //     // }
-    //     result = esp_partition_write(target, rom_off + i + 0x4000, tst, 256);
-    //     if (result != ESP_OK) {
-    //         printf("esp_partition_write failed, err=0x%x.\n", result);
-    //         return;
-    //     }
-    // }
-
-    // esp_partition_write(target,rom_off,&gb_rom_0_48k_rg[8],16384);
-    // esp_partition_write(target,rom_off + 0x4000,&gb_rom_0_48k_rg[8],16384);    
 
     result = esp_ota_set_boot_partition(target);
     if (result != ESP_OK) {
@@ -2636,32 +2590,10 @@ bool OSD::updateROM(FIL *customrom, uint8_t arch) {
 
     }
 
-    // for (int i=0; i < 0x4000; i += 256) {
-    //     result = esp_partition_read(target, rom_off + i, tst, 256);
-    //     if (result != ESP_OK) {
-    //         printf("esp_partition_read failed, err=0x%x.\n", result);
-    //         return;
-    //     }
-    //     for (int n=0;n<256;n++) {
-    //                 if (tst[n] != gb_rom_0_plus2_es[i+n]) printf("Dif!\n");
-    //     }
-    // }
 
-    // for (int i=0; i < 0x4000; i += 256) {
-    //     result = esp_partition_read(target, rom_off + i + 0x4000, tst, 256);
-    //     if (result != ESP_OK) {
-    //         printf("esp_partition_read failed, err=0x%x.\n", result);
-    //         return;
-    //     }
-    //     for (int n=0;n<256;n++) {
-    //                 if (tst[n] != gb_rom_1_plus2_es[ i + n]) printf("Dif!\n");
-    //     }
-    // }
-
-    progressDialog(dlgTitle,OSD_FIRMW_END[Config::lang],0,1);
-
-    delay(1000);
 */
+    progressDialog(dlgTitle,OSD_FIRMW_END[Config::lang],0,1);
+    delay(1000);
     // Firmware written: reboot
     OSD::esp_hard_reset();
     return true;

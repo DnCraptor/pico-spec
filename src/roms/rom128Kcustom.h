@@ -1,7 +1,9 @@
 #ifndef ROM_128K_CUSTOM_H
- #define ROM_128K_CUSTOM_H
+#define ROM_128K_CUSTOM_H
 
-const unsigned char gb_rom_0_128k_custom[]={
+#include <hardware/flash.h>
+
+const unsigned char __in_flash() __aligned(4096) gb_rom_0_128k_custom[]={
 
 	0x45, 0x53, 0x50, 0x52, 0x5F, 0x31, 0x32, 0x38, // MAGIC -> "ESPR_128"
 

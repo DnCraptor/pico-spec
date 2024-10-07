@@ -199,6 +199,10 @@ static const char *MENU_TAP_TITLE[2] = { MENU_TAP_TITLE_EN,MENU_TAP_TITLE_ES };
 #define MENU_DSK_TITLE_ES "Elija disco"
 static const char *MENU_DSK_TITLE[2] = { MENU_DSK_TITLE_EN,MENU_DSK_TITLE_ES };
 
+#define MENU_ROM_TITLE_EN "Select ROM"
+#define MENU_ROM_TITLE_ES "Elija ROM"
+static const char *MENU_ROM_TITLE[2] = { MENU_ROM_TITLE_EN,MENU_ROM_TITLE_ES };
+
 #define MENU_SNA_EN \
     "Snapshot menu\n"\
     "Load (SNA,Z80,P)\t(F2) >\n"\

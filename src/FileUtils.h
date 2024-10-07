@@ -52,6 +52,7 @@ using namespace std;
 #define DISK_SNAFILE 0
 #define DISK_TAPFILE 1
 #define DISK_DSKFILE 2
+#define DISK_ROMFILE 3
 
 struct DISK_FTYPE {
     string fileExts;
@@ -91,8 +92,9 @@ public:
     static string SNA_Path; // Current SNA path on the SD
     static string TAP_Path; // Current TAP path on the SD
     static string DSK_Path; // Current DSK path on the SD
+    static string ROM_Path; // Current DSK path on the SD
 
-    static DISK_FTYPE fileTypes[3];
+    static DISK_FTYPE fileTypes[4];
 
 private:
     friend class Config;

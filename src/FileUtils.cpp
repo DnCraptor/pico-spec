@@ -56,13 +56,15 @@ string FileUtils::MountPoint = MOUNT_POINT_SD; // Start with SD
 bool FileUtils::SDReady = false;
 ///sdmmc_card_t *FileUtils::card;
 
-string FileUtils::SNA_Path = "/"; // DISK_SNA_DIR; // Current path on the SD (for future folder support)
-string FileUtils::TAP_Path = "/"; // DISK_TAP_DIR; // Current path on the SD (for future folder support)
-string FileUtils::DSK_Path = "/"; // DISK_DSK_DIR; // Current path on the SD (for future folder support)
-DISK_FTYPE FileUtils::fileTypes[3] = {
+string FileUtils::SNA_Path = "/";
+string FileUtils::TAP_Path = "/";
+string FileUtils::DSK_Path = "/";
+string FileUtils::ROM_Path = "/";
+DISK_FTYPE FileUtils::fileTypes[4] = {
     {".sna,.SNA,.z80,.Z80,.p,.P",".s",2,2,0,""},
     {".tap,.TAP,.tzx,.TZX",".t",2,2,0,""},
-    {".trd,.TRD,.scl,.SCL",".d",2,2,0,""}
+    {".trd,.TRD,.scl,.SCL",".d",2,2,0,""},
+    {".rom,.ROM,.bin,.BIN",".d",2,2,0,""}
 };
 
 size_t fwrite(const void* v, size_t sz1, size_t sz2, FIL& f);
