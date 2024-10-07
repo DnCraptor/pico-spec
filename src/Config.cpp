@@ -203,7 +203,7 @@ void Config::load() {
     // printf("\n");
     // printf("Opening Non-Volatile Storage (NVS) handle... ");
     FIL handle;
-    string nvs = MOUNT_POINT_SD "/storage.nvs";
+    string nvs = MOUNT_POINT_SD STORAGE_NVS;
     FRESULT err = f_open(&handle, nvs.c_str(), FA_READ);
     if (err != FR_OK) {
 ///        OSD::osdCenteredMsg("Error opening file:\n" + nvs + "\n", LEVEL_ERROR, 5000);
@@ -313,7 +313,7 @@ void Config::save(string value) {
     // printf("\n");
     // printf("Opening Non-Volatile Storage (NVS) handle... ");
     FIL handle;
-    string nvs = MOUNT_POINT_SD "/storage.nvs";
+    string nvs = MOUNT_POINT_SD STORAGE_NVS;
     FRESULT err = f_open(&handle, nvs.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
     if (err != FR_OK) {
         OSD::osdCenteredMsg("Error opening file:\n" + nvs + "\n", LEVEL_ERROR, 5000);

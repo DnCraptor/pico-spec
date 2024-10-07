@@ -99,6 +99,8 @@ private:
 ///    static sdmmc_card_t *card;    
 };
 
+#define STORAGE_NVS "/storage.nvs"
+
 #ifndef ESP32_SDL2_WRAPPER
 #define MOUNT_POINT_SPIFFS "/spec"
 #define MOUNT_POINT_SD "/spec"

@@ -345,12 +345,14 @@ static const char *MENU_SCANLINES[2] = { "Scanlines\n", "Scanlines\n" };
     "Reset Menu\n"\
     "Soft reset\n"\
     "Hard reset\t(F11)\n"\
-    "RP2040 reset\t(F12)\n"
+    "RP2040 reset\t(F12)\n"\
+    "Defaults\n"
 #define MENU_RESET_ES \
     "Resetear\n"\
     "Reset parcial\n"\
     "Reset completo\t(F11)\n"\
-    "Resetear RP2040\t(F12)\n"
+    "Resetear RP2040\t(F12)\n"\
+	"Predeterminados\n"
 static const char *MENU_RESET[2] = { MENU_RESET_EN, MENU_RESET_ES };
 
 #define MENU_PERSIST_SAVE_EN \

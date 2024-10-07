@@ -1037,6 +1037,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                         Config::ram_file = NO_RAM_FILE;
                         Config::save("ram");
                         esp_hard_reset();
+                    } else if (opt2 == 4) {
+                        f_unlink(MOUNT_POINT_SD STORAGE_NVS);
+                        esp_hard_reset();
                     } else {
                         menu_curopt = 5;
                         break;
