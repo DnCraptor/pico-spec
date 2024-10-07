@@ -565,7 +565,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
 
             if (ESPectrum::aud_volume>ESP_VOLUME_MIN) {
                 ESPectrum::aud_volume--;
-///                pwm_audio_set_volume(ESPectrum::aud_volume);
+                pwm_audio_set_volume(ESPectrum::aud_volume);
             }
 
             unsigned short x,y;
@@ -606,7 +606,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
 
             if (ESPectrum::aud_volume<ESP_VOLUME_MAX) {
                 ESPectrum::aud_volume++;
-///                pwm_audio_set_volume(ESPectrum::aud_volume);
+                pwm_audio_set_volume(ESPectrum::aud_volume);
             }
 
             unsigned short x,y;
@@ -793,7 +793,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     if (Config::tape_player != prev_opt) {
                                         if (Config::tape_player) {
                                             ESPectrum::aud_volume = ESP_VOLUME_MAX;
-///                                            pwm_audio_set_volume(ESPectrum::aud_volume);
+                                            pwm_audio_set_volume(ESPectrum::aud_volume);
                                         }
                                         Config::save("tape_player");
                                     }

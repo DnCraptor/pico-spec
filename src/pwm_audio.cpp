@@ -6,10 +6,19 @@
 #include "audio.h"
 #include "pwm_audio.h"
 
-static volatile int8_t vol = 127;
+#define VOLUME_0DB          (16)
+
+static volatile uint8_t vol = VOLUME_0DB;
 
 esp_err_t pwm_audio_set_volume(int8_t volume) {
-    vol = volume;
+    if (volume < -VOLUME_0DB) {
+        vol = 0;
+        return ESP_OK;
+    }
+    if (volume > VOLUME_0DB) {
+        volume = VOLUME_0DB;
+    }
+    vol = volume + VOLUME_0DB;
     return ESP_OK;
 }
 
@@ -23,8 +32,9 @@ static int16_t* buff = NULL;
 
 esp_err_t pwm_audio_write(uint8_t *inbuf, size_t len, size_t* bytes_written, uint32_t wait_ms) {
     int16_t* b = new int16_t[len];
+    int16_t volume = vol;
     for (size_t i = 0; i < len; ++i) {
-        b[i] = (int16_t)inbuf[i] << 7;
+        b[i] = (((int16_t)inbuf[i]) << 7) * volume / VOLUME_0DB;
     }
     pcm_set_buffer(b, 1, len, NULL);
     if (buff) delete[] buff;
