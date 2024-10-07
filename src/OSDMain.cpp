@@ -804,11 +804,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     menu_level = 1;                                       
                                     break;
                                 }
-
                             }
-
                         }
-
                     } else {
                         menu_curopt = 2;
                         break;

@@ -28,6 +28,7 @@ option(HDMI "Enable HDMI display" OFF)
 option(TV "Enable TV composite output" OFF)
 option(SOFTTV "Enable TV soft composite output" OFF)
 
+set(I2S ON)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
@@ -113,6 +114,7 @@ ELSEIF(I2S_CS4334)
     SET(BUILD_NAME "${BUILD_NAME}-I2S-CS4334")
 ELSE()
     SET(BUILD_NAME "${BUILD_NAME}-I2S-TDA1387")
+    target_compile_definitions(${PROJECT_NAME} PRIVATE I2S_SOUND=1)
 ENDIF()
 
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "${BUILD_NAME}")
@@ -142,7 +144,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-        #I2S_SOUND
         PWM_PIN0=26
         PWM_PIN1=27
         BEEPER_PIN=28

@@ -42,7 +42,7 @@ visit https://zxespectrum.speccy.org/contacto
 #define MSG_SAVE_CONFIG "Saving config file"
 #define MSG_VGA_INIT "Initializing VGA"
 
-#define EMU_VERSION "       v1.2 "
+#define EMU_VERSION " v1.2/0.1.8 "
 
 // Error
 #define ERROR_TITLE "  !!!   ERROR - CLIVE MEDITATION   !!!  "
@@ -54,9 +54,9 @@ visit https://zxespectrum.speccy.org/contacto
 #define ERR_DIR_OPEN "Cannot open directory!"
 
 // OSD
-#define OSD_TITLE  " ESPectrum - RP2040-port "
+#define OSD_TITLE  " ESPectrum (RP2040 port) "
 // #define OSD_BOTTOM " SCIENCE LEADS TO PROGRESS              "
-#define OSD_BOTTOM " zxespectrum.speccy.org     " EMU_VERSION
+#define OSD_BOTTOM " Murmulator port by MikeV73 " EMU_VERSION
 
 #define OSD_PAUSE_EN "--=[ PAUSED ]=--"
 #define OSD_PAUSE_ES "--=[EN PAUSA]=--"

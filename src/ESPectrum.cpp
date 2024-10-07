@@ -608,7 +608,7 @@ void ESPectrum::setup()
     // Latest parameter = Core. In ESPIF, main task runs on core 0 by default. In Arduino, loop() runs on core 1.
 ///    xTaskCreatePinnedToCore(&ESPectrum::audioTask, "audioTask", 1024 /*1536*/, NULL, configMAX_PRIORITIES - 1, &audioTaskHandle, 1);
     pwm_audio_set_volume(aud_volume);
-    pcm_setup(Audio_freq);
+    pcm_setup(Audio_freq, samplesPerFrame << 1);
     prevAudio_freq = Audio_freq;
 
     // AY Sound
@@ -758,7 +758,7 @@ void ESPectrum::reset()
     if (prevAudio_freq != Audio_freq) {
         
         // printf("Resetting pwmaudio to freq: %d\n",Audio_freq);
-        pcm_setup(Audio_freq);
+        pcm_setup(Audio_freq, samplesPerFrame << 1);
 /***
         esp_err_t res;
         res = pwm_audio_set_sample_rate(Audio_freq);

@@ -44,13 +44,15 @@ typedef struct i2s_config
     uint8_t  sm; 
     uint8_t  dma_channel;
     uint16_t dma_trans_count;
-    uint16_t *dma_buf;
+    int16_t *dma_buf;
     uint8_t volume;
+    int program_offset;
 } i2s_config_t;
 
 
 i2s_config_t i2s_get_default_config(void);
 void i2s_init(i2s_config_t *i2s_config);
+void i2s_deinit(i2s_config_t *i2s_config);
 void i2s_write(const i2s_config_t *i2s_config,const int16_t *samples,const size_t len);
 void i2s_dma_write(i2s_config_t *i2s_config,const int16_t *samples);
 void i2s_volume(i2s_config_t *i2s_config,uint8_t volume);

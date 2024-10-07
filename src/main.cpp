@@ -391,7 +391,7 @@ int main() {
     sem_release(&vga_start_semaphore);
 
     init_sound();
-    pcm_setup(ESPectrum::Audio_freq);
+    pcm_setup(ESPectrum::Audio_freq, ESP_AUDIO_SAMPLES_PENTAGON << 1);
 
     ESPectrum::setup();
     ESPectrum::loop();

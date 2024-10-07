@@ -63,8 +63,6 @@ i2s_config_t i2s_get_default_config(void) {
 
 
 void i2s_init(i2s_config_t *i2s_config) {
-
-
 #ifndef AUDIO_PWM_PIN
 
     uint8_t func=GPIO_FUNC_PIO1;    // TODO: GPIO_FUNC_PIO0 for pio0 or GPIO_FUNC_PIO1 for pio1
@@ -79,13 +77,12 @@ void i2s_init(i2s_config_t *i2s_config) {
     uint32_t divider = system_clock_frequency * 4 / i2s_config->sample_freq; // avoid arithmetic overflow
 
 #ifdef I2S_CS4334
-    uint offset = pio_add_program(i2s_config->pio, &audio_i2s_cs4334_program);
+    i2s_config->program_offset = pio_add_program(i2s_config->pio, &audio_i2s_cs4334_program);
     audio_i2s_cs4334_program_init(i2s_config->pio, i2s_config->sm , offset, i2s_config->data_pin , i2s_config->clock_pin_base);
     divider >>= 3;
 #else
-    uint offset = pio_add_program(i2s_config->pio, &audio_i2s_program);
-    audio_i2s_program_init(i2s_config->pio, i2s_config->sm , offset, i2s_config->data_pin , i2s_config->clock_pin_base);
-
+    i2s_config->program_offset = pio_add_program(i2s_config->pio, &audio_i2s_program);
+    audio_i2s_program_init(i2s_config->pio, i2s_config->sm , i2s_config->program_offset, i2s_config->data_pin , i2s_config->clock_pin_base);
 #endif
 
     pio_sm_set_clkdiv_int_frac(i2s_config->pio, i2s_config->sm , divider >> 8u, divider & 0xffu);
@@ -140,6 +137,16 @@ void i2s_init(i2s_config_t *i2s_config) {
     pio_sm_set_enabled(i2s_config->pio, i2s_config->sm , true);
 }
 
+void i2s_deinit(i2s_config_t *i2s_config) {
+    dma_channel_abort(i2s_config->dma_channel);
+    dma_channel_unclaim(i2s_config->dma_channel);
+    pio_sm_set_enabled(i2s_config->pio, i2s_config->sm, false);
+    pio_remove_program(i2s_config->pio, &audio_i2s_program, i2s_config->program_offset);
+    pio_sm_unclaim(i2s_config->pio, i2s_config->sm);
+    free(i2s_config->dma_buf);
+    i2s_config->dma_buf = 0;
+}
+
 /**
  * Write samples to I2S directly and wait for completion (blocking)
  * i2s_config: I2S context obtained by i2s_get_default_config()
@@ -150,7 +157,7 @@ void i2s_init(i2s_config_t *i2s_config) {
  */
 void i2s_write(const i2s_config_t *i2s_config,const int16_t *samples,const size_t len) {
     for(size_t i=0;i<len;i++) {
-            pio_sm_put_blocking(i2s_config->pio, i2s_config->sm, (uint32_t)samples[i]);
+        pio_sm_put_blocking(i2s_config->pio, i2s_config->sm, (uint32_t)samples[i]);
     }
 }
 
@@ -160,28 +167,25 @@ void i2s_write(const i2s_config_t *i2s_config,const int16_t *samples,const size_
  *     sample: pointer to an array of dma_trans_count x 32 bits samples
  */
 void i2s_dma_write(i2s_config_t *i2s_config,const int16_t *samples) {
+    if (!i2s_config->dma_buf) {
+        return;
+    }
     /* Wait the completion of the previous DMA transfer */
     dma_channel_wait_for_finish_blocking(i2s_config->dma_channel);
     /* Copy samples into the DMA buffer */
-
 #ifdef AUDIO_PWM_PIN
     for(uint16_t i=0;i<i2s_config->dma_trans_count*2;i++) {
-           
-            i2s_config->dma_buf[i] = (65536/2+(samples[i]))>>(4+i2s_config->volume);
-
-        }
-#else
-
-    if(i2s_config->volume==0) {
-        memcpy(i2s_config->dma_buf,samples,i2s_config->dma_trans_count*sizeof(int32_t));
-    } else {
-        for(uint16_t i=0;i<i2s_config->dma_trans_count*2;i++) {
-            i2s_config->dma_buf[i] = samples[i]>>i2s_config->volume;
-        }
+        i2s_config->dma_buf[i] = (65536/2+(samples[i]))>>(4+i2s_config->volume);
     }
+#else
+///    if(i2s_config->volume == 0) {
+        memcpy(i2s_config->dma_buf, samples, i2s_config->dma_trans_count * sizeof(int32_t));
+///    } else {
+///        for(uint16_t i=0;i<i2s_config->dma_trans_count*2;i++) {
+///            i2s_config->dma_buf[i] = samples[i] >> i2s_config->volume;
+///        }
+    ///}
 #endif    
-
-
     /* Initiate the DMA transfer */
     dma_channel_transfer_from_buffer_now(i2s_config->dma_channel,
                                          i2s_config->dma_buf,
