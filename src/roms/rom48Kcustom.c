@@ -1,6 +1,6 @@
-#include "roms/rom48Kcustom.h"
+#include <hardware/flash.h>
 
-unsigned char gb_rom_0_48k_custom[] = {
+unsigned char __in_flash() __aligned(4096) gb_rom_0_48k_custom[] = {
 
 	0x45, 0x53, 0x50, 0x52, 0x5F, 0x34, 0x38, 0x4B, // MAGIC -> "ESPR_48K"
 

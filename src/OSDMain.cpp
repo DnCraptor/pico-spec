@@ -2264,9 +2264,9 @@ void OSD::HWInfo() {
 
 }
 
-uint8_t __scratch_y("buffer") __aligned(4096) buffer[2048] = { 0 };
+///uint8_t __scratch_y("buffer") __aligned(4096) buffer[2048] = { 0 };
 
-static void __not_in_flash_func(flash_block)(size_t flash_target_offset) {
+static void __not_in_flash_func(flash_block)(const uint8_t* buffer, size_t flash_target_offset) {
     gpio_put(PICO_DEFAULT_LED_PIN, true);
     multicore_lockout_start_blocking();
     const uint32_t ints = save_and_disable_interrupts();
@@ -2286,23 +2286,29 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         osdCenteredMsg(OSD_NOROMFILE_ERR[Config::lang], LEVEL_WARN, 2000);
         return false;
     }
-    size_t flash_target_offset = 0;
+    size_t max_flash_target_offset, flash_target_offset = 0;
     string dlgTitle = OSD_ROM[Config::lang];
     // Flash custom ROM 48K
     if ( arch == 1 ) {
         flash_target_offset = (size_t)gb_rom_0_48k_custom - XIP_BASE;
+        max_flash_target_offset = flash_target_offset + (16 << 10);
         dlgTitle += " 48K   ";
         Config::arch = "48K";
         Config::romSet = "48Kcs";
         Config::romSet48 = "48Kcs";
+        Config::pref_arch = "48K";
+        Config::pref_romSet_48 = "48Kcs";
     }
     // Flash custom ROM 128K
     else if ( arch == 2 ) {
         flash_target_offset = (size_t)gb_rom_0_128k_custom - XIP_BASE;
+        max_flash_target_offset = flash_target_offset + (32 << 10);
         dlgTitle += " 128K  ";
         Config::arch = "128K";
         Config::romSet = "128Kcs";
         Config::romSet128 = "128Kcs";
+        Config::pref_arch = "128K";
+        Config::pref_romSet_128 = "128Kcs";
     }
     if ( flash_target_offset == 0 || flash_target_offset > (16 << 20) ) {
         f_close(&customrom);
@@ -2310,17 +2316,19 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         return false;
     }
     UINT br;
+    const size_t sz = 512;
+    uint8_t* buffer = (uint8_t*)malloc(sz);
     do {
-        if ( f_read(&customrom, buffer, 2048, &br) != FR_OK) {
+        if ( f_read(&customrom, buffer, sz, &br) != FR_OK) {
             osdCenteredMsg(fname + " - unable to read", LEVEL_ERROR, 5000);
             f_close(&customrom);
             return false;
         }
-        osdCenteredMsg(fname + " " + to_string(br), LEVEL_ERROR, 5000);
         if (!br) break;
-        flash_block(flash_target_offset);
-        flash_target_offset += 2048;
-    } while (br == 2048);
+        flash_block(buffer, flash_target_offset);
+        flash_target_offset += sz;
+    } while (br == sz && flash_target_offset < max_flash_target_offset);
+    free(buffer);
     f_close(&customrom);
     Config::StartMsg = true;
     Config::save();

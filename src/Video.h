@@ -39,7 +39,6 @@ visit https://zxespectrum.speccy.org/contacto
 #include <inttypes.h>
 #include "ESPectrum.h"
 #include "VGA/VGA6Bit.h"
-#include "ext32buffer.h"
 #include <list>
 
 #define SPEC_W 256

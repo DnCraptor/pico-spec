@@ -1,4 +1,4 @@
-#include "roms/rom128Kcustom.h"
+#include <hardware/flash.h>
 
 unsigned char __in_flash() __aligned(4096) gb_rom_0_128k_custom[32776] = {
 
