@@ -1864,11 +1864,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                         menu_saverect = false;
                                     }
                                 } else if (opt2 == 2) {
-                                    string title = OSD_ROM[Config::lang];
-                                    title += " 48K   ";            
-                                    string msg = OSD_DLG_SURE[Config::lang];
-                                    uint8_t res = msgDialog(title,msg);
-                                    if (res == DLG_YES) {
                                         // Flash custom ROM 48K
                                         string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang],DISK_ROMFILE,26,15);
                                         if (mFile != "") {
@@ -1886,17 +1881,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             }
                                             return;
                                         }
-                                    } else {
-                                        menu_curopt = 2;
-                                        menu_level = 2;                                       
-                                        menu_saverect = false;
-                                    }
                                 } else if (opt2 == 3) {                                    
-                                    string title = OSD_ROM[Config::lang];
-                                    title += " 128K  ";
-                                    string msg = OSD_DLG_SURE[Config::lang];
-                                    uint8_t res = msgDialog(title,msg);
-                                    if (res == DLG_YES) {
                                         // Flash custom ROM 128K
                                         string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang],DISK_ROMFILE,26,15);
                                         if (mFile != "") {
@@ -1914,11 +1899,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             }
                                             return;
                                         }
-                                    } else {
-                                        menu_curopt = 3;
-                                        menu_level = 2;                                       
-                                        menu_saverect = false;
-                                    }
                                 }
                             } else {
                                 menu_curopt = 9;
@@ -2316,24 +2296,46 @@ void OSD::HWInfo() {
 
 }
 
-#define FWBUFFSIZE 4096
+static uint8_t __scratch_y("for_save") __aligned(4096) buffer[4096];
+
 bool OSD::updateROM(FIL *customrom, uint8_t arch) {
-    void* target = NULL;
+    size_t flash_target_offset = 0;
     string dlgTitle = OSD_ROM[Config::lang];
     // Flash custom ROM 48K
     if ( arch == 1 ) {
-        target = (void*)gb_rom_0_128k_custom;
+        flash_target_offset = (size_t)gb_rom_0_48k_custom - XIP_BASE;
         dlgTitle += " 48K   ";
+        Config::romSet = "48Kcs";
     }
     // Flash custom ROM 128K
     else if ( arch == 2 ) {
-        target = (void*)gb_rom_0_128k_custom;
+        flash_target_offset = (size_t)gb_rom_0_128k_custom - XIP_BASE;
         dlgTitle += " 128K  ";
+        Config::romSet = "128Kcs";
     }
-    if ( !target ) {
+    if ( !flash_target_offset ) {
         return false;
     }
-    Config::romSet = "128Kcs";
+    UINT br;
+    multicore_lockout_start_blocking();
+    uint32_t ints = save_and_disable_interrupts();
+    do {
+        flash_range_erase(flash_target_offset, FLASH_SECTOR_SIZE);
+        restore_interrupts(ints);
+        multicore_lockout_end_blocking();
+        gpio_put(PICO_DEFAULT_LED_PIN, true);
+
+        f_read(customrom, buffer, FLASH_SECTOR_SIZE, &br);
+
+        gpio_put(PICO_DEFAULT_LED_PIN, false);
+        multicore_lockout_start_blocking();
+        ints = save_and_disable_interrupts();
+        if (!br) break;
+        flash_range_program(flash_target_offset, buffer, FLASH_SECTOR_SIZE);
+        flash_target_offset += FLASH_SECTOR_SIZE;
+    } while (br == FLASH_SECTOR_SIZE);
+    restore_interrupts(ints);
+    multicore_lockout_end_blocking();
     Config::save();
 /**
     // get the currently running partition

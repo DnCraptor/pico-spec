@@ -77,6 +77,7 @@ pico_set_program_version(pico-spec "test")
 
 target_include_directories(${PROJECT_NAME} PRIVATE
         src
+        src/roms
 )
 
 IF(TFT)

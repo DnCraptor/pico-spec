@@ -64,7 +64,7 @@ DISK_FTYPE FileUtils::fileTypes[4] = {
     {".sna,.SNA,.z80,.Z80,.p,.P",".s",2,2,0,""},
     {".tap,.TAP,.tzx,.TZX",".t",2,2,0,""},
     {".trd,.TRD,.scl,.SCL",".d",2,2,0,""},
-    {".rom,.ROM,.bin,.BIN",".d",2,2,0,""}
+    {".rom,.ROM,.bin,.BIN",".s",2,2,0,""}
 };
 
 size_t fwrite(const void* v, size_t sz1, size_t sz2, FIL& f);

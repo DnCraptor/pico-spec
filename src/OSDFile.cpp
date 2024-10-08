@@ -118,7 +118,8 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
     bool res = f_opendir(&f_dir, fdir.c_str()) == FR_OK;
     if (!res) {
         fdir = "/";
-        res = f_opendir(&f_dir, fdir.c_str()) == FR_OK;
+    } else {
+        f_closedir(&f_dir);
     }
 
     menu = title + "\n" + fdir + "\n";
@@ -157,17 +158,21 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
             filenames.push_back("  ..");
             ++ndirs;
         }
+        res = f_opendir(&f_dir, fdir.c_str()) == FR_OK;
         if (res) {
             FILINFO fileInfo;
             while (f_readdir(&f_dir, &fileInfo) == FR_OK && fileInfo.fname[0] != '\0') {
                 string fname = fileInfo.fname;
                 if (fname.compare(0,1,".") != 0) {
                     size_t fpos = fname.find_last_of(".");
-                    if ((fileInfo.fattrib & AM_DIR) || ((fpos != string::npos) && (std::find(filexts.begin(),filexts.end(),fname.substr(fpos)) != filexts.end()))) {                                    
+                    if (
+                        (fileInfo.fattrib & AM_DIR) ||
+                        ((fpos != string::npos) && (std::find(filexts.begin(), filexts.end(), fname.substr(fpos)) != filexts.end()))
+                    ) {
                         if (fileInfo.fattrib & AM_DIR) {
                             ndirs++;
                             filenames.push_back((char(32) + fname).c_str());
-                    }
+                        }
                         else {
                             elements++; // Count elements in dir
                             filenames.push_back(fname);
