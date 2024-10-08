@@ -140,23 +140,11 @@ void OSD::WindowDraw() {
     // Set font
     VIDEO::vga.setFont(Font6x8);
 
-    if (menu_level == 0) SaveRectpos = 0;
+    if (menu_level == 0) VIDEO::SaveRect.clear();
 
     if (menu_saverect) {
         // Save backbuffer data
-        VIDEO::SaveRect[SaveRectpos] = x;
-        VIDEO::SaveRect[SaveRectpos + 1] = y;
-        VIDEO::SaveRect[SaveRectpos + 2] = w;
-        VIDEO::SaveRect[SaveRectpos + 3] = h;
-        SaveRectpos += 4;
-        for (int  m = y; m < y + h; m++) {
-            uint32_t *backbuffer32 = (uint32_t *)(VIDEO::vga.frameBuffer[m]);
-            for (int n = x >> 2; n < ((x + w) >> 2) + 1; n++) {
-                VIDEO::SaveRect[SaveRectpos] = backbuffer32[n];
-                SaveRectpos++;
-            }
-        }
-        // printf("SaveRectPos: %04X\n",SaveRectpos << 2);
+        VIDEO::SaveRect.save(x, y, w, h);
     }
 
     // Menu border
@@ -317,19 +305,9 @@ unsigned short OSD::menuRun(string new_menu) {
                     return menu_prevopt;
                 } else if (Menukey.vk == fabgl::VK_ESCAPE || Menukey.vk == fabgl::VK_F1 || Menukey.vk == fabgl::VK_JOY1A || Menukey.vk == fabgl::VK_JOY2A) {
 
-                    if (menu_level!=0) {
+                    if (menu_level != 0) {
                         // Restore backbuffer data
-                        int j = SaveRectpos - (((w >> 2) + 1) * h);
-                        //printf("SaveRectpos: %d; J b4 restore: %d\n",SaveRectpos, j);
-                        SaveRectpos = j - 4;
-                        for (int  m = y; m < y + h; m++) {
-                            uint32_t *backbuffer32 = (uint32_t *)(VIDEO::vga.frameBuffer[m]);
-                            for (int n = x >> 2; n < ((x + w) >> 2) + 1; n++) {
-                                backbuffer32[n] = VIDEO::SaveRect[j];
-                                j++;
-                            }
-                        }
-                        //printf("SaveRectpos: %d; J b4 restore: %d\n",SaveRectpos, j);
+                        VIDEO::SaveRect.restore_last();
                         menu_saverect = false;                        
                     }
 
@@ -370,23 +348,9 @@ unsigned short OSD::simpleMenuRun(string new_menu, uint16_t posx, uint16_t posy,
     VIDEO::vga.setFont(Font6x8);
 
     if (menu_saverect) {
-        
-        if (menu_level == 0) SaveRectpos = 0;
-        
+        if (menu_level == 0) VIDEO::SaveRect.clear();
         // Save backbuffer data
-        VIDEO::SaveRect[SaveRectpos] = x;
-        VIDEO::SaveRect[SaveRectpos + 1] = y;
-        VIDEO::SaveRect[SaveRectpos + 2] = w;
-        VIDEO::SaveRect[SaveRectpos + 3] = h;
-        SaveRectpos += 4;
-        for (int  m = y; m < y + h; m++) {
-            uint32_t *backbuffer32 = (uint32_t *)(VIDEO::vga.frameBuffer[m]);
-            for (int n = x >> 2; n < ((x + w) >> 2) + 1; n++) {
-                VIDEO::SaveRect[SaveRectpos] = backbuffer32[n];
-                SaveRectpos++;
-            }
-        }
-        // printf("SaveRectPos: %04X\n",SaveRectpos << 2);
+        VIDEO::SaveRect.save(x, y, w, h);
     }
 
     // Menu border
@@ -482,17 +446,7 @@ unsigned short OSD::simpleMenuRun(string new_menu, uint16_t posx, uint16_t posy,
                 } else if (Menukey.vk == fabgl::VK_RETURN || Menukey.vk == fabgl::VK_SPACE || Menukey.vk == fabgl::VK_JOY1B || Menukey.vk == fabgl::VK_JOY1C || Menukey.vk == fabgl::VK_JOY2B || Menukey.vk == fabgl::VK_JOY2C) {
                     // if (menu_saverect) {
                         // Restore backbuffer data
-                        int j = SaveRectpos - (((w >> 2) + 1) * h);
-                        //printf("SaveRectpos: %d; J b4 restore: %d\n",SaveRectpos, j);
-                        SaveRectpos = j - 4;
-                        for (int  m = y; m < y + h; m++) {
-                            uint32_t *backbuffer32 = (uint32_t *)(VIDEO::vga.frameBuffer[m]);
-                            for (int n = x >> 2; n < ((x + w) >> 2) + 1; n++) {
-                                backbuffer32[n] = VIDEO::SaveRect[j];
-                                j++;
-                            }
-                        }
-                        //printf("SaveRectpos: %d; J b4 restore: %d\n",SaveRectpos, j);
+                        VIDEO::SaveRect.restore_last();
                         menu_saverect = false;                        
                     // }
 
@@ -503,17 +457,7 @@ unsigned short OSD::simpleMenuRun(string new_menu, uint16_t posx, uint16_t posy,
 
                     // if (menu_saverect) {
                         // Restore backbuffer data
-                        int j = SaveRectpos - (((w >> 2) + 1) * h);
-                        //printf("SaveRectpos: %d; J b4 restore: %d\n",SaveRectpos, j);
-                        SaveRectpos = j - 4;
-                        for (int  m = y; m < y + h; m++) {
-                            uint32_t *backbuffer32 = (uint32_t *)(VIDEO::vga.frameBuffer[m]);
-                            for (int n = x >> 2; n < ((x + w) >> 2) + 1; n++) {
-                                backbuffer32[n] = VIDEO::SaveRect[j];
-                                j++;
-                            }
-                        }
-                        //printf("SaveRectpos: %d; J b4 restore: %d\n",SaveRectpos, j);
+                        VIDEO::SaveRect.restore_last();
                         menu_saverect = false;                        
                     // }
 
@@ -855,15 +799,7 @@ int OSD::menuTape(string title) {
 
                     if (menu_level!=0) {
                         // Restore backbuffer data
-                        int j = SaveRectpos - (((w >> 2) + 1) * h);
-                        SaveRectpos = j - 4;
-                        for (int  m = y; m < y + h; m++) {
-                            uint32_t *backbuffer32 = (uint32_t *)(VIDEO::vga.frameBuffer[m]);
-                            for (int n = x >> 2; n < ((x + w) >> 2) + 1; n++) {
-                                backbuffer32[n] = VIDEO::SaveRect[j];
-                                j++;
-                            }
-                        }
+                        VIDEO::SaveRect.restore_last();
                         menu_saverect = false;
                     }
 

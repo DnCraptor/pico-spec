@@ -40,6 +40,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "ESPectrum.h"
 #include "VGA/VGA6Bit.h"
 #include "ext32buffer.h"
+#include <list>
 
 #define SPEC_W 256
 #define SPEC_H 192
@@ -81,6 +82,19 @@ visit https://zxespectrum.speccy.org/contacto
 #define ORANGE      0b00000111 // used in ESPectrum logo text
 
 #define NUM_SPECTRUM_COLORS 17
+
+class SaveRectT {
+  std::list<size_t> offsets;
+public:
+  SaveRectT() : offsets() {
+    offsets.push_back(0);
+  }
+  void save(int16_t x, int16_t y, int16_t w, int16_t h);
+  void restore_last();
+  void clear() { offsets.clear(); offsets.push_back(0); }
+  void store_ram(const void* p, size_t sz);
+  void restore_ram(void* p, size_t sz);
+};
 
 class VIDEO
 {
@@ -179,7 +193,7 @@ public:
  
   static uint8_t OSD;
 
-  static ext32buffer SaveRect;
+  static SaveRectT SaveRect;
 
 ///  static TaskHandle_t videoTaskHandle;
 

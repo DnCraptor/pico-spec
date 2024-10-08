@@ -411,15 +411,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         } else {
                             if (menu_saverect) {
                                 // Restore backbuffer data
-                                int j = SaveRectpos - (((w >> 2) + 1) * h);
-                                SaveRectpos = j - 4;
-                                for (int  m = y; m < y + h; m++) {
-                                    uint32_t *backbuffer32 = (uint32_t *)(VIDEO::vga.frameBuffer[m]);
-                                    for (int n = x >> 2; n < ((x + w) >> 2) + 1; n++) {
-                                        backbuffer32[n] = VIDEO::SaveRect[j];
-                                        j++;
-                                    }
-                                }
+                                VIDEO::SaveRect.restore_last();
                                 menu_saverect = false;                                
                             }
                             rtrim(filedir);
@@ -429,15 +421,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                     } else if (Menukey.vk == fabgl::VK_ESCAPE || Menukey.vk == fabgl::VK_JOY1A || Menukey.vk == fabgl::VK_JOY2A) {
                         // Restore backbuffer data
                         if (menu_saverect) {
-                            int j = SaveRectpos - (((w >> 2) + 1) * h);
-                            SaveRectpos = j - 4;
-                            for (int  m = y; m < y + h; m++) {
-                                uint32_t *backbuffer32 = (uint32_t *)(VIDEO::vga.frameBuffer[m]);
-                                for (int n = x >> 2; n < ((x + w) >> 2) + 1; n++) {
-                                    backbuffer32[n] = VIDEO::SaveRect[j];
-                                    j++;
-                                }
-                            }
+                            VIDEO::SaveRect.restore_last();
                             menu_saverect = false;
                         }
                         click();

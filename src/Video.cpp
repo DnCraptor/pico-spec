@@ -75,7 +75,7 @@ int VIDEO::tStatesBorder;
 uint8_t* VIDEO::grmem;
 uint16_t VIDEO::offBmp[SPEC_H];
 uint16_t VIDEO::offAtt[SPEC_H];
-ext32buffer VIDEO::SaveRect;
+SaveRectT VIDEO::SaveRect;
 int VIDEO::VsyncFinetune[2];
 uint32_t VIDEO::framecnt = 0;
 uint8_t VIDEO::dispUpdCycle;
@@ -1232,3 +1232,55 @@ IRAM_ATTR void VIDEO::BottomBorder_OSD_Pentagon() {
 
 }    
 
+void SaveRectT::save(int16_t x, int16_t y, int16_t w, int16_t h) {
+    if (offsets.empty()) {
+        offsets.push_back(0);
+    }
+    size_t off = offsets.back();
+    FIL f;
+    f_open(&f, "/tmp/save_rect.tmp", FA_WRITE | FA_CREATE_ALWAYS);
+    f_lseek(&f, off);
+    UINT bw;
+    w += 2; // W/A
+    f_write(&f, &x, 2, &bw);
+    f_write(&f, &y, 2, &bw);
+    f_write(&f, &w, 2, &bw);
+    f_write(&f, &h, 2, &bw);
+    off += 8;
+    for (size_t line = y; line < y + h; ++line) {
+        uint8_t *backbuffer = VIDEO::vga.frameBuffer[line];
+        f_write(&f, backbuffer + x, w, &bw);
+        off += w;
+    }
+    f_close(&f);
+    offsets.push_back(off);
+}
+void SaveRectT::restore_last() {
+    if (offsets.empty()) return; /// ???
+    offsets.pop_back();
+    size_t off = offsets.back();
+    FIL f;
+    f_open(&f, "/tmp/save_rect.tmp", FA_READ);
+    f_lseek(&f, off);
+    UINT br;
+    uint16_t x;
+    uint16_t y;
+    uint16_t w;
+    uint16_t h;
+    f_read(&f, &x, 2, &br);
+    f_read(&f, &y, 2, &br);
+    f_read(&f, &w, 2, &br);
+    f_read(&f, &h, 2, &br);
+    if (!w || !h) {
+        f_close(&f);
+        return;
+    }
+    for (size_t line = y; line < y + h; ++line) {
+        uint8_t *backbuffer = VIDEO::vga.frameBuffer[line];
+        f_read(&f, backbuffer + x, w, &br);
+    }
+    f_close(&f);
+    if (offsets.empty()) {
+        offsets.push_back(0);
+    }
+}

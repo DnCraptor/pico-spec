@@ -32,6 +32,7 @@ visit https://zxespectrum.speccy.org/contacto
 
 */
 #include <hardware/watchdog.h>
+#include <hardware/sync.h>
 
 #include "OSDMain.h"
 #include "FileUtils.h"
@@ -102,7 +103,6 @@ unsigned short OSD::last_begin_row = 0; // To check for changes
 uint8_t OSD::menu_level = 0;
 bool OSD::menu_saverect = false;
 unsigned short OSD::menu_curopt = 1;
-unsigned int OSD::SaveRectpos = 0;
 
 unsigned short OSD::scrW = 320;
 unsigned short OSD::scrH = 240;
@@ -1868,37 +1868,25 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                         string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang],DISK_ROMFILE,26,15);
                                         if (mFile != "") {
                                             mFile.erase(0, 1);
-                                            string fname = FileUtils::ROM_Path + "/" + mFile;
-                                            FIL customrom;
-                                            if (f_open(&customrom, fname.c_str(), FA_READ) != FR_OK) {
-                                                osdCenteredMsg(OSD_NOROMFILE_ERR[Config::lang], LEVEL_WARN, 2000);
-                                            } else {
-                                                bool res = updateROM(&customrom, 1);
-                                                f_close(&customrom);
-                                                string errMsg = OSD_ROM_ERR[Config::lang];
-                                                errMsg += " Code = " + to_string(res);
-                                                osdCenteredMsg(errMsg, LEVEL_ERROR, 3000);
-                                            }
-                                            return;
+                                            string fname = FileUtils::ROM_Path + mFile;
+                                            bool res = updateROM(fname, 1);
+                                            ///
                                         }
+                                        menu_curopt = 1;
+                                        menu_level = 2;                                       
+                                        menu_saverect = false;
                                 } else if (opt2 == 3) {                                    
                                         // Flash custom ROM 128K
                                         string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang],DISK_ROMFILE,26,15);
                                         if (mFile != "") {
                                             mFile.erase(0, 1);
-                                            string fname = FileUtils::ROM_Path + "/" + mFile;
-                                            FIL customrom;
-                                            if (f_open(&customrom, fname.c_str(), FA_READ) != FR_OK) {
-                                                osdCenteredMsg(OSD_NOROMFILE_ERR[Config::lang], LEVEL_WARN, 2000);
-                                            } else {
-                                                bool res = updateROM(&customrom, 2);
-                                                f_close(&customrom);
-                                                string errMsg = OSD_ROM_ERR[Config::lang];
-                                                errMsg += " Code = " + to_string(res);
-                                                osdCenteredMsg(errMsg, LEVEL_ERROR, 3000);
-                                            }
-                                            return;
+                                            string fname = FileUtils::ROM_Path +  mFile;
+                                            bool res = updateROM(fname, 2);
+                                            ///
                                         }
+                                        menu_curopt = 1;
+                                        menu_level = 2;                                       
+                                        menu_saverect = false;
                                 }
                             } else {
                                 menu_curopt = 9;
@@ -2128,18 +2116,8 @@ void OSD::osdCenteredMsg(string msg, uint8_t warn_level, uint16_t millispause) {
     }
 
     if (millispause > 0) {
-        
         // Save backbuffer data
-        j = SaveRectpos;
-        for (int  m = y; m < y + h; m++) {
-            uint32_t *backbuffer32 = (uint32_t *)(VIDEO::vga.frameBuffer[m]);
-            for (int n = x >> 2; n < ((x + w) >> 2) + 1; n++) {
-                VIDEO::SaveRect[SaveRectpos] = backbuffer32[n];
-                SaveRectpos++;
-            }
-        }
-        // printf("Saverectpos: %04X\n",SaveRectpos << 2);
-
+        VIDEO::SaveRect.save(x, y, w, h);
     }
 
     VIDEO::vga.fillRect(x, y, w, h, paper);
@@ -2150,18 +2128,8 @@ void OSD::osdCenteredMsg(string msg, uint8_t warn_level, uint16_t millispause) {
     VIDEO::vga.print(msg.c_str());
     
     if (millispause > 0) {
-
         sleep_ms(millispause); // Pause if needed
-
-        SaveRectpos = j;
-        for (int  m = y; m < y + h; m++) {
-            uint32_t *backbuffer32 = (uint32_t *)(VIDEO::vga.frameBuffer[m]);
-            for (int n = x >> 2; n < ((x + w) >> 2) + 1; n++) {
-                backbuffer32[n] = VIDEO::SaveRect[j];
-                j++;
-            }
-        }
-
+        VIDEO::SaveRect.restore_last();
     }
 }
 
@@ -2296,46 +2264,65 @@ void OSD::HWInfo() {
 
 }
 
-static uint8_t __scratch_y("for_save") __aligned(4096) buffer[4096];
+uint8_t __scratch_y("buffer") __aligned(4096) buffer[2048] = { 0 };
 
-bool OSD::updateROM(FIL *customrom, uint8_t arch) {
+static void __not_in_flash_func(flash_block)(size_t flash_target_offset) {
+    gpio_put(PICO_DEFAULT_LED_PIN, true);
+    multicore_lockout_start_blocking();
+    const uint32_t ints = save_and_disable_interrupts();
+    if (0 == (flash_target_offset & (FLASH_SECTOR_SIZE - 1))) {
+        flash_range_erase(flash_target_offset, FLASH_SECTOR_SIZE);
+    }
+    flash_range_program(flash_target_offset, buffer, 2048);
+    restore_interrupts(ints);
+    multicore_lockout_end_blocking();
+    gpio_put(PICO_DEFAULT_LED_PIN, false);
+}
+
+
+bool OSD::updateROM(const string& fname, uint8_t arch) {
+    FIL customrom;
+    if (f_open(&customrom, fname.c_str(), FA_READ) != FR_OK) {
+        osdCenteredMsg(OSD_NOROMFILE_ERR[Config::lang], LEVEL_WARN, 2000);
+        return false;
+    }
     size_t flash_target_offset = 0;
     string dlgTitle = OSD_ROM[Config::lang];
     // Flash custom ROM 48K
     if ( arch == 1 ) {
         flash_target_offset = (size_t)gb_rom_0_48k_custom - XIP_BASE;
         dlgTitle += " 48K   ";
+        Config::arch = "48K";
         Config::romSet = "48Kcs";
+        Config::romSet48 = "48Kcs";
     }
     // Flash custom ROM 128K
     else if ( arch == 2 ) {
         flash_target_offset = (size_t)gb_rom_0_128k_custom - XIP_BASE;
         dlgTitle += " 128K  ";
+        Config::arch = "128K";
         Config::romSet = "128Kcs";
+        Config::romSet128 = "128Kcs";
     }
-    if ( !flash_target_offset ) {
+    if ( flash_target_offset == 0 || flash_target_offset > (16 << 20) ) {
+        f_close(&customrom);
+        osdCenteredMsg(to_string(flash_target_offset) + " - flash_target_offset", LEVEL_ERROR, 5000);
         return false;
     }
     UINT br;
-    multicore_lockout_start_blocking();
-    uint32_t ints = save_and_disable_interrupts();
     do {
-        flash_range_erase(flash_target_offset, FLASH_SECTOR_SIZE);
-        restore_interrupts(ints);
-        multicore_lockout_end_blocking();
-        gpio_put(PICO_DEFAULT_LED_PIN, true);
-
-        f_read(customrom, buffer, FLASH_SECTOR_SIZE, &br);
-
-        gpio_put(PICO_DEFAULT_LED_PIN, false);
-        multicore_lockout_start_blocking();
-        ints = save_and_disable_interrupts();
+        if ( f_read(&customrom, buffer, 2048, &br) != FR_OK) {
+            osdCenteredMsg(fname + " - unable to read", LEVEL_ERROR, 5000);
+            f_close(&customrom);
+            return false;
+        }
+        osdCenteredMsg(fname + " " + to_string(br), LEVEL_ERROR, 5000);
         if (!br) break;
-        flash_range_program(flash_target_offset, buffer, FLASH_SECTOR_SIZE);
-        flash_target_offset += FLASH_SECTOR_SIZE;
-    } while (br == FLASH_SECTOR_SIZE);
-    restore_interrupts(ints);
-    multicore_lockout_end_blocking();
+        flash_block(flash_target_offset);
+        flash_target_offset += 2048;
+    } while (br == 2048);
+    f_close(&customrom);
+    Config::StartMsg = true;
     Config::save();
 /**
     // get the currently running partition
@@ -2594,8 +2581,8 @@ bool OSD::updateROM(FIL *customrom, uint8_t arch) {
 
 
 */
-    progressDialog(dlgTitle,OSD_FIRMW_END[Config::lang],0,1);
-    delay(1000);
+    progressDialog(dlgTitle, OSD_FIRMW_END[Config::lang], 0, 1);
+    delay(5000);
     // Firmware written: reboot
     OSD::esp_hard_reset();
     return true;
@@ -2682,12 +2669,11 @@ if (result != ESP_OK) {
 // osdCenteredMsg(OSD_FIRMW_END[Config::lang], LEVEL_INFO, 0);
 progressDialog(OSD_FIRMW[Config::lang],OSD_FIRMW_END[Config::lang],100,1);
 
-// Enable StartMsg
-Config::StartMsg = true;
-Config::save("StartMsg");
-
-delay(1000);
 */
+    // Enable StartMsg
+    Config::StartMsg = true;
+    Config::save();
+    delay(5000);
     // Firmware written: reboot
     OSD::esp_hard_reset();
     return true;
@@ -2715,16 +2701,7 @@ void OSD::progressDialog(string title, string msg, int percent, int action) {
         x = scrAlignCenterX(w);
 
         // Save backbuffer data
-        j = SaveRectpos;
-        for (int  m = y; m < y + h; m++) {
-            uint32_t *backbuffer32 = (uint32_t *)(VIDEO::vga.frameBuffer[m]);
-            for (int n = x >> 2; n < ((x + w) >> 2) + 1; n++) {
-                VIDEO::SaveRect[SaveRectpos] = backbuffer32[n];
-                SaveRectpos++;
-            }
-        }
-        
-        // printf("SaveRectPos: %04X\n",SaveRectpos << 2);        
+        VIDEO::SaveRect.save(x, y, w, h);
 
         // Set font
         VIDEO::vga.setFont(Font6x8);
@@ -2776,14 +2753,7 @@ void OSD::progressDialog(string title, string msg, int percent, int action) {
         VIDEO::vga.fillRect(progress_x + barsize, progress_y, 70 - barsize, OSD_FONT_H, zxColor(7,1));        
     } else if (action == 2) { // CLOSE
         // Restore backbuffer data
-        SaveRectpos = j;
-        for (int  m = y; m < y + h; m++) {
-            uint32_t *backbuffer32 = (uint32_t *)(VIDEO::vga.frameBuffer[m]);
-            for (int n = x >> 2; n < ((x + w) >> 2) + 1; n++) {
-                backbuffer32[n] = VIDEO::SaveRect[j];
-                j++;
-            }
-        }
+        VIDEO::SaveRect.restore_last();
     }
 }
 
@@ -2800,15 +2770,7 @@ uint8_t OSD::msgDialog(string title, string msg) {
     const unsigned short x = scrAlignCenterX(w);
 
     // Save backbuffer data
-    unsigned int j = SaveRectpos;
-    for (int  m = y; m < y + h; m++) {
-        uint32_t *backbuffer32 = (uint32_t *)(VIDEO::vga.frameBuffer[m]);
-        for (int n = x >> 2; n < ((x + w) >> 2) + 1; n++) {
-            VIDEO::SaveRect[SaveRectpos] = backbuffer32[n];
-            SaveRectpos++;
-        }
-    }
-    // printf("SaveRectPos: %04X\n",SaveRectpos << 2);    
+    VIDEO::SaveRect.save(x, y, w, h);
 
     // Set font
     VIDEO::vga.setFont(Font6x8);
@@ -2907,14 +2869,7 @@ uint8_t OSD::msgDialog(string title, string msg) {
     click();
 
     // Restore backbuffer data
-    SaveRectpos = j;
-    for (int  m = y; m < y + h; m++) {
-        uint32_t *backbuffer32 = (uint32_t *)(VIDEO::vga.frameBuffer[m]);
-        for (int n = x >> 2; n < ((x + w) >> 2) + 1; n++) {
-            backbuffer32[n] = VIDEO::SaveRect[j];
-            j++;
-        }
-    }
+    VIDEO::SaveRect.restore_last();
 
     return res;
 

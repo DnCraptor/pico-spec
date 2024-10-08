@@ -115,7 +115,6 @@ public:
     static uint8_t menu_level;
     static bool menu_saverect;    
     static unsigned short menu_curopt;    
-    static unsigned int SaveRectpos;    
 
     static int8_t fdScrollPos;
     static int timeStartScroll;
@@ -136,7 +135,7 @@ public:
     static void esp_hard_reset();
 
     static bool updateFirmware(FIL *firmware);
-    static bool updateROM(FIL *rombinary, uint8_t arch);
+    static bool updateROM(const string& file, uint8_t arch);
 
     static char stats_lin1[25]; // "CPU: 00000 / IDL: 00000 ";
     static char stats_lin2[25]; // "FPS:000.00 / FND:000.00 ";
