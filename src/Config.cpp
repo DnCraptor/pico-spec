@@ -103,7 +103,7 @@ void Config::requestMachine(string newArch, string newRomSet)
             MemESP::rom[0] = (uint8_t *) gb_rom_0_48k_es;
         else if (romSet48 == "48Kcs") {
             MemESP::rom[0] = (uint8_t *) gb_rom_0_48k_custom;
-            MemESP::rom[0] += 8;
+///            MemESP::rom[0] += 8;
         }
     } else if (arch == "128K") {
 
@@ -119,9 +119,9 @@ void Config::requestMachine(string newArch, string newRomSet)
             MemESP::rom[1] = (uint8_t *) gb_rom_1_128k_es;
         } else if (romSet128 == "128Kcs") {
             MemESP::rom[0] = (uint8_t *) gb_rom_0_128k_custom;
-            MemESP::rom[0] += 8;
+///            MemESP::rom[0] += 8;
             MemESP::rom[1] = (uint8_t *) gb_rom_0_128k_custom;
-            MemESP::rom[1] += 16392;
+            MemESP::rom[1] += (16 << 10); /// 16392;
         } else if (romSet128 == "+2") {
             MemESP::rom[0] = (uint8_t *) gb_rom_0_plus2;
             MemESP::rom[1] = (uint8_t *) gb_rom_1_plus2;
