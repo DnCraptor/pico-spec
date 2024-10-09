@@ -81,6 +81,7 @@ void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
 /// TODO:            keyboard_toggle_led(PS2_LED_NUM_LOCK);
         }
     }
+    /*
     if (!numlock) {
         switch (virtualKey) {
             case fabgl::VirtualKey::VK_KP_1: virtualKey = fabgl::VirtualKey::VK_END; break;
@@ -96,9 +97,23 @@ void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
             case fabgl::VirtualKey::VK_KP_PERIOD: virtualKey = fabgl::VirtualKey::VK_DELETE; break;
         }
     }
+    */
     fabgl::Keyboard* kbd = ESPectrum::PS2Controller.keyboard();
     fabgl::KeybJoystick* kbdj = ESPectrum::PS2Controller.keybjoystick();
     if ( kbd ) {
+        switch (virtualKey) {
+            case fabgl::VirtualKey::VK_KP_1: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_FIRE; break;
+            case fabgl::VirtualKey::VK_KP_2: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_DOWN; break;
+            case fabgl::VirtualKey::VK_KP_3: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE; break;
+            case fabgl::VirtualKey::VK_KP_4: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_LEFT; break;
+            case fabgl::VirtualKey::VK_KP_5: virtualKey = fabgl::VirtualKey::VK_SPACE; break;
+            case fabgl::VirtualKey::VK_KP_6: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_RIGHT; break;
+            case fabgl::VirtualKey::VK_KP_7: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_FIRE; break;
+            case fabgl::VirtualKey::VK_KP_8: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_UP; break;
+            case fabgl::VirtualKey::VK_KP_9: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE; break;
+            case fabgl::VirtualKey::VK_KP_0: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_FIRE; break;
+            case fabgl::VirtualKey::VK_KP_PERIOD: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE; break;
+        }
         kbd->injectVirtualKey(virtualKey, down);
     }
     if ( ESPectrum::ps2kbd2 && kbdj ) {
