@@ -831,7 +831,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     if (mFile != "") {
                                         Config::save();
                                         mFile.erase(0, 1);
-                                        string fname = FileUtils::MountPoint + "/" + FileUtils::DSK_Path + "/" + mFile;
+                                        string fname = FileUtils::DSK_Path + "/" + mFile;
                                         ESPectrum::Betadisk.EjectDisk(dsk_num - 1);
                                         ESPectrum::Betadisk.InsertDisk(dsk_num - 1,fname);
                                         return;

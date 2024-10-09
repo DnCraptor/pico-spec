@@ -366,11 +366,11 @@ void Config::save(string value) {
 ///        if((value=="CenterV") || (value=="all"))
             nvs_set_i8(handle,"CenterV",Config::CenterV);
 ///        if((value=="SNA_Path") || (value=="all"))
-            nvs_set_str(handle,"SNA_Path",Config::SNA_Path.c_str());
+            nvs_set_str(handle,"SNA_Path",FileUtils::SNA_Path.c_str());
 ///        if((value=="TAP_Path") || (value=="all"))
-            nvs_set_str(handle,"TAP_Path",Config::TAP_Path.c_str());
+            nvs_set_str(handle,"TAP_Path",FileUtils::TAP_Path.c_str());
 ///        if((value=="DSK_Path") || (value=="all"))
-            nvs_set_str(handle,"DSK_Path",Config::DSK_Path.c_str());
+            nvs_set_str(handle,"DSK_Path",FileUtils::DSK_Path.c_str());
 ///        if((value=="SNA_begin_row") || (value=="all"))
             nvs_set_u16(handle,"SNA_begin_row",Config::SNA_begin_row);
 ///        if((value=="TAP_begin_row") || (value=="all"))

@@ -1241,7 +1241,8 @@ void SaveRectT::save(int16_t x, int16_t y, int16_t w, int16_t h) {
     f_open(&f, "/tmp/save_rect.tmp", FA_WRITE | FA_CREATE_ALWAYS);
     f_lseek(&f, off);
     UINT bw;
-    w += 2; // W/A
+    x -= 2; if (x < 0) x = 0; // W/A
+    w += 4; // W/A
     f_write(&f, &x, 2, &bw);
     f_write(&f, &y, 2, &bw);
     f_write(&f, &w, 2, &bw);
