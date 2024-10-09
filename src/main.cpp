@@ -65,7 +65,7 @@ static input_bits_t gamepad2_bits = { false, false, false, false, false, false, 
 #if USE_PS2_KBD
 
 #include "fabutils.h"
-void kbdPushData(const fabgl::VirtualKey& virtualKey, bool down);
+void kbdPushData(fabgl::VirtualKey virtualKey, bool down);
 
 static fabgl::VirtualKey hid2vk(uint8_t c) {
     switch ( c )
@@ -152,9 +152,9 @@ static fabgl::VirtualKey hid2vk(uint8_t c) {
     case HID_KEY_NUM_LOCK: return fabgl::VirtualKey::VK_NUMLOCK;
     case HID_KEY_KEYPAD_DIVIDE: return fabgl::VirtualKey::VK_KP_DIVIDE;
     case HID_KEY_KEYPAD_MULTIPLY: return fabgl::VirtualKey::VK_KP_MULTIPLY;
-    case HID_KEY_KEYPAD_SUBTRACT: return fabgl::VirtualKey::VK_KP_MINUS;
+    case HID_KEY_KEYPAD_SUBTRACT: return fabgl::VirtualKey::VK_MINUS; /// VK_KP_MINUS;
     case HID_KEY_KEYPAD_ADD: return fabgl::VirtualKey::VK_KP_PLUS;
-    case HID_KEY_KEYPAD_ENTER: return fabgl::VirtualKey::VK_KP_ENTER;
+    case HID_KEY_KEYPAD_ENTER: return fabgl::VirtualKey::VK_RETURN; ///VK_KP_ENTER;
     case HID_KEY_KEYPAD_1: return fabgl::VirtualKey::VK_KP_1;
     case HID_KEY_KEYPAD_2: return fabgl::VirtualKey::VK_KP_2;
     case HID_KEY_KEYPAD_3: return fabgl::VirtualKey::VK_KP_3;
@@ -168,12 +168,12 @@ static fabgl::VirtualKey hid2vk(uint8_t c) {
     case HID_KEY_KEYPAD_DECIMAL: return fabgl::VirtualKey::VK_KP_PERIOD;
     case HID_KEY_EUROPE_2: return fabgl::VirtualKey::VK_EURO; /// TODO: ensure
     case HID_KEY_APPLICATION: return fabgl::VirtualKey::VK_APPLICATION;
-///    case HID_KEY_POWER: return fabgl::VirtualKey::VK_;
-    case HID_KEY_KEYPAD_EQUAL: return fabgl::VirtualKey::VK_KP_ENTER;
-///    case HID_KEY_F13: return fabgl::VirtualKey::VK_;
+    case HID_KEY_POWER: return fabgl::VirtualKey::VK_F1;
+    case HID_KEY_KEYPAD_EQUAL: return fabgl::VirtualKey::VK_RETURN; ///VK_KP_ENTER;
+    case HID_KEY_F13: return fabgl::VirtualKey::VK_F1;
     case HID_KEY_EXECUTE: return fabgl::VirtualKey::VK_RETURN;
-//    case HID_KEY_HELP: return fabgl::VirtualKey::VK_;
-//    case HID_KEY_MENU: return fabgl::VirtualKey::VK_;
+    case HID_KEY_HELP: return fabgl::VirtualKey::VK_F1;
+    case HID_KEY_MENU: return fabgl::VirtualKey::VK_F1;
     case HID_KEY_RETURN: return fabgl::VirtualKey::VK_RETURN;
     case HID_KEY_CONTROL_LEFT: return fabgl::VirtualKey::VK_LCTRL;
     case HID_KEY_SHIFT_LEFT: return fabgl::VirtualKey::VK_LSHIFT;
@@ -242,7 +242,7 @@ Ps2Kbd_Mrmltr ps2kbd(
 
 #if USE_NESPAD
 
-void joyPushData(const fabgl::VirtualKey& virtualKey, bool down);
+void joyPushData(fabgl::VirtualKey virtualKey, bool down);
 
 void nespad_tick() {
     nespad_read();

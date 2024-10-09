@@ -14,6 +14,18 @@
 #include <hardware/gpio.h>
 #include <functional>
 
+#ifndef KBD_CLOCK_PIN
+#define KBD_CLOCK_PIN    (0)
+#endif
+#ifndef KBD_DATA_PIN
+#define KBD_DATA_PIN    (1)
+#endif
+#define PS2_LED_SCROLL_LOCK 1
+#define PS2_LED_NUM_LOCK    2
+#define PS2_LED_CAPS_LOCK   4
+#define PS2_ERR_NONE    0
+
+void keyboard_toggle_led(uint8_t led);
 
 typedef struct {
   uint8_t code;

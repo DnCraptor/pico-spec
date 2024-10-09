@@ -56,6 +56,8 @@ visit https://zxespectrum.speccy.org/contacto
 #include "ZXKeyb.h"
 #endif
 
+#include "ps2kbd_mrmltr.h"
+
 using namespace std;
 
 //=======================================================================================
@@ -63,15 +65,37 @@ using namespace std;
 //=======================================================================================
 fabgl::PS2Controller ESPectrum::PS2Controller;
 bool ESPectrum::ps2kbd2 = false;
+bool numlock;
 
-void joyPushData(const fabgl::VirtualKey& virtualKey, bool down) {
+void joyPushData(fabgl::VirtualKey virtualKey, bool down) {
     fabgl::Keyboard* kbd = ESPectrum::PS2Controller.keyboard();
     if ( kbd ) {
         kbd->injectVirtualKey(virtualKey, down);
     }
 }
 
-void kbdPushData(const fabgl::VirtualKey& virtualKey, bool down) {
+void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
+    if (down) {
+        if (virtualKey == fabgl::VirtualKey::VK_NUMLOCK) {
+            numlock = !numlock;
+/// TODO:            keyboard_toggle_led(PS2_LED_NUM_LOCK);
+        }
+    }
+    if (!numlock) {
+        switch (virtualKey) {
+            case fabgl::VirtualKey::VK_KP_1: virtualKey = fabgl::VirtualKey::VK_END; break;
+            case fabgl::VirtualKey::VK_KP_2: virtualKey = fabgl::VirtualKey::VK_DOWN; break;
+            case fabgl::VirtualKey::VK_KP_3: virtualKey = fabgl::VirtualKey::VK_PAGEDOWN; break;
+            case fabgl::VirtualKey::VK_KP_4: virtualKey = fabgl::VirtualKey::VK_LEFT; break;
+            case fabgl::VirtualKey::VK_KP_5: virtualKey = fabgl::VirtualKey::VK_SPACE; break;
+            case fabgl::VirtualKey::VK_KP_6: virtualKey = fabgl::VirtualKey::VK_RIGHT; break;
+            case fabgl::VirtualKey::VK_KP_7: virtualKey = fabgl::VirtualKey::VK_HOME; break;
+            case fabgl::VirtualKey::VK_KP_8: virtualKey = fabgl::VirtualKey::VK_UP; break;
+            case fabgl::VirtualKey::VK_KP_9: virtualKey = fabgl::VirtualKey::VK_PAGEUP; break;
+            case fabgl::VirtualKey::VK_KP_0: virtualKey = fabgl::VirtualKey::VK_INSERT; break;
+            case fabgl::VirtualKey::VK_KP_PERIOD: virtualKey = fabgl::VirtualKey::VK_DELETE; break;
+        }
+    }
     fabgl::Keyboard* kbd = ESPectrum::PS2Controller.keyboard();
     fabgl::KeybJoystick* kbdj = ESPectrum::PS2Controller.keybjoystick();
     if ( kbd ) {
