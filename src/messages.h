@@ -42,7 +42,7 @@ visit https://zxespectrum.speccy.org/contacto
 #define MSG_SAVE_CONFIG "Saving config file"
 #define MSG_VGA_INIT "Initializing VGA"
 
-#define EMU_VERSION " v1.2/0.1.9 "
+#define EMU_VERSION " v1.2/0.2.0 "
 
 // Error
 #define ERROR_TITLE "  !!!   ERROR - CLIVE MEDITATION   !!!  "
@@ -358,6 +358,23 @@ static const char *MENU_SCANLINES[2] = { "Scanlines\n", "Scanlines\n" };
     "Resetear RP2040\t(F12)\n"\
 	"Predeterminados\n"
 static const char *MENU_RESET[2] = { MENU_RESET_EN, MENU_RESET_ES };
+
+#define MOS_FILE "/.firmware"
+#define MENU_RESET_MOS_EN \
+    "Reset Menu\n"\
+    "Soft reset\n"\
+    "Hard reset\t(F11)\n"\
+    "RP2040 reset\t(F12)\n"\
+    "MurmulatorOS\n"\
+    "Defaults\n"
+#define MENU_RESET_MOS_ES \
+    "Resetear\n"\
+    "Reset parcial\n"\
+    "Reset completo\t(F11)\n"\
+    "Resetear RP2040\t(F12)\n"\
+    "MurmulatorOS\n"\
+	"Predeterminados\n"
+static const char *MENU_RESET_MOS[2] = { MENU_RESET_MOS_EN, MENU_RESET_MOS_ES };
 
 #define MENU_PERSIST_SAVE_EN \
     "Save snapshot\n"

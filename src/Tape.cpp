@@ -132,7 +132,7 @@ int Tape::inflateCSW(int blocknumber, long startPos, long data_length) {
 
     // printf(MOUNT_POINT_SD "/.csw%04d.tmp\n",blocknumber);
 
-    sprintf(destFileName, MOUNT_POINT_SD "/.csw%04d.tmp",blocknumber);
+    sprintf(destFileName, "/tmp/.csw%04d.tmp", blocknumber);
 
     // Move to input file compressed data position
     f_lseek(&tape, startPos);

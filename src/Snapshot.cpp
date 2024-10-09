@@ -363,38 +363,18 @@ static bool writeMemPage(uint8_t page, FIL& file, bool blockMode)
 
     // printf("writing page %d in [%s] mode\n", page, blockMode ? "block" : "byte");
 
-    if (blockMode) {
-        // Writing blocks should be faster, but fails sometimes when flash is getting full.
-        for (int offset = 0; offset < MEM_PG_SZ; offset+=0x4000) {
-            // printf("writing block from page %d at offset %d\n", page, offset);
-            if (1 != fwrite(&buffer[offset],0x4000,1,file)) {
-                printf("error writing block from page %d at offset %d\n", page, offset);
-                return false;
-            }
-        }
-    }
-    else {
-        for (int offset = 0; offset < MEM_PG_SZ; offset++) {
-            uint8_t b = buffer[offset];
-            if (1 != fwrite(&b,1,1,file)) {
-                printf("error writing byte from page %d at offset %d\n", page, offset);
-                return false;
-            }
-        }
+    for (int offset = 0; offset < MEM_PG_SZ; offset+=0x4000) {
+        fwrite(&buffer[offset],0x4000,1,file);
     }
     return true;
 }
 
 bool FileSNA::save(string sna_file) {
-        
-        // Try to save using pages
-        if (FileSNA::save(sna_file, true)) return true;
-
-        OSD::osdCenteredMsg(OSD_PSNA_SAVE_WARN, LEVEL_WARN);
-
-        // Try to save byte-by-byte
-        return FileSNA::save(sna_file, false);
-
+    // Try to save using pages
+    if (FileSNA::save(sna_file, true)) return true;
+    OSD::osdCenteredMsg(OSD_PSNA_SAVE_WARN, LEVEL_WARN);
+    // Try to save byte-by-byte
+    return FileSNA::save(sna_file, false);
 }
 
 bool FileSNA::save(string sna_file, bool blockMode) {

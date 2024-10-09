@@ -212,22 +212,9 @@ static bool persistSave(uint8_t slotnumber)
     FILINFO stat_buf;
     char persistfname[sizeof(DISK_PSNA_FILE) + 7];
     char persistfinfo[sizeof(DISK_PSNA_FILE) + 7];    
-
-    // printf(DISK_PSNA_FILE "%u.sna\n",slotnumber);
-    // printf(DISK_PSNA_FILE "%u.esp\n",slotnumber);
-
     sprintf(persistfname,DISK_PSNA_FILE "%u.sna",slotnumber);
     sprintf(persistfinfo,DISK_PSNA_FILE "%u.esp",slotnumber);
     string finfo = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfinfo;
-
-    // Create dir if it doesn't exist
-    string dir = FileUtils::MountPoint + DISK_PSNA_DIR;
-    if (f_stat(dir.c_str(), &stat_buf) != FR_OK) {
-        if (f_mkdir(dir.c_str()) != FR_OK) {
-            printf("persistSave: problem creating persist save dir\n");
-            return false;
-        }
-    }
 
     // Slot isn't void
     if (f_stat(finfo.c_str(), &stat_buf) == FR_OK) {
@@ -237,30 +224,33 @@ static bool persistSave(uint8_t slotnumber)
         if (res != DLG_YES) return false;
     }
 
-    OSD::osdCenteredMsg(OSD_PSNA_SAVING, LEVEL_INFO, 0);
+    OSD::osdCenteredMsg(OSD_PSNA_SAVING, LEVEL_INFO, 500);
 
     // Save info file
     FIL f;
     if (f_open(&f, finfo.c_str(), FA_WRITE | FA_CREATE_ALWAYS) != FR_OK) {
-        printf("Error opening %s\n",persistfinfo);
+        OSD::osdCenteredMsg(finfo + " - unable to open", LEVEL_ERROR, 5000);
         return false;
     }
-
-    fputs((Config::arch + "\n" + Config::romSet + "\n").c_str(),f);    // Put architecture and romset on info file
+    fputs((Config::arch + "\n" + Config::romSet + "\n").c_str(), f);    // Put architecture and romset on info file
     f_close(&f);
-    if (!FileSNA::save(FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfname))
-        OSD::osdCenteredMsg(OSD_PSNA_SAVE_ERR, LEVEL_WARN);
+
+    string fsna = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfname;
+    if (!FileSNA::save(fsna))
+        OSD::osdCenteredMsg(OSD_PSNA_SAVE_ERR, LEVEL_ERROR, 5000);
     
     return true;
-
 }
 
 static void f_gets(char* b, size_t sz, FIL& f) {
-    char c = -1;
     UINT br;
-    for (size_t i = 0; i < sz; ++i) {
-        if (f_read(&f, b, 1, &br) != FR_OK || br != 1 || c == 0) break;
+    for (size_t i = 0; i < sz; ++i, ++b) {
+        if (f_read(&f, b, 1, &br) != FR_OK || br != 1 || *b == '\n' || *b == 0) {
+            *b = 0;
+            return;
+        }
     }
+    *(--b) = 0;
 }
 
 static bool persistLoad(uint8_t slotnumber)
@@ -1018,8 +1008,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                 menu_curopt = 1;            
                 while(1) {
                     menu_level = 1;
+                    FILINFO fi;
+                    bool mos = f_stat(MOS_FILE, &fi) == FR_OK;
                     // Reset
-                    uint8_t opt2 = menuRun(MENU_RESET[Config::lang]);
+                    uint8_t opt2 = menuRun(mos ? MENU_RESET_MOS[Config::lang] : MENU_RESET[Config::lang]);
                     if (opt2 == 1) {
                         // Soft
                         if (Config::last_ram_file != NO_RAM_FILE) {
@@ -1042,7 +1034,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                         Config::ram_file = NO_RAM_FILE;
                         Config::save("ram");
                         esp_hard_reset();
-                    } else if (opt2 == 4) {
+                    } else if (mos && opt2 == 4) {
+                        f_unlink(MOS_FILE);
+                        esp_hard_reset();
+                    } else if ((mos && opt2 == 5) || (!mos && opt2 == 4)) {
                         f_unlink(MOUNT_POINT_SD STORAGE_NVS);
                         esp_hard_reset();
                     } else {

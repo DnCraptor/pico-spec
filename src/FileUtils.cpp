@@ -72,7 +72,6 @@ void fputs(const char* b, FIL& f) {
     size_t sz = strlen(b);
     UINT bw;
     f_write(&f, b, sz, &bw);
-    f_write(&f, "\n", 1, &bw);
 }
 void fgets(char* b, size_t sz, FIL& f);
 #define ftell(x) f_tell(&x)

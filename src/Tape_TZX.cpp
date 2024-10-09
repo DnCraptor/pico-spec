@@ -415,7 +415,7 @@ void Tape::TZX_Open(string name) {
         fclose(cswBlock);
     }
 
-    FileUtils::deleteFilesWithExtension(FileUtils::MountPoint.c_str(),".tmp");
+    FileUtils::deleteFilesWithExtension("/tmp",".tmp");
 
     string fname = FileUtils::TAP_Path + name;
 
@@ -731,7 +731,7 @@ void Tape::TZX_GetBlock() {
                     // printf(MOUNT_POINT_SD "/.csw%04d.tmp\n",tapeCurBlock);
 
                     // Open csw file
-                    sprintf(cswFileName,MOUNT_POINT_SD "/.csw%04d.tmp",tapeCurBlock);
+                    sprintf(cswFileName, "/tmp/.csw%04d.tmp", tapeCurBlock);
                     if (f_open(&cswBlock, cswFileName, FA_READ) != FR_OK) {
                         printf("Failed opening csw block!\n");
                         tapeCurBlock = 0;

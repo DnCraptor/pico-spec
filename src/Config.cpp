@@ -222,7 +222,7 @@ void Config::load() {
         nvs_get_str(handle, "pref_romSet_128", pref_romSet_128, sts);
         nvs_get_str(handle, "ram", ram_file, sts);
 ///        nvs_get_str(handle, "slog", slog, sts);
-        nvs_get_str(handle, "sdstorage", FileUtils::MountPoint, sts);
+///        nvs_get_str(handle, "sdstorage", FileUtils::MountPoint, sts);
 ///        nvs_get_b(handle, "asp169", aspect_16_9, sts);
         nvs_get_u8(handle, "videomode", Config::videomode, sts);
         nvs_get_b(handle, "AY48", AY48, sts);
@@ -323,7 +323,7 @@ void Config::save(string value) {
 ///        if((value=="slog") || (value=="all"))
             nvs_set_str(handle,"slog",slog_on ? "true" : "false");
 ///        if((value=="sdstorage") || (value=="all"))
-            nvs_set_str(handle,"sdstorage",FileUtils::MountPoint == MOUNT_POINT_SD ? "true" : "false");
+///            nvs_set_str(handle,"sdstorage", FileUtils::MountPoint);
 ///        if((value=="asp169") || (value=="all"))
             nvs_set_str(handle,"asp169",aspect_16_9 ? "true" : "false");
 ///        if((value=="videomode") || (value=="all"))

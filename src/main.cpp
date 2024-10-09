@@ -13,6 +13,7 @@
 
 #include "ESPectrum.h"
 #include "pwm_audio.h"
+#include "messages.h"
 
 #include "graphics.h"
 
@@ -188,9 +189,23 @@ static fabgl::VirtualKey hid2vk(uint8_t c) {
     }
 }
 
-void __not_in_flash_func(process_kbd_report)(hid_keyboard_report_t const* report,
-                                             hid_keyboard_report_t const* prev_report) {
-
+void __not_in_flash_func(process_kbd_report)(
+    hid_keyboard_report_t const* report,
+    hid_keyboard_report_t const* prev_report
+) {
+    bool reboot_requested1 = false;
+    bool reboot_requested2 = false;
+    bool reboot_requested3 = false;
+    for (unsigned char cc: report->keycode) {
+        if (cc == HID_KEY_CONTROL_LEFT || cc == HID_KEY_CONTROL_RIGHT) reboot_requested1 = true;
+        if (cc == HID_KEY_ALT_LEFT || cc == HID_KEY_ALT_RIGHT) reboot_requested2 = true;
+        if (cc == HID_KEY_DELETE || cc == HID_KEY_KEYPAD_DECIMAL) reboot_requested3 = true;
+    }
+    if (reboot_requested1 && reboot_requested2 && reboot_requested3) {
+        f_unlink(MOS_FILE);
+        watchdog_enable(1, true);
+        while (true);
+    }
     for (unsigned char cc: report->keycode) {
         bool found = false;
         for (unsigned char pc: prev_report->keycode) {
@@ -240,12 +255,12 @@ void nespad_tick() {
     else if (!(nespad_state & DPAD_B) && gamepad1_bits.b) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE, false);
     gamepad1_bits.b = (nespad_state & DPAD_B) != 0;
     
-    if ((nespad_state & DPAD_SELECT) && !gamepad1_bits.select) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE, true);
-    else if (!(nespad_state & DPAD_SELECT) && gamepad1_bits.select) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE, false);
+    if ((nespad_state & DPAD_SELECT) && !gamepad1_bits.select) joyPushData(fabgl::VirtualKey::VK_SPACE, true);
+    else if (!(nespad_state & DPAD_SELECT) && gamepad1_bits.select) joyPushData(fabgl::VirtualKey::VK_SPACE, false);
     gamepad1_bits.select = (nespad_state & DPAD_SELECT) != 0;
 
-    if ((nespad_state & DPAD_START) && !gamepad1_bits.start) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_FIRE, true);
-    else if (!(nespad_state & DPAD_START) && gamepad1_bits.start) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_FIRE, false);
+    if ((nespad_state & DPAD_START) && !gamepad1_bits.start) joyPushData(fabgl::VirtualKey::VK_RETURN, true);
+    else if (!(nespad_state & DPAD_START) && gamepad1_bits.start) joyPushData(fabgl::VirtualKey::VK_RETURN, false);
     gamepad1_bits.start = (nespad_state & DPAD_START) != 0;
 
     if ((nespad_state & DPAD_UP) && !gamepad1_bits.up) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_UP, true);
@@ -273,12 +288,12 @@ void nespad_tick() {
     else if (!(nespad_state2 & DPAD_B) && gamepad2_bits.b) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE, false);
     gamepad2_bits.b = (nespad_state2 & DPAD_B) != 0;
     
-    if ((nespad_state2 & DPAD_SELECT) && !gamepad2_bits.select) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE, true);
-    else if (!(nespad_state2 & DPAD_SELECT) && gamepad2_bits.select) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE, false);
+    if ((nespad_state2 & DPAD_SELECT) && !gamepad2_bits.select) joyPushData(fabgl::VirtualKey::VK_KP_PERIOD, true);
+    else if (!(nespad_state2 & DPAD_SELECT) && gamepad2_bits.select) joyPushData(fabgl::VirtualKey::VK_KP_PERIOD, false);
     gamepad2_bits.select = (nespad_state2 & DPAD_SELECT) != 0;
 
-    if ((nespad_state2 & DPAD_START) && !gamepad2_bits.start) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_FIRE, true);
-    else if (!(nespad_state2 & DPAD_START) && gamepad2_bits.start) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_FIRE, false);
+    if ((nespad_state2 & DPAD_START) && !gamepad2_bits.start) joyPushData(fabgl::VirtualKey::VK_KP_ENTER, true);
+    else if (!(nespad_state2 & DPAD_START) && gamepad2_bits.start) joyPushData(fabgl::VirtualKey::VK_KP_ENTER, false);
     gamepad2_bits.start = (nespad_state2 & DPAD_START) != 0;
 
     if ((nespad_state2 & DPAD_UP) && !gamepad2_bits.up) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_UP, true);
