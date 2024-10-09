@@ -2265,7 +2265,7 @@ static void __not_in_flash_func(flash_block)(const uint8_t* buffer, size_t flash
     gpio_put(PICO_DEFAULT_LED_PIN, true);
     multicore_lockout_start_blocking();
     const uint32_t ints = save_and_disable_interrupts();
-    flash_range_program(flash_target_offset, buffer, 2048);
+    flash_range_program(flash_target_offset, buffer, 512);
     restore_interrupts(ints);
     multicore_lockout_end_blocking();
     gpio_put(PICO_DEFAULT_LED_PIN, false);
@@ -2287,19 +2287,19 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         osdCenteredMsg(OSD_NOROMFILE_ERR[Config::lang], LEVEL_WARN, 2000);
         return false;
     }
+    size_t bytesfirmware = f_size(&customrom); 
     const uint8_t* rom;
     size_t max_flash_target_offset, flash_target_offset = 0;
     string dlgTitle = OSD_ROM[Config::lang];
     // Flash custom ROM 48K
     if ( arch == 1 ) {
-        if( f_size(&customrom) > 0x4000 ) {
+        if( bytesfirmware > 0x4000 ) {
             osdCenteredMsg("Too long file", LEVEL_WARN, 2000);
             f_close(&customrom);
             return false;
         }
         rom = gb_rom_0_48k_custom;
         flash_target_offset = (size_t)rom - XIP_BASE;
-        max_flash_target_offset = flash_target_offset + (16 << 10);
         dlgTitle += " 48K   ";
         Config::arch = "48K";
         Config::romSet = "48Kcs";
@@ -2309,15 +2309,13 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     }
     // Flash custom ROM 128K
     else if ( arch == 2 ) {
-        size_t bytesfirmware = f_size(&customrom); 
-        if( bytesfirmware != 0x4000 && bytesfirmware != 0x8000 ) {
+        if( bytesfirmware > 0x8000 ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
             f_close(&customrom);
             return false;
         }
         rom = gb_rom_0_128k_custom;
         flash_target_offset = (size_t)rom - XIP_BASE;
-        max_flash_target_offset = flash_target_offset + (32 << 10);
         dlgTitle += " 128K  ";
         Config::arch = "128K";
         Config::romSet = "128Kcs";
@@ -2325,198 +2323,24 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         Config::pref_arch = "128K";
         Config::pref_romSet_128 = "128Kcs";
     }
-    if ( flash_target_offset == 0 || flash_target_offset > (16 << 20) ) {
-        f_close(&customrom);
-        osdCenteredMsg(to_string(flash_target_offset) + " - flash_target_offset", LEVEL_ERROR, 5000);
-        return false;
-    }
 
     for (size_t i = flash_target_offset; i < max_flash_target_offset; i += FLASH_SECTOR_SIZE) {
         cleanup_block(i);
     }
 
-///    uint8_t magic[8] =	{ 0x45, 0x53, 0x50, 0x52, 0x5F, 0x34, 0x38, 0x4B }; // MAGIC -> "ESPR_48K" ;
-///    uint8_t magic128[8] = { 0x45, 0x53, 0x50, 0x52, 0x5F, 0x31, 0x32, 0x38 }; // MAGIC -> "ESPR_128"
-
     UINT br;
     const size_t sz = 512;
     uint8_t* buffer = (uint8_t*)malloc(sz);
-///    for (size_t i = 0; i < 8; ++i) {
-///        buffer[i] = rom[i]; /// TODO: compare start block?
-///    }
-    if ( f_read(&customrom, buffer, sz, &br) != FR_OK) {
-        osdCenteredMsg(fname + " - unable to read", LEVEL_ERROR, 5000);
-        f_close(&customrom);
-        return false;
-    }
-    flash_block(buffer, flash_target_offset);
-    flash_target_offset += sz;
-///    br += 8;
-    while (br == sz && flash_target_offset < max_flash_target_offset) {
+    for (size_t i = 0; i < bytesfirmware; i += sz) {
         if ( f_read(&customrom, buffer, sz, &br) != FR_OK) {
             osdCenteredMsg(fname + " - unable to read", LEVEL_ERROR, 5000);
             f_close(&customrom);
             return false;
         }
-        if (!br) break;
-        flash_block(buffer, flash_target_offset);
-        flash_target_offset += sz;
+        flash_block(buffer, flash_target_offset + i);
     }
     free(buffer);
     f_close(&customrom);
-    Config::StartMsg = true;
-    Config::save();
-/**
-
-    uint8_t data[FWBUFFSIZE] = { 0 };
-    uint32_t rom_off;
-    uint32_t rom_off_128;
-
-    for (uint32_t offset = 0; offset < partition->size; offset+=FWBUFFSIZE) {
-        esp_err_t result = esp_partition_read(partition, offset, data, FWBUFFSIZE);
-        if (result == ESP_OK) {    
-            for (int n=0; n < FWBUFFSIZE; n++) {
-                if (data[n] == magic[sindex]) {
-                    sindex++;
-                    if (sindex == 8) {
-                        rom_off = offset + n - 7;
-                        // printf("FOUND! OFFSET -> %ld\n",rom_off);
-                    }
-                } else {
-                    sindex = 0;
-                }
-                if (data[n] == magic128[sindex128]) {
-                    sindex128++;
-                    if (sindex128 == 8) {
-                        rom_off_128 = offset + n - 7;
-                        // printf("FOUND! OFFSET 128 -> %ld\n",rom_off_128);
-                    }
-                } else {
-                    sindex128 = 0;
-                }
-            }
-        } else {
-            printf("esp_partition_read failed, err=0x%x.\n", result);
-            progressDialog("","",0,2); 
-            return result;
-        }
-    }
-
-    // Copy active to target injecting new custom roms
-    uint32_t psize = partition->size;
-
-    rom_off += 8;
-    rom_off_128 += 8;    
-
-    for(uint32_t i=0; i < partition->size; i += FWBUFFSIZE) {
-            esp_err_t result = esp_partition_read(partition, i, data, FWBUFFSIZE);
-            if (result == ESP_OK) {    
-                for(int m=i; m < i + FWBUFFSIZE; m++) {
-
-                    if (m >= rom_off && m<(rom_off + 0x4000)) {
-                        data[m - i]=0xff;
-                    } else if (m >= rom_off_128 && m<(rom_off_128 + 0x8000)) {
-                        data[m - i]=0xff;
-                    }
-
-                }
-                // Write the data, starting from the beginning of the partition
-                esp_err_t result = esp_partition_write(target, i, data, FWBUFFSIZE);
-                if (result != ESP_OK) {    
-                    printf("esp_partition_write failed, err=0x%x.\n", result);
-                    progressDialog("","",0,2); 
-                    return result;
-                }
-            } else {
-                printf("esp_partition_read failed, err=0x%x.\n", result);
-                progressDialog("","",0,2); 
-                return result;
-            }
-            psize -= FWBUFFSIZE;
-    }
-
-    size_t bytesread;
-
-    if (arch == 1) {
-
-        // Inject new 48K custom ROM
-        for (int i=0; i < 0x4000; i += 0x1000) {
-            bytesread = fread(data, 1, 0x1000 , customrom);
-            result = esp_partition_write(target, rom_off + i, data, 0x1000);
-            if (result != ESP_OK) {
-                printf("esp_partition_write failed, err=0x%x.\n", result);
-                progressDialog("","",0,2); 
-                return result;
-            }
-        }
-
-        // Copy previous 128K custom ROM
-        for (int i=0; i < 0x8000; i += 0x1000) {
-            esp_err_t result = esp_partition_read(partition, rom_off_128 + i, data, 0x1000);
-            if (result == ESP_OK) {    
-                result = esp_partition_write(target, rom_off_128 + i, data, 0x1000);
-                if (result != ESP_OK) {
-                    printf("esp_partition_write failed, err=0x%x.\n", result);
-                    progressDialog("","",0,2); 
-                    return result;
-                }
-            } else {
-                printf("esp_partition_read failed, err=0x%x.\n", result);
-                progressDialog("","",0,2); 
-                return result;
-            }
-        }
-    } else if (arch == 2) {
-        // Inject new 128K custom ROM part 1
-        for (int i=0; i < 0x4000; i += 0x1000) {
-            bytesread = fread(data, 1, 0x1000 , customrom);
-            result = esp_partition_write(target, rom_off_128 + i, data, 0x1000);
-            if (result != ESP_OK) {
-                printf("esp_partition_write failed, err=0x%x.\n", result);
-                progressDialog("","",0,2); 
-                return result;
-            }
-        }
-
-        progressDialog("","",50,1);
-
-        // Inject new 128K custom ROM part 2
-        for (int i=0; i < 0x4000; i += 0x1000) {
-            if (bytesfirmware == 0x4000) {
-                for (int n=0;n<0x1000;n++)
-                    data[n] = gb_rom_1_sinclair_128k[i + n];
-            } else {
-                bytesread = fread(data, 1, 0x1000 , customrom);
-            }
-            result = esp_partition_write(target, rom_off_128 + i + 0x4000, data, 0x1000);
-            if (result != ESP_OK) {
-                printf("esp_partition_write failed, err=0x%x.\n", result);
-                progressDialog("","",0,2); 
-                return result;
-            }
-        }
-
-        // Copy previous 48K custom ROM
-        for (int i=0; i < 0x4000; i += 0x1000) {
-            esp_err_t result = esp_partition_read(partition, rom_off + i, data, 0x1000);
-            if (result == ESP_OK) {    
-                result = esp_partition_write(target, rom_off + i, data, 0x1000);
-                if (result != ESP_OK) {
-                    printf("esp_partition_write failed, err=0x%x.\n", result);
-                    progressDialog("","",0,2); 
-                    return result;
-                }
-            } else {
-                    printf("esp_partition_read failed, err=0x%x.\n", result);
-                    progressDialog("","",0,2); 
-                    return result;
-            }
-        }
-    }
-
-*/
-    progressDialog(dlgTitle, OSD_FIRMW_END[Config::lang], 0, 1);
-    delay(5000);
     // Firmware written: reboot
     OSD::esp_hard_reset();
     return true;
