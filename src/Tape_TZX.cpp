@@ -481,7 +481,7 @@ void Tape::TZX_Open(string name) {
 
         // If block is CSW Z-RLE decompress it to SD card
         if (TZXblock.BlockType == 0xf8 ) {
-            printf("Inflating CSW Z-RLE block!\n");
+            ///printf("Inflating CSW Z-RLE block!\n");
             fseek(tape,tapeContentIndex + 0x0e + 1,SEEK_SET);
             inflateCSW(tapeListIndex, tapeContentIndex + 0x0e + 1,TZXblock.BlockLenght - 0x0e - 1);
             TZXblock.BlockType = 0x18;

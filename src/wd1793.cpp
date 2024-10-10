@@ -402,7 +402,7 @@ bool WD1793::InsertDisk(unsigned char UnitNum, string Filename) {
         }
         // printf("%s\n",magic);
        
-        if (strcmp(magic,"SINCLAIR") == 0) {
+        if (strncmp(magic, "SINCLAIR", 8) == 0) {
             // SCL file
             // printf("SCL disk loaded\n");
             Drive[UnitNum].IsSCLFile=true;

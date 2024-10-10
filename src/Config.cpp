@@ -334,9 +334,9 @@ void Config::save(string value) {
         nvs_set_str(handle,"CursorAsJoy", CursorAsJoy ? "true" : "false");
         nvs_set_i8(handle,"CenterH",Config::CenterH);
         nvs_set_i8(handle,"CenterV",Config::CenterV);
-        nvs_set_str(handle,"SNA_Path",FileUtils::SNA_Path.c_str());
-        nvs_set_str(handle,"TAP_Path",FileUtils::TAP_Path.c_str());
-        nvs_set_str(handle,"DSK_Path",FileUtils::DSK_Path.c_str());
+        nvs_set_str(handle,"SNA_Path",Config::SNA_Path.c_str());
+        nvs_set_str(handle,"TAP_Path",Config::TAP_Path.c_str());
+        nvs_set_str(handle,"DSK_Path",Config::DSK_Path.c_str());
         nvs_set_u16(handle,"SNA_begin_row",Config::SNA_begin_row);
         nvs_set_u16(handle,"TAP_begin_row",Config::TAP_begin_row);
         nvs_set_u16(handle,"DSK_begin_row",Config::DSK_begin_row);
