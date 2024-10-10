@@ -73,9 +73,11 @@ public:
     static string   romSet;
     static string   romSet48;
     static string   romSet128;
+    static string   romSetPent;
     static string   pref_arch;
     static string   pref_romSet_48;
     static string   pref_romSet_128;
+    static string   pref_romSetPent;
     static string   ram_file;
     static string   last_ram_file;
     static uint8_t  esp32rev;

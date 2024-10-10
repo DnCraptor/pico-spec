@@ -42,7 +42,7 @@ visit https://zxespectrum.speccy.org/contacto
 #define MSG_SAVE_CONFIG "Saving config file"
 #define MSG_VGA_INIT "Initializing VGA"
 
-#define EMU_VERSION " v1.2/0.2.2 "
+#define EMU_VERSION " v1.2/0.2.3 "
 
 // Error
 #define ERROR_TITLE "  !!!   ERROR - CLIVE MEDITATION   !!!  "
@@ -303,12 +303,14 @@ static const char *MENU_OPTIONS[2] = { MENU_OPTIONS_EN,MENU_OPTIONS_ES };
     "Update\n"\
 	"Firmware\n"\
 	"Custom ROM 48K\n"\
-	"Custom ROM 128k\n"		
+	"Custom ROM 128k\n"\
+	"Custom ROM Pentagon\n"		
 #define MENU_UPDATE_ES \
     "Actualizar\n"\
 	"Firmware\n"\
 	"ROM Custom 48K\n"\
-	"ROM Custom 128k\n"		
+	"ROM Custom 128k\n"\
+	"ROM Custom Pentagon\n"
 static const char *MENU_UPDATE_FW[2] = { MENU_UPDATE_EN,MENU_UPDATE_ES };
 
 #define MENU_VIDEO_EN \
@@ -444,7 +446,7 @@ static const char *MENU_ISSUE2[2] = { "48K Issue 2\n", "48K Issue 2\n"};
 
 #define MENU_ARCHS "Spectrum 48K\t>\n"\
     "Spectrum 128K\t>\n"\
-	"Pentagon 128K\n"
+	"Pentagon 128K\t>\n"
 
 static const char *MENU_ARCH[2] = { MENU_ARCH_EN MENU_ARCHS, MENU_ARCH_ES MENU_ARCHS };
 
@@ -477,6 +479,14 @@ static const char *MENU_ARCH[2] = { MENU_ARCH_EN MENU_ARCHS, MENU_ARCH_ES MENU_A
 static const char *MENU_ROMS48[2] = { MENU_ROMS48_EN, MENU_ROMS48_ES };
 static const char *MENU_ROMS128[2] = { MENU_ROMS128_EN, MENU_ROMS128_ES };
 
+#define MENU_ROMS_PENT_EN "Select ROM\n"\
+	"Original\n"\
+    "Custom\n"
+#define MENU_ROMS_PENT_ES "Elija ROM\n"\
+	"Original\n"\
+    "Custom\n"
+static const char *MENU_ROMS_PENT[2] = { MENU_ROMS_PENT_EN, MENU_ROMS_PENT_ES };
+
 #define MENU_ARCHS_PREF "Spectrum 48K\t[4]\n"\
     "Spectrum 128K\t[1]\n"\
 	"Pentagon 128K\t[P]\n"
@@ -484,7 +494,8 @@ static const char *MENU_ROMS128[2] = { MENU_ROMS128_EN, MENU_ROMS128_ES };
 static const char *MENU_ARCH_PREF[2] = { "Preferred machine\n" MENU_ARCHS_PREF "Last used\t[L]\n", "Modelo preferido\n" MENU_ARCHS_PREF "Ultimo utilizado\t[L]\n"};
 
 #define MENU_ROMS_PREF "Spectrum 48K\t>\n"\
-    "Spectrum 128K\t>\n"
+    "Spectrum 128K\t>\n"\
+    "Pentagon 128K\t>\n"
 
 static const char *MENU_ROM_PREF[2] = { "Preferred ROM\n" MENU_ROMS_PREF, "ROM preferida\n" MENU_ROMS_PREF};
 
@@ -521,6 +532,18 @@ static const char *MENU_ROM_PREF[2] = { "Preferred ROM\n" MENU_ROMS_PREF, "ROM p
 static const char *MENU_ROM_PREF_48[2] = { MENU_ROMS48_PREF_EN, MENU_ROMS48_PREF_ES };
 
 static const char *MENU_ROM_PREF_128[2] = { MENU_ROMS128_PREF_EN, MENU_ROMS128_PREF_ES };
+
+#define MENU_ROMS_PENT_PREF_EN "Select ROM\n"\
+	"Original\t[128Kp ]\n"\
+    "Custom\t[128Kcs]\n"\
+	"Last used\t[Last  ]\n"
+
+#define MENU_ROMS_PENT_PREF_ES "Elija ROM\n"\
+	"Original\t[128Kp ]\n"\
+    "Custom\t[128Kcs]\n"\
+	"Last used\t[Last  ]\n"
+
+static const char *MENU_ROM_PREF_PENT[2] = { MENU_ROMS_PENT_PREF_EN, MENU_ROMS_PENT_PREF_ES };
 
 #define MENU_INTERFACE_LANG_EN "Language\n"\
     "English\t[ ]\n"\

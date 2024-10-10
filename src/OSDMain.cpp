@@ -918,86 +918,73 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 menu_curopt = 1;
                                 menu_level = 2;                                       
                             }
-                        } else if (arch_num == 3) {
-                            arch = "Pentagon";
-                            romset = "Pentagon";
-                            opt2 = 1;
+                        } else if (arch_num == 3) { // Pentagon
+                            menu_level = 2;
+                            menu_curopt = 1;                    
+                            menu_saverect = true;
+                            opt2 = menuRun(MENU_ROMS_PENT[Config::lang]);
+                            if (opt2) {
+                                arch = "Pentagon";
+                                if (opt2 == 1) {
+                                    romset = "128Kp";
+                                } else 
+                                if (opt2 == 2) {
+                                    romset = "128Kcs";
+                                }
+                                menu_curopt = opt2;
+                                menu_saverect = false;
+                            } else {
+                                menu_curopt = 1;
+                                menu_level = 2;                                       
+                            }
                         }
 
                         if (opt2) {
-
                             if (arch != Config::arch || romset != Config::romSet) {
-
                                 Config::ram_file = "none";
-                                Config::save("ram");
-
-                               
                                 if (romset != Config::romSet) {
-
                                     if (arch == "48K") {
-                                        
                                         if (Config::pref_romSet_48 == "Last") {
-
                                             Config::romSet = romset;
-                                            Config::save("romSet");
                                             Config::romSet48 = romset;
-                                            Config::save("romSet48");
-
                                         }
-
                                     } else if (arch == "128K") {
-
                                         if (Config::pref_romSet_128 == "Last") {
-
                                             Config::romSet = romset;
-                                            Config::save("romSet");
                                             Config::romSet128 = romset;
-                                            Config::save("romSet128");
-
                                         }
-
+                                    } else if (arch == "Pentagon") {
+                                        if (Config::pref_romSetPent == "Last") {
+                                            Config::romSet = romset;
+                                            Config::romSetPent = romset;
+                                        }
                                     }
                                 }
-
                                 if (arch != Config::arch) {
-
                                     if (Config::pref_arch == "Last") {
                                         Config::arch = arch;
-                                        Config::save("arch");
                                     }
-
                                     if (Config::videomode) {
                                         Config::pref_arch += "R";
-                                        Config::save("pref_arch");
                                         Config::arch = arch;
-                                        Config::save("arch");
                                         Config::romSet = romset;
-                                        Config::save("romSet");
                                         Config::romSet48 = romset;
-                                        Config::save("romSet48");
+                                        Config::save();
                                         esp_hard_reset();
                                     }
-
                                 }
-
+                                Config::save();
                                 Config::requestMachine(arch, romset);
-
                             }
-                        
                             ESPectrum::reset();
-
                             return;
-
                         }
-
                         menu_curopt = arch_num;
                         menu_saverect = false;
-
                     } else {
                         menu_curopt = 4;                            
                         break;
                     }
-
                 }
             }
             else if (opt == 5) {
@@ -1308,6 +1295,46 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                                 Config::save("pref_romSet_128");
                                             }
 
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = 1;
+                                            menu_level = 2;                                       
+                                            break;
+                                        }
+                                    }
+                                } else if (opt2 == 3) {
+                                    menu_level = 3;
+                                    menu_curopt = 1;                    
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string rprefPent_menu = MENU_ROM_PREF_PENT[Config::lang];
+
+                                        int mpos = -1;
+                                        while(1) {
+                                            mpos = rprefPent_menu.find("[",mpos + 1);
+                                            if (mpos == string::npos) break;
+                                            string rmenu = rprefPent_menu.substr(mpos + 1, 6);
+                                            trim(rmenu);
+                                            if (rmenu == Config::pref_romSetPent) 
+                                                rprefPent_menu.replace(mpos + 1, 6,"*");
+                                            else
+                                                rprefPent_menu.replace(mpos + 1,6," ");
+                                        }
+                                        string prev_rprefPent = Config::pref_romSetPent;
+                                        uint8_t opt2 = menuRun(rprefPent_menu);
+                                        if (opt2) {
+                                            if (opt2 == 1)
+                                                Config::pref_romSetPent = "128Kp";
+                                            else
+                                            if (opt2 == 2)
+                                                Config::pref_romSetPent = "128Kcs";
+                                            else
+                                            if (opt2 == 7)
+                                                Config::pref_romSetPent = "Last";
+                                            if (Config::pref_romSetPent != prev_rprefPent) {
+                                                Config::save();
+                                            }
                                             menu_curopt = opt2;
                                             menu_saverect = false;
                                         } else {
@@ -1837,7 +1864,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                             if (opt2) {
                                 // Update
                                 if (opt2 == 1) {
-
                                     string title = OSD_FIRMW_UPDATE[Config::lang];
                                     string msg = OSD_DLG_SURE[Config::lang];
                                     uint8_t res = msgDialog(title,msg);
@@ -1865,7 +1891,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             mFile.erase(0, 1);
                                             string fname = FileUtils::ROM_Path + mFile;
                                             bool res = updateROM(fname, 1);
-                                            ///
+                                            if (res) return;
                                         }
                                         menu_curopt = 1;
                                         menu_level = 2;                                       
@@ -1877,7 +1903,19 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             mFile.erase(0, 1);
                                             string fname = FileUtils::ROM_Path +  mFile;
                                             bool res = updateROM(fname, 2);
-                                            ///
+                                            if (res) return;
+                                        }
+                                        menu_curopt = 1;
+                                        menu_level = 2;                                       
+                                        menu_saverect = false;
+                                } else if (opt2 == 4) {                                    
+                                        // Flash custom ROM 128K
+                                        string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang],DISK_ROMFILE,26,15);
+                                        if (mFile != "") {
+                                            mFile.erase(0, 1);
+                                            string fname = FileUtils::ROM_Path +  mFile;
+                                            bool res = updateROM(fname, 3);
+                                            if (res) return;
                                         }
                                         menu_curopt = 1;
                                         menu_level = 2;                                       
@@ -2323,6 +2361,21 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         Config::pref_arch = "128K";
         Config::pref_romSet_128 = "128Kcs";
     }
+    else if ( arch == 3 ) {
+        if( bytesfirmware > 0x8000 ) {
+            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
+            f_close(&customrom);
+            return false;
+        }
+        rom = gb_rom_0_128k_custom;
+        flash_target_offset = (size_t)rom - XIP_BASE;
+        dlgTitle += " Pentagon ";
+        Config::arch = "Pentagon";
+        Config::romSet = "128Kcs";
+        Config::romSetPent = "128Kcs";
+        Config::pref_arch = "Pentagon";
+        Config::pref_romSetPent = "128Kcs";
+    }
 
     for (size_t i = flash_target_offset; i < max_flash_target_offset; i += FLASH_SECTOR_SIZE) {
         cleanup_block(i);
@@ -2341,7 +2394,10 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     }
     free(buffer);
     f_close(&customrom);
+    Config::save();
+    Config::requestMachine(Config::arch, Config::romSet128);
     // Firmware written: reboot
+///    ESPectrum::reset();
     OSD::esp_hard_reset();
     return true;
 }

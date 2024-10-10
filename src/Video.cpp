@@ -1285,3 +1285,31 @@ void SaveRectT::restore_last() {
         offsets.push_back(0);
     }
 }
+
+void SaveRectT::store_ram(const void* p, size_t sz) {
+    if (offsets.empty()) {
+        offsets.push_back(0);
+    }
+    size_t off = offsets.back();
+    UINT bw;
+    FIL f;
+    f_open(&f, "/tmp/save_rect.tmp", FA_WRITE | FA_CREATE_ALWAYS);
+    f_lseek(&f, off);
+    f_write(&f, p, sz, &bw);
+    f_close(&f);
+}
+
+void SaveRectT::restore_ram(void* p, size_t sz) {
+    if (offsets.empty()) return;
+    offsets.pop_back();
+    size_t off = offsets.back();
+    UINT br;
+    FIL f;
+    f_open(&f, "/tmp/save_rect.tmp", FA_READ);
+    f_lseek(&f, off);
+    f_read(&f, p, sz, &br);
+    f_close(&f);
+    if (offsets.empty()) {
+        offsets.push_back(0);
+    }
+}

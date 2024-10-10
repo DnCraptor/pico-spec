@@ -46,20 +46,24 @@ using namespace std;
 #include "Config.h"
 #include "messages.h"
 #include "Z80_JLS/z80.h"
-#include "ff.h"
 
-size_t fread(uint8_t* v, size_t sz1, size_t sz2, FIL& f);
 int fseek (FIL& stream, long offset, int origin);
-inline void fclose(FIL& f) {
-    f_close(&f);
+inline static void fclose(FIL& stream) {
+    f_close(&stream);
 }
+#define ftell(x) f_tell(&x)
+#define feof(x) f_eof(&x)
 inline void rewind(FIL& f) {
     f_lseek(&f, 0);
 }
+size_t fread(uint8_t* v, size_t sz1, size_t sz2, FIL& f);
 
 void Tape::TZX_BlockLen(TZXBlock &blockdata) {
+
     uint32_t tapeBlkLen;
+
     uint8_t tzx_blk_type = readByteFile(tape);
+
     switch (tzx_blk_type) {
 
         case 0x10: // Standard Speed Data
@@ -406,18 +410,16 @@ string Tape::tzxBlockReadData(int Blocknum) {
 
 void Tape::TZX_Open(string name) {
 
-    if (tape.obj.fs != NULL) {
+    if (tapeFileType != TAPE_FTYPE_EMPTY) {
         fclose(tape);
         tapeFileType = TAPE_FTYPE_EMPTY;
     }
 
-    if (cswBlock.obj.fs != NULL) {
         fclose(cswBlock);
-    }
 
     FileUtils::deleteFilesWithExtension("/tmp",".tmp");
 
-    string fname = FileUtils::TAP_Path + name;
+    string fname = FileUtils::TAP_Path + "/" + name;
 
     if (f_open(&tape, fname.c_str(), FA_READ) != FR_OK) {
         OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR, LEVEL_ERROR);
@@ -436,7 +438,7 @@ void Tape::TZX_Open(string name) {
     // Check TZX header signature
     char tzxheader[8];
     fread((uint8_t*)&tzxheader, 8, 1, tape);
-    if (strcmp(tzxheader,"ZXTape!\x1a") != 0) {
+    if (strncmp(tzxheader, "ZXTape!\x1a", 8) != 0) {
         OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR, LEVEL_ERROR);
         fclose(tape);
         tapeFileType = TAPE_FTYPE_EMPTY;
@@ -731,7 +733,7 @@ void Tape::TZX_GetBlock() {
                     // printf(MOUNT_POINT_SD "/.csw%04d.tmp\n",tapeCurBlock);
 
                     // Open csw file
-                    sprintf(cswFileName, "/tmp/.csw%04d.tmp", tapeCurBlock);
+                    sprintf(cswFileName, "/tmp/.csw%04d.tmp",tapeCurBlock);
                     if (f_open(&cswBlock, cswFileName, FA_READ) != FR_OK) {
                         printf("Failed opening csw block!\n");
                         tapeCurBlock = 0;

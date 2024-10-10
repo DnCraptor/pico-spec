@@ -11,9 +11,11 @@ string   Config::arch = "48K";
 string   Config::romSet = "48K";
 string   Config::romSet48 = "48K";
 string   Config::romSet128 = "128K";
+string   Config::romSetPent = "128Kp";
 string   Config::pref_arch = "48K";
 string   Config::pref_romSet_48 = "48K";
 string   Config::pref_romSet_128 = "128K";
+string   Config::pref_romSetPent = "128Kp";
 string   Config::ram_file = NO_RAM_FILE;
 string   Config::last_ram_file = NO_RAM_FILE;
 
@@ -94,23 +96,17 @@ void Config::requestMachine(string newArch, string newRomSet)
     arch = newArch;
     if (arch == "48K") {
         if (newRomSet=="") romSet = "48K"; else romSet = newRomSet;
-        
         if (newRomSet=="") romSet48 = "48K"; else romSet48 = newRomSet;        
-
         if (romSet48 == "48K")
             MemESP::rom[0] = (uint8_t *) gb_rom_0_sinclair_48k;
         else if (romSet48 == "48Kes")
             MemESP::rom[0] = (uint8_t *) gb_rom_0_48k_es;
         else if (romSet48 == "48Kcs") {
             MemESP::rom[0] = (uint8_t *) gb_rom_0_48k_custom;
-///            MemESP::rom[0] += 8;
         }
     } else if (arch == "128K") {
-
         if (newRomSet=="") romSet = "128K"; else romSet = newRomSet;
-
         if (newRomSet=="") romSet128 = "128K"; else romSet128 = newRomSet;                
-
         if (romSet128 == "128K") {
             MemESP::rom[0] = (uint8_t *) gb_rom_0_sinclair_128k;
             MemESP::rom[1] = (uint8_t *) gb_rom_1_sinclair_128k;
@@ -119,7 +115,6 @@ void Config::requestMachine(string newArch, string newRomSet)
             MemESP::rom[1] = (uint8_t *) gb_rom_1_128k_es;
         } else if (romSet128 == "128Kcs") {
             MemESP::rom[0] = (uint8_t *) gb_rom_0_128k_custom;
-///            MemESP::rom[0] += 8;
             MemESP::rom[1] = (uint8_t *) gb_rom_0_128k_custom;
             MemESP::rom[1] += (16 << 10); /// 16392;
         } else if (romSet128 == "+2") {
@@ -132,16 +127,18 @@ void Config::requestMachine(string newArch, string newRomSet)
             MemESP::rom[0] = (uint8_t *) gb_rom_0_s128_zx81;
             MemESP::rom[1] = (uint8_t *) gb_rom_1_sinclair_128k;
         }
-
     } else if (arch == "Pentagon") {
-
-        if (newRomSet=="") romSet = "Pentagon"; else romSet = newRomSet;
-
-        MemESP::rom[0] = (uint8_t *) gb_rom_0_pentagon_128k;
-        MemESP::rom[1] = (uint8_t *) gb_rom_1_pentagon_128k;
-
+        if (newRomSet=="") romSet = "128Kp"; else romSet = newRomSet;
+        if (romSetPent=="") romSetPent = "128Kp"; else romSetPent = newRomSet;                
+        if (romSetPent == "128Kcs") {
+            MemESP::rom[0] = (uint8_t *) gb_rom_0_128k_custom;
+            MemESP::rom[1] = (uint8_t *) gb_rom_0_128k_custom;
+            MemESP::rom[1] += (16 << 10); /// 16392;
+        } else {
+            MemESP::rom[0] = (uint8_t *) gb_rom_0_pentagon_128k;
+            MemESP::rom[1] = (uint8_t *) gb_rom_1_pentagon_128k;
+        }
     }
-
     MemESP::rom[4] = (uint8_t *) gb_rom_4_trdos_503;
 }
 
@@ -217,9 +214,11 @@ void Config::load() {
         nvs_get_str(handle, "romSet", romSet, sts);
         nvs_get_str(handle, "romSet48", romSet48, sts);
         nvs_get_str(handle, "romSet128", romSet128, sts);
+        nvs_get_str(handle, "romSetPent", romSetPent, sts);
         nvs_get_str(handle, "pref_arch", pref_arch, sts);
         nvs_get_str(handle, "pref_romSet_48", pref_romSet_48, sts);
         nvs_get_str(handle, "pref_romSet_128", pref_romSet_128, sts);
+        nvs_get_str(handle, "pref_romSetPent", pref_romSetPent, sts);
         nvs_get_str(handle, "ram", ram_file, sts);
 ///        nvs_get_str(handle, "slog", slog, sts);
 ///        nvs_get_str(handle, "sdstorage", FileUtils::MountPoint, sts);
@@ -295,114 +294,65 @@ static void nvs_set_u16(FIL& handle, const char* name, uint16_t val) {
 
 // Dump actual config to FS
 void Config::save(string value) {
-    // Open
-    // printf("\n");
-    // printf("Opening Non-Volatile Storage (NVS) handle... ");
     FIL handle;
     string nvs = MOUNT_POINT_SD STORAGE_NVS;
     FRESULT err = f_open(&handle, nvs.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
     if (err != FR_OK) {
         OSD::osdCenteredMsg("Error opening file:\n" + nvs + "\n", LEVEL_ERROR, 5000);
     } else {
-///        if((value=="arch") || (value=="all"))
-            nvs_set_str(handle,"arch",arch.c_str());
-///        if((value=="romSet") || (value=="all"))
-            nvs_set_str(handle,"romSet",romSet.c_str());
-///        if((value=="romSet48") || (value=="all"))
-            nvs_set_str(handle,"romSet48",romSet48.c_str());
-///        if((value=="romSet128") || (value=="all"))
-            nvs_set_str(handle,"romSet128",romSet128.c_str());
-///        if((value=="pref_arch") || (value=="all"))
-            nvs_set_str(handle,"pref_arch",pref_arch.c_str());
-///        if((value=="pref_romSet_48") || (value=="all"))
-            nvs_set_str(handle,"pref_romSet_48",pref_romSet_48.c_str());
-///        if((value=="pref_romSet_128") || (value=="all"))
-            nvs_set_str(handle,"pref_romSet_128",pref_romSet_128.c_str());
-///        if((value=="ram") || (value=="all"))
-            nvs_set_str(handle,"ram",ram_file.c_str());   
-///        if((value=="slog") || (value=="all"))
-            nvs_set_str(handle,"slog",slog_on ? "true" : "false");
-///        if((value=="sdstorage") || (value=="all"))
-///            nvs_set_str(handle,"sdstorage", FileUtils::MountPoint);
-///        if((value=="asp169") || (value=="all"))
-            nvs_set_str(handle,"asp169",aspect_16_9 ? "true" : "false");
-///        if((value=="videomode") || (value=="all"))
-            nvs_set_u8(handle,"videomode",Config::videomode);
-///        if((value=="language") || (value=="all"))
-            nvs_set_u8(handle,"language",Config::lang);
-///        if((value=="AY48") || (value=="all"))
-            nvs_set_str(handle,"AY48",AY48 ? "true" : "false");
-///        if((value=="Issue2") || (value=="all"))
-            nvs_set_str(handle,"Issue2",Issue2 ? "true" : "false");
-///        if((value=="flashload") || (value=="all"))
-            nvs_set_str(handle,"flashload",flashload ? "true" : "false");
-///        if((value=="tape_player") || (value=="all"))
-            nvs_set_str(handle,"tape_player",tape_player ? "true" : "false");
-///        if((value=="tape_timing_rg") || (value=="all"))
-            nvs_set_str(handle,"tape_timing_rg",tape_timing_rg ? "true" : "false");
-///        if((value=="joystick1") || (value=="all"))
-            nvs_set_u8(handle,"joystick1",Config::joystick1);
-///        if((value=="joystick2") || (value=="all"))
-            nvs_set_u8(handle,"joystick2",Config::joystick2);
+        nvs_set_str(handle,"arch",arch.c_str());
+        nvs_set_str(handle,"romSet",romSet.c_str());
+        nvs_set_str(handle,"romSet48",romSet48.c_str());
+        nvs_set_str(handle,"romSet128",romSet128.c_str());
+        nvs_set_str(handle,"romSetPent",romSetPent.c_str());
+        nvs_set_str(handle,"pref_arch",pref_arch.c_str());
+        nvs_set_str(handle,"pref_romSet_48",pref_romSet_48.c_str());
+        nvs_set_str(handle,"pref_romSet_128",pref_romSet_128.c_str());
+        nvs_set_str(handle,"pref_romSetPent",pref_romSetPent.c_str());
+        nvs_set_str(handle,"ram",ram_file.c_str());   
+        nvs_set_str(handle,"slog",slog_on ? "true" : "false");
+///        nvs_set_str(handle,"sdstorage", FileUtils::MountPoint);
+        nvs_set_str(handle,"asp169",aspect_16_9 ? "true" : "false");
+        nvs_set_u8(handle,"videomode",Config::videomode);
+        nvs_set_u8(handle,"language",Config::lang);
+        nvs_set_str(handle,"AY48",AY48 ? "true" : "false");
+        nvs_set_str(handle,"Issue2",Issue2 ? "true" : "false");
+        nvs_set_str(handle,"flashload",flashload ? "true" : "false");
+        nvs_set_str(handle,"tape_player",tape_player ? "true" : "false");
+        nvs_set_str(handle,"tape_timing_rg",tape_timing_rg ? "true" : "false");
+        nvs_set_u8(handle,"joystick1",Config::joystick1);
+        nvs_set_u8(handle,"joystick2",Config::joystick2);
         // Write joystick definition
         for (int n=0; n < 24; n++) {
             char joykey[9];
             sprintf(joykey,"joydef%02u",n);
-///            if((value == joykey) || (value=="all")) {
-                nvs_set_u16(handle,joykey,Config::joydef[n]);
-                // printf("%s %u\n",joykey, joydef[n]);
-///            }
+            nvs_set_u16(handle,joykey,Config::joydef[n]);
         }
-///        if((value=="joyPS2") || (value=="all"))
-            nvs_set_u8(handle,"joyPS2",Config::joyPS2);
-///        if((value=="AluTiming") || (value=="all"))
-            nvs_set_u8(handle,"AluTiming",Config::AluTiming);
-///        if((value=="PS2Dev2") || (value=="all"))
-            nvs_set_u8(handle,"PS2Dev2",Config::ps2_dev2);
-///        if((value=="CursorAsJoy") || (value=="all"))
-            nvs_set_str(handle,"CursorAsJoy", CursorAsJoy ? "true" : "false");
-///        if((value=="CenterH") || (value=="all"))
-            nvs_set_i8(handle,"CenterH",Config::CenterH);
-///        if((value=="CenterV") || (value=="all"))
-            nvs_set_i8(handle,"CenterV",Config::CenterV);
-///        if((value=="SNA_Path") || (value=="all"))
-            nvs_set_str(handle,"SNA_Path",FileUtils::SNA_Path.c_str());
-///        if((value=="TAP_Path") || (value=="all"))
-            nvs_set_str(handle,"TAP_Path",FileUtils::TAP_Path.c_str());
-///        if((value=="DSK_Path") || (value=="all"))
-            nvs_set_str(handle,"DSK_Path",FileUtils::DSK_Path.c_str());
-///        if((value=="SNA_begin_row") || (value=="all"))
-            nvs_set_u16(handle,"SNA_begin_row",Config::SNA_begin_row);
-///        if((value=="TAP_begin_row") || (value=="all"))
-            nvs_set_u16(handle,"TAP_begin_row",Config::TAP_begin_row);
-///        if((value=="DSK_begin_row") || (value=="all"))
-            nvs_set_u16(handle,"DSK_begin_row",Config::DSK_begin_row);
-///        if((value=="SNA_focus") || (value=="all"))
-            nvs_set_u16(handle,"SNA_focus",Config::SNA_focus);
-///        if((value=="TAP_focus") || (value=="all"))
-            nvs_set_u16(handle,"TAP_focus",Config::TAP_focus);
-///        if((value=="DSK_focus") || (value=="all"))
-            nvs_set_u16(handle,"DSK_focus",Config::DSK_focus);
-///        if((value=="SNA_fdMode") || (value=="all"))
-            nvs_set_u8(handle,"SNA_fdMode",Config::SNA_fdMode);
-///        if((value=="TAP_fdMode") || (value=="all"))
-            nvs_set_u8(handle,"TAP_fdMode",Config::TAP_fdMode);
-///        if((value=="DSK_fdMode") || (value=="all"))
-            nvs_set_u8(handle,"DSK_fdMode",Config::DSK_fdMode);
-///        if((value=="SNA_fileSearch") || (value=="all"))
-            nvs_set_str(handle,"SNA_fileSearch",Config::SNA_fileSearch.c_str());
-///        if((value=="TAP_fileSearch") || (value=="all"))
-            nvs_set_str(handle,"TAP_fileSearch",Config::TAP_fileSearch.c_str());
-///        if((value=="DSK_fileSearch") || (value=="all"))
-            nvs_set_str(handle,"DSK_fileSearch",Config::DSK_fileSearch.c_str());
-///        if((value=="scanlines") || (value=="all"))
-            nvs_set_u8(handle,"scanlines",Config::scanlines);
-///        if((value=="render") || (value=="all"))
-            nvs_set_u8(handle,"render",Config::render);
-///        if((value=="TABasfire1") || (value=="all"))
-            nvs_set_str(handle,"TABasfire1", TABasfire1 ? "true" : "false");
-///        if((value=="StartMsg") || (value=="all"))
-            nvs_set_str(handle,"StartMsg", StartMsg ? "true" : "false");
+        nvs_set_u8(handle,"joyPS2",Config::joyPS2);
+        nvs_set_u8(handle,"AluTiming",Config::AluTiming);
+        nvs_set_u8(handle,"PS2Dev2",Config::ps2_dev2);
+        nvs_set_str(handle,"CursorAsJoy", CursorAsJoy ? "true" : "false");
+        nvs_set_i8(handle,"CenterH",Config::CenterH);
+        nvs_set_i8(handle,"CenterV",Config::CenterV);
+        nvs_set_str(handle,"SNA_Path",FileUtils::SNA_Path.c_str());
+        nvs_set_str(handle,"TAP_Path",FileUtils::TAP_Path.c_str());
+        nvs_set_str(handle,"DSK_Path",FileUtils::DSK_Path.c_str());
+        nvs_set_u16(handle,"SNA_begin_row",Config::SNA_begin_row);
+        nvs_set_u16(handle,"TAP_begin_row",Config::TAP_begin_row);
+        nvs_set_u16(handle,"DSK_begin_row",Config::DSK_begin_row);
+        nvs_set_u16(handle,"SNA_focus",Config::SNA_focus);
+        nvs_set_u16(handle,"TAP_focus",Config::TAP_focus);
+        nvs_set_u16(handle,"DSK_focus",Config::DSK_focus);
+        nvs_set_u8(handle,"SNA_fdMode",Config::SNA_fdMode);
+        nvs_set_u8(handle,"TAP_fdMode",Config::TAP_fdMode);
+        nvs_set_u8(handle,"DSK_fdMode",Config::DSK_fdMode);
+        nvs_set_str(handle,"SNA_fileSearch",Config::SNA_fileSearch.c_str());
+        nvs_set_str(handle,"TAP_fileSearch",Config::TAP_fileSearch.c_str());
+        nvs_set_str(handle,"DSK_fileSearch",Config::DSK_fileSearch.c_str());
+        nvs_set_u8(handle,"scanlines",Config::scanlines);
+        nvs_set_u8(handle,"render",Config::render);
+        nvs_set_str(handle,"TABasfire1", TABasfire1 ? "true" : "false");
+        nvs_set_str(handle,"StartMsg", StartMsg ? "true" : "false");
         f_close(&handle);
     }
     // printf("Config saved OK\n");

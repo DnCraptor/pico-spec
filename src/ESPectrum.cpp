@@ -457,14 +457,10 @@ void ESPectrum::setup()
     
     // Set arch if there's no snapshot to load
     if (Config::ram_file == NO_RAM_FILE) {
-
         if (Config::pref_arch.substr(Config::pref_arch.length()-1) == "R") {
-
             Config::pref_arch.pop_back();
             Config::save("pref_arch");
-
         } else {
-
             if (Config::pref_arch != "Last") Config::arch = Config::pref_arch;
 
             if (Config::arch == "48K") {
@@ -477,10 +473,13 @@ void ESPectrum::setup()
                     Config::romSet = Config::pref_romSet_128;
                 else
                     Config::romSet = Config::romSet128;
-            } else Config::romSet = "Pentagon";
-
+            } else {
+                if (Config::pref_romSet_128 != "Last")
+                    Config::romSet = Config::pref_romSetPent;
+                else
+                    Config::romSet = Config::romSetPent;
+            }
         }
-
     }
 
     // printf("---------------------------------\n");

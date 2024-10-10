@@ -596,6 +596,10 @@ bool FileZ80::load(string z80_fn) {
                 if (Config::pref_romSet_128 == "128K" || Config::pref_romSet_128 == "128Kes")
                     z80_romset = Config::pref_romSet_128;
             }
+        } else
+        if (z80_arch == "Pentagon") {
+            if (Config::pref_romSetPent == "128Kp" || Config::pref_romSetPent == "128Kcs")
+                z80_romset = Config::pref_romSetPent;
         }
 
         // printf("z80_arch: %s mch: %d pref_romset48: %s pref_romset128: %s z80_romset: %s\n",z80_arch.c_str(),mch,Config::pref_romSet_48.c_str(),Config::pref_romSet_128.c_str(),z80_romset.c_str());
@@ -1100,15 +1104,11 @@ void FileZ80::loader48() {
 }
 
 void FileZ80::loader128() {
-
     unsigned char *z80_array;
     uint32_t dataLen;
-
     if (Config::arch == "128K") {
-
         z80_array = (unsigned char *) load128;
         dataLen = sizeof(load128);
-
         if (Config::romSet == "128K") {
             // printf("128K\n");
             z80_array = (unsigned char *) load128;
@@ -1130,20 +1130,11 @@ void FileZ80::loader128() {
             z80_array = (unsigned char *) loadzx81;
             dataLen = sizeof(loadzx81);
         }
-
-
     } else if (Config::arch == "Pentagon") {
-
         z80_array = (unsigned char *) loadpentagon;
         dataLen = sizeof(loadpentagon);
-
     }
-
-    // unsigned char *z80_array = Z80Ops::is128 ? (unsigned char *) load128spa : (unsigned char *) loadpentagon;    
-    // uint32_t dataLen = Z80Ops::is128 ? sizeof(load128spa) : sizeof(loadpentagon);
-
     uint32_t dataOffset = 86;
-
     ESPectrum::reset();
 
     // begin loading registers
