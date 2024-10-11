@@ -48,7 +48,7 @@ static uint32_t* __scratch_y("hdmi_ptr_4") DMA_BUF_ADDR[2];
 //в хвосте этой памяти выделяется dma_data
 static alignas(4096)
 uint32_t conv_color[1224];
-uint8_t map64colors[64] = { 0 };
+static uint8_t map64colors[64] = { 0 };
 
 //индекс, проверяющий зависание
 static uint32_t irq_inx = 0;
@@ -213,7 +213,7 @@ static void __scratch_y("hdmi_driver") dma_handler_HDMI() {
                 while (activ_buf_end > output_buffer) {
                     if (input_buffer < input_buffer_end) {
                         register uint8_t c = input_buffer[(x++) ^ 2];
-                        *output_buffer++ = /*(c & 0xf0) == 0xf0 ? 255 :*/ map64colors[c & 0b00111111];
+                        *output_buffer++ = map64colors[c & 0b00111111];
                     }
                     else
                         *output_buffer++ = 255;

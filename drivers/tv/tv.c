@@ -9,8 +9,7 @@
 #define SCREEN_WIDTH (320)
 #define SCREEN_HEIGHT (240)
 
-//текстовый буфер
-uint8_t* text_buffer = NULL;
+static uint8_t map64colors[64] = { 0 };
 
 //программы PIO
 
@@ -62,9 +61,7 @@ typedef struct {
     uint height;
     int shift_x;
     int shift_y;
-    uint8_t* data;
 } graphics_buffer_t;
-
 
 //режим видеовыхода
 static TV_MODE v_mode = {
@@ -76,7 +73,6 @@ static TV_MODE v_mode = {
 };
 
 static graphics_buffer_t graphics_buffer = {
-    .data = NULL,
     .shift_x = 0,
     .shift_y = 0,
     .width = SCREEN_WIDTH,
@@ -153,6 +149,9 @@ void graphics_set_palette(uint8_t i, uint32_t color888) {
     conv_color16[i] = (c_hi << 8 | c_lo) & 0x3f3f | palette16_mask;
 }
 
+/// TODO: .h
+uint8_t* getLineBuffer(int line);
+void ESPectrum_vsync();
 
 //основная функция заполнения буферов видеоданных
 static void __scratch_x("tv_main_loop") main_video_loopTV() {
@@ -178,7 +177,9 @@ static void __scratch_x("tv_main_loop") main_video_loopTV() {
         if (line_active == v_mode.N_lines) {
             line_active = 0;
             frame_i++;
-            input_buffer = graphics_buffer.data;
+        }
+        if (line_active == 240) { // last visible line - 239 already shown
+            ESPectrum_vsync();
         }
 
         lines_buf_inx = (lines_buf_inx + 1) % N_LINE_BUF;
@@ -447,7 +448,9 @@ static void __scratch_x("tv_main_loop") main_video_loopTV() {
                     if ((line_active > 271)) { y = line_active - 282; };
                     break;
             }
-
+            if (y < 240 && y >= 0) {
+                input_buffer = getLineBuffer(y);
+            }
             if (y >= 240 || y < 0 || input_buffer == NULL) {
                 //вне изображения
                 memset(output_buffer, v_mode.NO_SYNC_TMPL, v_mode.H_len - v_mode.begin_img_shx);
@@ -456,36 +459,10 @@ static void __scratch_x("tv_main_loop") main_video_loopTV() {
                 //зона изображения
                 if (active_output_format == TV_OUT_PAL) output_buffer += 33;
 
-                /*if (active_mode == g_mode_320x240x4bpp) {
-                    uint8_t* vbuf8 = vbuf + (line_inx) * g_buf.width / 2;
-                    if (vbuf != NULL)
-                        for (int i = g_buf.width / 16; i--;) {
-                            *out_buf8++ = *vbuf8 & 0x0f;
-                            *out_buf8++ = *vbuf8++ >> 4;
-                            *out_buf8++ = *vbuf8 & 0x0f;
-                            *out_buf8++ = *vbuf8++ >> 4;
-                            *out_buf8++ = *vbuf8 & 0x0f;
-                            *out_buf8++ = *vbuf8++ >> 4;
-                            *out_buf8++ = *vbuf8 & 0x0f;
-                            *out_buf8++ = *vbuf8++ >> 4;
-
-                            *out_buf8++ = *vbuf8 & 0x0f;
-                            *out_buf8++ = *vbuf8++ >> 4;
-                            *out_buf8++ = *vbuf8 & 0x0f;
-                            *out_buf8++ = *vbuf8++ >> 4;
-                            *out_buf8++ = *vbuf8 & 0x0f;
-                            *out_buf8++ = *vbuf8++ >> 4;
-                            *out_buf8++ = *vbuf8 & 0x0f;
-                            *out_buf8++ = *vbuf8++ >> 4;
-                        }
-                }
-                else*/
-                if (graphics_buffer.data)
                 switch (graphics_mode) {
                     default:
                     case GRAPHICSMODE_DEFAULT: {
                         //для 8-битного буфера
-                        uint8_t* input_buffer8 = input_buffer + y * graphics_buffer.width;
                         if (input_buffer != NULL) {
                             // TODO: shift_y, background_color
                             for (uint x = graphics_buffer.shift_x; x--;) {
@@ -493,34 +470,17 @@ static void __scratch_x("tv_main_loop") main_video_loopTV() {
                             }
 
                             for (uint x = graphics_buffer.width; x--;) {
-                                *output_buffer++ = *input_buffer8 < 240 ? *input_buffer8 : 0;
-                                input_buffer8++;
+                                ///*output_buffer++ = *input_buffer8 < 240 ? *input_buffer8 : 0;
+                                ///input_buffer8++;
+                                register uint8_t c = input_buffer[(x++) ^ 2];
+                                *output_buffer++ = map64colors[c & 0b00111111];
+                                ///uint8_t* input_buffer8 = input_buffer + y * graphics_buffer.width;
                             }
 
                             for (uint x = graphics_buffer.shift_x; x--;) {
                                 *output_buffer++ = 200;
                             }
                         }
-                        break;
-                    }
-                    case TEXTMODE_DEFAULT: {
-                        *output_buffer++ = 200;
-
-                        for (int x = 0; x < TEXTMODE_COLS; x++) {
-                            const uint16_t offset = y / 8 * (TEXTMODE_COLS * 2) + x * 2;
-                            const uint8_t c = text_buffer[offset];
-                            const uint8_t colorIndex = text_buffer[offset + 1];
-                            uint8_t glyph_row = font_6x8[c * 8 + y % 8];
-
-                            for (int bit = 6; bit--;) {
-                                *output_buffer++ = glyph_row & 1
-                                                       ? textmode_palette[colorIndex & 0xf] //цвет шрифта
-                                                       : textmode_palette[colorIndex >> 4]; //цвет фона
-
-                                glyph_row >>= 1;
-                            }
-                        }
-                        *output_buffer = 200;
                         break;
                     }
                 }
@@ -529,110 +489,6 @@ static void __scratch_x("tv_main_loop") main_video_loopTV() {
             // memset(out_buf8,0,v_mode.H_len-v_mode.begin_img_shx);
             // for(int i=0;i<240;i++) *out_buf8++=i;
         }
-
-        // if (line_active<hw_mode.V_visible_lines){
-        // 	//зона изображения
-        // 	//if (false)
-        // 	switch (active_mode){
-        // 		case g_mode_320x240x4bpp:
-        // 		case g_mode_320x240x8bpp:
-        // 			//320x240 графика
-        // 			if (line_active&1){
-        // 				//повтор шаблона строки
-        // 			} else {
-        // 				//новая строка
-        // 				lines_buf_inx=(lines_buf_inx+1)%N_LINE_BUF;
-        // 				uint8_t* out_buf8=(uint8_t*)lines_buf[lines_buf_inx];
-        // 				//зона синхры, затираем все шаблоны
-        // 				if(line_active<(N_LINE_BUF_DMA*2)){
-        // 					memset(out_buf8,hw_mode.HS_TMPL,hw_mode.HS_len);
-        // 					memset(out_buf8+hw_mode.HS_len,hw_mode.NO_SYNC_TMPL,hw_mode.H_visible_begin-hw_mode.HS_len);
-        // 					memset(out_buf8+hw_mode.H_visible_begin+hw_mode.H_visible_len,hw_mode.NO_SYNC_TMPL,hw_mode.H_len-(hw_mode.H_visible_begin+hw_mode.H_visible_len));
-        // 				}
-        // 				//формирование картинки
-        // 				int line=line_active/2;
-        // 				out_buf8+=hw_mode.H_visible_begin;
-        // 				uint8_t* vbuf8;
-        // 				//для 4-битного буфера
-        // 				if (active_mode==g_mode_320x240x4bpp){
-        // 					vbuf8=vbuf+(line)*g_buf.width/2;
-        // 					if (vbuf!=NULL)
-        // 						for(int i=hw_mode.H_visible_len/16;i--;){
-        // 							*out_buf8++=*vbuf8&0x0f;
-        // 							*out_buf8++=*vbuf8++>>4;
-        // 							*out_buf8++=*vbuf8&0x0f;
-        // 							*out_buf8++=*vbuf8++>>4;
-        // 							*out_buf8++=*vbuf8&0x0f;
-        // 							*out_buf8++=*vbuf8++>>4;
-        // 							*out_buf8++=*vbuf8&0x0f;
-        // 							*out_buf8++=*vbuf8++>>4;
-
-        // 							*out_buf8++=*vbuf8&0x0f;
-        // 							*out_buf8++=*vbuf8++>>4;
-        // 							*out_buf8++=*vbuf8&0x0f;
-        // 							*out_buf8++=*vbuf8++>>4;
-        // 							*out_buf8++=*vbuf8&0x0f;
-        // 							*out_buf8++=*vbuf8++>>4;
-        // 							*out_buf8++=*vbuf8&0x0f;
-        // 							*out_buf8++=*vbuf8++>>4;
-        // 						}
-        // 				} else {
-        // 				//для 8-битного буфера
-        // 					vbuf8=vbuf+(line)*g_buf.width;
-        // 					if (vbuf!=NULL)
-        // 						for(int i=hw_mode.H_visible_len/16;i--;){
-        // 							// *out_buf8++=100;
-        // 							//	*out_buf8++=(i<240)?i:0;vbuf8++;
-        // 							*out_buf8++=(*vbuf8<240)?*vbuf8:0;vbuf8++;
-        // 							*out_buf8++=(*vbuf8<240)?*vbuf8:0;vbuf8++;
-        // 							*out_buf8++=(*vbuf8<240)?*vbuf8:0;vbuf8++;
-        // 							*out_buf8++=(*vbuf8<240)?*vbuf8:0;vbuf8++;
-        // 							*out_buf8++=(*vbuf8<240)?*vbuf8:0;vbuf8++;
-        // 							*out_buf8++=(*vbuf8<240)?*vbuf8:0;vbuf8++;
-        // 							*out_buf8++=(*vbuf8<240)?*vbuf8:0;vbuf8++;
-        // 							*out_buf8++=(*vbuf8<240)?*vbuf8:0;vbuf8++;
-
-        // 							*out_buf8++=(*vbuf8<240)?*vbuf8:0;vbuf8++;
-        // 							*out_buf8++=(*vbuf8<240)?*vbuf8:0;vbuf8++;
-        // 							*out_buf8++=(*vbuf8<240)?*vbuf8:0;vbuf8++;
-        // 							*out_buf8++=(*vbuf8<240)?*vbuf8:0;vbuf8++;
-        // 							*out_buf8++=(*vbuf8<240)?*vbuf8:0;vbuf8++;
-        // 							*out_buf8++=(*vbuf8<240)?*vbuf8:0;vbuf8++;
-        // 							*out_buf8++=(*vbuf8<240)?*vbuf8:0;vbuf8++;
-        // 							*out_buf8++=(*vbuf8<240)?*vbuf8:0;vbuf8++;
-        // 						}
-        // 				}
-        // 			}
-        // 			break;
-
-        // 		default:
-        // 			break;
-        // 	}
-        // } else {
-        // 	if((line_active>=hw_mode.VS_begin)&&(line_active<=hw_mode.VS_end)){//кадровый синхроимпульс
-        // 		if (line_active==hw_mode.VS_begin){
-        // 			//новый шаблон
-        // 			lines_buf_inx=(lines_buf_inx+1)%N_LINE_BUF;
-        // 			uint8_t* out_buf8=(uint8_t*)lines_buf[lines_buf_inx];
-        // 			memset(out_buf8,hw_mode.VHS_TMPL,hw_mode.HS_len);
-        // 			memset(out_buf8+hw_mode.HS_len,hw_mode.VS_TMPL,hw_mode.H_len-hw_mode.HS_len);
-
-        // 		} else {
-        // 			//повтор шаблона
-        // 		}
-        // 	} else {
-        // 		//строчный синхроимпульс
-        // 		if((line_active==(hw_mode.VS_end+1))||(line_active==(hw_mode.V_visible_lines))){
-        // 			//новый шаблон
-        // 			lines_buf_inx=(lines_buf_inx+1)%N_LINE_BUF;
-        // 			uint8_t* out_buf8=(uint8_t*)lines_buf[lines_buf_inx];
-        // 			memset(out_buf8,hw_mode.HS_TMPL,hw_mode.HS_len);
-        // 			memset(out_buf8+hw_mode.HS_len,hw_mode.NO_SYNC_TMPL,hw_mode.H_len-hw_mode.HS_len);
-        // 		} else {
-        // 			//повтор шаблона
-        // 		}
-        // 	}
-        // }
 
         rd_addr_DMA_CTRL[dma_inx_out] = (uint32_t)&lines_buf[lines_buf_inx];
         //включаем заполненный буфер в данные для вывода
@@ -643,14 +499,9 @@ static void __scratch_x("tv_main_loop") main_video_loopTV() {
 }
 
 void graphics_set_buffer(uint8_t* buffer, const uint16_t width, const uint16_t height) {
-    graphics_buffer.data = buffer;
     graphics_buffer.height = height;
     graphics_buffer.width = width;
 }
-
-void graphics_set_textbuffer(uint8_t* buffer) {
-    text_buffer = buffer;
-};
 
 void graphics_set_offset(const int x, const int y) {
     graphics_buffer.shift_x = x;
@@ -865,7 +716,73 @@ void tv_init(const output_format_e output_format) {
 void graphics_init() {
     tv_init(TV_OUT_NTSC);
 
-    // FIXME сделать конфигурацию пользователем
+    for (uint8_t c = 0; c <= 0b00111111; ++c) {
+        switch (c)
+        {
+        case 0b000000: map64colors[c] = 200; break; // black
+
+        case 0b000001: map64colors[c] = 204; break; // red
+        case 0b000010: map64colors[c] = 204; break;
+
+        case 0b000011: map64colors[c] = 212; break; // light red
+        case 0b010011: map64colors[c] = 212; break;
+
+        case 0b000100: map64colors[c] = 202; break; // green
+        case 0b001000: map64colors[c] = 202; break;
+        case 0b001001: map64colors[c] = 202; break;
+
+        case 0b001100: map64colors[c] = 210; break; // light green
+
+        case 0b010000: map64colors[c] = 201; break; // blue
+        case 0b100000: map64colors[c] = 201; break;
+
+        case 0b110000: map64colors[c] = 209; break; // light blue
+
+        case 0b000101: map64colors[c] = 208; break; // yellow
+        case 0b000110: map64colors[c] = 208; break;
+        case 0b001010: map64colors[c] = 208; break;
+        case 0b001011: map64colors[c] = 208; break;
+        case 0b001110: map64colors[c] = 208; break;
+
+        case 0b001111: map64colors[c] = 214; break; // light tellow
+
+        case 0b010001: map64colors[c] = 205; break; // magenta
+        case 0b010010: map64colors[c] = 205; break;
+        case 0b100001: map64colors[c] = 205; break;
+        case 0b100010: map64colors[c] = 205; break;
+        case 0b110010: map64colors[c] = 205; break;
+        case 0b100011: map64colors[c] = 205; break;
+
+        case 0b110011: map64colors[c] = 213; break; // light magenta
+
+        case 0b010100: map64colors[c] = 203; break; // cyan
+        case 0b100100: map64colors[c] = 203; break;
+        case 0b011000: map64colors[c] = 203; break;
+        case 0b101000: map64colors[c] = 203; break;
+        case 0b111000: map64colors[c] = 203; break;
+        case 0b101100: map64colors[c] = 203; break;
+
+        case 0b111100: map64colors[c] = 211; break; // light cyan
+
+        case 0b010101: map64colors[c] = 207; break; // gray
+        case 0b010110: map64colors[c] = 207; break;
+        case 0b100101: map64colors[c] = 207; break;
+        case 0b100110: map64colors[c] = 207; break;
+        case 0b010111: map64colors[c] = 207; break;
+        case 0b011001: map64colors[c] = 207; break;
+        case 0b011111: map64colors[c] = 207; break;
+        case 0b111001: map64colors[c] = 207; break;
+        case 0b111010: map64colors[c] = 207; break;
+        case 0b101001: map64colors[c] = 207; break;
+        case 0b101010: map64colors[c] = 207; break;
+
+        case 0b111111: map64colors[c] = 215; break; // white
+
+        case 0b000111: map64colors[c] = 216; break; // orange
+
+        default: map64colors[c] = 215; break;
+        }
+    }
     graphics_set_palette(200, RGB888(0x00, 0x00, 0x00)); //black
     graphics_set_palette(201, RGB888(0x00, 0x00, 0xC4)); //blue
     graphics_set_palette(202, RGB888(0x00, 0xC4, 0x00)); //green
@@ -874,23 +791,18 @@ void graphics_init() {
     graphics_set_palette(205, RGB888(0xC4, 0x00, 0xC4)); //magenta
     graphics_set_palette(206, RGB888(0xC4, 0x7E, 0x00)); //brown
     graphics_set_palette(207, RGB888(0xC4, 0xC4, 0xC4)); //light gray
-    graphics_set_palette(208, RGB888(0x4E, 0x4E, 0x4E)); //dark gray
+//    graphics_set_palette(208, RGB888(0x4E, 0x4E, 0x4E)); //dark gray
+    graphics_set_palette(208, RGB888(0xC4, 0xC4, 0x00)); //yellow
     graphics_set_palette(209, RGB888(0x4E, 0x4E, 0xDC)); //light blue
     graphics_set_palette(210, RGB888(0x4E, 0xDC, 0x4E)); //light green
     graphics_set_palette(211, RGB888(0x4E, 0xF3, 0xF3)); //light cyan
     graphics_set_palette(212, RGB888(0xDC, 0x4E, 0x4E)); //light red
     graphics_set_palette(213, RGB888(0xF3, 0x4E, 0xF3)); //light magenta
-    graphics_set_palette(214, RGB888(0xF3, 0xF3, 0x4E)); //yellow
+    graphics_set_palette(214, RGB888(0xF3, 0xF3, 0x4E)); //light yellow
     graphics_set_palette(215, RGB888(0xFF, 0xFF, 0xFF)); //white
+    graphics_set_palette(216, RGB888(0xFF, 0x7E, 0x00)); //orange
 }
-
-void clrScr(const uint8_t color) {
-    if (text_buffer)
-        memset(text_buffer, color, TEXTMODE_COLS * TEXTMODE_ROWS * 2);
-}
-
 
 void graphics_set_mode(const enum graphics_mode_t mode) {
     graphics_mode = mode;
-    clrScr(0);
 }
