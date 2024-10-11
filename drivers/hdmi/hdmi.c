@@ -26,8 +26,6 @@ static uint32_t palette[256];
 
 #define SCREEN_WIDTH (320)
 #define SCREEN_HEIGHT (240)
-//графический буфер
-static uint8_t* __scratch_y("hdmi_ptr_1") graphics_buffer = NULL;
 static int graphics_buffer_width = 0;
 static int graphics_buffer_height = 0;
 static int graphics_buffer_shift_x = 0;
@@ -54,7 +52,7 @@ static uint32_t* __scratch_y("hdmi_ptr_4") DMA_BUF_ADDR[2];
 //в хвосте этой памяти выделяется dma_data
 static alignas(4096)
 uint32_t conv_color[1224];
-
+uint8_t map64colors[64] = { 0 };
 
 //индекс, проверяющий зависание
 static uint32_t irq_inx = 0;
@@ -162,6 +160,8 @@ static void pio_set_x(PIO pio, const int sm, uint32_t v) {
     pio_sm_exec(pio, sm, instr_mov);
 }
 
+uint8_t* getLineBuffer(int line);
+void ESPectrum_vsync();
 
 static void __scratch_y("hdmi_driver") dma_handler_HDMI() {
     static uint32_t inx_buf_dma;
@@ -171,28 +171,31 @@ static void __scratch_y("hdmi_driver") dma_handler_HDMI() {
     dma_hw->ints0 = 1u << dma_chan_ctrl;
     dma_channel_set_read_addr(dma_chan_ctrl, &DMA_BUF_ADDR[inx_buf_dma & 1], false);
 
-    line = line >= 524 ? 0 : line + 1;
+    if ( line >= 524 ) {
+        ESPectrum_vsync();
+        line = 0;
+    } else {
+        ++line;
+    }
 
     if ((line & 1) == 0) return;
 
     inx_buf_dma++;
 
-
     uint8_t* activ_buf = (uint8_t *)dma_lines[inx_buf_dma & 1];
 
-    if (graphics_buffer && line < 480 ) {
+    if (line < 480 ) {
         //область изображения
-        uint8_t* input_buffer = &graphics_buffer[(line / 2) * graphics_buffer_width];
+        uint8_t* input_buffer = getLineBuffer(line >> 1);
         uint8_t* output_buffer = activ_buf + 72; //для выравнивания синхры;
         int y = line / 2;
         switch (graphics_mode) {
             case GRAPHICSMODE_DEFAULT:
-            case VGA_320x240x256:
                 //заполняем пространство сверху и снизу графического буфера
                 if (false || (graphics_buffer_shift_y > y) || (y >= (graphics_buffer_shift_y + graphics_buffer_height))
                     || (graphics_buffer_shift_x >= SCREEN_WIDTH) || (
                         (graphics_buffer_shift_x + graphics_buffer_width) < 0)) {
-                    memset(output_buffer, 255,SCREEN_WIDTH);
+                    memset(output_buffer, 255, SCREEN_WIDTH);
                     break;
                 }
 
@@ -203,17 +206,14 @@ static void __scratch_y("hdmi_driver") dma_handler_HDMI() {
                 }
 
             //рисуем сам видеобуфер+пространство справа
-                input_buffer = &graphics_buffer[(y - graphics_buffer_shift_y) * graphics_buffer_width];
-
+///                input_buffer = &graphics_buffer[(y - graphics_buffer_shift_y) * graphics_buffer_width];
                 const uint8_t* input_buffer_end = input_buffer + graphics_buffer_width;
-
                 if (graphics_buffer_shift_x < 0) input_buffer -= graphics_buffer_shift_x;
-
+                register size_t x = 0;
                 while (activ_buf_end > output_buffer) {
                     if (input_buffer < input_buffer_end) {
-                        uint8_t i_color = *input_buffer++;
-                        i_color = ((i_color & 0xf0) == 0xf0) ? 255 : i_color;
-                        *output_buffer++ = i_color;
+                        register uint8_t c = input_buffer[(x++) ^ 2];
+                        *output_buffer++ = /*(c & 0xf0) == 0xf0 ? 255 :*/ map64colors[c & 0b00111111];
                     }
                     else
                         *output_buffer++ = 255;
@@ -221,8 +221,7 @@ static void __scratch_y("hdmi_driver") dma_handler_HDMI() {
 
                 break;
 
-            case TEXTMODE_DEFAULT:
-            case TEXTMODE_53x30: {
+            case TEXTMODE_DEFAULT: {
                 *output_buffer++ = 255;
 
                 for (int x = 0; x < TEXTMODE_COLS; x++) {
@@ -553,11 +552,9 @@ void graphics_set_palette(uint8_t i, uint32_t color888) {
 };
 
 void graphics_set_buffer(uint8_t* buffer, uint16_t width, uint16_t height) {
-    graphics_buffer = buffer;
     graphics_buffer_width = width;
     graphics_buffer_height = height;
 };
-
 
 //выделение и настройка общих ресурсов - 4 DMA канала, PIO программ и 2 SM
 void graphics_init() {
@@ -570,8 +567,73 @@ void graphics_init() {
     dma_chan_pal_conv_ctrl = dma_claim_unused_channel(true);
     dma_chan_pal_conv = dma_claim_unused_channel(true);
 
+    for (uint8_t c = 0; c <= 0b00111111; ++c) {
+        switch (c)
+        {
+        case 0b000000: map64colors[c] = 200; break; // black
 
-    // FIXME сделать конфигурацию пользователем
+        case 0b000001: map64colors[c] = 204; break; // red
+        case 0b000010: map64colors[c] = 204; break;
+
+        case 0b000011: map64colors[c] = 212; break; // light red
+        case 0b010011: map64colors[c] = 212; break;
+
+        case 0b000100: map64colors[c] = 202; break; // green
+        case 0b001000: map64colors[c] = 202; break;
+        case 0b001001: map64colors[c] = 202; break;
+
+        case 0b001100: map64colors[c] = 210; break; // light green
+
+        case 0b010000: map64colors[c] = 201; break; // blue
+        case 0b100000: map64colors[c] = 201; break;
+
+        case 0b110000: map64colors[c] = 209; break; // light blue
+
+        case 0b000101: map64colors[c] = 208; break; // yellow
+        case 0b000110: map64colors[c] = 208; break;
+        case 0b001010: map64colors[c] = 208; break;
+        case 0b001011: map64colors[c] = 208; break;
+        case 0b001110: map64colors[c] = 208; break;
+
+        case 0b001111: map64colors[c] = 214; break; // light tellow
+
+        case 0b010001: map64colors[c] = 205; break; // magenta
+        case 0b010010: map64colors[c] = 205; break;
+        case 0b100001: map64colors[c] = 205; break;
+        case 0b100010: map64colors[c] = 205; break;
+        case 0b110010: map64colors[c] = 205; break;
+        case 0b100011: map64colors[c] = 205; break;
+
+        case 0b110011: map64colors[c] = 213; break; // light magenta
+
+        case 0b010100: map64colors[c] = 203; break; // cyan
+        case 0b100100: map64colors[c] = 203; break;
+        case 0b011000: map64colors[c] = 203; break;
+        case 0b101000: map64colors[c] = 203; break;
+        case 0b111000: map64colors[c] = 203; break;
+        case 0b101100: map64colors[c] = 203; break;
+
+        case 0b111100: map64colors[c] = 211; break; // light cyan
+
+        case 0b010101: map64colors[c] = 207; break; // gray
+        case 0b010110: map64colors[c] = 207; break;
+        case 0b100101: map64colors[c] = 207; break;
+        case 0b100110: map64colors[c] = 207; break;
+        case 0b010111: map64colors[c] = 207; break;
+        case 0b011001: map64colors[c] = 207; break;
+        case 0b011111: map64colors[c] = 207; break;
+        case 0b111001: map64colors[c] = 207; break;
+        case 0b111010: map64colors[c] = 207; break;
+        case 0b101001: map64colors[c] = 207; break;
+        case 0b101010: map64colors[c] = 207; break;
+
+        case 0b111111: map64colors[c] = 215; break; // white
+
+        case 0b000111: map64colors[c] = 216; break; // orange
+
+        default: map64colors[c] = 215; break;
+        }
+    }
     graphics_set_palette(200, RGB888(0x00, 0x00, 0x00)); //black
     graphics_set_palette(201, RGB888(0x00, 0x00, 0xC4)); //blue
     graphics_set_palette(202, RGB888(0x00, 0xC4, 0x00)); //green
@@ -580,15 +642,16 @@ void graphics_init() {
     graphics_set_palette(205, RGB888(0xC4, 0x00, 0xC4)); //magenta
     graphics_set_palette(206, RGB888(0xC4, 0x7E, 0x00)); //brown
     graphics_set_palette(207, RGB888(0xC4, 0xC4, 0xC4)); //light gray
-    graphics_set_palette(208, RGB888(0x4E, 0x4E, 0x4E)); //dark gray
+//    graphics_set_palette(208, RGB888(0x4E, 0x4E, 0x4E)); //dark gray
+    graphics_set_palette(208, RGB888(0xC4, 0xC4, 0x00)); //yellow
     graphics_set_palette(209, RGB888(0x4E, 0x4E, 0xDC)); //light blue
     graphics_set_palette(210, RGB888(0x4E, 0xDC, 0x4E)); //light green
     graphics_set_palette(211, RGB888(0x4E, 0xF3, 0xF3)); //light cyan
     graphics_set_palette(212, RGB888(0xDC, 0x4E, 0x4E)); //light red
     graphics_set_palette(213, RGB888(0xF3, 0x4E, 0xF3)); //light magenta
-    graphics_set_palette(214, RGB888(0xF3, 0xF3, 0x4E)); //yellow
+    graphics_set_palette(214, RGB888(0xF3, 0xF3, 0x4E)); //light yellow
     graphics_set_palette(215, RGB888(0xFF, 0xFF, 0xFF)); //white
-
+    graphics_set_palette(216, RGB888(0xFF, 0x7E, 0x00)); //orange
     hdmi_init();
 }
 

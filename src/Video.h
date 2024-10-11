@@ -60,9 +60,9 @@ visit https://zxespectrum.speccy.org/contacto
 #define TS_BORDER_360x200_128 13438  // START OF BORDER 128
 #define TS_BORDER_360x200_PENTAGON 17075  // START OF BORDER PENTAGON
 
-// Colors for 6 bit mode
+// Colors for 6 bit VGA mode
 //                  //  BBGGRR 
-#define BLACK       0b00000000 
+#define BLACK       0b00000000
 #define BLUE        0b00100000
 #define RED         0b00000010
 #define MAGENTA     0b00100010
