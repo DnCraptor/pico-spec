@@ -15,8 +15,8 @@
 #include "pico/stdlib.h"
 #include "stdlib.h"
 #pragma GCC optimize("Ofast")
-uint8_t* text_buffer = NULL;
 
+static uint8_t map64colors[64] = { 0 };
 
 typedef struct tv_out_mode_t {
     // double color_freq;
@@ -89,7 +89,6 @@ typedef struct G_BUFFER {
     uint height;
     int shift_x;
     int shift_y;
-    uint8_t* data;
 } G_BUFFER;
 
 
@@ -106,7 +105,6 @@ static TV_MODE video_mode = {
 
 
 static G_BUFFER graphics_buffer = {
-    .data = NULL,
     .shift_x = 0,
     .shift_y = 0,
     .height = 240,
@@ -439,6 +437,9 @@ void graphics_set_palette(uint8_t i, uint32_t color888) {
 }
 
 
+uint8_t* getLineBuffer(int line);
+void ESPectrum_vsync();
+
 //основная функция заполнения буферов видеоданных
 static bool __time_critical_func(video_timer_callbackTV)(repeating_timer_t* rt) {
     static uint dma_inx_out = 0;
@@ -453,7 +454,6 @@ static bool __time_critical_func(video_timer_callbackTV)(repeating_timer_t* rt) 
     //uint n_loop=(N_LINE_BUF_DMA+dma_inx-dma_inx_out)%N_LINE_BUF_DMA;
 
     static uint32_t line_active = 0;
-    static uint8_t* input_buffer = NULL;
     static uint32_t frame_i = 0;
     static uint32_t g_str_index = 1;
     //while(n_loop--)
@@ -468,7 +468,7 @@ static bool __time_critical_func(video_timer_callbackTV)(repeating_timer_t* rt) 
         if (line_active >= video_mode.N_lines) {
             line_active = 0;
             frame_i++;
-            input_buffer = graphics_buffer.data;
+            ESPectrum_vsync();
         }
 
         lines_buf_inx = (lines_buf_inx + 1) % N_LINE_BUF;
@@ -895,141 +895,31 @@ static bool __time_critical_func(video_timer_callbackTV)(repeating_timer_t* rt) 
                     if ((line_active > 271)) { y = line_active - 282; };
                     break;
             }
-
+            uint8_t* input_buffer = NULL;
+            if (y < 240 && y >= 0) {
+                input_buffer = getLineBuffer(y);
+            }
             if ((y >= 240) || (y < 0) || (input_buffer == NULL)) {
                 //вне изображения
                 memset(output_buffer8, video_mode.LVL_BLACK_TMPL, video_mode.img_W);
             }
             else {
                 //зона изображения
-                //цветовая вспышка(тест в зоне изображения)
-                // if (li)	memcpy(out_buf8-v_mode.begin_img_shx+22*4,cb[1],40);
-                // else memcpy(out_buf8-v_mode.begin_img_shx+22*4,cb[0],40);
-
-
-                // memset(out_buf8,v_mode.LVL_BLACK_TMPL,v_mode.img_W);	//test
-
-
-                //if (active_out==g_TV_OUT_PAL) out_buf8+=33;
-
                 uint ibuf = 0;
-                // int next_ibuf=0;
                 int next_ibuf = 0x100;
-
-                // uint16_t* out_buf16=(uint16_t*)lines_buf[lines_buf_inx];//(((uint32_t)out_buf8)&0xfffffffe);
-                // out_buf16+=v_mode.begin_img_shx/2;
 
                 uint32_t* out_buf32 = (uint32_t *)lines_buf[lines_buf_inx];
                 out_buf32 += video_mode.begin_img_shx / 4;
 
-                /*
-                if (tv_out_mode.mode_bpp == g_mode_320x240x4bpp) {
-                    uint8_t* vbuf8 = vbuf + (line_inx) * g_buf.width / 2;
-                    // uint16_t c16=(v_mode.LVL_BLACK_TMPL)|(v_mode.LVL_BLACK_TMPL<<8);
-
-                    uint8_t c8 = *vbuf8;
-                    uint32_t cout32;
-                    cout32 = conv_color[li][c8 & 0xf];
-                    // uint8_t* c_4=&conv_color[0][c8&0xf];
-                    uint8_t* c_4 = &cout32;
-
-
-                    out_buf8 += buf_sh;
-
-                    bool is_read_buf = false;
-
-                    if (vbuf != NULL)
-                        for (int i = 0; i < (v_mode.img_W - d_end) / 4; i++)
-                        // for(int i=0;i<(g_buf.width*2);i++)
-                        {
-                            *out_buf8++ = c_4[0];
-                            next_ibuf -= di;
-                            if (next_ibuf <= 0) {
-                                if (is_read_buf) {
-                                    c8 = *(++vbuf8);
-                                    cout32 = conv_color[li][c8 & 0xf];
-                                }
-                                else cout32 = conv_color[li][c8 >> 4];
-                                next_ibuf += 0x100;
-                                is_read_buf = !is_read_buf;
-                            }
-
-                            *out_buf8++ = c_4[1];
-                            next_ibuf -= di;
-                            if (next_ibuf <= 0) {
-                                if (is_read_buf) {
-                                    c8 = *(++vbuf8);
-                                    cout32 = conv_color[li][c8 & 0xf];
-                                }
-                                else cout32 = conv_color[li][c8 >> 4];
-                                next_ibuf += 0x100;
-                                is_read_buf = !is_read_buf;
-                            }
-
-                            *out_buf8++ = c_4[2];
-                            next_ibuf -= di;
-                            if (next_ibuf <= 0) {
-                                if (is_read_buf) {
-                                    c8 = *(++vbuf8);
-                                    cout32 = conv_color[li][c8 & 0xf];
-                                }
-                                else cout32 = conv_color[li][c8 >> 4];
-                                next_ibuf += 0x100;
-                                is_read_buf = !is_read_buf;
-                            }
-
-                            *out_buf8++ = c_4[3];
-                            next_ibuf -= di;
-                            if (next_ibuf <= 0) {
-                                if (is_read_buf) {
-                                    c8 = *(++vbuf8);
-                                    cout32 = conv_color[li][c8 & 0xf];
-                                }
-                                else cout32 = conv_color[li][c8 >> 4];
-                                next_ibuf += 0x100;
-                                is_read_buf = !is_read_buf;
-                            }
-                        }
-
-
-                    // }
-                }
-                else
-                */
                 if (input_buffer != NULL)
                     switch (tv_out_mode.mode_bpp) {
-                        case TEXTMODE_DEFAULT: {
-                            output_buffer8 += 8;
-                            for (int x = 0; x < TEXTMODE_COLS; x++) {
-                                const uint16_t offset = y / 8 * (TEXTMODE_COLS * 2) + x * 2;
-                                const uint8_t c = text_buffer[offset];
-                                const uint8_t colorIndex = text_buffer[offset + 1];
-                                uint8_t glyph_row = font_6x8[c * 8 + y % 8];
-
-                                for (int bit = 6; bit--;) {
-                                    uint32_t cout32 = conv_color[li][glyph_row & 1
-                                                                         ? textmode_palette[colorIndex & 0xf]
-                                                                         //цвет шрифта
-                                                                         : textmode_palette[colorIndex >> 4] //цвет фона
-                                    ];
-                                    uint8_t* c_4 = &cout32;
-                                    *output_buffer8++ = c_4[bit % 4];
-                                    *output_buffer8++ = c_4[bit % 4];
-                                    *output_buffer8++ = c_4[bit % 4];
-                                    glyph_row >>= 1;
-                                }
-                            }
-                        }
-                        break;
                         case GRAPHICSMODE_DEFAULT: {
-                            //для 8-битного буфера
-                            uint8_t* input_buffer8 = input_buffer + y * graphics_buffer.width;
+                            // для 8-битного буфера
 
                             // todo bgcolor
-                            uint8_t color = graphics_buffer.shift_x ? 200 : *input_buffer8++;
+                            uint8_t color = graphics_buffer.shift_x ? 200 : map64colors[*input_buffer++ & 0b00111111];
                             uint32_t cout32 = conv_color[li][color];
-                            // uint8_t* c_4=&conv_color[0][c8&0xf];
-                            uint8_t* c_4 = &cout32;
+                            uint8_t* c_4 = (uint8_t*)&cout32;
                             output_buffer8 += buffer_shift;
 
                             int x = 0;
@@ -1041,7 +931,7 @@ static bool __time_critical_func(video_timer_callbackTV)(repeating_timer_t* rt) 
                                     x++;
                                     if (x > graphics_buffer.shift_x && x < graphics_buffer.shift_x + graphics_buffer.
                                         width) {
-                                        color = *input_buffer8++;
+                                        color = map64colors[*input_buffer++ & 0b00111111];
                                     }
                                     else {
                                         color = 200;
@@ -1056,20 +946,18 @@ static bool __time_critical_func(video_timer_callbackTV)(repeating_timer_t* rt) 
             }
         }
 
-        //управление длиной строки
+        // управление длиной строки
         transfer_count_DMA_CTRL[dma_inx_out] = video_mode.H_len - dec_str;
         rd_addr_DMA_CTRL[dma_inx_out] = (uint32_t)&lines_buf[lines_buf_inx];
-        //включаем заполненный буфер в данные для вывода
+        // включаем заполненный буфер в данные для вывода
         dma_inx_out = (dma_inx_out + 1) % (N_LINE_BUF_DMA);
         dma_inx = (N_LINE_BUF_DMA - 2 + ((dma_channel_hw_addr(dma_chan_ctrl)->read_addr - (uint32_t)rd_addr_DMA_CTRL) /
                                          4)) % (N_LINE_BUF_DMA);
-        // dma_inx=(N_LINE_BUF_DMA-2+((dma_channel_hw_addr(dma_chan_ctrl)->read_addr-(uint32_t)rd_addr_DMA_CTRL)/4))%(N_LINE_BUF_DMA);
     }
     return true;
 }
 
 void graphics_set_buffer(uint8_t* buffer, const uint16_t width, const uint16_t height) {
-    graphics_buffer.data = buffer;
     graphics_buffer.width = width;
     graphics_buffer.height = height;
 }
@@ -1195,7 +1083,74 @@ void graphics_init() {
     }
     // graphics_get_default_modeTV();
     graphics_set_modeTV(tv_out_mode);
-    // FIXME сделать конфигурацию пользователем
+
+    for (uint8_t c = 0; c <= 0b00111111; ++c) {
+        switch (c)
+        {
+        case 0b000000: map64colors[c] = 200; break; // black
+
+        case 0b000001: map64colors[c] = 204; break; // red
+        case 0b000010: map64colors[c] = 204; break;
+
+        case 0b000011: map64colors[c] = 212; break; // light red
+        case 0b010011: map64colors[c] = 212; break;
+
+        case 0b000100: map64colors[c] = 202; break; // green
+        case 0b001000: map64colors[c] = 202; break;
+        case 0b001001: map64colors[c] = 202; break;
+
+        case 0b001100: map64colors[c] = 210; break; // light green
+
+        case 0b010000: map64colors[c] = 201; break; // blue
+        case 0b100000: map64colors[c] = 201; break;
+
+        case 0b110000: map64colors[c] = 209; break; // light blue
+
+        case 0b000101: map64colors[c] = 208; break; // yellow
+        case 0b000110: map64colors[c] = 208; break;
+        case 0b001010: map64colors[c] = 208; break;
+        case 0b001011: map64colors[c] = 208; break;
+        case 0b001110: map64colors[c] = 208; break;
+
+        case 0b001111: map64colors[c] = 214; break; // light tellow
+
+        case 0b010001: map64colors[c] = 205; break; // magenta
+        case 0b010010: map64colors[c] = 205; break;
+        case 0b100001: map64colors[c] = 205; break;
+        case 0b100010: map64colors[c] = 205; break;
+        case 0b110010: map64colors[c] = 205; break;
+        case 0b100011: map64colors[c] = 205; break;
+
+        case 0b110011: map64colors[c] = 213; break; // light magenta
+
+        case 0b010100: map64colors[c] = 203; break; // cyan
+        case 0b100100: map64colors[c] = 203; break;
+        case 0b011000: map64colors[c] = 203; break;
+        case 0b101000: map64colors[c] = 203; break;
+        case 0b111000: map64colors[c] = 203; break;
+        case 0b101100: map64colors[c] = 203; break;
+
+        case 0b111100: map64colors[c] = 211; break; // light cyan
+
+        case 0b010101: map64colors[c] = 207; break; // gray
+        case 0b010110: map64colors[c] = 207; break;
+        case 0b100101: map64colors[c] = 207; break;
+        case 0b100110: map64colors[c] = 207; break;
+        case 0b010111: map64colors[c] = 207; break;
+        case 0b011001: map64colors[c] = 207; break;
+        case 0b011111: map64colors[c] = 207; break;
+        case 0b111001: map64colors[c] = 207; break;
+        case 0b111010: map64colors[c] = 207; break;
+        case 0b101001: map64colors[c] = 207; break;
+        case 0b101010: map64colors[c] = 207; break;
+
+        case 0b111111: map64colors[c] = 215; break; // white
+
+        case 0b000111: map64colors[c] = 216; break; // orange
+
+        default: map64colors[c] = 215; break;
+        }
+    }
     graphics_set_palette(200, RGB888(0x00, 0x00, 0x00)); //black
     graphics_set_palette(201, RGB888(0x00, 0x00, 0xC4)); //blue
     graphics_set_palette(202, RGB888(0x00, 0xC4, 0x00)); //green
@@ -1204,18 +1159,16 @@ void graphics_init() {
     graphics_set_palette(205, RGB888(0xC4, 0x00, 0xC4)); //magenta
     graphics_set_palette(206, RGB888(0xC4, 0x7E, 0x00)); //brown
     graphics_set_palette(207, RGB888(0xC4, 0xC4, 0xC4)); //light gray
-    graphics_set_palette(208, RGB888(0x4E, 0x4E, 0x4E)); //dark gray
+//    graphics_set_palette(208, RGB888(0x4E, 0x4E, 0x4E)); //dark gray
+    graphics_set_palette(208, RGB888(0xC4, 0xC4, 0x00)); //yellow
     graphics_set_palette(209, RGB888(0x4E, 0x4E, 0xDC)); //light blue
     graphics_set_palette(210, RGB888(0x4E, 0xDC, 0x4E)); //light green
     graphics_set_palette(211, RGB888(0x4E, 0xF3, 0xF3)); //light cyan
     graphics_set_palette(212, RGB888(0xDC, 0x4E, 0x4E)); //light red
     graphics_set_palette(213, RGB888(0xF3, 0x4E, 0xF3)); //light magenta
-    graphics_set_palette(214, RGB888(0xF3, 0xF3, 0x4E)); //yellow
+    graphics_set_palette(214, RGB888(0xF3, 0xF3, 0x4E)); //light yellow
     graphics_set_palette(215, RGB888(0xFF, 0xFF, 0xFF)); //white
-};
-
-void graphics_set_textbuffer(uint8_t* buffer) {
-    text_buffer = buffer;
+    graphics_set_palette(216, RGB888(0xFF, 0x7E, 0x00)); //orange
 };
 
 void graphics_set_offset(const int x, const int y) {
@@ -1223,16 +1176,11 @@ void graphics_set_offset(const int x, const int y) {
     graphics_buffer.shift_y = y;
 };
 
-void clrScr(const uint8_t color) {
-    if (text_buffer)
-        memset(text_buffer, 0, TEXTMODE_COLS * TEXTMODE_ROWS * 2);
-}
-
 void graphics_set_mode(const enum graphics_mode_t mode) {
-    tv_out_mode.mode_bpp = mode;
+///    tv_out_mode.mode_bpp = mode;
     // tv_out_mode.color_index = TEXTMODE_DEFAULT == mode ? 0.0 : 1.0;
     // tv_out_mode.cb_sync_PI_shift_lines = TEXTMODE_DEFAULT == mode ? true : false;
      // tv_out_mode.color_index = tv_out_mode.color_index < 1 ? 0 : 1;
     graphics_set_modeTV(tv_out_mode);
-    clrScr(0);
+///    clrScr(0);
 }
