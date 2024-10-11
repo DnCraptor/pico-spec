@@ -31,10 +31,6 @@ static int graphics_buffer_height = 0;
 static int graphics_buffer_shift_x = 0;
 static int graphics_buffer_shift_y = 0;
 
-//текстовый буфер
-uint8_t* text_buffer = NULL;
-
-
 //DMA каналы
 //каналы работы с первичным графическим буфером
 static int dma_chan_ctrl;
@@ -172,7 +168,6 @@ static void __scratch_y("hdmi_driver") dma_handler_HDMI() {
     dma_channel_set_read_addr(dma_chan_ctrl, &DMA_BUF_ADDR[inx_buf_dma & 1], false);
 
     if ( line >= 524 ) {
-        ESPectrum_vsync();
         line = 0;
     } else {
         ++line;
@@ -180,15 +175,20 @@ static void __scratch_y("hdmi_driver") dma_handler_HDMI() {
 
     if ((line & 1) == 0) return;
 
+    if (line == 480) {
+        ESPectrum_vsync();
+    }
+
     inx_buf_dma++;
 
     uint8_t* activ_buf = (uint8_t *)dma_lines[inx_buf_dma & 1];
 
     if (line < 480 ) {
-        //область изображения
-        uint8_t* input_buffer = getLineBuffer(line >> 1);
         uint8_t* output_buffer = activ_buf + 72; //для выравнивания синхры;
-        int y = line / 2;
+        int y = line >> 1;
+        //область изображения
+        uint8_t* input_buffer = getLineBuffer(y);
+        if (!input_buffer) return;
         switch (graphics_mode) {
             case GRAPHICSMODE_DEFAULT:
                 //заполняем пространство сверху и снизу графического буфера
@@ -218,29 +218,7 @@ static void __scratch_y("hdmi_driver") dma_handler_HDMI() {
                     else
                         *output_buffer++ = 255;
                 }
-
                 break;
-
-            case TEXTMODE_DEFAULT: {
-                *output_buffer++ = 255;
-
-                for (int x = 0; x < TEXTMODE_COLS; x++) {
-                    const uint16_t offset = (y / 8) * (TEXTMODE_COLS * 2) + x * 2;
-                    const uint8_t c = text_buffer[offset];
-                    const uint8_t colorIndex = text_buffer[offset + 1];
-                    uint8_t glyph_row = font_6x8[c * 8 + y % 8];
-
-                    for (int bit = 6; bit--;) {
-                        *output_buffer++ = glyph_row & 1
-                                               ? textmode_palette[colorIndex & 0xf] //цвет шрифта
-                                               : textmode_palette[colorIndex >> 4]; //цвет фона
-
-                        glyph_row >>= 1;
-                    }
-                }
-                *output_buffer = 255;
-                break;
-            }
             default:
                 for (int i = SCREEN_WIDTH; i--;) {
                     uint8_t i_color = *input_buffer++;
@@ -664,13 +642,3 @@ void graphics_set_offset(int x, int y) {
     graphics_buffer_shift_x = x;
     graphics_buffer_shift_y = y;
 };
-
-void graphics_set_textbuffer(uint8_t* buffer) {
-    text_buffer = buffer;
-};
-
-
-void clrScr(const uint8_t color) {
-    if (text_buffer)
-        memset(text_buffer, color, TEXTMODE_COLS * TEXTMODE_ROWS * 2);
-}
