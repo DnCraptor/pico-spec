@@ -110,9 +110,9 @@ static int dma_chan_pal_conv_ctrl = -1;
 static int dma_chan_pal_conv = -1;
 
 //ДМА палитра для конвертации
-static __aligned(512) __scratch_x("palette_conv") uint32_t conv_color[128];
+static __aligned(512) __scratch_y("palette_conv") uint32_t conv_color[128];
 
-static enum graphics_mode_t graphics_mode;
+static enum graphics_mode_t graphics_mode = GRAPHICSMODE_DEFAULT;
 static output_format_e active_output_format;
 static repeating_timer_t video_timer;
 
@@ -154,7 +154,7 @@ uint8_t* getLineBuffer(int line);
 void ESPectrum_vsync();
 
 //основная функция заполнения буферов видеоданных
-static void __scratch_x("tv_main_loop") main_video_loopTV() {
+static void __scratch_y("tv_main_loop") main_video_loopTV() {
     static uint dma_inx_out = 0;
     static uint lines_buf_inx = 0;
 
@@ -469,10 +469,10 @@ static void __scratch_x("tv_main_loop") main_video_loopTV() {
                                 *output_buffer++ = 200;
                             }
 
-                            for (uint x = graphics_buffer.width; x--;) {
+                            for (uint x = 0; x < graphics_buffer.width; ++x) {
                                 ///*output_buffer++ = *input_buffer8 < 240 ? *input_buffer8 : 0;
                                 ///input_buffer8++;
-                                register uint8_t c = input_buffer[(x++) ^ 2];
+                                register uint32_t c = input_buffer[(x++) ^ 2];
                                 *output_buffer++ = map64colors[c & 0b00111111];
                                 ///uint8_t* input_buffer8 = input_buffer + y * graphics_buffer.width;
                             }
@@ -714,7 +714,7 @@ void tv_init(const output_format_e output_format) {
 
 
 void graphics_init() {
-    tv_init(TV_OUT_NTSC);
+    tv_init(TV_OUT_PAL);
 
     for (uint8_t c = 0; c <= 0b00111111; ++c) {
         switch (c)
@@ -804,5 +804,5 @@ void graphics_init() {
 }
 
 void graphics_set_mode(const enum graphics_mode_t mode) {
-    graphics_mode = mode;
+///    graphics_mode = mode;
 }
