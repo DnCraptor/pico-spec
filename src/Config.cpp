@@ -66,25 +66,6 @@ bool     Config::CursorAsJoy = false;
 int8_t   Config::CenterH = 0;
 int8_t   Config::CenterV = 0;
 
-string   Config::SNA_Path = "/";
-string   Config::TAP_Path = "/";
-string   Config::DSK_Path = "/";
-
-uint16_t Config::SNA_begin_row = 1;
-uint16_t Config::SNA_focus = 1;
-uint8_t  Config::SNA_fdMode = 0;
-string   Config::SNA_fileSearch = "";
-
-uint16_t Config::TAP_begin_row = 1;
-uint16_t Config::TAP_focus = 1;
-uint8_t  Config::TAP_fdMode = 0;
-string   Config::TAP_fileSearch = "";
-
-uint16_t Config::DSK_begin_row = 1;
-uint16_t Config::DSK_focus = 1;
-uint8_t  Config::DSK_fdMode = 0;
-string   Config::DSK_fileSearch = "";
-
 uint8_t Config::scanlines = 0;
 uint8_t Config::render = 0;
 
@@ -246,9 +227,10 @@ void Config::load() {
         nvs_get_b(handle, "CursorAsJoy", CursorAsJoy, sts);
         nvs_get_i8(handle, "CenterH", Config::CenterH, sts);
         nvs_get_i8(handle, "CenterV", Config::CenterV, sts);
-        nvs_get_str(handle, "SNA_Path", SNA_Path, sts);
-        nvs_get_str(handle, "TAP_Path", TAP_Path, sts);
-        nvs_get_str(handle, "DSK_Path", DSK_Path, sts);
+        nvs_get_str(handle, "SNA_Path", FileUtils::SNA_Path, sts);
+        nvs_get_str(handle, "TAP_Path", FileUtils::TAP_Path, sts);
+        nvs_get_str(handle, "DSK_Path", FileUtils::DSK_Path, sts);
+        /**
         nvs_get_u16(handle, "SNA_begin_row", Config::SNA_begin_row, sts);
         nvs_get_u16(handle, "TAP_begin_row", Config::TAP_begin_row, sts);
         nvs_get_u16(handle, "DSK_begin_row", Config::DSK_begin_row, sts);
@@ -261,6 +243,7 @@ void Config::load() {
         nvs_get_str(handle, "SNA_fileSearch", SNA_fileSearch, sts);
         nvs_get_str(handle, "TAP_fileSearch", TAP_fileSearch, sts);
         nvs_get_str(handle, "DSK_fileSearch", DSK_fileSearch, sts);
+        */
         nvs_get_u8(handle, "scanlines", Config::scanlines, sts);
         nvs_get_u8(handle, "render", Config::render, sts);
         nvs_get_b(handle, "TABasfire1", Config::TABasfire1, sts);
@@ -334,9 +317,10 @@ void Config::save(string value) {
         nvs_set_str(handle,"CursorAsJoy", CursorAsJoy ? "true" : "false");
         nvs_set_i8(handle,"CenterH",Config::CenterH);
         nvs_set_i8(handle,"CenterV",Config::CenterV);
-        nvs_set_str(handle,"SNA_Path",Config::SNA_Path.c_str());
-        nvs_set_str(handle,"TAP_Path",Config::TAP_Path.c_str());
-        nvs_set_str(handle,"DSK_Path",Config::DSK_Path.c_str());
+        nvs_set_str(handle,"SNA_Path",FileUtils::SNA_Path.c_str());
+        nvs_set_str(handle,"TAP_Path",FileUtils::TAP_Path.c_str());
+        nvs_set_str(handle,"DSK_Path",FileUtils::DSK_Path.c_str());
+        /**
         nvs_set_u16(handle,"SNA_begin_row",Config::SNA_begin_row);
         nvs_set_u16(handle,"TAP_begin_row",Config::TAP_begin_row);
         nvs_set_u16(handle,"DSK_begin_row",Config::DSK_begin_row);
@@ -349,6 +333,7 @@ void Config::save(string value) {
         nvs_set_str(handle,"SNA_fileSearch",Config::SNA_fileSearch.c_str());
         nvs_set_str(handle,"TAP_fileSearch",Config::TAP_fileSearch.c_str());
         nvs_set_str(handle,"DSK_fileSearch",Config::DSK_fileSearch.c_str());
+        */
         nvs_set_u8(handle,"scanlines",Config::scanlines);
         nvs_set_u8(handle,"render",Config::render);
         nvs_set_str(handle,"TABasfire1", TABasfire1 ? "true" : "false");

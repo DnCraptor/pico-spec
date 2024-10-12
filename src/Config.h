@@ -99,7 +99,7 @@ public:
     static bool CursorAsJoy;
     static int8_t CenterH;
     static int8_t CenterV;    
-
+/***
     static string   SNA_Path;
     static uint16_t SNA_begin_row;
     static uint16_t SNA_focus;
@@ -117,7 +117,7 @@ public:
     static uint16_t DSK_focus;
     static uint8_t  DSK_fdMode;
     static string   DSK_fileSearch;
-
+*/
     static uint8_t scanlines;
     static uint8_t render;    
 

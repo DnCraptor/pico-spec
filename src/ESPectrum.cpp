@@ -91,23 +91,6 @@ void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
         last_key_pressed = fabgl::VirtualKey::VK_NONE;
         tickKbdRep = 0;
     }
-    /*
-    if (!numlock) {
-        switch (virtualKey) {
-            case fabgl::VirtualKey::VK_KP_1: virtualKey = fabgl::VirtualKey::VK_END; break;
-            case fabgl::VirtualKey::VK_KP_2: virtualKey = fabgl::VirtualKey::VK_DOWN; break;
-            case fabgl::VirtualKey::VK_KP_3: virtualKey = fabgl::VirtualKey::VK_PAGEDOWN; break;
-            case fabgl::VirtualKey::VK_KP_4: virtualKey = fabgl::VirtualKey::VK_LEFT; break;
-            case fabgl::VirtualKey::VK_KP_5: virtualKey = fabgl::VirtualKey::VK_SPACE; break;
-            case fabgl::VirtualKey::VK_KP_6: virtualKey = fabgl::VirtualKey::VK_RIGHT; break;
-            case fabgl::VirtualKey::VK_KP_7: virtualKey = fabgl::VirtualKey::VK_HOME; break;
-            case fabgl::VirtualKey::VK_KP_8: virtualKey = fabgl::VirtualKey::VK_UP; break;
-            case fabgl::VirtualKey::VK_KP_9: virtualKey = fabgl::VirtualKey::VK_PAGEUP; break;
-            case fabgl::VirtualKey::VK_KP_0: virtualKey = fabgl::VirtualKey::VK_INSERT; break;
-            case fabgl::VirtualKey::VK_KP_PERIOD: virtualKey = fabgl::VirtualKey::VK_DELETE; break;
-        }
-    }
-    */
     fabgl::Keyboard* kbd = ESPectrum::PS2Controller.keyboard();
     fabgl::KeybJoystick* kbdj = ESPectrum::PS2Controller.keybjoystick();
     if ( kbd ) {
@@ -706,7 +689,7 @@ void ESPectrum::setup()
 
     // Load snapshot if present in Config::
     if (Config::ram_file != NO_RAM_FILE) {
-
+/**
         FileUtils::SNA_Path = Config::SNA_Path;
         FileUtils::fileTypes[DISK_SNAFILE].begin_row = Config::SNA_begin_row;
         FileUtils::fileTypes[DISK_SNAFILE].focus = Config::SNA_focus;
@@ -724,7 +707,7 @@ void ESPectrum::setup()
         FileUtils::fileTypes[DISK_DSKFILE].focus = Config::DSK_focus;
         FileUtils::fileTypes[DISK_DSKFILE].fdMode = Config::DSK_fdMode;
         FileUtils::fileTypes[DISK_DSKFILE].fileSearch = Config::DSK_fileSearch;
-
+*/
         LoadSnapshot(Config::ram_file, "", "");
 
         Config::last_ram_file = Config::ram_file;
