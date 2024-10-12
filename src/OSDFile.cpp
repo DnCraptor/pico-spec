@@ -163,6 +163,10 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
         if (res) {
             FILINFO fileInfo;
             while (f_readdir(&f_dir, &fileInfo) == FR_OK && fileInfo.fname[0] != '\0') {
+                if (filenames.size() > 50) {
+                    osdCenteredMsg("A lot of files in this folder...", LEVEL_WARN, 2000);
+                    break;
+                }
                 string fname = fileInfo.fname;
                 if (fname.compare(0,1,".") != 0) {
                     size_t fpos = fname.find_last_of(".");
@@ -178,14 +182,14 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             elements++; // Count elements in dir
                             filenames.push_back(fname);
                         }
-                        ///std::transform(fname.begin(), fname.end(), fname.begin(), ::toupper);
                     }
                 }
             }
             f_closedir(&f_dir);
         }
         filexts.clear(); // Clear vector
-        std::vector<std::string>().swap(filexts); // free memory   
+        std::vector<std::string>().swap(filexts); // free memory
+        sort(filenames.begin(), filenames.end());
         real_rows = ndirs + elements + 2; // Add 2 for title and status bar        
         virtual_rows = (real_rows > mf_rows ? mf_rows : real_rows);
         // printf("Real rows: %d; st_size: %d; Virtual rows: %d\n",real_rows,stat_buf.st_size,virtual_rows);
