@@ -74,12 +74,22 @@ void joyPushData(fabgl::VirtualKey virtualKey, bool down) {
     }
 }
 
+volatile static uint32_t tickKbdRep = 0;
+volatile static fabgl::VirtualKey last_key_pressed = fabgl::VirtualKey::VK_NONE;
+
 void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
     if (down) {
+        if (last_key_pressed != virtualKey) {
+            last_key_pressed = virtualKey;
+            tickKbdRep = time_us_32();
+        }
         if (virtualKey == fabgl::VirtualKey::VK_NUMLOCK) {
             numlock = !numlock;
 /// TODO:            keyboard_toggle_led(PS2_LED_NUM_LOCK);
         }
+    } else {
+        last_key_pressed = fabgl::VirtualKey::VK_NONE;
+        tickKbdRep = 0;
     }
     /*
     if (!numlock) {
@@ -118,6 +128,20 @@ void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
     }
     if ( ESPectrum::ps2kbd2 && kbdj ) {
         kbdj->injectVirtualKey(virtualKey, down);
+    }
+}
+
+void repeat_handler(void) {
+    fabgl::VirtualKey v = last_key_pressed;
+    if (v != fabgl::VirtualKey::VK_NONE) {
+        if (tickKbdRep == 0) {
+            kbdPushData(v, true);
+        } else {
+            uint32_t t2 = time_us_32();
+            if (t2 - tickKbdRep > 500000) {
+                tickKbdRep = 0;
+            }
+        }
     }
 }
 

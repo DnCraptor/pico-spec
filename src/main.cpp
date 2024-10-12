@@ -66,6 +66,7 @@ static input_bits_t gamepad2_bits = { false, false, false, false, false, false, 
 
 #include "fabutils.h"
 void kbdPushData(fabgl::VirtualKey virtualKey, bool down);
+void repeat_handler(void);
 
 static fabgl::VirtualKey hid2vk(uint8_t c) {
     switch ( c )
@@ -324,6 +325,7 @@ void __scratch_x("render") render_core() {
     graphics_set_flashmode(false, false);
     sem_acquire_blocking(&vga_start_semaphore);
 
+    uint32_t tickKbdRep1 = time_us_32();
     // 60 FPS loop
 #define frame_tick (16666)
     uint64_t tick = time_us_64();
@@ -345,6 +347,11 @@ void __scratch_x("render") render_core() {
             last_input_tick = tick;
         }
         tick = time_us_64();
+        uint32_t tickKbdRep2 = time_us_32();
+        if (tickKbdRep2 - tickKbdRep1 > 200000) { // 0.2 sec
+            repeat_handler();
+            tickKbdRep1 = tickKbdRep2;
+        }
 
 
         tuh_task();

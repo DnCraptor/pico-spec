@@ -85,6 +85,7 @@ void fgets(char* b, size_t sz, FIL& f) {
         f_read(&f, b, 1, &br);
         c = *b++;
     } while (br == 1 && c != '\n' && !f_eof(&f) && sz--);
+    *b = 0;
 }
 #define ftell(x) f_tell(&x)
 #define feof(x) f_eof(&x)
