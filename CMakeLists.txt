@@ -32,7 +32,7 @@ option(SOFTTV "Enable TV soft composite output" OFF)
 ###set(HDMI ON)
 ###set(TV ON)
 ###set(SOFTTV ON)
-set(TFT ON)
+#set(TFT ON)
 #set(ILI9341 ON)
 
 set(CMAKE_C_STANDARD 11)
