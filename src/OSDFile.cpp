@@ -66,6 +66,8 @@ inline static size_t crc(const std::string& s) {
     return res;
 }
 
+fabgl::VirtualKey get_last_key_pressed(void);
+
 class sorted_files {
     static const size_t rec_size = FF_LFN_BUF + 1;
     std::string folder;
@@ -166,6 +168,8 @@ public:
         return s1.compare(s2);
     }
     inline void swap(size_t i1, size_t i2) {
+        fabgl::VirtualKey lkp = get_last_key_pressed();
+        if (lkp == fabgl::VirtualKey::VK_ESCAPE) return;
         std::string s1 = get(i1);
         std::string s2 = get(i2);
         put(i1, s2);
@@ -187,6 +191,8 @@ public:
         size_t pn, pm, pl, d, pa, pb, pc, pd = 0;
         int r;
     loop:
+        fabgl::VirtualKey lkp = get_last_key_pressed();
+        if (lkp == fabgl::VirtualKey::VK_ESCAPE) return;
         size_t swap_cnt = 0;
         if (n < 7) {
             for (pm = ai + 1; pm < ai + n; ++pm) {
@@ -212,6 +218,8 @@ public:
         pc = pd = ai + (n - 1);
 	    for (;;) {
 		    while (pb <= pc && (r = cmp(pb, ai)) <= 0) {
+                fabgl::VirtualKey lkp = get_last_key_pressed();
+                if (lkp == fabgl::VirtualKey::VK_ESCAPE) return;
 			    if (r == 0) {
 				    swap_cnt = 1;
 				    swap(pa, pb);
@@ -220,6 +228,8 @@ public:
 			    ++pb;
 		    }
 		    while (pb <= pc && (r = cmp(pc, ai)) >= 0) {
+                fabgl::VirtualKey lkp = get_last_key_pressed();
+                if (lkp == fabgl::VirtualKey::VK_ESCAPE) return;
 			    if (r == 0) {
 				    swap_cnt = 1;
 				    swap(pc, pd);
@@ -236,8 +246,11 @@ public:
 	    }
 	    if (swap_cnt == 0) {  // Switch to insertion sort
 		    for (pm = ai + 1; pm < ai + n; ++pm)
-			    for (pl = pm; pl > ai && cmp(pl - 1, pl) > 0; --pl)
+			    for (pl = pm; pl > ai && cmp(pl - 1, pl) > 0; --pl) {
+                    fabgl::VirtualKey lkp = get_last_key_pressed();
+                    if (lkp == fabgl::VirtualKey::VK_ESCAPE) return;
 				    swap(pl, pl - 1);
+                }
 		    return;
         }
 	    pn = ai + n;

@@ -77,6 +77,10 @@ void joyPushData(fabgl::VirtualKey virtualKey, bool down) {
 volatile static uint32_t tickKbdRep = 0;
 volatile static fabgl::VirtualKey last_key_pressed = fabgl::VirtualKey::VK_NONE;
 
+fabgl::VirtualKey get_last_key_pressed(void) {
+    return last_key_pressed;
+}
+
 void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
     if (down) {
         if (last_key_pressed != virtualKey) {
