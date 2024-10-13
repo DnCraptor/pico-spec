@@ -468,7 +468,6 @@ static bool __time_critical_func(video_timer_callbackTV)(repeating_timer_t* rt) 
         if (line_active >= video_mode.N_lines) {
             line_active = 0;
             frame_i++;
-            ESPectrum_vsync();
         }
 
         lines_buf_inx = (lines_buf_inx + 1) % N_LINE_BUF;
@@ -898,6 +897,9 @@ static bool __time_critical_func(video_timer_callbackTV)(repeating_timer_t* rt) 
             uint8_t* input_buffer = NULL;
             if (y < 240 && y >= 0) {
                 input_buffer = getLineBuffer(y);
+            }
+            if (y == 240) { // last line passed
+                ESPectrum_vsync();
             }
             if ((y >= 240) || (y < 0) || (input_buffer == NULL)) {
                 //вне изображения

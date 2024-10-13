@@ -58,32 +58,89 @@ using namespace std;
 
 #include "ff.h"
 
-class sorted_files {
-    const size_t rec_size = FF_LFN_BUF + 1;
-    std::string folder;
-    size_t sz;
-    FIL storage_file;
-    int p;
-public:
-    inline sorted_files(const std::string& folder) : folder(folder), sz(0) {
-        f_open(&storage_file, (folder + ".idx").c_str(), FA_READ | FA_WRITE | FA_CREATE_ALWAYS);
+inline static size_t crc(const std::string& s) {
+    size_t res = 0;
+    for (size_t j = 0; j < s.size(); ++j) {
+        res += s[j];
     }
-    inline ~sorted_files() { f_close(&storage_file); }
-    inline size_t size() { return sz; }
-    inline void clear(const std::string& folder) {
+    return res;
+}
+
+class sorted_files {
+    static const size_t rec_size = FF_LFN_BUF + 1;
+    std::string folder;
+    std::string idx_file;
+    size_t sz = 0;
+    FIL storage_file = { 0 };
+    bool open = false;
+    inline void calc_sz() {
+        f_open(&storage_file, idx_file.c_str(), FA_READ);
+        sz = (size_t)((f_size(&storage_file) >> 8) & 0xFFFFFFFF ); // / rec_size;
+///        OSD::osdCenteredMsg(idx_file + " sz: " + to_string(sz), LEVEL_INFO, 5000);
         f_close(&storage_file);
-        f_open(&storage_file, (folder + ".idx").c_str(), FA_READ | FA_WRITE | FA_CREATE_ALWAYS);
-        this->folder = folder;
+        f_open(&storage_file, idx_file.c_str(), FA_READ | FA_WRITE | FA_CREATE_ALWAYS);
+        open = true;
+    }
+public:
+    inline sorted_files() { }
+    inline void close(void) { if (open) f_close(&storage_file); open = false; }
+    inline ~sorted_files() { close(); }
+    inline size_t size(void) { return sz; }
+    inline void unlink(void) {
+        close();
+        f_unlink(idx_file.c_str());
+        f_open(&storage_file, idx_file.c_str(), FA_READ | FA_WRITE | FA_CREATE_NEW | FA_CREATE_ALWAYS);
+        open = true;
         sz = 0;
+    }
+    inline void init(const std::string& folder, uint8_t ftype) {
+        close();
+        this->folder = folder;
+        idx_file = folder + to_string(ftype) + ".idx";
+        calc_sz();
     }
     inline void put(size_t i, const std::string& s) {
         f_lseek(&storage_file, rec_size * i);
         UINT bw;
-        f_write(&storage_file, s.c_str(), rec_size, &bw);
+        char buf[rec_size] = { 0 };
+        strncpy(buf, s.c_str(), rec_size - 1);
+        f_write(&storage_file, buf, rec_size, &bw);
     }
     inline void push(const std::string& s) {
-        put(sz, s);
+        put(sz++, s);
+    }
+    /**
+    inline void push(const std::string& s) {
+        size_t i;
+        for (i = 0; i < sz; ++i) {
+            int rc = s.compare(get(i));
+            if (!rc) { // already there
+                return;
+            }
+            if (rc < 0) { // save before this record
+                break;
+            }
+        }
+        if (i < sz) { // shift down from sz - 1 to i
+            UINT br;
+            for (int j = sz - 1; j >= i; --j) {
+                char buf[rec_size];
+                f_lseek(&storage_file, rec_size * j);
+                f_read(&storage_file, buf, rec_size, &br);
+                f_lseek(&storage_file, rec_size * (j + 1));
+                f_write(&storage_file, buf, rec_size, &br);
+            }
+        }
+        put(i, s); // replace i by s
         ++sz;
+    }
+    */
+    inline size_t crc(void) {
+        size_t res = 0;
+        for (size_t i = 0; i < sz; ++i) {
+            res += ::crc(get(i));
+        }
+        return res;
     }
     inline std::string get(size_t i) {
         f_lseek(&storage_file, rec_size * i);
@@ -118,7 +175,6 @@ public:
 	    return cmp(a, b) < 0 ? (cmp(b, c) < 0 ? b : (cmp(a, c) < 0 ? c : a )) : (cmp(b, c) > 0 ? b : (cmp(a, c) < 0 ? a : c ));
     }
     inline void sort(void) {
-        p = 5;
         qsort(0, sz);
     }
     void qsort(size_t ai, size_t n) {
@@ -173,7 +229,7 @@ public:
 		    ++pb;
 		    --pc;
 	    }
-	    if (swap_cnt == 0) {  /* Switch to insertion sort */
+	    if (swap_cnt == 0) {  // Switch to insertion sort
 		    for (pm = ai + 1; pm < ai + n; ++pm)
 			    for (pl = pm; pl > ai && cmp(pl - 1, pl) > 0; --pl)
 				    swap(pl, pl - 1);
@@ -187,7 +243,7 @@ public:
 	    if ((r = pb - pa) > 1)
 		qsort(ai, r);
 	    if ((r = pd - pc) > 1) { 
-		    /* Iterate rather than recurse to save stack space */
+		    // Iterate rather than recurse to save stack space
 		    ai = pn - r;
 		    n = r;
 		    goto loop;
@@ -195,8 +251,7 @@ public:
     }
 };
 
-static sorted_files filenames("/");
-
+static sorted_files filenames;
 
 unsigned int OSD::elements;
 unsigned int OSD::fdSearchElements;
@@ -279,6 +334,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
     VIDEO::vga.print(std::string(cols, ' ').c_str());    
 
     while(1) {
+        filenames.init(fdir, ftype);
         fdCursorFlash = 0;
         // Count dir items and calc hash
         std::vector<std::string> filexts;
@@ -289,17 +345,17 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
             ss.erase(0, pos + 1);
         }
         filexts.push_back(ss.substr(0));
-        filenames.clear(fdir);
         elements = 0;
         ndirs = 0;
-        if (fdir.size() > 1) {
-            filenames.push("  ..");
-            ++ndirs;
-        }
         OSD::progressDialog(OSD_FILE_INDEXING[Config::lang], OSD_FILE_INDEXING_1[Config::lang], 0, 0);
         res = f_opendir(&f_dir, fdir.c_str()) == FR_OK;
         if (res) {
             FILINFO fileInfo;
+            size_t crc = 0;
+            if (fdir.size() > 1) {
+                ++ndirs;
+                crc += ::crc("  ..");
+            }
             while (f_readdir(&f_dir, &fileInfo) == FR_OK && fileInfo.fname[0] != '\0') {
                 string fname = fileInfo.fname;
                 if (fname.compare(0,1,".") != 0) {
@@ -309,22 +365,50 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         ((fpos != string::npos) && (std::find(filexts.begin(), filexts.end(), fname.substr(fpos)) != filexts.end()))
                     ) {
                         if (fileInfo.fattrib & AM_DIR) {
-                            ndirs++;
-                            filenames.push((char(32) + fname).c_str());
+                            ++ndirs;
+                            crc += ::crc(char(32) + fname);
                         }
                         else {
-                            elements++; // Count elements in dir
-                            filenames.push(fname);
+                            ++elements; // Count elements in dir
+                            crc += ::crc(fname);
                         }
                     }
                 }
             }
             f_closedir(&f_dir);
+            if (filenames.crc() != crc) { // reindex
+                filenames.unlink();
+                if (fdir.size() > 1) {
+                    filenames.push("  ..");
+                }
+                f_opendir(&f_dir, fdir.c_str());
+                OSD::progressDialog(OSD_FILE_INDEXING[Config::lang], OSD_FILE_INDEXING_1[Config::lang], 5, 1);
+                size_t f_idx = 0;
+                while (f_readdir(&f_dir, &fileInfo) == FR_OK && fileInfo.fname[0] != '\0') {
+                    string fname = fileInfo.fname;
+                    if (fname.compare(0,1,".") != 0) {
+                        size_t fpos = fname.find_last_of(".");
+                        if (
+                            (fileInfo.fattrib & AM_DIR) ||
+                            ((fpos != string::npos) && (std::find(filexts.begin(), filexts.end(), fname.substr(fpos)) != filexts.end()))
+                        ) {
+                            if (fileInfo.fattrib & AM_DIR) {
+                                filenames.push(char(32) + fname);
+                            }
+                            else {
+                                filenames.push(fname);
+                            }
+                            ++f_idx;
+                            OSD::progressDialog(OSD_FILE_INDEXING[Config::lang], OSD_FILE_INDEXING_1[Config::lang], f_idx * 95 / (ndirs + elements) + 5, 1);
+                        }
+                    }
+                }
+                f_closedir(&f_dir);
+                filenames.sort();
+            }
         }
         filexts.clear(); // Clear vector
         std::vector<std::string>().swap(filexts); // free memory
-        OSD::progressDialog(OSD_FILE_INDEXING[Config::lang], OSD_FILE_INDEXING_1[Config::lang], 20, 1);
-        filenames.sort();
         OSD::progressDialog(OSD_FILE_INDEXING[Config::lang], OSD_FILE_INDEXING_1[Config::lang], 100, 2);
         real_rows = ndirs + elements + 2; // Add 2 for title and status bar        
         virtual_rows = (real_rows > mf_rows ? mf_rows : real_rows);
@@ -557,6 +641,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             }
                             rtrim(filedir);
                             click();
+                            filenames.close();
                             return (Menukey.vk == fabgl::VK_RETURN || Menukey.vk == fabgl::VK_JOY1B || Menukey.vk == fabgl::VK_JOY2B ? "R" : "S") + filedir;
                         }
                     } else if (Menukey.vk == fabgl::VK_ESCAPE || Menukey.vk == fabgl::VK_JOY1A || Menukey.vk == fabgl::VK_JOY2A) {
@@ -566,6 +651,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             menu_saverect = false;
                         }
                         click();
+                        filenames.close();
                         return "";
                     }
                 }
@@ -640,6 +726,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
             sleep_ms(5);
         }
     }
+    filenames.close();
 }
 
 // Redraw inside rows
