@@ -74,10 +74,15 @@ class sorted_files {
     FIL storage_file = { 0 };
     bool open = false;
     inline void calc_sz() {
-        f_open(&storage_file, idx_file.c_str(), FA_READ);
-        sz = (size_t)((f_size(&storage_file) >> 8) & 0xFFFFFFFF ); // / rec_size;
-///        OSD::osdCenteredMsg(idx_file + " sz: " + to_string(sz), LEVEL_INFO, 5000);
-        f_close(&storage_file);
+        sz = 0;
+        if ( f_open(&storage_file, idx_file.c_str(), FA_READ) == FR_OK ) {
+            UINT br;
+            char buf[rec_size];
+            while ( f_read(&storage_file, buf, rec_size, &br) == FR_OK && br == rec_size ) {
+                ++sz;
+            }
+            f_close(&storage_file);
+        }
         f_open(&storage_file, idx_file.c_str(), FA_READ | FA_WRITE | FA_CREATE_ALWAYS);
         open = true;
     }
