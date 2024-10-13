@@ -387,7 +387,11 @@ bool toggle_color() {
 #endif
 
 int main() {
+#if !PICO_RP2040
+    vreg_set_voltage(VREG_VOLTAGE_1_40);
+#else
     hw_set_bits(&vreg_and_chip_reset_hw->vreg, VREG_AND_CHIP_RESET_VREG_VSEL_BITS);
+#endif
     sleep_ms(10);
     set_sys_clock_khz(378 * KHZ, true);
 
