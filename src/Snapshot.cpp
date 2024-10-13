@@ -116,60 +116,10 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
     if (Config::arch != "48K") {
         if (snapshotArch == "48K") {
                 Config::requestMachine("48K", force_romset);
-                // Condition this to 50hz mode
-                if(Config::videomode) {
-/**
-                    Config::SNA_Path = FileUtils::SNA_Path;
-                    Config::SNA_begin_row = FileUtils::fileTypes[DISK_SNAFILE].begin_row;
-                    Config::SNA_focus = FileUtils::fileTypes[DISK_SNAFILE].focus;
-                    Config::SNA_fdMode = FileUtils::fileTypes[DISK_SNAFILE].fdMode;
-                    Config::SNA_fileSearch = FileUtils::fileTypes[DISK_SNAFILE].fileSearch;
-
-                    Config::TAP_Path = FileUtils::TAP_Path;
-                    Config::TAP_begin_row = FileUtils::fileTypes[DISK_TAPFILE].begin_row;
-                    Config::TAP_focus = FileUtils::fileTypes[DISK_TAPFILE].focus;
-                    Config::TAP_fdMode = FileUtils::fileTypes[DISK_TAPFILE].fdMode;
-                    Config::TAP_fileSearch = FileUtils::fileTypes[DISK_TAPFILE].fileSearch;
-
-                    Config::DSK_Path = FileUtils::DSK_Path;
-                    Config::DSK_begin_row = FileUtils::fileTypes[DISK_DSKFILE].begin_row;
-                    Config::DSK_focus = FileUtils::fileTypes[DISK_DSKFILE].focus;
-                    Config::DSK_fdMode = FileUtils::fileTypes[DISK_DSKFILE].fdMode;
-                    Config::DSK_fileSearch = FileUtils::fileTypes[DISK_DSKFILE].fileSearch;
-*/
-                    Config::ram_file = sna_fn;
-                    Config::save();
-                    OSD::esp_hard_reset(); 
-                }                           
         } else {
             if ((force_arch != "") && ((Config::arch != force_arch) || (Config::romSet != force_romset))) {
                 snapshotArch = force_arch;
                 Config::requestMachine(force_arch, force_romset);
-                // Condition this to 50hz mode
-                if(Config::videomode) {
-/**
-                    Config::SNA_Path = FileUtils::SNA_Path;
-                    Config::SNA_begin_row = FileUtils::fileTypes[DISK_SNAFILE].begin_row;
-                    Config::SNA_focus = FileUtils::fileTypes[DISK_SNAFILE].focus;
-                    Config::SNA_fdMode = FileUtils::fileTypes[DISK_SNAFILE].fdMode;
-                    Config::SNA_fileSearch = FileUtils::fileTypes[DISK_SNAFILE].fileSearch;
-
-                    Config::TAP_Path = FileUtils::TAP_Path;
-                    Config::TAP_begin_row = FileUtils::fileTypes[DISK_TAPFILE].begin_row;
-                    Config::TAP_focus = FileUtils::fileTypes[DISK_TAPFILE].focus;
-                    Config::TAP_fdMode = FileUtils::fileTypes[DISK_TAPFILE].fdMode;
-                    Config::TAP_fileSearch = FileUtils::fileTypes[DISK_TAPFILE].fileSearch;
-
-                    Config::DSK_Path = FileUtils::DSK_Path;
-                    Config::DSK_begin_row = FileUtils::fileTypes[DISK_DSKFILE].begin_row;
-                    Config::DSK_focus = FileUtils::fileTypes[DISK_DSKFILE].focus;
-                    Config::DSK_fdMode = FileUtils::fileTypes[DISK_DSKFILE].fdMode;
-                    Config::DSK_fileSearch = FileUtils::fileTypes[DISK_DSKFILE].fileSearch;
-*/
-                    Config::ram_file = sna_fn;
-                    Config::save();
-                    OSD::esp_hard_reset();                            
-                }
             }
         }
     } else if (Config::arch == "48K") {
@@ -179,32 +129,6 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
             else {
                 snapshotArch = force_arch;
                 Config::requestMachine(force_arch, force_romset);
-            }
-
-            // Condition this to 50hz mode
-            if(Config::videomode) {
-/**
-                Config::SNA_Path = FileUtils::SNA_Path;
-                Config::SNA_begin_row = FileUtils::fileTypes[DISK_SNAFILE].begin_row;
-                Config::SNA_focus = FileUtils::fileTypes[DISK_SNAFILE].focus;
-                Config::SNA_fdMode = FileUtils::fileTypes[DISK_SNAFILE].fdMode;
-                Config::SNA_fileSearch = FileUtils::fileTypes[DISK_SNAFILE].fileSearch;
-
-                Config::TAP_Path = FileUtils::TAP_Path;
-                Config::TAP_begin_row = FileUtils::fileTypes[DISK_TAPFILE].begin_row;
-                Config::TAP_focus = FileUtils::fileTypes[DISK_TAPFILE].focus;
-                Config::TAP_fdMode = FileUtils::fileTypes[DISK_TAPFILE].fdMode;
-                Config::TAP_fileSearch = FileUtils::fileTypes[DISK_TAPFILE].fileSearch;
-
-                Config::DSK_Path = FileUtils::DSK_Path;
-                Config::DSK_begin_row = FileUtils::fileTypes[DISK_DSKFILE].begin_row;
-                Config::DSK_focus = FileUtils::fileTypes[DISK_DSKFILE].focus;
-                Config::DSK_fdMode = FileUtils::fileTypes[DISK_DSKFILE].fdMode;
-                Config::DSK_fileSearch = FileUtils::fileTypes[DISK_DSKFILE].fileSearch;
-*/
-                Config::ram_file = sna_fn;
-                Config::save();
-                OSD::esp_hard_reset();                            
             }
         }
     }
@@ -605,32 +529,7 @@ bool FileZ80::load(string z80_fn) {
         // printf("z80_arch: %s mch: %d pref_romset48: %s pref_romset128: %s z80_romset: %s\n",z80_arch.c_str(),mch,Config::pref_romSet_48.c_str(),Config::pref_romSet_128.c_str(),z80_romset.c_str());
         
         Config::requestMachine(z80_arch, z80_romset);
-
-        // Condition this to 50hz mode
-        if(Config::videomode) {
-/**
-            Config::SNA_Path = FileUtils::SNA_Path;
-            Config::SNA_begin_row = FileUtils::fileTypes[DISK_SNAFILE].begin_row;
-            Config::SNA_focus = FileUtils::fileTypes[DISK_SNAFILE].focus;
-            Config::SNA_fdMode = FileUtils::fileTypes[DISK_SNAFILE].fdMode;
-            Config::SNA_fileSearch = FileUtils::fileTypes[DISK_SNAFILE].fileSearch;
-
-            Config::TAP_Path = FileUtils::TAP_Path;
-            Config::TAP_begin_row = FileUtils::fileTypes[DISK_TAPFILE].begin_row;
-            Config::TAP_focus = FileUtils::fileTypes[DISK_TAPFILE].focus;
-            Config::TAP_fdMode = FileUtils::fileTypes[DISK_TAPFILE].fdMode;
-            Config::TAP_fileSearch = FileUtils::fileTypes[DISK_TAPFILE].fileSearch;
-
-            Config::DSK_Path = FileUtils::DSK_Path;
-            Config::DSK_begin_row = FileUtils::fileTypes[DISK_DSKFILE].begin_row;
-            Config::DSK_focus = FileUtils::fileTypes[DISK_DSKFILE].focus;
-            Config::DSK_fdMode = FileUtils::fileTypes[DISK_DSKFILE].fdMode;
-            Config::DSK_fileSearch = FileUtils::fileTypes[DISK_DSKFILE].fileSearch;
-*/
-            Config::ram_file = z80_fn;
-            Config::save();
-            OSD::esp_hard_reset(); 
-        }                           
+                        
     } else {
 
         if (z80_arch == "128K") {
@@ -1275,31 +1174,6 @@ bool FileP::load(string p_fn) {
     // Manage arch change
     if (Config::arch != "128K" || Config::romSet != "ZX81+") {
         Config::requestMachine("128K", "ZX81+");
-        // Condition this to 50hz mode
-        if(Config::videomode) {
-/**
-            Config::SNA_Path = FileUtils::SNA_Path;
-            Config::SNA_begin_row = FileUtils::fileTypes[DISK_SNAFILE].begin_row;
-            Config::SNA_focus = FileUtils::fileTypes[DISK_SNAFILE].focus;
-            Config::SNA_fdMode = FileUtils::fileTypes[DISK_SNAFILE].fdMode;
-            Config::SNA_fileSearch = FileUtils::fileTypes[DISK_SNAFILE].fileSearch;
-
-            Config::TAP_Path = FileUtils::TAP_Path;
-            Config::TAP_begin_row = FileUtils::fileTypes[DISK_TAPFILE].begin_row;
-            Config::TAP_focus = FileUtils::fileTypes[DISK_TAPFILE].focus;
-            Config::TAP_fdMode = FileUtils::fileTypes[DISK_TAPFILE].fdMode;
-            Config::TAP_fileSearch = FileUtils::fileTypes[DISK_TAPFILE].fileSearch;
-
-            Config::DSK_Path = FileUtils::DSK_Path;
-            Config::DSK_begin_row = FileUtils::fileTypes[DISK_DSKFILE].begin_row;
-            Config::DSK_focus = FileUtils::fileTypes[DISK_DSKFILE].focus;
-            Config::DSK_fdMode = FileUtils::fileTypes[DISK_DSKFILE].fdMode;
-            Config::DSK_fileSearch = FileUtils::fileTypes[DISK_DSKFILE].fileSearch;
-*/
-            Config::ram_file = p_fn;
-            Config::save();
-            OSD::esp_hard_reset(); 
-        }                           
     }
 
     FileZ80::loader128();

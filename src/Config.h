@@ -93,31 +93,11 @@ public:
     static uint8_t  joystick2;
     static uint16_t joydef[24];
     static uint8_t  joyPS2;    
-    static uint8_t  videomode;
     static uint8_t  AluTiming;
     static uint8_t  ps2_dev2;
     static bool CursorAsJoy;
     static int8_t CenterH;
     static int8_t CenterV;    
-/***
-    static string   SNA_Path;
-    static uint16_t SNA_begin_row;
-    static uint16_t SNA_focus;
-    static uint8_t  SNA_fdMode;
-    static string   SNA_fileSearch;
-
-    static string   TAP_Path;
-    static uint16_t TAP_begin_row;
-    static uint16_t TAP_focus;
-    static uint8_t  TAP_fdMode;
-    static string   TAP_fileSearch;
-
-    static string   DSK_Path;
-    static uint16_t DSK_begin_row;
-    static uint16_t DSK_focus;
-    static uint8_t  DSK_fdMode;
-    static string   DSK_fileSearch;
-*/
     static uint8_t scanlines;
     static uint8_t render;    
 

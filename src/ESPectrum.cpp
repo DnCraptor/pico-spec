@@ -410,7 +410,7 @@ void ESPectrum::bootKeyboard() {
     // printf("Boot kbd end!\n");
 
     if (i < 200) {
-        Config::videomode = (s[0] == '1') ? 0 : (s[0] == '2') ? 1 : 2;
+///        Config::videomode = (s[0] == '1') ? 0 : (s[0] == '2') ? 1 : 2;
 ///        Config::aspect_16_9 = (s[1] == 'Q') ? false : true;
         Config::ram_file="none";
         Config::save();
@@ -1634,23 +1634,6 @@ void ESPectrum::loop() {
         continue;
     }
 
-    if(Config::videomode && !Config::tape_player) {
-        if (sync_cnt++ == 0) {
-            if (idle > 0)
-                delayMicroseconds(idle);
-        } else {
-            // Audio sync (once every 128 frames ~ 2,5 seconds)
-            if (sync_cnt & 0x80) {
-///                ESPoffset = 128 - pwm_audio_rbstats();
-                sync_cnt = 0;
-            } 
-            // Wait for vertical sync
-            for (;;) {
-                if (vsync) break;
-            }
-            // printf("Vsync!\n");
-        }
-    } else {
         if (idle > 0)
             delayMicroseconds(idle);
         // else
@@ -1661,7 +1644,6 @@ void ESPectrum::loop() {
 ///            ESPoffset = 128 - pwm_audio_rbstats();
             sync_cnt = 0;
         } 
-    }
     totalseconds += time_us_64() - ts_start;
  }
 }

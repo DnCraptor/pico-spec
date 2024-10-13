@@ -176,11 +176,19 @@ void OSD::drawOSD(bool bottom_info) {
     osdAt(21, 0);
     if (bottom_info) {
         string bottom_line;
-        switch(Config::videomode) {
-            case 0: bottom_line = " Video mode: Standard VGA   "; break;
-            case 1: bottom_line = " Video mode: VGA 50hz       "; break;
-            case 2: bottom_line = " Video mode: CRT 50hz       "; break;
-        }
+#ifdef VGA_DRV
+        bottom_line = " Video mode: VGA 60 Hz      ";
+#else
+#ifdef HDMI
+        bottom_line = " Video mode: HDMI 75 Hz     ";
+#endif
+#ifdef TV
+        bottom_line = " Video mode: TV RGBI PAL    ";
+#endif
+#ifdef TVSOFT
+        bottom_line = " Video mode: TV-composite   ";
+#endif
+#endif
         VIDEO::vga.print(bottom_line.append(EMU_VERSION).c_str());
     } else VIDEO::vga.print(OSD_BOTTOM);
     osdHome();
@@ -964,14 +972,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     if (Config::pref_arch == "Last") {
                                         Config::arch = arch;
                                     }
-                                    if (Config::videomode) {
-                                        Config::pref_arch += "R";
-                                        Config::arch = arch;
-                                        Config::romSet = romset;
-                                        Config::romSet48 = romset;
-                                        Config::save();
-                                        esp_hard_reset();
-                                    }
                                 }
                                 Config::save();
                                 Config::requestMachine(arch, romset);
@@ -1473,7 +1473,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                                 Config::save("scanlines");
                                                 Config::save("ram");
                                                 // Reset to apply if mode != CRT
-                                                if (Config::videomode!=2) esp_hard_reset();
+                                                esp_hard_reset();
                                             }
                                             menu_curopt = opt2;
                                             menu_saverect = false;

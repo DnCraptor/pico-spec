@@ -21,7 +21,6 @@ string   Config::last_ram_file = NO_RAM_FILE;
 
 bool     Config::slog_on = false;
 const bool     Config::aspect_16_9 = false;
-uint8_t  Config::videomode = 0; // 0 -> SAFE VGA, 1 -> 50HZ VGA, 2 -> 50HZ CRT
 ///uint8_t  Config::esp32rev = 0;
 uint8_t  Config::lang = 0;
 bool     Config::AY48 = true;
@@ -201,10 +200,6 @@ void Config::load() {
         nvs_get_str(handle, "pref_romSet_128", pref_romSet_128, sts);
         nvs_get_str(handle, "pref_romSetPent", pref_romSetPent, sts);
         nvs_get_str(handle, "ram", ram_file, sts);
-///        nvs_get_str(handle, "slog", slog, sts);
-///        nvs_get_str(handle, "sdstorage", FileUtils::MountPoint, sts);
-///        nvs_get_b(handle, "asp169", aspect_16_9, sts);
-        nvs_get_u8(handle, "videomode", Config::videomode, sts);
         nvs_get_b(handle, "AY48", AY48, sts);
         nvs_get_b(handle, "Issue2", Issue2, sts);
         nvs_get_b(handle, "flashload", flashload, sts);
@@ -230,20 +225,6 @@ void Config::load() {
         nvs_get_str(handle, "SNA_Path", FileUtils::SNA_Path, sts);
         nvs_get_str(handle, "TAP_Path", FileUtils::TAP_Path, sts);
         nvs_get_str(handle, "DSK_Path", FileUtils::DSK_Path, sts);
-        /**
-        nvs_get_u16(handle, "SNA_begin_row", Config::SNA_begin_row, sts);
-        nvs_get_u16(handle, "TAP_begin_row", Config::TAP_begin_row, sts);
-        nvs_get_u16(handle, "DSK_begin_row", Config::DSK_begin_row, sts);
-        nvs_get_u16(handle, "SNA_focus", Config::SNA_focus, sts);
-        nvs_get_u16(handle, "TAP_focus", Config::TAP_focus, sts);
-        nvs_get_u16(handle, "DSK_focus", Config::DSK_focus, sts);
-        nvs_get_u8(handle, "SNA_fdMode", Config::SNA_fdMode, sts);
-        nvs_get_u8(handle, "TAP_fdMode", Config::TAP_fdMode, sts);
-        nvs_get_u8(handle, "DSK_fdMode", Config::DSK_fdMode, sts);
-        nvs_get_str(handle, "SNA_fileSearch", SNA_fileSearch, sts);
-        nvs_get_str(handle, "TAP_fileSearch", TAP_fileSearch, sts);
-        nvs_get_str(handle, "DSK_fileSearch", DSK_fileSearch, sts);
-        */
         nvs_get_u8(handle, "scanlines", Config::scanlines, sts);
         nvs_get_u8(handle, "render", Config::render, sts);
         nvs_get_b(handle, "TABasfire1", Config::TABasfire1, sts);
@@ -296,7 +277,6 @@ void Config::save(string value) {
         nvs_set_str(handle,"slog",slog_on ? "true" : "false");
 ///        nvs_set_str(handle,"sdstorage", FileUtils::MountPoint);
         nvs_set_str(handle,"asp169",aspect_16_9 ? "true" : "false");
-        nvs_set_u8(handle,"videomode",Config::videomode);
         nvs_set_u8(handle,"language",Config::lang);
         nvs_set_str(handle,"AY48",AY48 ? "true" : "false");
         nvs_set_str(handle,"Issue2",Issue2 ? "true" : "false");
@@ -320,20 +300,6 @@ void Config::save(string value) {
         nvs_set_str(handle,"SNA_Path",FileUtils::SNA_Path.c_str());
         nvs_set_str(handle,"TAP_Path",FileUtils::TAP_Path.c_str());
         nvs_set_str(handle,"DSK_Path",FileUtils::DSK_Path.c_str());
-        /**
-        nvs_set_u16(handle,"SNA_begin_row",Config::SNA_begin_row);
-        nvs_set_u16(handle,"TAP_begin_row",Config::TAP_begin_row);
-        nvs_set_u16(handle,"DSK_begin_row",Config::DSK_begin_row);
-        nvs_set_u16(handle,"SNA_focus",Config::SNA_focus);
-        nvs_set_u16(handle,"TAP_focus",Config::TAP_focus);
-        nvs_set_u16(handle,"DSK_focus",Config::DSK_focus);
-        nvs_set_u8(handle,"SNA_fdMode",Config::SNA_fdMode);
-        nvs_set_u8(handle,"TAP_fdMode",Config::TAP_fdMode);
-        nvs_set_u8(handle,"DSK_fdMode",Config::DSK_fdMode);
-        nvs_set_str(handle,"SNA_fileSearch",Config::SNA_fileSearch.c_str());
-        nvs_set_str(handle,"TAP_fileSearch",Config::TAP_fileSearch.c_str());
-        nvs_set_str(handle,"DSK_fileSearch",Config::DSK_fileSearch.c_str());
-        */
         nvs_set_u8(handle,"scanlines",Config::scanlines);
         nvs_set_u8(handle,"render",Config::render);
         nvs_set_str(handle,"TABasfire1", TABasfire1 ? "true" : "false");

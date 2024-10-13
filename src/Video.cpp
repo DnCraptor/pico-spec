@@ -277,73 +277,26 @@ const int grePins[] = {GRE_PINS_6B};
 const int bluPins[] = {BLU_PINS_6B};
 
 void VIDEO::vgataskinit(void *unused) {
-
     uint8_t Mode;
-
-    if (Config::videomode == 1) {
-
-        Mode = 4 + (Config::arch == "48K" ? 0 : (Config::arch == "128K" ? 4 : 8)) + (Config::aspect_16_9 ? 2 : 0);
-
-        Mode += Config::scanlines;
-
-        OSD::scrW = vidmodes[Mode][vmodeproperties::hRes];
-        OSD::scrH = (vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv]) >> Config::scanlines;
-
-    } else {
-
-        Mode = 16 + (Config::arch == "48K" ? 0 : (Config::arch == "128K" ? 2 : 4)) + (Config::aspect_16_9 ? 1 : 0);
-        
-        OSD::scrW = vidmodes[Mode][vmodeproperties::hRes];
-        OSD::scrH = vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv];
-
-    }
-
+    Mode = 16 + (Config::arch == "48K" ? 0 : (Config::arch == "128K" ? 2 : 4)) + (Config::aspect_16_9 ? 1 : 0);
+    OSD::scrW = vidmodes[Mode][vmodeproperties::hRes];
+    OSD::scrH = vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv];
     vga.VGA6Bit_useinterrupt = true; // ????
-    
-    // CRT Centering
-    if (Config::videomode == 2) {
-        vga.CenterH = Config::CenterH;
-        vga.CenterV = Config::CenterV;
-    }
-    
     // Init mode
     vga.init(Mode, redPins, grePins, bluPins, HSYNC_PIN, VSYNC_PIN);    
-    
     for (;;){}    
-
 }
 
 ///TaskHandle_t VIDEO::videoTaskHandle;
 static __aligned(4) uint8_t SAVE_RECT[0x9000] = {0};
 
 void VIDEO::Init() {
-
-    if (Config::videomode) {
-
-        // xTaskCreatePinnedToCore(&VIDEO::vgataskinit, "videoTask", 1024, NULL, configMAX_PRIORITIES - 2, &videoTaskHandle, 1);
-///        xTaskCreatePinnedToCore(&VIDEO::vgataskinit, "videoTask", 1024, NULL, 5, &videoTaskHandle, 1);
-
-        // Wait for vertical sync to ensure vga.init is done
-        for (;;) {
-            if (ESPectrum::vsync) break;
-        }
-        
-    } else {
-
-        int Mode = Config::aspect_16_9 ? 2 : 0;
-
-        Mode += Config::scanlines;
-
-        OSD::scrW = vidmodes[Mode][vmodeproperties::hRes];
-        OSD::scrH = (vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv]) >> Config::scanlines;
-        
-        vga.VGA6Bit_useinterrupt = false;
-
-        vga.init( Mode, redPins, grePins, bluPins, HSYNC_PIN, VSYNC_PIN);
-
-    }
-
-    // precalcColors();    // precalculate colors for current VGA mode
+    int Mode = Config::aspect_16_9 ? 2 : 0;
+    Mode += Config::scanlines;
+    OSD::scrW = vidmodes[Mode][vmodeproperties::hRes];
+    OSD::scrH = (vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv]) >> Config::scanlines;
+    vga.VGA6Bit_useinterrupt = false;
+    vga.init( Mode, redPins, grePins, bluPins, HSYNC_PIN, VSYNC_PIN);
 
     // Precalculate colors for current VGA mode
     for (int i = 0; i < NUM_SPECTRUM_COLORS; i++) {
@@ -352,8 +305,6 @@ void VIDEO::Init() {
         spectrum_colors[i] = (spectrum_colors[i] & VIDEO::vga.RGBAXMask) | VIDEO::vga.SBits;
         // printf("After : %d -> %d\n",i,(int)spectrum_colors[i]);
     }
-
-    // precalcAluBytes(); // Alloc and calc AluBytes
 
     for (int n = 0; n < 16; n++)
         AluByte[n] = (unsigned int *)AluBytes[bitRead(VIDEO::vga.SBits,7)][n];
@@ -379,13 +330,8 @@ void VIDEO::Reset() {
         tStatesPerLine = TSTATES_PER_LINE;
         tStatesScreen = TS_SCREEN_48;
         tStatesBorder = is169 ? TS_BORDER_360x200 : TS_BORDER_320x240;        
-        if (Config::videomode == 1) {
-            VsyncFinetune[0] = is169 ? -1 : 0;
-            VsyncFinetune[1] = is169 ? 152 : 0;
-        } else {
-            VsyncFinetune[0] = is169 ? 0 : 0;
-            VsyncFinetune[1] = is169 ? 0 : 0;
-        }
+        VsyncFinetune[0] = is169 ? 0 : 0;
+        VsyncFinetune[1] = is169 ? 0 : 0;
 
         Draw_OSD169 = MainScreen;
         Draw_OSD43 = BottomBorder;
@@ -395,13 +341,8 @@ void VIDEO::Reset() {
         tStatesPerLine = TSTATES_PER_LINE_128;
         tStatesScreen = TS_SCREEN_128;
         tStatesBorder = is169 ? TS_BORDER_360x200_128 : TS_BORDER_320x240_128;        
-        if (Config::videomode == 1) {
-            VsyncFinetune[0] = is169 ? 1 : 1;
-            VsyncFinetune[1] = is169 ? 123 : 123;
-        } else {
-            VsyncFinetune[0] = is169 ? 0 : 0;
-            VsyncFinetune[1] = is169 ? 0 : 0;
-        }
+        VsyncFinetune[0] = is169 ? 0 : 0;
+        VsyncFinetune[1] = is169 ? 0 : 0;
 
         Draw_OSD169 = MainScreen;
         Draw_OSD43 = BottomBorder;
@@ -412,13 +353,8 @@ void VIDEO::Reset() {
         tStatesScreen = TS_SCREEN_PENTAGON;
         tStatesBorder = is169 ? TS_BORDER_360x200_PENTAGON : TS_BORDER_320x240_PENTAGON;        
         // TODO: ADJUST THESE VALUES FOR PENTAGON
-        if (Config::videomode == 1) {
-            VsyncFinetune[0] = is169 ? 1 : 1;
-            VsyncFinetune[1] = is169 ? 123 : 123;
-        } else {
-            VsyncFinetune[0] = is169 ? 0 : 0;
-            VsyncFinetune[1] = is169 ? 0 : 0;
-        }
+        VsyncFinetune[0] = is169 ? 0 : 0;
+        VsyncFinetune[1] = is169 ? 0 : 0;
 
         Draw_OSD169 = MainScreen;
         Draw_OSD43 = BottomBorder_Pentagon;

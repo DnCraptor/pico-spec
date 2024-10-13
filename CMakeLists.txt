@@ -29,7 +29,7 @@ option(TV "Enable TV composite output" OFF)
 option(SOFTTV "Enable TV soft composite output" OFF)
 
 ###set(I2S ON)
-###set(HDMI ON)
+set(HDMI ON)
 ###set(TV ON)
 ###set(SOFTTV ON)
 #set(TFT ON)

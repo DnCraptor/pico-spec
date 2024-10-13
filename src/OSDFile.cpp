@@ -58,8 +58,145 @@ using namespace std;
 
 #include "ff.h"
 
-/// TODO: other way (like file with names or like this)
-static std::vector<std::string> filenames;
+class sorted_files {
+    const size_t rec_size = FF_LFN_BUF + 1;
+    std::string folder;
+    size_t sz;
+    FIL storage_file;
+    int p;
+public:
+    inline sorted_files(const std::string& folder) : folder(folder), sz(0) {
+        f_open(&storage_file, (folder + ".idx").c_str(), FA_READ | FA_WRITE | FA_CREATE_ALWAYS);
+    }
+    inline ~sorted_files() { f_close(&storage_file); }
+    inline size_t size() { return sz; }
+    inline void clear(const std::string& folder) {
+        f_close(&storage_file);
+        f_open(&storage_file, (folder + ".idx").c_str(), FA_READ | FA_WRITE | FA_CREATE_ALWAYS);
+        this->folder = folder;
+        sz = 0;
+    }
+    inline void put(size_t i, const std::string& s) {
+        f_lseek(&storage_file, rec_size * i);
+        UINT bw;
+        f_write(&storage_file, s.c_str(), rec_size, &bw);
+    }
+    inline void push(const std::string& s) {
+        put(sz, s);
+        ++sz;
+    }
+    inline std::string get(size_t i) {
+        f_lseek(&storage_file, rec_size * i);
+        UINT br;
+        char buf[rec_size];
+        f_read(&storage_file, buf, rec_size, &br);
+        return (buf);
+    }
+    inline std::string operator[](size_t i) {
+        return get(i);
+    }
+    inline int cmp(const std::string s1, const std::string s2) {
+        return s1.compare(s2);
+    }
+    inline int cmp(size_t i1, size_t i2) {
+        std::string s1 = get(i1);
+        std::string s2 = get(i2);
+        return s1.compare(s2);
+    }
+    inline void swap(size_t i1, size_t i2) {
+        std::string s1 = get(i1);
+        std::string s2 = get(i2);
+        put(i1, s2);
+        put(i2, s1);
+    }
+    inline void vecswap(size_t i1, size_t i2, size_t num) {
+        for (size_t i = 0; i < num; ++i) {
+            swap(i1 + i, i2 + i);
+        }
+    }
+    inline size_t med3(size_t a, size_t b, size_t c) {
+	    return cmp(a, b) < 0 ? (cmp(b, c) < 0 ? b : (cmp(a, c) < 0 ? c : a )) : (cmp(b, c) > 0 ? b : (cmp(a, c) < 0 ? a : c ));
+    }
+    inline void sort(void) {
+        p = 5;
+        qsort(0, sz);
+    }
+    void qsort(size_t ai, size_t n) {
+        if (!n) return;
+        size_t pn, pm, pl, d, pa, pb, pc, pd = 0;
+        int r;
+    loop:
+        size_t swap_cnt = 0;
+        if (n < 7) {
+            for (pm = ai + 1; pm < ai + n; ++pm) {
+                for (pl = pm; pl > ai && cmp(pl - 1, pl) > 0; --pl) {
+                    swap(pl, pl - 1);
+                }
+            }
+        }
+        pm = ai + (n / 2);
+	    if (n > 7) {
+		    pl = ai;
+		    pn = ai + (n - 1);
+		    if (n > 40) {
+			    d = (n / 8);
+			    pl = med3(pl, pl + d, pl + 2 * d);
+			    pm = med3(pm - d, pm, pm + d);
+    			pn = med3(pn - 2 * d, pn - d, pn);
+	    	}
+		    pm = med3(pl, pm, pn);
+	    }
+	    swap(ai, pm);
+	    pa = pb = ai + 1;
+        pc = pd = ai + (n - 1);
+	    for (;;) {
+		    while (pb <= pc && (r = cmp(pb, ai)) <= 0) {
+			    if (r == 0) {
+				    swap_cnt = 1;
+				    swap(pa, pb);
+				    ++pa;
+                }
+			    ++pb;
+		    }
+		    while (pb <= pc && (r = cmp(pc, ai)) >= 0) {
+			    if (r == 0) {
+				    swap_cnt = 1;
+				    swap(pc, pd);
+				    --pd;
+			    }
+			    --pc;
+		    }
+		    if (pb > pc)
+			    break;
+		    swap(pb, pc);
+		    swap_cnt = 1;
+		    ++pb;
+		    --pc;
+	    }
+	    if (swap_cnt == 0) {  /* Switch to insertion sort */
+		    for (pm = ai + 1; pm < ai + n; ++pm)
+			    for (pl = pm; pl > ai && cmp(pl - 1, pl) > 0; --pl)
+				    swap(pl, pl - 1);
+		    return;
+        }
+	    pn = ai + n;
+	    r = min(pa - ai, pb - pa);
+	    vecswap(ai, pb - r, r);
+	    r = min(pd - pc, pn - pd - 1);
+	    vecswap(pb, pn - r, r);
+	    if ((r = pb - pa) > 1)
+		qsort(ai, r);
+	    if ((r = pd - pc) > 1) { 
+		    /* Iterate rather than recurse to save stack space */
+		    ai = pn - r;
+		    n = r;
+		    goto loop;
+	    }
+    }
+};
+
+static sorted_files filenames("/");
+
 
 unsigned int OSD::elements;
 unsigned int OSD::fdSearchElements;
@@ -152,21 +289,18 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
             ss.erase(0, pos + 1);
         }
         filexts.push_back(ss.substr(0));
-        filenames.clear();
+        filenames.clear(fdir);
         elements = 0;
         ndirs = 0;
         if (fdir.size() > 1) {
-            filenames.push_back("  ..");
+            filenames.push("  ..");
             ++ndirs;
         }
+        OSD::progressDialog(OSD_FILE_INDEXING[Config::lang], OSD_FILE_INDEXING_1[Config::lang], 0, 0);
         res = f_opendir(&f_dir, fdir.c_str()) == FR_OK;
         if (res) {
             FILINFO fileInfo;
             while (f_readdir(&f_dir, &fileInfo) == FR_OK && fileInfo.fname[0] != '\0') {
-                if (filenames.size() > 50) {
-                    osdCenteredMsg("A lot of files in this folder...", LEVEL_WARN, 2000);
-                    break;
-                }
                 string fname = fileInfo.fname;
                 if (fname.compare(0,1,".") != 0) {
                     size_t fpos = fname.find_last_of(".");
@@ -176,11 +310,11 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                     ) {
                         if (fileInfo.fattrib & AM_DIR) {
                             ndirs++;
-                            filenames.push_back((char(32) + fname).c_str());
+                            filenames.push((char(32) + fname).c_str());
                         }
                         else {
                             elements++; // Count elements in dir
-                            filenames.push_back(fname);
+                            filenames.push(fname);
                         }
                     }
                 }
@@ -189,7 +323,9 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
         }
         filexts.clear(); // Clear vector
         std::vector<std::string>().swap(filexts); // free memory
-        sort(filenames.begin(), filenames.end());
+        OSD::progressDialog(OSD_FILE_INDEXING[Config::lang], OSD_FILE_INDEXING_1[Config::lang], 20, 1);
+        filenames.sort();
+        OSD::progressDialog(OSD_FILE_INDEXING[Config::lang], OSD_FILE_INDEXING_1[Config::lang], 100, 2);
         real_rows = ndirs + elements + 2; // Add 2 for title and status bar        
         virtual_rows = (real_rows > mf_rows ? mf_rows : real_rows);
         // printf("Real rows: %d; st_size: %d; Virtual rows: %d\n",real_rows,stat_buf.st_size,virtual_rows);
