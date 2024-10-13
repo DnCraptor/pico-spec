@@ -168,8 +168,6 @@ public:
         return s1.compare(s2);
     }
     inline void swap(size_t i1, size_t i2) {
-        fabgl::VirtualKey lkp = get_last_key_pressed();
-        if (lkp == fabgl::VirtualKey::VK_ESCAPE) return;
         std::string s1 = get(i1);
         std::string s2 = get(i2);
         put(i1, s2);
@@ -192,7 +190,7 @@ public:
         int r;
     loop:
         fabgl::VirtualKey lkp = get_last_key_pressed();
-        if (lkp == fabgl::VirtualKey::VK_ESCAPE) return;
+        if (lkp == fabgl::VirtualKey::VK_ESCAPE || lkp == fabgl::VirtualKey::VK_F1) return;
         size_t swap_cnt = 0;
         if (n < 7) {
             for (pm = ai + 1; pm < ai + n; ++pm) {
@@ -219,7 +217,7 @@ public:
 	    for (;;) {
 		    while (pb <= pc && (r = cmp(pb, ai)) <= 0) {
                 fabgl::VirtualKey lkp = get_last_key_pressed();
-                if (lkp == fabgl::VirtualKey::VK_ESCAPE) return;
+                if (lkp == fabgl::VirtualKey::VK_ESCAPE || lkp == fabgl::VirtualKey::VK_F1) return;
 			    if (r == 0) {
 				    swap_cnt = 1;
 				    swap(pa, pb);
@@ -229,7 +227,7 @@ public:
 		    }
 		    while (pb <= pc && (r = cmp(pc, ai)) >= 0) {
                 fabgl::VirtualKey lkp = get_last_key_pressed();
-                if (lkp == fabgl::VirtualKey::VK_ESCAPE) return;
+                if (lkp == fabgl::VirtualKey::VK_ESCAPE || lkp == fabgl::VirtualKey::VK_F1) return;
 			    if (r == 0) {
 				    swap_cnt = 1;
 				    swap(pc, pd);
@@ -248,7 +246,7 @@ public:
 		    for (pm = ai + 1; pm < ai + n; ++pm)
 			    for (pl = pm; pl > ai && cmp(pl - 1, pl) > 0; --pl) {
                     fabgl::VirtualKey lkp = get_last_key_pressed();
-                    if (lkp == fabgl::VirtualKey::VK_ESCAPE) return;
+                    if (lkp == fabgl::VirtualKey::VK_ESCAPE || lkp == fabgl::VirtualKey::VK_F1) return;
 				    swap(pl, pl - 1);
                 }
 		    return;
@@ -375,6 +373,8 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                 crc += ::crc("  ..");
             }
             while (f_readdir(&f_dir, &fileInfo) == FR_OK && fileInfo.fname[0] != '\0') {
+                fabgl::VirtualKey lkp = get_last_key_pressed();
+                if (lkp == fabgl::VirtualKey::VK_ESCAPE || lkp == fabgl::VirtualKey::VK_F1) break;
                 string fname = fileInfo.fname;
                 if (fname.compare(0,1,".") != 0) {
                     size_t fpos = fname.find_last_of(".");
@@ -403,6 +403,8 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                 OSD::progressDialog(OSD_FILE_INDEXING[Config::lang], OSD_FILE_INDEXING_1[Config::lang], 5, 1);
                 size_t f_idx = 0;
                 while (f_readdir(&f_dir, &fileInfo) == FR_OK && fileInfo.fname[0] != '\0') {
+                    fabgl::VirtualKey lkp = get_last_key_pressed();
+                    if (lkp == fabgl::VirtualKey::VK_ESCAPE || lkp == fabgl::VirtualKey::VK_F1) break;
                     string fname = fileInfo.fname;
                     if (fname.compare(0,1,".") != 0) {
                         size_t fpos = fname.find_last_of(".");
