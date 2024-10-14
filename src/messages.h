@@ -42,7 +42,7 @@ visit https://zxespectrum.speccy.org/contacto
 #define MSG_SAVE_CONFIG "Saving config file"
 #define MSG_VGA_INIT "Initializing VGA"
 
-#define EMU_VERSION " v1.2/0.2.5 "
+#define EMU_VERSION " v1.2/0.2.6 "
 
 // Error
 #define ERROR_TITLE "  !!!   ERROR - CLIVE MEDITATION   !!!  "
@@ -111,8 +111,8 @@ static const char *OSD_TAPE_SELECT_ERR[2] = { OSD_TAPE_SELECT_ERR_EN,OSD_TAPE_SE
 #define OSD_FILE_INDEXING_ES "Indexando"
 static const char *OSD_FILE_INDEXING[2] = { OSD_FILE_INDEXING_EN, OSD_FILE_INDEXING_ES };
 
-#define OSD_FILE_INDEXING_EN_1 "  Sorting   "
-#define OSD_FILE_INDEXING_ES_1 "   Ordenando   "
+#define OSD_FILE_INDEXING_EN_1 " Sorting (F1) "
+#define OSD_FILE_INDEXING_ES_1 " Ordenando (F1) "
 static const char *OSD_FILE_INDEXING_1[2] = { OSD_FILE_INDEXING_EN_1, OSD_FILE_INDEXING_ES_1 };
 
 #define OSD_FILE_INDEXING_EN_2 "Saving index"

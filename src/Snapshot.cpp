@@ -71,7 +71,7 @@ bool LoadSnapshot(string filename, string force_arch, string force_romset) {
         //OSD::osdCenteredMsg(MSG_LOADING_SNA + (string) ": " + filename.substr(filename.find_last_of("/") + 1), LEVEL_INFO, 0);
         res = FileSNA::load(filename, force_arch, force_romset);
     } else if (FileUtils::hasZ80extension(filename)) {
-        OSD::osdCenteredMsg(MSG_LOADING_Z80 + (string) ": " + filename.substr(filename.find_last_of("/") + 1), LEVEL_INFO, 0);
+        //OSD::osdCenteredMsg(MSG_LOADING_Z80 + (string) ": " + filename.substr(filename.find_last_of("/") + 1), LEVEL_INFO, 0);
         res = FileZ80::load(filename);
     } else if (FileUtils::hasPextension(filename)) {
         res = FileP::load(filename);
@@ -236,36 +236,6 @@ bool FileSNA::isPersistAvailable(string filename) {
     else
         f_close(&f);
     return true;
-}
-
-bool check_and_create_directory(const char* path) {
-    struct stat st;
-    if (stat(path, &st) == 0) {
-        if ((st.st_mode & S_IFDIR) != 0) {
-            // printf("Directory exists\n");
-            return true;
-        } else {
-            // printf("Path exists but it is not a directory\n");
-            // Create the directory
-            if (mkdir(path, 0755) == 0) {
-                // printf("Directory created\n");
-                return true;
-            } else {
-                printf("Failed to create directory\n");
-                return false;
-            }
-        }
-    } else {
-        // printf("Directory does not exist\n");
-        // Create the directory
-        if (mkdir(path, 0755) == 0) {
-            // printf("Directory created\n");
-            return true;
-        } else {
-            printf("Failed to create directory\n");
-            return false;
-        }
-    }
 }
 
 size_t fwrite(const void* v, size_t sz1, size_t sz2, FIL& f) {

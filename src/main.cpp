@@ -347,7 +347,7 @@ void __scratch_x("render") render_core() {
         }
         tick = time_us_64();
         uint32_t tickKbdRep2 = time_us_32();
-        if (tickKbdRep2 - tickKbdRep1 > 200000) { // 0.2 sec
+        if (tickKbdRep2 - tickKbdRep1 > 150000) { // repeat each 150 ms
             repeat_handler();
             tickKbdRep1 = tickKbdRep2;
         }
