@@ -472,9 +472,8 @@ static void __scratch_y("tv_main_loop") main_video_loopTV() {
                             for (register uint32_t x = 0; x < graphics_buffer.width; ++x) {
                                 ///*output_buffer++ = *input_buffer8 < 240 ? *input_buffer8 : 0;
                                 ///input_buffer8++;
-                                register uint32_t c = input_buffer[(x++) ^ 2];
+                                register uint32_t c = input_buffer[x ^ 2];
                                 register uint8_t mc = map64colors[c & 0b00111111];
-                                *output_buffer++ = mc;
                                 *output_buffer++ = mc;
                                 ///uint8_t* input_buffer8 = input_buffer + y * graphics_buffer.width;
                             }

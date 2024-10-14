@@ -238,36 +238,6 @@ bool FileSNA::isPersistAvailable(string filename) {
     return true;
 }
 
-bool check_and_create_directory(const char* path) {
-    struct stat st;
-    if (stat(path, &st) == 0) {
-        if ((st.st_mode & S_IFDIR) != 0) {
-            // printf("Directory exists\n");
-            return true;
-        } else {
-            // printf("Path exists but it is not a directory\n");
-            // Create the directory
-            if (mkdir(path, 0755) == 0) {
-                // printf("Directory created\n");
-                return true;
-            } else {
-                printf("Failed to create directory\n");
-                return false;
-            }
-        }
-    } else {
-        // printf("Directory does not exist\n");
-        // Create the directory
-        if (mkdir(path, 0755) == 0) {
-            // printf("Directory created\n");
-            return true;
-        } else {
-            printf("Failed to create directory\n");
-            return false;
-        }
-    }
-}
-
 size_t fwrite(const void* v, size_t sz1, size_t sz2, FIL& f) {
     UINT bw;
     if (f_write(&f, v, sz1 * sz2, &bw) != FR_OK) return -1;
