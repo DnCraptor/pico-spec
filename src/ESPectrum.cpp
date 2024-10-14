@@ -577,17 +577,17 @@ void ESPectrum::setup()
     //=======================================================================================
     // MEMORY SETUP
     //=======================================================================================
-    MemESP::ram[5] = (unsigned char *) MemESP_ram5; // heap_caps_calloc(0x4000, sizeof(unsigned char), MALLOC_CAP_8BIT);
-    MemESP::ram[0] = (unsigned char *) MemESP_ram0; // heap_caps_calloc(0x4000, sizeof(unsigned char), MALLOC_CAP_8BIT);
+    MemESP::ram[5] = (unsigned char *) MemESP_ram5;
+    MemESP::ram[0] = (unsigned char *) MemESP_ram0;
 
-    MemESP::ram[2] = (unsigned char *) MemESP_ram2; // heap_caps_calloc(0x4000, sizeof(unsigned char), MALLOC_CAP_8BIT);
-    MemESP::ram[7] = (unsigned char *) MemESP_ram7; // heap_caps_calloc(0x4000, sizeof(unsigned char), MALLOC_CAP_8BIT);
+    MemESP::ram[2] = (unsigned char *) MemESP_ram2;
+    MemESP::ram[7] = (unsigned char *) MemESP_ram7;
 
-    MemESP::ram[1] = (unsigned char *) MemESP_ram1; // heap_caps_calloc(0x8000, sizeof(unsigned char), MALLOC_CAP_8BIT);
+    MemESP::ram[1] = (unsigned char *) MemESP_ram1;
     MemESP::ram[3] = ((unsigned char *) MemESP::ram[1]) + 0x4000;
 
-    MemESP::ram[4] = (unsigned char *) MemESP_ram4; // heap_caps_calloc(0x4000, sizeof(unsigned char), MALLOC_CAP_8BIT);
-    MemESP::ram[6] = (unsigned char *) MemESP_ram6; // heap_caps_calloc(0x4000, sizeof(unsigned char), MALLOC_CAP_8BIT);
+    MemESP::ram[4] = (unsigned char *) MemESP_ram4;
+    MemESP::ram[6] = (unsigned char *) MemESP_ram6;
 
     // Load romset
     Config::requestMachine(Config::arch, Config::romSet);
