@@ -584,7 +584,7 @@ void ESPectrum::setup()
     MemESP::ram[7] = (unsigned char *) MemESP_ram7;
 
     MemESP::ram[1] = (unsigned char *) MemESP_ram1;
-    MemESP::ram[3] = ((unsigned char *) MemESP::ram[1]) + 0x4000;
+    MemESP::ram[3] = (unsigned char *) MemESP_ram1 + 0x4000;
 
     MemESP::ram[4] = (unsigned char *) MemESP_ram4;
     MemESP::ram[6] = (unsigned char *) MemESP_ram6;
