@@ -54,7 +54,7 @@ visit https://zxespectrum.speccy.org/contacto
 #define ERR_DIR_OPEN "Cannot open directory!"
 
 // OSD
-#define OSD_TITLE  " ESPectrum (RP2040 port) "
+#define OSD_TITLE  " ESPectrum (RP2350 port) "
 // #define OSD_BOTTOM " SCIENCE LEADS TO PROGRESS              "
 #define OSD_BOTTOM " Murmulator port by MikeV73 " EMU_VERSION
 
@@ -304,13 +304,15 @@ static const char *MENU_OPTIONS[2] = { MENU_OPTIONS_EN,MENU_OPTIONS_ES };
 	"Firmware\n"\
 	"Custom ROM 48K\n"\
 	"Custom ROM 128k\n"\
-	"Custom ROM Pentagon\n"		
+	"Custom ROM Pentagon\n"\
+	"Custom ROM Scorpion\n"
 #define MENU_UPDATE_ES \
     "Actualizar\n"\
 	"Firmware\n"\
 	"ROM Custom 48K\n"\
 	"ROM Custom 128k\n"\
-	"ROM Custom Pentagon\n"
+	"ROM Custom Pentagon\n"\
+	"ROM Custom Scorpion\n"
 static const char *MENU_UPDATE_FW[2] = { MENU_UPDATE_EN,MENU_UPDATE_ES };
 
 #define MENU_VIDEO_EN \
@@ -351,13 +353,13 @@ static const char *MENU_SCANLINES[2] = { "Scanlines\n", "Scanlines\n" };
     "Reset Menu\n"\
     "Soft reset\n"\
     "Hard reset\t(F11)\n"\
-    "RP2040 reset\t(F12)\n"\
+    "RP2350 reset\t(F12)\n"\
     "Defaults\n"
 #define MENU_RESET_ES \
     "Resetear\n"\
     "Reset parcial\n"\
     "Reset completo\t(F11)\n"\
-    "Resetear RP2040\t(F12)\n"\
+    "Resetear RP2350\t(F12)\n"\
 	"Predeterminados\n"
 static const char *MENU_RESET[2] = { MENU_RESET_EN, MENU_RESET_ES };
 
@@ -366,14 +368,14 @@ static const char *MENU_RESET[2] = { MENU_RESET_EN, MENU_RESET_ES };
     "Reset Menu\n"\
     "Soft reset\n"\
     "Hard reset\t(F11)\n"\
-    "RP2040 reset\t(F12)\n"\
+    "RP2350 reset\t(F12)\n"\
     "MurmulatorOS\n"\
     "Defaults\n"
 #define MENU_RESET_MOS_ES \
     "Resetear\n"\
     "Reset parcial\n"\
     "Reset completo\t(F11)\n"\
-    "Resetear RP2040\t(F12)\n"\
+    "Resetear RP2350\t(F12)\n"\
     "MurmulatorOS\n"\
 	"Predeterminados\n"
 static const char *MENU_RESET_MOS[2] = { MENU_RESET_MOS_EN, MENU_RESET_MOS_ES };
@@ -444,10 +446,11 @@ static const char *MENU_ISSUE2[2] = { "48K Issue 2\n", "48K Issue 2\n"};
 
 #define MENU_ARCH_ES "Elija modelo\n"
 
-#define MENU_ARCHS "Spectrum 48K\t>\n"\
+#define MENU_ARCHS \
+    "Spectrum 48K\t>\n"\
     "Spectrum 128K\t>\n"\
-	"Pentagon 128K\t>\n"
-
+	"Pentagon 128K\t>\n"\
+	"Scorpion 256K\t>\n"
 static const char *MENU_ARCH[2] = { MENU_ARCH_EN MENU_ARCHS, MENU_ARCH_ES MENU_ARCHS };
 
 #define MENU_ROMS48_EN "Select ROM\n"\
@@ -479,25 +482,35 @@ static const char *MENU_ARCH[2] = { MENU_ARCH_EN MENU_ARCHS, MENU_ARCH_ES MENU_A
 static const char *MENU_ROMS48[2] = { MENU_ROMS48_EN, MENU_ROMS48_ES };
 static const char *MENU_ROMS128[2] = { MENU_ROMS128_EN, MENU_ROMS128_ES };
 
-#define MENU_ROMS_PENT_EN "Select ROM\n"\
+#define MENU_ROMS_PENT_EN \
+  "Select ROM\n"\
 	"Original\n"\
     "Custom\n"
-#define MENU_ROMS_PENT_ES "Elija ROM\n"\
+#define MENU_ROMS_PENT_ES \
+  "Elija ROM\n"\
 	"Original\n"\
     "Custom\n"
 static const char *MENU_ROMS_PENT[2] = { MENU_ROMS_PENT_EN, MENU_ROMS_PENT_ES };
 
-#define MENU_ARCHS_PREF "Spectrum 48K\t[4]\n"\
+#define MENU_ARCHS_PREF \
+    "Spectrum 48K\t[4]\n"\
     "Spectrum 128K\t[1]\n"\
-	"Pentagon 128K\t[P]\n"
+	"Pentagon 128K\t[P]\n"\
+	"Scorpion 256K\t[S]\n"
+static const char *MENU_ARCH_PREF[2] = {
+	"Preferred machine\n" MENU_ARCHS_PREF "Last used\t[L]\n",
+	"Modelo preferido\n" MENU_ARCHS_PREF "Ultimo utilizado\t[L]\n"
+};
 
-static const char *MENU_ARCH_PREF[2] = { "Preferred machine\n" MENU_ARCHS_PREF "Last used\t[L]\n", "Modelo preferido\n" MENU_ARCHS_PREF "Ultimo utilizado\t[L]\n"};
-
-#define MENU_ROMS_PREF "Spectrum 48K\t>\n"\
+#define MENU_ROMS_PREF \
+    "Spectrum 48K\t>\n"\
     "Spectrum 128K\t>\n"\
-    "Pentagon 128K\t>\n"
-
-static const char *MENU_ROM_PREF[2] = { "Preferred ROM\n" MENU_ROMS_PREF, "ROM preferida\n" MENU_ROMS_PREF};
+    "Pentagon 128K\t>\n"\
+    "Scorpion 256K\t>\n"
+static const char *MENU_ROM_PREF[2] = {
+  "Preferred ROM\n" MENU_ROMS_PREF,
+    "ROM preferida\n" MENU_ROMS_PREF
+};
 
 #define MENU_ROMS48_PREF_EN "Select ROM\n"\
 	"48K\t[48K  ]\n"\
@@ -533,17 +546,29 @@ static const char *MENU_ROM_PREF_48[2] = { MENU_ROMS48_PREF_EN, MENU_ROMS48_PREF
 
 static const char *MENU_ROM_PREF_128[2] = { MENU_ROMS128_PREF_EN, MENU_ROMS128_PREF_ES };
 
-#define MENU_ROMS_PENT_PREF_EN "Select ROM\n"\
+#define MENU_ROMS_PENT_PREF_EN \
+  "Select ROM\n"\
 	"Original\t[128Kp ]\n"\
     "Custom\t[128Kcs]\n"\
 	"Last used\t[Last  ]\n"
-
-#define MENU_ROMS_PENT_PREF_ES "Elija ROM\n"\
+#define MENU_ROMS_PENT_PREF_ES \
+  "Elija ROM\n"\
 	"Original\t[128Kp ]\n"\
     "Custom\t[128Kcs]\n"\
 	"Last used\t[Last  ]\n"
-
 static const char *MENU_ROM_PREF_PENT[2] = { MENU_ROMS_PENT_PREF_EN, MENU_ROMS_PENT_PREF_ES };
+
+#define MENU_ROMS_SCORP_PREF_EN \
+  "Select ROM\n"\
+	"Original\t[256Ks ]\n"\
+    "Custom\t[256Kcs]\n"\
+	"Last used\t[Last  ]\n"
+#define MENU_ROMS_SCORP_PREF_ES \
+  "Elija ROM\n"\
+	"Original\t[256Ks ]\n"\
+    "Custom\t[256Kcs]\n"\
+	"Last used\t[Last  ]\n"
+static const char *MENU_ROM_PREF_SCORP[2] = { MENU_ROMS_SCORP_PREF_EN, MENU_ROMS_SCORP_PREF_ES };
 
 #define MENU_INTERFACE_LANG_EN "Language\n"\
     "English\t[ ]\n"\
@@ -814,7 +839,7 @@ static const char *AboutMsg[2][9] = {
     " [F8]         CPU / Tape load stats\n"\
     " [F9-F10]     Volume down-up\n"\
 	" [F11]        Hard reset\n"\
-    " [F12]        Reset RP2040\n"\
+    " [F12]        Reset RP2350\n"\
     " [CTRL+F1]    Hardware info\n"\
     " [CTRL+F2]    Turbo mode\n"\
     " [CTRL+F5-F7] Center CRT Screen\n"\
@@ -838,7 +863,7 @@ static const char *AboutMsg[2][9] = {
     " [F8]         Status CPU / Carga cinta\n"\
     " [F9-F10]     Bajar-Subir volumen\n"\
     " [F11]        Reset completo\n"\
-    " [F12]        Resetear RP2040\n"\
+    " [F12]        Resetear RP2350\n"\
     " [CTRL+F1]    Info hardware\n"\
     " [CTRL+F2]    Modo turbo\n"\
     " [CTRL+F5-F7] Centrar pantalla CRT\n"\

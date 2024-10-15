@@ -38,10 +38,14 @@ visit https://zxespectrum.speccy.org/contacto
 
 uint8_t* MemESP::rom[5];
 
-uint8_t* MemESP::ram[8] = { NULL };
+uint8_t* MemESP::ram[16] = { NULL };
 uint8_t* MemESP::ramCurrent[4];
 bool MemESP::ramContended[4];
 
+uint8_t MemESP::page0ram = 0;
+uint8_t MemESP::hiddenROM = 0;
+uint8_t MemESP::page128 = 0;
+uint8_t MemESP::shiftScorp = 0;
 uint8_t MemESP::bankLatch = 0;
 uint8_t MemESP::videoLatch = 0;
 uint8_t MemESP::romLatch = 0;

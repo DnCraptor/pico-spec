@@ -46,11 +46,15 @@ public:
 
     static uint8_t* rom[5];
 
-    static uint8_t* ram[8];
+    static uint8_t* ram[16];
 
     static uint8_t* ramCurrent[4];    
     static bool ramContended[4];
 
+    static uint8_t page0ram;
+    static uint8_t hiddenROM;
+    static uint8_t page128;
+    static uint8_t shiftScorp;
     static uint8_t bankLatch;
     static uint8_t videoLatch;
     static uint8_t romLatch;
@@ -70,8 +74,6 @@ public:
 inline uint8_t MemESP::readbyte(uint16_t addr) {
     uint8_t page = addr >> 14;
     switch (page) {
-    case 0:
-        return rom[romInUse][addr];
     case 1:
         return ram[5][addr - 0x4000];
     case 2:
@@ -79,7 +81,7 @@ inline uint8_t MemESP::readbyte(uint16_t addr) {
     case 3:
         return ram[bankLatch][addr - 0xC000];
     default:
-        return rom[romInUse][addr];
+        return (page0ram ? ram[0] : rom[romInUse])[addr];
     }
 }
 
@@ -92,6 +94,7 @@ inline void MemESP::writebyte(uint16_t addr, uint8_t data)
     uint8_t page = addr >> 14;
     switch (page) {
     case 0:
+        if (page0ram) ram[0][addr] = data;
         return;
     case 1:
         ram[5][addr - 0x4000] = data;

@@ -430,13 +430,16 @@ void ESPectrum::bootKeyboard() {
 
 // uint32_t ESPectrum::sessid;
 
-static unsigned char MemESP_ram5[0x4000] = {0};
-static unsigned char MemESP_ram0[0x4000] = {0};
-static unsigned char MemESP_ram2[0x4000] = {0};
-static unsigned char MemESP_ram7[0x4000] = {0};
-static unsigned char MemESP_ram1[0x8000] = {0};
-static unsigned char MemESP_ram4[0x4000] = {0};
-static unsigned char MemESP_ram6[0x4000] = {0};
+static unsigned char MemESP_ram[256ul << 10];
+
+static unsigned char *MemESP_ram0 = MemESP_ram;
+static unsigned char *MemESP_ram1 = MemESP_ram + 0x4000;
+static unsigned char *MemESP_ram2 = MemESP_ram + 0x4000 + 0x8000;
+
+static unsigned char *MemESP_ram4 = MemESP_ram + 4 * 0x4000;
+static unsigned char *MemESP_ram5 = MemESP_ram + 5 * 0x4000;
+static unsigned char *MemESP_ram6 = MemESP_ram + 6 * 0x4000;
+static unsigned char *MemESP_ram7 = MemESP_ram + 7 * 0x4000;
 
 void ESPectrum::setup() 
 {
@@ -484,8 +487,13 @@ void ESPectrum::setup()
                     Config::romSet = Config::pref_romSet_128;
                 else
                     Config::romSet = Config::romSet128;
+            } else if (Config::arch == "Scorpion") {
+                if (Config::pref_romSetScorp != "Last")
+                    Config::romSet = Config::pref_romSetScorp;
+                else
+                    Config::romSet = Config::romSetScorp;
             } else {
-                if (Config::pref_romSet_128 != "Last")
+                if (Config::pref_romSetPent != "Last")
                     Config::romSet = Config::pref_romSetPent;
                 else
                     Config::romSet = Config::romSetPent;
@@ -584,14 +592,20 @@ void ESPectrum::setup()
     MemESP::ram[7] = (unsigned char *) MemESP_ram7;
 
     MemESP::ram[1] = (unsigned char *) MemESP_ram1;
-    MemESP::ram[3] = (unsigned char *) MemESP_ram1 + 0x4000;
+    MemESP::ram[3] = (unsigned char *) MemESP_ram1 + 0x4000; /// why?
 
     MemESP::ram[4] = (unsigned char *) MemESP_ram4;
     MemESP::ram[6] = (unsigned char *) MemESP_ram6;
 
+    for (int i = 8; i < 16; ++i) MemESP::ram[i] = (unsigned char *) MemESP_ram + 0x4000 * i;
+
     // Load romset
     Config::requestMachine(Config::arch, Config::romSet);
 
+    MemESP::page0ram = 0;
+    MemESP::hiddenROM = 0;
+    MemESP::page128 = 0;
+    MemESP::shiftScorp = 0;
     MemESP::romInUse = 0;
     MemESP::bankLatch = 0;
     MemESP::videoLatch = 0;
@@ -632,7 +646,7 @@ void ESPectrum::setup()
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;
         AY_emu = Config::AY48;
         Audio_freq = ESP_AUDIO_FREQ_48;
-    } else if (Config::arch == "128K") {
+    } else if (Config::arch == "128K" || Config::arch == "Scorpion") {
         samplesPerFrame=ESP_AUDIO_SAMPLES_128;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
         AY_emu = true;        
@@ -739,6 +753,10 @@ void ESPectrum::reset()
         ESPectrum::JoyVKTranslation[n] = (fabgl::VirtualKey) Config::joydef[n];
 
     // Memory
+    MemESP::page0ram = 0;
+    MemESP::hiddenROM = 0;
+    MemESP::page128 = 0;
+    MemESP::shiftScorp = 0;
     MemESP::romInUse = 0;
     MemESP::bankLatch = 0;
     MemESP::videoLatch = 0;
@@ -787,7 +805,7 @@ void ESPectrum::reset()
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;
         AY_emu = Config::AY48;
         Audio_freq = ESP_AUDIO_FREQ_48;
-    } else if (Config::arch == "128K") {
+    } else if (Config::arch == "128K" || Config::arch == "Scorpion") {
         samplesPerFrame=ESP_AUDIO_SAMPLES_128;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
         AY_emu = true;        

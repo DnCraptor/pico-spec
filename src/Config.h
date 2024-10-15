@@ -74,15 +74,17 @@ public:
     static string   romSet48;
     static string   romSet128;
     static string   romSetPent;
+    static string   romSetScorp;
     static string   pref_arch;
     static string   pref_romSet_48;
     static string   pref_romSet_128;
     static string   pref_romSetPent;
+    static string   pref_romSetScorp;
     static string   ram_file;
     static string   last_ram_file;
     static uint8_t  esp32rev;
     static bool     slog_on;
-    const static bool     aspect_16_9;
+    const static bool     aspect_16_9; /// TODO:
     static uint8_t  lang;
     static bool     AY48;
     static bool     Issue2;    

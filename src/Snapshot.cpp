@@ -136,6 +136,10 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
 
     // printf("FileSNA::load: Opening %s: size = %d\n", sna_fn.c_str(), sna_size);
 
+    MemESP::page0ram = 0;
+    MemESP::hiddenROM = 0;
+    MemESP::page128 = 0;
+    MemESP::shiftScorp = 0;
     MemESP::bankLatch = 0;
     MemESP::pagingLock = 1;
     MemESP::videoLatch = 0;
@@ -648,6 +652,10 @@ bool FileZ80::load(string z80_fn) {
         }
 
         // latches for 48K
+        MemESP::page0ram = 0;
+        MemESP::hiddenROM = 0;
+        MemESP::page128 = 0;
+        MemESP::shiftScorp = 0;
         MemESP::romLatch = 0;
         MemESP::romInUse = 0;
         MemESP::bankLatch = 0;
@@ -677,6 +685,10 @@ bool FileZ80::load(string z80_fn) {
 
         if (z80_arch == "48K") {
 
+            MemESP::page0ram = 0;
+            MemESP::hiddenROM = 0;
+            MemESP::page128 = 0;
+            MemESP::shiftScorp = 0;
             MemESP::romLatch = 0;
             MemESP::romInUse = 0;
             MemESP::bankLatch = 0;
@@ -728,7 +740,8 @@ bool FileZ80::load(string z80_fn) {
                 MemESP::rom[0], MemESP::rom[2], MemESP::rom[1],
                 MemESP::ram[0], MemESP::ram[1], MemESP::ram[2], MemESP::ram[3],
                 MemESP::ram[4], MemESP::ram[5], MemESP::ram[6], MemESP::ram[7],
-                MemESP::rom[3] };
+                MemESP::rom[3]
+            };
 
             // const char* pagenames[12] = { "rom0", "IDP", "rom1",
             //     "ram0", "ram1", "ram2", "ram3", "ram4", "ram5", "ram6", "ram7", "MFR" };
@@ -901,6 +914,10 @@ void FileZ80::loader48() {
 
     z80_array += dataOffset;
 
+    MemESP::page0ram = 0;
+    MemESP::hiddenROM = 0;
+    MemESP::page128 = 0;
+    MemESP::shiftScorp = 0;
     MemESP::romLatch = 0;
     MemESP::romInUse = 0;
     MemESP::bankLatch = 0;

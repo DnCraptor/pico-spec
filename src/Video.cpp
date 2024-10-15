@@ -336,18 +336,16 @@ void VIDEO::Reset() {
         Draw_OSD169 = MainScreen;
         Draw_OSD43 = BottomBorder;
         DrawBorder = TopBorder_Blank;        
-
-    } else if (Config::arch == "128K") {
+    } else if (Config::arch == "128K" || Config::arch == "Scorpion") {
         tStatesPerLine = TSTATES_PER_LINE_128;
         tStatesScreen = TS_SCREEN_128;
-        tStatesBorder = is169 ? TS_BORDER_360x200_128 : TS_BORDER_320x240_128;        
+        tStatesBorder = is169 ? TS_BORDER_360x200_128 : TS_BORDER_320x240_128;
         VsyncFinetune[0] = is169 ? 0 : 0;
         VsyncFinetune[1] = is169 ? 0 : 0;
 
         Draw_OSD169 = MainScreen;
         Draw_OSD43 = BottomBorder;
-        DrawBorder = TopBorder_Blank;        
-
+        DrawBorder = TopBorder_Blank;
     } else if (Config::arch == "Pentagon") {
         tStatesPerLine = TSTATES_PER_LINE_PENTAGON;
         tStatesScreen = TS_SCREEN_PENTAGON;
@@ -359,7 +357,6 @@ void VIDEO::Reset() {
         Draw_OSD169 = MainScreen;
         Draw_OSD43 = BottomBorder_Pentagon;
         DrawBorder = TopBorder_Blank_Pentagon;        
-
     }
 
     if (is169) {
