@@ -2454,6 +2454,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         Config::pref_arch = "Pentagon";
         Config::pref_romSetPent = "128Kcs";
     }
+#if !PICO_RP2040
     else if ( arch == 4 ) {
         if( bytesfirmware > 0xFFFF ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
@@ -2469,6 +2470,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         Config::pref_arch = "Scorpion";
         Config::pref_romSetScorp = "256Kcs";
     }
+#endif
 
     for (size_t i = flash_target_offset; i < max_flash_target_offset; i += FLASH_SECTOR_SIZE) {
         cleanup_block(i);
