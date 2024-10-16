@@ -1,3 +1,4 @@
+cmake_minimum_required(VERSION 3.13)
 # == DO NEVER EDIT THE NEXT LINES for Raspberry Pi Pico VS Code Extension to work ==
 if(WIN32)
     set(USERHOME $ENV{USERPROFILE})
@@ -12,32 +13,39 @@ if (EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
-cmake_minimum_required(VERSION 3.13)
+set(PICO_BOARD pico CACHE STRING "Board type")
+include(pico_sdk_import.cmake)
 
-set(VGA_DRV ON)
+project(pico-spec C CXX ASM)
+SET(BUILD_NAME "${PROJECT_NAME}")
+
+option(I2S "Enable I2S sound" OFF)
+option(I2S_CS4334 "Enable I2S CS4334 sound" OFF)
+option(VGA "Enable VGA" OFF)
+option(TFT "Enable TFT display" OFF)
+option(ILI9341 "Enable TFT ILI9341 display" OFF)
+option(HDMI "Enable HDMI display" OFF)
+option(TV "Enable TV composite output" OFF)
+option(SOFTTV "Enable TV soft composite output" OFF)
+
+###set(I2S ON)
+###set(HDMI ON)
+###set(TV ON)
+###set(SOFTTV ON)
+#set(TFT ON)
+#set(ILI9341 ON)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
+set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}  -funroll-loops -ffast-math -feliminate-unused-debug-types -ffunction-sections -fdata-sections -O2")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -funroll-loops -ffast-math -feliminate-unused-debug-types -ffunction-sections -fdata-sections -O2")
 
-set(PICO_BOARD pico CACHE STRING "Board type")
-
-# Pull in Raspberry Pi Pico SDK (must be before project)
-include(pico_sdk_import.cmake)
-
-SET(PROJECT_NAME pico2-spec)
-set(FLASH_SIZE 4096)
-SET(BUILD_NAME "${PROJECT_NAME}-${FLASH_SIZE}K")
+pico_sdk_init()
 
 set(OUTPUT_DIR "${CMAKE_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${OUTPUT_DIR}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${OUTPUT_DIR}")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${OUTPUT_DIR}")
-
-project(pico2-spec C CXX ASM)
-
-# Initialise the Raspberry Pi Pico SDK
-pico_sdk_init()
 
 add_subdirectory(drivers/audio)
 add_subdirectory(drivers/ps2kbd)
@@ -51,8 +59,6 @@ add_subdirectory(drivers/tv)
 add_subdirectory(drivers/tv-software)
 add_subdirectory(drivers/graphics)
 
-#target_compile_definitions(${PROJECT_NAME} PRIVATE VGA)
-
 # INCLUDE FILES THAT SHOULD BE COMPILED:
 file(GLOB_RECURSE SRC "src/*.cpp" "src/*.c fabgl/*.cpp" "src/roms/*.cpp" "src/roms/*.c" "src/miniz/*.c")
 
@@ -64,105 +70,19 @@ message(STATUS "")
 
 add_executable(${PROJECT_NAME} ${SRC})
 
-# pull in common dependencies
-target_link_libraries(pico2-spec PRIVATE
-    audio
-    graphics
-    
-    ps2kbd
-    nespad
-    sdcard
-    fatfs
-    
-    pico_runtime
-    pico_stdlib
-    pico_multicore
-    hardware_dma
-    hardware_pio
-    hardware_i2c
-    hardware_interp
-    hardware_timer
-    hardware_clocks
-    hardware_pwm
-    hardware_flash
-    stdc++
-    
-    tinyusb_host tinyusb_board
-)
+pico_define_boot_stage2(slower_boot2 ${PICO_DEFAULT_BOOT_STAGE2_FILE})
+target_compile_definitions(slower_boot2 PRIVATE PICO_FLASH_SPI_CLKDIV=4)
+pico_set_boot_stage2(${PROJECT_NAME} slower_boot2)
+
+#set(FAMILY rp2040)
+#set(BOARD pico_sdk)
+
+pico_set_program_name(pico-spec "ESpectrum port for Murmulator - ZX Spectrum emulator by DnCraptor")
+pico_set_program_version(pico-spec "test")
 
 target_include_directories(${PROJECT_NAME} PRIVATE
         src
         src/roms
-)
-
-if (PICO_CYW43_SUPPORTED)
-    target_link_libraries(pico2-spec pico_cyw43_arch_none)
-endif()
-
-set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "${BUILD_NAME}")
-
-pico_enable_stdio_uart(${PROJECT_NAME} 0)
-##pico_enable_stdio_usb(${PROJECT_NAME} 1)
-
-# create map/bin/hex file etc.
-pico_add_extra_outputs(${PROJECT_NAME})
-
-# add url via pico_set_program_url
-target_link_options(${PROJECT_NAME} PRIVATE -Xlinker --print-memory-usage)
-target_compile_definitions(${PROJECT_NAME} PRIVATE FLASH_SIZE=${FLASH_SIZE})
-
-if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
-target_compile_options(${PROJECT_NAME} PUBLIC
-        -Wno-error=suggest-attribute=format
-        -Wno-error=cast-qual
-        -Wno-error=unused-parameter
-        -Wno-error=conversion
-        -Wno-error=format=
-        -Wno-error=sign-compare
-        -Wno-error=missing-field-initializers
-        -Wno-error=switch
-        -Wno-error=implicit-fallthrough=
-        -Wno-error=stringop-truncation
-        -Wno-error=restrict
-        -w
-)
-endif ()
-
-target_compile_definitions(${PROJECT_NAME} PRIVATE
-        PWM_PIN0=26
-        PWM_PIN1=27
-        BEEPER_PIN=28
-
-        # SDCARD
-        SDCARD_PIN_SPI0_CS=5
-        SDCARD_PIN_SPI0_SCK=2
-        SDCARD_PIN_SPI0_MOSI=3
-        SDCARD_PIN_SPI0_MISO=4
-
-        # PS2KBD
-        USE_PS2_KBD
-        PS2KBD_GPIO_FIRST=0
-
-        # NES Gamepad
-        USE_NESPAD
-        NES_GPIO_CLK=14
-        NES_GPIO_DATA=16
-        NES_GPIO_LAT=15
-
-        # VGA 8 pins starts from pin:
-        VGA_BASE_PIN=6
-
-        # HDMI 8 pins starts from pin:
-        HDMI_BASE_PIN=6
-
-        # TFT
-        TFT_CS_PIN=6
-        TFT_RST_PIN=8
-        TFT_LED_PIN=9
-        TFT_DC_PIN=10
-        TFT_DATA_PIN=12
-        TFT_CLK_PIN=13
-
 )
 
 IF(TFT)
@@ -200,5 +120,70 @@ ELSEIF(I2S_CS4334)
     SET(BUILD_NAME "${BUILD_NAME}-I2S-CS4334")
 ELSE()
     SET(BUILD_NAME "${BUILD_NAME}-I2S-TDA1387")
+    target_compile_definitions(${PROJECT_NAME} PRIVATE I2S_SOUND=1)
 ENDIF()
 
+set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "${BUILD_NAME}")
+
+target_link_libraries(${PROJECT_NAME} PRIVATE
+        audio
+        graphics
+
+        ps2kbd
+        nespad
+        sdcard
+        fatfs
+
+        pico_runtime
+        pico_stdlib
+        pico_multicore
+        hardware_dma
+        hardware_pio
+        hardware_i2c
+        hardware_interp
+        hardware_timer
+        hardware_clocks
+        hardware_pwm
+        hardware_flash
+
+        tinyusb_host tinyusb_board
+)
+
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+        PWM_PIN0=26
+        PWM_PIN1=27
+        BEEPER_PIN=28
+
+        # SDCARD
+        SDCARD_PIN_SPI0_CS=5
+        SDCARD_PIN_SPI0_SCK=2
+        SDCARD_PIN_SPI0_MOSI=3
+        SDCARD_PIN_SPI0_MISO=4
+
+        # PS2KBD
+        USE_PS2_KBD
+        PS2KBD_GPIO_FIRST=0
+
+        # NES Gamepad
+        USE_NESPAD
+        NES_GPIO_CLK=14
+        NES_GPIO_DATA=16
+        NES_GPIO_LAT=15
+
+        # VGA 8 pins starts from pin:
+        VGA_BASE_PIN=6
+
+        # HDMI 8 pins starts from pin:
+        HDMI_BASE_PIN=6
+
+        # TFT
+        TFT_CS_PIN=6
+        TFT_RST_PIN=8
+        TFT_LED_PIN=9
+        TFT_DC_PIN=10
+        TFT_DATA_PIN=12
+        TFT_CLK_PIN=13
+)
+
+target_link_options(${PROJECT_NAME} PRIVATE -Xlinker --print-memory-usage --data-sections)
+pico_add_extra_outputs(${PROJECT_NAME})

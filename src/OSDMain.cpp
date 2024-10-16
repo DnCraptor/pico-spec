@@ -2297,11 +2297,19 @@ void OSD::HWInfo() {
     VIDEO::vga.print(" Hardware info\n");
     VIDEO::vga.print(" --------------------------------------\n");
 
+#if !PICO_RP2040
     string textout =
         " Chip model    : RP2350\n"
         " Chip cores    : 2\n"
         " Chip RAM      : 520 KB\n"
     ;
+#else
+    string textout =
+        " Chip model    : RP2040\n"
+        " Chip cores    : 2\n"
+        " Chip RAM      : 264 KB\n"
+    ;
+#endif
     VIDEO::vga.print(textout.c_str());    
 
     uint32_t fsz = get_cpu_flash_size();

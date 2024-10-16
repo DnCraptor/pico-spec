@@ -1,6 +1,6 @@
-# pico2-spec
+# pico-spec
 
-ESPectrum (1.2) port for ZX Murmulator dev. board (Raspberry Pi Pico 2 - RP2350 SoC)<br/>
+ESPectrum (1.2) port for ZX Murmulator dev. board (Raspberry Pi Pico RP2040 or Raspberry Pi Pico 2 RP2350 SoC)<br/>
 
 In progress...<br/>
 <br/>
@@ -10,7 +10,7 @@ In progress...<br/>
 
 This is an emulator of the Sinclair ZX Spectrum computer running on Murmulator RP2040 SoC powered boards.
 
-Currently, it can be used with Raspberry Pico Pi board, installed on ZX Murmulator board (VGA versions).
+Currently, it can be used with Raspberry Pico Pi (2) board, installed on ZX Murmulator board (VGA versions).
 
 Just connect a VGA monitor or CRT TV (with special VGA-RGB cable needed), a PS/2 keyboard, prepare a SD Card as needed and power via microUSB.
 

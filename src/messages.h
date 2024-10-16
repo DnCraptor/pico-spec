@@ -54,7 +54,11 @@ visit https://zxespectrum.speccy.org/contacto
 #define ERR_DIR_OPEN "Cannot open directory!"
 
 // OSD
+#if !PICO_RP2040
 #define OSD_TITLE  " ESPectrum (RP2350 port) "
+#else
+#define OSD_TITLE  " ESPectrum (RP2040 port) "
+#endif
 // #define OSD_BOTTOM " SCIENCE LEADS TO PROGRESS              "
 #define OSD_BOTTOM " Murmulator port by MikeV73 " EMU_VERSION
 
@@ -365,6 +369,7 @@ static const char *MENU_ASPECT[2] = { MENU_ASPECT_EN, MENU_ASPECT_ES };
 
 static const char *MENU_SCANLINES[2] = { "Scanlines\n", "Scanlines\n" };
 
+#if !PICO_RP2040
 #define MENU_RESET_EN \
     "Reset Menu\n"\
     "Soft reset\n"\
@@ -377,6 +382,20 @@ static const char *MENU_SCANLINES[2] = { "Scanlines\n", "Scanlines\n" };
     "Reset completo\t(F11)\n"\
     "Resetear RP2350\t(F12)\n"\
 	"Predeterminados\n"
+#else
+#define MENU_RESET_EN \
+    "Reset Menu\n"\
+    "Soft reset\n"\
+    "Hard reset\t(F11)\n"\
+    "RP2040 reset\t(F12)\n"\
+    "Defaults\n"
+#define MENU_RESET_ES \
+    "Resetear\n"\
+    "Reset parcial\n"\
+    "Reset completo\t(F11)\n"\
+    "Resetear RP2040\t(F12)\n"\
+	"Predeterminados\n"
+#endif
 static const char *MENU_RESET[2] = { MENU_RESET_EN, MENU_RESET_ES };
 
 #define MOS_FILE "/.firmware"
@@ -847,11 +866,7 @@ static const char *AboutMsg[2][9] = {
 	}
 };
 
-    // "           CPU: microsec. per CPU cycle\n"\
-    // "           IDL: unused microsec.\n"\
-    // "           FPS: Frames per second\n"\
-    // "           FND: FPS without delay\n"\
-
+#if !PICO_RP2040
 #define OSD_HELP_EN \
     " [F1]         Main menu\n"\
     " [F2]         Load (SNA,Z80,P)\n"\
@@ -870,11 +885,6 @@ static const char *AboutMsg[2][9] = {
     " [CTRL+F10]   NMI\n"\
     " [Pause]      Pause\n"\
     " [PrtScr]     BMP capture (folder /.c)\n"
-
-    // "            CPU: microsg. por ciclo CPU\n"\
-    // "            IDL: microsg. sin usar\n"\
-    // "            FPS: Frames por segundo\n"\
-    // "            FND: FPS sin delay\n"\
 
 #define OSD_HELP_ES \
     " [F1]         Menu principal\n"\
@@ -906,7 +916,7 @@ static const char *AboutMsg[2][9] = {
     " [8]       CPU / Tape load stats\n"\
     " [9-0]     Volume down-up\n"\
     " [Q]       Hard reset\n"\
-    " [W]       Reset ESP32\n"\
+    " [W]       Reset RP2350\n"\
     " [I]       Hardware info\n"\
     " [T]       Turbo mode\n"\
     " [Z,X,C,V] Center CRT Screen\n"\
@@ -926,7 +936,7 @@ static const char *AboutMsg[2][9] = {
     " [8]       Status CPU / Carga cinta\n"\
     " [9-0]     Bajar-Subir volumen\n"\
     " [Q]       Reset completo\n"\
-    " [W]       Resetear ESP32\n"\
+    " [W]       Resetear RP2350\n"\
     " [I]       Info hardware\n"\
     " [T]       Modo turbo\n"\
     " [Z,X,C,V] Centrar pantalla CRT\n"\
@@ -934,6 +944,85 @@ static const char *AboutMsg[2][9] = {
     " [N]       NMI\n"\
     " [P]       Pausa\n"\
     " [S]       Captura BMP (Carpeta /.c)\n"
+#else
+#define OSD_HELP_EN \
+    " [F1]         Main menu\n"\
+    " [F2]         Load (SNA,Z80,P)\n"\
+    " [F3-F4]      Load / Save snapshot\n"\
+    " [F5]         Select tape file\n"\
+    " [F6]         Play/Stop tape\n"\
+    " [F7]         Tape browser\n"\
+    " [F8]         CPU / Tape load stats\n"\
+    " [F9-F10]     Volume down-up\n"\
+	" [F11]        Hard reset\n"\
+    " [F12]        Reset RP2040\n"\
+    " [CTRL+F1]    Hardware info\n"\
+    " [CTRL+F2]    Turbo mode\n"\
+    " [CTRL+F5-F7] Center CRT Screen\n"\
+    " [CTRL+F9]    Input poke\n"\
+    " [CTRL+F10]   NMI\n"\
+    " [Pause]      Pause\n"\
+    " [PrtScr]     BMP capture (folder /.c)\n"
+
+#define OSD_HELP_ES \
+    " [F1]         Menu principal\n"\
+    " [F2]         Cargar (SNA,Z80,P)\n"\
+    " [F3-F4]      Cargar / Guardar snapshot\n"\
+    " [F5]         Elegir archivo de cinta\n"\
+    " [F6]         Play/Stop cinta\n"\
+    " [F7]         Explorador cinta\n"\
+    " [F8]         Status CPU / Carga cinta\n"\
+    " [F9-F10]     Bajar-Subir volumen\n"\
+    " [F11]        Reset completo\n"\
+    " [F12]        Resetear RP2040\n"\
+    " [CTRL+F1]    Info hardware\n"\
+    " [CTRL+F2]    Modo turbo\n"\
+    " [CTRL+F5-F7] Centrar pantalla CRT\n"\
+    " [CTRL+F9]    Introducir poke\n"\
+    " [CTRL+F10]   NMI\n"\
+    " [Pause]      Pausa\n"\
+    " [ImpPant]    Captura BMP (Carpeta /.c)\n"
+
+#define OSD_HELP_EN_ZX \
+    " Press CAPS SHIFT + SYMBOL SHIFT and:\n"\
+	" [1]       Main menu\n"\
+    " [2]       Load (SNA,Z80,P)\n"\
+    " [3-4]     Load / Save snapshot\n"\
+    " [5]       Select tape file\n"\
+    " [6]       Play/Stop tape\n"\
+    " [7]       Tape browser\n"\
+    " [8]       CPU / Tape load stats\n"\
+    " [9-0]     Volume down-up\n"\
+    " [Q]       Hard reset\n"\
+    " [W]       Reset RP2040\n"\
+    " [I]       Hardware info\n"\
+    " [T]       Turbo mode\n"\
+    " [Z,X,C,V] Center CRT Screen\n"\
+    " [O]       Input poke\n"\
+    " [N]       NMI\n"\
+    " [P]       Pause\n"\
+    " [S]       BMP capture (folder /.c)\n"
+
+#define OSD_HELP_ES_ZX \
+    " Presione CAPS SHIFT + SYMBOL SHIFT y:\n"\
+    " [1]       Menu principal\n"\
+    " [2]       Cargar (SNA,Z80,P)\n"\
+    " [3-4]     Cargar / Guardar snapshot\n"\
+    " [5]       Elegir archivo de cinta\n"\
+    " [6]       Play/Stop cinta\n"\
+    " [7]       Explorador cinta\n"\
+    " [8]       Status CPU / Carga cinta\n"\
+    " [9-0]     Bajar-Subir volumen\n"\
+    " [Q]       Reset completo\n"\
+    " [W]       Resetear RP2040\n"\
+    " [I]       Info hardware\n"\
+    " [T]       Modo turbo\n"\
+    " [Z,X,C,V] Centrar pantalla CRT\n"\
+    " [O]       Introducir poke\n"\
+    " [N]       NMI\n"\
+    " [P]       Pausa\n"\
+    " [S]       Captura BMP (Carpeta /.c)\n"
+#endif
 
 static const char *StartMsg[2] = {
 	"\xAD" "Hola! " "\xAD" "Gracias por elegir    ectrum!\n"\
