@@ -212,7 +212,7 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
         MemESP::bankLatch = tmp_latch;
         
         if (tr_dos) {
-            MemESP::romInUse = 4;
+            MemESP::romInUse = /* MemESP::hiddenROM && Z80Ops::isScorpion ? 3 : */ 4;
             ESPectrum::trdos = true;            
         } else {
             MemESP::romInUse = MemESP::romLatch;

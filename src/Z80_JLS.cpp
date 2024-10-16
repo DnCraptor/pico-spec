@@ -911,48 +911,60 @@ void Z80::bitTest(uint8_t mask, uint8_t reg) {
 }
 
 IRAM_ATTR void Z80::check_trdos() {
-
     if (!ESPectrum::trdos) {
-
         if (REG_PCh == 0x3D) {
-
             // TR-DOS Rom can be accessed from 48K machines and from Spectrum 128/+2 and Pentagon if the currently mapped ROM is bank 1.
             if ((Z80Ops::is48) && (MemESP::romInUse == 0) || ((!Z80Ops::is48) && MemESP::romInUse == 1)) {
-                MemESP::romInUse = 4;
+                MemESP::romInUse = /** MemESP::hiddenROM && Z80Ops::isScorpion ? 3 : */ 4;
                 MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
                 ESPectrum::trdos = true;
             }
-
         }
-
     }
-
 }
 
 IRAM_ATTR void Z80::check_trdos_unpage() {
     if (ESPectrum::trdos) {
-        if (REG_PCh >= 0x40) {                
-            if (Z80Ops::is48)
+        if (REG_PCh >= 0x40) {
+            if (Z80Ops::is48) {
                 MemESP::romInUse = 0;
-            else {
+                MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
+            } else if (Z80Ops::isScorpion) {
                 MemESP::romInUse = MemESP::romLatch;
-                if (MemESP::hiddenROM && Z80Ops::isScorpion && MemESP::romInUse < 2) MemESP::romInUse += 2;
+                /**
+                if (MemESP::hiddenROM && Z80Ops::isScorpion) {
+                    if (MemESP::romInUse == 0)
+                        MemESP::romInUse = 2; // SYS page
+                    else if (MemESP::romInUse == 1) {
+                        MemESP::romInUse = 3; // TR-DOS
+                        ESPectrum::trdos = true;
+                    }
+                }
+                */
+                MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
+            } else {
+                MemESP::romInUse = MemESP::romLatch;
+                MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
             }
-            MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
             ESPectrum::trdos = false;
         }
     } else if (REG_PCh == 0x3D) {
             // TR-DOS Rom can be accessed from 48K machines and from Spectrum 128/+2 and Pentagon if the currently mapped ROM is bank 1.
             if ( ((Z80Ops::is48) && (MemESP::romInUse == 0))
-                  || ((!Z80Ops::is48) && MemESP::romInUse == 1)
-                  || ((Z80Ops::isScorpion) && MemESP::romInUse == 3) /// TODO: ensure
+                  || ((!Z80Ops::is48) /** && !Z80Ops::isScorpion */ && MemESP::romInUse == 1)
             ) {
                 MemESP::romInUse = 4;
                 MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
-                ESPectrum::trdos = true;                        
+                ESPectrum::trdos = true;
             }
+            /**
+            else if ( Z80Ops::isScorpion ) { // Hidden TR-DOS page
+                MemESP::romInUse == 3; // TODO: ensure
+                MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
+                ESPectrum::trdos = true;
+            }
+            */
     }
-
 }
 
 //Interrupción

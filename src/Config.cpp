@@ -108,17 +108,9 @@ void Config::requestMachine(string newArch, string newRomSet)
             MemESP::rom[0] = (uint8_t *) gb_rom_0_s128_zx81;
             MemESP::rom[1] = (uint8_t *) gb_rom_1_sinclair_128k;
         }
-    } else if (arch == "Pentagon") {
-        if (newRomSet=="") romSet = "128Kp"; else romSet = newRomSet;
-        if (romSetPent=="") romSetPent = "128Kp"; else romSetPent = newRomSet;                
-        if (romSetPent == "128Kcs") {
-            MemESP::rom[0] = (uint8_t *) gb_rom_0_128k_custom;
-            MemESP::rom[1] = (uint8_t *) gb_rom_0_128k_custom + (16 << 10); /// 16392;
-        } else {
-            MemESP::rom[0] = (uint8_t *) gb_rom_0_pentagon_128k;
-            MemESP::rom[1] = (uint8_t *) gb_rom_1_pentagon_128k;
-        }
-    } else if (arch == "Scorpion") {
+    } else 
+#if !PICO_RP2040
+     if (arch == "Scorpion") {
         if (newRomSet == "") romSet = "256Ks"; else romSet = newRomSet;
         if (romSetScorp == "") romSetScorp = "256Ks"; else romSetScorp = newRomSet;                
         if (romSetScorp == "256Kcs") {
@@ -127,10 +119,22 @@ void Config::requestMachine(string newArch, string newRomSet)
             MemESP::rom[2] = (uint8_t *) scorpTest + (32 << 10);
             MemESP::rom[3] = (uint8_t *) scorpTest + (48 << 10);
         } else {
-            MemESP::rom[0] = (uint8_t *) scorp295;
-            MemESP::rom[1] = (uint8_t *) scorp295 + (16 << 10);
-            MemESP::rom[2] = (uint8_t *) scorp295 + (32 << 10);
-            MemESP::rom[3] = (uint8_t *) scorp295 + (48 << 10);
+            MemESP::rom[0] = (uint8_t *) gb_rom_0_pentagon_128k; /// scorp295;
+            MemESP::rom[1] = (uint8_t *) gb_rom_1_pentagon_128k; /// scorp295 + (16 << 10);
+            MemESP::rom[2] = (uint8_t *) gb_rom_0_pentagon_128k; /// scorp295 + (32 << 10);
+            MemESP::rom[3] = (uint8_t *) gb_rom_1_pentagon_128k; /// scorp295 + (48 << 10);
+        }
+    } else
+#endif
+    { // Pentagon by default
+        if (newRomSet=="") romSet = "128Kp"; else romSet = newRomSet;
+        if (romSetPent=="") romSetPent = "128Kp"; else romSetPent = newRomSet;                
+        if (romSetPent == "128Kcs") {
+            MemESP::rom[0] = (uint8_t *) gb_rom_0_128k_custom;
+            MemESP::rom[1] = (uint8_t *) gb_rom_0_128k_custom + (16 << 10); /// 16392;
+        } else {
+            MemESP::rom[0] = (uint8_t *) gb_rom_0_pentagon_128k;
+            MemESP::rom[1] = (uint8_t *) gb_rom_1_pentagon_128k;
         }
     }
     MemESP::rom[4] = (uint8_t *) gb_rom_4_trdos_503;

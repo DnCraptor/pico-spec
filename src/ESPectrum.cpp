@@ -430,7 +430,11 @@ void ESPectrum::bootKeyboard() {
 
 // uint32_t ESPectrum::sessid;
 
+#if !PICO_RP2040
 static unsigned char MemESP_ram[256ul << 10];
+#else
+static unsigned char MemESP_ram[128ul << 10];
+#endif
 
 static unsigned char *MemESP_ram0 = MemESP_ram;
 static unsigned char *MemESP_ram1 = MemESP_ram + 0x4000;
@@ -597,8 +601,9 @@ void ESPectrum::setup()
     MemESP::ram[4] = (unsigned char *) MemESP_ram4;
     MemESP::ram[6] = (unsigned char *) MemESP_ram6;
 
+#if !PICO_RP2040
     for (int i = 8; i < 16; ++i) MemESP::ram[i] = (unsigned char *) MemESP_ram + 0x4000 * i;
-
+#endif
     // Load romset
     Config::requestMachine(Config::arch, Config::romSet);
 
