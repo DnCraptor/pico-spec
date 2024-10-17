@@ -33,6 +33,7 @@ visit https://zxespectrum.speccy.org/contacto
 */
 #include <hardware/watchdog.h>
 #include <hardware/sync.h>
+#include <pico/bootrom.h>
 
 #include "OSDMain.h"
 #include "FileUtils.h"
@@ -1922,6 +1923,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                             if (opt2) {
                                 // Update
                                 if (opt2 == 1) {
+                                    reset_usb_boot(0, 0);
+                                    /**
                                     string title = OSD_FIRMW_UPDATE[Config::lang];
                                     string msg = OSD_DLG_SURE[Config::lang];
                                     uint8_t res = msgDialog(title,msg);
@@ -1942,6 +1945,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                         menu_level = 2;
                                         menu_saverect = false;
                                     }
+                                    */
                                 } else if (opt2 == 2) {
                                         // Flash custom ROM 48K
                                         string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang],DISK_ROMFILE,26,15);

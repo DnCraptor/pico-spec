@@ -107,6 +107,8 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
             snapshotArch = Config::arch;
         else    
             snapshotArch = "Pentagon";
+    } else if ((sna_size == SNA_128K_SIZE1 + 8 * (16 << 10)) || (sna_size == SNA_128K_SIZE2 + 8 * (16 << 10))) {
+        snapshotArch = "Scorpion";
     } else {
         OSD::osdCenteredMsg("Bad SNA:\n" + sna_fn + "\nsize: " + to_string(sna_size) + "\n", LEVEL_INFO, 5000);
         return false;
@@ -199,11 +201,12 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
         uint8_t tr_dos = readByteFile(file);     // Check if TR-DOS is paged
         
         // read remaining pages
-        for (int page = 0; page < 8; page++) {
+        for (int page = 0; page < (Z80Ops::isScorpion ? 16 : 8); page++) {
             if (page != tmp_latch && page != 2 && page != 5) {
                 readBlockFile(file, MemESP::ram[page], 0x4000);
             }
         }
+        /// TODO: new flags
 
         // decode tmp_port
         MemESP::videoLatch = bitRead(tmp_port, 3);
@@ -352,7 +355,7 @@ bool FileSNA::save(string sna_file, bool blockMode) {
             writeByteFile(0, file);     // TR-DOS not paged
 
         // write remaining ram pages
-        for (int page = 0; page < 8; page++) {
+        for (int page = 0; page < (Z80Ops::isScorpion ? 16 : 8); page++) {
             if (page != MemESP::bankLatch && page != 2 && page != 5) {
                 if (!writeMemPage(page, file, blockMode)) {
                     f_close(&file);
@@ -457,6 +460,7 @@ bool FileZ80::load(string z80_fn) {
             if (mch == 9) z80_arch = "Pentagon";
             if (mch == 12) z80_arch = "128K"; // Spectrum +2
             if (mch == 13) z80_arch = "128K"; // Spectrum +2A            
+            if (mch == 14) z80_arch = "Scorpion";
         }
 
     }
@@ -498,6 +502,10 @@ bool FileZ80::load(string z80_fn) {
         if (z80_arch == "Pentagon") {
             if (Config::pref_romSetPent == "128Kp" || Config::pref_romSetPent == "128Kcs")
                 z80_romset = Config::pref_romSetPent;
+        } else
+        if (z80_arch == "Scorpion") {
+            if (Config::pref_romSetPent == "256Ks" || Config::pref_romSetPent == "256Kcs")
+                z80_romset = Config::pref_romSetScorp;
         }
 
         // printf("z80_arch: %s mch: %d pref_romset48: %s pref_romset128: %s z80_romset: %s\n",z80_arch.c_str(),mch,Config::pref_romSet_48.c_str(),Config::pref_romSet_128.c_str(),z80_romset.c_str());
@@ -1011,7 +1019,7 @@ void FileZ80::loader128() {
             z80_array = (unsigned char *) loadzx81;
             dataLen = sizeof(loadzx81);
         }
-    } else if (Config::arch == "Pentagon") {
+    } else if (Config::arch == "Pentagon" || (Config::arch == "Scorpion")) {
         z80_array = (unsigned char *) loadpentagon;
         dataLen = sizeof(loadpentagon);
     }

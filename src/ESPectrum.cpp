@@ -622,7 +622,7 @@ void ESPectrum::setup()
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
 
     MemESP::ramContended[0] = false;
-    MemESP::ramContended[1] = Config::arch == "Pentagon" ? false : true;
+    MemESP::ramContended[1] = Config::arch == "Pentagon" || Config::arch == "Scorpion" ? false : true;
     MemESP::ramContended[2] = false;
     MemESP::ramContended[3] = false;
 
@@ -777,7 +777,7 @@ void ESPectrum::reset()
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
 
     MemESP::ramContended[0] = false;
-    MemESP::ramContended[1] = Config::arch == "Pentagon" ? false : true;
+    MemESP::ramContended[1] = Config::arch == "Pentagon" || Config::arch == "Scorpion" ? false : true;
     MemESP::ramContended[2] = false;
     MemESP::ramContended[3] = false;
 

@@ -89,8 +89,8 @@ void CPU::reset() {
 #if !PICO_RP2040
     if (Config::arch == "Scorpion") {
         Z80Ops::is48 = false;
-        Z80Ops::is128 = true; /// TODO: ensure
-        Z80Ops::isPentagon = false;
+        Z80Ops::is128 = false;
+        Z80Ops::isPentagon = true;
         Z80Ops::isScorpion = true;
         statesInFrame = TSTATES_PER_FRAME_PENTAGON;
         IntStart = INT_START_PENTAGON;
