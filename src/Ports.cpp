@@ -250,8 +250,16 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         VIDEO::Draw(3, !Z80Ops::isPentagon);   // I/O Contention (Late)
     } else {
         // AY ========================================================================
+        if ((ESPectrum::AY_emu) && address == 0xFFFD) { // NedoPC way
+            if (data == 0xFF) {
+                AySound::selected_chip = 0;
+            }
+            else if (data == 0xFE) {
+                AySound::selected_chip = 1;
+            }
+        }
         if ((ESPectrum::AY_emu) && ((address & 0x8002) == 0x8000)) {
-            if ((address & 0xFF) == 0xFF) {
+            if ((address & 0xFF) == 0xFF) { // Old TS way
                 AySound::selected_chip = 0;
             }
             else if ((address & 0xFF) == 0xFE) {
