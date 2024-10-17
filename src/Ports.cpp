@@ -168,7 +168,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
             if ((address & 0xC002) == 0xC000)
                 return chips[AySound::selected_chip]->getRegisterData();
         }
-        if (!Z80Ops::isPentagon) {
+        if (!Z80Ops::isPentagon && !Z80Ops::isScorpion) {
             data = getFloatBusData();
             if ((!Z80Ops::is48) && ((address & 0x8002) == 0)) {
                 // //  Solo en el modelo 128K, pero no en los +2/+2A/+3, si se lee el puerto
@@ -177,7 +177,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
                 if (!MemESP::pagingLock) {
                     MemESP::pagingLock = bitRead(data, 5);
                     MemESP::page128 = (data & 0x7);
-                    uint8_t page = MemESP::page128 + (MemESP::shiftScorp && Z80Ops::isScorpion ? 8 : 0);
+                    uint8_t page = MemESP::page128;
                     if (MemESP::bankLatch != page) {
                         MemESP::bankLatch = page;
                         MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
@@ -189,17 +189,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
                     }
                     MemESP::romLatch = bitRead(data, 4);
                     MemESP::romInUse = MemESP::romLatch;
-                    /**
-                    if (MemESP::hiddenROM && Z80Ops::isScorpion) {
-                        if (MemESP::romInUse == 0)
-                            MemESP::romInUse = 2; // SYS page
-                        else if (MemESP::romInUse == 1) {
-                            MemESP::romInUse = 3; // TR-DOS
-                            ESPectrum::trdos = true;
-                        }
-                    }
-                    */
-                    MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];            
+                    MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];            
                 }
             }
         }
@@ -306,7 +296,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     if ((Z80Ops::isScorpion) && ((address & 0b0001000000100101) != 0) && ((address & 0xE002) == 0)) { // E002 !-> 1FFD
         if (!MemESP::pagingLock) {
             MemESP::page0ram = bitRead(data, 0);
-            MemESP::hiddenROM = !bitRead(data, 1);
+            MemESP::hiddenROM = bitRead(data, 1);
             MemESP::shiftScorp = bitRead(data, 4);
             uint8_t page = MemESP::page128 + (MemESP::shiftScorp ? 8 : 0);
             if (MemESP::bankLatch != page) {
@@ -315,16 +305,13 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
                 MemESP::ramContended[3] = Z80Ops::isPentagon ? false : (MemESP::bankLatch & 0x01 ? true: false);
             }
             MemESP::romInUse = MemESP::romLatch;
-            /**
             if (MemESP::hiddenROM) {
                 if (MemESP::romInUse == 0)
                     MemESP::romInUse = 2; // SYS page
                 else if (MemESP::romInUse == 1) {
                     MemESP::romInUse = 3; // TR-DOS
-                    ESPectrum::trdos = true;
                 }
             }
-            */
             MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
         }
     }
@@ -341,16 +328,13 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
             }
             MemESP::romLatch = bitRead(data, 4);
             MemESP::romInUse = MemESP::romLatch;
-            /**
             if (MemESP::hiddenROM && Z80Ops::isScorpion) {
                 if (MemESP::romInUse == 0)
                     MemESP::romInUse = 2; // SYS page
                 else if (MemESP::romInUse == 1) {
                     MemESP::romInUse = 3; // TR-DOS
-                    ESPectrum::trdos = true;
                 }
             }
-            */
             MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
             if (MemESP::videoLatch != bitRead(data, 3)) {
                 MemESP::videoLatch = bitRead(data, 3);

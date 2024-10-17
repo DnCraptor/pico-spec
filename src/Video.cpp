@@ -336,7 +336,7 @@ void VIDEO::Reset() {
         Draw_OSD169 = MainScreen;
         Draw_OSD43 = BottomBorder;
         DrawBorder = TopBorder_Blank;        
-    } else if (Config::arch == "128K" || Config::arch == "Scorpion") {
+    } else if (Config::arch == "128K") {
         tStatesPerLine = TSTATES_PER_LINE_128;
         tStatesScreen = TS_SCREEN_128;
         tStatesBorder = is169 ? TS_BORDER_360x200_128 : TS_BORDER_320x240_128;
@@ -346,7 +346,7 @@ void VIDEO::Reset() {
         Draw_OSD169 = MainScreen;
         Draw_OSD43 = BottomBorder;
         DrawBorder = TopBorder_Blank;
-    } else if (Config::arch == "Pentagon") {
+    } else if (Config::arch == "Pentagon" || Config::arch == "Scorpion") {
         tStatesPerLine = TSTATES_PER_LINE_PENTAGON;
         tStatesScreen = TS_SCREEN_PENTAGON;
         tStatesBorder = is169 ? TS_BORDER_360x200_PENTAGON : TS_BORDER_320x240_PENTAGON;        
@@ -374,7 +374,7 @@ void VIDEO::Reset() {
     memset((uint8_t *)VIDEO::dirty_lines,0x01,SPEC_H);
     #endif // DIRTY_LINES
 
-    VIDEO::snow_toggle = Config::arch != "Pentagon" ? Config::render : false;
+    VIDEO::snow_toggle = Config::arch != "Pentagon" && Config::arch != "Scorpion" ? Config::render : false;
 
     if (VIDEO::snow_toggle) {
         Draw = &Blank_Snow;
@@ -875,7 +875,7 @@ IRAM_ATTR void VIDEO::EndFrame() {
     }
 
     // Restart border drawing
-    DrawBorder = Z80Ops::isPentagon ? &TopBorder_Blank_Pentagon : &TopBorder_Blank;
+    DrawBorder = Z80Ops::isPentagon || Z80Ops::isScorpion ? &TopBorder_Blank_Pentagon : &TopBorder_Blank;
     lastBrdTstate = tStatesBorder;
     brdChange = false;
 

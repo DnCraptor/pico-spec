@@ -88,16 +88,15 @@ void CPU::reset() {
     } else
 #if !PICO_RP2040
     if (Config::arch == "Scorpion") {
-        Ports::getFloatBusData = &Ports::getFloatBusData128;
         Z80Ops::is48 = false;
         Z80Ops::is128 = true; /// TODO: ensure
         Z80Ops::isPentagon = false;
         Z80Ops::isScorpion = true;
-        statesInFrame = TSTATES_PER_FRAME_128;
-        IntStart = INT_START128;
-        IntEnd = INT_END128 + CPU::latetiming;
+        statesInFrame = TSTATES_PER_FRAME_PENTAGON;
+        IntStart = INT_START_PENTAGON;
+        IntEnd = INT_END_PENTAGON + CPU::latetiming;
         // Set emulation loop sync target
-        ESPectrum::target = MICROS_PER_FRAME_128;
+        ESPectrum::target = MICROS_PER_FRAME_PENTAGON;
     } else
 #endif
     { // if (Config::arch == "Pentagon") - by default

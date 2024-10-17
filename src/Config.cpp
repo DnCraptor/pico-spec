@@ -119,10 +119,16 @@ void Config::requestMachine(string newArch, string newRomSet)
             MemESP::rom[2] = (uint8_t *) scorpTest + (32 << 10);
             MemESP::rom[3] = (uint8_t *) scorpTest + (48 << 10);
         } else {
+            /**
             MemESP::rom[0] = (uint8_t *) gb_rom_0_pentagon_128k; /// scorp295;
             MemESP::rom[1] = (uint8_t *) gb_rom_1_pentagon_128k; /// scorp295 + (16 << 10);
             MemESP::rom[2] = (uint8_t *) gb_rom_0_pentagon_128k; /// scorp295 + (32 << 10);
             MemESP::rom[3] = (uint8_t *) gb_rom_1_pentagon_128k; /// scorp295 + (48 << 10);
+            */
+            MemESP::rom[0] = (uint8_t *) gb_rom_0_pentagon_128k; /// scorp295;
+            MemESP::rom[1] = (uint8_t *) scorp295 + (16 << 10);
+            MemESP::rom[2] = (uint8_t *) scorp295 + (32 << 10);
+            MemESP::rom[3] = (uint8_t *) scorp295 + (48 << 10);
         }
     } else
 #endif

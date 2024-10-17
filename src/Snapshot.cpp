@@ -81,7 +81,7 @@ bool LoadSnapshot(string filename, string force_arch, string force_romset) {
         if (Config::aspect_16_9)
             VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
         else
-            VIDEO::Draw_OSD43  = Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
+            VIDEO::Draw_OSD43  = Z80Ops::isPentagon || Z80Ops::isScorpion ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
         ESPectrum::TapeNameScroller = 0;
     }    
     return res;
@@ -212,7 +212,7 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
         MemESP::bankLatch = tmp_latch;
         
         if (tr_dos) {
-            MemESP::romInUse = /* MemESP::hiddenROM && Z80Ops::isScorpion ? 3 : */ 4;
+            MemESP::romInUse = 4;
             ESPectrum::trdos = true;            
         } else {
             MemESP::romInUse = MemESP::romLatch;
@@ -221,11 +221,11 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
 
         MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
         MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
-        MemESP::ramContended[3] = Z80Ops::isPentagon ? false : (MemESP::bankLatch & 0x01 ? true: false);
+        MemESP::ramContended[3] = Z80Ops::isPentagon || Z80Ops::isScorpion ? false : (MemESP::bankLatch & 0x01 ? true: false);
 
         VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7] : MemESP::ram[5];
 
-        if (Z80Ops::isPentagon) CPU::tstates = 22; // Pentagon SNA load fix... still dunno why this works but it works
+        if (Z80Ops::isPentagon || Z80Ops::isScorpion) CPU::tstates = 22; // Pentagon SNA load fix... still dunno why this works but it works
 
     }
     f_close(&file);
@@ -714,18 +714,13 @@ bool FileZ80::load(string z80_fn) {
 
                     for (int i = 0; i < compDataLen; i++)                    
                         MemESP::writebyte(memoff + i, readByteFile(file));
-
                 } else {
-
                     loadCompressedMemData(file, compDataLen, memoff, 0x4000);
-
                 }
-
                 dataOffset += compDataLen;
-
             }
 
-        } else if ((z80_arch == "128K") || (z80_arch == "Pentagon")) {
+        } else if ((z80_arch == "128K") || (z80_arch == "Pentagon")  || (z80_arch == "Scorpion")) {
             
             // paging register
             uint8_t b35 = header[35];
@@ -780,7 +775,7 @@ bool FileZ80::load(string z80_fn) {
 
             MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
             MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
-            MemESP::ramContended[3] = Z80Ops::isPentagon ? false : (MemESP::bankLatch & 0x01 ? true: false);
+            MemESP::ramContended[3] = Z80Ops::isPentagon || Z80Ops::isScorpion ? false : (MemESP::bankLatch & 0x01 ? true: false);
 
             VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7] : MemESP::ram[5];
 
@@ -1071,7 +1066,8 @@ void FileZ80::loader128() {
         MemESP::rom[0], MemESP::rom[2], MemESP::rom[1],
         MemESP::ram[0], MemESP::ram[1], MemESP::ram[2], MemESP::ram[3],
         MemESP::ram[4], MemESP::ram[5], MemESP::ram[6], MemESP::ram[7],
-        MemESP::rom[3] };
+        MemESP::rom[3]
+    };
 
     while (dataOffset < dataLen) {
         uint8_t hdr0 = z80_array[0]; dataOffset ++;
@@ -1133,7 +1129,7 @@ void FileZ80::loader128() {
     
     MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
-    MemESP::ramContended[3] = Z80Ops::isPentagon ? false : (MemESP::bankLatch & 0x01 ? true: false);
+    MemESP::ramContended[3] = Z80Ops::isPentagon || Z80Ops::isScorpion ? false : (MemESP::bankLatch & 0x01 ? true: false);
 
     VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7] : MemESP::ram[5];
 

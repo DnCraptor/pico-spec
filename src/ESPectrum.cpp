@@ -651,12 +651,12 @@ void ESPectrum::setup()
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;
         AY_emu = Config::AY48;
         Audio_freq = ESP_AUDIO_FREQ_48;
-    } else if (Config::arch == "128K" || Config::arch == "Scorpion") {
+    } else if (Config::arch == "128K") {
         samplesPerFrame=ESP_AUDIO_SAMPLES_128;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
         AY_emu = true;        
         Audio_freq = ESP_AUDIO_FREQ_128;
-    } else if (Config::arch == "Pentagon") {
+    } else if (Config::arch == "Pentagon" || Config::arch == "Scorpion") {
         samplesPerFrame=ESP_AUDIO_SAMPLES_PENTAGON;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_PENTAGON;
         AY_emu = true;        
@@ -815,12 +815,12 @@ void ESPectrum::reset()
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;
         AY_emu = Config::AY48;
         Audio_freq = ESP_AUDIO_FREQ_48;
-    } else if (Config::arch == "128K" || Config::arch == "Scorpion") {
+    } else if (Config::arch == "128K") {
         samplesPerFrame=ESP_AUDIO_SAMPLES_128;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
         AY_emu = true;        
         Audio_freq = ESP_AUDIO_FREQ_128;
-    } else if (Config::arch == "Pentagon") {
+    } else if (Config::arch == "Pentagon" || Config::arch == "Scorpion") {
         samplesPerFrame=ESP_AUDIO_SAMPLES_PENTAGON;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_PENTAGON;
         AY_emu = true;        
@@ -1637,7 +1637,7 @@ void ESPectrum::loop() {
                     if (Config::aspect_16_9) 
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen;
                     else
-                        VIDEO::Draw_OSD43 = Z80Ops::isPentagon ? VIDEO::BottomBorder_Pentagon :  VIDEO::BottomBorder;
+                        VIDEO::Draw_OSD43 = Z80Ops::isPentagon || Z80Ops::isScorpion ? VIDEO::BottomBorder_Pentagon :  VIDEO::BottomBorder;
                     VIDEO::brdnextframe = true;
                 }
             }

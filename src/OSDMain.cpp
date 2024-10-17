@@ -515,7 +515,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                     if (Config::aspect_16_9) 
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen;
                     else
-                        VIDEO::Draw_OSD43 = Z80Ops::isPentagon ? VIDEO::BottomBorder_Pentagon :  VIDEO::BottomBorder;
+                        VIDEO::Draw_OSD43 = Z80Ops::isPentagon || Z80Ops::isScorpion ? VIDEO::BottomBorder_Pentagon :  VIDEO::BottomBorder;
                 }
                 VIDEO::OSD &= 0xfc;
             } else {
@@ -524,7 +524,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                     if (Config::aspect_16_9) 
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                     else
-                        VIDEO::Draw_OSD43  = Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
+                        VIDEO::Draw_OSD43  = Z80Ops::isPentagon || Z80Ops::isScorpion ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
 
                     OSD::drawStats();
                 }
@@ -553,7 +553,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                 if (Config::aspect_16_9) 
                     VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                 else
-                    VIDEO::Draw_OSD43  = Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
+                    VIDEO::Draw_OSD43  = Z80Ops::isPentagon || Z80Ops::isScorpion ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
 
                 VIDEO::OSD = 0x04;
 
@@ -594,7 +594,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                 if (Config::aspect_16_9) 
                     VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                 else
-                    VIDEO::Draw_OSD43  = Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
+                    VIDEO::Draw_OSD43  = Z80Ops::isPentagon || Z80Ops::isScorpion ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
 
                 VIDEO::OSD = 0x04;
 
@@ -1443,7 +1443,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             if (Config::render != prev_opt) {
                                                 Config::save("render");
 
-                                                VIDEO::snow_toggle = Config::arch != "Pentagon" ? Config::render : false;                                                
+                                                VIDEO::snow_toggle = Config::arch != "Pentagon" && Config::arch != "Scorpion" ? Config::render : false;                                                
 
                                                 if (VIDEO::snow_toggle) {
                                                     VIDEO::Draw = &VIDEO::MainScreen_Blank_Snow;
@@ -2403,7 +2403,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         osdCenteredMsg(OSD_NOROMFILE_ERR[Config::lang], LEVEL_WARN, 2000);
         return false;
     }
-    size_t bytesfirmware = f_size(&customrom); 
+    FSIZE_t bytesfirmware = f_size(&customrom); 
     const uint8_t* rom;
     size_t max_flash_target_offset, flash_target_offset = 0;
     string dlgTitle = OSD_ROM[Config::lang];
@@ -2416,6 +2416,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         }
         rom = gb_rom_0_48k_custom;
         flash_target_offset = (size_t)rom - XIP_BASE;
+        max_flash_target_offset = flash_target_offset + (16 << 10);
         dlgTitle += " 48K   ";
         Config::arch = "48K";
         Config::romSet = "48Kcs";
@@ -2432,6 +2433,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         }
         rom = gb_rom_0_128k_custom;
         flash_target_offset = (size_t)rom - XIP_BASE;
+        max_flash_target_offset = flash_target_offset + (32 << 10);
         dlgTitle += " 128K  ";
         Config::arch = "128K";
         Config::romSet = "128Kcs";
@@ -2447,6 +2449,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         }
         rom = gb_rom_0_128k_custom;
         flash_target_offset = (size_t)rom - XIP_BASE;
+        max_flash_target_offset = flash_target_offset + (32 << 10);
         dlgTitle += " Pentagon ";
         Config::arch = "Pentagon";
         Config::romSet = "128Kcs";
@@ -2456,13 +2459,14 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     }
 #if !PICO_RP2040
     else if ( arch == 4 ) {
-        if( bytesfirmware > 0xFFFF ) {
+        if( bytesfirmware > 0x10000 ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
             f_close(&customrom);
             return false;
         }
         rom = scorpTest;
         flash_target_offset = (size_t)rom - XIP_BASE;
+        max_flash_target_offset = flash_target_offset + (64 << 10);
         dlgTitle += " Scorpion ";
         Config::arch = "Scorpion";
         Config::romSet = "256Kcs";
@@ -2479,13 +2483,13 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     UINT br;
     const size_t sz = 512;
     uint8_t* buffer = (uint8_t*)malloc(sz);
-    for (size_t i = 0; i < bytesfirmware; i += sz) {
+    for (FSIZE_t i = 0; i < bytesfirmware; i += sz) {
         if ( f_read(&customrom, buffer, sz, &br) != FR_OK) {
             osdCenteredMsg(fname + " - unable to read", LEVEL_ERROR, 5000);
             f_close(&customrom);
             return false;
         }
-        flash_block(buffer, flash_target_offset + i);
+        flash_block(buffer, flash_target_offset + (size_t)(i & 0xFFFFFFFF));
     }
     free(buffer);
     f_close(&customrom);
