@@ -166,7 +166,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
         // Sound (AY-3-8912)
         if (ESPectrum::AY_emu) {
             if ((address & 0xC002) == 0xC000)
-                return AySound::getRegisterData();
+                return chips[AySound::selected_chip]->getRegisterData();
         }
         if (!Z80Ops::isPentagon) {
             data = getFloatBusData();
@@ -239,10 +239,10 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         // AY ========================================================================
         if ((ESPectrum::AY_emu) && ((address & 0x8002) == 0x8000)) {
             if ((address & 0x4000) != 0) {
-                AySound::selectRegister(data);
+                chips[AySound::selected_chip]->selectRegister(data);
             } else {
                 ESPectrum::AYGetSample();
-                AySound::setRegisterData(data);
+                chips[AySound::selected_chip]->setRegisterData(data);
             }
             VIDEO::Draw(3, !Z80Ops::isPentagon);   // I/O Contention (Late)
             return;
@@ -251,11 +251,17 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     } else {
         // AY ========================================================================
         if ((ESPectrum::AY_emu) && ((address & 0x8002) == 0x8000)) {
-            if ((address & 0x4000) != 0) {
-                AySound::selectRegister(data);
+            if ((address & 0xFF) == 0xFF) {
+                AySound::selected_chip = 0;
+            }
+            else if ((address & 0xFF) == 0xFE) {
+                AySound::selected_chip = 1;
+            }
+            else if ((address & 0x4000) != 0) {
+                chips[AySound::selected_chip]->selectRegister(data);
             } else {
                 ESPectrum::AYGetSample();
-                AySound::setRegisterData(data);
+                chips[AySound::selected_chip]->setRegisterData(data);
             }
             ioContentionLate(MemESP::ramContended[rambank]);
             return;

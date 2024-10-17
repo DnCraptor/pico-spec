@@ -131,77 +131,76 @@ ayemu_sndfmt_t;
 class AySound
 {
 public:
-
-    static void updToneA();
-    static void updToneB();
-    static void updToneC();
-    static void updNoisePitch();
-    static void updMixer();
-    static void updVolA();
-    static void updVolB();
-    static void updVolC();
-    static void updEnvFreq();
-    static void updEnvType();
-    static void updIOPortA();
-    static void updIOPortB();
+    static int selected_chip;
+    void updToneA();
+    void updToneB();
+    void updToneC();
+    void updNoisePitch();
+    void updMixer();
+    void updVolA();
+    void updVolB();
+    void updVolC();
+    void updEnvFreq();
+    void updEnvType();
+    void updIOPortA();
+    void updIOPortB();
     
-    static void reset();
-    static uint8_t getRegisterData();
-    static void selectRegister(uint8_t data);
-    static void setRegisterData(uint8_t data);
+    void reset();
+    uint8_t getRegisterData();
+    void selectRegister(uint8_t data);
+    void setRegisterData(uint8_t data);
 
-    static void init();
-    static int set_chip_type(ayemu_chip_t chip, int *custom_table);
-    static void set_chip_freq(int chipfreq);
-    static int set_stereo(ayemu_stereo_t stereo, int *custom_eq);
-    static int set_sound_format(int freq, int chans, int bits);
-    static void prepare_generation();
-    static void gen_sound(int bufsize, int bufpos);
+    void init();
+    int set_chip_type(ayemu_chip_t chip, int *custom_table);
+    void set_chip_freq(int chipfreq);
+    int set_stereo(ayemu_stereo_t stereo, int *custom_eq);
+    int set_sound_format(int freq, int chans, int bits);
+    void prepare_generation();
+    void gen_sound(int bufsize, int bufpos);
 
-    static void(*updateReg[16])();
-
-    static uint8_t SamplebufAY[ESP_AUDIO_SAMPLES_PENTAGON];
+    uint8_t SamplebufAY[ESP_AUDIO_SAMPLES_PENTAGON];
 
 private:
 
     /* emulator settings */
-    static int table[32];                   /*< table of volumes for chip */
-    static ayemu_chip_t type;               /*< general chip type (\b AYEMU_AY or \b AYEMU_YM) */
-    static int ChipFreq;                    /*< chip emulator frequency */
+    int table[32];                   /*< table of volumes for chip */
+    ayemu_chip_t type;               /*< general chip type (\b AYEMU_AY or \b AYEMU_YM) */
+    int ChipFreq;                    /*< chip emulator frequency */
     // static int eq[6];                       /*< volumes for channels.
                                             // Array contains 6 elements: 
                                             // A left, A right, B left, B right, C left and C right;
                                             // range -100...100 */
-    static ayemu_regdata_t ayregs;          /*< parsed registers data */
-    static ayemu_sndfmt_t sndfmt;           /*< output sound format */
+    ayemu_regdata_t ayregs;          /*< parsed registers data */
+    ayemu_sndfmt_t sndfmt;           /*< output sound format */
 
     // flags
-    static int default_chip_flag;           /*< =1 after init, resets in #ayemu_set_chip_type() */
-    static int default_stereo_flag;         /*< =1 after init, resets in #ayemu_set_stereo() */
-    static int default_sound_format_flag;   /*< =1 after init, resets in #ayemu_set_sound_format() */
-    static int dirty;                       /*< dirty flag. Sets if any emulator properties changed */
+    int default_chip_flag;           /*< =1 after init, resets in #ayemu_set_chip_type() */
+    int default_stereo_flag;         /*< =1 after init, resets in #ayemu_set_stereo() */
+    int default_sound_format_flag;   /*< =1 after init, resets in #ayemu_set_sound_format() */
+    int dirty;                       /*< dirty flag. Sets if any emulator properties changed */
 
-    static int bit_a;                       /*< state of channel A generator */
-    static int bit_b;                       /*< state of channel B generator */
-    static int bit_c;                       /*< state of channel C generator */
-    static int bit_n;                       /*< current generator state */
-    static int period_n;                    // Noise period 
-    static int cnt_a;                       /*< back counter of A */
-    static int cnt_b;                       /*< back counter of B */
-    static int cnt_c;                       /*< back counter of C */
-    static int cnt_n;                       /*< back counter of noise generator */
-    static int cnt_e;                       /*< back counter of envelop generator */
-    static int ChipTacts_per_outcount;      /*< chip's counts per one sound signal count */
-    static int Amp_Global;                  /*< scale factor for amplitude */
-    // static int vols[32];                 /*< stereo type (channel volumes) and chip table.
-                                            // This cache calculated by #table and #eq  */
-    static int EnvNum;                      /*< number of current envilopment (0...15) */
-    static int env_pos;                     /*< current position in envelop (0...127) */
-    static int Cur_Seed;                    /*< random numbers counter */
+    int bit_a;                       /*< state of channel A generator */
+    int bit_b;                       /*< state of channel B generator */
+    int bit_c;                       /*< state of channel C generator */
+    int bit_n;                       /*< current generator state */
+    int period_n;                    // Noise period 
+    int cnt_a;                       /*< back counter of A */
+    int cnt_b;                       /*< back counter of B */
+    int cnt_c;                       /*< back counter of C */
+    int cnt_n;                       /*< back counter of noise generator */
+    int cnt_e;                       /*< back counter of envelop generator */
+    int ChipTacts_per_outcount;      /*< chip's counts per one sound signal count */
+    int Amp_Global;                  /*< scale factor for amplitude */
+    int EnvNum;                      /*< number of current envilopment (0...15) */
+    int env_pos;                     /*< current position in envelop (0...127) */
+    int Cur_Seed;                    /*< random numbers counter */
 
-    static uint8_t regs[16];
-    static uint8_t selectedRegister;
-
+    uint8_t regs[16];
+    uint8_t selectedRegister;
 };
+
+extern AySound chip0;
+extern AySound chip1;
+extern AySound* chips[2];
 
 #endif // AySound_h

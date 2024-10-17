@@ -44,61 +44,15 @@ visit https://zxespectrum.speccy.org/contacto
 
 // #pragma GCC optimize("O3")
 
-/* emulator settings */
-int AySound::table[32];                 /**< table of volumes for chip */
-ayemu_chip_t AySound::type;             /**< general chip type (\b AYEMU_AY or \b AYEMU_YM) */
-int AySound::ChipFreq;                  /**< chip emulator frequency */
-// int AySound::eq[6];                     /**< volumes for channels.
-                                        // Array contains 6 elements: 
-                                        // A left, A right, B left, B right, C left and C right;
-                                        // range -100...100 */
-ayemu_regdata_t AySound::ayregs;        /**< parsed registers data */
-ayemu_sndfmt_t AySound::sndfmt;         /**< output sound format */
-
-/* flags */
-int AySound::default_chip_flag;         /**< =1 after init, resets in #ayemu_set_chip_type() */
-int AySound::default_stereo_flag;       /**< =1 after init, resets in #ayemu_set_stereo() */
-int AySound::default_sound_format_flag; /**< =1 after init, resets in #ayemu_set_sound_format() */
-int AySound::dirty;                     /**< dirty flag. Sets if any emulator properties changed */
-
-int AySound::bit_a;                     /**< state of channel A generator */
-int AySound::bit_b;                     /**< state of channel B generator */
-int AySound::bit_c;                     /**< state of channel C generator */
-int AySound::bit_n;                     /**< current generator state */
-int AySound::period_n;                  // Noise period 
-int AySound::cnt_a;                     /**< back counter of A */
-int AySound::cnt_b;                     /**< back counter of B */
-int AySound::cnt_c;                     /**< back counter of C */
-int AySound::cnt_n;                     /**< back counter of noise generator */
-int AySound::cnt_e;                     /**< back counter of envelop generator */
-int AySound::ChipTacts_per_outcount;    /**< chip's counts per one sound signal count */
-int AySound::Amp_Global;                /**< scale factor for amplitude */
-
-// int AySound::vols[6][32];               /**< stereo type (channel volumes) and chip table.
-//                                         This cache calculated by #table and #eq    */
-
-// int AySound::vols[32];
-
-int AySound::EnvNum;                    /**< number of current envilopment (0...15) */
-int AySound::env_pos;                   /**< current position in envelop (0...127) */
-int AySound::Cur_Seed;                  /**< random numbers counter */
-
-uint8_t AySound::regs[16];
-
-uint8_t AySound::SamplebufAY[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
-
-void (*AySound::updateReg[16])() = {
-    &updToneA,&updToneA,&updToneB,&updToneB,&updToneC,
-    &updToneC,&updNoisePitch,&updMixer,&updVolA,&updVolB,
-    &updVolC,&updEnvFreq,&updEnvFreq,&updEnvType,&updIOPortA,&updIOPortB
-};
-
-// Status
-uint8_t AySound::selectedRegister;
-
 #define AYEMU_MAX_AMP 140 // This results in output values between 0-158
 
 #define AYEMU_DEFAULT_CHIP_FREQ 1773400
+
+int AySound::selected_chip = 0;
+
+AySound chip0;
+AySound chip1;
+AySound* chips[2] = { &chip0, &chip1 };
 
 /* sound chip volume envelops (will calculated by gen_env()) */
 // static int bEnvGenInit = 0;
@@ -297,7 +251,7 @@ void AySound::prepare_generation()
 
     if (!dirty) return;
 
-    if (default_chip_flag) set_chip_type(AYEMU_AY, NULL);
+    if (default_chip_flag) set_chip_type(AYEMU_YM /*AYEMU_AY*/, NULL);
 
     if (default_stereo_flag) set_stereo(AYEMU_ABC, NULL);
 
@@ -557,7 +511,24 @@ void AySound::setRegisterData(uint8_t data)
 
     if (selectedRegister < 16) {
         regs[selectedRegister] = data;
-        updateReg[selectedRegister]();
+        switch (selectedRegister) {
+            case 0: updToneA(); break;
+            case 1: updToneA(); break;
+            case 2: updToneB(); break;
+            case 3: updToneB(); break;
+            case 4: updToneC(); break;
+            case 5: updToneC(); break;
+            case 6: updNoisePitch(); break;
+            case 7: updMixer(); break;
+            case 8: updVolA(); break;
+            case 9: updVolB(); break;
+            case 10: updVolC(); break;
+            case 11: updEnvFreq(); break;
+            case 12: updEnvFreq(); break;
+            case 13: updEnvType(); break;
+            case 14: updIOPortA(); break;
+            case 15: updIOPortB(); break;
+        }
     }
 
 }
@@ -587,6 +558,20 @@ void AySound::reset()
 
     selectedRegister = 0xff;
 
-    for(int i=0; i < 16; i++) updateReg[i](); // Update all registers
-
+    updToneA();
+    updToneA();
+    updToneB();
+    updToneB();
+    updToneC();
+    updToneC();
+    updNoisePitch();
+    updMixer();
+    updVolA();
+    updVolB();
+    updVolC();
+    updEnvFreq();
+    updEnvFreq();
+    updEnvType();
+    updIOPortA();
+    updIOPortB();
 }

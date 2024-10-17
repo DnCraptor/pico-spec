@@ -680,10 +680,14 @@ void ESPectrum::setup()
     prevAudio_freq = Audio_freq;
 
     // AY Sound
-    AySound::init();
-    AySound::set_sound_format(Audio_freq,1,8);
-    AySound::set_stereo(AYEMU_MONO,NULL);
-    AySound::reset();
+    chip0.init();
+    chip0.set_sound_format(Audio_freq,1,8);
+    chip0.set_stereo(AYEMU_MONO,NULL);
+    chip0.reset();
+    chip1.init();
+    chip1.set_sound_format(Audio_freq,1,8);
+    chip1.set_stereo(AYEMU_MONO,NULL);
+    chip1.reset();
 
     // Init tape
     Tape::Init();
@@ -799,7 +803,8 @@ void ESPectrum::reset()
     for (int i=0;i<ESP_AUDIO_SAMPLES_PENTAGON;i++) {
         overSamplebuf[i]=0;
         audioBuffer[i]=0;
-        AySound::SamplebufAY[i]=0;
+        chip0.SamplebufAY[i]=0;
+        chip1.SamplebufAY[i]=0;
     }
     lastaudioBit=0;
 
@@ -841,10 +846,14 @@ void ESPectrum::reset()
     }
     
     // Reset AY emulation
-    AySound::init();
-    AySound::set_sound_format(Audio_freq,1,8);
-    AySound::set_stereo(AYEMU_MONO,NULL);
-    AySound::reset();
+    chip0.init();
+    chip0.set_sound_format(Audio_freq,1,8);
+    chip0.set_stereo(AYEMU_MONO,NULL);
+    chip0.reset();
+    chip1.init();
+    chip1.set_sound_format(Audio_freq,1,8);
+    chip1.set_stereo(AYEMU_MONO,NULL);
+    chip1.reset();
 
     CPU::reset();
 }
@@ -1565,7 +1574,8 @@ IRAM_ATTR void ESPectrum::AYGetSample() {
     // AY audiobuffer generation (oversample)
     uint32_t audbufpos = CPU::tstates / (Z80Ops::is128 ? 114 : 112);
     if (audbufpos > audbufcntAY) {
-        AySound::gen_sound(audbufpos - audbufcntAY, audbufcntAY);
+        chip0.gen_sound(audbufpos - audbufcntAY, audbufcntAY);
+        chip1.gen_sound(audbufpos - audbufcntAY, audbufcntAY);
         audbufcntAY = audbufpos;
     }
 }
@@ -1601,10 +1611,12 @@ void ESPectrum::loop() {
         }
         if (AY_emu) {
             if (faudbufcntAY < samplesPerFrame) {
-                AySound::gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
+                chip0.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
+                chip1.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
             }
             for (int i = 0; i < samplesPerFrame; i++) {
-                int beeper = (overSamplebuf[i] / audioSampleDivider) + AySound::SamplebufAY[i];
+                int beeper = (overSamplebuf[i] / audioSampleDivider) + chip0.SamplebufAY[i];
+                beeper += chip1.SamplebufAY[i];
                 audioBuffer[i] = beeper > 255 ? 255 : beeper; // Clamp
             }
         } else {
