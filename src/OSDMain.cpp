@@ -2379,8 +2379,6 @@ void OSD::HWInfo() {
 
 }
 
-///uint8_t __scratch_y("buffer") __aligned(4096) buffer[2048] = { 0 };
-
 static void __not_in_flash_func(flash_block)(const uint8_t* buffer, size_t flash_target_offset) {
     gpio_put(PICO_DEFAULT_LED_PIN, true);
     multicore_lockout_start_blocking();
