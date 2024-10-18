@@ -7,6 +7,7 @@ typedef volatile int16_t* (*pcm_end_callback_t)(volatile size_t* size);
 void pcm_set_buffer(int16_t* buff, uint8_t channels, size_t size, pcm_end_callback_t cb);
 // internal call on core#1
 void pcm_call();
+bool pcm_data_in(void);
 
 #define esp_err_t int
 #define ESP_OK 0

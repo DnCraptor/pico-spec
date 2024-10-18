@@ -125,19 +125,11 @@ static const uint8_t wait_st[128] = {
 }; // sequence of wait states
 
 IRAM_ATTR void VGA6Bit::interrupt(void *arg) {
-
-    // // VGA6Bit * staticthis = (VGA6Bit *)arg;
-
-    // // if (++staticthis->currentLine == staticthis->totalLines << 1 ) {
-	// //     staticthis->currentLine = 0;
-    // //     ESPectrum::vsync = true;
-    // // } else ESPectrum::vsync = false;
-
     static int64_t prevmicros = 0;
     static int64_t elapsedmicros = 0;
     static int cntvsync = 0;
 
-    if (Config::tape_player) {
+    if (Config::tape_player || Config::real_player) {
         ESPectrum::vsync = true;
         return;
     }

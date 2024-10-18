@@ -135,7 +135,7 @@ static const uint8_t click128[116] = {   0,8,32,32,32,32,32,32,32,32,32,32,32,32
                                     };
 
 IRAM_ATTR void OSD::click() {
-    if (Config::tape_player)
+    if (Config::tape_player || Config::real_player)
         return; // Disable interface click on tape player mode
     pwm_audio_set_volume(ESP_VOLUME_MAX);
     if (Z80Ops::is48)
@@ -770,7 +770,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                             }
                         }
                         else if (tap_num == 4) {
-
                             menu_level = 2;
                             menu_curopt = 1;                    
                             menu_saverect = true;
@@ -785,7 +784,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     Mnustr.replace(Mnustr.find("[Y",0),2,"[ ");
                                     Mnustr.replace(Mnustr.find("[N",0),2,"[*");                        
                                 }
-
                                 uint8_t opt2 = menuRun(Mnustr);
                                 if (opt2) {
                                     if (opt2 == 1)
@@ -799,6 +797,44 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             pwm_audio_set_volume(ESPectrum::aud_volume);
                                         }
                                         Config::save("tape_player");
+                                    }
+                                    menu_curopt = opt2;
+                                    menu_saverect = false;
+                                } else {
+                                    menu_curopt = 4;
+                                    menu_level = 1;                                       
+                                    break;
+                                }
+                            }
+                        }
+                        else if (tap_num == 5) {
+                            menu_level = 2;
+                            menu_curopt = 1;                    
+                            menu_saverect = true;
+                            while (1) {
+                                string Mnustr = MENU_TAPEPLAYER2[Config::lang];
+                                Mnustr += MENU_YESNO[Config::lang];
+                                bool prev_opt = Config::real_player;
+                                if (prev_opt) {
+                                    Mnustr.replace(Mnustr.find("[Y",0),2,"[*");
+                                    Mnustr.replace(Mnustr.find("[N",0),2,"[ ");                        
+                                } else {
+                                    Mnustr.replace(Mnustr.find("[Y",0),2,"[ ");
+                                    Mnustr.replace(Mnustr.find("[N",0),2,"[*");                        
+                                }
+                                uint8_t opt2 = menuRun(Mnustr);
+                                if (opt2) {
+                                    if (opt2 == 1)
+                                        Config::real_player = true;
+                                    else
+                                        Config::real_player = false;
+
+                                    if (Config::real_player != prev_opt) {
+                                        if (Config::real_player) {
+                                            ESPectrum::aud_volume = ESP_VOLUME_MAX;
+                                            pwm_audio_set_volume(ESPectrum::aud_volume);
+                                        }
+                                        Config::save();
                                     }
                                     menu_curopt = opt2;
                                     menu_saverect = false;

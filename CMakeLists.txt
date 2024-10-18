@@ -150,6 +150,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
+        LOAD_WAV_PIO=22
         PWM_PIN0=26
         PWM_PIN1=27
         BEEPER_PIN=28

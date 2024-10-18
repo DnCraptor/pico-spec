@@ -43,6 +43,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Tape.h"
 #include "CPU.h"
 #include "wd1793.h"
+#include "pwm_audio.h"
 
 // #pragma GCC optimize("O3")
 
@@ -105,6 +106,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
 
     VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
     
+    
     // ULA PORT    
     if ((address & 0x0001) == 0) {
         VIDEO::Draw(3, !Z80Ops::isPentagon);   // I/O Contention (Late)
@@ -116,10 +118,20 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
         }
         if (Tape::tapeStatus==TAPE_LOADING) Tape::Read();
 
-        if ((Z80Ops::is48) && (Config::Issue2)) // Issue 2 behaviour only on Spectrum 48K
+        if ((Z80Ops::is48) && (Config::Issue2)) {// Issue 2 behaviour only on Spectrum 48K
             if (port254 & 0x18) data |= 0x40;
-        else
+        } else {
             if (port254 & 0x10) data |= 0x40;
+        }
+        if (Config::real_player) {
+            static bool skipIt = true;
+            if (!skipIt) { /// TODO
+                Tape::tapeEarBit = pcm_data_in();
+                skipIt = true;
+            } else {
+                skipIt = false;
+            }
+        }
         if (Tape::tapeEarBit) data ^= 0x40;
     } else {
         ioContentionLate(MemESP::ramContended[rambank]);

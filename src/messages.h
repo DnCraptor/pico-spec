@@ -224,16 +224,19 @@ static const char *MENU_SNA[2] = { MENU_SNA_EN,MENU_SNA_ES };
     "Select (TAP)\t(F5) >\n"\
     "Play/Stop\t(F6)  \n"\
     "Tape browser\t(F7)  \n"\
-	"Player mode\t>\n"
+	"Player mode\t>\n"\
+	"Real sound mode\t>\n"
 #define MENU_TAPE_ES \
     "Casete\n"\
     "Elegir (TAP)\t(F5) >\n"\
     "Play/Stop\t(F6)  \n"\
     "Navegador cinta\t(F7)  \n"\
-	"Modo reproductor\t>\n"
-static const char *MENU_TAPE[2] = { MENU_TAPE_EN,MENU_TAPE_ES };
+	"Modo reproductor\t>\n"\
+	"Modo de sonido real\t>\n"
+static const char *MENU_TAPE[2] = { MENU_TAPE_EN, MENU_TAPE_ES };
 
 static const char *MENU_TAPEPLAYER[2] = { "Player mode\n", "Modo reproductor\n" };
+static const char *MENU_TAPEPLAYER2[2] = { "Real input\n", "Entrada real\n" };
 
 #define MENU_BETADISK_EN \
     "Drives\n"\

@@ -29,6 +29,7 @@ bool     Config::AY48 = true;
 bool     Config::Issue2 = true;
 bool     Config::flashload = true;
 bool     Config::tape_player = false; // Tape player mode
+bool     Config::real_player = true;
 bool     Config::tape_timing_rg = false; // Rodolfo Guerra ROMs tape timings
 
 uint8_t  Config::joystick1 = JOY_SINCLAIR1;
@@ -230,6 +231,7 @@ void Config::load() {
         nvs_get_b(handle, "Issue2", Issue2, sts);
         nvs_get_b(handle, "flashload", flashload, sts);
         nvs_get_b(handle, "tape_player", tape_player, sts);
+        nvs_get_b(handle, "real_player", real_player, sts);
         nvs_get_b(handle, "tape_timing_rg", tape_timing_rg, sts);
         nvs_get_u8(handle, "joystick1", Config::joystick1, sts);
         nvs_get_u8(handle, "joystick2", Config::joystick2, sts);
@@ -305,14 +307,15 @@ void Config::save(string value) {
         nvs_set_str(handle,"slog",slog_on ? "true" : "false");
 ///        nvs_set_str(handle,"sdstorage", FileUtils::MountPoint);
 ///        nvs_set_str(handle,"asp169",aspect_16_9 ? "true" : "false");
-        nvs_set_u8(handle,"language",Config::lang);
-        nvs_set_str(handle,"AY48",AY48 ? "true" : "false");
-        nvs_set_str(handle,"Issue2",Issue2 ? "true" : "false");
-        nvs_set_str(handle,"flashload",flashload ? "true" : "false");
-        nvs_set_str(handle,"tape_player",tape_player ? "true" : "false");
+        nvs_set_u8(handle,"language", Config::lang);
+        nvs_set_str(handle,"AY48", AY48 ? "true" : "false");
+        nvs_set_str(handle,"Issue2", Issue2 ? "true" : "false");
+        nvs_set_str(handle,"flashload", flashload ? "true" : "false");
+        nvs_set_str(handle,"tape_player", tape_player ? "true" : "false");
+        nvs_set_str(handle,"real_player", real_player ? "true" : "false");
         nvs_set_str(handle,"tape_timing_rg",tape_timing_rg ? "true" : "false");
-        nvs_set_u8(handle,"joystick1",Config::joystick1);
-        nvs_set_u8(handle,"joystick2",Config::joystick2);
+        nvs_set_u8(handle,"joystick1", Config::joystick1);
+        nvs_set_u8(handle,"joystick2", Config::joystick2);
         // Write joystick definition
         for (int n=0; n < 24; n++) {
             char joykey[9];
