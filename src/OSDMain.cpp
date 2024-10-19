@@ -2401,8 +2401,8 @@ void OSD::HWInfo() {
     if (psram32) {
         snprintf(buf, 128,
                  " PSRAM size     : %d MB\n"\
-                 " PSRAM MF ID    : %02x\n"\
-                 " PSRAM KGD      : %02x\n"\
+                 " PSRAM MF ID    : %02X\n"\
+                 " PSRAM KGD      : %02X\n"\
                  " PSRAM EID      : %02X%02X-%02X%02X-%02X%02X\n",
                  psram32 >> 20, rx8[0], rx8[1], rx8[2], rx8[3], rx8[4], rx8[5], rx8[6], rx8[7]
         );

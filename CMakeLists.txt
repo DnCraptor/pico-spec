@@ -35,6 +35,9 @@ option(SOFTTV "Enable TV soft composite output" OFF)
 #set(TFT ON)
 #set(ILI9341 ON)
 
+#set(CPU_MHZ 378)
+set(CPU_MHZ 366)
+
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}  -funroll-loops -ffast-math -feliminate-unused-debug-types -ffunction-sections -fdata-sections -O2")
@@ -89,38 +92,38 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 IF(TFT)
     target_link_libraries(${PROJECT_NAME} PRIVATE st7789)
     target_compile_definitions(${PROJECT_NAME} PRIVATE TFT)
-    SET(BUILD_NAME "${BUILD_NAME}-TFT")
+    SET(BUILD_NAME "${BUILD_NAME}-${CPU_MHZ}-TFT")
     IF(ILI9341)
-        SET(BUILD_NAME "${BUILD_NAME}-ILI9341")
+        SET(BUILD_NAME "${BUILD_NAME}-${CPU_MHZ}-ILI9341")
         target_compile_definitions(${PROJECT_NAME} PRIVATE ILI9341)
     ELSE()
-        SET(BUILD_NAME "${BUILD_NAME}-ST7789")
+        SET(BUILD_NAME "${BUILD_NAME}-${CPU_MHZ}-ST7789")
     ENDIF()
 ELSEIF(HDMI)
     target_link_libraries(${PROJECT_NAME} PRIVATE hdmi)
     target_compile_definitions(${PROJECT_NAME} PRIVATE HDMI)
-    SET(BUILD_NAME "${BUILD_NAME}-HDMI")
+    SET(BUILD_NAME "${BUILD_NAME}-${CPU_MHZ}-HDMI")
 ELSEIF(TV)
     target_compile_definitions(${PROJECT_NAME} PRIVATE TV)
     target_link_libraries(${PROJECT_NAME} PRIVATE tv)
-    SET(BUILD_NAME "${BUILD_NAME}-TV")
+    SET(BUILD_NAME "${BUILD_NAME}-${CPU_MHZ}-TV")
 ELSEIF(SOFTTV)
 	target_compile_definitions(${PROJECT_NAME} PRIVATE SOFTTV)
 	target_link_libraries(${PROJECT_NAME} PRIVATE tv-software)
-	SET(BUILD_NAME "${BUILD_NAME}-TV-SOFT")
+	SET(BUILD_NAME "${BUILD_NAME}-${CPU_MHZ}-TV-SOFT")
 ELSE()
     target_compile_definitions(${PROJECT_NAME} PRIVATE VGA_DRV)
     target_link_libraries(${PROJECT_NAME} PRIVATE vga-nextgen)
-    SET(BUILD_NAME "${BUILD_NAME}-VGA")
+    SET(BUILD_NAME "${BUILD_NAME}-${CPU_MHZ}-VGA")
 ENDIF()
 
 IF(NOT I2S)
     target_compile_definitions(${PROJECT_NAME} PRIVATE AUDIO_PWM_PIN=26)
 ELSEIF(I2S_CS4334)
     target_compile_definitions(${PROJECT_NAME} PRIVATE I2S_CS4334)
-    SET(BUILD_NAME "${BUILD_NAME}-I2S-CS4334")
+    SET(BUILD_NAME "${BUILD_NAME}-${CPU_MHZ}-I2S-CS4334")
 ELSE()
-    SET(BUILD_NAME "${BUILD_NAME}-I2S-TDA1387")
+    SET(BUILD_NAME "${BUILD_NAME}-${CPU_MHZ}-I2S-TDA1387")
     target_compile_definitions(${PROJECT_NAME} PRIVATE I2S_SOUND=1)
 ENDIF()
 
@@ -152,6 +155,8 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 )
 
 target_compile_definitions(${PROJECT_NAME} PRIVATE
+        CPU_MHZ=${CPU_MHZ}
+
         LOAD_WAV_PIO=22
         PWM_PIN0=26
         PWM_PIN1=27
