@@ -12,6 +12,7 @@
 #include <hardware/flash.h>
 
 #include "ESPectrum.h"
+#include "Config.h"
 #include "pwm_audio.h"
 #include "messages.h"
 
@@ -156,7 +157,7 @@ static fabgl::VirtualKey hid2vk(uint8_t c) {
     case HID_KEY_KEYPAD_MULTIPLY: return fabgl::VirtualKey::VK_KP_MULTIPLY;
     case HID_KEY_KEYPAD_SUBTRACT: return fabgl::VirtualKey::VK_MINUS; /// VK_KP_MINUS;
     case HID_KEY_KEYPAD_ADD: return fabgl::VirtualKey::VK_KP_PLUS;
-    case HID_KEY_KEYPAD_ENTER: return fabgl::VirtualKey::VK_RETURN; ///VK_KP_ENTER;
+    case HID_KEY_KEYPAD_ENTER: return fabgl::VirtualKey::VK_KP_ENTER;
     case HID_KEY_KEYPAD_1: return fabgl::VirtualKey::VK_KP_1;
     case HID_KEY_KEYPAD_2: return fabgl::VirtualKey::VK_KP_2;
     case HID_KEY_KEYPAD_3: return fabgl::VirtualKey::VK_KP_3;
@@ -171,7 +172,7 @@ static fabgl::VirtualKey hid2vk(uint8_t c) {
     case HID_KEY_EUROPE_2: return fabgl::VirtualKey::VK_EURO; /// TODO: ensure
     case HID_KEY_APPLICATION: return fabgl::VirtualKey::VK_APPLICATION;
     case HID_KEY_POWER: return fabgl::VirtualKey::VK_F1;
-    case HID_KEY_KEYPAD_EQUAL: return fabgl::VirtualKey::VK_RETURN; ///VK_KP_ENTER;
+    case HID_KEY_KEYPAD_EQUAL: return fabgl::VirtualKey::VK_KP_ENTER;
     case HID_KEY_F13: return fabgl::VirtualKey::VK_F1;
     case HID_KEY_EXECUTE: return fabgl::VirtualKey::VK_RETURN;
     case HID_KEY_HELP: return fabgl::VirtualKey::VK_F1;
@@ -195,18 +196,23 @@ void __not_in_flash_func(process_kbd_report)(
     hid_keyboard_report_t const* report,
     hid_keyboard_report_t const* prev_report
 ) {
-    bool reboot_requested1 = false;
-    bool reboot_requested2 = false;
-    bool reboot_requested3 = false;
+    bool ctrlPressed = false;
+    bool altPressed = false;
+    bool delPressed = false;
+    bool jPressed = false;
     for (unsigned char cc: report->keycode) {
-        if (cc == HID_KEY_CONTROL_LEFT || cc == HID_KEY_CONTROL_RIGHT) reboot_requested1 = true;
-        if (cc == HID_KEY_ALT_LEFT || cc == HID_KEY_ALT_RIGHT) reboot_requested2 = true;
-        if (cc == HID_KEY_DELETE || cc == HID_KEY_KEYPAD_DECIMAL) reboot_requested3 = true;
+        if (cc == HID_KEY_CONTROL_LEFT || cc == HID_KEY_CONTROL_RIGHT) ctrlPressed = true;
+        if (cc == HID_KEY_ALT_LEFT || cc == HID_KEY_ALT_RIGHT) altPressed = true;
+        if (cc == HID_KEY_DELETE || cc == HID_KEY_KEYPAD_DECIMAL) delPressed = true;
+        if (cc == HID_KEY_J) jPressed = true;
     }
-    if (reboot_requested1 && reboot_requested2 && reboot_requested3) {
+    if (ctrlPressed && altPressed && delPressed) {
         f_unlink(MOS_FILE);
         watchdog_enable(1, true);
         while (true);
+    }
+    if (ctrlPressed && jPressed) {
+        Config::CursorAsJoy = !Config::CursorAsJoy;
     }
     for (unsigned char cc: report->keycode) {
         bool found = false;
