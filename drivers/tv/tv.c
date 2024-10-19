@@ -110,7 +110,7 @@ static int dma_chan_pal_conv_ctrl = -1;
 static int dma_chan_pal_conv = -1;
 
 //ДМА палитра для конвертации
-static __aligned(512) __scratch_y("palette_conv") uint32_t conv_color[128];
+static __aligned(512) __scratch_x("palette_conv") uint32_t conv_color[128];
 
 static enum graphics_mode_t graphics_mode = GRAPHICSMODE_DEFAULT;
 static output_format_e active_output_format;
@@ -154,7 +154,7 @@ uint8_t* getLineBuffer(int line);
 void ESPectrum_vsync();
 
 //основная функция заполнения буферов видеоданных
-static void __scratch_y("tv_main_loop") main_video_loopTV() {
+static void __scratch_x("tv_main_loop") main_video_loopTV() {
     static uint dma_inx_out = 0;
     static uint lines_buf_inx = 0;
 

@@ -809,7 +809,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                         }
                         else if (tap_num == 5) {
                             menu_level = 2;
-                            menu_curopt = 1;                    
+                            menu_curopt = 1;
                             menu_saverect = true;
                             while (1) {
                                 string Mnustr = MENU_TAPEPLAYER2[Config::lang];

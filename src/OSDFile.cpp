@@ -486,22 +486,21 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             fsearch = Menukey.vk + 75;
                         else if (Menukey.vk<=fabgl::VK_Z)
                             fsearch = Menukey.vk + 17;
-                        if (FileUtils::fileTypes[ftype].fdMode) {
-                            if (FileUtils::fileTypes[ftype].fileSearch.length()<10) {
-                                FileUtils::fileTypes[ftype].fileSearch += char(fsearch);
-                                fdSearchRefresh = true;
-                                click();
-                            }
-                        } else {
+                    ///    if (FileUtils::fileTypes[ftype].fdMode) {
+                    ///        if (FileUtils::fileTypes[ftype].fileSearch.length()<10) {
+                    ///            FileUtils::fileTypes[ftype].fileSearch += char(fsearch);
+                    ///            fdSearchRefresh = true;
+                    ///            click();
+                    ///       }
+                    ///    } else
+                        {
                             uint8_t letra = rowGet(menu,FileUtils::fileTypes[ftype].focus).at(0);
                             if (letra != fsearch) { 
                                 // Seek first ocurrence of letter/number
-                                char buf[128];
                                 int cnt = 0;
                                 while (cnt < filenames.size()) {
-                                    std::string s = filenames[pos++];
-                                    strncpy(buf, s.c_str(), sizeof(buf));
-                                    if (buf[0] == char(fsearch)) break;
+                                    std::string s = filenames[cnt++];
+                                    if (s.size() && s.at(0) == char(fsearch)) break;
                                     cnt++;
                                 }
                                 if (cnt < filenames.size()) {
