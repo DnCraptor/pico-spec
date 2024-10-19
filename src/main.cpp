@@ -19,6 +19,7 @@
 
 #include "audio.h"
 #include "ff.h"
+#include "psram_spi.h"
 
 #if USE_PS2_KBD
 
@@ -416,6 +417,8 @@ int main() {
 
     init_sound();
     pcm_setup(ESPectrum::Audio_freq, ESP_AUDIO_SAMPLES_PENTAGON << 1);
+
+    init_psram();
 
     ESPectrum::setup();
     ESPectrum::loop();

@@ -58,6 +58,7 @@ add_subdirectory(drivers/hdmi)
 add_subdirectory(drivers/tv)
 add_subdirectory(drivers/tv-software)
 add_subdirectory(drivers/graphics)
+add_subdirectory(drivers/psram)
 
 # INCLUDE FILES THAT SHOULD BE COMPILED:
 file(GLOB_RECURSE SRC "src/*.cpp" "src/*.c fabgl/*.cpp" "src/roms/*.cpp" "src/roms/*.c" "src/miniz/*.c")
@@ -126,6 +127,7 @@ ENDIF()
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "${BUILD_NAME}")
 
 target_link_libraries(${PROJECT_NAME} PRIVATE
+        psram
         audio
         graphics
 
@@ -160,6 +162,16 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
         SDCARD_PIN_SPI0_SCK=2
         SDCARD_PIN_SPI0_MOSI=3
         SDCARD_PIN_SPI0_MISO=4
+
+        PSRAM
+        # PSRAM_MUTEX=1
+        PSRAM_SPINLOCK=1
+        PSRAM_ASYNC=1
+
+        PSRAM_PIN_CS=18
+        PSRAM_PIN_SCK=19
+        PSRAM_PIN_MOSI=20
+        PSRAM_PIN_MISO=21
 
         # PS2KBD
         USE_PS2_KBD

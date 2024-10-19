@@ -50,6 +50,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Z80_JLS/z80.h"
 #include "roms.h"
 #include "ff.h"
+#include "psram_spi.h"
 
 /**
 #ifndef ESP32_SDL2_WRAPPER
@@ -69,6 +70,7 @@ visit https://zxespectrum.speccy.org/contacto
 #endif
 */
 #include <string>
+#include <cstdio>
 
 void fputs(const char* b, FIL& f);
 
@@ -2369,22 +2371,43 @@ void OSD::HWInfo() {
 
 #if !PICO_RP2040
     string textout =
-        " Chip model    : RP2350\n"
-        " Chip cores    : 2\n"
-        " Chip RAM      : 520 KB\n"
+        " Chip model     : RP2350 378 MHz\n"
+        " Chip cores     : 2\n"
+        " Chip RAM       : 520 KB\n"
     ;
 #else
     string textout =
-        " Chip model    : RP2040\n"
-        " Chip cores    : 2\n"
-        " Chip RAM      : 264 KB\n"
+        " Chip model     : RP2040 378 MHz\n"
+        " Chip cores     : 2\n"
+        " Chip RAM       : 264 KB\n"
     ;
 #endif
     VIDEO::vga.print(textout.c_str());    
 
-    uint32_t fsz = get_cpu_flash_size();
-    textout = " Flash size    : " + to_string(fsz / 1024 / 1024) + " MB\n";
-    VIDEO::vga.print(textout.c_str());
+    char buf[128] = { 0 };
+    uint8_t rx[4];
+    get_cpu_flash_jedec_id(rx);
+    uint32_t flash_size = (1 << rx[3]);
+    snprintf(buf, 128,
+             " Flash size     : %d MB\n"
+             " Flash JEDEC ID : %02X-%02X-%02X-%02X\n",
+             flash_size >> 20, rx[0], rx[1], rx[2], rx[3]
+    );
+    VIDEO::vga.print(buf);
+
+    uint32_t psram32 = psram_size();
+    uint8_t rx8[8];
+    psram_id(rx8);
+    if (psram32) {
+        snprintf(buf, 128,
+                 " PSRAM size     : %d MB\n"\
+                 " PSRAM MF ID    : %02x\n"\
+                 " PSRAM KGD      : %02x\n"\
+                 " PSRAM EID      : %02X%02X-%02X%02X-%02X%02X\n",
+                 psram32 >> 20, rx8[0], rx8[1], rx8[2], rx8[3], rx8[4], rx8[5], rx8[6], rx8[7]
+        );
+    }
+    VIDEO::vga.print(buf);
 
 ///    multi_heap_info_t info;    
 ///    heap_caps_get_info(&info, MALLOC_CAP_SPIRAM);
