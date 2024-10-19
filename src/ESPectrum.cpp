@@ -108,9 +108,9 @@ void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
             case fabgl::VirtualKey::VK_KP_7: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_FIRE; break;
             case fabgl::VirtualKey::VK_KP_8: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_UP; break;
             case fabgl::VirtualKey::VK_KP_9: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE; break;
-            case fabgl::VirtualKey::VK_KP_0: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_FIRE; break;
-            case fabgl::VirtualKey::VK_KP_PERIOD: virtualKey = fabgl::VirtualKey::VK_SPACE; break;
-            case fabgl::VirtualKey::VK_KP_ENTER: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE; break;
+            case fabgl::VirtualKey::VK_KP_0: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE; break;
+            case fabgl::VirtualKey::VK_KP_PERIOD: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_FIRE; break;
+            case fabgl::VirtualKey::VK_KP_ENTER: if(Config::rightSpace) virtualKey = fabgl::VirtualKey::VK_SPACE; break;
         }
         kbd->injectVirtualKey(virtualKey, down);
     }

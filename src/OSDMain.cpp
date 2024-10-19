@@ -1615,12 +1615,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     if (optjoy>0 && optjoy<6) {
                                         if (opt2 == 1) {                                        
                                             Config::joystick1 = optjoy - 1;
-                                            Config::save("joystick1");
                                         } else {
                                             Config::joystick2 = optjoy - 1;
-                                            Config::save("joystick2");
                                         }
                                         Config::setJoyMap(opt2,optjoy - 1);
+                                        Config::save();
                                         menu_curopt = optjoy;
                                         menu_saverect = false;
                                     } else if (optjoy == 6) {
@@ -1753,6 +1752,37 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             Config::save("TABasfire1");
                                         }
 
+                                        menu_curopt = opt2;
+                                        menu_saverect = false;
+                                    } else {
+                                        menu_curopt = 3;
+                                        menu_level = 2;                                       
+                                        break;
+                                    }
+                                }
+                            } else if (opt2 == 4) {
+                                // Menu Right Enter as Space
+                                menu_level = 3;
+                                menu_curopt = 1;
+                                menu_saverect = true;
+                                while (1) {
+                                    string csasjoy_menu = MENU_ENTERSPACE[Config::lang];
+                                    csasjoy_menu += MENU_YESNO[Config::lang];
+                                    bool prev_opt = Config::rightSpace;
+                                    if (prev_opt) {
+                                        csasjoy_menu.replace(csasjoy_menu.find("[Y",0),2,"[*");
+                                        csasjoy_menu.replace(csasjoy_menu.find("[N",0),2,"[ ");                        
+                                    } else {
+                                        csasjoy_menu.replace(csasjoy_menu.find("[Y",0),2,"[ ");
+                                        csasjoy_menu.replace(csasjoy_menu.find("[N",0),2,"[*");                        
+                                    }
+                                    uint8_t opt2 = menuRun(csasjoy_menu);
+                                    if (opt2) {
+                                        if (opt2 == 1)
+                                            Config::rightSpace = true;
+                                        else
+                                            Config::rightSpace = false;
+                                        Config::save();
                                         menu_curopt = opt2;
                                         menu_saverect = false;
                                     } else {

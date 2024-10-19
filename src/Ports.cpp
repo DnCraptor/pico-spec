@@ -43,7 +43,6 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Tape.h"
 #include "CPU.h"
 #include "wd1793.h"
-#include "pwm_audio.h"
 
 // #pragma GCC optimize("O3")
 
@@ -122,15 +121,6 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
             if (port254 & 0x18) data |= 0x40;
         } else {
             if (port254 & 0x10) data |= 0x40;
-        }
-        if (Config::real_player) {
-            static bool skipIt = true;
-            if (!skipIt) { /// TODO
-                Tape::tapeEarBit = pcm_data_in();
-                skipIt = true;
-            } else {
-                skipIt = false;
-            }
         }
         if (Tape::tapeEarBit) data ^= 0x40;
     } else {

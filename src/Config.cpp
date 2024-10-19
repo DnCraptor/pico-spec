@@ -31,16 +31,17 @@ bool     Config::flashload = true;
 bool     Config::tape_player = false; // Tape player mode
 bool     Config::real_player = true;
 bool     Config::tape_timing_rg = false; // Rodolfo Guerra ROMs tape timings
+bool     Config::rightSpace = true;
 
-uint8_t  Config::joystick1 = JOY_SINCLAIR1;
-uint8_t  Config::joystick2 = JOY_SINCLAIR2;
+uint8_t  Config::joystick1 = JOY_KEMPSTON;
+uint8_t  Config::joystick2 = JOY_CURSOR;
 uint16_t Config::joydef[24] = { 
-    fabgl::VK_6,
-    fabgl::VK_7,
-    fabgl::VK_9,
-    fabgl::VK_8,
-    fabgl::VK_NONE,
-    fabgl::VK_NONE,
+    fabgl::VK_KEMPSTON_LEFT,
+    fabgl::VK_KEMPSTON_RIGHT,
+    fabgl::VK_KEMPSTON_UP,
+    fabgl::VK_KEMPSTON_DOWN,
+    fabgl::VK_KEMPSTON_FIRE,
+    fabgl::VK_KEMPSTON_ALTFIRE,
     fabgl::VK_0,
     fabgl::VK_NONE,
     fabgl::VK_NONE,
@@ -230,6 +231,7 @@ void Config::load() {
         nvs_get_b(handle, "AY48", AY48, sts);
         nvs_get_b(handle, "Issue2", Issue2, sts);
         nvs_get_b(handle, "flashload", flashload, sts);
+        nvs_get_b(handle, "rightSpace", rightSpace, sts);
         nvs_get_b(handle, "tape_player", tape_player, sts);
         nvs_get_b(handle, "real_player", real_player, sts);
         nvs_get_b(handle, "tape_timing_rg", tape_timing_rg, sts);
@@ -290,7 +292,7 @@ void Config::save(string value) {
     string nvs = MOUNT_POINT_SD STORAGE_NVS;
     FRESULT err = f_open(&handle, nvs.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
     if (err != FR_OK) {
-        OSD::osdCenteredMsg("Error opening file:\n" + nvs + "\n", LEVEL_ERROR, 5000);
+///        OSD::osdCenteredMsg("Error opening file:\n" + nvs + "\n", LEVEL_ERROR, 5000);
     } else {
         nvs_set_str(handle,"arch",arch.c_str());
         nvs_set_str(handle,"romSet",romSet.c_str());
@@ -313,6 +315,7 @@ void Config::save(string value) {
         nvs_set_str(handle,"flashload", flashload ? "true" : "false");
         nvs_set_str(handle,"tape_player", tape_player ? "true" : "false");
         nvs_set_str(handle,"real_player", real_player ? "true" : "false");
+        nvs_set_str(handle,"rightSpace", rightSpace ? "true" : "false");
         nvs_set_str(handle,"tape_timing_rg",tape_timing_rg ? "true" : "false");
         nvs_set_u8(handle,"joystick1", Config::joystick1);
         nvs_set_u8(handle,"joystick2", Config::joystick2);

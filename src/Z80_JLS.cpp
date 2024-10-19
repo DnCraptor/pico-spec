@@ -30,6 +30,7 @@
 #include "FileUtils.h"
 #include "OSDMain.h"
 #include "messages.h"
+#include "pwm_audio.h"
 
 // #pragma GCC optimize("O3")
 
@@ -1059,6 +1060,9 @@ IRAM_ATTR void Z80::execute() {
     //         Tape::Read();
     //     }
     // // }
+    if (Config::real_player) {
+        Tape::tapeEarBit = pcm_data_in();
+    }
 
     uint8_t pg = REG_PC >> 14;
     VIDEO::Draw_Opcode(MemESP::ramContended[pg]);

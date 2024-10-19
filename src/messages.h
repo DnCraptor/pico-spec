@@ -646,9 +646,20 @@ static const char *MENU_JOY[2] = { MENU_JOY_EN MENU_JOYS, MENU_JOY_ES MENU_JOYS}
 
 static const char *MENU_DEFJOY[2] = { MENU_DEFJOY_TITLE MENU_DEFJOYS MENU_DEFJOY_EN, MENU_DEFJOY_TITLE MENU_DEFJOYS MENU_DEFJOY_ES };
 
-#define MENU_JOYPS2_EN "Joystick emulation\n" "Joy type\t>\n" "Cursor Keys as Joy\t>\n" "TAB as fire 1\t>\n"
+#define MENU_JOYPS2_EN \
+  "Joystick emulation\n"\
+    "Joy type\t>\n" \
+	"Cursor Keys as Joy\t>\n" \
+	"TAB as fire 1\t>\n"\
+	"Right Enter\t>\n"
 
-#define MENU_JOYPS2_ES "Emulaci" "\xA2" "n Joystick\n" "Tipo joystick\t>\n" "Joy en teclas de cursor\t>\n" "TAB como disparo 1\t>\n"
+#define MENU_JOYPS2_ES \
+  "Emulaci" \
+    "\xA2" "n Joystick\n" \
+	"Tipo joystick\t>\n" \
+	"Joy en teclas de cursor\t>\n" \
+	"TAB como disparo 1\t>\n" \
+	"Derecho Enter\t>\n"
 
 static const char *MENU_JOYPS2[2] = { MENU_JOYPS2_EN, MENU_JOYPS2_ES };
 
@@ -657,6 +668,8 @@ static const char *MENU_PS2JOYTYPE[2] = { "Joy type\n" MENU_DEFJOYS, "Tipo joyst
 static const char *MENU_CURSORJOY[2] = { "Cursor as Joy\n" , "Joy en Cursor\n" };
 
 static const char *MENU_TABASFIRE[2] = { "TAB as fire 1\n" , "TAB disparo 1\n" };
+
+static const char *MENU_ENTERSPACE[2] = { "as Space\n" , "como Space\n" };
 
 #define DEDICATORIA "\nF1Dedicado especialmente a:\r"\
 	"\nB1      _       _ _\r"\
