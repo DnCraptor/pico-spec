@@ -436,7 +436,11 @@ void ESPectrum::bootKeyboard() {
 // uint32_t ESPectrum::sessid;
 
 #if !PICO_RP2040
-static unsigned char MemESP_ram[(128ul + 256ul) << 10];
+    #ifdef HDMI
+    static unsigned char MemESP_ram[(112ul + 256ul) << 10];
+    #else
+    static unsigned char MemESP_ram[(128ul + 256ul) << 10];
+    #endif
 #else
     #ifdef HDMI
     static unsigned char MemESP_ram[112ul << 10];
@@ -451,11 +455,16 @@ static unsigned char *MemESP_ram2 = MemESP_ram + 0x4000 + 0x8000;
 
 static unsigned char *MemESP_ram4 = MemESP_ram + 4 * 0x4000;
 static unsigned char *MemESP_ram5 = MemESP_ram + 5 * 0x4000;
-#ifdef HDMI
-static unsigned char *MemESP_ram7 = MemESP_ram + 6 * 0x4000;
+#if PICO_RP2040
+    #ifdef HDMI
+    static unsigned char *MemESP_ram7 = MemESP_ram + 6 * 0x4000;
+    #else
+    static unsigned char *MemESP_ram6 = MemESP_ram + 6 * 0x4000;
+    static unsigned char *MemESP_ram7 = MemESP_ram + 7 * 0x4000;
+    #endif
 #else
-static unsigned char *MemESP_ram6 = MemESP_ram + 6 * 0x4000;
-static unsigned char *MemESP_ram7 = MemESP_ram + 7 * 0x4000;
+    static unsigned char *MemESP_ram6 = MemESP_ram + 6 * 0x4000;
+    static unsigned char *MemESP_ram7 = MemESP_ram + 7 * 0x4000;
 #endif
 
 void ESPectrum::setup() 
@@ -618,15 +627,24 @@ void ESPectrum::setup()
     MemESP::ram[3].assign_ram(MemESP_ram1 + 0x4000, 3, true); /// why?
 
     MemESP::ram[4].assign_ram(MemESP_ram4, 4, false);
-#ifdef HDMI
+#if PICO_RP2040
+    #ifdef HDMI
     MemESP::ram[6].assign_vram(6);
+    #else
+    MemESP::ram[6].assign_ram(MemESP_ram6, 6, false);
+    #endif
 #else
     MemESP::ram[6].assign_ram(MemESP_ram6, 6, false);
 #endif
 
 #if !PICO_RP2040
+    #ifdef HDMI
+    for (size_t i = 8; i < 23; ++i) MemESP::ram[i].assign_ram(MemESP_ram + 0x4000 * i, i, false);
+    for (size_t i = 23; i < 32; ++i) MemESP::ram[i].assign_vram(i);
+    #else
     for (size_t i = 8; i < 24; ++i) MemESP::ram[i].assign_ram(MemESP_ram + 0x4000 * i, i, false);
     for (size_t i = 24; i < 32; ++i) MemESP::ram[i].assign_vram(i);
+    #endif
 #else
     for (size_t i = 8; i < 32; ++i) MemESP::ram[i].assign_vram(i);
 #endif
