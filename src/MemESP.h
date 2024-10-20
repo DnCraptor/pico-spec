@@ -51,6 +51,7 @@ class mem_desc_t {
     uint8_t* to_vram(void);
     void from_vram(uint8_t* p);
 public:
+    static void reset(void);
     mem_desc_t() : _int( new mem_desc_int_t() ) {}
     mem_desc_t(const mem_desc_t& s) : _int( s._int ) {}
     void operator=(const mem_desc_t& s) {
@@ -66,7 +67,6 @@ public:
         }
         return _int->p;
     }
-    inline static void reset(void) { pages.clear(); }
     inline void assign_vram(uint32_t page) { // virtual RAM - PSRAM or swap
         this->_int->p = 0;
         this->_int->vram_off = page * 0x4000;

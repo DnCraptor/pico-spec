@@ -40,6 +40,19 @@ visit https://zxespectrum.speccy.org/contacto
 
 std::list<mem_desc_t> mem_desc_t::pages;
 
+static FIL f;
+static const char PAGEFILE[] = "/tmp/pico-spec.512k";
+void mem_desc_t::reset(void) {
+    pages.clear();
+    if ( !psram_size() ) {
+        f_close(&f);
+        f_unlink(PAGEFILE); // ensure it is new file
+        f_open(&f, PAGEFILE, FA_WRITE | FA_CREATE_ALWAYS);
+        f_close(&f);
+        f_open(&f, PAGEFILE, FA_READ | FA_WRITE);
+    }
+}
+
 uint8_t* mem_desc_t::to_vram(void) {
     uint8_t* res = _int->p;
     uint32_t ba = _int->vram_off;
@@ -48,12 +61,10 @@ uint8_t* mem_desc_t::to_vram(void) {
             write32psram(ba + i, *(uint32_t*)(res + i));
         }
     } else {
-        FIL f;
         UINT bw;
-        f_open(&f, "/tmp/pagefile.sys", FA_WRITE | FA_CREATE_ALWAYS);
-        f_lseek(&f, ba);
+        FSIZE_t lba = ba;
+        f_lseek(&f, lba);
         f_write(&f, res, 0x4000, &bw);
-        f_close(&f);
     }
     _int->in_vram = true;
     _int->p = 0;
@@ -67,12 +78,10 @@ void mem_desc_t::from_vram(uint8_t* p) {
             *(uint32_t*)(p + i) = read32psram(ba + i);
         }
     } else {
-        FIL f;
         UINT br;
-        f_open(&f, "/tmp/pagefile.sys", FA_READ);
-        f_lseek(&f, ba);
+        FSIZE_t lba = ba;
+        f_lseek(&f, lba);
         f_read(&f, p, 0x4000, &br);
-        f_close(&f);
     }
     _int->in_vram = false;
 }

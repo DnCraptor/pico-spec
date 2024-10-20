@@ -13,6 +13,7 @@
 
 #include "ESPectrum.h"
 #include "Config.h"
+#include "MemESP.h"
 #include "pwm_audio.h"
 #include "messages.h"
 
@@ -425,8 +426,8 @@ int main() {
     pcm_setup(ESPectrum::Audio_freq, ESP_AUDIO_SAMPLES_PENTAGON << 1);
 
     init_psram();
-    psram_size(); // prefetch
 
+    mem_desc_t::reset();
     ESPectrum::setup();
     ESPectrum::loop();
     __unreachable();

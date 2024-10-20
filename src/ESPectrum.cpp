@@ -452,7 +452,6 @@ static unsigned char *MemESP_ram7 = MemESP_ram + 7 * 0x4000;
 
 void ESPectrum::setup() 
 {
-    mem_desc_t::reset();
     //=======================================================================================
     // PHYSICAL KEYBOARD (SINCLAIR 8 + 5 MEMBRANE KEYBOARD)
     //=======================================================================================
@@ -463,6 +462,7 @@ void ESPectrum::setup()
     //=======================================================================================
     FileUtils::initFileSystem();
 ///    if (Config::slog_on) showMemInfo("File system started");
+    mem_desc_t::reset();
 
     //=======================================================================================
     // LOAD CONFIG
