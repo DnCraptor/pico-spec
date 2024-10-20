@@ -322,7 +322,16 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         if (!MemESP::pagingLock) {
             MemESP::pagingLock = bitRead(data, 5);
             MemESP::page128 = (data & 0x7);
-            uint8_t page = MemESP::page128 + (MemESP::shiftScorp ? 8 : 0);
+            uint8_t page = MemESP::page128;
+            if (MemESP::shiftScorp) {
+                page += 8;
+            }
+            if (Z80Ops::is512) {
+                uint8_t D6 = bitRead(data, 6);
+                uint8_t D7 = bitRead(data, 7);
+                if (D6) page += 8;
+                if (D7) page += 16;
+            }
             if (MemESP::bankLatch != page) {
                 MemESP::bankLatch = page;
                 MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];

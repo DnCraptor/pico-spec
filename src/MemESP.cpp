@@ -71,7 +71,7 @@ void mem_desc_t::_sync(void) {
 
 
 mem_desc_t MemESP::rom[5];
-mem_desc_t MemESP::ram[16];
+mem_desc_t MemESP::ram[32];
 mem_desc_t MemESP::ramCurrent[4];
 bool MemESP::ramContended[4];
 

@@ -984,6 +984,25 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 menu_curopt = 1;
                                 menu_level = 2;                                       
                             }
+                        } else if (arch_num == 5 && psram_size()) { // Pentagon 512K
+                            menu_level = 2;
+                            menu_curopt = 1;                    
+                            menu_saverect = true;
+                            opt2 = menuRun(MENU_ROMS_PENT[Config::lang]);
+                            if (opt2) {
+                                arch = "P512";
+                                if (opt2 == 1) {
+                                    romset = "128Kp";
+                                } else 
+                                if (opt2 == 2) {
+                                    romset = "128Kcs";
+                                }
+                                menu_curopt = opt2;
+                                menu_saverect = false;
+                            } else {
+                                menu_curopt = 1;
+                                menu_level = 2;                                       
+                            }
                         } else if (arch_num == 4 && psram_size()) { // Scorpion
                             menu_level = 2;
                             menu_curopt = 1;                    
@@ -1023,6 +1042,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                         if (Config::pref_romSetPent == "Last") {
                                             Config::romSet = romset;
                                             Config::romSetPent = romset;
+                                        }
+                                    } else if (arch == "P512") {
+                                        if (Config::pref_romSetP512 == "Last") {
+                                            Config::romSet = romset;
+                                            Config::romSetP512 = romset;
                                         }
                                     } else if (arch == "Scorpion" && psram_size()) {
                                         if (Config::pref_romSetScorp == "Last") {
@@ -1202,30 +1226,42 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[S",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
                             } else if (Config::pref_arch == "128K") {
                                 archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[1",0),2,"[*");
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[S",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
                             } else if (Config::pref_arch == "Pentagon") {
                                 archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[*");
                                 archprefmenu.replace(archprefmenu.find("[S",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
                             } else if (Config::pref_arch == "Scorpion" && psram_size()) {
                                 archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[S",0),2,"[*");
+                                archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
+                            } else if (Config::pref_arch == "P512" && psram_size()) {
+                                archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[S",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[5",0),2,"[*");
                                 archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
                             } else {
                                 archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[S",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[L",0),2,"[*");
                             }
                             uint8_t opt2 = menuRun(archprefmenu);
@@ -1243,7 +1279,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 if (opt2 == 4 && psram_size())
                                     Config::pref_arch = "Scorpion";
                                 else
-                                if (opt2 == 5)
+                                if (opt2 == 5 && psram_size())
+                                    Config::pref_arch = "P512";
+                                else
+                                if (opt2 == 6)
                                     Config::pref_arch = "Last";
 
                                 if (Config::pref_arch != prev_archpref) {
@@ -1401,6 +1440,45 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             break;
                                         }
                                     }
+                                } else if (opt2 == 5) {
+                                    menu_level = 3;
+                                    menu_curopt = 1;                    
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string rprefP512_menu = MENU_ROM_PREF_PENT[Config::lang];
+                                        int mpos = -1;
+                                        while(1) {
+                                            mpos = rprefP512_menu.find("[",mpos + 1);
+                                            if (mpos == string::npos) break;
+                                            string rmenu = rprefP512_menu.substr(mpos + 1, 6);
+                                            trim(rmenu);
+                                            if (rmenu == Config::pref_romSetP512) 
+                                                rprefP512_menu.replace(mpos + 1, 6,"*");
+                                            else
+                                                rprefP512_menu.replace(mpos + 1, 6," ");
+                                        }
+                                        string prev_rprefP512 = Config::pref_romSetP512;
+                                        uint8_t opt2 = menuRun(rprefP512_menu);
+                                        if (opt2) {
+                                            if (opt2 == 1)
+                                                Config::pref_romSetP512 = "128Kp";
+                                            else
+                                            if (opt2 == 2)
+                                                Config::pref_romSetP512 = "128Kcs";
+                                            else
+                                            if (opt2 == 7)
+                                                Config::pref_romSetP512 = "Last";
+                                            if (Config::pref_romSetP512 != prev_rprefP512) {
+                                                Config::save();
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = 1;
+                                            menu_level = 2;                                       
+                                            break;
+                                        }
+                                    }
                                 } else if (opt2 == 4) {
                                     menu_level = 3;
                                     menu_curopt = 1;                    
@@ -1482,7 +1560,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             if (Config::render != prev_opt) {
                                                 Config::save("render");
 
-                                                VIDEO::snow_toggle = Config::arch != "Pentagon" && Config::arch != "Scorpion" ? Config::render : false;                                                
+                                                VIDEO::snow_toggle =
+                                                    Config::arch != "Pentagon" && Config::arch != "Scorpion" && Config::arch != "P512"
+                                                     ? Config::render : false;                                                
 
                                                 if (VIDEO::snow_toggle) {
                                                     VIDEO::Draw = &VIDEO::MainScreen_Blank_Snow;

@@ -458,6 +458,7 @@ bool FileZ80::load(string z80_fn) {
             if (mch == 12) z80_arch = "128K"; // Spectrum +2
             if (mch == 13) z80_arch = "128K"; // Spectrum +2A            
             if (mch == 14) z80_arch = "Scorpion";
+            if (mch == 15) z80_arch = "P512";
         }
 
     }
@@ -499,6 +500,10 @@ bool FileZ80::load(string z80_fn) {
         if (z80_arch == "Pentagon") {
             if (Config::pref_romSetPent == "128Kp" || Config::pref_romSetPent == "128Kcs")
                 z80_romset = Config::pref_romSetPent;
+        } else
+        if (z80_arch == "P512") {
+            if (Config::pref_romSetP512 == "128Kp" || Config::pref_romSetP512 == "128Kcs")
+                z80_romset = Config::pref_romSetP512;
         } else
         if (z80_arch == "Scorpion") {
             if (Config::pref_romSetPent == "256Ks" || Config::pref_romSetPent == "256Kcs")
@@ -725,7 +730,7 @@ bool FileZ80::load(string z80_fn) {
                 dataOffset += compDataLen;
             }
 
-        } else if ((z80_arch == "128K") || (z80_arch == "Pentagon")  || (z80_arch == "Scorpion")) {
+        } else if ((z80_arch == "128K") || (z80_arch == "Pentagon") || (z80_arch == "P512") || (z80_arch == "Scorpion")) {
             
             // paging register
             uint8_t b35 = header[35];
@@ -1005,7 +1010,7 @@ void FileZ80::loader128() {
             z80_array = (unsigned char *) loadzx81;
             dataLen = sizeof(loadzx81);
         }
-    } else if (Config::arch == "Pentagon" || (Config::arch == "Scorpion")) {
+    } else if (Config::arch == "Pentagon" || Config::arch == "P512" || (Config::arch == "Scorpion")) {
         z80_array = (unsigned char *) loadpentagon;
         dataLen = sizeof(loadpentagon);
     }

@@ -92,7 +92,7 @@ class MemESP
 {
 public:
     static mem_desc_t rom[5];
-    static mem_desc_t ram[16];
+    static mem_desc_t ram[32];
 
     static mem_desc_t ramCurrent[4];    
     static bool ramContended[4];

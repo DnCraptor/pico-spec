@@ -502,6 +502,11 @@ void ESPectrum::setup()
                     Config::romSet = Config::pref_romSetScorp;
                 else
                     Config::romSet = Config::romSetScorp;
+            } else if (Config::arch == "P512" && psram_size()) {
+                if (Config::pref_romSetP512 != "Last")
+                    Config::romSet = Config::pref_romSetP512;
+                else
+                    Config::romSet = Config::romSetP512;
             } else {
                 if (Config::pref_romSetPent != "Last")
                     Config::romSet = Config::pref_romSetPent;
@@ -614,6 +619,9 @@ void ESPectrum::setup()
         for (int i = 8; i < 16; ++i) MemESP::ram[i].assign_psram(MemESP_ram + 0x4000 * i);
     }
 #endif
+    if (psram_size()) {
+        for (int i = 16; i < 32; ++i) MemESP::ram[i].assign_psram(MemESP_ram + 0x4000 * i);
+    }
     // Load romset
     Config::requestMachine(Config::arch, Config::romSet);
 
@@ -632,7 +640,7 @@ void ESPectrum::setup()
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
 
     MemESP::ramContended[0] = false;
-    MemESP::ramContended[1] = Config::arch == "Pentagon" || Config::arch == "Scorpion" ? false : true;
+    MemESP::ramContended[1] = Config::arch == "P512" || Config::arch == "Pentagon" || Config::arch == "Scorpion" ? false : true;
     MemESP::ramContended[2] = false;
     MemESP::ramContended[3] = false;
 
@@ -666,8 +674,8 @@ void ESPectrum::setup()
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
         AY_emu = true;        
         Audio_freq = ESP_AUDIO_FREQ_128;
-    } else if (Config::arch == "Pentagon" || Config::arch == "Scorpion") {
-        samplesPerFrame=ESP_AUDIO_SAMPLES_PENTAGON;
+    } else { /// if (Config::arch == "P512" || Config::arch == "Pentagon" || Config::arch == "Scorpion") {
+        samplesPerFrame = ESP_AUDIO_SAMPLES_PENTAGON;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_PENTAGON;
         AY_emu = true;        
         Audio_freq = ESP_AUDIO_FREQ_PENTAGON;
@@ -787,7 +795,7 @@ void ESPectrum::reset()
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
 
     MemESP::ramContended[0] = false;
-    MemESP::ramContended[1] = Config::arch == "Pentagon" || Config::arch == "Scorpion" ? false : true;
+    MemESP::ramContended[1] = Config::arch == "P512" || Config::arch == "Pentagon" || Config::arch == "Scorpion" ? false : true;
     MemESP::ramContended[2] = false;
     MemESP::ramContended[3] = false;
 
@@ -830,8 +838,8 @@ void ESPectrum::reset()
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
         AY_emu = true;        
         Audio_freq = ESP_AUDIO_FREQ_128;
-    } else if (Config::arch == "Pentagon" || Config::arch == "Scorpion") {
-        samplesPerFrame=ESP_AUDIO_SAMPLES_PENTAGON;
+    } else { /// if (Config::arch == "Pentagon" || Config::arch == "Scorpion") {
+        samplesPerFrame = ESP_AUDIO_SAMPLES_PENTAGON;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_PENTAGON;
         AY_emu = true;        
         Audio_freq = ESP_AUDIO_FREQ_PENTAGON;

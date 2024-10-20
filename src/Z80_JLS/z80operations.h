@@ -37,7 +37,7 @@ public:
     static bool is128;
     static bool isPentagon;
     static bool isScorpion;
-
+    static bool is512;
 };
 
 #endif // Z80OPERATIONS_H
