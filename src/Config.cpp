@@ -113,7 +113,7 @@ void Config::requestMachine(string newArch, string newRomSet)
             MemESP::rom[0].assign_rom(gb_rom_0_s128_zx81);
             MemESP::rom[1].assign_rom(gb_rom_1_sinclair_128k);
         }
-    } else if (arch == "Scorpion" && psram_size()) {
+    } else if (arch == "Scorpion") {
         if (newRomSet == "") romSet = "256Ks"; else romSet = newRomSet;
         if (romSetScorp == "") romSetScorp = "256Ks"; else romSetScorp = newRomSet;                
         if (romSetScorp == "256Kcs") {

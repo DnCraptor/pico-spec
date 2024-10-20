@@ -43,13 +43,13 @@ class mem_desc_t {
     static std::list<mem_desc_t> pages; // a pool of assigned pages
     struct mem_desc_int_t {
         uint8_t* p;
-        uint32_t psram_off;
-        bool in_psram;
-        mem_desc_int_t() : p(0), psram_off(0), in_psram(false) {}
+        uint32_t vram_off;
+        bool in_vram;
+        mem_desc_int_t() : p(0), vram_off(0), in_vram(false) {}
     };
     mem_desc_int_t* _int;
-    uint8_t* to_psram(void);
-    void from_psram(uint8_t* p);
+    uint8_t* to_vram(void);
+    void from_vram(uint8_t* p);
 public:
     mem_desc_t() : _int( new mem_desc_int_t() ) {}
     mem_desc_t(const mem_desc_t& s) : _int( s._int ) {}
@@ -61,29 +61,29 @@ public:
         return _int->p;
     }
     inline uint8_t* sync(void) {
-        if (_int->in_psram) {
+        if (_int->in_vram) {
             _sync();
         }
         return _int->p;
     }
     inline static void reset(void) { pages.clear(); }
-    inline void assign_psram(uint8_t* p) {
+    inline void assign_vram(uint32_t page) { // virtual RAM - PSRAM or swap
         this->_int->p = 0;
-        this->_int->psram_off = (uint32_t)p;
-        this->_int->in_psram = true;
+        this->_int->vram_off = page * 0x4000;
+        this->_int->in_vram = true;
     }
-    inline void assign_ram(uint8_t* p, bool locked) {
+    inline void assign_ram(uint8_t* p, uint32_t page, bool locked) {
         this->_int->p = p;
-        this->_int->psram_off = (uint32_t)p;
-        this->_int->in_psram = false;
+        this->_int->vram_off = page * 0x4000;
+        this->_int->in_vram = false;
         if (!locked) {
             pages.push_back(*this);
         }
     }
     inline void assign_rom(const uint8_t* p) { // TODO: prev?
         this->_int->p = (uint8_t*)p;
-        this->_int->psram_off = 0;
-        this->_int->in_psram = false;
+        this->_int->vram_off = 0;
+        this->_int->in_vram = false;
     }
 };
 

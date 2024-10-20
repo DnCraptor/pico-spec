@@ -984,7 +984,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 menu_curopt = 1;
                                 menu_level = 2;                                       
                             }
-                        } else if (arch_num == 5 && psram_size()) { // Pentagon 512K
+                        } else if (arch_num == 5) { // Pentagon 512K
                             menu_level = 2;
                             menu_curopt = 1;                    
                             menu_saverect = true;
@@ -1003,11 +1003,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 menu_curopt = 1;
                                 menu_level = 2;                                       
                             }
-                        } else if (arch_num == 4 && psram_size()) { // Scorpion
+                        } else if (arch_num == 4) { // Scorpion
                             menu_level = 2;
                             menu_curopt = 1;                    
                             menu_saverect = true;
-                            opt2 = menuRun(MENU_ROMS_PENT[Config::lang]);
+                            opt2 = menuRun(MENU_ROMS_SCORP[Config::lang]);
                             if (opt2) {
                                 arch = "Scorpion";
                                 if (opt2 == 1) {
@@ -1048,7 +1048,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             Config::romSet = romset;
                                             Config::romSetP512 = romset;
                                         }
-                                    } else if (arch == "Scorpion" && psram_size()) {
+                                    } else if (arch == "Scorpion") {
                                         if (Config::pref_romSetScorp == "Last") {
                                             Config::romSet = romset;
                                             Config::romSetScorp = romset;
@@ -1242,14 +1242,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 archprefmenu.replace(archprefmenu.find("[S",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
-                            } else if (Config::pref_arch == "Scorpion" && psram_size()) {
+                            } else if (Config::pref_arch == "Scorpion") {
                                 archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[S",0),2,"[*");
                                 archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
-                            } else if (Config::pref_arch == "P512" && psram_size()) {
+                            } else if (Config::pref_arch == "P512") {
                                 archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
@@ -1276,10 +1276,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 if (opt2 == 3)
                                     Config::pref_arch = "Pentagon";
                                 else
-                                if (opt2 == 4 && psram_size())
+                                if (opt2 == 4)
                                     Config::pref_arch = "Scorpion";
                                 else
-                                if (opt2 == 5 && psram_size())
+                                if (opt2 == 5)
                                     Config::pref_arch = "P512";
                                 else
                                 if (opt2 == 6)
@@ -2476,18 +2476,20 @@ void OSD::HWInfo() {
     VIDEO::vga.print(buf);
 
     uint32_t psram32 = psram_size();
-    uint8_t rx8[8];
-    psram_id(rx8);
     if (psram32) {
-        snprintf(buf, 128,
-                 " PSRAM size     : %d MB\n"\
-                 " PSRAM MF ID    : %02X\n"\
-                 " PSRAM KGD      : %02X\n"\
-                 " PSRAM EID      : %02X%02X-%02X%02X-%02X%02X\n",
-                 psram32 >> 20, rx8[0], rx8[1], rx8[2], rx8[3], rx8[4], rx8[5], rx8[6], rx8[7]
-        );
+        uint8_t rx8[8];
+        psram_id(rx8);
+        if (psram32) {
+            snprintf(buf, 128,
+                     " PSRAM size     : %d MB\n"\
+                     " PSRAM MF ID    : %02X\n"\
+                     " PSRAM KGD      : %02X\n"\
+                     " PSRAM EID      : %02X%02X-%02X%02X-%02X%02X\n",
+                     psram32 >> 20, rx8[0], rx8[1], rx8[2], rx8[3], rx8[4], rx8[5], rx8[6], rx8[7]
+            );
+        }
+        VIDEO::vga.print(buf);
     }
-    VIDEO::vga.print(buf);
 
 ///    multi_heap_info_t info;    
 ///    heap_caps_get_info(&info, MALLOC_CAP_SPIRAM);
@@ -2628,11 +2630,6 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         Config::pref_arch = "Pentagon";
         Config::pref_romSetPent = "128Kcs";
     } else if ( arch == 4 ) {
-        if (!psram_size()) {
-            osdCenteredMsg("No PSRAM chip found", LEVEL_WARN, 2000);
-            f_close(&customrom);
-            return false;
-        }
         if( bytesfirmware > 0x10000 ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
             f_close(&customrom);

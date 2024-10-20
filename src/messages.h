@@ -508,13 +508,23 @@ static const char *MENU_ROMS128[2] = { MENU_ROMS128_EN, MENU_ROMS128_ES };
 
 #define MENU_ROMS_PENT_EN \
   "Select ROM\n"\
-	"Original\n"\
+	"128Kp\n"\
     "Custom\n"
 #define MENU_ROMS_PENT_ES \
   "Elija ROM\n"\
-	"Original\n"\
+	"128Kp\n"\
     "Custom\n"
 static const char *MENU_ROMS_PENT[2] = { MENU_ROMS_PENT_EN, MENU_ROMS_PENT_ES };
+
+#define MENU_ROMS_SCORP_EN \
+  "Select ROM\n"\
+	"Mix\n"\
+    "Custom\n"
+#define MENU_ROMS_SCORP_ES \
+  "Elija ROM\n"\
+	"Mix\n"\
+    "Custom\n"
+static const char *MENU_ROMS_SCORP[2] = { MENU_ROMS_SCORP_EN, MENU_ROMS_SCORP_ES };
 
 #define MENU_ARCHS_PREF \
     "Spectrum 48K\t[4]\n"\
@@ -586,12 +596,12 @@ static const char *MENU_ROM_PREF_PENT[2] = { MENU_ROMS_PENT_PREF_EN, MENU_ROMS_P
 
 #define MENU_ROMS_SCORP_PREF_EN \
   "Select ROM\n"\
-	"Original\t[256Ks ]\n"\
+	"Mix\t[256Ks ]\n"\
     "Custom\t[256Kcs]\n"\
 	"Last used\t[Last  ]\n"
 #define MENU_ROMS_SCORP_PREF_ES \
   "Elija ROM\n"\
-	"Original\t[256Ks ]\n"\
+	"Mix\t[256Ks ]\n"\
     "Custom\t[256Kcs]\n"\
 	"Last used\t[Last  ]\n"
 static const char *MENU_ROM_PREF_SCORP[2] = { MENU_ROMS_SCORP_PREF_EN, MENU_ROMS_SCORP_PREF_ES };

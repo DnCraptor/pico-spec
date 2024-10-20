@@ -36,39 +36,57 @@ visit https://zxespectrum.speccy.org/contacto
 #include "MemESP.h"
 #include <stddef.h>
 #include "psram_spi.h"
+#include "ff.h"
 
 std::list<mem_desc_t> mem_desc_t::pages;
 
-uint8_t* mem_desc_t::to_psram(void) {
+uint8_t* mem_desc_t::to_vram(void) {
     uint8_t* res = _int->p;
-    uint32_t ba = _int->psram_off;
-    for (size_t i = 0; i < 0x4000; i += 4) {
-        write32psram(ba + i, *(uint32_t*)(res + i));
+    uint32_t ba = _int->vram_off;
+    if (psram_size()) {
+        for (size_t i = 0; i < 0x4000; i += 4) {
+            write32psram(ba + i, *(uint32_t*)(res + i));
+        }
+    } else {
+        FIL f;
+        UINT bw;
+        f_open(&f, "/tmp/pagefile.sys", FA_WRITE | FA_CREATE_ALWAYS);
+        f_lseek(&f, ba);
+        f_write(&f, res, 0x4000, &bw);
+        f_close(&f);
     }
-    _int->in_psram = true;
+    _int->in_vram = true;
     _int->p = 0;
     return res;
 }
-void mem_desc_t::from_psram(uint8_t* p) {
+void mem_desc_t::from_vram(uint8_t* p) {
     this->_int->p = p;
-    uint32_t ba = _int->psram_off;
-    for (size_t i = 0; i < 0x4000; i += 4) {
-        *(uint32_t*)(p + i) = read32psram(_int->psram_off + i);
+    uint32_t ba = _int->vram_off;
+    if (psram_size()) {
+        for (size_t i = 0; i < 0x4000; i += 4) {
+            *(uint32_t*)(p + i) = read32psram(ba + i);
+        }
+    } else {
+        FIL f;
+        UINT br;
+        f_open(&f, "/tmp/pagefile.sys", FA_READ);
+        f_lseek(&f, ba);
+        f_read(&f, p, 0x4000, &br);
+        f_close(&f);
     }
-    _int->in_psram = false;
+    _int->in_vram = false;
 }
 void mem_desc_t::_sync(void) {
-            for (auto it = pages.begin(); it != pages.end(); ++it) {
-                mem_desc_t& page = *it;
-                if (!page._int->in_psram) {
-                    from_psram( page.to_psram() );
-                    pages.erase(it);
-                    pages.push_back(*this);
-                    break;
-                }
-            }
+    for (auto it = pages.begin(); it != pages.end(); ++it) {
+        mem_desc_t& page = *it;
+        if (!page._int->in_vram) {
+            from_vram( page.to_vram() );
+            pages.erase(it);
+            pages.push_back(*this);
+            break;
+        }
+    }
 }
-
 
 mem_desc_t MemESP::rom[5];
 mem_desc_t MemESP::ram[32];

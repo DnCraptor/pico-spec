@@ -436,7 +436,7 @@ void ESPectrum::bootKeyboard() {
 // uint32_t ESPectrum::sessid;
 
 #if !PICO_RP2040
-static unsigned char MemESP_ram[256ul << 10];
+static unsigned char MemESP_ram[(128ul + 256ul) << 10];
 #else
 static unsigned char MemESP_ram[128ul << 10];
 #endif
@@ -497,12 +497,12 @@ void ESPectrum::setup()
                     Config::romSet = Config::pref_romSet_128;
                 else
                     Config::romSet = Config::romSet128;
-            } else if (Config::arch == "Scorpion" && psram_size()) {
+            } else if (Config::arch == "Scorpion") {
                 if (Config::pref_romSetScorp != "Last")
                     Config::romSet = Config::pref_romSetScorp;
                 else
                     Config::romSet = Config::romSetScorp;
-            } else if (Config::arch == "P512" && psram_size()) {
+            } else if (Config::arch == "P512") {
                 if (Config::pref_romSetP512 != "Last")
                     Config::romSet = Config::pref_romSetP512;
                 else
@@ -600,28 +600,25 @@ void ESPectrum::setup()
     //=======================================================================================
     // MEMORY SETUP
     //=======================================================================================
-    MemESP::ram[5].assign_ram(MemESP_ram5, true);
-    MemESP::ram[0].assign_ram(MemESP_ram0, false);
+    MemESP::ram[5].assign_ram(MemESP_ram5, 5, true);
+    MemESP::ram[0].assign_ram(MemESP_ram0, 0, false);
 
-    MemESP::ram[2].assign_ram(MemESP_ram2, false);
-    MemESP::ram[7].assign_ram(MemESP_ram7, true);
+    MemESP::ram[2].assign_ram(MemESP_ram2, 2, false);
+    MemESP::ram[7].assign_ram(MemESP_ram7, 7, true);
 
-    MemESP::ram[1].assign_ram(MemESP_ram1, true);
-    MemESP::ram[3].assign_ram(MemESP_ram1 + 0x4000, true); /// why?
+    MemESP::ram[1].assign_ram(MemESP_ram1, 1, true);
+    MemESP::ram[3].assign_ram(MemESP_ram1 + 0x4000, 3, true); /// why?
 
-    MemESP::ram[4].assign_ram(MemESP_ram4, false);
-    MemESP::ram[6].assign_ram(MemESP_ram6, false);
+    MemESP::ram[4].assign_ram(MemESP_ram4, 4, false);
+    MemESP::ram[6].assign_ram(MemESP_ram6, 6, false);
 
 #if !PICO_RP2040
-    for (int i = 8; i < 16; ++i) MemESP::ram[i].assign_ram(MemESP_ram + 0x4000 * i);
+    for (size_t i = 8; i < 24; ++i) MemESP::ram[i].assign_ram(MemESP_ram + 0x4000 * i, i, false);
+    for (size_t i = 24; i < 32; ++i) MemESP::ram[i].assign_vram(i);
 #else
-    if (psram_size()) {
-        for (int i = 8; i < 16; ++i) MemESP::ram[i].assign_psram(MemESP_ram + 0x4000 * i);
-    }
+    for (size_t i = 8; i < 32; ++i) MemESP::ram[i].assign_vram(i);
 #endif
-    if (psram_size()) {
-        for (int i = 16; i < 32; ++i) MemESP::ram[i].assign_psram(MemESP_ram + 0x4000 * i);
-    }
+
     // Load romset
     Config::requestMachine(Config::arch, Config::romSet);
 

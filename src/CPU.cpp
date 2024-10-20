@@ -89,7 +89,7 @@ void CPU::reset() {
         IntEnd = INT_END128 + CPU::latetiming;
         // Set emulation loop sync target
         ESPectrum::target = MICROS_PER_FRAME_128;
-    } else if (Config::arch == "Scorpion" && psram_size()) {
+    } else if (Config::arch == "Scorpion") {
         Z80Ops::is48 = false;
         Z80Ops::is128 = false;
         Z80Ops::isPentagon = true;
@@ -100,7 +100,7 @@ void CPU::reset() {
         IntEnd = INT_END_PENTAGON + CPU::latetiming;
         // Set emulation loop sync target
         ESPectrum::target = MICROS_PER_FRAME_PENTAGON;
-    } else if (Config::arch == "P512" && psram_size()) {
+    } else if (Config::arch == "P512") {
         Z80Ops::is48 = false;
         Z80Ops::is128 = false;
         Z80Ops::isPentagon = true;
