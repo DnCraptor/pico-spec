@@ -36,7 +36,10 @@
 
 uint8_t page;
 // #define FETCH_OPCODE(result,address) page = address >> 14; VIDEO::Draw(4,MemESP::ramContended[page]); result = MemESP::ramCurrent[page][address & 0x3fff];
-#define PEEK8(result,address) page = address >> 14; VIDEO::Draw(3,MemESP::ramContended[page]); result = MemESP::ramCurrent[page][address & 0x3fff];
+#define PEEK8(result,address) \
+ page = address >> 14; \
+ VIDEO::Draw(3,MemESP::ramContended[page]); \
+ result = MemESP::ramCurrent[page].sync()[address & 0x3fff];
 
 // miembros estáticos
 
@@ -1066,7 +1069,7 @@ IRAM_ATTR void Z80::execute() {
 
     uint8_t pg = REG_PC >> 14;
     VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
-    opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+    opCode = MemESP::ramCurrent[pg].sync()[REG_PC & 0x3fff];
 
     regR++;
 
@@ -1105,7 +1108,7 @@ IRAM_ATTR void Z80::exec_nocheck() {
 
         uint8_t pg = REG_PC >> 14;
         VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
-        opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+        opCode = MemESP::ramCurrent[pg].sync()[REG_PC & 0x3fff];
         regR++;
         REG_PC++;
 
@@ -2432,7 +2435,7 @@ void Z80::decodeOpcodecb()
 
     uint8_t pg = REG_PC >> 14;
     VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
-    opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+    opCode = MemESP::ramCurrent[pg].sync()[REG_PC & 0x3fff];
     // FETCH_OPCODE(opCode, REG_PC);
 
     REG_PC++;
@@ -2633,7 +2636,7 @@ void Z80::decodeOpcodedd()
     // opCode = Z80Ops::fetchOpcode(REG_PC++);
     uint8_t pg = REG_PC >> 14;
     VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
-    opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+    opCode = MemESP::ramCurrent[pg].sync()[REG_PC & 0x3fff];
     // FETCH_OPCODE(opCode,REG_PC);
 
     REG_PC++;
@@ -2795,7 +2798,7 @@ void Z80::decodeOpcodeed() /*Subconjunto de instrucciones*/
     // opCode = Z80Ops::fetchOpcode(REG_PC++);
     uint8_t pg = REG_PC >> 14;
     VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
-    opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+    opCode = MemESP::ramCurrent[pg].sync()[REG_PC & 0x3fff];
     // FETCH_OPCODE(opCode,REG_PC);
     REG_PC++;
     regR++;
@@ -2945,7 +2948,7 @@ void Z80::decodeOpcodefd() /* Subconjunto de instrucciones */
     // opCode = Z80Ops::fetchOpcode(REG_PC++);
     uint8_t pg = REG_PC >> 14;
     VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
-    opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+    opCode = MemESP::ramCurrent[pg].sync()[REG_PC & 0x3fff];
     // FETCH_OPCODE(opCode,REG_PC);
     REG_PC++;
     regR++;
@@ -4587,7 +4590,7 @@ void Z80::decodeDDFD(RegisterPair& regIXY) {
                     string name;
                     uint16_t header_data = REG_IX;
                     for (int i=0; i < 10; i++)
-                        name += MemESP::ramCurrent[header_data++ >> 14][header_data & 0x3fff];
+                        name += MemESP::ramCurrent[header_data++ >> 14].sync()[header_data & 0x3fff];
                     rtrim(name);
                     Tape::tapeSaveName = FileUtils::TAP_Path + name + ".tap";
 

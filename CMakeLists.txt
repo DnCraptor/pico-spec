@@ -35,8 +35,7 @@ option(SOFTTV "Enable TV soft composite output" OFF)
 #set(TFT ON)
 #set(ILI9341 ON)
 
-#set(CPU_MHZ 378)
-set(CPU_MHZ 366)
+set(CPU_MHZ 378)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)

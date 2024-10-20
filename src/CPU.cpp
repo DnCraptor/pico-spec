@@ -41,6 +41,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Config.h"
 #include "Video.h"
 #include "Z80_JLS/z80.h"
+#include "psram_spi.h"
 
 // #pragma GCC optimize("O3")
 
@@ -85,9 +86,7 @@ void CPU::reset() {
         IntEnd = INT_END128 + CPU::latetiming;
         // Set emulation loop sync target
         ESPectrum::target = MICROS_PER_FRAME_128;
-    } else
-#if !PICO_RP2040
-    if (Config::arch == "Scorpion") {
+    } else if (Config::arch == "Scorpion" && psram_size()) {
         Z80Ops::is48 = false;
         Z80Ops::is128 = false;
         Z80Ops::isPentagon = true;
@@ -97,9 +96,7 @@ void CPU::reset() {
         IntEnd = INT_END_PENTAGON + CPU::latetiming;
         // Set emulation loop sync target
         ESPectrum::target = MICROS_PER_FRAME_PENTAGON;
-    } else
-#endif
-    { // if (Config::arch == "Pentagon") - by default
+    } else { // if (Config::arch == "Pentagon") - by default
         Z80Ops::is48 = false;
         Z80Ops::is128 = false;
         Z80Ops::isPentagon = true;
@@ -191,8 +188,8 @@ IRAM_ATTR void CPU::FlushOnHalt() {
 // Read byte from RAM
 IRAM_ATTR uint8_t Z80Ops::peek8(uint16_t address) {
     uint8_t page = address >> 14;
-    VIDEO::Draw(3,MemESP::ramContended[page]);
-    return MemESP::ramCurrent[page][address & 0x3fff];
+    VIDEO::Draw(3, MemESP::ramContended[page]);
+    return MemESP::ramCurrent[page].sync()[address & 0x3fff];
 }
 
 // // Write byte to RAM
@@ -274,7 +271,7 @@ IRAM_ATTR void Z80Ops::poke8(uint16_t address, uint8_t value) {
     #ifndef DIRTY_LINES
 
     VIDEO::Draw(3, MemESP::ramContended[page]);
-    MemESP::ramCurrent[page][address & 0x3fff] = value;
+    MemESP::ramCurrent[page].sync()[address & 0x3fff] = value;
    
     #else
 
@@ -332,8 +329,8 @@ IRAM_ATTR uint16_t Z80Ops::peek16(uint16_t address) {
             VIDEO::Draw(3, true);            
         } else
             VIDEO::Draw(6, false);
-
-        return ((MemESP::ramCurrent[page][(address & 0x3fff) + 1] << 8) | MemESP::ramCurrent[page][address & 0x3fff]);
+        uint8_t* sp = MemESP::ramCurrent[page].sync();
+        return ((sp[(address & 0x3fff) + 1] << 8) | sp[address & 0x3fff]);
 
     } else {
 
@@ -367,8 +364,9 @@ IRAM_ATTR void Z80Ops::poke16(uint16_t address, RegisterPair word) {
         } else
             VIDEO::Draw(6, false);
 
-        MemESP::ramCurrent[page][page_addr] = word.byte8.lo;
-        MemESP::ramCurrent[page][page_addr + 1] = word.byte8.hi;
+        uint8_t* sp = MemESP::ramCurrent[page].sync();
+        sp[page_addr] = word.byte8.lo;
+        sp[page_addr + 1] = word.byte8.hi;
 
         #else
 

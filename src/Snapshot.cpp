@@ -177,9 +177,9 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
     VIDEO::brd = VIDEO::border32[VIDEO::borderColor];
 
     // read 48K memory
-    readBlockFile(file, MemESP::ram[5], 0x4000);
-    readBlockFile(file, MemESP::ram[2], 0x4000);
-    readBlockFile(file, MemESP::ram[0], 0x4000);
+    readBlockFile(file, MemESP::ram[5].direct(), 0x4000);
+    readBlockFile(file, MemESP::ram[2].sync(), 0x4000);
+    readBlockFile(file, MemESP::ram[0].sync(), 0x4000);
 
     if (Z80Ops::is48) {
         // in 48K mode, pop PC from stack
@@ -196,14 +196,14 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
         uint8_t tmp_latch = tmp_port & 0x07;
 
         // copy what was read into page 0 to correct page
-        memcpy(MemESP::ram[tmp_latch], MemESP::ram[0], 0x4000);
+        memcpy(MemESP::ram[tmp_latch].sync(), MemESP::ram[0].sync(), 0x4000);
 
         uint8_t tr_dos = readByteFile(file);     // Check if TR-DOS is paged
         
         // read remaining pages
         for (int page = 0; page < (Z80Ops::isScorpion ? 16 : 8); page++) {
             if (page != tmp_latch && page != 2 && page != 5) {
-                readBlockFile(file, MemESP::ram[page], 0x4000);
+                readBlockFile(file, MemESP::ram[page].sync(), 0x4000);
             }
         }
         /// TODO: new flags
@@ -226,7 +226,7 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
         MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
         MemESP::ramContended[3] = Z80Ops::isPentagon || Z80Ops::isScorpion ? false : (MemESP::bankLatch & 0x01 ? true: false);
 
-        VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7] : MemESP::ram[5];
+        VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct() : MemESP::ram[5].direct();
 
         if (Z80Ops::isPentagon || Z80Ops::isScorpion) CPU::tstates = 22; // Pentagon SNA load fix... still dunno why this works but it works
 
@@ -260,12 +260,9 @@ size_t fread(uint8_t* v, size_t sz1, size_t sz2, FIL& f) {
 static bool writeMemPage(uint8_t page, FIL& file, bool blockMode)
 {
     page = page & 0x07;
-    uint8_t* buffer = MemESP::ram[page];
-
-    // printf("writing page %d in [%s] mode\n", page, blockMode ? "block" : "byte");
-
+    uint8_t* buffer = MemESP::ram[page].sync();
     for (int offset = 0; offset < MEM_PG_SZ; offset+=0x4000) {
-        fwrite(&buffer[offset],0x4000,1,file);
+        fwrite(&buffer[offset], 0x4000, 1, file);
     }
     return true;
 }
@@ -739,11 +736,11 @@ bool FileZ80::load(string z80_fn) {
             MemESP::bankLatch = b35 & 0x07;
             MemESP::romInUse = MemESP::romLatch;
 
-            uint8_t* pages[12] = {
-                MemESP::rom[0], MemESP::rom[2], MemESP::rom[1],
-                MemESP::ram[0], MemESP::ram[1], MemESP::ram[2], MemESP::ram[3],
-                MemESP::ram[4], MemESP::ram[5], MemESP::ram[6], MemESP::ram[7],
-                MemESP::rom[3]
+            mem_desc_t* pages[12] = {
+                &MemESP::rom[0], &MemESP::rom[2], &MemESP::rom[1],
+                &MemESP::ram[0], &MemESP::ram[1], &MemESP::ram[2], &MemESP::ram[3],
+                &MemESP::ram[4], &MemESP::ram[5], &MemESP::ram[6], &MemESP::ram[7],
+                &MemESP::rom[3]
             };
 
             // const char* pagenames[12] = { "rom0", "IDP", "rom1",
@@ -751,49 +748,38 @@ bool FileZ80::load(string z80_fn) {
 
             uint32_t dataLen = file_size;
             while (dataOffset < dataLen) {
-
                 uint8_t hdr0 = readByteFile(file); dataOffset ++;
                 uint8_t hdr1 = readByteFile(file); dataOffset ++;
                 uint8_t hdr2 = readByteFile(file); dataOffset ++;
                 uint16_t compDataLen = mkword(hdr0, hdr1);
-                
                 if (compDataLen == 0xffff) { 
-
                     // load uncompressed data into memory
                     // printf("Loading uncompressed data\n");
-
                     compDataLen = 0x4000;
-
-                    if ((hdr2 > 2) && (hdr2 < 11)) 
-                        for (int i = 0; i < compDataLen; i++)
-                            pages[hdr2][i] = readByteFile(file);
-
+                    if ((hdr2 > 2) && (hdr2 < 11)) {
+                        uint8_t* sp = pages[hdr2]->sync();
+                        for (int i = 0; i < compDataLen; i++) {
+                            sp[i] = readByteFile(file);
+                        }
+                    }
                 } else {
-
                     // Block is compressed
-
-                    if ((hdr2 > 2) && (hdr2 < 11)) 
-                        loadCompressedMemPage(file, compDataLen, pages[hdr2], 0x4000);
-
+                    if ((hdr2 > 2) && (hdr2 < 11)) {
+                        loadCompressedMemPage(file, compDataLen, pages[hdr2]->sync(), 0x4000);
+                    }
                 }
-
                 dataOffset += compDataLen;
-
             }
 
             MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
             MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
             MemESP::ramContended[3] = Z80Ops::isPentagon || Z80Ops::isScorpion ? false : (MemESP::bankLatch & 0x01 ? true: false);
 
-            VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7] : MemESP::ram[5];
-
+            VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct() : MemESP::ram[5].direct();
         }
     }
-
     fclose(file);
-
     return true;
-
 }
 
 void FileZ80::loadCompressedMemData(FIL& f, uint16_t dataLen, uint16_t memoff, uint16_t memlen) {
@@ -982,13 +968,13 @@ void FileZ80::loader48() {
 
     }
 
-    memset(MemESP::ram[2],0,0x4000);
+    memset(MemESP::ram[2].sync(), 0, 0x4000);
 
     MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
     MemESP::ramContended[3] = false;
 
-    VIDEO::grmem = MemESP::ram[5];
+    VIDEO::grmem = MemESP::ram[5].direct();
 
 }
 
@@ -1070,11 +1056,11 @@ void FileZ80::loader128() {
 
     z80_array += dataOffset;
 
-    uint8_t* pages[12] = {
-        MemESP::rom[0], MemESP::rom[2], MemESP::rom[1],
-        MemESP::ram[0], MemESP::ram[1], MemESP::ram[2], MemESP::ram[3],
-        MemESP::ram[4], MemESP::ram[5], MemESP::ram[6], MemESP::ram[7],
-        MemESP::rom[3]
+    mem_desc_t* pages[12] = {
+        &MemESP::rom[0], &MemESP::rom[2], &MemESP::rom[1],
+        &MemESP::ram[0], &MemESP::ram[1], &MemESP::ram[2], &MemESP::ram[3],
+        &MemESP::ram[4], &MemESP::ram[5], &MemESP::ram[6], &MemESP::ram[7],
+        &MemESP::rom[3]
     };
 
     while (dataOffset < dataLen) {
@@ -1083,7 +1069,7 @@ void FileZ80::loader128() {
         uint8_t hdr2 = z80_array[2]; dataOffset ++;
         z80_array += 3;
         uint16_t compDataLen = mkword(hdr0, hdr1);
-
+        uint8_t* sp = pages[hdr2]->sync();
         {
             uint16_t dataOff = 0;
             uint8_t ed_cnt = 0;
@@ -1096,13 +1082,13 @@ void FileZ80::loader128() {
                 z80_array ++;
                 if (ed_cnt == 0) {
                     if (databyte != 0xED)
-                        pages[hdr2][memidx++] = databyte;
+                        sp[memidx++] = databyte;
                     else
                         ed_cnt++;
                 } else if (ed_cnt == 1) {
                     if (databyte != 0xED) {
-                        pages[hdr2][memidx++] = 0xED;
-                        pages[hdr2][memidx++] = databyte;
+                        sp[memidx++] = 0xED;
+                        sp[memidx++] = databyte;
                         ed_cnt = 0;
                     } else
                         ed_cnt++;
@@ -1112,7 +1098,7 @@ void FileZ80::loader128() {
                 } else if (ed_cnt == 3) {
                     repval = databyte;
                     for (uint16_t i = 0; i < repcnt; i++)
-                        pages[hdr2][memidx++] = repval;
+                        sp[memidx++] = repval;
                     ed_cnt = 0;
                 }
             }
@@ -1123,23 +1109,23 @@ void FileZ80::loader128() {
     }
 
     // Empty void ram pages
-    memset(MemESP::ram[1],0,0x4000);
+    memset(MemESP::ram[1].direct(), 0, 0x4000);
 
     // ZX81+ loader has block 3 void and has info on block5
     if (Config::romSet128 == "ZX81+")
-        memset(MemESP::ram[0],0,0x4000);
+        memset(MemESP::ram[0].sync(), 0, 0x4000);
     else
-        memset(MemESP::ram[2],0,0x4000);
+        memset(MemESP::ram[2].sync(), 0, 0x4000);
 
-    memset(MemESP::ram[3],0,0x4000);
-    memset(MemESP::ram[4],0,0x4000);
-    memset(MemESP::ram[6],0,0x4000);
+    memset(MemESP::ram[3].sync(), 0, 0x4000);
+    memset(MemESP::ram[4].sync(), 0, 0x4000);
+    memset(MemESP::ram[6].sync(), 0, 0x4000);
     
     MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
     MemESP::ramContended[3] = Z80Ops::isPentagon || Z80Ops::isScorpion ? false : (MemESP::bankLatch & 0x01 ? true: false);
 
-    VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7] : MemESP::ram[5];
+    VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct() : MemESP::ram[5].direct();
 
 }
 
@@ -1171,7 +1157,7 @@ bool FileP::load(string p_fn) {
 
     uint16_t address = 16393;
     uint8_t page = address >> 14;
-    fread(&MemESP::ramCurrent[page][address & 0x3fff], p_size, 1, file);
+    fread(&MemESP::ramCurrent[page].sync()[address & 0x3fff], p_size, 1, file);
 
     fclose(file);
 

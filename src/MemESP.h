@@ -37,18 +37,64 @@ visit https://zxespectrum.speccy.org/contacto
 #define MemESP_h
 
 #include <inttypes.h>
-///#include <esp_attr.h>
+#include <list>
+
+class mem_desc_t {
+    static std::list<mem_desc_t> pages; // a pool of assigned pages
+    struct mem_desc_int_t {
+        uint8_t* p;
+        uint32_t psram_off;
+        bool in_psram;
+        mem_desc_int_t() : p(0), psram_off(0), in_psram(false) {}
+    };
+    mem_desc_int_t* _int;
+    uint8_t* to_psram(void);
+    void from_psram(uint8_t* p);
+public:
+    mem_desc_t() : _int( new mem_desc_int_t() ) {}
+    mem_desc_t(const mem_desc_t& s) : _int( s._int ) {}
+    void operator=(const mem_desc_t& s) {
+        _int = s._int;
+    }
+    void _sync(void);
+    inline uint8_t* direct(void) {
+        return _int->p;
+    }
+    inline uint8_t* sync(void) {
+        if (_int->in_psram) {
+            _sync();
+        }
+        return _int->p;
+    }
+    inline static void reset(void) { pages.clear(); }
+    inline void assign_psram(uint8_t* p) {
+        this->_int->p = 0;
+        this->_int->psram_off = (uint32_t)p;
+        this->_int->in_psram = true;
+    }
+    inline void assign_ram(uint8_t* p, bool locked) {
+        this->_int->p = p;
+        this->_int->psram_off = (uint32_t)p;
+        this->_int->in_psram = false;
+        if (!locked) {
+            pages.push_back(*this);
+        }
+    }
+    inline void assign_rom(const uint8_t* p) { // TODO: prev?
+        this->_int->p = (uint8_t*)p;
+        this->_int->psram_off = 0;
+        this->_int->in_psram = false;
+    }
+};
 
 #define MEM_PG_SZ 0x4000
 class MemESP
 {
 public:
+    static mem_desc_t rom[5];
+    static mem_desc_t ram[16];
 
-    static uint8_t* rom[5];
-
-    static uint8_t* ram[16];
-
-    static uint8_t* ramCurrent[4];    
+    static mem_desc_t ramCurrent[4];    
     static bool ramContended[4];
 
     static uint8_t page0ram;
@@ -75,13 +121,13 @@ inline uint8_t MemESP::readbyte(uint16_t addr) {
     uint8_t page = addr >> 14;
     switch (page) {
     case 1:
-        return ram[5][addr - 0x4000];
+        return ram[5].direct()[addr - 0x4000];
     case 2:
-        return ram[2][addr - 0x8000];
+        return ram[2].sync()[addr - 0x8000];
     case 3:
-        return ram[bankLatch][addr - 0xC000];
+        return ram[bankLatch].sync()[addr - 0xC000];
     default:
-        return (page0ram ? ram[0] : rom[romInUse])[addr];
+        return (page0ram ? ram[0].sync() : rom[romInUse].direct())[addr];
     }
 }
 
@@ -94,16 +140,16 @@ inline void MemESP::writebyte(uint16_t addr, uint8_t data)
     uint8_t page = addr >> 14;
     switch (page) {
     case 0:
-        if (page0ram) ram[0][addr] = data;
+        if (page0ram) ram[0].sync()[addr] = data;
         return;
     case 1:
-        ram[5][addr - 0x4000] = data;
+        ram[5].direct()[addr - 0x4000] = data;
         break;
     case 2:
-        ram[2][addr - 0x8000] = data;
+        ram[2].sync()[addr - 0x8000] = data;
         break;
     case 3:
-        ram[bankLatch][addr - 0xC000] = data;
+        ram[bankLatch].sync()[addr - 0xC000] = data;
         break;
     }
     return;

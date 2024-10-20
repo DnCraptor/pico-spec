@@ -984,7 +984,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 menu_curopt = 1;
                                 menu_level = 2;                                       
                             }
-                        } else if (arch_num == 4) { // Scorpion
+                        } else if (arch_num == 4 && psram_size()) { // Scorpion
                             menu_level = 2;
                             menu_curopt = 1;                    
                             menu_saverect = true;
@@ -1024,7 +1024,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             Config::romSet = romset;
                                             Config::romSetPent = romset;
                                         }
-                                    } else if (arch == "Scorpion") {
+                                    } else if (arch == "Scorpion" && psram_size()) {
                                         if (Config::pref_romSetScorp == "Last") {
                                             Config::romSet = romset;
                                             Config::romSetScorp = romset;
@@ -1215,7 +1215,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[*");
                                 archprefmenu.replace(archprefmenu.find("[S",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
-                            } else if (Config::pref_arch == "Scorpion") {
+                            } else if (Config::pref_arch == "Scorpion" && psram_size()) {
                                 archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
@@ -1240,7 +1240,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 if (opt2 == 3)
                                     Config::pref_arch = "Pentagon";
                                 else
-                                if (opt2 == 4)
+                                if (opt2 == 4 && psram_size())
                                     Config::pref_arch = "Scorpion";
                                 else
                                 if (opt2 == 5)
@@ -2371,13 +2371,13 @@ void OSD::HWInfo() {
 
 #if !PICO_RP2040
     string textout =
-        " Chip model     : RP2350 378 MHz\n"
+        " Chip model     : RP2350 " + to_string(CPU_MHZ) + " MHz\n"
         " Chip cores     : 2\n"
         " Chip RAM       : 520 KB\n"
     ;
 #else
     string textout =
-        " Chip model     : RP2040 378 MHz\n"
+        " Chip model     : RP2040 " + to_string(CPU_MHZ) + " MHz\n"
         " Chip cores     : 2\n"
         " Chip RAM       : 264 KB\n"
     ;
@@ -2547,9 +2547,12 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         Config::romSetPent = "128Kcs";
         Config::pref_arch = "Pentagon";
         Config::pref_romSetPent = "128Kcs";
-    }
-#if !PICO_RP2040
-    else if ( arch == 4 ) {
+    } else if ( arch == 4 ) {
+        if (!psram_size()) {
+            osdCenteredMsg("No PSRAM chip found", LEVEL_WARN, 2000);
+            f_close(&customrom);
+            return false;
+        }
         if( bytesfirmware > 0x10000 ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
             f_close(&customrom);
@@ -2565,7 +2568,6 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         Config::pref_arch = "Scorpion";
         Config::pref_romSetScorp = "256Kcs";
     }
-#endif
 
     for (size_t i = flash_target_offset; i < max_flash_target_offset; i += FLASH_SECTOR_SIZE) {
         cleanup_block(i);
@@ -4090,12 +4092,12 @@ void OSD::pokeDialog() {
                     if (dlgValues[0]=="   -   ") {
                         // Poke address between 16384 and 65535                        
                         uint8_t page = address >> 14;
-                        MemESP::ramCurrent[page][address & 0x3fff] = value;
+                        MemESP::ramCurrent[page].sync()[address & 0x3fff] = value;
                     } else {
                         // Poke address in bank
                         string bank = dlgValues[0];
                         trim(bank);
-                        MemESP::ram[stoi(bank)][address] = value;
+                        MemESP::ram[stoi(bank)].sync()[address] = value;
                     }
 
                     click();

@@ -359,7 +359,7 @@ void VIDEO::Reset() {
         lin_end2 = 216;
     }
 
-    grmem = MemESP::videoLatch ? MemESP::ram[7] : MemESP::ram[5];
+    grmem = MemESP::videoLatch ? MemESP::ram[7].direct() : MemESP::ram[5].direct();
 
     #ifdef DIRTY_LINES
     // for (int i=0; i < SPEC_H; i++) VIDEO::dirty_lines[i] = 0x01;
@@ -612,7 +612,7 @@ IRAM_ATTR void VIDEO::MainScreen_Snow(unsigned int statestoadd, bool contended) 
                 break;
             case 3:
                 if (snow_att) {
-                    att1 = MemESP::ram[snowpage][(attOffset++ & 0xff80) | snowR];  // get attribute byte
+                    att1 = MemESP::ram[snowpage].direct()[(attOffset++ & 0xff80) | snowR];  // get attribute byte
                     snow_att = false;
                 } else
                     att1 = grmem[attOffset++];  // get attribute byte                
@@ -723,7 +723,7 @@ IRAM_ATTR void VIDEO::MainScreen_Snow_Opcode(bool contended) {
 
                 if (snow_effect && statestoadd == 0) {
                     snowR = Z80::getRegR() & 0x7f;
-                    bmp1 = MemESP::ram[snowpage][(bmpOffset++ & 0xff80) | snowR];
+                    bmp1 = MemESP::ram[snowpage].direct()[(bmpOffset++ & 0xff80) | snowR];
                     snow_att = true;
                 } else
                     bmp1 = grmem[bmpOffset++];
@@ -735,7 +735,7 @@ IRAM_ATTR void VIDEO::MainScreen_Snow_Opcode(bool contended) {
             case 3:
 
                 if (snow_att) {
-                    att1 = MemESP::ram[snowpage][(attOffset++ & 0xff80) | snowR];  // get attribute byte
+                    att1 = MemESP::ram[snowpage].direct()[(attOffset++ & 0xff80) | snowR];  // get attribute byte
                     snow_att = false;
                 } else
                     att1 = grmem[attOffset++];  // get attribute byte                

@@ -6,6 +6,7 @@
 #include "fabutils.h"
 #include "messages.h"
 #include "OSDMain.h"
+#include "psram_spi.h"
 
 string   Config::arch = "48K";
 string   Config::romSet = "48K";
@@ -82,70 +83,60 @@ void Config::requestMachine(string newArch, string newRomSet)
         if (newRomSet=="") romSet = "48K"; else romSet = newRomSet;
         if (newRomSet=="") romSet48 = "48K"; else romSet48 = newRomSet;        
         if (romSet48 == "48K")
-            MemESP::rom[0] = (uint8_t *) gb_rom_0_sinclair_48k;
+            MemESP::rom[0].assign_rom(gb_rom_0_sinclair_48k);
         else if (romSet48 == "48Kes")
-            MemESP::rom[0] = (uint8_t *) gb_rom_0_48k_es;
+            MemESP::rom[0].assign_rom(gb_rom_0_48k_es);
         else if (romSet48 == "48Kcs") {
-            MemESP::rom[0] = (uint8_t *) gb_rom_0_48k_custom;
+            MemESP::rom[0].assign_rom(gb_rom_0_48k_custom);
         }
     } else if (arch == "128K") {
         if (newRomSet=="") romSet = "128K"; else romSet = newRomSet;
         if (newRomSet=="") romSet128 = "128K"; else romSet128 = newRomSet;                
         if (romSet128 == "128K") {
-            MemESP::rom[0] = (uint8_t *) gb_rom_0_sinclair_128k;
-            MemESP::rom[1] = (uint8_t *) gb_rom_1_sinclair_128k;
+            MemESP::rom[0].assign_rom(gb_rom_0_sinclair_128k);
+            MemESP::rom[1].assign_rom(gb_rom_1_sinclair_128k);
         } else if (romSet128 == "128Kes") {
-            MemESP::rom[0] = (uint8_t *) gb_rom_0_128k_es;
-            MemESP::rom[1] = (uint8_t *) gb_rom_1_128k_es;
+            MemESP::rom[0].assign_rom(gb_rom_0_128k_es);
+            MemESP::rom[1].assign_rom(gb_rom_1_128k_es);
         } else if (romSet128 == "128Kcs") {
-            MemESP::rom[0] = (uint8_t *) gb_rom_0_128k_custom;
-            MemESP::rom[1] = (uint8_t *) gb_rom_0_128k_custom + (16 << 10); /// 16392;
+            MemESP::rom[0].assign_rom(gb_rom_0_128k_custom);
+            MemESP::rom[1].assign_rom(gb_rom_0_128k_custom + (16 << 10)); /// 16392;
         } else if (romSet128 == "+2") {
-            MemESP::rom[0] = (uint8_t *) gb_rom_0_plus2;
-            MemESP::rom[1] = (uint8_t *) gb_rom_1_plus2;
+            MemESP::rom[0].assign_rom(gb_rom_0_plus2);
+            MemESP::rom[1].assign_rom(gb_rom_1_plus2);
         } else if (romSet128 == "+2es") {
-            MemESP::rom[0] = (uint8_t *) gb_rom_0_plus2_es;
-            MemESP::rom[1] = (uint8_t *) gb_rom_1_plus2_es;
+            MemESP::rom[0].assign_rom(gb_rom_0_plus2_es);
+            MemESP::rom[1].assign_rom(gb_rom_1_plus2_es);
         } else if (romSet128 == "ZX81+") {
-            MemESP::rom[0] = (uint8_t *) gb_rom_0_s128_zx81;
-            MemESP::rom[1] = (uint8_t *) gb_rom_1_sinclair_128k;
+            MemESP::rom[0].assign_rom(gb_rom_0_s128_zx81);
+            MemESP::rom[1].assign_rom(gb_rom_1_sinclair_128k);
         }
-    } else 
-#if !PICO_RP2040
-     if (arch == "Scorpion") {
+    } else if (arch == "Scorpion" && psram_size()) {
         if (newRomSet == "") romSet = "256Ks"; else romSet = newRomSet;
         if (romSetScorp == "") romSetScorp = "256Ks"; else romSetScorp = newRomSet;                
         if (romSetScorp == "256Kcs") {
-            MemESP::rom[0] = (uint8_t *) scorpTest;
-            MemESP::rom[1] = (uint8_t *) scorpTest + (16 << 10); /// 16392;
-            MemESP::rom[2] = (uint8_t *) scorpTest + (32 << 10);
-            MemESP::rom[3] = (uint8_t *) scorpTest + (48 << 10);
+            MemESP::rom[0].assign_rom(scorpTest);
+            MemESP::rom[1].assign_rom(scorpTest + (16 << 10)); /// 16392;
+            MemESP::rom[2].assign_rom(scorpTest + (32 << 10));
+            MemESP::rom[3].assign_rom(scorpTest + (48 << 10));
         } else {
-            /**
-            MemESP::rom[0] = (uint8_t *) gb_rom_0_pentagon_128k; /// scorp295;
-            MemESP::rom[1] = (uint8_t *) gb_rom_1_pentagon_128k; /// scorp295 + (16 << 10);
-            MemESP::rom[2] = (uint8_t *) gb_rom_0_pentagon_128k; /// scorp295 + (32 << 10);
-            MemESP::rom[3] = (uint8_t *) gb_rom_1_pentagon_128k; /// scorp295 + (48 << 10);
-            */
-            MemESP::rom[0] = (uint8_t *) gb_rom_0_pentagon_128k; /// scorp295;
-            MemESP::rom[1] = (uint8_t *) scorp295 + (16 << 10);
-            MemESP::rom[2] = (uint8_t *) scorp295 + (32 << 10);
-            MemESP::rom[3] = (uint8_t *) scorp295 + (48 << 10);
+            MemESP::rom[0].assign_rom(gb_rom_0_pentagon_128k); /// scorp295;
+            MemESP::rom[1].assign_rom(scorp295 + (16 << 10));
+            MemESP::rom[2].assign_rom(scorp295 + (32 << 10));
+            MemESP::rom[3].assign_rom(scorp295 + (48 << 10));
         }
-    } else
-#endif
-    { // Pentagon by default
+    } else { // Pentagon by default
         if (newRomSet=="") romSet = "128Kp"; else romSet = newRomSet;
         if (romSetPent=="") romSetPent = "128Kp"; else romSetPent = newRomSet;                
         if (romSetPent == "128Kcs") {
-            MemESP::rom[0] = (uint8_t *) gb_rom_0_128k_custom;
-            MemESP::rom[1] = (uint8_t *) gb_rom_0_128k_custom + (16 << 10); /// 16392;
+            MemESP::rom[0].assign_rom(gb_rom_0_128k_custom);
+            MemESP::rom[1].assign_rom(gb_rom_0_128k_custom + (16 << 10)); /// 16392;
         } else {
-            MemESP::rom[0] = (uint8_t *) gb_rom_0_pentagon_128k;
-            MemESP::rom[1] = (uint8_t *) gb_rom_1_pentagon_128k;
+            MemESP::rom[0].assign_rom(gb_rom_0_pentagon_128k);
+            MemESP::rom[1].assign_rom(gb_rom_1_pentagon_128k);
         }
     }
-    MemESP::rom[4] = (uint8_t *) gb_rom_4_trdos_503;
+    MemESP::rom[4].assign_rom(gb_rom_4_trdos_503);
 }
 
 static bool nvs_get_str(FIL& handle, const char* key, string& v, const vector<string>& sts) {

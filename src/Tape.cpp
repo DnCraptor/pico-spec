@@ -154,12 +154,12 @@ int Tape::inflateCSW(int blocknumber, long startPos, long data_length) {
     // Decompression.
     uint infile_remaining = data_length;
 
-    uint32_t *speccyram = (uint32_t *)MemESP::ram[1];
+    uint32_t *speccyram = (uint32_t *)MemESP::ram[1].direct();
 
     VIDEO::SaveRect.store_ram(speccyram, 0x8000);
-    memset(MemESP::ram[1], 0, 0x8000);
+    memset(MemESP::ram[1].direct(), 0, 0x8000);
     
-    if (inflateInit(&stream, MemESP::ram[1])) {
+    if (inflateInit(&stream, MemESP::ram[1].direct())) {
         printf("inflateInit() failed!\n");
         return EXIT_FAILURE;
     }
@@ -1166,10 +1166,10 @@ bool Tape::FlashLoad() {
 
         // printf("Case 1\n");
         UINT br;
-        if (page != 0 )
-            f_read(&tape, &MemESP::ramCurrent[page][addr2], nBytes, &br);
-        else {
+        if ( page == 0 && !MemESP::page0ram )
             f_lseek(&tape, f_tell(&tape) + nBytes);
+        else {
+            f_read(&tape, &MemESP::ramCurrent[page].sync()[addr2], nBytes, &br);
         }
 
         while ((count < nBytes) && (count < blockLen - 1)) {
@@ -1189,7 +1189,7 @@ bool Tape::FlashLoad() {
 
             if ((page > 0) && (page < 4)) {
                 UINT br;
-                f_read(&tape, &MemESP::ramCurrent[page][addr2], chunk1, &br);
+                f_read(&tape, &MemESP::ramCurrent[page].sync()[addr2], chunk1, &br);
 
                 for (int i=0; i < chunk1; i++) {
                     Z80::Xor(MemESP::readbyte(addr));

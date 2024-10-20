@@ -425,6 +425,7 @@ int main() {
     pcm_setup(ESPectrum::Audio_freq, ESP_AUDIO_SAMPLES_PENTAGON << 1);
 
     init_psram();
+    psram_size(); // prefetch
 
     ESPectrum::setup();
     ESPectrum::loop();

@@ -35,11 +35,44 @@ visit https://zxespectrum.speccy.org/contacto
 
 #include "MemESP.h"
 #include <stddef.h>
+#include "psram_spi.h"
 
-uint8_t* MemESP::rom[5];
+std::list<mem_desc_t> mem_desc_t::pages;
 
-uint8_t* MemESP::ram[16] = { NULL };
-uint8_t* MemESP::ramCurrent[4];
+uint8_t* mem_desc_t::to_psram(void) {
+    uint8_t* res = _int->p;
+    uint32_t ba = _int->psram_off;
+    for (size_t i = 0; i < 0x4000; i += 4) {
+        write32psram(ba + i, *(uint32_t*)(res + i));
+    }
+    _int->in_psram = true;
+    _int->p = 0;
+    return res;
+}
+void mem_desc_t::from_psram(uint8_t* p) {
+    this->_int->p = p;
+    uint32_t ba = _int->psram_off;
+    for (size_t i = 0; i < 0x4000; i += 4) {
+        *(uint32_t*)(p + i) = read32psram(_int->psram_off + i);
+    }
+    _int->in_psram = false;
+}
+void mem_desc_t::_sync(void) {
+            for (auto it = pages.begin(); it != pages.end(); ++it) {
+                mem_desc_t& page = *it;
+                if (!page._int->in_psram) {
+                    from_psram( page.to_psram() );
+                    pages.erase(it);
+                    pages.push_back(*this);
+                    break;
+                }
+            }
+}
+
+
+mem_desc_t MemESP::rom[5];
+mem_desc_t MemESP::ram[16];
+mem_desc_t MemESP::ramCurrent[4];
 bool MemESP::ramContended[4];
 
 uint8_t MemESP::page0ram = 0;

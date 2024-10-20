@@ -306,7 +306,6 @@ static const char *MENU_MAIN[2] = { MENU_MAIN_EN,MENU_MAIN_ES };
 	"Actualizar\t>\n"
 static const char *MENU_OPTIONS[2] = { MENU_OPTIONS_EN,MENU_OPTIONS_ES };
 
-#if !PICO_RP2040
 #define MENU_UPDATE_EN \
     "Update\n"\
 	"Firmware\n"\
@@ -321,20 +320,6 @@ static const char *MENU_OPTIONS[2] = { MENU_OPTIONS_EN,MENU_OPTIONS_ES };
 	"ROM Custom 128k\n"\
 	"ROM Custom Pentagon\n"\
 	"ROM Custom Scorpion\n"
-#else
-#define MENU_UPDATE_EN \
-    "Update\n"\
-	"Firmware\n"\
-	"Custom ROM 48K\n"\
-	"Custom ROM 128k\n"\
-	"Custom ROM Pentagon\n"
-#define MENU_UPDATE_ES \
-    "Actualizar\n"\
-	"Firmware\n"\
-	"ROM Custom 48K\n"\
-	"ROM Custom 128k\n"\
-	"ROM Custom Pentagon\n"
-#endif
 
 static const char *MENU_UPDATE_FW[2] = { MENU_UPDATE_EN,MENU_UPDATE_ES };
 
@@ -484,18 +469,11 @@ static const char *MENU_ISSUE2[2] = { "48K Issue 2\n", "48K Issue 2\n"};
 
 #define MENU_ARCH_ES "Elija modelo\n"
 
-#if !PICO_RP2040
 #define MENU_ARCHS \
     "Spectrum 48K\t>\n"\
     "Spectrum 128K\t>\n"\
 	"Pentagon 128K\t>\n"\
 	"Scorpion 256K\t>\n"
-#else
-#define MENU_ARCHS \
-    "Spectrum 48K\t>\n"\
-    "Spectrum 128K\t>\n"\
-	"Pentagon 128K\t>\n"
-#endif
 static const char *MENU_ARCH[2] = { MENU_ARCH_EN MENU_ARCHS, MENU_ARCH_ES MENU_ARCHS };
 
 #define MENU_ROMS48_EN "Select ROM\n"\
