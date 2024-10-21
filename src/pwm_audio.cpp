@@ -125,9 +125,9 @@ static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core
     m_let_process_it = true;
 #endif
 #if LOAD_WAV_PIO
-    if (Config::real_player && ibuff_off < sizeof(ibuff)) {
-        ibuff[ibuff_off++] = gpio_get(LOAD_WAV_PIO);
-    }
+///    if (Config::real_player && ibuff_off < sizeof(ibuff)) {
+///        ibuff[ibuff_off++] = gpio_get(LOAD_WAV_PIO);
+///    }
 #endif
     return true;
 }
