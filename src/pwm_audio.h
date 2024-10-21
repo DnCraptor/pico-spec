@@ -34,19 +34,13 @@ esp_err_t pwm_audio_set_volume(int8_t volume);
 /**
  * @brief Write data to play
  *
- * @param inbuf Pointer source data to write
+ * @param lbuf Pointer source data to write for left channel
+ * @param rbuf Pointer source data to write for right channel
  * @param len length of data in bytes
- * @param[out] bytes_written Number of bytes written, if timeout, the result will be less than the size passed in.
- * @param ticks_to_wait TX buffer wait timeout in RTOS ticks. If this
- * many ticks pass without space becoming available in the DMA
- * transmit buffer, then the function will return (note that if the
- * data is written to the DMA buffer in pieces, the overall operation
- * may still take longer than this timeout.) Pass portMAX_DELAY for no
- * timeout.
  *
  * @return
  *     - ESP_OK Success
  *     - ESP_FAIL Write encounter error
  *     - ESP_ERR_INVALID_ARG  Parameter error
  */
-esp_err_t pwm_audio_write(uint8_t *inbuf, size_t len, size_t *bytes_written, uint32_t wait_ms);
+esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len);

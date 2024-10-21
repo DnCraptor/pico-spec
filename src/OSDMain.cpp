@@ -141,9 +141,9 @@ IRAM_ATTR void OSD::click() {
         return; // Disable interface click on tape player mode
     pwm_audio_set_volume(ESP_VOLUME_MAX);
     if (Z80Ops::is48)
-        pwm_audio_write((uint8_t *) click48, 12, 0, 0);
+        pwm_audio_write(click48, click48, 12);
     else
-        pwm_audio_write((uint8_t *) click128, 116, 0, 0);
+        pwm_audio_write(click128, click128, 116);
     pwm_audio_set_volume(ESPectrum::aud_volume);
 }
 

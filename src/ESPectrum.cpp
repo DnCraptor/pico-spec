@@ -140,7 +140,8 @@ void repeat_handler(void) {
 //=======================================================================================
 // AUDIO
 //=======================================================================================
-uint8_t ESPectrum::audioBuffer[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
+uint8_t ESPectrum::audioBuffer_L[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
+uint8_t ESPectrum::audioBuffer_R[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
 uint32_t ESPectrum::overSamplebuf[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
 signed char ESPectrum::aud_volume = ESP_VOLUME_DEFAULT;
 // signed char ESPectrum::aud_volume = ESP_VOLUME_MAX; // For .tap player test
@@ -836,12 +837,13 @@ void ESPectrum::reset()
     Tape::romLoading = false;
 
     // Empty audio buffers
-    for (int i=0;i<ESP_AUDIO_SAMPLES_PENTAGON;i++) {
-        overSamplebuf[i]=0;
-        audioBuffer[i]=0;
-        chip0.SamplebufAY[i]=0;
-        chip1.SamplebufAY[i]=0;
-    }
+    memset(overSamplebuf, 0, sizeof(overSamplebuf));
+    memset(audioBuffer_L, 0, sizeof(audioBuffer_L));
+    memset(audioBuffer_R, 0, sizeof(audioBuffer_R));
+    memset(chip0.SamplebufAY_L, 0, sizeof(chip0.SamplebufAY_L));
+    memset(chip0.SamplebufAY_R, 0, sizeof(chip0.SamplebufAY_R));
+    memset(chip1.SamplebufAY_L, 0, sizeof(chip1.SamplebufAY_L));
+    memset(chip1.SamplebufAY_R, 0, sizeof(chip1.SamplebufAY_R));
     lastaudioBit=0;
 
     // Set samples per frame and AY_emu flag depending on arch
@@ -1527,70 +1529,6 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
     }
 }
 
-/**
-// static int bmax = 0;
-// static int sndalive = 0;
-
-//=======================================================================================
-// AUDIO
-//=======================================================================================
-IRAM_ATTR void ESPectrum::audioTask(void *unused) {
-
-    size_t written;
-
-    // PWM Audio Init
-    pwm_audio_config_t pac;
-    pac.duty_resolution    = LEDC_TIMER_8_BIT;
-    pac.gpio_num_left      = SPEAKER_PIN;
-    pac.ledc_channel_left  = LEDC_CHANNEL_0;
-    pac.gpio_num_right     = -1;
-    pac.ledc_channel_right = LEDC_CHANNEL_1;
-    pac.ledc_timer_sel     = LEDC_TIMER_0;
-    pac.tg_num             = TIMER_GROUP_0;
-    pac.timer_num          = TIMER_0;
-    pac.ringbuf_len        = 3072; // 4096;
-
-    pwm_audio_init(&pac);
-    pwm_audio_set_param(Audio_freq,LEDC_TIMER_8_BIT,1);
-    pwm_audio_start();
-    pwm_audio_set_volume(aud_volume);
-
-    for (;;) {
-
-        xQueueReceive(audioTaskQueue, &param, portMAX_DELAY);
-
-        pwm_audio_write(audioBuffer, samplesPerFrame, &written, 5 / portTICK_PERIOD_MS);
-
-        xQueueReceive(audioTaskQueue, &param, portMAX_DELAY);
-
-        // Finish fill of beeper oversampled audio buffers
-        for (;faudbufcnt < (samplesPerFrame * audioSampleDivider); faudbufcnt++) {
-            audioBitBuf += faudioBit;
-            if(++audioBitbufCount == audioSampleDivider) {
-                overSamplebuf[audbufcntover++] = audioBitBuf;
-                audioBitBuf = 0;
-                audioBitbufCount = 0; 
-            }
-        }
-
-        if (AY_emu) {
-
-            if (faudbufcntAY < samplesPerFrame)
-                AySound::gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
-
-            for (int i = 0; i < samplesPerFrame; i++) {
-                int beeper = (overSamplebuf[i] / audioSampleDivider) + AySound::SamplebufAY[i];
-                audioBuffer[i] = beeper > 255 ? 255 : beeper; // Clamp
-            }
-
-        } else
-
-            for (int i = 0; i < samplesPerFrame; i++)
-                audioBuffer[i] = overSamplebuf[i] / audioSampleDivider;
-
-    }
-}
-*/
 IRAM_ATTR void ESPectrum::BeeperGetSample() {
 
     // Beeper audiobuffer generation (oversample)
@@ -1641,7 +1579,7 @@ void ESPectrum::loop() {
 
         ///xQueueSend(audioTaskQueue, &param, portMAX_DELAY);
         // Finish fill of beeper oversampled audio buffers
-        for (;faudbufcnt < (samplesPerFrame * audioSampleDivider); faudbufcnt++) {
+        for (;faudbufcnt < (samplesPerFrame * audioSampleDivider); ++faudbufcnt) {
             audioBitBuf += faudioBit;
             if(++audioBitbufCount == audioSampleDivider) {
                 overSamplebuf[audbufcntover++] = audioBitBuf;
@@ -1654,17 +1592,22 @@ void ESPectrum::loop() {
                 chip0.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
                 chip1.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
             }
-            for (int i = 0; i < samplesPerFrame; i++) {
-                int beeper = (overSamplebuf[i] / audioSampleDivider) + chip0.SamplebufAY[i];
-                beeper += chip1.SamplebufAY[i];
-                audioBuffer[i] = beeper > 255 ? 255 : beeper; // Clamp
+            for (int i = 0; i < samplesPerFrame; ++i) {
+                auto os = overSamplebuf[i] / audioSampleDivider;
+                int l = os + chip0.SamplebufAY_L[i]+ chip1.SamplebufAY_L[i];
+                int r = os + chip0.SamplebufAY_R[i]+ chip1.SamplebufAY_R[i];
+                // Clamp
+                audioBuffer_L[i] = l > 255 ? 255 : l;
+                audioBuffer_R[i] = r > 255 ? 255 : r;
             }
         } else {
-            for (int i = 0; i < samplesPerFrame; i++) {
-                audioBuffer[i] = overSamplebuf[i] / audioSampleDivider;
+            for (int i = 0; i < samplesPerFrame; ++i) {
+                auto v = overSamplebuf[i] / audioSampleDivider;
+                audioBuffer_L[i] = v;
+                audioBuffer_R[i] = v;
             }
         }
-        pwm_audio_write((uint8_t *) audioBuffer, samplesPerFrame, 0, 0);
+        pwm_audio_write(audioBuffer_L, audioBuffer_R, samplesPerFrame);
     }
     processKeyboard();
     // Update stats every 50 frames

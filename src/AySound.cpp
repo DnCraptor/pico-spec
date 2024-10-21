@@ -285,13 +285,15 @@ IRAM_ATTR void AySound::gen_sound(int sound_bufsize, int bufpos)
 {
 
     int tmpvol;
-    uint8_t *sound_buf = SamplebufAY + bufpos;
+    uint8_t *sound_buf_r = SamplebufAY_L + bufpos;
+    uint8_t *sound_buf_l = SamplebufAY_R + bufpos;
 
     // int snd_numcount = sound_bufsize / (sndfmt.channels * (sndfmt.bpc >> 3));
     // while (snd_numcount-- > 0) {
     while (sound_bufsize-- > 0) {        
 
         int mix_l = 0;
+        int mix_r = 0;
         
         for (int m = 0 ; m < ChipTacts_per_outcount ; m++) {
 
@@ -388,17 +390,20 @@ IRAM_ATTR void AySound::gen_sound(int sound_bufsize, int bufpos)
 
             if ((bit_b | !ayregs.R7_tone_b) & (bit_n | !ayregs.R7_noise_b)) {
                 tmpvol = (ayregs.env_b) ? ENVVOL : Rampa_AY_table[ayregs.vol_b];
-                mix_l += table[tmpvol];
+                auto v = table[tmpvol];
+                mix_l += v;
+                mix_r += v;
             }
             
             if ((bit_c | !ayregs.R7_tone_c) & (bit_n | !ayregs.R7_noise_c)) {
                 tmpvol = (ayregs.env_c) ? ENVVOL : Rampa_AY_table[ayregs.vol_c];
-                mix_l += table[tmpvol];
+                mix_r += table[tmpvol];
             }            
 
         }
         
-        *sound_buf++ = mix_l / Amp_Global;
+        *sound_buf_l++ = mix_l / Amp_Global;
+        *sound_buf_r++ = mix_r / Amp_Global;
 
     }
 

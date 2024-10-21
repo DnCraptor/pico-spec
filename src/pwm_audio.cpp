@@ -30,15 +30,16 @@ volatile int16_t* pcm_end_callback(volatile size_t* size) {
     return NULL;
 }
 
-static int16_t buff[640] = { 0 };
+static int16_t buff[640 << 1];
 
-esp_err_t pwm_audio_write(uint8_t *inbuf, size_t len, size_t* bytes_written, uint32_t wait_ms) {
+esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) {
     int16_t volume = vol;
+    size_t j = 0;
     for (size_t i = 0; i < len; ++i) {
-        buff[i] = (((int16_t)inbuf[i]) << 7) * volume / VOLUME_0DB;
+        buff[j++] = (((int16_t)lbuf[i]) << 7) * volume / VOLUME_0DB;
+        buff[j++] = (((int16_t)rbuf[i]) << 7) * volume / VOLUME_0DB;
     }
-    pcm_set_buffer(buff, 1, len, NULL);
-    if (bytes_written) *bytes_written = len;
+    pcm_set_buffer(buff, 2, len, NULL);
     return ESP_OK;
 }
 
@@ -222,10 +223,7 @@ void pcm_set_buffer(int16_t* buff, uint8_t channels, size_t size, pcm_end_callba
 #else
     m_buff = buff;
     m_channels = channels;
-    m_size = size;
+    m_size = size * channels;
     m_off = 0;
-    if (m_size != size) {
-        m_size = size;
-    }
 #endif
 }
