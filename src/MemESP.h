@@ -99,9 +99,7 @@ public:
 
     static uint8_t notMore128;
     static uint8_t page0ram;
-    static uint8_t hiddenROM;
     static uint8_t page128;
-    static uint8_t shiftScorp;
     static uint8_t bankLatch;
     static uint8_t videoLatch;
     static uint8_t romLatch;

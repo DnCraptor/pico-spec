@@ -81,7 +81,7 @@ bool LoadSnapshot(string filename, string force_arch, string force_romset) {
         if (Config::aspect_16_9)
             VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
         else
-            VIDEO::Draw_OSD43  = Z80Ops::isPentagon || Z80Ops::isScorpion ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
+            VIDEO::Draw_OSD43  = Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
         ESPectrum::TapeNameScroller = 0;
     }    
     return res;
@@ -107,8 +107,8 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
             snapshotArch = Config::arch;
         else    
             snapshotArch = "Pentagon";
-    } else if ((sna_size == SNA_128K_SIZE1 + 8 * (16 << 10)) || (sna_size == SNA_128K_SIZE2 + 8 * (16 << 10))) {
-        snapshotArch = "Scorpion";
+    } else if ((sna_size == SNA_128K_SIZE1 + 8 * (32 << 10)) || (sna_size == SNA_128K_SIZE2 + 8 * (32 << 10))) {
+        snapshotArch = "P512";
     } else {
         OSD::osdCenteredMsg("Bad SNA:\n" + sna_fn + "\nsize: " + to_string(sna_size) + "\n", LEVEL_INFO, 5000);
         return false;
@@ -139,9 +139,7 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
     // printf("FileSNA::load: Opening %s: size = %d\n", sna_fn.c_str(), sna_size);
 
     MemESP::page0ram = 0;
-    MemESP::hiddenROM = 0;
     MemESP::page128 = 0;
-    MemESP::shiftScorp = 0;
     MemESP::bankLatch = 0;
     MemESP::pagingLock = 1;
     MemESP::videoLatch = 0;
@@ -201,7 +199,7 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
         uint8_t tr_dos = readByteFile(file);     // Check if TR-DOS is paged
         
         // read remaining pages
-        for (int page = 0; page < (Z80Ops::isScorpion ? 16 : 8); page++) {
+        for (int page = 0; page < (Z80Ops::is512 ? 32 : 8); page++) {
             if (page != tmp_latch && page != 2 && page != 5) {
                 readBlockFile(file, MemESP::ram[page].sync(), 0x4000);
             }
@@ -224,11 +222,11 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
 
         MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
         MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
-        MemESP::ramContended[3] = Z80Ops::isPentagon || Z80Ops::isScorpion ? false : (MemESP::bankLatch & 0x01 ? true: false);
+        MemESP::ramContended[3] = Z80Ops::isPentagon ? false : (MemESP::bankLatch & 0x01 ? true: false);
 
         VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct() : MemESP::ram[5].direct();
 
-        if (Z80Ops::isPentagon || Z80Ops::isScorpion) CPU::tstates = 22; // Pentagon SNA load fix... still dunno why this works but it works
+        if (Z80Ops::isPentagon) CPU::tstates = 22; // Pentagon SNA load fix... still dunno why this works but it works
 
     }
     f_close(&file);
@@ -352,7 +350,7 @@ bool FileSNA::save(string sna_file, bool blockMode) {
             writeByteFile(0, file);     // TR-DOS not paged
 
         // write remaining ram pages
-        for (int page = 0; page < (Z80Ops::isScorpion ? 16 : 8); page++) {
+        for (int page = 0; page < (Z80Ops::is512 ? 32 : 8); page++) {
             if (page != MemESP::bankLatch && page != 2 && page != 5) {
                 if (!writeMemPage(page, file, blockMode)) {
                     f_close(&file);
@@ -457,8 +455,7 @@ bool FileZ80::load(string z80_fn) {
             if (mch == 9) z80_arch = "Pentagon";
             if (mch == 12) z80_arch = "128K"; // Spectrum +2
             if (mch == 13) z80_arch = "128K"; // Spectrum +2A            
-            if (mch == 14) z80_arch = "Scorpion";
-            if (mch == 15) z80_arch = "P512";
+/// TODO:            if (mch == 15) z80_arch = "P512";
         }
 
     }
@@ -504,10 +501,6 @@ bool FileZ80::load(string z80_fn) {
         if (z80_arch == "P512") {
             if (Config::pref_romSetP512 == "128Kp" || Config::pref_romSetP512 == "128Kcs")
                 z80_romset = Config::pref_romSetP512;
-        } else
-        if (z80_arch == "Scorpion") {
-            if (Config::pref_romSetPent == "256Ks" || Config::pref_romSetPent == "256Kcs")
-                z80_romset = Config::pref_romSetScorp;
         }
 
         // printf("z80_arch: %s mch: %d pref_romset48: %s pref_romset128: %s z80_romset: %s\n",z80_arch.c_str(),mch,Config::pref_romSet_48.c_str(),Config::pref_romSet_128.c_str(),z80_romset.c_str());
@@ -663,9 +656,7 @@ bool FileZ80::load(string z80_fn) {
 
         // latches for 48K
         MemESP::page0ram = 0;
-        MemESP::hiddenROM = 0;
         MemESP::page128 = 0;
-        MemESP::shiftScorp = 0;
         MemESP::romLatch = 0;
         MemESP::romInUse = 0;
         MemESP::bankLatch = 0;
@@ -696,9 +687,7 @@ bool FileZ80::load(string z80_fn) {
         if (z80_arch == "48K") {
 
             MemESP::page0ram = 0;
-            MemESP::hiddenROM = 0;
             MemESP::page128 = 0;
-            MemESP::shiftScorp = 0;
             MemESP::romLatch = 0;
             MemESP::romInUse = 0;
             MemESP::bankLatch = 0;
@@ -730,7 +719,7 @@ bool FileZ80::load(string z80_fn) {
                 dataOffset += compDataLen;
             }
 
-        } else if ((z80_arch == "128K") || (z80_arch == "Pentagon") || (z80_arch == "P512") || (z80_arch == "Scorpion")) {
+        } else if ((z80_arch == "128K") || (z80_arch == "Pentagon") || (z80_arch == "P512")) {
             
             // paging register
             uint8_t b35 = header[35];
@@ -778,7 +767,7 @@ bool FileZ80::load(string z80_fn) {
 
             MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
             MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
-            MemESP::ramContended[3] = Z80Ops::isPentagon || Z80Ops::isScorpion ? false : (MemESP::bankLatch & 0x01 ? true: false);
+            MemESP::ramContended[3] = Z80Ops::isPentagon ? false : (MemESP::bankLatch & 0x01 ? true: false);
 
             VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct() : MemESP::ram[5].direct();
         }
@@ -909,9 +898,7 @@ void FileZ80::loader48() {
     z80_array += dataOffset;
 
     MemESP::page0ram = 0;
-    MemESP::hiddenROM = 0;
     MemESP::page128 = 0;
-    MemESP::shiftScorp = 0;
     MemESP::romLatch = 0;
     MemESP::romInUse = 0;
     MemESP::bankLatch = 0;
@@ -1010,7 +997,7 @@ void FileZ80::loader128() {
             z80_array = (unsigned char *) loadzx81;
             dataLen = sizeof(loadzx81);
         }
-    } else if (Config::arch == "Pentagon" || Config::arch == "P512" || (Config::arch == "Scorpion")) {
+    } else if (Config::arch == "Pentagon" || Config::arch == "P512") {
         z80_array = (unsigned char *) loadpentagon;
         dataLen = sizeof(loadpentagon);
     }
@@ -1128,7 +1115,7 @@ void FileZ80::loader128() {
     
     MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
-    MemESP::ramContended[3] = Z80Ops::isPentagon || Z80Ops::isScorpion ? false : (MemESP::bankLatch & 0x01 ? true: false);
+    MemESP::ramContended[3] = Z80Ops::isPentagon ? false : (MemESP::bankLatch & 0x01 ? true: false);
 
     VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct() : MemESP::ram[5].direct();
 

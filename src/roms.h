@@ -47,7 +47,5 @@ visit https://zxespectrum.speccy.org/contacto
 #include "roms/S128_ZX81+_ROM.h"
 #include "roms/rompentagon128k.h"
 #include "roms/trdos.h"
-#include "scorp295-0C6C1EF7.h"
-#include "scorpTest-E0230CA7.h"
 
 #endif

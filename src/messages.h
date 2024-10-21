@@ -55,9 +55,9 @@ visit https://zxespectrum.speccy.org/contacto
 
 // OSD
 #if !PICO_RP2040
-#define OSD_TITLE  " ESPectrum (RP2350 port) " PORT_VERSION
+#define OSD_TITLE  " ESPectrum (RP2350 port) " PORT_VERSION "     "
 #else
-#define OSD_TITLE  " ESPectrum (RP2040 port) " PORT_VERSION
+#define OSD_TITLE  " ESPectrum (RP2040 port) " PORT_VERSION "     "
 #endif
 // #define OSD_BOTTOM " SCIENCE LEADS TO PROGRESS              "
 #define OSD_BOTTOM " Murmulator port by MikeV73 " EMU_VERSION
@@ -217,7 +217,7 @@ static const char *MENU_ROM_TITLE[2] = { MENU_ROM_TITLE_EN,MENU_ROM_TITLE_ES };
     "Cargar (SNA,Z80,P)\t(F2) >\n"\
     "Cargar snapshot\t(F3) >\n"\
     "Guardar snapshot\t(F4) >\n"
-static const char *MENU_SNA[2] = { MENU_SNA_EN,MENU_SNA_ES };
+static const char *MENU_SNA[2] = { MENU_SNA_EN, MENU_SNA_ES };
 
 #define MENU_TAPE_EN \
     "Tape menu\n"\
@@ -311,17 +311,14 @@ static const char *MENU_OPTIONS[2] = { MENU_OPTIONS_EN,MENU_OPTIONS_ES };
 	"Firmware\n"\
 	"Custom ROM 48K\n"\
 	"Custom ROM 128k\n"\
-	"Custom ROM Pentagon\n"\
-	"Custom ROM Scorpion\n"
+	"Custom ROM Pentagon\n"
 #define MENU_UPDATE_ES \
     "Actualizar\n"\
 	"Firmware\n"\
 	"ROM Custom 48K\n"\
 	"ROM Custom 128k\n"\
-	"ROM Custom Pentagon\n"\
-	"ROM Custom Scorpion\n"
-
-static const char *MENU_UPDATE_FW[2] = { MENU_UPDATE_EN,MENU_UPDATE_ES };
+	"ROM Custom Pentagon\n"
+static const char *MENU_UPDATE_FW[2] = { MENU_UPDATE_EN, MENU_UPDATE_ES };
 
 #define MENU_VIDEO_EN \
     "Video\n"\
@@ -473,7 +470,6 @@ static const char *MENU_ISSUE2[2] = { "48K Issue 2\n", "48K Issue 2\n"};
     "Spectrum 48K\t>\n"\
     "Spectrum 128K\t>\n"\
 	"Pentagon 128K\t>\n"\
-	"Scorpion 256K\t>\n"\
 	"Pentagon 512K\t>\n"
 static const char *MENU_ARCH[2] = { MENU_ARCH_EN MENU_ARCHS, MENU_ARCH_ES MENU_ARCHS };
 
@@ -530,7 +526,6 @@ static const char *MENU_ROMS_SCORP[2] = { MENU_ROMS_SCORP_EN, MENU_ROMS_SCORP_ES
     "Spectrum 48K\t[4]\n"\
     "Spectrum 128K\t[1]\n"\
 	"Pentagon 128K\t[P]\n"\
-	"Scorpion 256K\t[S]\n"\
 	"Pentagon 512K\t[5]\n"
 static const char *MENU_ARCH_PREF[2] = {
 	"Preferred machine\n" MENU_ARCHS_PREF "Last used\t[L]\n",
@@ -541,11 +536,10 @@ static const char *MENU_ARCH_PREF[2] = {
     "Spectrum 48K\t>\n"\
     "Spectrum 128K\t>\n"\
     "Pentagon 128K\t>\n"\
-    "Scorpion 256K\t>\n"\
     "Pentagon 512K\t>\n"
 static const char *MENU_ROM_PREF[2] = {
   "Preferred ROM\n" MENU_ROMS_PREF,
-    "ROM preferida\n" MENU_ROMS_PREF
+  "ROM preferida\n" MENU_ROMS_PREF
 };
 
 #define MENU_ROMS48_PREF_EN "Select ROM\n"\

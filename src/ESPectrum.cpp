@@ -514,11 +514,6 @@ void ESPectrum::setup()
                     Config::romSet = Config::pref_romSet_128;
                 else
                     Config::romSet = Config::romSet128;
-            } else if (Config::arch == "Scorpion") {
-                if (Config::pref_romSetScorp != "Last")
-                    Config::romSet = Config::pref_romSetScorp;
-                else
-                    Config::romSet = Config::romSetScorp;
             } else if (Config::arch == "P512") {
                 if (Config::pref_romSetP512 != "Last")
                     Config::romSet = Config::pref_romSetP512;
@@ -653,9 +648,7 @@ void ESPectrum::setup()
     Config::requestMachine(Config::arch, Config::romSet);
 
     MemESP::page0ram = 0;
-    MemESP::hiddenROM = 0;
     MemESP::page128 = 0;
-    MemESP::shiftScorp = 0;
     MemESP::romInUse = 0;
     MemESP::bankLatch = 0;
     MemESP::videoLatch = 0;
@@ -667,7 +660,7 @@ void ESPectrum::setup()
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
 
     MemESP::ramContended[0] = false;
-    MemESP::ramContended[1] = Config::arch == "P512" || Config::arch == "Pentagon" || Config::arch == "Scorpion" ? false : true;
+    MemESP::ramContended[1] = Config::arch == "P512" || Config::arch == "Pentagon" ? false : true;
     MemESP::ramContended[2] = false;
     MemESP::ramContended[3] = false;
 
@@ -701,7 +694,7 @@ void ESPectrum::setup()
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
         AY_emu = true;        
         Audio_freq = ESP_AUDIO_FREQ_128;
-    } else { /// if (Config::arch == "P512" || Config::arch == "Pentagon" || Config::arch == "Scorpion") {
+    } else { /// if (Config::arch == "P512" || Config::arch == "Pentagon") {
         samplesPerFrame = ESP_AUDIO_SAMPLES_PENTAGON;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_PENTAGON;
         AY_emu = true;        
@@ -808,9 +801,7 @@ void ESPectrum::reset()
 
     // Memory
     MemESP::page0ram = 0;
-    MemESP::hiddenROM = 0;
     MemESP::page128 = 0;
-    MemESP::shiftScorp = 0;
     MemESP::romInUse = 0;
     MemESP::bankLatch = 0;
     MemESP::videoLatch = 0;
@@ -822,7 +813,7 @@ void ESPectrum::reset()
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
 
     MemESP::ramContended[0] = false;
-    MemESP::ramContended[1] = Config::arch == "P512" || Config::arch == "Pentagon" || Config::arch == "Scorpion" ? false : true;
+    MemESP::ramContended[1] = Config::arch == "P512" || Config::arch == "Pentagon" ? false : true;
     MemESP::ramContended[2] = false;
     MemESP::ramContended[3] = false;
 
@@ -865,7 +856,7 @@ void ESPectrum::reset()
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
         AY_emu = true;        
         Audio_freq = ESP_AUDIO_FREQ_128;
-    } else { /// if (Config::arch == "Pentagon" || Config::arch == "Scorpion") {
+    } else { /// if (Config::arch == "Pentagon") {
         samplesPerFrame = ESP_AUDIO_SAMPLES_PENTAGON;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_PENTAGON;
         AY_emu = true;        
@@ -1644,9 +1635,9 @@ void ESPectrum::loop() {
     faudioBit = lastaudioBit;
     faudbufcntAY = audbufcntAY;
     if (ESP_delay) {
-        if (Config::real_player) {
-            pwm_audio_in_frame_started();
-        }
+///        if (Config::real_player) {
+///            pwm_audio_in_frame_started();
+///        }
 
         ///xQueueSend(audioTaskQueue, &param, portMAX_DELAY);
         // Finish fill of beeper oversampled audio buffers
@@ -1686,7 +1677,7 @@ void ESPectrum::loop() {
                     if (Config::aspect_16_9) 
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen;
                     else
-                        VIDEO::Draw_OSD43 = Z80Ops::isPentagon || Z80Ops::isScorpion ? VIDEO::BottomBorder_Pentagon :  VIDEO::BottomBorder;
+                        VIDEO::Draw_OSD43 = Z80Ops::isPentagon ? VIDEO::BottomBorder_Pentagon :  VIDEO::BottomBorder;
                     VIDEO::brdnextframe = true;
                 }
             }

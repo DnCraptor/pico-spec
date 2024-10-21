@@ -56,7 +56,6 @@ uint32_t CPU::stFrame = 0;
 bool Z80Ops::is48;
 bool Z80Ops::is128;
 bool Z80Ops::isPentagon;
-bool Z80Ops::isScorpion;
 bool Z80Ops::is512;
 
 void CPU::reset() {
@@ -70,7 +69,6 @@ void CPU::reset() {
         Z80Ops::is48 = true;
         Z80Ops::is128 = false;
         Z80Ops::isPentagon = false;
-        Z80Ops::isScorpion = false;
         Z80Ops::is512 = false;
         statesInFrame = TSTATES_PER_FRAME_48;
         IntStart = INT_START48;
@@ -82,29 +80,16 @@ void CPU::reset() {
         Z80Ops::is48 = false;
         Z80Ops::is128 = true;
         Z80Ops::isPentagon = false;
-        Z80Ops::isScorpion = false;
         Z80Ops::is512 = false;
         statesInFrame = TSTATES_PER_FRAME_128;
         IntStart = INT_START128;
         IntEnd = INT_END128 + CPU::latetiming;
         // Set emulation loop sync target
         ESPectrum::target = MICROS_PER_FRAME_128;
-    } else if (Config::arch == "Scorpion") {
-        Z80Ops::is48 = false;
-        Z80Ops::is128 = false;
-        Z80Ops::isPentagon = true;
-        Z80Ops::isScorpion = true;
-        Z80Ops::is512 = false;
-        statesInFrame = TSTATES_PER_FRAME_PENTAGON;
-        IntStart = INT_START_PENTAGON;
-        IntEnd = INT_END_PENTAGON + CPU::latetiming;
-        // Set emulation loop sync target
-        ESPectrum::target = MICROS_PER_FRAME_PENTAGON;
     } else if (Config::arch == "P512") {
         Z80Ops::is48 = false;
         Z80Ops::is128 = false;
         Z80Ops::isPentagon = true;
-        Z80Ops::isScorpion = false;
         Z80Ops::is512 = true;
         statesInFrame = TSTATES_PER_FRAME_PENTAGON;
         IntStart = INT_START_PENTAGON;
@@ -115,7 +100,6 @@ void CPU::reset() {
         Z80Ops::is48 = false;
         Z80Ops::is128 = false;
         Z80Ops::isPentagon = true;
-        Z80Ops::isScorpion = false;
         Z80Ops::is512 = false;
         statesInFrame = TSTATES_PER_FRAME_PENTAGON;
         IntStart = INT_START_PENTAGON;

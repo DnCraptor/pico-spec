@@ -36,7 +36,6 @@ public:
     static bool is48;
     static bool is128;
     static bool isPentagon;
-    static bool isScorpion;
     static bool is512;
 };
 

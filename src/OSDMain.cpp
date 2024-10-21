@@ -137,7 +137,7 @@ static const uint8_t click128[116] = {   0,8,32,32,32,32,32,32,32,32,32,32,32,32
                                     };
 
 IRAM_ATTR void OSD::click() {
-    if (Config::tape_player || Config::real_player)
+    if (Config::tape_player /*|| Config::real_player*/)
         return; // Disable interface click on tape player mode
     pwm_audio_set_volume(ESP_VOLUME_MAX);
     if (Z80Ops::is48)
@@ -447,7 +447,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
             menu_curopt = 1;
             // Persist Load
             string menuload = MENU_PERSIST_LOAD[Config::lang];
-            for(int i=1; i <= 100; i++) {
+            for(int i=1; i <= 10; i++) {
                 menuload += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
             }
             uint8_t opt2 = menuRun(menuload);
@@ -461,7 +461,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
             menu_curopt = 1;
             while (1) {
                 string menusave = MENU_PERSIST_SAVE[Config::lang];
-                for(int i=1; i <= 100; i++) {
+                for(int i=1; i <= 10; i++) {
                     menusave += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
                 }
                 uint8_t opt2 = menuRun(menusave);
@@ -518,7 +518,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                     if (Config::aspect_16_9) 
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen;
                     else
-                        VIDEO::Draw_OSD43 = Z80Ops::isPentagon || Z80Ops::isScorpion ? VIDEO::BottomBorder_Pentagon :  VIDEO::BottomBorder;
+                        VIDEO::Draw_OSD43 = Z80Ops::isPentagon ? VIDEO::BottomBorder_Pentagon :  VIDEO::BottomBorder;
                 }
                 VIDEO::OSD &= 0xfc;
             } else {
@@ -527,7 +527,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                     if (Config::aspect_16_9) 
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                     else
-                        VIDEO::Draw_OSD43  = Z80Ops::isPentagon || Z80Ops::isScorpion ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
+                        VIDEO::Draw_OSD43  = Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
 
                     OSD::drawStats();
                 }
@@ -556,7 +556,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                 if (Config::aspect_16_9) 
                     VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                 else
-                    VIDEO::Draw_OSD43  = Z80Ops::isPentagon || Z80Ops::isScorpion ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
+                    VIDEO::Draw_OSD43  = Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
 
                 VIDEO::OSD = 0x04;
 
@@ -597,7 +597,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                 if (Config::aspect_16_9) 
                     VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                 else
-                    VIDEO::Draw_OSD43  = Z80Ops::isPentagon || Z80Ops::isScorpion ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
+                    VIDEO::Draw_OSD43  = Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
 
                 VIDEO::OSD = 0x04;
 
@@ -685,7 +685,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                             menu_saverect = true;
                             while (1) {
                                 string menuload = MENU_PERSIST_LOAD[Config::lang];
-                                for(int i=1; i <= 100; i++) {
+                                for(int i=1; i <= 10; i++) {
                                     menuload += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
                                 }
                                 uint8_t opt2 = menuRun(menuload);
@@ -702,7 +702,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                             menu_saverect = true;
                             while (1) {
                                 string menusave = MENU_PERSIST_SAVE[Config::lang];
-                                for(int i=1; i <= 100; i++) {
+                                for(int i=1; i <= 10; i++) {
                                     menusave += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
                                 }
                                 uint8_t opt2 = menuRun(menusave);
@@ -984,7 +984,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 menu_curopt = 1;
                                 menu_level = 2;                                       
                             }
-                        } else if (arch_num == 5) { // Pentagon 512K
+                        } else if (arch_num == 4) { // Pentagon 512K
                             menu_level = 2;
                             menu_curopt = 1;                    
                             menu_saverect = true;
@@ -996,25 +996,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 } else 
                                 if (opt2 == 2) {
                                     romset = "128Kcs";
-                                }
-                                menu_curopt = opt2;
-                                menu_saverect = false;
-                            } else {
-                                menu_curopt = 1;
-                                menu_level = 2;                                       
-                            }
-                        } else if (arch_num == 4) { // Scorpion
-                            menu_level = 2;
-                            menu_curopt = 1;                    
-                            menu_saverect = true;
-                            opt2 = menuRun(MENU_ROMS_SCORP[Config::lang]);
-                            if (opt2) {
-                                arch = "Scorpion";
-                                if (opt2 == 1) {
-                                    romset = "256Ks";
-                                } else 
-                                if (opt2 == 2) {
-                                    romset = "256Kcs";
                                 }
                                 menu_curopt = opt2;
                                 menu_saverect = false;
@@ -1047,11 +1028,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                         if (Config::pref_romSetP512 == "Last") {
                                             Config::romSet = romset;
                                             Config::romSetP512 = romset;
-                                        }
-                                    } else if (arch == "Scorpion") {
-                                        if (Config::pref_romSetScorp == "Last") {
-                                            Config::romSet = romset;
-                                            Config::romSetScorp = romset;
                                         }
                                     }
                                 }
@@ -1225,48 +1201,35 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 archprefmenu.replace(archprefmenu.find("[4",0),2,"[*");
                                 archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[S",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
                             } else if (Config::pref_arch == "128K") {
                                 archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[1",0),2,"[*");
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[S",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
                             } else if (Config::pref_arch == "Pentagon") {
                                 archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[*");
-                                archprefmenu.replace(archprefmenu.find("[S",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
-                            } else if (Config::pref_arch == "Scorpion") {
-                                archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[S",0),2,"[*");
                                 archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
                             } else if (Config::pref_arch == "P512") {
                                 archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[S",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[5",0),2,"[*");
                                 archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
                             } else {
                                 archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[S",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[L",0),2,"[*");
                             }
                             uint8_t opt2 = menuRun(archprefmenu);
                             if (opt2) {
-
                                 if (opt2 == 1)
                                     Config::pref_arch = "48K";
                                 else
@@ -1277,12 +1240,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     Config::pref_arch = "Pentagon";
                                 else
                                 if (opt2 == 4)
-                                    Config::pref_arch = "Scorpion";
-                                else
-                                if (opt2 == 5)
                                     Config::pref_arch = "P512";
                                 else
-                                if (opt2 == 6)
+                                if (opt2 == 5)
                                     Config::pref_arch = "Last";
 
                                 if (Config::pref_arch != prev_archpref) {
@@ -1440,7 +1400,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             break;
                                         }
                                     }
-                                } else if (opt2 == 5) {
+                                } else if (opt2 == 4) {
                                     menu_level = 3;
                                     menu_curopt = 1;                    
                                     menu_saverect = true;
@@ -1469,45 +1429,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             if (opt2 == 7)
                                                 Config::pref_romSetP512 = "Last";
                                             if (Config::pref_romSetP512 != prev_rprefP512) {
-                                                Config::save();
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 1;
-                                            menu_level = 2;                                       
-                                            break;
-                                        }
-                                    }
-                                } else if (opt2 == 4) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;                    
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string rprefScorp_menu = MENU_ROM_PREF_SCORP[Config::lang];
-                                        int mpos = -1;
-                                        while(1) {
-                                            mpos = rprefScorp_menu.find("[",mpos + 1);
-                                            if (mpos == string::npos) break;
-                                            string rmenu = rprefScorp_menu.substr(mpos + 1, 6);
-                                            trim(rmenu);
-                                            if (rmenu == Config::pref_romSetScorp) 
-                                                rprefScorp_menu.replace(mpos + 1, 6,"*");
-                                            else
-                                                rprefScorp_menu.replace(mpos + 1, 6," ");
-                                        }
-                                        string prev_rprefScorp = Config::pref_romSetScorp;
-                                        uint8_t opt2 = menuRun(rprefScorp_menu);
-                                        if (opt2) {
-                                            if (opt2 == 1)
-                                                Config::pref_romSetScorp = "256Ks";
-                                            else
-                                            if (opt2 == 2)
-                                                Config::pref_romSetScorp = "256Kcs";
-                                            else
-                                            if (opt2 == 7)
-                                                Config::pref_romSetScorp = "Last";
-                                            if (Config::pref_romSetScorp != prev_rprefScorp) {
                                                 Config::save();
                                             }
                                             menu_curopt = opt2;
@@ -1561,7 +1482,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                                 Config::save("render");
 
                                                 VIDEO::snow_toggle =
-                                                    Config::arch != "Pentagon" && Config::arch != "Scorpion" && Config::arch != "P512"
+                                                    Config::arch != "Pentagon" && Config::arch != "P512"
                                                      ? Config::render : false;                                                
 
                                                 if (VIDEO::snow_toggle) {
@@ -2071,29 +1992,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                             if (opt2) {
                                 // Update
                                 if (opt2 == 1) {
+                                    /// TODO: close all files
                                     reset_usb_boot(0, 0);
-                                    /**
-                                    string title = OSD_FIRMW_UPDATE[Config::lang];
-                                    string msg = OSD_DLG_SURE[Config::lang];
-                                    uint8_t res = msgDialog(title,msg);
-                                    if (res == DLG_YES) {
-                                        // Open firmware file
-                                        FIL firmware;
-                                        if (f_open(&firmware, MOUNT_POINT_SD "/firmware.upg", FA_READ) != FR_OK) {
-                                            osdCenteredMsg(OSD_NOFIRMW_ERR[Config::lang], LEVEL_WARN, 2000);
-                                        } else {
-                                            bool res = updateFirmware(&firmware);
-                                            f_close(&firmware);
-                                            string errMsg = OSD_FIRMW_ERR[Config::lang];
-                                            errMsg += " Code = " + to_string(res);
-                                            osdCenteredMsg(errMsg, LEVEL_ERROR, 3000);
-                                        }
-                                    } else {
-                                        menu_curopt = 1;
-                                        menu_level = 2;
-                                        menu_saverect = false;
-                                    }
-                                    */
+                                    while(1);
                                 } else if (opt2 == 2) {
                                         // Flash custom ROM 48K
                                         string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang],DISK_ROMFILE,26,15);
@@ -2125,18 +2026,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             mFile.erase(0, 1);
                                             string fname = FileUtils::ROM_Path +  mFile;
                                             bool res = updateROM(fname, 3);
-                                            if (res) return;
-                                        }
-                                        menu_curopt = 1;
-                                        menu_level = 2;
-                                        menu_saverect = false;
-                                } else if (opt2 == 5) {                                    
-                                        // Flash custom ROM 256K
-                                        string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang],DISK_ROMFILE,26,15);
-                                        if (mFile != "") {
-                                            mFile.erase(0, 1);
-                                            string fname = FileUtils::ROM_Path +  mFile;
-                                            bool res = updateROM(fname, 4);
                                             if (res) return;
                                         }
                                         menu_curopt = 1;
@@ -2629,21 +2518,6 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         Config::romSetPent = "128Kcs";
         Config::pref_arch = "Pentagon";
         Config::pref_romSetPent = "128Kcs";
-    } else if ( arch == 4 ) {
-        if( bytesfirmware > 0x10000 ) {
-            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
-            f_close(&customrom);
-            return false;
-        }
-        rom = scorpTest;
-        flash_target_offset = (size_t)rom - XIP_BASE;
-        max_flash_target_offset = flash_target_offset + (64 << 10);
-        dlgTitle += " Scorpion ";
-        Config::arch = "Scorpion";
-        Config::romSet = "256Kcs";
-        Config::romSetScorp = "256Kcs";
-        Config::pref_arch = "Scorpion";
-        Config::pref_romSetScorp = "256Kcs";
     }
 
     for (size_t i = flash_target_offset; i < max_flash_target_offset; i += FLASH_SECTOR_SIZE) {

@@ -129,7 +129,7 @@ IRAM_ATTR void VGA6Bit::interrupt(void *arg) {
     static int64_t elapsedmicros = 0;
     static int cntvsync = 0;
 
-    if (Config::tape_player || Config::real_player) {
+    if (Config::tape_player /* || Config::real_player */ ) {
         ESPectrum::vsync = true;
         return;
     }
@@ -338,7 +338,7 @@ void VIDEO::Reset() {
         Draw_OSD169 = MainScreen;
         Draw_OSD43 = BottomBorder;
         DrawBorder = TopBorder_Blank;
-    } else if (Config::arch == "Pentagon" || Config::arch == "Scorpion" || Config::arch == "P512") {
+    } else if (Config::arch == "Pentagon" || Config::arch == "P512") {
         tStatesPerLine = TSTATES_PER_LINE_PENTAGON;
         tStatesScreen = TS_SCREEN_PENTAGON;
         tStatesBorder = is169 ? TS_BORDER_360x200_PENTAGON : TS_BORDER_320x240_PENTAGON;        
@@ -366,8 +366,7 @@ void VIDEO::Reset() {
     memset((uint8_t *)VIDEO::dirty_lines,0x01,SPEC_H);
     #endif // DIRTY_LINES
 
-    VIDEO::snow_toggle = Config::arch != "P512" && Config::arch != "Pentagon" && Config::arch != "Scorpion"
-                        ? Config::render : false;
+    VIDEO::snow_toggle = Config::arch != "P512" && Config::arch != "Pentagon" ? Config::render : false;
 
     if (VIDEO::snow_toggle) {
         Draw = &Blank_Snow;
@@ -868,7 +867,7 @@ IRAM_ATTR void VIDEO::EndFrame() {
     }
 
     // Restart border drawing
-    DrawBorder = Z80Ops::isPentagon || Z80Ops::isScorpion ? &TopBorder_Blank_Pentagon : &TopBorder_Blank;
+    DrawBorder = Z80Ops::isPentagon ? &TopBorder_Blank_Pentagon : &TopBorder_Blank;
     lastBrdTstate = tStatesBorder;
     brdChange = false;
 

@@ -14,13 +14,11 @@ string   Config::romSet48 = "48K";
 string   Config::romSet128 = "128K";
 string   Config::romSetPent = "128Kp";
 string   Config::romSetP512 = "128Kp";
-string   Config::romSetScorp = "256Ks";
 string   Config::pref_arch = "48K";
 string   Config::pref_romSet_48 = "48K";
 string   Config::pref_romSet_128 = "128K";
 string   Config::pref_romSetPent = "128Kp";
 string   Config::pref_romSetP512 = "128Kp";
-string   Config::pref_romSetScorp = "256Ks";
 string   Config::ram_file = NO_RAM_FILE;
 string   Config::last_ram_file = NO_RAM_FILE;
 
@@ -32,7 +30,7 @@ bool     Config::AY48 = true;
 bool     Config::Issue2 = true;
 bool     Config::flashload = true;
 bool     Config::tape_player = false; // Tape player mode
-bool     Config::real_player = true;
+bool     Config::real_player = false;
 bool     Config::tape_timing_rg = false; // Rodolfo Guerra ROMs tape timings
 bool     Config::rightSpace = true;
 
@@ -112,20 +110,6 @@ void Config::requestMachine(string newArch, string newRomSet)
         } else if (romSet128 == "ZX81+") {
             MemESP::rom[0].assign_rom(gb_rom_0_s128_zx81);
             MemESP::rom[1].assign_rom(gb_rom_1_sinclair_128k);
-        }
-    } else if (arch == "Scorpion") {
-        if (newRomSet == "") romSet = "256Ks"; else romSet = newRomSet;
-        if (romSetScorp == "") romSetScorp = "256Ks"; else romSetScorp = newRomSet;                
-        if (romSetScorp == "256Kcs") {
-            MemESP::rom[0].assign_rom(scorpTest);
-            MemESP::rom[1].assign_rom(scorpTest + (16 << 10)); /// 16392;
-            MemESP::rom[2].assign_rom(scorpTest + (32 << 10));
-            MemESP::rom[3].assign_rom(scorpTest + (48 << 10));
-        } else {
-            MemESP::rom[0].assign_rom(gb_rom_0_pentagon_128k); /// scorp295;
-            MemESP::rom[1].assign_rom(scorp295 + (16 << 10));
-            MemESP::rom[2].assign_rom(scorp295 + (32 << 10));
-            MemESP::rom[3].assign_rom(scorp295 + (48 << 10));
         }
     } else { // Pentagon by default
         if (newRomSet=="") romSet = "128Kp"; else romSet = newRomSet;
@@ -215,13 +199,11 @@ void Config::load() {
         nvs_get_str(handle, "romSet128", romSet128, sts);
         nvs_get_str(handle, "romSetPent", romSetPent, sts);
         nvs_get_str(handle, "romSetP512", romSetP512, sts);
-        nvs_get_str(handle, "romSetScorp", romSetScorp, sts);
         nvs_get_str(handle, "pref_arch", pref_arch, sts);
         nvs_get_str(handle, "pref_romSet_48", pref_romSet_48, sts);
         nvs_get_str(handle, "pref_romSet_128", pref_romSet_128, sts);
         nvs_get_str(handle, "pref_romSetPent", pref_romSetPent, sts);
         nvs_get_str(handle, "pref_romSetP512", pref_romSetP512, sts);
-        nvs_get_str(handle, "pref_romSetScorp", pref_romSetScorp, sts);
         nvs_get_str(handle, "ram", ram_file, sts);
         nvs_get_b(handle, "AY48", AY48, sts);
         nvs_get_b(handle, "Issue2", Issue2, sts);
@@ -295,13 +277,11 @@ void Config::save(string value) {
         nvs_set_str(handle,"romSet128",romSet128.c_str());
         nvs_set_str(handle,"romSetPent",romSetPent.c_str());
         nvs_set_str(handle,"romSetP512",romSetP512.c_str());
-        nvs_set_str(handle,"romSetScorp",romSetScorp.c_str());
         nvs_set_str(handle,"pref_arch",pref_arch.c_str());
         nvs_set_str(handle,"pref_romSet_48",pref_romSet_48.c_str());
         nvs_set_str(handle,"pref_romSet_128",pref_romSet_128.c_str());
         nvs_set_str(handle,"pref_romSetPent",pref_romSetPent.c_str());
         nvs_set_str(handle,"pref_romSetP512",pref_romSetP512.c_str());
-        nvs_set_str(handle,"pref_romSetScorp",pref_romSetScorp.c_str());
         nvs_set_str(handle,"ram",ram_file.c_str());   
         nvs_set_str(handle,"slog",slog_on ? "true" : "false");
 ///        nvs_set_str(handle,"sdstorage", FileUtils::MountPoint);
