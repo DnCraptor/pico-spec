@@ -279,7 +279,7 @@ IRAM_ATTR void Z80Ops::poke8(uint16_t address, uint8_t value) {
 
     uint8_t page = address >> 14;
 
-    if (page == 0) {
+    if ( page == 0 && !MemESP::page0ram ) {
         VIDEO::Draw(3, false);
         return;
     }
@@ -367,7 +367,7 @@ IRAM_ATTR void Z80Ops::poke16(uint16_t address, RegisterPair word) {
 
     if (page_addr < 0x3fff) {    // Check if address is between two different pages    
 
-        if (page == 0) {
+        if (page == 0 && !MemESP::page0ram ) {
             VIDEO::Draw(6, false);
             return;
         }
