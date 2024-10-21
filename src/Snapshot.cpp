@@ -222,7 +222,7 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
             ESPectrum::trdos = false;
         }
 
-        MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
+        MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
         MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
         MemESP::ramContended[3] = Z80Ops::isPentagon || Z80Ops::isScorpion ? false : (MemESP::bankLatch & 0x01 ? true: false);
 
@@ -776,7 +776,7 @@ bool FileZ80::load(string z80_fn) {
                 dataOffset += compDataLen;
             }
 
-            MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
+            MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
             MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
             MemESP::ramContended[3] = Z80Ops::isPentagon || Z80Ops::isScorpion ? false : (MemESP::bankLatch & 0x01 ? true: false);
 
@@ -975,7 +975,7 @@ void FileZ80::loader48() {
 
     memset(MemESP::ram[2].sync(), 0, 0x4000);
 
-    MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
+    MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
     MemESP::ramContended[3] = false;
 
@@ -1126,7 +1126,7 @@ void FileZ80::loader128() {
     memset(MemESP::ram[4].sync(), 0, 0x4000);
     memset(MemESP::ram[6].sync(), 0, 0x4000);
     
-    MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
+    MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
     MemESP::ramContended[3] = Z80Ops::isPentagon || Z80Ops::isScorpion ? false : (MemESP::bankLatch & 0x01 ? true: false);
 

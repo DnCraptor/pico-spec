@@ -43,6 +43,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Tape.h"
 #include "CPU.h"
 #include "wd1793.h"
+#include "pwm_audio.h"
 
 // #pragma GCC optimize("O3")
 
@@ -121,6 +122,9 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
             if (port254 & 0x18) data |= 0x40;
         } else {
             if (port254 & 0x10) data |= 0x40;
+        }
+        if (Config::real_player) {
+            Tape::tapeEarBit = pcm_data_in();
         }
         if (Tape::tapeEarBit) data ^= 0x40;
     } else {
@@ -317,6 +321,17 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
             MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
         }
     }
+    // Pentagon only
+    if (Z80Ops::isPentagon && ((address & 0x1008) == 0)) { // 1008 !-> EFF7
+        if (!MemESP::pagingLock) {
+            uint8_t prev = MemESP::page0ram;
+            MemESP::notMore128 = bitRead(data, 2);
+            MemESP::page0ram = bitRead(data, 3);
+            if (MemESP::page0ram != prev) {
+                MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
+            }
+        }
+    }
     // 128K, Pentagon and Scorpion ==================================================================
     if ((!Z80Ops::is48) && ((address & 0x8002) == 0)) { // 8002 !-> 7FFD
         if (!MemESP::pagingLock) {
@@ -326,7 +341,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
             if (MemESP::shiftScorp) {
                 page += 8;
             }
-            if (Z80Ops::is512) {
+            if (Z80Ops::is512 && !MemESP::notMore128) {
                 uint8_t D6 = bitRead(data, 6);
                 uint8_t D7 = bitRead(data, 7);
                 if (D6) page += 8;

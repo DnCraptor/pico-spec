@@ -661,7 +661,7 @@ void ESPectrum::setup()
     MemESP::videoLatch = 0;
     MemESP::romLatch = 0;
 
-    MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
+    MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
     MemESP::ramCurrent[1] = MemESP::ram[5];
     MemESP::ramCurrent[2] = MemESP::ram[2];
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
@@ -816,7 +816,7 @@ void ESPectrum::reset()
     MemESP::videoLatch = 0;
     MemESP::romLatch = 0;
 
-    MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
+    MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
     MemESP::ramCurrent[1] = MemESP::ram[5];
     MemESP::ramCurrent[2] = MemESP::ram[2];
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
@@ -1635,7 +1635,7 @@ void ESPectrum::loop() {
     // Send audioBuffer to pwmaudio
     audbufcnt = 0;
     audbufcntover = 0;
-    audbufcntAY = 0;  
+    audbufcntAY = 0;
 
     CPU::loop();
 
@@ -1644,6 +1644,10 @@ void ESPectrum::loop() {
     faudioBit = lastaudioBit;
     faudbufcntAY = audbufcntAY;
     if (ESP_delay) {
+        if (Config::real_player) {
+            pwm_audio_in_frame_started();
+        }
+
         ///xQueueSend(audioTaskQueue, &param, portMAX_DELAY);
         // Finish fill of beeper oversampled audio buffers
         for (;faudbufcnt < (samplesPerFrame * audioSampleDivider); faudbufcnt++) {

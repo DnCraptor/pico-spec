@@ -97,6 +97,7 @@ public:
     static mem_desc_t ramCurrent[4];    
     static bool ramContended[4];
 
+    static uint8_t notMore128;
     static uint8_t page0ram;
     static uint8_t hiddenROM;
     static uint8_t page128;

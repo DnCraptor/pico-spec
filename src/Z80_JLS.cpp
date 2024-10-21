@@ -30,7 +30,6 @@
 #include "FileUtils.h"
 #include "OSDMain.h"
 #include "messages.h"
-#include "pwm_audio.h"
 
 // #pragma GCC optimize("O3")
 
@@ -945,7 +944,7 @@ IRAM_ATTR void Z80::check_trdos_unpage() {
                 MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
             } else {
                 MemESP::romInUse = MemESP::romLatch;
-                MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
+                MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
             }
             ESPectrum::trdos = false;
         }
@@ -1057,15 +1056,8 @@ IRAM_ATTR void Z80::incRegR(uint8_t inc) {
 
 IRAM_ATTR void Z80::execute() {
 
-    // // if (!(CPU::tstates & 0xf)) {
-    //     if (Tape::tapeStatus == TAPE_LOADING) {
-    //     // if (Tape::tapePhase == TAPE_PHASE_DATA) {
-    //         Tape::Read();
-    //     }
-    // // }
-    if (Config::real_player) {
-        Tape::tapeEarBit = pcm_data_in();
-    }
+//    if (!(CPU::tstates & 0xf)) {
+//    }
 
     uint8_t pg = REG_PC >> 14;
     VIDEO::Draw_Opcode(MemESP::ramContended[pg]);

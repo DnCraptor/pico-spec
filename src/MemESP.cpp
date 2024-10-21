@@ -102,6 +102,7 @@ mem_desc_t MemESP::ram[32];
 mem_desc_t MemESP::ramCurrent[4];
 bool MemESP::ramContended[4];
 
+uint8_t MemESP::notMore128 = 0;
 uint8_t MemESP::page0ram = 0;
 uint8_t MemESP::hiddenROM = 0;
 uint8_t MemESP::page128 = 0;

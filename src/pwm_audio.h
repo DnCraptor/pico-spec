@@ -8,6 +8,7 @@ void pcm_set_buffer(int16_t* buff, uint8_t channels, size_t size, pcm_end_callba
 // internal call on core#1
 void pcm_call();
 bool pcm_data_in(void);
+void pwm_audio_in_frame_started(void);
 
 #define esp_err_t int
 #define ESP_OK 0

@@ -42,7 +42,7 @@ visit https://zxespectrum.speccy.org/contacto
 #define MSG_SAVE_CONFIG "Saving config file"
 #define MSG_VGA_INIT "Initializing VGA"
 
-#define EMU_VERSION " v1.2/0.2.9 "
+#define EMU_VERSION " v1.2/" PORT_VERSION " "
 
 // Error
 #define ERROR_TITLE "  !!!   ERROR - CLIVE MEDITATION   !!!  "
@@ -55,9 +55,9 @@ visit https://zxespectrum.speccy.org/contacto
 
 // OSD
 #if !PICO_RP2040
-#define OSD_TITLE  " ESPectrum (RP2350 port) "
+#define OSD_TITLE  " ESPectrum (RP2350 port) " PORT_VERSION
 #else
-#define OSD_TITLE  " ESPectrum (RP2040 port) "
+#define OSD_TITLE  " ESPectrum (RP2040 port) " PORT_VERSION
 #endif
 // #define OSD_BOTTOM " SCIENCE LEADS TO PROGRESS              "
 #define OSD_BOTTOM " Murmulator port by MikeV73 " EMU_VERSION

@@ -6,6 +6,7 @@
 #include "audio.h"
 #include "pwm_audio.h"
 #include "Config.h"
+#include "CPU.h"
 
 #define VOLUME_0DB          (16)
 
@@ -73,12 +74,6 @@ inline static void inInit(uint gpio) {
     gpio_set_dir(gpio, GPIO_IN);
     gpio_pull_up(gpio);
 }
-static bool hw_get_bit_LOAD() {
-    uint8_t out = 0;
-    out = gpio_get(LOAD_WAV_PIO);
-    // valLoad=out*10;
-    return out > 0;
-};
 #endif
 
 void init_sound() {
@@ -106,13 +101,23 @@ static volatile size_t m_off = 0; // in 16-bit words
 static volatile size_t m_size = 0; // 16-bit values prepared (available)
 static volatile bool m_let_process_it = false;
 #endif
+static uint64_t ibuff_state_started = 0;
 static bool ibuff[640];
 static volatile uint16_t ibuff_off;
-static volatile uint16_t obuff_off;
+static uint32_t statesInFrame = 100000;
+static uint32_t samplesPerFrame = 640;
+static uint32_t statesPerSample = 100000 / 640;
 
 bool pcm_data_in(void) {
-    if (obuff_off >= sizeof(ibuff)) obuff_off = 0;
-    return ibuff[obuff_off++];
+    if (CPU::statesInFrame != statesInFrame || ESPectrum::samplesPerFrame != samplesPerFrame) {
+        CPU::statesInFrame = statesInFrame;
+        ESPectrum::samplesPerFrame = samplesPerFrame;
+        statesPerSample = CPU::statesInFrame / ESPectrum::samplesPerFrame;
+    }
+    uint64_t statesPassedFromFrameStarted = CPU::global_tstates + CPU::tstates - ibuff_state_started;
+    uint32_t obuff_off = statesPassedFromFrameStarted / statesPerSample;
+    if (obuff_off >= sizeof(ibuff)) return false;
+    return ibuff[obuff_off];
 }
 
 static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core#1?
@@ -120,10 +125,8 @@ static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core
     m_let_process_it = true;
 #endif
 #if LOAD_WAV_PIO
-    if (Config::real_player) {
-        ///Tape::tapeEarBit =
-        if (ibuff_off >= sizeof(ibuff)) ibuff_off = 0;
-        ibuff[ibuff_off++] = hw_get_bit_LOAD();
+    if (Config::real_player && ibuff_off < sizeof(ibuff)) {
+        ibuff[ibuff_off++] = gpio_get(LOAD_WAV_PIO);
     }
 #endif
     return true;
@@ -200,6 +203,12 @@ void pcm_setup(int hz, size_t size) {
 	// negative timeout means exact delay (rather than delay between callbacks)
 	add_repeating_timer_us(-1000000 / hz, timer_callback, NULL, &m_timer);
 #endif
+}
+
+// reset input buffer to start on each frame started
+void pwm_audio_in_frame_started(void) {
+    ibuff_state_started = CPU::global_tstates + CPU::tstates;
+    ibuff_off = 0;
 }
 
 // size - in 16-bit values count
