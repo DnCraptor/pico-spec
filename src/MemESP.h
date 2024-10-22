@@ -45,7 +45,8 @@ class mem_desc_t {
         uint8_t* p;
         uint32_t vram_off;
         bool in_vram;
-        mem_desc_int_t() : p(0), vram_off(0), in_vram(false) {}
+        bool is_rom;
+        mem_desc_int_t() : p(0), vram_off(0), in_vram(false), is_rom(false) {}
     };
     mem_desc_int_t* _int;
     uint8_t* to_vram(void);
@@ -84,6 +85,10 @@ public:
         this->_int->p = (uint8_t*)p;
         this->_int->vram_off = 0;
         this->_int->in_vram = false;
+        this->_int->is_rom = true;
+    }
+    inline bool is_rom(void) {
+        return this->_int->is_rom;
     }
 };
 
@@ -92,7 +97,7 @@ class MemESP
 {
 public:
     static mem_desc_t rom[5];
-    static mem_desc_t ram[32];
+    static mem_desc_t ram[64];
 
     static mem_desc_t ramCurrent[4];    
     static bool ramContended[4];
@@ -139,7 +144,7 @@ inline void MemESP::writebyte(uint16_t addr, uint8_t data)
     uint8_t page = addr >> 14;
     switch (page) {
     case 0:
-        if (page0ram) ram[0].sync()[addr] = data;
+        if (page0ram && !ram[0].is_rom()) ram[0].sync()[addr] = data;
         return;
     case 1:
         ram[5].direct()[addr - 0x4000] = data;

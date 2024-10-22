@@ -1166,10 +1166,11 @@ bool Tape::FlashLoad() {
 
         // printf("Case 1\n");
         UINT br;
-        if ( page == 0 && !MemESP::page0ram )
+        mem_desc_t& p = MemESP::ramCurrent[page];
+        if ( p.is_rom() || (page == 0 && !MemESP::page0ram) )
             f_lseek(&tape, f_tell(&tape) + nBytes);
         else {
-            f_read(&tape, &MemESP::ramCurrent[page].sync()[addr2], nBytes, &br);
+            f_read(&tape, &p.sync()[addr2], nBytes, &br);
         }
 
         while ((count < nBytes) && (count < blockLen - 1)) {

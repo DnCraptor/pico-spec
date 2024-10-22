@@ -470,7 +470,8 @@ static const char *MENU_ISSUE2[2] = { "48K Issue 2\n", "48K Issue 2\n"};
     "Spectrum 48K\t>\n"\
     "Spectrum 128K\t>\n"\
 	"Pentagon 128K\t>\n"\
-	"Pentagon 512K\t>\n"
+	"Pentagon 512K\t>\n"\
+	"Pentagon 1024K\t>\n"
 static const char *MENU_ARCH[2] = { MENU_ARCH_EN MENU_ARCHS, MENU_ARCH_ES MENU_ARCHS };
 
 #define MENU_ROMS48_EN "Select ROM\n"\
@@ -526,7 +527,8 @@ static const char *MENU_ROMS_SCORP[2] = { MENU_ROMS_SCORP_EN, MENU_ROMS_SCORP_ES
     "Spectrum 48K\t[4]\n"\
     "Spectrum 128K\t[1]\n"\
 	"Pentagon 128K\t[P]\n"\
-	"Pentagon 512K\t[5]\n"
+	"Pentagon 512K\t[5]\n"\
+	"Pentagon 1024K\t[2]\n"
 static const char *MENU_ARCH_PREF[2] = {
 	"Preferred machine\n" MENU_ARCHS_PREF "Last used\t[L]\n",
 	"Modelo preferido\n" MENU_ARCHS_PREF "Ultimo utilizado\t[L]\n"
@@ -536,7 +538,8 @@ static const char *MENU_ARCH_PREF[2] = {
     "Spectrum 48K\t>\n"\
     "Spectrum 128K\t>\n"\
     "Pentagon 128K\t>\n"\
-    "Pentagon 512K\t>\n"
+    "Pentagon 512K\t>\n"\
+    "Pentagon 1024K\t>\n"
 static const char *MENU_ROM_PREF[2] = {
   "Preferred ROM\n" MENU_ROMS_PREF,
   "ROM preferida\n" MENU_ROMS_PREF

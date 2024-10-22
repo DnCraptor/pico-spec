@@ -312,14 +312,16 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     // 128K, Pentagon ==================================================================
     if ((!Z80Ops::is48) && ((address & 0x8002) == 0)) { // 8002 !-> 7FFD
         if (!MemESP::pagingLock) {
-            MemESP::pagingLock = bitRead(data, 5);
+            uint8_t D5 = bitRead(data, 5);
+            MemESP::pagingLock = Z80Ops::is1024 && MemESP::notMore128 ? D5 : 0;
             MemESP::page128 = (data & 0x7);
             uint8_t page = MemESP::page128;
-            if (Z80Ops::is512 && !MemESP::notMore128) {
+            if ((Z80Ops::is512 || Z80Ops::is1024) && !MemESP::notMore128 && !MemESP::pagingLock) {
                 uint8_t D6 = bitRead(data, 6);
                 uint8_t D7 = bitRead(data, 7);
                 if (D6) page += 8;
                 if (D7) page += 16;
+                if (Z80Ops::is1024 && D5) page += 32;
             }
             if (MemESP::bankLatch != page) {
                 MemESP::bankLatch = page;

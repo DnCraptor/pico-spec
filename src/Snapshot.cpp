@@ -107,8 +107,10 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
             snapshotArch = Config::arch;
         else    
             snapshotArch = "Pentagon";
-    } else if ((sna_size == SNA_128K_SIZE1 + 8 * (32 << 10)) || (sna_size == SNA_128K_SIZE2 + 8 * (32 << 10))) {
+    } else if ((sna_size == SNA_128K_SIZE1 + ( 8 + 16 ) * 0x4000) || (sna_size == SNA_128K_SIZE2 + ( 8 + 16 ) * 0x4000)) {
         snapshotArch = "P512";
+    } else if ((sna_size == SNA_128K_SIZE1 + ( 8 + 16 + 32 ) * 0x4000) || (sna_size == SNA_128K_SIZE2 + ( 8 + 16 + 32 ) * 0x4000)) {
+        snapshotArch = "P1024";
     } else {
         OSD::osdCenteredMsg("Bad SNA:\n" + sna_fn + "\nsize: " + to_string(sna_size) + "\n", LEVEL_INFO, 5000);
         return false;
@@ -199,7 +201,7 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
         uint8_t tr_dos = readByteFile(file);     // Check if TR-DOS is paged
         
         // read remaining pages
-        for (int page = 0; page < (Z80Ops::is512 ? 32 : 8); page++) {
+        for (int page = 0; page < (Z80Ops::is1024 ? 64 : (Z80Ops::is512 ? 32 : 8)); page++) {
             if (page != tmp_latch && page != 2 && page != 5) {
                 readBlockFile(file, MemESP::ram[page].sync(), 0x4000);
             }
@@ -350,7 +352,7 @@ bool FileSNA::save(string sna_file, bool blockMode) {
             writeByteFile(0, file);     // TR-DOS not paged
 
         // write remaining ram pages
-        for (int page = 0; page < (Z80Ops::is512 ? 32 : 8); page++) {
+        for (int page = 0; page < (Z80Ops::is1024 ? 64 : (Z80Ops::is512 ? 32 : 8)); page++) {
             if (page != MemESP::bankLatch && page != 2 && page != 5) {
                 if (!writeMemPage(page, file, blockMode)) {
                     f_close(&file);
@@ -455,7 +457,7 @@ bool FileZ80::load(string z80_fn) {
             if (mch == 9) z80_arch = "Pentagon";
             if (mch == 12) z80_arch = "128K"; // Spectrum +2
             if (mch == 13) z80_arch = "128K"; // Spectrum +2A            
-/// TODO:            if (mch == 15) z80_arch = "P512";
+/// TODO:            if (mch == 15) z80_arch = "P512"; + P1024
         }
 
     }
@@ -501,6 +503,10 @@ bool FileZ80::load(string z80_fn) {
         if (z80_arch == "P512") {
             if (Config::pref_romSetP512 == "128Kp" || Config::pref_romSetP512 == "128Kcs")
                 z80_romset = Config::pref_romSetP512;
+        } else
+        if (z80_arch == "P1024") {
+            if (Config::pref_romSetP1M == "128Kp" || Config::pref_romSetP1M == "128Kcs")
+                z80_romset = Config::pref_romSetP1M;
         }
 
         // printf("z80_arch: %s mch: %d pref_romset48: %s pref_romset128: %s z80_romset: %s\n",z80_arch.c_str(),mch,Config::pref_romSet_48.c_str(),Config::pref_romSet_128.c_str(),z80_romset.c_str());
@@ -719,7 +725,7 @@ bool FileZ80::load(string z80_fn) {
                 dataOffset += compDataLen;
             }
 
-        } else if ((z80_arch == "128K") || (z80_arch == "Pentagon") || (z80_arch == "P512")) {
+        } else if ((z80_arch == "128K") || (z80_arch == "Pentagon") || (z80_arch == "P512")  || (z80_arch == "P1024")) {
             
             // paging register
             uint8_t b35 = header[35];
@@ -997,7 +1003,7 @@ void FileZ80::loader128() {
             z80_array = (unsigned char *) loadzx81;
             dataLen = sizeof(loadzx81);
         }
-    } else if (Config::arch == "Pentagon" || Config::arch == "P512") {
+    } else if (Config::arch == "Pentagon" || Config::arch == "P512"  || Config::arch == "P1024") {
         z80_array = (unsigned char *) loadpentagon;
         dataLen = sizeof(loadpentagon);
     }

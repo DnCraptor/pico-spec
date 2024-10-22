@@ -443,11 +443,11 @@ void ESPectrum::bootKeyboard() {
     static unsigned char MemESP_ram[(128ul + 256ul) << 10];
     #endif
 #else
-    #ifdef HDMI
+///    #ifdef HDMI
     static unsigned char MemESP_ram[112ul << 10];
-    #else
-    static unsigned char MemESP_ram[128ul << 10];
-    #endif
+///    #else
+///    static unsigned char MemESP_ram[128ul << 10];
+///    #endif
 #endif
 
 static unsigned char *MemESP_ram0 = MemESP_ram;
@@ -457,12 +457,12 @@ static unsigned char *MemESP_ram2 = MemESP_ram + 0x4000 + 0x8000;
 static unsigned char *MemESP_ram4 = MemESP_ram + 4 * 0x4000;
 static unsigned char *MemESP_ram5 = MemESP_ram + 5 * 0x4000;
 #if PICO_RP2040
-    #ifdef HDMI
+///    #ifdef HDMI
     static unsigned char *MemESP_ram7 = MemESP_ram + 6 * 0x4000;
-    #else
-    static unsigned char *MemESP_ram6 = MemESP_ram + 6 * 0x4000;
-    static unsigned char *MemESP_ram7 = MemESP_ram + 7 * 0x4000;
-    #endif
+///    #else
+///    static unsigned char *MemESP_ram6 = MemESP_ram + 6 * 0x4000;
+///    static unsigned char *MemESP_ram7 = MemESP_ram + 7 * 0x4000;
+///    #endif
 #else
     static unsigned char *MemESP_ram6 = MemESP_ram + 6 * 0x4000;
     static unsigned char *MemESP_ram7 = MemESP_ram + 7 * 0x4000;
@@ -479,23 +479,13 @@ void ESPectrum::setup()
     // INIT FILESYSTEM
     //=======================================================================================
     FileUtils::initFileSystem();
-///    if (Config::slog_on) showMemInfo("File system started");
+
     mem_desc_t::reset();
 
     //=======================================================================================
     // LOAD CONFIG
     //=======================================================================================
     Config::load();
-
-    // printf("---------------------------------\n");
-    // printf("Ram file: %s\n",Config::ram_file.c_str());
-    // printf("Arch: %s\n",Config::arch.c_str());
-    // printf("pref Arch: %s\n",Config::pref_arch.c_str());
-    // printf("romSet: %s\n",Config::romSet.c_str());
-    // printf("romSet48: %s\n",Config::romSet48.c_str());
-    // printf("romSet128: %s\n",Config::romSet128.c_str());        
-    // printf("pref_romSet_48: %s\n",Config::pref_romSet_48.c_str());
-    // printf("pref_romSet_128: %s\n",Config::pref_romSet_128.c_str());        
     
     // Set arch if there's no snapshot to load
     if (Config::ram_file == NO_RAM_FILE) {
@@ -520,6 +510,11 @@ void ESPectrum::setup()
                     Config::romSet = Config::pref_romSetP512;
                 else
                     Config::romSet = Config::romSetP512;
+            } else if (Config::arch == "P1024") {
+                if (Config::pref_romSetP1M != "Last")
+                    Config::romSet = Config::pref_romSetP1M;
+                else
+                    Config::romSet = Config::romSetP1M;
             } else {
                 if (Config::pref_romSetPent != "Last")
                     Config::romSet = Config::pref_romSetPent;
@@ -528,16 +523,6 @@ void ESPectrum::setup()
             }
         }
     }
-
-    // printf("---------------------------------\n");
-    // printf("Ram file: %s\n",Config::ram_file.c_str());
-    // printf("Arch: %s\n",Config::arch.c_str());
-    // printf("pref Arch: %s\n",Config::pref_arch.c_str());
-    // printf("romSet: %s\n",Config::romSet.c_str());
-    // printf("romSet48: %s\n",Config::romSet48.c_str());
-    // printf("romSet128: %s\n",Config::romSet128.c_str());        
-    // printf("pref_romSet_48: %s\n",Config::pref_romSet_48.c_str());
-    // printf("pref_romSet_128: %s\n",Config::pref_romSet_128.c_str());        
 
     //=======================================================================================
     // INIT PS/2 KEYBOARD
@@ -571,37 +556,6 @@ void ESPectrum::setup()
         ESPectrum::VK_ESPECTRUM_GRAVEACCENT = fabgl::VK_GRAVEACCENT;
     }
 
-    #ifndef ESP32_SDL2_WRAPPER
-
-///    if (Config::slog_on) { showMemInfo("Keyboard started"); }
-
-    // Get chip information
-///    esp_chip_info_t chip_info;
-///    esp_chip_info(&chip_info);
-///    Config::esp32rev = chip_info.revision;
-/***
-    if (Config::slog_on) {
-
-        printf("\n");
-        printf("This is %s chip with %d CPU core(s), WiFi%s%s, ",
-                CONFIG_IDF_TARGET,
-                chip_info.cores,
-                (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
-                (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
-        printf("silicon revision %d, ", chip_info.revision);
-        printf("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
-                (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
-        printf("IDF Version: %s\n",esp_get_idf_version());
-        printf("\n");
-
-        if (Config::slog_on) printf("Executing on core: %u\n", xPortGetCoreID());
-
-        showMemInfo();
-
-    }
-*/
-    #endif
-
     //=======================================================================================
     // BOOTKEYS: Read keyboard for 200 ms. checking boot keys
     //=======================================================================================
@@ -624,11 +578,11 @@ void ESPectrum::setup()
 
     MemESP::ram[4].assign_ram(MemESP_ram4, 4, false);
 #if PICO_RP2040
-    #ifdef HDMI
+///    #ifdef HDMI
     MemESP::ram[6].assign_vram(6);
-    #else
-    MemESP::ram[6].assign_ram(MemESP_ram6, 6, false);
-    #endif
+///    #else
+///    MemESP::ram[6].assign_ram(MemESP_ram6, 6, false);
+///    #endif
 #else
     MemESP::ram[6].assign_ram(MemESP_ram6, 6, false);
 #endif
@@ -636,13 +590,13 @@ void ESPectrum::setup()
 #if !PICO_RP2040
     #ifdef HDMI
     for (size_t i = 8; i < 23; ++i) MemESP::ram[i].assign_ram(MemESP_ram + 0x4000 * i, i, false);
-    for (size_t i = 23; i < 32; ++i) MemESP::ram[i].assign_vram(i);
+    for (size_t i = 23; i < 64; ++i) MemESP::ram[i].assign_vram(i);
     #else
     for (size_t i = 8; i < 24; ++i) MemESP::ram[i].assign_ram(MemESP_ram + 0x4000 * i, i, false);
-    for (size_t i = 24; i < 32; ++i) MemESP::ram[i].assign_vram(i);
+    for (size_t i = 24; i < 64; ++i) MemESP::ram[i].assign_vram(i);
     #endif
 #else
-    for (size_t i = 8; i < 32; ++i) MemESP::ram[i].assign_vram(i);
+    for (size_t i = 8; i < 64; ++i) MemESP::ram[i].assign_vram(i);
 #endif
 
     // Load romset
@@ -661,7 +615,7 @@ void ESPectrum::setup()
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
 
     MemESP::ramContended[0] = false;
-    MemESP::ramContended[1] = Config::arch == "P512" || Config::arch == "Pentagon" ? false : true;
+    MemESP::ramContended[1] = Config::arch == "P1024" || Config::arch == "P512" || Config::arch == "Pentagon" ? false : true;
     MemESP::ramContended[2] = false;
     MemESP::ramContended[3] = false;
 
@@ -814,7 +768,7 @@ void ESPectrum::reset()
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
 
     MemESP::ramContended[0] = false;
-    MemESP::ramContended[1] = Config::arch == "P512" || Config::arch == "Pentagon" ? false : true;
+    MemESP::ramContended[1] = Config::arch == "P1024" || Config::arch == "P512" || Config::arch == "Pentagon" ? false : true;
     MemESP::ramContended[2] = false;
     MemESP::ramContended[3] = false;
 

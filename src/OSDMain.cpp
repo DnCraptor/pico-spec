@@ -1003,6 +1003,25 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 menu_curopt = 1;
                                 menu_level = 2;                                       
                             }
+                        } else if (arch_num == 5) { // Pentagon 1024K
+                            menu_level = 2;
+                            menu_curopt = 1;                    
+                            menu_saverect = true;
+                            opt2 = menuRun(MENU_ROMS_PENT[Config::lang]);
+                            if (opt2) {
+                                arch = "P1024";
+                                if (opt2 == 1) {
+                                    romset = "128Kp";
+                                } else 
+                                if (opt2 == 2) {
+                                    romset = "128Kcs";
+                                }
+                                menu_curopt = opt2;
+                                menu_saverect = false;
+                            } else {
+                                menu_curopt = 1;
+                                menu_level = 2;                                       
+                            }
                         }
 
                         if (opt2) {
@@ -1028,6 +1047,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                         if (Config::pref_romSetP512 == "Last") {
                                             Config::romSet = romset;
                                             Config::romSetP512 = romset;
+                                        }
+                                    } else if (arch == "P1024") {
+                                        if (Config::pref_romSetP1M == "Last") {
+                                            Config::romSet = romset;
+                                            Config::romSetP1M = romset;
                                         }
                                     }
                                 }
@@ -1203,29 +1227,41 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[2",0),2,"[ ");
                             } else if (Config::pref_arch == "128K") {
                                 archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[1",0),2,"[*");
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[2",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
                             } else if (Config::pref_arch == "Pentagon") {
                                 archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[*");
                                 archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[2",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
                             } else if (Config::pref_arch == "P512") {
                                 archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[5",0),2,"[*");
+                                archprefmenu.replace(archprefmenu.find("[2",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
+                            } else if (Config::pref_arch == "P1024") {
+                                archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[2",0),2,"[*");
                                 archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
                             } else {
                                 archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[2",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[L",0),2,"[*");
                             }
                             uint8_t opt2 = menuRun(archprefmenu);
@@ -1243,6 +1279,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     Config::pref_arch = "P512";
                                 else
                                 if (opt2 == 5)
+                                    Config::pref_arch = "P1024";
+                                else
+                                if (opt2 == 6)
                                     Config::pref_arch = "Last";
 
                                 if (Config::pref_arch != prev_archpref) {
@@ -1435,7 +1474,46 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             menu_saverect = false;
                                         } else {
                                             menu_curopt = 1;
-                                            menu_level = 2;                                       
+                                            menu_level = 2;
+                                            break;
+                                        }
+                                    }
+                                } else if (opt2 == 5) {
+                                    menu_level = 3;
+                                    menu_curopt = 1;                    
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string rprefP1M_menu = MENU_ROM_PREF_PENT[Config::lang];
+                                        int mpos = -1;
+                                        while(1) {
+                                            mpos = rprefP1M_menu.find("[",mpos + 1);
+                                            if (mpos == string::npos) break;
+                                            string rmenu = rprefP1M_menu.substr(mpos + 1, 6);
+                                            trim(rmenu);
+                                            if (rmenu == Config::pref_romSetP1M) 
+                                                rprefP1M_menu.replace(mpos + 1, 6,"*");
+                                            else
+                                                rprefP1M_menu.replace(mpos + 1, 6," ");
+                                        }
+                                        string prev_rprefP1M = Config::pref_romSetP1M;
+                                        uint8_t opt2 = menuRun(rprefP1M_menu);
+                                        if (opt2) {
+                                            if (opt2 == 1)
+                                                Config::pref_romSetP1M = "128Kp";
+                                            else
+                                            if (opt2 == 2)
+                                                Config::pref_romSetP1M = "128Kcs";
+                                            else
+                                            if (opt2 == 7)
+                                                Config::pref_romSetP1M = "Last";
+                                            if (Config::pref_romSetP1M != prev_rprefP1M) {
+                                                Config::save();
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = 1;
+                                            menu_level = 2;
                                             break;
                                         }
                                     }
@@ -1482,7 +1560,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                                 Config::save("render");
 
                                                 VIDEO::snow_toggle =
-                                                    Config::arch != "Pentagon" && Config::arch != "P512"
+                                                    Config::arch != "P1024" && Config::arch != "Pentagon" && Config::arch != "P512"
                                                      ? Config::render : false;                                                
 
                                                 if (VIDEO::snow_toggle) {
