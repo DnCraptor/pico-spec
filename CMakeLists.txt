@@ -16,7 +16,8 @@ cmake_minimum_required(VERSION 3.13)
 
 set(VGA_DRV ON)
 ##set(HDMI ON)
-set(CPU_MHZ 378)
+set(CPU_MHZ 366)
+###set(CPU_MHZ 378)
 set (PORT_VERSION "0.3.0")
 
 set(CMAKE_C_STANDARD 11)
@@ -43,7 +44,7 @@ project(pico2-spec C CXX ASM)
 pico_sdk_init()
 
 add_subdirectory(drivers/audio)
-add_subdirectory(drivers/ps2kbd)
+add_subdirectory(drivers/ps2)
 add_subdirectory(drivers/nespad)
 add_subdirectory(drivers/fatfs)
 add_subdirectory(drivers/sdcard)
@@ -74,7 +75,7 @@ target_link_libraries(pico2-spec PRIVATE
     audio
     graphics
     
-    ps2kbd
+    ps2
     nespad
     sdcard
     fatfs
@@ -154,10 +155,6 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
         PSRAM_PIN_SCK=19
         PSRAM_PIN_MOSI=20
         PSRAM_PIN_MISO=21
-
-        # PS2KBD
-        USE_PS2_KBD
-        PS2KBD_GPIO_FIRST=0
 
         # NES Gamepad
         USE_NESPAD
