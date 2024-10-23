@@ -238,13 +238,13 @@ static bool persistSave(uint8_t slotnumber)
     OSD::osdCenteredMsg(OSD_PSNA_SAVING, LEVEL_INFO, 500);
 
     // Save info file
-    FIL f;
-    if (f_open(&f, finfo.c_str(), FA_WRITE | FA_CREATE_ALWAYS) != FR_OK) {
+    FIL* f = fopen2(finfo.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
+    if (!f) {
         OSD::osdCenteredMsg(finfo + " - unable to open", LEVEL_ERROR, 5000);
         return false;
     }
-    fputs((Config::arch + "\n" + Config::romSet + "\n").c_str(), f);    // Put architecture and romset on info file
-    f_close(&f);
+    fputs((Config::arch + "\n" + Config::romSet + "\n").c_str(), *f);    // Put architecture and romset on info file
+    fclose2(f);
 
     string fsna = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfname;
     if (!FileSNA::save(fsna)) {
@@ -274,8 +274,6 @@ static void f_gets(char* b, size_t sz, FIL& f) {
     b[sz - 1] = 0;
 }
 
-static FIL f;
-
 static bool persistLoad(uint8_t slotnumber)
 {
     char persistfname[sizeof(DISK_PSNA_FILE) + 7];
@@ -290,20 +288,18 @@ static bool persistLoad(uint8_t slotnumber)
     } else {
         // Read info file
         string finfo = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfinfo;
-        if (f_open(&f, finfo.c_str(), FA_READ) != FR_OK) {
+        FIL* f = fopen2(finfo.c_str(), FA_READ);
+        if (!f) {
             OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
             // printf("Error opening %s\n",persistfinfo);
             return false;
         }
         char buf[256];
-
-        f_gets(buf, sizeof(buf), f);
+        f_gets(buf, sizeof(buf), *f);
         string persist_arch = buf;
-
-        f_gets(buf, sizeof(buf), f);
+        f_gets(buf, sizeof(buf), *f);
         string persist_romset = buf;
-
-        f_close(&f);
+        fclose2(f);
 
         if (!LoadSnapshot(FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfname, persist_arch, persist_romset)) {
             OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
@@ -2545,11 +2541,12 @@ static void __not_in_flash_func(cleanup_block)(size_t flash_target_offset) {
 }
 
 bool OSD::updateROM(const string& fname, uint8_t arch) {
-    if (f_open(&f, fname.c_str(), FA_READ) != FR_OK) {
+    FIL* f = fopen2(fname.c_str(), FA_READ);
+    if (!f) {
         osdCenteredMsg(OSD_NOROMFILE_ERR[Config::lang], LEVEL_WARN, 2000);
         return false;
     }
-    FSIZE_t bytesfirmware = f_size(&f); 
+    FSIZE_t bytesfirmware = f_size(f); 
     const uint8_t* rom;
     size_t max_flash_target_offset, flash_target_offset = 0;
     string dlgTitle = OSD_ROM[Config::lang];
@@ -2557,7 +2554,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     if ( arch == 1 ) {
         if( bytesfirmware > 0x4000 ) {
             osdCenteredMsg("Too long file", LEVEL_WARN, 2000);
-            f_close(&f);
+            fclose2(f);
             return false;
         }
         rom = gb_rom_0_48k_custom;
@@ -2574,7 +2571,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     else if ( arch == 2 ) {
         if( bytesfirmware > 0x8000 ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
-            f_close(&f);
+            fclose2(f);
             return false;
         }
         rom = gb_rom_0_128k_custom;
@@ -2590,7 +2587,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     else if ( arch == 3 ) {
         if( bytesfirmware > 0x8000 ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
-            f_close(&f);
+            fclose2(f);
             return false;
         }
         rom = gb_rom_0_128k_custom;
@@ -2612,15 +2609,15 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     const size_t sz = 512;
     uint8_t* buffer = (uint8_t*)malloc(sz);
     for (FSIZE_t i = 0; i < bytesfirmware; i += sz) {
-        if ( f_read(&f, buffer, sz, &br) != FR_OK) {
+        if ( f_read(f, buffer, sz, &br) != FR_OK) {
             osdCenteredMsg(fname + " - unable to read", LEVEL_ERROR, 5000);
-            f_close(&f);
+            fclose2(f);
             return false;
         }
         flash_block(buffer, flash_target_offset + (size_t)(i & 0xFFFFFFFF));
     }
     free(buffer);
-    f_close(&f);
+    fclose2(f);
     Config::save();
     Config::requestMachine(Config::arch, Config::romSet128);
     // Firmware written: reboot

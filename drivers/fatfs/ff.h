@@ -345,8 +345,11 @@ TCHAR* f_gets (TCHAR* buff, int len, FIL* fp);						/* Get a string from the fil
 #define f_rmdir(path) f_unlink(path)
 #define f_unmount(path) f_mount(0, path, 0)
 
-
-
+FIL* fopen2 (
+	const TCHAR* path,	/* Pointer to the file name */
+	BYTE mode			/* Access mode and open mode flags */
+);
+void fclose2 (FIL* f);
 
 /*--------------------------------------------------------------*/
 /* Additional user defined functions                            */

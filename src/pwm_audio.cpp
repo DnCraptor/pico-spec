@@ -102,13 +102,14 @@ static volatile size_t m_off = 0; // in 16-bit words
 static volatile size_t m_size = 0; // 16-bit values prepared (available)
 static volatile bool m_let_process_it = false;
 #endif
-static uint64_t ibuff_state_started = 0;
-static bool ibuff[640];
-static volatile uint16_t ibuff_off;
-static uint32_t statesInFrame = 100000;
-static uint32_t samplesPerFrame = 640;
-static uint32_t statesPerSample = 100000 / 640;
+///static uint64_t ibuff_state_started = 0;
+///static bool ibuff[640];
+///static volatile uint16_t ibuff_off;
+///static uint32_t statesInFrame = 100000;
+///static uint32_t samplesPerFrame = 640;
+///static uint32_t statesPerSample = 100000 / 640;
 
+/**
 bool pcm_data_in(void) {
     if (CPU::statesInFrame != statesInFrame || ESPectrum::samplesPerFrame != samplesPerFrame) {
         CPU::statesInFrame = statesInFrame;
@@ -120,6 +121,7 @@ bool pcm_data_in(void) {
     if (obuff_off >= sizeof(ibuff)) return false;
     return ibuff[obuff_off];
 }
+*/
 
 static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core#1?
 #ifndef I2S_SOUND
@@ -208,8 +210,8 @@ void pcm_setup(int hz, size_t size) {
 
 // reset input buffer to start on each frame started
 void pwm_audio_in_frame_started(void) {
-    ibuff_state_started = CPU::global_tstates + CPU::tstates;
-    ibuff_off = 0;
+///    ibuff_state_started = CPU::global_tstates + CPU::tstates;
+///    ibuff_off = 0;
 }
 
 // size - in 16-bit values count

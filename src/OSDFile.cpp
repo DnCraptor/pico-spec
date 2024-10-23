@@ -279,7 +279,7 @@ uint8_t OSD::fdCursorFlash;
 bool OSD::fdSearchRefresh;    
 
 size_t fread(uint8_t* v, size_t sz1, size_t sz2, FIL& f);
-int fseek (FIL& stream, long offset, int origin);
+int fseek (FIL* stream, long offset, int origin);
 inline void fclose(FIL& f) {
     f_close(&f);
 }

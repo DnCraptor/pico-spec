@@ -127,7 +127,7 @@ void Config::requestMachine(string newArch, string newRomSet)
     MemESP::rom[4].assign_rom(gb_rom_4_trdos_503);
 }
 
-static bool nvs_get_str(FIL& handle, const char* key, string& v, const vector<string>& sts) {
+static bool nvs_get_str(const char* key, string& v, const vector<string>& sts) {
     string k = key; k += '=';
     for(const string& s: sts) {
         if ( strncmp(k.c_str(), s.c_str(), k.size()) == 0 ) {
@@ -140,50 +140,45 @@ static bool nvs_get_str(FIL& handle, const char* key, string& v, const vector<st
     }
     return false;
 }
-static void nvs_get_b(FIL& handle, const char* key, bool& v, const vector<string>& sts) {
+static void nvs_get_b(const char* key, bool& v, const vector<string>& sts) {
     string t;
-    if (nvs_get_str(handle, key, t, sts)) {
+    if (nvs_get_str(key, t, sts)) {
         v = (t == "true");
     }
 }
-static void nvs_get_i8(FIL& handle, const char* key, int8_t& v, const vector<string>& sts) {
+static void nvs_get_i8(const char* key, int8_t& v, const vector<string>& sts) {
     string t;
-    if (nvs_get_str(handle, key, t, sts)) {
+    if (nvs_get_str(key, t, sts)) {
         v = atoi(t.c_str());
     }
 }
-static void nvs_get_u8(FIL& handle, const char* key, uint8_t& v, const vector<string>& sts) {
+static void nvs_get_u8(const char* key, uint8_t& v, const vector<string>& sts) {
     string t;
-    if (nvs_get_str(handle, key, t, sts)) {
+    if (nvs_get_str(key, t, sts)) {
         v = atoi(t.c_str());
     }
 }
-static void nvs_get_u16(FIL& handle, const char* key, uint16_t& v, const vector<string>& sts) {
+static void nvs_get_u16(const char* key, uint16_t& v, const vector<string>& sts) {
     string t;
-    if (nvs_get_str(handle, key, t, sts)) {
+    if (nvs_get_str(key, t, sts)) {
         v = atoi(t.c_str());
     }
 }
 
 // Read config from FS
 void Config::load() {
-    // Open
-    // printf("\n");
-    // printf("Opening Non-Volatile Storage (NVS) handle... ");
-    FIL handle;
     string nvs = MOUNT_POINT_SD STORAGE_NVS;
-    FRESULT err = f_open(&handle, nvs.c_str(), FA_READ);
-    if (err != FR_OK) {
-///        OSD::osdCenteredMsg("Error opening file:\n" + nvs + "\n", LEVEL_ERROR, 5000);
+    FIL* handle = fopen2(nvs.c_str(), FA_READ);
+    if (!handle) {
         return;
     } else {
         vector<string> sts;
         UINT br;
         char c;
         string s;
-        while(!f_eof(&handle)) {
-            if (f_read(&handle, &c, 1, &br) != FR_OK) {
-                f_close(&handle);
+        while(!f_eof(handle)) {
+            if (f_read(handle, &c, 1, &br) != FR_OK) {
+                fclose2(handle);
                 return;
             }
             if (c == '\n') {
@@ -193,53 +188,53 @@ void Config::load() {
                 s += c;
             }
         }
-        f_close(&handle);
+        fclose2(handle);
 
-        nvs_get_str(handle, "arch", arch, sts);
-        nvs_get_str(handle, "romSet", romSet, sts);
-        nvs_get_str(handle, "romSet48", romSet48, sts);
-        nvs_get_str(handle, "romSet128", romSet128, sts);
-        nvs_get_str(handle, "romSetPent", romSetPent, sts);
-        nvs_get_str(handle, "romSetP512", romSetP512, sts);
-        nvs_get_str(handle, "romSetP1M", romSetP1M, sts);
-        nvs_get_str(handle, "pref_arch", pref_arch, sts);
-        nvs_get_str(handle, "pref_romSet_48", pref_romSet_48, sts);
-        nvs_get_str(handle, "pref_romSet_128", pref_romSet_128, sts);
-        nvs_get_str(handle, "pref_romSetPent", pref_romSetPent, sts);
-        nvs_get_str(handle, "pref_romSetP512", pref_romSetP512, sts);
-        nvs_get_str(handle, "pref_romSetP1M", pref_romSetP1M, sts);
-        nvs_get_str(handle, "ram", ram_file, sts);
-        nvs_get_b(handle, "AY48", AY48, sts);
-        nvs_get_b(handle, "Issue2", Issue2, sts);
-        nvs_get_b(handle, "flashload", flashload, sts);
-        nvs_get_b(handle, "rightSpace", rightSpace, sts);
-        nvs_get_b(handle, "tape_player", tape_player, sts);
-        nvs_get_b(handle, "real_player", real_player, sts);
-        nvs_get_b(handle, "tape_timing_rg", tape_timing_rg, sts);
-        nvs_get_u8(handle, "joystick1", Config::joystick1, sts);
-        nvs_get_u8(handle, "joystick2", Config::joystick2, sts);
+        nvs_get_str("arch", arch, sts);
+        nvs_get_str("romSet", romSet, sts);
+        nvs_get_str("romSet48", romSet48, sts);
+        nvs_get_str("romSet128", romSet128, sts);
+        nvs_get_str("romSetPent", romSetPent, sts);
+        nvs_get_str("romSetP512", romSetP512, sts);
+        nvs_get_str("romSetP1M", romSetP1M, sts);
+        nvs_get_str("pref_arch", pref_arch, sts);
+        nvs_get_str("pref_romSet_48", pref_romSet_48, sts);
+        nvs_get_str("pref_romSet_128", pref_romSet_128, sts);
+        nvs_get_str("pref_romSetPent", pref_romSetPent, sts);
+        nvs_get_str("pref_romSetP512", pref_romSetP512, sts);
+        nvs_get_str("pref_romSetP1M", pref_romSetP1M, sts);
+        nvs_get_str("ram", ram_file, sts);
+        nvs_get_b("AY48", AY48, sts);
+        nvs_get_b("Issue2", Issue2, sts);
+        nvs_get_b("flashload", flashload, sts);
+        nvs_get_b("rightSpace", rightSpace, sts);
+        nvs_get_b("tape_player", tape_player, sts);
+        nvs_get_b("real_player", real_player, sts);
+        nvs_get_b("tape_timing_rg", tape_timing_rg, sts);
+        nvs_get_u8("joystick1", Config::joystick1, sts);
+        nvs_get_u8("joystick2", Config::joystick2, sts);
 
         // Read joystick definition
         for (int n=0; n < 24; n++) {
             char joykey[9];
             sprintf(joykey,"joydef%02u",n);
             // printf("%s\n",joykey);
-            nvs_get_u16(handle, "joystick2", Config::joydef[n], sts);
+            nvs_get_u16("joystick2", Config::joydef[n], sts);
         }
 
-        nvs_get_u8(handle, "joyPS2", Config::joyPS2, sts);
-        nvs_get_u8(handle, "AluTiming", Config::AluTiming, sts);
-        nvs_get_u8(handle, "PS2Dev2", Config::ps2_dev2, sts);
-        nvs_get_b(handle, "CursorAsJoy", CursorAsJoy, sts);
-        nvs_get_i8(handle, "CenterH", Config::CenterH, sts);
-        nvs_get_i8(handle, "CenterV", Config::CenterV, sts);
-        nvs_get_str(handle, "SNA_Path", FileUtils::SNA_Path, sts);
-        nvs_get_str(handle, "TAP_Path", FileUtils::TAP_Path, sts);
-        nvs_get_str(handle, "DSK_Path", FileUtils::DSK_Path, sts);
-        nvs_get_u8(handle, "scanlines", Config::scanlines, sts);
-        nvs_get_u8(handle, "render", Config::render, sts);
-        nvs_get_b(handle, "TABasfire1", Config::TABasfire1, sts);
-        nvs_get_b(handle, "StartMsg", Config::StartMsg, sts);
+        nvs_get_u8("joyPS2", Config::joyPS2, sts);
+        nvs_get_u8("AluTiming", Config::AluTiming, sts);
+        nvs_get_u8("PS2Dev2", Config::ps2_dev2, sts);
+        nvs_get_b("CursorAsJoy", CursorAsJoy, sts);
+        nvs_get_i8("CenterH", Config::CenterH, sts);
+        nvs_get_i8("CenterV", Config::CenterV, sts);
+        nvs_get_str("SNA_Path", FileUtils::SNA_Path, sts);
+        nvs_get_str("TAP_Path", FileUtils::TAP_Path, sts);
+        nvs_get_str("DSK_Path", FileUtils::DSK_Path, sts);
+        nvs_get_u8("scanlines", Config::scanlines, sts);
+        nvs_get_u8("render", Config::render, sts);
+        nvs_get_b("TABasfire1", Config::TABasfire1, sts);
+        nvs_get_b("StartMsg", Config::StartMsg, sts);
     }
 }
 
@@ -247,34 +242,31 @@ void Config::save() {
     Config::save("all");
 }
 
-static void nvs_set_str(FIL& handle, const char* name, const char* val) {
+static void nvs_set_str(FIL* handle, const char* name, const char* val) {
     UINT btw;
-    f_write(&handle, name, strlen(name), &btw);
-    f_write(&handle, "=", 1, &btw);
-    f_write(&handle, val, strlen(val), &btw);
-    f_write(&handle, "\n", 1, &btw);
+    f_write(handle, name, strlen(name), &btw);
+    f_write(handle, "=", 1, &btw);
+    f_write(handle, val, strlen(val), &btw);
+    f_write(handle, "\n", 1, &btw);
 }
-static void nvs_set_i8(FIL& handle, const char* name, int8_t val) {
+static void nvs_set_i8(FIL* handle, const char* name, int8_t val) {
     string v = to_string(val);
     nvs_set_str(handle, name, v.c_str());
 }
-static void nvs_set_u8(FIL& handle, const char* name, uint8_t val) {
+static void nvs_set_u8(FIL* handle, const char* name, uint8_t val) {
     string v = to_string(val);
     nvs_set_str(handle, name, v.c_str());
 }
-static void nvs_set_u16(FIL& handle, const char* name, uint16_t val) {
+static void nvs_set_u16(FIL* handle, const char* name, uint16_t val) {
     string v = to_string(val);
     nvs_set_str(handle, name, v.c_str());
 }
 
 // Dump actual config to FS
 void Config::save(string value) {
-    FIL handle;
     string nvs = MOUNT_POINT_SD STORAGE_NVS;
-    FRESULT err = f_open(&handle, nvs.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
-    if (err != FR_OK) {
-///        OSD::osdCenteredMsg("Error opening file:\n" + nvs + "\n", LEVEL_ERROR, 5000);
-    } else {
+    FIL* handle = fopen2(nvs.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
+    if (handle) {
         nvs_set_str(handle,"arch",arch.c_str());
         nvs_set_str(handle,"romSet",romSet.c_str());
         nvs_set_str(handle,"romSet48",romSet48.c_str());
@@ -321,7 +313,7 @@ void Config::save(string value) {
         nvs_set_u8(handle,"render",Config::render);
         nvs_set_str(handle,"TABasfire1", TABasfire1 ? "true" : "false");
         nvs_set_str(handle,"StartMsg", StartMsg ? "true" : "false");
-        f_close(&handle);
+        fclose2(handle);
     }
     // printf("Config saved OK\n");
 }

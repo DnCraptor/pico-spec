@@ -18,11 +18,10 @@
 /
 /----------------------------------------------------------------------------*/
 
-
+#include <stdlib.h>
 #include <string.h>
 #include "ff.h"			/* Declarations of FatFs API */
 #include "diskio.h"		/* Declarations of device I/O functions */
-
 
 /*--------------------------------------------------------------------------
 
@@ -6980,3 +6979,23 @@ FRESULT f_setcp (
 }
 #endif	/* FF_CODE_PAGE == 0 */
 
+
+
+FIL* fopen2 (
+	const TCHAR* path,	/* Pointer to the file name */
+	BYTE mode			/* Access mode and open mode flags */
+) {
+	FIL* res = (FIL*)malloc(sizeof(FIL));
+	if (f_open(res, path, mode) != FR_OK) {
+		free(res);
+		return 0;
+	}
+	return res;
+}
+
+void fclose2 (FIL* f) {
+	if (f) {
+		f_close(f);
+		free(f);
+	}
+}
