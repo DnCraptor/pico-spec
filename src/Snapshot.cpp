@@ -68,10 +68,8 @@ bool LoadSnapshot(string filename, string force_arch, string force_romset) {
     bool res = false;
     uint8_t OSDprev = VIDEO::OSD;
     if (FileUtils::hasSNAextension(filename)) {
-        //OSD::osdCenteredMsg(MSG_LOADING_SNA + (string) ": " + filename.substr(filename.find_last_of("/") + 1), LEVEL_INFO, 0);
         res = FileSNA::load(filename, force_arch, force_romset);
     } else if (FileUtils::hasZ80extension(filename)) {
-        //OSD::osdCenteredMsg(MSG_LOADING_Z80 + (string) ": " + filename.substr(filename.find_last_of("/") + 1), LEVEL_INFO, 0);
         res = FileZ80::load(filename);
     } else if (FileUtils::hasPextension(filename)) {
         res = FileP::load(filename);
@@ -87,11 +85,11 @@ bool LoadSnapshot(string filename, string force_arch, string force_romset) {
     return res;
 }
 
+static FIL file; // to do not use huge stack objects
+
 bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
-    FIL file;
     int sna_size;
     string snapshotArch;
-
     if (f_open(&file, sna_fn.c_str(), FA_READ) != FR_OK)
     {
         OSD::osdCenteredMsg("Error opening file:\n" + sna_fn + "\n", LEVEL_INFO, 5000);
@@ -107,8 +105,10 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
             snapshotArch = Config::arch;
         else    
             snapshotArch = "Pentagon";
-    } else if ((sna_size == SNA_128K_SIZE1 + 8 * (32 << 10)) || (sna_size == SNA_128K_SIZE2 + 8 * (32 << 10))) {
+    } else if ((sna_size == SNA_128K_SIZE1 + ( 8 + 16 ) * 0x4000) || (sna_size == SNA_128K_SIZE2 + ( 8 + 16 ) * 0x4000)) {
         snapshotArch = "P512";
+    } else if ((sna_size == SNA_128K_SIZE1 + ( 8 + 16 + 32 ) * 0x4000) || (sna_size == SNA_128K_SIZE2 + ( 8 + 16 + 32 ) * 0x4000)) {
+        snapshotArch = "P1024";
     } else {
         OSD::osdCenteredMsg("Bad SNA:\n" + sna_fn + "\nsize: " + to_string(sna_size) + "\n", LEVEL_INFO, 5000);
         return false;
@@ -199,7 +199,7 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
         uint8_t tr_dos = readByteFile(file);     // Check if TR-DOS is paged
         
         // read remaining pages
-        for (int page = 0; page < (Z80Ops::is512 ? 32 : 8); page++) {
+        for (int page = 0; page < (Z80Ops::is1024 ? 64 : (Z80Ops::is512 ? 32 : 8)); page++) {
             if (page != tmp_latch && page != 2 && page != 5) {
                 readBlockFile(file, MemESP::ram[page].sync(), 0x4000);
             }
@@ -235,11 +235,10 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
 }
 
 bool FileSNA::isPersistAvailable(string filename) {
-    FIL f;
-    if (f_open(&f, filename.c_str(), FA_READ) != FR_OK)
+    if (f_open(&file, filename.c_str(), FA_READ) != FR_OK)
         return false;
     else
-        f_close(&f);
+        f_close(&file);
     return true;
 }
 
@@ -274,7 +273,6 @@ bool FileSNA::save(string sna_file) {
 }
 
 bool FileSNA::save(string sna_file, bool blockMode) {
-    FIL file;
     if (f_open(&file, sna_file.c_str(), FA_WRITE | FA_CREATE_ALWAYS) != FR_OK)
     {
         printf("FileSNA: Error opening %s for writing",sna_file.c_str());
@@ -326,12 +324,10 @@ bool FileSNA::save(string sna_file, bool blockMode) {
         if (!writeMemPage(page, file, blockMode)) {
             f_close(&file);
             return false;
-
         }
     }
 
     if (Config::arch != "48K") {
-
         // write pc
         writeWordFileLE( Z80::getRegPC(), file);
         // printf("PC: %u\n",(unsigned int)Z80::getRegPC());
@@ -350,21 +346,20 @@ bool FileSNA::save(string sna_file, bool blockMode) {
             writeByteFile(0, file);     // TR-DOS not paged
 
         // write remaining ram pages
-        for (int page = 0; page < (Z80Ops::is512 ? 32 : 8); page++) {
+        int pages = 8; // 128k = 8 * 16K
+        if (Z80Ops::is512) pages = 32;
+        if (Z80Ops::is1024) pages = 64;
+        for (int page = 0; page < pages; ++page) {
             if (page != MemESP::bankLatch && page != 2 && page != 5) {
                 if (!writeMemPage(page, file, blockMode)) {
                     f_close(&file);
                     return false;
-
                 }
             }
         }
     }
-
     f_close(&file);
-
     return true;
-
 }
 
 static uint16_t mkword(uint8_t lobyte, uint8_t hibyte) {
@@ -395,7 +390,6 @@ int fseek (FIL& stream, long offset, int origin) {
 }
 
 bool FileZ80::load(string z80_fn) {
-    FIL file;
     if (f_open(&file, z80_fn.c_str(), FA_READ) != FR_OK)
     {
         printf("FileZ80: Error opening %s\n",z80_fn.c_str());
@@ -455,7 +449,7 @@ bool FileZ80::load(string z80_fn) {
             if (mch == 9) z80_arch = "Pentagon";
             if (mch == 12) z80_arch = "128K"; // Spectrum +2
             if (mch == 13) z80_arch = "128K"; // Spectrum +2A            
-/// TODO:            if (mch == 15) z80_arch = "P512";
+/// TODO:            if (mch == 15) z80_arch = "P512"; + P1024
         }
 
     }
@@ -501,6 +495,10 @@ bool FileZ80::load(string z80_fn) {
         if (z80_arch == "P512") {
             if (Config::pref_romSetP512 == "128Kp" || Config::pref_romSetP512 == "128Kcs")
                 z80_romset = Config::pref_romSetP512;
+        } else
+        if (z80_arch == "P1024") {
+            if (Config::pref_romSetP1M == "128Kp" || Config::pref_romSetP1M == "128Kcs")
+                z80_romset = Config::pref_romSetP1M;
         }
 
         // printf("z80_arch: %s mch: %d pref_romset48: %s pref_romset128: %s z80_romset: %s\n",z80_arch.c_str(),mch,Config::pref_romSet_48.c_str(),Config::pref_romSet_128.c_str(),z80_romset.c_str());
@@ -719,7 +717,7 @@ bool FileZ80::load(string z80_fn) {
                 dataOffset += compDataLen;
             }
 
-        } else if ((z80_arch == "128K") || (z80_arch == "Pentagon") || (z80_arch == "P512")) {
+        } else if ((z80_arch == "128K") || (z80_arch == "Pentagon") || (z80_arch == "P512")  || (z80_arch == "P1024")) {
             
             // paging register
             uint8_t b35 = header[35];
@@ -997,7 +995,7 @@ void FileZ80::loader128() {
             z80_array = (unsigned char *) loadzx81;
             dataLen = sizeof(loadzx81);
         }
-    } else if (Config::arch == "Pentagon" || Config::arch == "P512") {
+    } else if (Config::arch == "Pentagon" || Config::arch == "P512"  || Config::arch == "P1024") {
         z80_array = (unsigned char *) loadpentagon;
         dataLen = sizeof(loadpentagon);
     }
@@ -1122,8 +1120,6 @@ void FileZ80::loader128() {
 }
 
 bool FileP::load(string p_fn) {
-
-    FIL file;
     int p_size;
 
     if (f_open(&file, p_fn.c_str(), FA_READ) != FR_OK) {

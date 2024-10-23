@@ -338,7 +338,7 @@ void VIDEO::Reset() {
         Draw_OSD169 = MainScreen;
         Draw_OSD43 = BottomBorder;
         DrawBorder = TopBorder_Blank;
-    } else if (Config::arch == "Pentagon" || Config::arch == "P512") {
+    } else if (Config::arch == "Pentagon" || Config::arch == "P512" || Config::arch == "P1024") {
         tStatesPerLine = TSTATES_PER_LINE_PENTAGON;
         tStatesScreen = TS_SCREEN_PENTAGON;
         tStatesBorder = is169 ? TS_BORDER_360x200_PENTAGON : TS_BORDER_320x240_PENTAGON;        
@@ -366,7 +366,7 @@ void VIDEO::Reset() {
     memset((uint8_t *)VIDEO::dirty_lines,0x01,SPEC_H);
     #endif // DIRTY_LINES
 
-    VIDEO::snow_toggle = Config::arch != "P512" && Config::arch != "Pentagon" ? Config::render : false;
+    VIDEO::snow_toggle = Config::arch != "P1024" && Config::arch != "P512" && Config::arch != "Pentagon" ? Config::render : false;
 
     if (VIDEO::snow_toggle) {
         Draw = &Blank_Snow;

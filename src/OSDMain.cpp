@@ -223,15 +223,15 @@ static bool persistSave(uint8_t slotnumber)
     FILINFO stat_buf;
     char persistfname[sizeof(DISK_PSNA_FILE) + 7];
     char persistfinfo[sizeof(DISK_PSNA_FILE) + 7];    
-    sprintf(persistfname,DISK_PSNA_FILE "%u.sna",slotnumber);
-    sprintf(persistfinfo,DISK_PSNA_FILE "%u.esp",slotnumber);
+    sprintf(persistfname, DISK_PSNA_FILE "%u.sna", slotnumber);
+    sprintf(persistfinfo, DISK_PSNA_FILE "%u.esp", slotnumber);
     string finfo = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfinfo;
 
     // Slot isn't void
     if (f_stat(finfo.c_str(), &stat_buf) == FR_OK) {
         string title = OSD_PSNA_SAVE[Config::lang];
         string msg = OSD_PSNA_EXISTS[Config::lang];
-        uint8_t res = OSD::msgDialog(title,msg);
+        uint8_t res = OSD::msgDialog(title, msg);
         if (res != DLG_YES) return false;
     }
 
@@ -247,30 +247,42 @@ static bool persistSave(uint8_t slotnumber)
     f_close(&f);
 
     string fsna = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfname;
-    if (!FileSNA::save(fsna))
+    if (!FileSNA::save(fsna)) {
         OSD::osdCenteredMsg(OSD_PSNA_SAVE_ERR, LEVEL_ERROR, 5000);
-    
+    }
     return true;
 }
 
 static void f_gets(char* b, size_t sz, FIL& f) {
     UINT br;
-    for (size_t i = 0; i < sz; ++i, ++b) {
-        if (f_read(&f, b, 1, &br) != FR_OK || br != 1 || *b == '\n' || *b == 0) {
-            *b = 0;
+    char* bi = b;
+    for (size_t i = 0; i < sz; ++i, ++bi) {
+        if ( f_read(&f, bi, 1, &br) != FR_OK || br != 1 ) {
+            *bi = 0;
             return;
         }
+        if (*bi == '\r') {
+            --bi;
+            continue;
+        }
+        if (*bi == '\n') {
+            *bi = 0;
+            return;
+        }
+        if (*bi == 0) return;
     }
-    *(--b) = 0;
+    b[sz - 1] = 0;
 }
+
+static FIL f;
 
 static bool persistLoad(uint8_t slotnumber)
 {
     char persistfname[sizeof(DISK_PSNA_FILE) + 7];
     char persistfinfo[sizeof(DISK_PSNA_FILE) + 7];        
 
-    sprintf(persistfname,DISK_PSNA_FILE "%u.sna",slotnumber);
-    sprintf(persistfinfo,DISK_PSNA_FILE "%u.esp",slotnumber);
+    sprintf(persistfname, DISK_PSNA_FILE "%u.sna", slotnumber);
+    sprintf(persistfinfo, DISK_PSNA_FILE "%u.esp", slotnumber);
 
     if (!FileSNA::isPersistAvailable(FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfname)) {
         OSD::osdCenteredMsg(OSD_PSNA_NOT_AVAIL, LEVEL_INFO);
@@ -278,7 +290,6 @@ static bool persistLoad(uint8_t slotnumber)
     } else {
         // Read info file
         string finfo = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfinfo;
-        FIL f;
         if (f_open(&f, finfo.c_str(), FA_READ) != FR_OK) {
             OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
             // printf("Error opening %s\n",persistfinfo);
@@ -286,15 +297,11 @@ static bool persistLoad(uint8_t slotnumber)
         }
         char buf[256];
 
-        f_gets(buf, sizeof(buf),f);
+        f_gets(buf, sizeof(buf), f);
         string persist_arch = buf;
-        persist_arch.pop_back();
-        // printf("[%s]\n",persist_arch.c_str());
 
-        f_gets(buf, sizeof(buf),f);
+        f_gets(buf, sizeof(buf), f);
         string persist_romset = buf;
-        persist_romset.pop_back();
-        // printf("[%s]\n",persist_romset.c_str());
 
         f_close(&f);
 
@@ -1003,6 +1010,25 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 menu_curopt = 1;
                                 menu_level = 2;                                       
                             }
+                        } else if (arch_num == 5) { // Pentagon 1024K
+                            menu_level = 2;
+                            menu_curopt = 1;                    
+                            menu_saverect = true;
+                            opt2 = menuRun(MENU_ROMS_PENT[Config::lang]);
+                            if (opt2) {
+                                arch = "P1024";
+                                if (opt2 == 1) {
+                                    romset = "128Kp";
+                                } else 
+                                if (opt2 == 2) {
+                                    romset = "128Kcs";
+                                }
+                                menu_curopt = opt2;
+                                menu_saverect = false;
+                            } else {
+                                menu_curopt = 1;
+                                menu_level = 2;                                       
+                            }
                         }
 
                         if (opt2) {
@@ -1028,6 +1054,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                         if (Config::pref_romSetP512 == "Last") {
                                             Config::romSet = romset;
                                             Config::romSetP512 = romset;
+                                        }
+                                    } else if (arch == "P1024") {
+                                        if (Config::pref_romSetP1M == "Last") {
+                                            Config::romSet = romset;
+                                            Config::romSetP1M = romset;
                                         }
                                     }
                                 }
@@ -1203,29 +1234,41 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[2",0),2,"[ ");
                             } else if (Config::pref_arch == "128K") {
                                 archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[1",0),2,"[*");
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[2",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
                             } else if (Config::pref_arch == "Pentagon") {
                                 archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[*");
                                 archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[2",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
                             } else if (Config::pref_arch == "P512") {
                                 archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[5",0),2,"[*");
+                                archprefmenu.replace(archprefmenu.find("[2",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
+                            } else if (Config::pref_arch == "P1024") {
+                                archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[2",0),2,"[*");
                                 archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
                             } else {
                                 archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
+                                archprefmenu.replace(archprefmenu.find("[2",0),2,"[ ");
                                 archprefmenu.replace(archprefmenu.find("[L",0),2,"[*");
                             }
                             uint8_t opt2 = menuRun(archprefmenu);
@@ -1243,6 +1286,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     Config::pref_arch = "P512";
                                 else
                                 if (opt2 == 5)
+                                    Config::pref_arch = "P1024";
+                                else
+                                if (opt2 == 6)
                                     Config::pref_arch = "Last";
 
                                 if (Config::pref_arch != prev_archpref) {
@@ -1435,7 +1481,46 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             menu_saverect = false;
                                         } else {
                                             menu_curopt = 1;
-                                            menu_level = 2;                                       
+                                            menu_level = 2;
+                                            break;
+                                        }
+                                    }
+                                } else if (opt2 == 5) {
+                                    menu_level = 3;
+                                    menu_curopt = 1;                    
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string rprefP1M_menu = MENU_ROM_PREF_PENT[Config::lang];
+                                        int mpos = -1;
+                                        while(1) {
+                                            mpos = rprefP1M_menu.find("[",mpos + 1);
+                                            if (mpos == string::npos) break;
+                                            string rmenu = rprefP1M_menu.substr(mpos + 1, 6);
+                                            trim(rmenu);
+                                            if (rmenu == Config::pref_romSetP1M) 
+                                                rprefP1M_menu.replace(mpos + 1, 6,"*");
+                                            else
+                                                rprefP1M_menu.replace(mpos + 1, 6," ");
+                                        }
+                                        string prev_rprefP1M = Config::pref_romSetP1M;
+                                        uint8_t opt2 = menuRun(rprefP1M_menu);
+                                        if (opt2) {
+                                            if (opt2 == 1)
+                                                Config::pref_romSetP1M = "128Kp";
+                                            else
+                                            if (opt2 == 2)
+                                                Config::pref_romSetP1M = "128Kcs";
+                                            else
+                                            if (opt2 == 7)
+                                                Config::pref_romSetP1M = "Last";
+                                            if (Config::pref_romSetP1M != prev_rprefP1M) {
+                                                Config::save();
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = 1;
+                                            menu_level = 2;
                                             break;
                                         }
                                     }
@@ -1482,7 +1567,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                                 Config::save("render");
 
                                                 VIDEO::snow_toggle =
-                                                    Config::arch != "Pentagon" && Config::arch != "P512"
+                                                    Config::arch != "P1024" && Config::arch != "Pentagon" && Config::arch != "P512"
                                                      ? Config::render : false;                                                
 
                                                 if (VIDEO::snow_toggle) {
@@ -2460,12 +2545,11 @@ static void __not_in_flash_func(cleanup_block)(size_t flash_target_offset) {
 }
 
 bool OSD::updateROM(const string& fname, uint8_t arch) {
-    FIL customrom;
-    if (f_open(&customrom, fname.c_str(), FA_READ) != FR_OK) {
+    if (f_open(&f, fname.c_str(), FA_READ) != FR_OK) {
         osdCenteredMsg(OSD_NOROMFILE_ERR[Config::lang], LEVEL_WARN, 2000);
         return false;
     }
-    FSIZE_t bytesfirmware = f_size(&customrom); 
+    FSIZE_t bytesfirmware = f_size(&f); 
     const uint8_t* rom;
     size_t max_flash_target_offset, flash_target_offset = 0;
     string dlgTitle = OSD_ROM[Config::lang];
@@ -2473,7 +2557,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     if ( arch == 1 ) {
         if( bytesfirmware > 0x4000 ) {
             osdCenteredMsg("Too long file", LEVEL_WARN, 2000);
-            f_close(&customrom);
+            f_close(&f);
             return false;
         }
         rom = gb_rom_0_48k_custom;
@@ -2490,7 +2574,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     else if ( arch == 2 ) {
         if( bytesfirmware > 0x8000 ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
-            f_close(&customrom);
+            f_close(&f);
             return false;
         }
         rom = gb_rom_0_128k_custom;
@@ -2506,7 +2590,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     else if ( arch == 3 ) {
         if( bytesfirmware > 0x8000 ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
-            f_close(&customrom);
+            f_close(&f);
             return false;
         }
         rom = gb_rom_0_128k_custom;
@@ -2528,15 +2612,15 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     const size_t sz = 512;
     uint8_t* buffer = (uint8_t*)malloc(sz);
     for (FSIZE_t i = 0; i < bytesfirmware; i += sz) {
-        if ( f_read(&customrom, buffer, sz, &br) != FR_OK) {
+        if ( f_read(&f, buffer, sz, &br) != FR_OK) {
             osdCenteredMsg(fname + " - unable to read", LEVEL_ERROR, 5000);
-            f_close(&customrom);
+            f_close(&f);
             return false;
         }
         flash_block(buffer, flash_target_offset + (size_t)(i & 0xFFFFFFFF));
     }
     free(buffer);
-    f_close(&customrom);
+    f_close(&f);
     Config::save();
     Config::requestMachine(Config::arch, Config::romSet128);
     // Firmware written: reboot

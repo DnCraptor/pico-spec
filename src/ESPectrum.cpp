@@ -33,6 +33,7 @@ visit https://zxespectrum.speccy.org/contacto
 
 */
 
+#include <hardware/watchdog.h>
 #include <stdio.h>
 #include <string>
 
@@ -56,8 +57,8 @@ visit https://zxespectrum.speccy.org/contacto
 #include "ZXKeyb.h"
 #endif
 
-#include "ps2kbd_mrmltr.h"
 #include "psram_spi.h"
+#include "ps2.h"
 
 using namespace std;
 
@@ -66,7 +67,6 @@ using namespace std;
 //=======================================================================================
 fabgl::PS2Controller ESPectrum::PS2Controller;
 bool ESPectrum::ps2kbd2 = false;
-bool numlock;
 
 void joyPushData(fabgl::VirtualKey virtualKey, bool down) {
     fabgl::Keyboard* kbd = ESPectrum::PS2Controller.keyboard();
@@ -83,14 +83,29 @@ fabgl::VirtualKey get_last_key_pressed(void) {
 }
 
 void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
+    static bool ctrlPressed = false;
+    static bool altPressed = false;
+    static bool delPressed = false;
+    if (virtualKey == fabgl::VirtualKey::VK_LCTRL || virtualKey == fabgl::VirtualKey::VK_RCTRL) ctrlPressed = down;
+    else if (virtualKey == fabgl::VirtualKey::VK_LALT || virtualKey == fabgl::VirtualKey::VK_RALT) altPressed = down;
+    else if (virtualKey == fabgl::VirtualKey::VK_DELETE || virtualKey == fabgl::VirtualKey::VK_KP_PERIOD) delPressed = down;
+    if (ctrlPressed && altPressed && delPressed) {
+        f_unlink(MOS_FILE);
+        watchdog_enable(1, true);
+        while (true);
+    }
     if (down) {
+        if (ctrlPressed && virtualKey == fabgl::VirtualKey::VK_J) {
+            Config::CursorAsJoy = !Config::CursorAsJoy;
+        }
         if (last_key_pressed != virtualKey) {
             last_key_pressed = virtualKey;
             tickKbdRep = time_us_32();
         }
-        if (virtualKey == fabgl::VirtualKey::VK_NUMLOCK) {
-            numlock = !numlock;
-/// TODO:            keyboard_toggle_led(PS2_LED_NUM_LOCK);
+        switch (virtualKey) {
+            case fabgl::VirtualKey::VK_NUMLOCK: keyboard_toggle_led(PS2_LED_NUM_LOCK); break;
+            case fabgl::VirtualKey::VK_SCROLLLOCK: keyboard_toggle_led(PS2_LED_SCROLL_LOCK); break;
+            case fabgl::VirtualKey::VK_CAPSLOCK: keyboard_toggle_led(PS2_LED_CAPS_LOCK); break;
         }
     } else {
         last_key_pressed = fabgl::VirtualKey::VK_NONE;
@@ -115,6 +130,9 @@ void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
                 if(Config::rightSpace) virtualKey = fabgl::VirtualKey::VK_SPACE;
                 else virtualKey = fabgl::VirtualKey::VK_RETURN;
             break;
+        }
+        if (virtualKey != fabgl::VirtualKey::VK_NONE) {
+            virtualKey = kbd->manageCAPSLOCK(virtualKey);
         }
         kbd->injectVirtualKey(virtualKey, down);
     }
@@ -479,23 +497,13 @@ void ESPectrum::setup()
     // INIT FILESYSTEM
     //=======================================================================================
     FileUtils::initFileSystem();
-///    if (Config::slog_on) showMemInfo("File system started");
+
     mem_desc_t::reset();
 
     //=======================================================================================
     // LOAD CONFIG
     //=======================================================================================
     Config::load();
-
-    // printf("---------------------------------\n");
-    // printf("Ram file: %s\n",Config::ram_file.c_str());
-    // printf("Arch: %s\n",Config::arch.c_str());
-    // printf("pref Arch: %s\n",Config::pref_arch.c_str());
-    // printf("romSet: %s\n",Config::romSet.c_str());
-    // printf("romSet48: %s\n",Config::romSet48.c_str());
-    // printf("romSet128: %s\n",Config::romSet128.c_str());        
-    // printf("pref_romSet_48: %s\n",Config::pref_romSet_48.c_str());
-    // printf("pref_romSet_128: %s\n",Config::pref_romSet_128.c_str());        
     
     // Set arch if there's no snapshot to load
     if (Config::ram_file == NO_RAM_FILE) {
@@ -520,6 +528,11 @@ void ESPectrum::setup()
                     Config::romSet = Config::pref_romSetP512;
                 else
                     Config::romSet = Config::romSetP512;
+            } else if (Config::arch == "P1024") {
+                if (Config::pref_romSetP1M != "Last")
+                    Config::romSet = Config::pref_romSetP1M;
+                else
+                    Config::romSet = Config::romSetP1M;
             } else {
                 if (Config::pref_romSetPent != "Last")
                     Config::romSet = Config::pref_romSetPent;
@@ -528,16 +541,6 @@ void ESPectrum::setup()
             }
         }
     }
-
-    // printf("---------------------------------\n");
-    // printf("Ram file: %s\n",Config::ram_file.c_str());
-    // printf("Arch: %s\n",Config::arch.c_str());
-    // printf("pref Arch: %s\n",Config::pref_arch.c_str());
-    // printf("romSet: %s\n",Config::romSet.c_str());
-    // printf("romSet48: %s\n",Config::romSet48.c_str());
-    // printf("romSet128: %s\n",Config::romSet128.c_str());        
-    // printf("pref_romSet_48: %s\n",Config::pref_romSet_48.c_str());
-    // printf("pref_romSet_128: %s\n",Config::pref_romSet_128.c_str());        
 
     //=======================================================================================
     // INIT PS/2 KEYBOARD
@@ -570,37 +573,6 @@ void ESPectrum::setup()
         ESPectrum::VK_ESPECTRUM_TAB = fabgl::VK_TAB;
         ESPectrum::VK_ESPECTRUM_GRAVEACCENT = fabgl::VK_GRAVEACCENT;
     }
-
-    #ifndef ESP32_SDL2_WRAPPER
-
-///    if (Config::slog_on) { showMemInfo("Keyboard started"); }
-
-    // Get chip information
-///    esp_chip_info_t chip_info;
-///    esp_chip_info(&chip_info);
-///    Config::esp32rev = chip_info.revision;
-/***
-    if (Config::slog_on) {
-
-        printf("\n");
-        printf("This is %s chip with %d CPU core(s), WiFi%s%s, ",
-                CONFIG_IDF_TARGET,
-                chip_info.cores,
-                (chip_info.features & CHIP_FEATURE_BT) ? "/BT" : "",
-                (chip_info.features & CHIP_FEATURE_BLE) ? "/BLE" : "");
-        printf("silicon revision %d, ", chip_info.revision);
-        printf("%dMB %s flash\n", spi_flash_get_chip_size() / (1024 * 1024),
-                (chip_info.features & CHIP_FEATURE_EMB_FLASH) ? "embedded" : "external");
-        printf("IDF Version: %s\n",esp_get_idf_version());
-        printf("\n");
-
-        if (Config::slog_on) printf("Executing on core: %u\n", xPortGetCoreID());
-
-        showMemInfo();
-
-    }
-*/
-    #endif
 
     //=======================================================================================
     // BOOTKEYS: Read keyboard for 200 ms. checking boot keys
@@ -636,13 +608,13 @@ void ESPectrum::setup()
 #if !PICO_RP2040
     #ifdef HDMI
     for (size_t i = 8; i < 23; ++i) MemESP::ram[i].assign_ram(MemESP_ram + 0x4000 * i, i, false);
-    for (size_t i = 23; i < 32; ++i) MemESP::ram[i].assign_vram(i);
+    for (size_t i = 23; i < 64; ++i) MemESP::ram[i].assign_vram(i);
     #else
     for (size_t i = 8; i < 24; ++i) MemESP::ram[i].assign_ram(MemESP_ram + 0x4000 * i, i, false);
-    for (size_t i = 24; i < 32; ++i) MemESP::ram[i].assign_vram(i);
+    for (size_t i = 24; i < 64; ++i) MemESP::ram[i].assign_vram(i);
     #endif
 #else
-    for (size_t i = 8; i < 32; ++i) MemESP::ram[i].assign_vram(i);
+    for (size_t i = 8; i < 64; ++i) MemESP::ram[i].assign_vram(i);
 #endif
 
     // Load romset
@@ -661,7 +633,7 @@ void ESPectrum::setup()
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
 
     MemESP::ramContended[0] = false;
-    MemESP::ramContended[1] = Config::arch == "P512" || Config::arch == "Pentagon" ? false : true;
+    MemESP::ramContended[1] = Config::arch == "P1024" || Config::arch == "P512" || Config::arch == "Pentagon" ? false : true;
     MemESP::ramContended[2] = false;
     MemESP::ramContended[3] = false;
 
@@ -814,7 +786,7 @@ void ESPectrum::reset()
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
 
     MemESP::ramContended[0] = false;
-    MemESP::ramContended[1] = Config::arch == "P512" || Config::arch == "Pentagon" ? false : true;
+    MemESP::ramContended[1] = Config::arch == "P1024" || Config::arch == "P512" || Config::arch == "Pentagon" ? false : true;
     MemESP::ramContended[2] = false;
     MemESP::ramContended[3] = false;
 
@@ -910,7 +882,7 @@ IRAM_ATTR bool ESPectrum::readKbd(fabgl::VirtualKeyItem *Nextkey) {
         } else
         if (Nextkey->vk == fabgl::VK_SCROLLLOCK) { // Change CursorAsJoy setting
             Config::CursorAsJoy = !Config::CursorAsJoy;
-            PS2Controller.keyboard()->setLEDs(false,false,Config::CursorAsJoy);
+            PS2Controller.keyboard()->setLEDs(false, false, Config::CursorAsJoy);
             if(ps2kbd2)
                 PS2Controller.keybjoystick()->setLEDs(false, false, Config::CursorAsJoy);
             Config::save("CursorAsJoy");

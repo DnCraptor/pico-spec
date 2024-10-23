@@ -403,13 +403,13 @@ public:
   static int scancodeToVirtualKeyTaskStackSize;
 
 
+  VirtualKey manageCAPSLOCK(VirtualKey vk);
 
 private:
 
 ///  VirtualKey scancodeToVK(uint8_t scancode, bool isExtended, KeyboardLayout const * layout = nullptr);
 ///  VirtualKey scancodeTojoyVK(uint8_t scancode, KeyboardLayout const * layout = nullptr);  
 ///  VirtualKey VKtoAlternateVK(VirtualKey in_vk, bool down, KeyboardLayout const * layout = nullptr);
-  VirtualKey manageCAPSLOCK(VirtualKey vk);
   void updateLEDs();
   bool blockingGetVirtualKey(VirtualKeyItem * item);
   void convertScancode2to1(VirtualKeyItem * item);
@@ -446,27 +446,8 @@ private:
 
   VirtualKey                m_lastDeadKey;
 
-  // store status of the three LEDs
-  bool                      m_numLockLED;
-  bool                      m_capsLockLED;
-  bool                      m_scrollLockLED;
-
   CodePage const *          m_codepage;
 
 };
 
-
-
-
-
 } // end of namespace
-
-
-
-
-
-
-
-
-
-
