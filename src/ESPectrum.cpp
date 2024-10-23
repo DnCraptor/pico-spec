@@ -33,6 +33,7 @@ visit https://zxespectrum.speccy.org/contacto
 
 */
 
+#include <hardware/watchdog.h>
 #include <stdio.h>
 #include <string>
 
@@ -56,8 +57,8 @@ visit https://zxespectrum.speccy.org/contacto
 #include "ZXKeyb.h"
 #endif
 
-#include "ps2kbd_mrmltr.h"
 #include "psram_spi.h"
+#include "ps2.h"
 
 using namespace std;
 
@@ -66,7 +67,6 @@ using namespace std;
 //=======================================================================================
 fabgl::PS2Controller ESPectrum::PS2Controller;
 bool ESPectrum::ps2kbd2 = false;
-bool numlock;
 
 void joyPushData(fabgl::VirtualKey virtualKey, bool down) {
     fabgl::Keyboard* kbd = ESPectrum::PS2Controller.keyboard();
@@ -83,14 +83,29 @@ fabgl::VirtualKey get_last_key_pressed(void) {
 }
 
 void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
+    static bool ctrlPressed = false;
+    static bool altPressed = false;
+    static bool delPressed = false;
+    if (virtualKey == fabgl::VirtualKey::VK_LCTRL || virtualKey == fabgl::VirtualKey::VK_RCTRL) ctrlPressed = down;
+    else if (virtualKey == fabgl::VirtualKey::VK_LALT || virtualKey == fabgl::VirtualKey::VK_RALT) altPressed = down;
+    else if (virtualKey == fabgl::VirtualKey::VK_DELETE || virtualKey == fabgl::VirtualKey::VK_KP_PERIOD) delPressed = down;
+    if (ctrlPressed && altPressed && delPressed) {
+        f_unlink(MOS_FILE);
+        watchdog_enable(1, true);
+        while (true);
+    }
     if (down) {
+        if (ctrlPressed && virtualKey == fabgl::VirtualKey::VK_J) {
+            Config::CursorAsJoy = !Config::CursorAsJoy;
+        }
         if (last_key_pressed != virtualKey) {
             last_key_pressed = virtualKey;
             tickKbdRep = time_us_32();
         }
-        if (virtualKey == fabgl::VirtualKey::VK_NUMLOCK) {
-            numlock = !numlock;
-/// TODO:            keyboard_toggle_led(PS2_LED_NUM_LOCK);
+        switch (virtualKey) {
+            case fabgl::VirtualKey::VK_NUMLOCK: keyboard_toggle_led(PS2_LED_NUM_LOCK); break;
+            case fabgl::VirtualKey::VK_SCROLLLOCK: keyboard_toggle_led(PS2_LED_SCROLL_LOCK); break;
+            case fabgl::VirtualKey::VK_CAPSLOCK: keyboard_toggle_led(PS2_LED_CAPS_LOCK); break;
         }
     } else {
         last_key_pressed = fabgl::VirtualKey::VK_NONE;
@@ -115,6 +130,9 @@ void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
                 if(Config::rightSpace) virtualKey = fabgl::VirtualKey::VK_SPACE;
                 else virtualKey = fabgl::VirtualKey::VK_RETURN;
             break;
+        }
+        if (virtualKey != fabgl::VirtualKey::VK_NONE) {
+            virtualKey = kbd->manageCAPSLOCK(virtualKey);
         }
         kbd->injectVirtualKey(virtualKey, down);
     }
@@ -443,11 +461,11 @@ void ESPectrum::bootKeyboard() {
     static unsigned char MemESP_ram[(128ul + 256ul) << 10];
     #endif
 #else
-///    #ifdef HDMI
+    #ifdef HDMI
     static unsigned char MemESP_ram[112ul << 10];
-///    #else
-///    static unsigned char MemESP_ram[128ul << 10];
-///    #endif
+    #else
+    static unsigned char MemESP_ram[128ul << 10];
+    #endif
 #endif
 
 static unsigned char *MemESP_ram0 = MemESP_ram;
@@ -457,12 +475,12 @@ static unsigned char *MemESP_ram2 = MemESP_ram + 0x4000 + 0x8000;
 static unsigned char *MemESP_ram4 = MemESP_ram + 4 * 0x4000;
 static unsigned char *MemESP_ram5 = MemESP_ram + 5 * 0x4000;
 #if PICO_RP2040
-///    #ifdef HDMI
+    #ifdef HDMI
     static unsigned char *MemESP_ram7 = MemESP_ram + 6 * 0x4000;
-///    #else
-///    static unsigned char *MemESP_ram6 = MemESP_ram + 6 * 0x4000;
-///    static unsigned char *MemESP_ram7 = MemESP_ram + 7 * 0x4000;
-///    #endif
+    #else
+    static unsigned char *MemESP_ram6 = MemESP_ram + 6 * 0x4000;
+    static unsigned char *MemESP_ram7 = MemESP_ram + 7 * 0x4000;
+    #endif
 #else
     static unsigned char *MemESP_ram6 = MemESP_ram + 6 * 0x4000;
     static unsigned char *MemESP_ram7 = MemESP_ram + 7 * 0x4000;
@@ -578,11 +596,11 @@ void ESPectrum::setup()
 
     MemESP::ram[4].assign_ram(MemESP_ram4, 4, false);
 #if PICO_RP2040
-///    #ifdef HDMI
+    #ifdef HDMI
     MemESP::ram[6].assign_vram(6);
-///    #else
-///    MemESP::ram[6].assign_ram(MemESP_ram6, 6, false);
-///    #endif
+    #else
+    MemESP::ram[6].assign_ram(MemESP_ram6, 6, false);
+    #endif
 #else
     MemESP::ram[6].assign_ram(MemESP_ram6, 6, false);
 #endif
@@ -864,7 +882,7 @@ IRAM_ATTR bool ESPectrum::readKbd(fabgl::VirtualKeyItem *Nextkey) {
         } else
         if (Nextkey->vk == fabgl::VK_SCROLLLOCK) { // Change CursorAsJoy setting
             Config::CursorAsJoy = !Config::CursorAsJoy;
-            PS2Controller.keyboard()->setLEDs(false,false,Config::CursorAsJoy);
+            PS2Controller.keyboard()->setLEDs(false, false, Config::CursorAsJoy);
             if(ps2kbd2)
                 PS2Controller.keybjoystick()->setLEDs(false, false, Config::CursorAsJoy);
             Config::save("CursorAsJoy");

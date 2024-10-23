@@ -223,15 +223,15 @@ static bool persistSave(uint8_t slotnumber)
     FILINFO stat_buf;
     char persistfname[sizeof(DISK_PSNA_FILE) + 7];
     char persistfinfo[sizeof(DISK_PSNA_FILE) + 7];    
-    sprintf(persistfname,DISK_PSNA_FILE "%u.sna",slotnumber);
-    sprintf(persistfinfo,DISK_PSNA_FILE "%u.esp",slotnumber);
+    sprintf(persistfname, DISK_PSNA_FILE "%u.sna", slotnumber);
+    sprintf(persistfinfo, DISK_PSNA_FILE "%u.esp", slotnumber);
     string finfo = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfinfo;
 
     // Slot isn't void
     if (f_stat(finfo.c_str(), &stat_buf) == FR_OK) {
         string title = OSD_PSNA_SAVE[Config::lang];
         string msg = OSD_PSNA_EXISTS[Config::lang];
-        uint8_t res = OSD::msgDialog(title,msg);
+        uint8_t res = OSD::msgDialog(title, msg);
         if (res != DLG_YES) return false;
     }
 
@@ -247,21 +247,31 @@ static bool persistSave(uint8_t slotnumber)
     f_close(&f);
 
     string fsna = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfname;
-    if (!FileSNA::save(fsna))
+    if (!FileSNA::save(fsna)) {
         OSD::osdCenteredMsg(OSD_PSNA_SAVE_ERR, LEVEL_ERROR, 5000);
-    
+    }
     return true;
 }
 
 static void f_gets(char* b, size_t sz, FIL& f) {
     UINT br;
-    for (size_t i = 0; i < sz; ++i, ++b) {
-        if (f_read(&f, b, 1, &br) != FR_OK || br != 1 || *b == '\n' || *b == 0) {
-            *b = 0;
+    char* bi = b;
+    for (size_t i = 0; i < sz; ++i, ++bi) {
+        if ( f_read(&f, bi, 1, &br) != FR_OK || br != 1 ) {
+            *bi = 0;
             return;
         }
+        if (*bi == '\r') {
+            --bi;
+            continue;
+        }
+        if (*bi == '\n') {
+            *bi = 0;
+            return;
+        }
+        if (*bi == 0) return;
     }
-    *(--b) = 0;
+    b[sz - 1] = 0;
 }
 
 static bool persistLoad(uint8_t slotnumber)
@@ -286,15 +296,11 @@ static bool persistLoad(uint8_t slotnumber)
         }
         char buf[256];
 
-        f_gets(buf, sizeof(buf),f);
+        f_gets(buf, sizeof(buf), f);
         string persist_arch = buf;
-        persist_arch.pop_back();
-        // printf("[%s]\n",persist_arch.c_str());
 
-        f_gets(buf, sizeof(buf),f);
+        f_gets(buf, sizeof(buf), f);
         string persist_romset = buf;
-        persist_romset.pop_back();
-        // printf("[%s]\n",persist_romset.c_str());
 
         f_close(&f);
 

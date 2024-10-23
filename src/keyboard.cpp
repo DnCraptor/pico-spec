@@ -33,6 +33,7 @@
 #include "freertos/queue.h"
 */
 #include "keyboard.h"
+#include "ps2.h"
 #include <hardware/timer.h>
 
 #pragma GCC optimize ("O2")
@@ -71,10 +72,6 @@ void Keyboard::begin(bool generateVirtualKeys, bool createVKQueue, int PS2Port, 
   m_GUI        = false;
   m_NUMLOCK    = false;
   m_SCROLLLOCK = false;
-
-  m_numLockLED     = false;
-  m_capsLockLED    = false;
-  m_scrollLockLED  = false;
 
 ///  m_uiApp = nullptr;
   reset(doReset);
@@ -172,31 +169,24 @@ bool Keyboard::setScancodeSet(int value)
 }
 
 
-bool Keyboard::setLEDs(bool numLock, bool capsLock, bool scrollLock)
-{
-  m_numLockLED    = numLock;
-  m_capsLockLED   = capsLock;
-  m_scrollLockLED = scrollLock;
-  return true; /// send_cmdLEDs(numLock, capsLock, scrollLock);
+bool Keyboard::setLEDs(bool numLock, bool capsLock, bool scrollLock) {
+  uint8_t v = 0;
+  if (numLock) v |= PS2_LED_NUM_LOCK;
+  if (capsLock) v |= PS2_LED_CAPS_LOCK;
+  if (scrollLock) v |= PS2_LED_SCROLL_LOCK;
+  keyboard_toggle_led(v);
+  return true;
 }
 
-
-void Keyboard::getLEDs(bool * numLock, bool * capsLock, bool * scrollLock)
-{
-  *numLock    = m_numLockLED;
-  *capsLock   = m_capsLockLED;
-  *scrollLock = m_scrollLockLED;
+void Keyboard::getLEDs(bool * numLock, bool * capsLock, bool * scrollLock) {
+  uint8_t v = get_led_status();
+  *numLock    = v & PS2_LED_NUM_LOCK;
+  *capsLock   = v & PS2_LED_CAPS_LOCK;
+  *scrollLock = v & PS2_LED_SCROLL_LOCK;
 }
 
-
-void Keyboard::updateLEDs()
-{
-///  send_cmdLEDs(m_NUMLOCK, m_CAPSLOCK, m_SCROLLLOCK);
-  m_numLockLED    = m_NUMLOCK;
-  m_capsLockLED   = m_CAPSLOCK;
-  m_scrollLockLED = m_SCROLLLOCK;
+void Keyboard::updateLEDs() {
 }
-
 
 int Keyboard::scancodeAvailable()
 {

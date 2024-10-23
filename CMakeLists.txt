@@ -52,7 +52,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${OUTPUT_DIR}")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${OUTPUT_DIR}")
 
 add_subdirectory(drivers/audio)
-add_subdirectory(drivers/ps2kbd)
+add_subdirectory(drivers/ps2)
 add_subdirectory(drivers/nespad)
 add_subdirectory(drivers/fatfs)
 add_subdirectory(drivers/sdcard)
@@ -135,7 +135,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         audio
         graphics
 
-        ps2kbd
+        ps2
         nespad
         sdcard
         fatfs
@@ -179,10 +179,6 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
         PSRAM_PIN_SCK=19
         PSRAM_PIN_MOSI=20
         PSRAM_PIN_MISO=21
-
-        # PS2KBD
-        USE_PS2_KBD
-        PS2KBD_GPIO_FIRST=0
 
         # NES Gamepad
         USE_NESPAD

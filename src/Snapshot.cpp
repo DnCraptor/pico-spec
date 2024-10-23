@@ -328,12 +328,10 @@ bool FileSNA::save(string sna_file, bool blockMode) {
         if (!writeMemPage(page, file, blockMode)) {
             f_close(&file);
             return false;
-
         }
     }
 
     if (Config::arch != "48K") {
-
         // write pc
         writeWordFileLE( Z80::getRegPC(), file);
         // printf("PC: %u\n",(unsigned int)Z80::getRegPC());
@@ -352,21 +350,20 @@ bool FileSNA::save(string sna_file, bool blockMode) {
             writeByteFile(0, file);     // TR-DOS not paged
 
         // write remaining ram pages
-        for (int page = 0; page < (Z80Ops::is1024 ? 64 : (Z80Ops::is512 ? 32 : 8)); page++) {
+        int pages = 8; // 128k = 8 * 16K
+        if (Z80Ops::is512) pages = 32;
+        if (Z80Ops::is1024) pages = 64;
+        for (int page = 0; page < pages; ++page) {
             if (page != MemESP::bankLatch && page != 2 && page != 5) {
                 if (!writeMemPage(page, file, blockMode)) {
                     f_close(&file);
                     return false;
-
                 }
             }
         }
     }
-
     f_close(&file);
-
     return true;
-
 }
 
 static uint16_t mkword(uint8_t lobyte, uint8_t hibyte) {
