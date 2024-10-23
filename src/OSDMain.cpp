@@ -274,13 +274,15 @@ static void f_gets(char* b, size_t sz, FIL& f) {
     b[sz - 1] = 0;
 }
 
+static FIL f;
+
 static bool persistLoad(uint8_t slotnumber)
 {
     char persistfname[sizeof(DISK_PSNA_FILE) + 7];
     char persistfinfo[sizeof(DISK_PSNA_FILE) + 7];        
 
-    sprintf(persistfname,DISK_PSNA_FILE "%u.sna",slotnumber);
-    sprintf(persistfinfo,DISK_PSNA_FILE "%u.esp",slotnumber);
+    sprintf(persistfname, DISK_PSNA_FILE "%u.sna", slotnumber);
+    sprintf(persistfinfo, DISK_PSNA_FILE "%u.esp", slotnumber);
 
     if (!FileSNA::isPersistAvailable(FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfname)) {
         OSD::osdCenteredMsg(OSD_PSNA_NOT_AVAIL, LEVEL_INFO);
@@ -288,7 +290,6 @@ static bool persistLoad(uint8_t slotnumber)
     } else {
         // Read info file
         string finfo = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfinfo;
-        FIL f;
         if (f_open(&f, finfo.c_str(), FA_READ) != FR_OK) {
             OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
             // printf("Error opening %s\n",persistfinfo);
@@ -2544,12 +2545,11 @@ static void __not_in_flash_func(cleanup_block)(size_t flash_target_offset) {
 }
 
 bool OSD::updateROM(const string& fname, uint8_t arch) {
-    FIL customrom;
-    if (f_open(&customrom, fname.c_str(), FA_READ) != FR_OK) {
+    if (f_open(&f, fname.c_str(), FA_READ) != FR_OK) {
         osdCenteredMsg(OSD_NOROMFILE_ERR[Config::lang], LEVEL_WARN, 2000);
         return false;
     }
-    FSIZE_t bytesfirmware = f_size(&customrom); 
+    FSIZE_t bytesfirmware = f_size(&f); 
     const uint8_t* rom;
     size_t max_flash_target_offset, flash_target_offset = 0;
     string dlgTitle = OSD_ROM[Config::lang];
@@ -2557,7 +2557,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     if ( arch == 1 ) {
         if( bytesfirmware > 0x4000 ) {
             osdCenteredMsg("Too long file", LEVEL_WARN, 2000);
-            f_close(&customrom);
+            f_close(&f);
             return false;
         }
         rom = gb_rom_0_48k_custom;
@@ -2574,7 +2574,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     else if ( arch == 2 ) {
         if( bytesfirmware > 0x8000 ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
-            f_close(&customrom);
+            f_close(&f);
             return false;
         }
         rom = gb_rom_0_128k_custom;
@@ -2590,7 +2590,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     else if ( arch == 3 ) {
         if( bytesfirmware > 0x8000 ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
-            f_close(&customrom);
+            f_close(&f);
             return false;
         }
         rom = gb_rom_0_128k_custom;
@@ -2612,15 +2612,15 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     const size_t sz = 512;
     uint8_t* buffer = (uint8_t*)malloc(sz);
     for (FSIZE_t i = 0; i < bytesfirmware; i += sz) {
-        if ( f_read(&customrom, buffer, sz, &br) != FR_OK) {
+        if ( f_read(&f, buffer, sz, &br) != FR_OK) {
             osdCenteredMsg(fname + " - unable to read", LEVEL_ERROR, 5000);
-            f_close(&customrom);
+            f_close(&f);
             return false;
         }
         flash_block(buffer, flash_target_offset + (size_t)(i & 0xFFFFFFFF));
     }
     free(buffer);
-    f_close(&customrom);
+    f_close(&f);
     Config::save();
     Config::requestMachine(Config::arch, Config::romSet128);
     // Firmware written: reboot

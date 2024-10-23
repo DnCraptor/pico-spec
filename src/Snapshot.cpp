@@ -68,10 +68,8 @@ bool LoadSnapshot(string filename, string force_arch, string force_romset) {
     bool res = false;
     uint8_t OSDprev = VIDEO::OSD;
     if (FileUtils::hasSNAextension(filename)) {
-        //OSD::osdCenteredMsg(MSG_LOADING_SNA + (string) ": " + filename.substr(filename.find_last_of("/") + 1), LEVEL_INFO, 0);
         res = FileSNA::load(filename, force_arch, force_romset);
     } else if (FileUtils::hasZ80extension(filename)) {
-        //OSD::osdCenteredMsg(MSG_LOADING_Z80 + (string) ": " + filename.substr(filename.find_last_of("/") + 1), LEVEL_INFO, 0);
         res = FileZ80::load(filename);
     } else if (FileUtils::hasPextension(filename)) {
         res = FileP::load(filename);
@@ -87,11 +85,11 @@ bool LoadSnapshot(string filename, string force_arch, string force_romset) {
     return res;
 }
 
+static FIL file; // to do not use huge stack objects
+
 bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
-    FIL file;
     int sna_size;
     string snapshotArch;
-
     if (f_open(&file, sna_fn.c_str(), FA_READ) != FR_OK)
     {
         OSD::osdCenteredMsg("Error opening file:\n" + sna_fn + "\n", LEVEL_INFO, 5000);
@@ -237,11 +235,10 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
 }
 
 bool FileSNA::isPersistAvailable(string filename) {
-    FIL f;
-    if (f_open(&f, filename.c_str(), FA_READ) != FR_OK)
+    if (f_open(&file, filename.c_str(), FA_READ) != FR_OK)
         return false;
     else
-        f_close(&f);
+        f_close(&file);
     return true;
 }
 
@@ -276,7 +273,6 @@ bool FileSNA::save(string sna_file) {
 }
 
 bool FileSNA::save(string sna_file, bool blockMode) {
-    FIL file;
     if (f_open(&file, sna_file.c_str(), FA_WRITE | FA_CREATE_ALWAYS) != FR_OK)
     {
         printf("FileSNA: Error opening %s for writing",sna_file.c_str());
@@ -394,7 +390,6 @@ int fseek (FIL& stream, long offset, int origin) {
 }
 
 bool FileZ80::load(string z80_fn) {
-    FIL file;
     if (f_open(&file, z80_fn.c_str(), FA_READ) != FR_OK)
     {
         printf("FileZ80: Error opening %s\n",z80_fn.c_str());
@@ -1125,8 +1120,6 @@ void FileZ80::loader128() {
 }
 
 bool FileP::load(string p_fn) {
-
-    FIL file;
     int p_size;
 
     if (f_open(&file, p_fn.c_str(), FA_READ) != FR_OK) {
