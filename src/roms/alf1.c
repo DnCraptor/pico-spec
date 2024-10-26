@@ -1,8 +1,8 @@
 #include <hardware/flash.h>
 
-unsigned char __in_flash() __aligned(4096) gb_rom_Alf_ep[16 << 10] = { 0xFF };
+unsigned char __in_flash() __aligned(4096) gb_rom_Alf_ep[16 << 10] = { 0 };
 
-unsigned char __in_flash() __aligned(4096) gb_rom_Alf_custom[256 << 10] = { 0xFF };
+unsigned char __in_flash() __aligned(4096) gb_rom_Alf_custom[256 << 10] = { 0 };
 
 unsigned char __in_flash() __aligned(4096) gb_rom_Alf1[32 << 10] = {
 	0xf3, 0xaf, 0xed, 0x47, 0xed, 0x4f, 0xed, 0x46, 0x00, 0x21, 0x00, 0x40,

@@ -219,6 +219,11 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         }
         MemESP::romInUse = data & 0x01111111;
         MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
+        FIL* f = fopen2("/alf.log", FA_OPEN_APPEND | FA_WRITE);
+        UINT btw;
+        std::string str = "base: " + to_string(bitRead(data, 7)) + "; page: " + to_string(MemESP::romInUse) + "\n";
+        f_write(f, str.c_str(), str.size(), &btw);
+        fclose2(f);
     }
     
     // ULA =======================================================================
