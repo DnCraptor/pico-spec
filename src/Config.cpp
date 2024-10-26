@@ -97,8 +97,9 @@ void Config::requestMachine(string newArch, string newRomSet)
         if (newRomSet=="") romSet = "ALF1"; else romSet = newRomSet;
         if (newRomSet=="") romSetAlf = "ALF1"; else romSetAlf = newRomSet;
         const uint8_t* base = (romSetAlf == "ALFcs") ? gb_rom_Alf_custom : gb_rom_Alf1;
+        int border_page = base == gb_rom_Alf1 ? 2 : 16;
         for (int i = 0; i < 64; ++i) {
-            MemESP::rom[i].assign_rom(i >= 16 ? gb_rom_Alf_ep : base + ((16 * i) << 10));
+            MemESP::rom[i].assign_rom(i >= border_page ? gb_rom_Alf_ep : base + ((16 * i) << 10));
         }
     } else if (arch == "128K") {
         if (newRomSet=="") romSet = "128K"; else romSet = newRomSet;

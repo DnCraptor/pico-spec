@@ -2171,12 +2171,24 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                         menu_level = 2;
                                         menu_saverect = false;
                                 } else if (opt2 == 5) {                                    
-                                        // Flash custom ROM 256K
+                                        // Flash custom ALF ROM 256K
                                         string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang],DISK_ROMFILE,26,15);
                                         if (mFile != "") {
                                             mFile.erase(0, 1);
                                             string fname = FileUtils::ROM_Path +  mFile;
                                             bool res = updateROM(fname, 4);
+                                            if (res) return;
+                                        }
+                                        menu_curopt = 1;
+                                        menu_level = 2;
+                                        menu_saverect = false;
+                                } else if (opt2 == 6) {                                    
+                                        // Flash cartrifge ROM 256K
+                                        string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang],DISK_ROMFILE,26,15);
+                                        if (mFile != "") {
+                                            mFile.erase(0, 1);
+                                            string fname = FileUtils::ROM_Path +  mFile;
+                                            bool res = updateROM(fname, 5);
                                             if (res) return;
                                         }
                                         menu_curopt = 1;
@@ -2678,13 +2690,25 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         }
         rom = gb_rom_Alf_custom;
         flash_target_offset = (size_t)rom - XIP_BASE;
-        max_flash_target_offset = flash_target_offset + (32 << 10);
+        max_flash_target_offset = flash_target_offset + (256 << 10);
         dlgTitle += " ALF  ";
         Config::arch = "ALF";
         Config::romSet = "ALFcs";
         Config::romSetAlf = "ALFcs";
         Config::pref_arch = "ALF";
         Config::pref_romSetAlf = "ALFcs";
+    }
+    else if ( arch == 5 ) {
+        if( bytesfirmware > (256 << 10) ) {
+            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
+            fclose2(f);
+            return false;
+        }
+        rom = gb_rom_Alf_cart;
+        flash_target_offset = (size_t)rom - XIP_BASE;
+        max_flash_target_offset = flash_target_offset + (256 << 10);
+        dlgTitle += " ALF Cartridge ";
+        Config::arch = "ALF";
     }
 
     for (size_t i = flash_target_offset; i < max_flash_target_offset; i += FLASH_SECTOR_SIZE) {

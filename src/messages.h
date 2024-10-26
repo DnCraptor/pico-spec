@@ -312,14 +312,16 @@ static const char *MENU_OPTIONS[2] = { MENU_OPTIONS_EN,MENU_OPTIONS_ES };
 	"Custom ROM 48K\n"\
 	"Custom ROM 128k\n"\
 	"Custom ROM Pentagon\n"\
-	"Custom ROM ALF\n"
+	"Custom ROM ALF\n"\
+	"Cartridge ROM ALF\n"
 #define MENU_UPDATE_ES \
     "Actualizar\n"\
 	"Firmware\n"\
 	"ROM Custom 48K\n"\
 	"ROM Custom 128k\n"\
 	"ROM Custom Pentagon\n"\
-	"ROM Custom ALF\n"
+	"ROM Custom ALF\n"\
+	"ROM Cartridge ALF\n"
 static const char *MENU_UPDATE_FW[2] = { MENU_UPDATE_EN, MENU_UPDATE_ES };
 
 #define MENU_VIDEO_EN \
