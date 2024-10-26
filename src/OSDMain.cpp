@@ -1025,6 +1025,25 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 menu_curopt = 1;
                                 menu_level = 2;                                       
                             }
+                        } else if (arch_num == 6) { // ALF TV GAME
+                            menu_level = 2;
+                            menu_curopt = 1;                    
+                            menu_saverect = true;
+                            opt2 = menuRun(MENU_ROMS_ALF[Config::lang]);
+                            if (opt2) {
+                                arch = "ALF";
+                                if (opt2 == 1) {
+                                    romset = "ALF1";
+                                } else 
+                                if (opt2 == 2) {
+                                    romset = "ALFcs";
+                                }
+                                menu_curopt = opt2;
+                                menu_saverect = false;
+                            } else {
+                                menu_curopt = 1;
+                                menu_level = 2;                                       
+                            }
                         }
 
                         if (opt2) {
@@ -1429,7 +1448,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             if (opt2 == 2)
                                                 Config::pref_romSetPent = "128Kcs";
                                             else
-                                            if (opt2 == 7)
+                                            if (opt2 == 3)
                                                 Config::pref_romSetPent = "Last";
                                             if (Config::pref_romSetPent != prev_rprefPent) {
                                                 Config::save();
@@ -1468,7 +1487,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             if (opt2 == 2)
                                                 Config::pref_romSetP512 = "128Kcs";
                                             else
-                                            if (opt2 == 7)
+                                            if (opt2 == 3)
                                                 Config::pref_romSetP512 = "Last";
                                             if (Config::pref_romSetP512 != prev_rprefP512) {
                                                 Config::save();
@@ -1507,9 +1526,48 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             if (opt2 == 2)
                                                 Config::pref_romSetP1M = "128Kcs";
                                             else
-                                            if (opt2 == 7)
+                                            if (opt2 == 3)
                                                 Config::pref_romSetP1M = "Last";
                                             if (Config::pref_romSetP1M != prev_rprefP1M) {
+                                                Config::save();
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = 1;
+                                            menu_level = 2;
+                                            break;
+                                        }
+                                    }
+                                } else if (opt2 == 6) {
+                                    menu_level = 3;
+                                    menu_curopt = 1;                    
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string rprefAlfMenu = MENU_ROM_PREF_ALF[Config::lang];
+                                        int mpos = -1;
+                                        while(1) {
+                                            mpos = rprefAlfMenu.find("[",mpos + 1);
+                                            if (mpos == string::npos) break;
+                                            string rmenu = rprefAlfMenu.substr(mpos + 1, 6);
+                                            trim(rmenu);
+                                            if (rmenu == Config::pref_romSetAlf) 
+                                                rprefAlfMenu.replace(mpos + 1, 6,"*");
+                                            else
+                                                rprefAlfMenu.replace(mpos + 1, 6," ");
+                                        }
+                                        string prev_rprefAlf = Config::pref_romSetAlf;
+                                        uint8_t opt2 = menuRun(rprefAlfMenu);
+                                        if (opt2) {
+                                            if (opt2 == 1)
+                                                Config::pref_romSetAlf = "ALF1";
+                                            else
+                                            if (opt2 == 2)
+                                                Config::pref_romSetAlf = "ALFcs";
+                                            else
+                                            if (opt2 == 3)
+                                                Config::pref_romSetAlf = "Last";
+                                            if (Config::pref_romSetAlf != prev_rprefAlf) {
                                                 Config::save();
                                             }
                                             menu_curopt = opt2;
@@ -2112,6 +2170,18 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                         menu_curopt = 1;
                                         menu_level = 2;
                                         menu_saverect = false;
+                                } else if (opt2 == 5) {                                    
+                                        // Flash custom ROM 256K
+                                        string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang],DISK_ROMFILE,26,15);
+                                        if (mFile != "") {
+                                            mFile.erase(0, 1);
+                                            string fname = FileUtils::ROM_Path +  mFile;
+                                            bool res = updateROM(fname, 4);
+                                            if (res) return;
+                                        }
+                                        menu_curopt = 1;
+                                        menu_level = 2;
+                                        menu_saverect = false;
                                 }
                             } else {
                                 menu_curopt = 9;
@@ -2599,6 +2669,22 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         Config::romSetPent = "128Kcs";
         Config::pref_arch = "Pentagon";
         Config::pref_romSetPent = "128Kcs";
+    }
+    else if ( arch == 4 ) {
+        if( bytesfirmware > (256 << 10) ) {
+            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
+            fclose2(f);
+            return false;
+        }
+        rom = gb_rom_Alf_custom;
+        flash_target_offset = (size_t)rom - XIP_BASE;
+        max_flash_target_offset = flash_target_offset + (32 << 10);
+        dlgTitle += " ALF  ";
+        Config::arch = "ALF";
+        Config::romSet = "ALFcs";
+        Config::romSetAlf = "ALFcs";
+        Config::pref_arch = "ALF";
+        Config::pref_romSetAlf = "ALFcs";
     }
 
     for (size_t i = flash_target_offset; i < max_flash_target_offset; i += FLASH_SECTOR_SIZE) {

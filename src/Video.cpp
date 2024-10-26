@@ -270,7 +270,7 @@ const int bluPins[] = {BLU_PINS_6B};
 
 void VIDEO::vgataskinit(void *unused) {
     uint8_t Mode;
-    Mode = 16 + (Config::arch == "48K" ? 0 : (Config::arch == "128K" ? 2 : 4)) + (Config::aspect_16_9 ? 1 : 0);
+    Mode = 16 + ((Config::arch == "48K" || Config::arch == "ALF") ? 0 : (Config::arch == "128K" ? 2 : 4)) + (Config::aspect_16_9 ? 1 : 0);
     OSD::scrW = vidmodes[Mode][vmodeproperties::hRes];
     OSD::scrH = vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv];
     vga.VGA6Bit_useinterrupt = true; // ????
@@ -318,7 +318,7 @@ void VIDEO::Reset() {
 
     OSD = 0;
 
-    if (Config::arch == "48K") {
+    if (Config::arch == "48K" || Config::arch == "ALF") {
         tStatesPerLine = TSTATES_PER_LINE;
         tStatesScreen = TS_SCREEN_48;
         tStatesBorder = is169 ? TS_BORDER_360x200 : TS_BORDER_320x240;        

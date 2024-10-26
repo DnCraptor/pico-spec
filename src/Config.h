@@ -72,12 +72,14 @@ public:
     static string   arch;
     static string   romSet;
     static string   romSet48;
+    static string   romSetAlf;
     static string   romSet128;
     static string   romSetPent;
     static string   romSetP512;
     static string   romSetP1M;
     static string   pref_arch;
     static string   pref_romSet_48;
+    static string   pref_romSetAlf;
     static string   pref_romSet_128;
     static string   pref_romSetPent;
     static string   pref_romSetP512;

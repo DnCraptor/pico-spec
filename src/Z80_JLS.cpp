@@ -914,7 +914,7 @@ void Z80::bitTest(uint8_t mask, uint8_t reg) {
 }
 
 IRAM_ATTR void Z80::check_trdos() {
-    if (!ESPectrum::trdos) {
+    if (!ESPectrum::trdos && !Z80Ops::isALF) {
         if (REG_PCh == 0x3D) {
             // TR-DOS Rom can be accessed from 48K machines and from Spectrum 128/+2 and Pentagon if the currently mapped ROM is bank 1.
             if ((Z80Ops::is48) && (MemESP::romInUse == 0) || ((!Z80Ops::is48) && MemESP::romInUse == 1)) {
@@ -938,7 +938,7 @@ IRAM_ATTR void Z80::check_trdos_unpage() {
             }
             ESPectrum::trdos = false;
         }
-    } else if (REG_PCh == 0x3D) {
+    } else if (REG_PCh == 0x3D && !Z80Ops::isALF) {
             // TR-DOS Rom can be accessed from 48K machines and from Spectrum 128/+2 and Pentagon if the currently mapped ROM is bank 1.
             if ( ((Z80Ops::is48) && (MemESP::romInUse == 0))
                   || ((!Z80Ops::is48) && MemESP::romInUse == 1)

@@ -96,7 +96,7 @@ public:
 class MemESP
 {
 public:
-    static mem_desc_t rom[5];
+    static mem_desc_t rom[64];
     static mem_desc_t ram[64];
 
     static mem_desc_t ramCurrent[4];    

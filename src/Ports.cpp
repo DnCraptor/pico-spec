@@ -44,6 +44,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "CPU.h"
 #include "wd1793.h"
 #include "pwm_audio.h"
+#include "roms.h"
 
 // #pragma GCC optimize("O3")
 
@@ -105,7 +106,6 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     uint8_t rambank = address >> 14;    
 
     VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
-    
     
     // ULA PORT    
     if ((address & 0x0001) == 0) {
@@ -195,7 +195,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
                     }
                     MemESP::romLatch = bitRead(data, 4);
                     MemESP::romInUse = MemESP::romLatch;
-                    MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];            
+                    MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
                 }
             }
         }
@@ -209,6 +209,17 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
 
     VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
 
+    if (Z80Ops::isALF && bitRead(address, 7) == 0 && (address & 1) == 1) { // ALF ROM selector A7=0, A0=1
+        uint8_t* base = bitRead(data, 7) ? gb_rom_Alf_custom : gb_rom_Alf1;
+        if (MemESP::ramCurrent[0].direct() != base) {
+            for (int i = 0; i < 64; ++i) {
+                MemESP::rom[i].assign_rom(i >= 16 ? gb_rom_Alf_ep : base + ((16 * i) << 10));
+            }
+        }
+        uint8_t rom_bank = data & 0x01111111;
+        MemESP::ramCurrent[0] = MemESP::rom[rom_bank];
+    }
+    
     // ULA =======================================================================
     if ((address & 0x0001) == 0) {
         port254 = data;

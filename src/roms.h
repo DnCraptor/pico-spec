@@ -48,4 +48,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "roms/rompentagon128k.h"
 #include "roms/trdos.h"
 
+extern "C" unsigned char gb_rom_Alf_custom[];
+extern "C" unsigned char gb_rom_Alf1[];
+extern "C" unsigned char gb_rom_Alf_ep[];
 #endif
