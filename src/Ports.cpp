@@ -217,12 +217,13 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
                 MemESP::rom[i].assign_rom(i >= border_page ? gb_rom_Alf_ep : base + ((16 * i) << 10));
             }
         }
-        MemESP::romInUse = data & 0x01111111;
+        MemESP::romInUse = (data & 0b01111111);
         MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
-        FIL* f = fopen2("/alf.log", FA_OPEN_APPEND | FA_WRITE);
+        FIL* f = fopen2("/tmp/alf.log", FA_OPEN_APPEND | FA_WRITE);
         UINT btw;
-        std::string str = "base: " + to_string(bitRead(data, 7)) + "; page: " + to_string(MemESP::romInUse) + "\n";
-        f_write(f, str.c_str(), str.size(), &btw);
+        char b[64];
+        snprintf(b, 64, "[%04X]=%02Xh; base: [%p]=%d; page: %d\n", address, data, base, bitRead(data, 7), MemESP::romInUse);
+        f_write(f, b, strlen(b), &btw);
         fclose2(f);
     }
     
