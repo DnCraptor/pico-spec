@@ -119,7 +119,7 @@ void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
             case fabgl::VirtualKey::VK_KP_2: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_DOWN; break;
             case fabgl::VirtualKey::VK_KP_3: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE; break;
             case fabgl::VirtualKey::VK_KP_4: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_LEFT; break;
-            case fabgl::VirtualKey::VK_KP_5: virtualKey = fabgl::VirtualKey::VK_SPACE; break;
+            case fabgl::VirtualKey::VK_KP_5: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_DOWN; break;
             case fabgl::VirtualKey::VK_KP_6: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_RIGHT; break;
             case fabgl::VirtualKey::VK_KP_7: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_FIRE; break;
             case fabgl::VirtualKey::VK_KP_8: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_UP; break;

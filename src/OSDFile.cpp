@@ -104,7 +104,29 @@ public:
     inline void init(const std::string& folder, uint8_t ftype) {
         close();
         this->folder = folder;
-        idx_file = folder + to_string(ftype) + ".idx";
+        const char* prefix;
+        switch (ftype)
+        {
+        case 0:
+            prefix = MOUNT_POINT_SD DISK_SNA_DIR;
+            break;
+        case 1:
+            prefix = MOUNT_POINT_SD DISK_TAP_DIR;
+            break;
+        case 2:
+            prefix = MOUNT_POINT_SD DISK_DSK_DIR;
+            break;
+        case 4:
+            prefix = MOUNT_POINT_SD DISK_ROM_DIR;
+            break;
+        default:
+            prefix = MOUNT_POINT_SD DISK_PSNA_DIR;
+            break;
+        }
+        std::string s = folder;
+        std::replace( s.begin(), s.end(), '/', '_');
+        idx_file = prefix;
+        idx_file += "/." + s + ".idx";
         calc_sz();
     }
     inline void put(size_t i, const std::string& s) {
