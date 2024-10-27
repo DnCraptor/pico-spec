@@ -73,31 +73,32 @@ class sorted_files {
     std::string folder;
     std::string idx_file;
     size_t sz = 0;
-    FIL storage_file = { 0 };
+    FIL* storage_file = 0;
     bool open = false;
     inline void calc_sz() {
         sz = 0;
-        if ( f_open(&storage_file, idx_file.c_str(), FA_READ) == FR_OK ) {
+        storage_file = fopen2(idx_file.c_str(), FA_READ);
+        if (storage_file) {
             UINT br;
             char buf[rec_size];
-            while ( f_read(&storage_file, buf, rec_size, &br) == FR_OK && br == rec_size ) {
+            while ( f_read(storage_file, buf, rec_size, &br) == FR_OK && br == rec_size ) {
                 ++sz;
             }
-            f_close(&storage_file);
+            fclose2(storage_file);
         }
-        f_open(&storage_file, idx_file.c_str(), FA_READ | FA_WRITE | FA_CREATE_ALWAYS);
-        open = true;
+        storage_file = fopen2(idx_file.c_str(), FA_READ | FA_WRITE | FA_CREATE_ALWAYS);
+        if (storage_file) open = true;
     }
 public:
     inline sorted_files() { }
-    inline void close(void) { if (open) f_close(&storage_file); open = false; }
+    inline void close(void) { if (open && storage_file) fclose2(storage_file); open = false; }
     inline ~sorted_files() { close(); }
     inline size_t size(void) { return sz; }
     inline void unlink(void) {
         close();
         f_unlink(idx_file.c_str());
-        f_open(&storage_file, idx_file.c_str(), FA_READ | FA_WRITE | FA_CREATE_NEW | FA_CREATE_ALWAYS);
-        open = true;
+        storage_file = fopen2(idx_file.c_str(), FA_READ | FA_WRITE | FA_CREATE_ALWAYS);
+        if (storage_file) open = true;
         sz = 0;
     }
     inline void init(const std::string& folder, uint8_t ftype) {
@@ -107,11 +108,11 @@ public:
         calc_sz();
     }
     inline void put(size_t i, const std::string& s) {
-        f_lseek(&storage_file, rec_size * i);
+        f_lseek(storage_file, rec_size * i);
         UINT bw;
         char buf[rec_size] = { 0 };
         strncpy(buf, s.c_str(), rec_size - 1);
-        f_write(&storage_file, buf, rec_size, &bw);
+        f_write(storage_file, buf, rec_size, &bw);
     }
     inline void push(const std::string& s) {
         put(sz++, s);
@@ -150,10 +151,10 @@ public:
         return res;
     }
     inline std::string get(size_t i) {
-        f_lseek(&storage_file, rec_size * i);
+        f_lseek(storage_file, rec_size * i);
         UINT br;
         char buf[rec_size];
-        f_read(&storage_file, buf, rec_size, &br);
+        f_read(storage_file, buf, rec_size, &br);
         return (buf);
     }
     inline std::string operator[](size_t i) {

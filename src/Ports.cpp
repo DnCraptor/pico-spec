@@ -101,6 +101,8 @@ uint8_t Ports::getFloatBusData128() {
 
 }
 
+uint8_t nes_pad2_for_alf(void);
+
 IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     uint8_t data;
     uint8_t rambank = address >> 14;    
@@ -110,11 +112,16 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     // ULA PORT    
     if ((address & 0x0001) == 0) {
         VIDEO::Draw(3, !Z80Ops::isPentagon);   // I/O Contention (Late)
-        data = 0xbf; // default port value is 0xBF.
-        uint8_t portHigh = ~(address >> 8) & 0xff;
-        for (int row = 0, mask = 0x01; row < 8; row++, mask <<= 1) {
-            if ((portHigh & mask) != 0)
-                data &= port[row];
+
+        if (Z80Ops::isALF) {
+            data = nes_pad2_for_alf(); // default port value is 0xFF.
+        } else {
+            data = 0xbf; // default port value is 0xBF.
+            uint8_t portHigh = ~(address >> 8) & 0xff;
+            for (int row = 0, mask = 0x01; row < 8; row++, mask <<= 1) {
+                if ((portHigh & mask) != 0)
+                    data &= port[row];
+            }
         }
         if (Tape::tapeStatus==TAPE_LOADING) Tape::Read();
 
@@ -220,14 +227,6 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         MemESP::romInUse = (data & 0b01111111);
         while (MemESP::romInUse >= 64) MemESP::romInUse -= 64; // rolling ROM
         MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
-        /**
-        FIL* f = fopen2("/tmp/alf.log", FA_OPEN_APPEND | FA_WRITE);
-        UINT btw;
-        char b[64];
-        snprintf(b, 64, "[%04X]=%02Xh; base: [%p]=%d; page: %d\n", address, data, base, bitRead(data, 7), MemESP::romInUse);
-        f_write(f, b, strlen(b), &btw);
-        fclose2(f);
-        */
     }
     
     // ULA =======================================================================

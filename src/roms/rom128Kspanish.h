@@ -1,5 +1,7 @@
 #ifndef ROM_128K_ES_H
- #define ROM_128K_ES_H
+#define ROM_128K_ES_H
+
+#if !NO_SPAIN_ROM_128k
 
 //ROM 0 128K SPANISH
 const unsigned char gb_rom_0_128k_es[]={
@@ -2740,5 +2742,7 @@ const unsigned char gb_rom_1_128k_es[]={
 	0x00, 0x14, 0x28, 0x00, 0x00, 0x00, 0x00, 0x00, 0x3C, 0x42, 0x99, 0xA1,
 	0xA1, 0x99, 0x42, 0x3C
 };
+
+#endif
 
 #endif

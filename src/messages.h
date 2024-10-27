@@ -483,33 +483,47 @@ static const char *MENU_ARCH[2] = { MENU_ARCH_EN MENU_ARCHS, MENU_ARCH_ES MENU_A
 #define MENU_ROMS48_EN "Select ROM\n"\
 	"48K\n"\
     "Custom\n"
+#define MENU_ROMS48_ES "Elija ROM\n"\
+	"48K\n"\
+    "Custom\n"
 #else
 #define MENU_ROMS48_EN "Select ROM\n"\
 	"48K\n"\
     "48K Spanish\n"\
     "Custom\n"
+#define MENU_ROMS48_ES "Elija ROM\n"\
+	"48K\n"\
+    "48K Espa" "\xA4" "ol\n"\
+    "Custom\n"
 #endif
 
+#if NO_SPAIN_ROM_128k
+#define MENU_ROMS128_EN "Select ROM\n"\
+	"128K\n"\
+	"+2\n"\
+    "ZX81+\n"\
+    "Custom\n"
+#define MENU_ROMS128_ES "Elija ROM\n"\
+	"128K\n"\
+	"+2\n"\
+    "ZX81+\n"\
+    "Custom\n"
+#else
 #define MENU_ROMS128_EN "Select ROM\n"\
 	"128K\n"\
     "128K Spanish\n"\
 	"+2\n"\
     "+2 Spanish\n"\
     "ZX81+\n"\
-    "Custom\n"\
-
-#define MENU_ROMS48_ES "Elija ROM\n"\
-	"48K\n"\
-    "48K Espa" "\xA4" "ol\n"\
     "Custom\n"
-
 #define MENU_ROMS128_ES "Elija ROM\n"\
 	"128K\n"\
     "128K Espa" "\xA4" "ol\n"\
 	"+2\n"\
     "+2 Espa" "\xA4" "ol\n"\
     "ZX81+\n"\
-    "Custom\n"\
+    "Custom\n"
+#endif
 
 static const char *MENU_ROMS48[2] = { MENU_ROMS48_EN, MENU_ROMS48_ES };
 static const char *MENU_ROMS128[2] = { MENU_ROMS128_EN, MENU_ROMS128_ES };
@@ -556,12 +570,43 @@ static const char *MENU_ROM_PREF[2] = {
   "ROM preferida\n" MENU_ROMS_PREF
 };
 
+#if NO_SPAIN_ROM_48k
+#define MENU_ROMS48_PREF_EN "Select ROM\n"\
+	"48K\t[48K  ]\n"\
+    "Custom\t[48Kcs]\n"\
+	"Last used\t[Last ]\n"
+#define MENU_ROMS48_PREF_ES "Elija ROM\n"\
+	"48K\t[48K  ]\n"\
+    "Custom\t[48Kcs]\n"\
+	"Ultima usada\t[Last ]\n"
+#else
 #define MENU_ROMS48_PREF_EN "Select ROM\n"\
 	"48K\t[48K  ]\n"\
     "48K Spanish\t[48Kes]\n"\
     "Custom\t[48Kcs]\n"\
 	"Last used\t[Last ]\n"
+#define MENU_ROMS48_PREF_ES "Elija ROM\n"\
+	"48K\t[48K  ]\n"\
+    "48K Espa" "\xA4" "ol\t[48Kes]\n"\
+    "Custom\t[48Kcs]\n"\
+	"Ultima usada\t[Last ]\n"
+#endif
+static const char *MENU_ROM_PREF_48[2] = { MENU_ROMS48_PREF_EN, MENU_ROMS48_PREF_ES };
 
+#if NO_SPAIN_ROM_128k
+#define MENU_ROMS128_PREF_EN "Select ROM\n"\
+	"128K\t[128K  ]\n"\
+	"+2\t[+2    ]\n"\
+    "ZX81+\t[ZX81+ ]\n"\
+    "Custom\t[128Kcs]\n"\
+	"Last used\t[Last  ]\n"	
+#define MENU_ROMS128_PREF_ES "Elija ROM\n"\
+	"128K\t[128K  ]\n"\
+	"+2\t[+2    ]\n"\
+    "ZX81+\t[ZX81+ ]\n"\
+    "Custom\t[128Kcs]\n"\
+	"Ultima usada\t[Last  ]\n"
+#else
 #define MENU_ROMS128_PREF_EN "Select ROM\n"\
 	"128K\t[128K  ]\n"\
     "128K Spanish\t[128Kes]\n"\
@@ -570,13 +615,6 @@ static const char *MENU_ROM_PREF[2] = {
     "ZX81+\t[ZX81+ ]\n"\
     "Custom\t[128Kcs]\n"\
 	"Last used\t[Last  ]\n"	
-
-#define MENU_ROMS48_PREF_ES "Elija ROM\n"\
-	"48K\t[48K  ]\n"\
-    "48K Espa" "\xA4" "ol\t[48Kes]\n"\
-    "Custom\t[48Kcs]\n"\
-	"Ultima usada\t[Last ]\n"
-
 #define MENU_ROMS128_PREF_ES "Elija ROM\n"\
 	"128K\t[128K  ]\n"\
     "128K Espa" "\xA4" "ol\t[128Kes]\n"\
@@ -585,9 +623,7 @@ static const char *MENU_ROM_PREF[2] = {
     "ZX81+\t[ZX81+ ]\n"\
     "Custom\t[128Kcs]\n"\
 	"Ultima usada\t[Last  ]\n"
-
-static const char *MENU_ROM_PREF_48[2] = { MENU_ROMS48_PREF_EN, MENU_ROMS48_PREF_ES };
-
+#endif
 static const char *MENU_ROM_PREF_128[2] = { MENU_ROMS128_PREF_EN, MENU_ROMS128_PREF_ES };
 
 #define MENU_ROMS_PENT_PREF_EN \

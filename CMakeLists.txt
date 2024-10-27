@@ -16,8 +16,6 @@ endif()
 set(PICO_BOARD pico CACHE STRING "Board type")
 include(pico_sdk_import.cmake)
 
-set(FLASH_SIZE 4096)
-
 project(pico-spec C CXX ASM)
 SET(BUILD_NAME "${PROJECT_NAME}")
 
@@ -30,7 +28,7 @@ option(HDMI "Enable HDMI display" OFF)
 option(TV "Enable TV composite output" OFF)
 option(SOFTTV "Enable TV soft composite output" OFF)
 
-set (PORT_VERSION "0.3.0")
+set (PORT_VERSION "0.3.1")
 
 ###set(I2S ON)
 ###set(HDMI ON)
@@ -161,6 +159,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
         PORT_VERSION="${PORT_VERSION}"
         CPU_MHZ=${CPU_MHZ}
         NO_SPAIN_ROM_48k=1
+        NO_SPAIN_ROM_128k=1
 
         LOAD_WAV_PIO=22
         PWM_PIN0=26

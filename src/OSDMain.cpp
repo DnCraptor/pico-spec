@@ -953,6 +953,17 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 if (opt2 == 1) {
                                     romset = "128K";
                                 } else 
+#if NO_SPAIN_ROM_128k
+                                if (opt2 == 2) {
+                                    romset = "+2";
+                                } else
+                                if (opt2 == 3) {
+                                    romset = "ZX81+";
+                                } else
+                                if (opt2 == 4) {
+                                    romset = "128Kcs";
+                                }
+#else
                                 if (opt2 == 2) {
                                     romset = "128Kes";
                                 } else 
@@ -968,6 +979,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 if (opt2 == 6) {
                                     romset = "128Kcs";
                                 }
+#endif
                                 menu_curopt = opt2;
                                 menu_saverect = false;
                             } else {
@@ -1347,10 +1359,16 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                         string prev_rpref48 = Config::pref_romSet_48;
                                         uint8_t opt2 = menuRun(rpref48_menu);
                                         if (opt2) {
-
                                             if (opt2 == 1)
                                                 Config::pref_romSet_48 = "48K";
                                             else
+#if NO_SPAIN_ROM_48k
+                                            if (opt2 == 2)
+                                                Config::pref_romSet_48 = "48Kcs";
+                                            else
+                                            if (opt2 == 3)
+                                                Config::pref_romSet_48 = "Last";
+#else
                                             if (opt2 == 2)
                                                 Config::pref_romSet_48 = "48Kes";
                                             else
@@ -1359,7 +1377,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             else
                                             if (opt2 == 4)
                                                 Config::pref_romSet_48 = "Last";
-
+#endif
                                             if (Config::pref_romSet_48 != prev_rpref48) {
                                                 Config::save("pref_romSet_48");
                                             }
@@ -1391,10 +1409,22 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                         string prev_rpref128 = Config::pref_romSet_128;
                                         uint8_t opt2 = menuRun(rpref128_menu);
                                         if (opt2) {
-
                                             if (opt2 == 1)
                                                 Config::pref_romSet_128 = "128K";
                                             else
+#if NO_SPAIN_ROM_128k
+                                            if (opt2 == 2)
+                                                Config::pref_romSet_128 = "+2";
+                                            else
+                                            if (opt2 == 3)
+                                                Config::pref_romSet_128 = "ZX81+";
+                                            else
+                                            if (opt2 == 4)
+                                                Config::pref_romSet_128 = "128Kcs";
+                                            else
+                                            if (opt2 == 5)
+                                                Config::pref_romSet_128 = "Last";
+#else
                                             if (opt2 == 2)
                                                 Config::pref_romSet_128 = "128Kes";
                                             else
@@ -1412,6 +1442,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             else
                                             if (opt2 == 7)
                                                 Config::pref_romSet_128 = "Last";
+#endif
                                             if (Config::pref_romSet_128 != prev_rpref128) {
                                                 Config::save("pref_romSet_128");
                                             }

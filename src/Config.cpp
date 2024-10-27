@@ -101,23 +101,25 @@ void Config::requestMachine(string newArch, string newRomSet)
     } else if (arch == "128K") {
         if (newRomSet=="") romSet = "128K"; else romSet = newRomSet;
         if (newRomSet=="") romSet128 = "128K"; else romSet128 = newRomSet;                
-        if (romSet128 == "128K") {
-            MemESP::rom[0].assign_rom(gb_rom_0_sinclair_128k);
-            MemESP::rom[1].assign_rom(gb_rom_1_sinclair_128k);
+        if (romSet128 == "128Kcs") {
+            MemESP::rom[0].assign_rom(gb_rom_0_128k_custom);
+            MemESP::rom[1].assign_rom(gb_rom_0_128k_custom + (16 << 10)); /// 16392;
+#if !NO_SPAIN_ROM_128k
         } else if (romSet128 == "128Kes") {
             MemESP::rom[0].assign_rom(gb_rom_0_128k_es);
             MemESP::rom[1].assign_rom(gb_rom_1_128k_es);
-        } else if (romSet128 == "128Kcs") {
-            MemESP::rom[0].assign_rom(gb_rom_0_128k_custom);
-            MemESP::rom[1].assign_rom(gb_rom_0_128k_custom + (16 << 10)); /// 16392;
-        } else if (romSet128 == "+2") {
-            MemESP::rom[0].assign_rom(gb_rom_0_plus2);
-            MemESP::rom[1].assign_rom(gb_rom_1_plus2);
         } else if (romSet128 == "+2es") {
             MemESP::rom[0].assign_rom(gb_rom_0_plus2_es);
             MemESP::rom[1].assign_rom(gb_rom_1_plus2_es);
+#endif
+        } else if (romSet128 == "+2") {
+            MemESP::rom[0].assign_rom(gb_rom_0_plus2);
+            MemESP::rom[1].assign_rom(gb_rom_1_plus2);
         } else if (romSet128 == "ZX81+") {
             MemESP::rom[0].assign_rom(gb_rom_0_s128_zx81);
+            MemESP::rom[1].assign_rom(gb_rom_1_sinclair_128k);
+        } else {
+            MemESP::rom[0].assign_rom(gb_rom_0_sinclair_128k);
             MemESP::rom[1].assign_rom(gb_rom_1_sinclair_128k);
         }
     } else { // Pentagon by default
