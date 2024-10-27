@@ -160,6 +160,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 target_compile_definitions(${PROJECT_NAME} PRIVATE
         PORT_VERSION="${PORT_VERSION}"
         CPU_MHZ=${CPU_MHZ}
+        NO_SPAIN_ROM_48k=1
 
         LOAD_WAV_PIO=22
         PWM_PIN0=26
@@ -202,7 +203,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
         TFT_DATA_PIN=12
         TFT_CLK_PIN=13
 
-	PICO_FLASH_SIZE_BYTES=16777216
+	    PICO_FLASH_SIZE_BYTES=16777216
 )
 
 pico_set_linker_script(${PROJECT_NAME} "${CMAKE_SOURCE_DIR}/memmap.ld")

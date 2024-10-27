@@ -83,14 +83,16 @@ void Config::requestMachine(string newArch, string newRomSet)
     arch = newArch;
     if (arch == "48K") {
         if (newRomSet=="") romSet = "48K"; else romSet = newRomSet;
-        if (newRomSet=="") romSet48 = "48K"; else romSet48 = newRomSet;        
-        if (romSet48 == "48K")
-            MemESP::rom[0].assign_rom(gb_rom_0_sinclair_48k);
-        else if (romSet48 == "48Kes")
-            MemESP::rom[0].assign_rom(gb_rom_0_48k_es);
-        else if (romSet48 == "48Kcs") {
+        if (newRomSet=="") romSet48 = "48K"; else romSet48 = newRomSet;
+        if (romSet48 == "48Kcs") {
             MemESP::rom[0].assign_rom(gb_rom_0_48k_custom);
-        }
+        } else
+#if !NO_SPAIN_ROM_48k
+        if (romSet48 == "48Kes")
+            MemESP::rom[0].assign_rom(gb_rom_0_48k_es);
+        else
+#endif
+            MemESP::rom[0].assign_rom(gb_rom_0_sinclair_48k);
     } else if (arch == "ALF") {
         const uint8_t* base = gb_rom_Alf;
         for (int i = 0; i < 64; ++i) {

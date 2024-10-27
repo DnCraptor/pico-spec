@@ -924,13 +924,19 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 arch = "48K";
                                 if (opt2 == 1) {
                                     romset = "48K";
-                                } else 
+                                } else
+#if NO_SPAIN_ROM_48k                                 
+                                if (opt2 == 2) {
+                                    romset = "48Kcs";
+                                }
+#else
                                 if (opt2 == 2) {
                                     romset = "48Kes";
                                 } else 
                                 if (opt2 == 3) {
                                     romset = "48Kcs";
                                 }
+#endif
                                 menu_curopt = opt2;
                                 menu_saverect = false;
                             } else {

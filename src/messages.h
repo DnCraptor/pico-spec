@@ -479,10 +479,16 @@ static const char *MENU_ISSUE2[2] = { "48K Issue 2\n", "48K Issue 2\n"};
 	"ALF TV GAME\n"
 static const char *MENU_ARCH[2] = { MENU_ARCH_EN MENU_ARCHS, MENU_ARCH_ES MENU_ARCHS };
 
+#if NO_SPAIN_ROM_48k
+#define MENU_ROMS48_EN "Select ROM\n"\
+	"48K\n"\
+    "Custom\n"
+#else
 #define MENU_ROMS48_EN "Select ROM\n"\
 	"48K\n"\
     "48K Spanish\n"\
     "Custom\n"
+#endif
 
 #define MENU_ROMS128_EN "Select ROM\n"\
 	"128K\n"\
