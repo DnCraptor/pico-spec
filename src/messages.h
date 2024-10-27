@@ -476,7 +476,7 @@ static const char *MENU_ISSUE2[2] = { "48K Issue 2\n", "48K Issue 2\n"};
 	"Pentagon 128K\t>\n"\
 	"Pentagon 512K\t>\n"\
 	"Pentagon 1024K\t>\n"\
-	"ALF TV GAME\t>\n"
+	"ALF TV GAME\n"
 static const char *MENU_ARCH[2] = { MENU_ARCH_EN MENU_ARCHS, MENU_ARCH_ES MENU_ARCHS };
 
 #define MENU_ROMS48_EN "Select ROM\n"\
@@ -518,16 +518,6 @@ static const char *MENU_ROMS128[2] = { MENU_ROMS128_EN, MENU_ROMS128_ES };
     "Custom\n"
 static const char *MENU_ROMS_PENT[2] = { MENU_ROMS_PENT_EN, MENU_ROMS_PENT_ES };
 
-#define MENU_ROMS_ALF_EN \
-  "Select ROM\n"\
-	"ALF 1\n"\
-    "Custom\n"
-#define MENU_ROMS_ALF_ES \
-  "Elija ROM\n"\
-	"ALF 1\n"\
-    "Custom\n"
-static const char *MENU_ROMS_ALF[2] = { MENU_ROMS_ALF_EN, MENU_ROMS_ALF_ES };
-
 #define MENU_ROMS_SCORP_EN \
   "Select ROM\n"\
 	"Mix\n"\
@@ -554,8 +544,7 @@ static const char *MENU_ARCH_PREF[2] = {
     "Spectrum 128K\t>\n"\
     "Pentagon 128K\t>\n"\
     "Pentagon 512K\t>\n"\
-    "Pentagon 1024K\t>\n"\
-    "ALF TV GAME\t>\n"
+    "Pentagon 1024K\t>\n"
 static const char *MENU_ROM_PREF[2] = {
   "Preferred ROM\n" MENU_ROMS_PREF,
   "ROM preferida\n" MENU_ROMS_PREF
@@ -606,18 +595,6 @@ static const char *MENU_ROM_PREF_128[2] = { MENU_ROMS128_PREF_EN, MENU_ROMS128_P
     "Custom\t[128Kcs]\n"\
 	"Last used\t[Last  ]\n"
 static const char *MENU_ROM_PREF_PENT[2] = { MENU_ROMS_PENT_PREF_EN, MENU_ROMS_PENT_PREF_ES };
-
-#define MENU_ROMS_ALF_PREF_EN \
-  "Select ROM\n"\
-	"Original\t[ALF1  ]\n"\
-    "Custom\t[ALFcs ]\n"\
-	"Last used\t[Last  ]\n"
-#define MENU_ROMS_ALF_PREF_ES \
-  "Elija ROM\n"\
-	"Original\t[ALF1  ]\n"\
-    "Custom\t[ALFcs ]\n"\
-	"Last used\t[Last  ]\n"
-static const char *MENU_ROM_PREF_ALF[2] = { MENU_ROMS_ALF_PREF_EN, MENU_ROMS_ALF_PREF_ES };
 
 #define MENU_ROMS_SCORP_PREF_EN \
   "Select ROM\n"\

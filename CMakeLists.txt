@@ -16,6 +16,8 @@ endif()
 set(PICO_BOARD pico CACHE STRING "Board type")
 include(pico_sdk_import.cmake)
 
+set(FLASH_SIZE 4096)
+
 project(pico-spec C CXX ASM)
 SET(BUILD_NAME "${PROJECT_NAME}")
 
@@ -199,7 +201,10 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
         TFT_DC_PIN=10
         TFT_DATA_PIN=12
         TFT_CLK_PIN=13
+
+	PICO_FLASH_SIZE_BYTES=16777216
 )
 
+pico_set_linker_script(${PROJECT_NAME} "${CMAKE_SOURCE_DIR}/memmap.ld")
 target_link_options(${PROJECT_NAME} PRIVATE -Xlinker --print-memory-usage --data-sections)
 pico_add_extra_outputs(${PROJECT_NAME})

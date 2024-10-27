@@ -210,21 +210,24 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
 
     if (Z80Ops::isALF && bitRead(address, 7) == 0 && (address & 1) == 1) { // ALF ROM selector A7=0, A0=1
-        uint8_t* base = bitRead(data, 7) ? gb_rom_Alf_cart : (Config::romSet == "ALFcs" ? gb_rom_Alf_custom : gb_rom_Alf1);
+        uint8_t* base = bitRead(data, 7) ? gb_rom_Alf_cart : gb_rom_Alf;
         if (MemESP::ramCurrent[0].direct() != base) {
-            int border_page = base == gb_rom_Alf1 ? 2 : 16;
+            int border_page = base == gb_rom_Alf ? 16 : 64;
             for (int i = 0; i < 64; ++i) {
                 MemESP::rom[i].assign_rom(i >= border_page ? gb_rom_Alf_ep : base + ((16 * i) << 10));
             }
         }
         MemESP::romInUse = (data & 0b01111111);
+        while (MemESP::romInUse >= 64) MemESP::romInUse -= 64; // rolling ROM
         MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
+        /**
         FIL* f = fopen2("/tmp/alf.log", FA_OPEN_APPEND | FA_WRITE);
         UINT btw;
         char b[64];
         snprintf(b, 64, "[%04X]=%02Xh; base: [%p]=%d; page: %d\n", address, data, base, bitRead(data, 7), MemESP::romInUse);
         f_write(f, b, strlen(b), &btw);
         fclose2(f);
+        */
     }
     
     // ULA =======================================================================

@@ -11,14 +11,12 @@
 string   Config::arch = "48K";
 string   Config::romSet = "48K";
 string   Config::romSet48 = "48K";
-string   Config::romSetAlf = "ALF1";
 string   Config::romSet128 = "128K";
 string   Config::romSetPent = "128Kp";
 string   Config::romSetP512 = "128Kp";
 string   Config::romSetP1M = "128Kp";
 string   Config::pref_arch = "48K";
 string   Config::pref_romSet_48 = "48K";
-string   Config::pref_romSetAlf = "ALF1";
 string   Config::pref_romSet_128 = "128K";
 string   Config::pref_romSetPent = "128Kp";
 string   Config::pref_romSetP512 = "128Kp";
@@ -94,12 +92,9 @@ void Config::requestMachine(string newArch, string newRomSet)
             MemESP::rom[0].assign_rom(gb_rom_0_48k_custom);
         }
     } else if (arch == "ALF") {
-        if (newRomSet=="") romSet = "ALF1"; else romSet = newRomSet;
-        if (newRomSet=="") romSetAlf = "ALF1"; else romSetAlf = newRomSet;
-        const uint8_t* base = (romSetAlf == "ALFcs") ? gb_rom_Alf_custom : gb_rom_Alf1;
-        int border_page = base == gb_rom_Alf1 ? 2 : 16;
+        const uint8_t* base = gb_rom_Alf;
         for (int i = 0; i < 64; ++i) {
-            MemESP::rom[i].assign_rom(i >= border_page ? gb_rom_Alf_ep : base + ((16 * i) << 10));
+            MemESP::rom[i].assign_rom(i >= 16 ? gb_rom_Alf_ep : base + ((16 * i) << 10));
         }
     } else if (arch == "128K") {
         if (newRomSet=="") romSet = "128K"; else romSet = newRomSet;
@@ -203,14 +198,12 @@ void Config::load() {
         nvs_get_str("arch", arch, sts);
         nvs_get_str("romSet", romSet, sts);
         nvs_get_str("romSet48", romSet48, sts);
-        nvs_get_str("romSetAlf", romSetAlf, sts);
         nvs_get_str("romSet128", romSet128, sts);
         nvs_get_str("romSetPent", romSetPent, sts);
         nvs_get_str("romSetP512", romSetP512, sts);
         nvs_get_str("romSetP1M", romSetP1M, sts);
         nvs_get_str("pref_arch", pref_arch, sts);
         nvs_get_str("pref_romSet_48", pref_romSet_48, sts);
-        nvs_get_str("pref_romSetAlf", pref_romSetAlf, sts);
         nvs_get_str("pref_romSet_128", pref_romSet_128, sts);
         nvs_get_str("pref_romSetPent", pref_romSetPent, sts);
         nvs_get_str("pref_romSetP512", pref_romSetP512, sts);
@@ -282,14 +275,12 @@ void Config::save(string value) {
         nvs_set_str(handle,"arch",arch.c_str());
         nvs_set_str(handle,"romSet",romSet.c_str());
         nvs_set_str(handle,"romSet48",romSet48.c_str());
-        nvs_set_str(handle,"romSetAlf",romSetAlf.c_str());
         nvs_set_str(handle,"romSet128",romSet128.c_str());
         nvs_set_str(handle,"romSetPent",romSetPent.c_str());
         nvs_set_str(handle,"romSetP512",romSetP512.c_str());
         nvs_set_str(handle,"romSetP1M",romSetP1M.c_str());
         nvs_set_str(handle,"pref_arch",pref_arch.c_str());
         nvs_set_str(handle,"pref_romSet_48",pref_romSet_48.c_str());
-        nvs_set_str(handle,"pref_romSetAlf",pref_romSetAlf.c_str());
         nvs_set_str(handle,"pref_romSet_128",pref_romSet_128.c_str());
         nvs_set_str(handle,"pref_romSetPent",pref_romSetPent.c_str());
         nvs_set_str(handle,"pref_romSetP512",pref_romSetP512.c_str());

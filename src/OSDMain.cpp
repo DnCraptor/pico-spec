@@ -1026,24 +1026,17 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 menu_level = 2;                                       
                             }
                         } else if (arch_num == 6) { // ALF TV GAME
-                            menu_level = 2;
-                            menu_curopt = 1;                    
-                            menu_saverect = true;
-                            opt2 = menuRun(MENU_ROMS_ALF[Config::lang]);
-                            if (opt2) {
-                                arch = "ALF";
-                                if (opt2 == 1) {
-                                    romset = "ALF1";
-                                } else 
-                                if (opt2 == 2) {
-                                    romset = "ALFcs";
-                                }
-                                menu_curopt = opt2;
-                                menu_saverect = false;
-                            } else {
-                                menu_curopt = 1;
-                                menu_level = 2;                                       
-                            }
+                            arch = "ALF";
+                            romset = "ALF1";
+                            menu_curopt = opt2;
+                            menu_saverect = false;
+                            Config::romSet = romset;
+                            click();
+                            if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes                
+                            Config::save();
+                            Config::requestMachine(arch, romset);
+                            ESPectrum::reset();
+                            return;
                         }
 
                         if (opt2) {
@@ -1075,6 +1068,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             Config::romSet = romset;
                                             Config::romSetP1M = romset;
                                         }
+                                    } else {
+                                        Config::romSet = romset;
                                     }
                                 }
                                 if (arch != Config::arch) {
@@ -1529,45 +1524,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             if (opt2 == 3)
                                                 Config::pref_romSetP1M = "Last";
                                             if (Config::pref_romSetP1M != prev_rprefP1M) {
-                                                Config::save();
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 1;
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                } else if (opt2 == 6) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;                    
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string rprefAlfMenu = MENU_ROM_PREF_ALF[Config::lang];
-                                        int mpos = -1;
-                                        while(1) {
-                                            mpos = rprefAlfMenu.find("[",mpos + 1);
-                                            if (mpos == string::npos) break;
-                                            string rmenu = rprefAlfMenu.substr(mpos + 1, 6);
-                                            trim(rmenu);
-                                            if (rmenu == Config::pref_romSetAlf) 
-                                                rprefAlfMenu.replace(mpos + 1, 6,"*");
-                                            else
-                                                rprefAlfMenu.replace(mpos + 1, 6," ");
-                                        }
-                                        string prev_rprefAlf = Config::pref_romSetAlf;
-                                        uint8_t opt2 = menuRun(rprefAlfMenu);
-                                        if (opt2) {
-                                            if (opt2 == 1)
-                                                Config::pref_romSetAlf = "ALF1";
-                                            else
-                                            if (opt2 == 2)
-                                                Config::pref_romSetAlf = "ALFcs";
-                                            else
-                                            if (opt2 == 3)
-                                                Config::pref_romSetAlf = "Last";
-                                            if (Config::pref_romSetAlf != prev_rprefAlf) {
                                                 Config::save();
                                             }
                                             menu_curopt = opt2;
@@ -2683,30 +2639,28 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         Config::pref_romSetPent = "128Kcs";
     }
     else if ( arch == 4 ) {
-        if( bytesfirmware > (256 << 10) ) {
+        if( bytesfirmware > (256ul << 10) ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
             fclose2(f);
             return false;
         }
-        rom = gb_rom_Alf_custom;
+        rom = gb_rom_Alf;
         flash_target_offset = (size_t)rom - XIP_BASE;
-        max_flash_target_offset = flash_target_offset + (256 << 10);
-        dlgTitle += " ALF  ";
+        max_flash_target_offset = flash_target_offset + (256ul << 10);
+        dlgTitle += " ALF ROM ";
         Config::arch = "ALF";
-        Config::romSet = "ALFcs";
-        Config::romSetAlf = "ALFcs";
+        Config::romSet = "ALF";
         Config::pref_arch = "ALF";
-        Config::pref_romSetAlf = "ALFcs";
     }
     else if ( arch == 5 ) {
-        if( bytesfirmware > (256 << 10) ) {
+        if( bytesfirmware > (1ul << 20) ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
             fclose2(f);
             return false;
         }
         rom = gb_rom_Alf_cart;
         flash_target_offset = (size_t)rom - XIP_BASE;
-        max_flash_target_offset = flash_target_offset + (256 << 10);
+        max_flash_target_offset = flash_target_offset + (1ul << 20);
         dlgTitle += " ALF Cartridge ";
         Config::arch = "ALF";
     }
@@ -2726,10 +2680,18 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         }
         flash_block(buffer, flash_target_offset + (size_t)(i & 0xFFFFFFFF));
     }
-    free(buffer);
     fclose2(f);
+    /**
+    if (arch == 4 || arch == 5) {
+        memset(buffer, 0, sz);
+        for (size_t i = bytesfirmware & 0xFFFFFFFF; i < max_flash_target_offset; i += sz) {
+            flash_block(buffer, flash_target_offset + (i & 0xFFFFFFFF));
+        }
+    }
+    */
+    free(buffer);
     Config::save();
-    Config::requestMachine(Config::arch, Config::romSet128);
+///    Config::requestMachine(Config::arch, Config::romSet);
     // Firmware written: reboot
 ///    ESPectrum::reset();
     OSD::esp_hard_reset();
