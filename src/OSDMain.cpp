@@ -2632,7 +2632,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
             fclose2(f);
             return false;
         }
-        rom = gb_rom_0_48k_custom;
+        rom = gb_rom_0_128k_custom; ///gb_rom_0_48k_custom;
         flash_target_offset = (size_t)rom - XIP_BASE;
         max_flash_target_offset = flash_target_offset + (16 << 10);
         dlgTitle += " 48K   ";

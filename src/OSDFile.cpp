@@ -86,7 +86,7 @@ class sorted_files {
             }
             fclose2(storage_file);
         }
-        storage_file = fopen2(idx_file.c_str(), FA_READ | FA_WRITE | FA_CREATE_ALWAYS);
+        storage_file = fopen2(idx_file.c_str(), FA_READ | FA_WRITE);
         if (storage_file) open = true;
     }
 public:
@@ -139,32 +139,6 @@ public:
     inline void push(const std::string& s) {
         put(sz++, s);
     }
-    /**
-    inline void push(const std::string& s) {
-        size_t i;
-        for (i = 0; i < sz; ++i) {
-            int rc = s.compare(get(i));
-            if (!rc) { // already there
-                return;
-            }
-            if (rc < 0) { // save before this record
-                break;
-            }
-        }
-        if (i < sz) { // shift down from sz - 1 to i
-            UINT br;
-            for (int j = sz - 1; j >= i; --j) {
-                char buf[rec_size];
-                f_lseek(&storage_file, rec_size * j);
-                f_read(&storage_file, buf, rec_size, &br);
-                f_lseek(&storage_file, rec_size * (j + 1));
-                f_write(&storage_file, buf, rec_size, &br);
-            }
-        }
-        put(i, s); // replace i by s
-        ++sz;
-    }
-    */
     inline size_t crc(void) {
         size_t res = 0;
         for (size_t i = 0; i < sz; ++i) {
@@ -415,7 +389,9 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                 }
             }
             f_closedir(&f_dir);
-            if (filenames.crc() != crc) { // reindex
+            uint32_t rcrc = filenames.crc();
+            //OSD::osdCenteredMsg(to_string(rcrc) + " / " + to_string(crc), LEVEL_INFO, 5000);
+            if (rcrc != crc) { // reindex
                 filenames.unlink();
                 if (fdir.size() > 1) {
                     filenames.push("  ..");
@@ -756,6 +732,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
             }
             sleep_ms(5);
         }
+        filenames.close();
     }
     filenames.close();
 }

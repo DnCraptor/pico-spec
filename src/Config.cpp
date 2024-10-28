@@ -85,7 +85,7 @@ void Config::requestMachine(string newArch, string newRomSet)
         if (newRomSet=="") romSet = "48K"; else romSet = newRomSet;
         if (newRomSet=="") romSet48 = "48K"; else romSet48 = newRomSet;
         if (romSet48 == "48Kcs") {
-            MemESP::rom[0].assign_rom(gb_rom_0_48k_custom);
+            MemESP::rom[0].assign_rom(gb_rom_0_128k_custom); ///gb_rom_0_48k_custom);
         } else
 #if !NO_SPAIN_ROM_48k
         if (romSet48 == "48Kes")
