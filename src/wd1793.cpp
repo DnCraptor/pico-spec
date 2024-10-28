@@ -408,7 +408,7 @@ bool WD1793::InsertDisk(unsigned char UnitNum, string Filename) {
     // close any open disk in this unit
     EjectDisk(UnitNum);
 
-    if (f_open(&Drive[UnitNum].DiskFile, Filename.c_str(), FA_READ) == FR_OK) {
+    if (f_open(&Drive[UnitNum].DiskFile, Filename.c_str(), FA_READ | FA_WRITE) == FR_OK) {
 
         Drive[UnitNum].Available = true;
         Drive[UnitNum].Heads = 1;
@@ -431,7 +431,7 @@ bool WD1793::InsertDisk(unsigned char UnitNum, string Filename) {
             Drive[UnitNum].IsSCLFile=false;
             Drive[UnitNum].sclDataOffset = 0;
 
-            fseek(&Drive[UnitNum].DiskFile,2048 + 227,SEEK_SET);
+            fseek(&Drive[UnitNum].DiskFile,2048 + 227, SEEK_SET);
             fread(&diskType,1,1,Drive[UnitNum].DiskFile);
 
         }

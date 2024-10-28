@@ -17,7 +17,6 @@ set(PICO_BOARD pico CACHE STRING "Board type")
 include(pico_sdk_import.cmake)
 
 project(pico-spec C CXX ASM)
-SET(BUILD_NAME "${PROJECT_NAME}")
 
 option(I2S "Enable I2S sound" OFF)
 option(I2S_CS4334 "Enable I2S CS4334 sound" OFF)
@@ -36,8 +35,11 @@ set (PORT_VERSION "0.3.1")
 ###set(SOFTTV ON)
 #set(TFT ON)
 #set(ILI9341 ON)
-
+set(FLASH_SIZE 4096)
+##set(FLASH_SIZE_GREEN ON)
 set(CPU_MHZ 378)
+
+SET(BUILD_NAME "${PROJECT_NAME}-${FLASH_SIZE}-${CPU_MHZ}")
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
@@ -93,39 +95,47 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 IF(TFT)
     target_link_libraries(${PROJECT_NAME} PRIVATE st7789)
     target_compile_definitions(${PROJECT_NAME} PRIVATE TFT)
-    SET(BUILD_NAME "${BUILD_NAME}-${CPU_MHZ}-TFT-${PORT_VERSION}")
+    SET(BUILD_NAME "${BUILD_NAME}-TFT-${PORT_VERSION}")
     IF(ILI9341)
-        SET(BUILD_NAME "${BUILD_NAME}-${CPU_MHZ}-ILI9341-${PORT_VERSION}")
+        SET(BUILD_NAME "${BUILD_NAME}-ILI9341-${PORT_VERSION}")
         target_compile_definitions(${PROJECT_NAME} PRIVATE ILI9341)
     ELSE()
-        SET(BUILD_NAME "${BUILD_NAME}-${CPU_MHZ}-ST7789-${PORT_VERSION}")
+        SET(BUILD_NAME "${BUILD_NAME}-ST7789-${PORT_VERSION}")
     ENDIF()
 ELSEIF(HDMI)
     target_link_libraries(${PROJECT_NAME} PRIVATE hdmi)
     target_compile_definitions(${PROJECT_NAME} PRIVATE HDMI)
-    SET(BUILD_NAME "${BUILD_NAME}-${CPU_MHZ}-HDMI-${PORT_VERSION}")
+    SET(BUILD_NAME "${BUILD_NAME}-HDMI-${PORT_VERSION}")
 ELSEIF(TV)
     target_compile_definitions(${PROJECT_NAME} PRIVATE TV)
     target_link_libraries(${PROJECT_NAME} PRIVATE tv)
-    SET(BUILD_NAME "${BUILD_NAME}-${CPU_MHZ}-TV-${PORT_VERSION}")
+    SET(BUILD_NAME "${BUILD_NAME}-TV-${PORT_VERSION}")
 ELSEIF(SOFTTV)
 	target_compile_definitions(${PROJECT_NAME} PRIVATE SOFTTV)
 	target_link_libraries(${PROJECT_NAME} PRIVATE tv-software)
-	SET(BUILD_NAME "${BUILD_NAME}-${CPU_MHZ}-TV-SOFT-${PORT_VERSION}")
+	SET(BUILD_NAME "${BUILD_NAME}-TV-SOFT-${PORT_VERSION}")
 ELSE()
     target_compile_definitions(${PROJECT_NAME} PRIVATE VGA_DRV)
     target_link_libraries(${PROJECT_NAME} PRIVATE vga-nextgen)
-    SET(BUILD_NAME "${BUILD_NAME}-${CPU_MHZ}-VGA-${PORT_VERSION}")
+    SET(BUILD_NAME "${BUILD_NAME}-VGA-${PORT_VERSION}")
 ENDIF()
 
 IF(NOT I2S)
     target_compile_definitions(${PROJECT_NAME} PRIVATE AUDIO_PWM_PIN=26)
 ELSEIF(I2S_CS4334)
     target_compile_definitions(${PROJECT_NAME} PRIVATE I2S_CS4334)
-    SET(BUILD_NAME "${BUILD_NAME}-${CPU_MHZ}-I2S-CS4334-${PORT_VERSION}")
+    SET(BUILD_NAME "${BUILD_NAME}-I2S-CS4334-${PORT_VERSION}")
 ELSE()
-    SET(BUILD_NAME "${BUILD_NAME}-${CPU_MHZ}-I2S-TDA1387-${PORT_VERSION}")
+    SET(BUILD_NAME "${BUILD_NAME}-I2S-TDA1387-${PORT_VERSION}")
     target_compile_definitions(${PROJECT_NAME} PRIVATE I2S_SOUND=1)
+ENDIF()
+
+IF(FLASH_SIZE_GREEN)
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+        NO_SPAIN_ROM_48k=1
+        NO_SPAIN_ROM_128k=1
+        CARTRIDGE_AS_CUSTOM=1
+)
 ENDIF()
 
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "${BUILD_NAME}")
@@ -158,9 +168,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 target_compile_definitions(${PROJECT_NAME} PRIVATE
         PORT_VERSION="${PORT_VERSION}"
         CPU_MHZ=${CPU_MHZ}
-        NO_SPAIN_ROM_48k=1
-        NO_SPAIN_ROM_128k=1
-        CARTRIDGE_AS_CUSTOM=1
 
         LOAD_WAV_PIO=22
         PWM_PIN0=26
@@ -203,7 +210,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
         TFT_DATA_PIN=12
         TFT_CLK_PIN=13
 
-	    PICO_FLASH_SIZE_BYTES=16777216
+	    PICO_FLASH_SIZE_BYTES=${FLASH_SIZE}*1024
 )
 
 pico_set_linker_script(${PROJECT_NAME} "${CMAKE_SOURCE_DIR}/memmap.ld")
