@@ -500,13 +500,9 @@ static const char *MENU_ARCH[2] = { MENU_ARCH_EN MENU_ARCHS, MENU_ARCH_ES MENU_A
 #if NO_SPAIN_ROM_128k
 #define MENU_ROMS128_EN "Select ROM\n"\
 	"128K\n"\
-	"+2\n"\
-    "ZX81+\n"\
     "Custom\n"
 #define MENU_ROMS128_ES "Elija ROM\n"\
 	"128K\n"\
-	"+2\n"\
-    "ZX81+\n"\
     "Custom\n"
 #else
 #define MENU_ROMS128_EN "Select ROM\n"\
@@ -596,14 +592,10 @@ static const char *MENU_ROM_PREF_48[2] = { MENU_ROMS48_PREF_EN, MENU_ROMS48_PREF
 #if NO_SPAIN_ROM_128k
 #define MENU_ROMS128_PREF_EN "Select ROM\n"\
 	"128K\t[128K  ]\n"\
-	"+2\t[+2    ]\n"\
-    "ZX81+\t[ZX81+ ]\n"\
     "Custom\t[128Kcs]\n"\
 	"Last used\t[Last  ]\n"	
 #define MENU_ROMS128_PREF_ES "Elija ROM\n"\
 	"128K\t[128K  ]\n"\
-	"+2\t[+2    ]\n"\
-    "ZX81+\t[ZX81+ ]\n"\
     "Custom\t[128Kcs]\n"\
 	"Ultima usada\t[Last  ]\n"
 #else

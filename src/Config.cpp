@@ -85,7 +85,11 @@ void Config::requestMachine(string newArch, string newRomSet)
         if (newRomSet=="") romSet = "48K"; else romSet = newRomSet;
         if (newRomSet=="") romSet48 = "48K"; else romSet48 = newRomSet;
         if (romSet48 == "48Kcs") {
+#if !CARTRIDGE_AS_CUSTOM
             MemESP::rom[0].assign_rom(gb_rom_0_128k_custom); ///gb_rom_0_48k_custom);
+#else
+            MemESP::rom[0].assign_rom(gb_rom_Alf_cart);
+#endif
         } else
 #if !NO_SPAIN_ROM_48k
         if (romSet48 == "48Kes")
@@ -102,8 +106,13 @@ void Config::requestMachine(string newArch, string newRomSet)
         if (newRomSet=="") romSet = "128K"; else romSet = newRomSet;
         if (newRomSet=="") romSet128 = "128K"; else romSet128 = newRomSet;                
         if (romSet128 == "128Kcs") {
+#if !CARTRIDGE_AS_CUSTOM
             MemESP::rom[0].assign_rom(gb_rom_0_128k_custom);
             MemESP::rom[1].assign_rom(gb_rom_0_128k_custom + (16 << 10)); /// 16392;
+#else
+            MemESP::rom[0].assign_rom(gb_rom_Alf_cart);
+            MemESP::rom[1].assign_rom(gb_rom_Alf_cart + (16 << 10)); /// 16392;
+#endif
 #if !NO_SPAIN_ROM_128k
         } else if (romSet128 == "128Kes") {
             MemESP::rom[0].assign_rom(gb_rom_0_128k_es);
@@ -111,13 +120,13 @@ void Config::requestMachine(string newArch, string newRomSet)
         } else if (romSet128 == "+2es") {
             MemESP::rom[0].assign_rom(gb_rom_0_plus2_es);
             MemESP::rom[1].assign_rom(gb_rom_1_plus2_es);
-#endif
         } else if (romSet128 == "+2") {
             MemESP::rom[0].assign_rom(gb_rom_0_plus2);
             MemESP::rom[1].assign_rom(gb_rom_1_plus2);
         } else if (romSet128 == "ZX81+") {
             MemESP::rom[0].assign_rom(gb_rom_0_s128_zx81);
             MemESP::rom[1].assign_rom(gb_rom_1_sinclair_128k);
+#endif
         } else {
             MemESP::rom[0].assign_rom(gb_rom_0_sinclair_128k);
             MemESP::rom[1].assign_rom(gb_rom_1_sinclair_128k);
@@ -126,8 +135,13 @@ void Config::requestMachine(string newArch, string newRomSet)
         if (newRomSet=="") romSet = "128Kp"; else romSet = newRomSet;
         if (romSetPent=="") romSetPent = "128Kp"; else romSetPent = newRomSet;                
         if (romSetPent == "128Kcs") {
+#if !CARTRIDGE_AS_CUSTOM
             MemESP::rom[0].assign_rom(gb_rom_0_128k_custom);
             MemESP::rom[1].assign_rom(gb_rom_0_128k_custom + (16 << 10)); /// 16392;
+#else
+            MemESP::rom[0].assign_rom(gb_rom_Alf_cart);
+            MemESP::rom[1].assign_rom(gb_rom_Alf_cart + (16 << 10)); /// 16392;
+#endif
         } else {
             MemESP::rom[0].assign_rom(gb_rom_0_pentagon_128k);
             MemESP::rom[1].assign_rom(gb_rom_1_pentagon_128k);

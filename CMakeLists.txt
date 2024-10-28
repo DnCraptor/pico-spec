@@ -160,6 +160,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
         CPU_MHZ=${CPU_MHZ}
         NO_SPAIN_ROM_48k=1
         NO_SPAIN_ROM_128k=1
+        CARTRIDGE_AS_CUSTOM=1
 
         LOAD_WAV_PIO=22
         PWM_PIN0=26

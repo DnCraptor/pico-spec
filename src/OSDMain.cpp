@@ -955,12 +955,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 } else 
 #if NO_SPAIN_ROM_128k
                                 if (opt2 == 2) {
-                                    romset = "+2";
-                                } else
-                                if (opt2 == 3) {
-                                    romset = "ZX81+";
-                                } else
-                                if (opt2 == 4) {
                                     romset = "128Kcs";
                                 }
 #else
@@ -1414,15 +1408,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             else
 #if NO_SPAIN_ROM_128k
                                             if (opt2 == 2)
-                                                Config::pref_romSet_128 = "+2";
-                                            else
-                                            if (opt2 == 3)
-                                                Config::pref_romSet_128 = "ZX81+";
-                                            else
-                                            if (opt2 == 4)
                                                 Config::pref_romSet_128 = "128Kcs";
                                             else
-                                            if (opt2 == 5)
+                                            if (opt2 == 3)
                                                 Config::pref_romSet_128 = "Last";
 #else
                                             if (opt2 == 2)
@@ -2627,6 +2615,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     string dlgTitle = OSD_ROM[Config::lang];
     // Flash custom ROM 48K
     if ( arch == 1 ) {
+#if !CARTRIDGE_AS_CUSTOM
         if( bytesfirmware > 0x4000 ) {
             osdCenteredMsg("Too long file", LEVEL_WARN, 2000);
             fclose2(f);
@@ -2635,6 +2624,16 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         rom = gb_rom_0_128k_custom; ///gb_rom_0_48k_custom;
         flash_target_offset = (size_t)rom - XIP_BASE;
         max_flash_target_offset = flash_target_offset + (16 << 10);
+#else
+        if( bytesfirmware > (1ul << 20) ) {
+            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
+            fclose2(f);
+            return false;
+        }
+        rom = gb_rom_Alf_cart;
+        flash_target_offset = (size_t)rom - XIP_BASE;
+        max_flash_target_offset = flash_target_offset + (1ul << 20);
+#endif
         dlgTitle += " 48K   ";
         Config::arch = "48K";
         Config::romSet = "48Kcs";
@@ -2644,6 +2643,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     }
     // Flash custom ROM 128K
     else if ( arch == 2 ) {
+#if !CARTRIDGE_AS_CUSTOM
         if( bytesfirmware > 0x8000 ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
             fclose2(f);
@@ -2652,6 +2652,16 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         rom = gb_rom_0_128k_custom;
         flash_target_offset = (size_t)rom - XIP_BASE;
         max_flash_target_offset = flash_target_offset + (32 << 10);
+#else
+        if( bytesfirmware > (1ul << 20) ) {
+            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
+            fclose2(f);
+            return false;
+        }
+        rom = gb_rom_Alf_cart;
+        flash_target_offset = (size_t)rom - XIP_BASE;
+        max_flash_target_offset = flash_target_offset + (1ul << 20);
+#endif
         dlgTitle += " 128K  ";
         Config::arch = "128K";
         Config::romSet = "128Kcs";
@@ -2660,6 +2670,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         Config::pref_romSet_128 = "128Kcs";
     }
     else if ( arch == 3 ) {
+#if !CARTRIDGE_AS_CUSTOM
         if( bytesfirmware > 0x8000 ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
             fclose2(f);
@@ -2668,6 +2679,16 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         rom = gb_rom_0_128k_custom;
         flash_target_offset = (size_t)rom - XIP_BASE;
         max_flash_target_offset = flash_target_offset + (32 << 10);
+#else
+        if( bytesfirmware > (1ul << 20) ) {
+            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
+            fclose2(f);
+            return false;
+        }
+        rom = gb_rom_Alf_cart;
+        flash_target_offset = (size_t)rom - XIP_BASE;
+        max_flash_target_offset = flash_target_offset + (1ul << 20);
+#endif
         dlgTitle += " Pentagon ";
         Config::arch = "Pentagon";
         Config::romSet = "128Kcs";
