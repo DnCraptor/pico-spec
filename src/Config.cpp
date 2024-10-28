@@ -86,7 +86,11 @@ void Config::requestMachine(string newArch, string newRomSet)
         if (newRomSet=="") romSet48 = "48K"; else romSet48 = newRomSet;
         if (romSet48 == "48Kcs") {
 #if !CARTRIDGE_AS_CUSTOM
-            MemESP::rom[0].assign_rom(gb_rom_0_128k_custom); ///gb_rom_0_48k_custom);
+#if NO_SEPARATE_48K_CUSTOM
+            MemESP::rom[0].assign_rom(gb_rom_0_128k_custom);
+#else
+            MemESP::rom[0].assign_rom(gb_rom_0_48k_custom);
+#endif
 #else
             MemESP::rom[0].assign_rom(gb_rom_Alf_cart);
 #endif
