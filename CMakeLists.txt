@@ -192,6 +192,11 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
         PSRAM_PIN_MOSI=20
         PSRAM_PIN_MISO=21
 
+#        PSRAM_PIN_CS=17
+#        PSRAM_PIN_SCK=18
+#        PSRAM_PIN_MOSI=19
+#        PSRAM_PIN_MISO=16
+
         # NES Gamepad
         USE_NESPAD
         NES_GPIO_CLK=14

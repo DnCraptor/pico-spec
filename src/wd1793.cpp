@@ -43,6 +43,7 @@ visit https://zxespectrum.speccy.org/contacto
 using namespace std;
 
 #include "wd1793.h"
+#include "OSDMain.h"
 
 void fgets(char* b, size_t sz, FIL& f);
 size_t fwrite(const void* v, size_t sz1, size_t sz2, FIL* f);
@@ -287,7 +288,7 @@ void WD1793::ReadRawOneSectorData(unsigned char UnitNum,  unsigned char C,  unsi
         // Create track0 from SCL file if not already done
         if (!sclConverted) {
             // printf("Converting SCL track0 of drive %d\n",UnitNUm);
-            SCLtoTRD(Track0,UnitNum);
+            SCLtoTRD(Track0, UnitNum);
             sclConverted = true;
         }
 
@@ -416,13 +417,14 @@ bool WD1793::InsertDisk(unsigned char UnitNum, string Filename) {
         Drive[UnitNum].SectorSize = 256;
         Drive[UnitNum].FName = Filename;
 
-        fgets(magic,9, Drive[UnitNum].DiskFile);
+        fgets(magic, 9, Drive[UnitNum].DiskFile);
         // printf("%s\n",magic);
+///        OSD::osdCenteredMsg(magic, LEVEL_WARN, 2000);
         
-        if (strcmp(magic,"SINCLAIR") == 0) {
+        if (strncmp(magic, "SINCLAIR", 8) == 0) {
             // SCL file
             // printf("SCL disk loaded\n");
-            Drive[UnitNum].IsSCLFile=true;
+            Drive[UnitNum].IsSCLFile = true;
             diskType = 0x16;
             // SCLtoTRD(Track0,UnitNum);
 
