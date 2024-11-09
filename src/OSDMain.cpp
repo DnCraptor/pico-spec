@@ -2115,73 +2115,23 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     /// TODO: close all files
                                     reset_usb_boot(0, 0);
                                     while(1);
-                                } else if (opt2 == 2) {
-                                        // Flash custom ROM 48K
-                                        string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang],DISK_ROMFILE,26,15);
-                                        if (mFile != "") {
-                                            mFile.erase(0, 1);
-                                            string fname = FileUtils::ROM_Path + mFile;
-                                            bool res = updateROM(fname, 1);
-                                            if (res) return;
-                                        }
-                                        menu_curopt = 1;
-                                        menu_level = 2;
-                                        menu_saverect = false;
-                                } else if (opt2 == 3) {                                    
-                                        // Flash custom ROM 128K
-                                        string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang],DISK_ROMFILE,26,15);
-                                        if (mFile != "") {
-                                            mFile.erase(0, 1);
-                                            string fname = FileUtils::ROM_Path +  mFile;
-                                            bool res = updateROM(fname, 2);
-                                            if (res) return;
-                                        }
-                                        menu_curopt = 1;
-                                        menu_level = 2;
-                                        menu_saverect = false;
-                                } else if (opt2 == 4) {                                    
-                                        // Flash custom ROM 128K
-                                        string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang],DISK_ROMFILE,26,15);
-                                        if (mFile != "") {
-                                            mFile.erase(0, 1);
-                                            string fname = FileUtils::ROM_Path +  mFile;
-                                            bool res = updateROM(fname, 3);
-                                            if (res) return;
-                                        }
-                                        menu_curopt = 1;
-                                        menu_level = 2;
-                                        menu_saverect = false;
-                                } else if (opt2 == 5) {                                    
-                                        // Flash custom ALF ROM 256K
-                                        string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang],DISK_ROMFILE,26,15);
-                                        if (mFile != "") {
-                                            mFile.erase(0, 1);
-                                            string fname = FileUtils::ROM_Path +  mFile;
-                                            bool res = updateROM(fname, 4);
-                                            if (res) return;
-                                        }
-                                        menu_curopt = 1;
-                                        menu_level = 2;
-                                        menu_saverect = false;
-                                } else if (opt2 == 6) {                                    
-                                        // Flash cartrifge ROM 256K
-                                        string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang],DISK_ROMFILE,26,15);
-                                        if (mFile != "") {
-                                            mFile.erase(0, 1);
-                                            string fname = FileUtils::ROM_Path +  mFile;
-                                            bool res = updateROM(fname, 5);
-                                            if (res) return;
-                                        }
-                                        menu_curopt = 1;
-                                        menu_level = 2;
-                                        menu_saverect = false;
+                                } else {
+                                    string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang], DISK_ROMFILE, 26, 15);
+                                    if (mFile != "") {
+                                        mFile.erase(0, 1);
+                                        string fname = FileUtils::ROM_Path + mFile;
+                                        bool res = updateROM(fname, opt2 - 1);
+                                        if (res) return;
+                                    }
+                                    menu_curopt = 1;
+                                    menu_level = 2;
+                                    menu_saverect = false;
                                 }
                             } else {
                                 menu_curopt = 9;
                                 break;
                             }
                         }
-
                     } else {
                         menu_curopt = 6;
                         break;
@@ -2611,7 +2561,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     }
     FSIZE_t bytesfirmware = f_size(f); 
     const uint8_t* rom;
-    size_t max_flash_target_offset, flash_target_offset = 0;
+    size_t max_rom_size = 0;
     string dlgTitle = OSD_ROM[Config::lang];
     // Flash custom ROM 48K
     if ( arch == 1 ) {
@@ -2626,8 +2576,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
 #else
         rom = gb_rom_0_48k_custom;
 #endif
-        flash_target_offset = (size_t)rom - XIP_BASE;
-        max_flash_target_offset = flash_target_offset + (16 << 10);
+        max_rom_size = 16 << 10;
 #else
         if( bytesfirmware > (1ul << 20) ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
@@ -2635,8 +2584,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
             return false;
         }
         rom = gb_rom_Alf_cart;
-        flash_target_offset = (size_t)rom - XIP_BASE;
-        max_flash_target_offset = flash_target_offset + (1ul << 20);
+        max_rom_size = 1ul << 20;
 #endif
         dlgTitle += " 48K   ";
         Config::arch = "48K";
@@ -2654,8 +2602,11 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
             return false;
         }
         rom = gb_rom_0_128k_custom;
-        flash_target_offset = (size_t)rom - XIP_BASE;
-        max_flash_target_offset = flash_target_offset + (32 << 10);
+        if (bytesfirmware <= (16 << 10)) {
+            max_rom_size = 16 << 10;
+        } else {
+            max_rom_size = 32 << 10;
+        }
 #else
         if( bytesfirmware > (1ul << 20) ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
@@ -2663,8 +2614,13 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
             return false;
         }
         rom = gb_rom_Alf_cart;
-        flash_target_offset = (size_t)rom - XIP_BASE;
-        max_flash_target_offset = flash_target_offset + (1ul << 20);
+        if (bytesfirmware <= (16 << 10)) {
+            max_rom_size = 16 << 10;
+        } else if (bytesfirmware <= (32 << 10)) {
+            max_rom_size = 32 << 10;
+        } else {
+            max_rom_size = 1ul << 20;
+        }
 #endif
         dlgTitle += " 128K  ";
         Config::arch = "128K";
@@ -2681,8 +2637,11 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
             return false;
         }
         rom = gb_rom_0_128k_custom;
-        flash_target_offset = (size_t)rom - XIP_BASE;
-        max_flash_target_offset = flash_target_offset + (32 << 10);
+        if (bytesfirmware <= (16 << 10)) {
+            max_rom_size = 16 << 10;
+        } else {
+            max_rom_size = 32 << 10;
+        }
 #else
         if( bytesfirmware > (1ul << 20) ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
@@ -2690,8 +2649,13 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
             return false;
         }
         rom = gb_rom_Alf_cart;
-        flash_target_offset = (size_t)rom - XIP_BASE;
-        max_flash_target_offset = flash_target_offset + (1ul << 20);
+        if (bytesfirmware <= (16 << 10)) {
+            max_rom_size = 16 << 10;
+        } else if (bytesfirmware <= (32 << 10)) {
+            max_rom_size = 32 << 10;
+        } else {
+            max_rom_size = 1ul << 20;
+        }
 #endif
         dlgTitle += " Pentagon ";
         Config::arch = "Pentagon";
@@ -2707,8 +2671,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
             return false;
         }
         rom = gb_rom_Alf;
-        flash_target_offset = (size_t)rom - XIP_BASE;
-        max_flash_target_offset = flash_target_offset + (256ul << 10);
+        max_rom_size = 256ul << 10;
         dlgTitle += " ALF ROM ";
         Config::arch = "ALF";
         Config::romSet = "ALF";
@@ -2721,12 +2684,58 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
             return false;
         }
         rom = gb_rom_Alf_cart;
-        flash_target_offset = (size_t)rom - XIP_BASE;
-        max_flash_target_offset = flash_target_offset + (1ul << 20);
+        max_rom_size = 1ul << 20;
         dlgTitle += " ALF Cartridge ";
         Config::arch = "ALF";
     }
-
+    else if ( arch == 6 ) {
+        if( bytesfirmware > (16ul << 10) ) {
+            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
+            fclose2(f);
+            return false;
+        }
+        rom = gb_rom_4_trdos_503;
+        max_rom_size = 16ul << 10;
+        dlgTitle += " TRDOS ";
+        Config::arch = "Pentagon";
+    }
+    else if ( arch == 7 ) {
+        if( bytesfirmware > (32ul << 10) ) {
+            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
+            fclose2(f);
+            return false;
+        }
+        rom = gb_rom_pentagon_128k;
+        max_rom_size = bytesfirmware > (16ul << 10) ? (32ul << 10) : (16ul << 10);
+        dlgTitle += " Pentagon#0 ";
+        Config::arch = "Pentagon";
+        Config::romSet = "128Kp";
+        Config::romSetPent = "128Kp";
+        Config::pref_arch = "Pentagon";
+        Config::pref_romSetPent = "128Kp";
+    }
+    else if ( arch == 8 ) {
+        if( bytesfirmware > (16 << 10) ) {
+            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
+            fclose2(f);
+            return false;
+        }
+        rom = gb_rom_pentagon_128k;
+        max_rom_size = 16 << 10;
+        dlgTitle += " Pentagon#1 ";
+        Config::arch = "Pentagon";
+        Config::romSet = "128Kp";
+        Config::romSetPent = "128Kp";
+        Config::pref_arch = "Pentagon";
+        Config::pref_romSetPent = "128Kp";
+    }
+    else {
+        osdCenteredMsg("Unexpected ROM type: " + to_string(arch), LEVEL_WARN, 2000);
+        fclose2(f);
+        return false;
+    }
+    size_t flash_target_offset = (size_t)rom - XIP_BASE;
+    size_t max_flash_target_offset = flash_target_offset + max_rom_size;
     for (size_t i = flash_target_offset; i < max_flash_target_offset; i += FLASH_SECTOR_SIZE) {
         cleanup_block(i);
     }
@@ -2743,14 +2752,6 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         flash_block(buffer, flash_target_offset + (size_t)(i & 0xFFFFFFFF));
     }
     fclose2(f);
-    /**
-    if (arch == 4 || arch == 5) {
-        memset(buffer, 0, sz);
-        for (size_t i = bytesfirmware & 0xFFFFFFFF; i < max_flash_target_offset; i += sz) {
-            flash_block(buffer, flash_target_offset + (i & 0xFFFFFFFF));
-        }
-    }
-    */
     free(buffer);
     Config::save();
 ///    Config::requestMachine(Config::arch, Config::romSet);
@@ -4265,37 +4266,23 @@ void OSD::pokeDialog() {
                         trim(bank);
                         MemESP::ram[stoi(bank)].sync()[address] = value;
                     }
-
-                    click();
-
-                    break;
-
-                } else
-                if (dlg_Objects[curObject].Name == "Cancel") {
-
                     click();
                     break;
-
+                } else if (dlg_Objects[curObject].Name == "Cancel") {
+                    click();
+                    break;
                 }
-
-            } else
-            if (Nextkey.vk == fabgl::VK_ESCAPE || Nextkey.vk == fabgl::VK_JOY1A || Nextkey.vk == fabgl::VK_JOY2A) {
-                
+            } else if (Nextkey.vk == fabgl::VK_ESCAPE || Nextkey.vk == fabgl::VK_JOY1A || Nextkey.vk == fabgl::VK_JOY2A) {
                 click();
                 break;
-
             }
-
         }
 
         if (dlg_Objects[curObject].objType == DLG_OBJ_INPUT) {
-
             if ((++CursorFlash & 0xF) == 0) {
-
                 VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));                
                 VIDEO::vga.setCursor(x + dlg_Objects[curObject].posx, y + dlg_Objects[curObject].posy);
                 VIDEO::vga.print(dlgValues[curObject].c_str());
-
                 if (CursorFlash > 63) {
                     VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(0, 1));
                     if (CursorFlash == 128) CursorFlash = 0;
@@ -4303,16 +4290,10 @@ void OSD::pokeDialog() {
                     VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
                 }
                 VIDEO::vga.print("K");
-
                 VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
                 VIDEO::vga.print(" ");
-
             }
-
         }
-
         sleep_ms(5);
-
     }
-
 }

@@ -7,6 +7,7 @@
 #include "pwm_audio.h"
 #include "Config.h"
 #include "CPU.h"
+#include "LoadWavStream.h"
 
 #define VOLUME_0DB          (16)
 
@@ -102,35 +103,21 @@ static volatile size_t m_off = 0; // in 16-bit words
 static volatile size_t m_size = 0; // 16-bit values prepared (available)
 static volatile bool m_let_process_it = false;
 #endif
-///static uint64_t ibuff_state_started = 0;
-///static bool ibuff[640];
-///static volatile uint16_t ibuff_off;
-///static uint32_t statesInFrame = 100000;
-///static uint32_t samplesPerFrame = 640;
-///static uint32_t statesPerSample = 100000 / 640;
 
-/**
+static LoadWavStream lws;
+
 bool pcm_data_in(void) {
-    if (CPU::statesInFrame != statesInFrame || ESPectrum::samplesPerFrame != samplesPerFrame) {
-        CPU::statesInFrame = statesInFrame;
-        ESPectrum::samplesPerFrame = samplesPerFrame;
-        statesPerSample = CPU::statesInFrame / ESPectrum::samplesPerFrame;
-    }
-    uint64_t statesPassedFromFrameStarted = CPU::global_tstates + CPU::tstates - ibuff_state_started;
-    uint32_t obuff_off = statesPassedFromFrameStarted / statesPerSample;
-    if (obuff_off >= sizeof(ibuff)) return false;
-    return ibuff[obuff_off];
+    return lws.get_in_sample();
 }
-*/
 
 static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core#1?
 #ifndef I2S_SOUND
     m_let_process_it = true;
 #endif
 #if LOAD_WAV_PIO
-///    if (Config::real_player && ibuff_off < sizeof(ibuff)) {
-///        ibuff[ibuff_off++] = gpio_get(LOAD_WAV_PIO);
-///    }
+    if (Config::real_player) {
+        lws.tick();
+    }
 #endif
     return true;
 }
@@ -210,8 +197,7 @@ void pcm_setup(int hz, size_t size) {
 
 // reset input buffer to start on each frame started
 void pwm_audio_in_frame_started(void) {
-///    ibuff_state_started = CPU::global_tstates + CPU::tstates;
-///    ibuff_off = 0;
+    lws.open_frame();
 }
 
 // size - in 16-bit values count

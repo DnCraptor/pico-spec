@@ -45,10 +45,10 @@ visit https://zxespectrum.speccy.org/contacto
 #include "roms/RomPlus2spanish.h"
 #include "roms/rom128Kcustom.h"
 #include "roms/S128_ZX81+_ROM.h"
-#include "roms/rompentagon128k.h"
-#include "roms/trdos.h"
 
 extern "C" unsigned char gb_rom_Alf_cart[];
 extern "C" unsigned char gb_rom_Alf[];
 extern "C" unsigned char gb_rom_Alf_ep[];
+extern "C" unsigned char gb_rom_4_trdos_503[];
+extern "C" unsigned char gb_rom_pentagon_128k[];
 #endif

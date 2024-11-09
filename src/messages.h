@@ -313,7 +313,10 @@ static const char *MENU_OPTIONS[2] = { MENU_OPTIONS_EN,MENU_OPTIONS_ES };
 	"Custom ROM 128k\n"\
 	"Custom ROM Pentagon\n"\
 	"Custom ROM ALF\n"\
-	"Cartridge ROM ALF\n"
+	"Cartridge ROM ALF\n"\
+	"TRDOS ROM\n"\
+	"Main ROM Pentagon bank #0\n"\
+	"Main ROM Pentagon bank #1\n"
 #define MENU_UPDATE_ES \
     "Actualizar\n"\
 	"Firmware\n"\
@@ -321,7 +324,10 @@ static const char *MENU_OPTIONS[2] = { MENU_OPTIONS_EN,MENU_OPTIONS_ES };
 	"ROM Custom 128k\n"\
 	"ROM Custom Pentagon\n"\
 	"ROM Custom ALF\n"\
-	"ROM Cartridge ALF\n"
+	"ROM Cartridge ALF\n"\
+	"TRDOS ROM\n"\
+	"Main ROM Pentagon bank #0\n"\
+	"Main ROM Pentagon bank #1\n"
 static const char *MENU_UPDATE_FW[2] = { MENU_UPDATE_EN, MENU_UPDATE_ES };
 
 #define MENU_VIDEO_EN \

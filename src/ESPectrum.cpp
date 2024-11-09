@@ -1547,9 +1547,9 @@ void ESPectrum::loop() {
     faudioBit = lastaudioBit;
     faudbufcntAY = audbufcntAY;
     if (ESP_delay) {
-///        if (Config::real_player) {
-///            pwm_audio_in_frame_started();
-///        }
+        if (Config::real_player) {
+            pwm_audio_in_frame_started();
+        }
 
         ///xQueueSend(audioTaskQueue, &param, portMAX_DELAY);
         // Finish fill of beeper oversampled audio buffers

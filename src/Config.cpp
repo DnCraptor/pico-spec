@@ -108,7 +108,7 @@ void Config::requestMachine(string newArch, string newRomSet)
         }
     } else if (arch == "128K") {
         if (newRomSet=="") romSet = "128K"; else romSet = newRomSet;
-        if (newRomSet=="") romSet128 = "128K"; else romSet128 = newRomSet;                
+        if (newRomSet=="") romSet128 = "128K"; else romSet128 = newRomSet;
         if (romSet128 == "128Kcs") {
 #if !CARTRIDGE_AS_CUSTOM
             MemESP::rom[0].assign_rom(gb_rom_0_128k_custom);
@@ -137,7 +137,7 @@ void Config::requestMachine(string newArch, string newRomSet)
         }
     } else { // Pentagon by default
         if (newRomSet=="") romSet = "128Kp"; else romSet = newRomSet;
-        if (romSetPent=="") romSetPent = "128Kp"; else romSetPent = newRomSet;                
+        if (romSetPent=="") romSetPent = "128Kp"; else romSetPent = newRomSet;
         if (romSetPent == "128Kcs") {
 #if !CARTRIDGE_AS_CUSTOM
             MemESP::rom[0].assign_rom(gb_rom_0_128k_custom);
@@ -147,8 +147,8 @@ void Config::requestMachine(string newArch, string newRomSet)
             MemESP::rom[1].assign_rom(gb_rom_Alf_cart + (16 << 10)); /// 16392;
 #endif
         } else {
-            MemESP::rom[0].assign_rom(gb_rom_0_pentagon_128k);
-            MemESP::rom[1].assign_rom(gb_rom_1_pentagon_128k);
+            MemESP::rom[0].assign_rom(gb_rom_pentagon_128k);
+            MemESP::rom[1].assign_rom(gb_rom_pentagon_128k + (16 << 10));
         }
     }
     MemESP::rom[4].assign_rom(gb_rom_4_trdos_503);

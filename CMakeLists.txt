@@ -27,18 +27,18 @@ option(HDMI "Enable HDMI display" OFF)
 option(TV "Enable TV composite output" OFF)
 option(SOFTTV "Enable TV soft composite output" OFF)
 
-set (PORT_VERSION "0.3.2")
+set (PORT_VERSION "0.3.3")
 
 ###set(I2S ON)
-##set(HDMI ON)
+###set(HDMI ON)
 ###set(TV ON)
 ###set(SOFTTV ON)
 #set(TFT ON)
 #set(ILI9341 ON)
 set(FLASH_SIZE 4096)
-##set(FLASH_SIZE 2048)
-##set(FLASH_SIZE_GREEN ON)
-set(CPU_MHZ 378)
+#set(FLASH_SIZE 2048)
+#set(FLASH_SIZE_GREEN ON)
+set(CPU_MHZ 408)
 
 SET(BUILD_NAME "${PROJECT_NAME}-${FLASH_SIZE}-${CPU_MHZ}")
 
