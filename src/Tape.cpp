@@ -52,6 +52,7 @@ using namespace std;
 #include "messages.h"
 #include "Z80_JLS/z80.h"
 
+wav_t Tape::wav;
 FIL Tape::tape;
 FIL Tape::cswBlock;
 string Tape::tapeFileName = "none";
@@ -226,10 +227,17 @@ int Tape::inflateCSW(int blocknumber, long startPos, long data_length) {
 
 void (*Tape::GetBlock)() = &Tape::TAP_GetBlock;
 
-// Load tape file (.tap, .tzx)
+// Load tape file (.wav, .tap, .tzx)
 void Tape::LoadTape(string mFile) {
 
-    if (FileUtils::hasTAPextension(mFile)) {
+    if (FileUtils::hasWAVextension(mFile)) {
+        string keySel = mFile.substr(0,1);
+        mFile.erase(0, 1);
+        Tape::Stop();
+        // Read and analyze tap file
+        Tape::WAV_Open(mFile);
+        ESPectrum::TapeNameScroller = 0;
+    } else if (FileUtils::hasTAPextension(mFile)) {
 
         string keySel = mFile.substr(0,1);
         mFile.erase(0, 1);
@@ -297,6 +305,101 @@ void Tape::Init() {
     tapeFileType = TAPE_FTYPE_EMPTY;
 }
 
+typedef struct INFO {
+    char INFO[4];
+} INFO_t;
+
+typedef struct info {
+    char info_id[4];
+    uint32_t size;
+} info_t;
+
+typedef struct info_desc {
+    const char FORB[5];
+    const char* desc;
+} info_desc_t;
+
+static const info_desc_t info_descs[22] = {
+ { "IARL",	"The location where the subject of the file is archived" },
+ { "IART",	"The artist of the original subject of the file" },
+ { "ICMS",	"The name of the person or organization that commissioned the original subject of the file" },
+ { "ICMT",	"General comments about the file or its subject" },
+ { "ICOP",	"Copyright information about the file" },
+ { "ICRD",	"The date the subject of the file was created" },
+ { "ICRP",	"Whether and how an image was cropped" },
+ { "IDIM",	"The dimensions of the original subject of the file" },
+ { "IDPI",	"Dots per inch settings used to digitize the file" },
+ { "IENG",	"The name of the engineer who worked on the file" },
+ { "IGNR",	"The genre of the subject" },
+ { "IKEY",	"A list of keywords for the file or its subject" },
+ { "ILGT",	"Lightness settings used to digitize the file" },
+ { "IMED",	"Medium for the original subject of the file" },
+ { "INAM",	"Title of the subject of the file (name)" },
+ { "IPLT",	"The number of colors in the color palette used to digitize the file" },
+ { "IPRD",	"Name of the title the subject was originally intended for" },
+ { "ISB",	"Description of the contents of the file (subject)" },
+ { "ISFT",	"Name of the software package used to create the file" },
+ { "ISRC",	"The name of the person or organization that supplied the original subject of the file" },
+ { "ISRF",	"The original form of the material that was digitized (source form)" },
+ { "ITCH",	"The name of the technician who digitized the subject file" }
+};
+
+
+void Tape::WAV_Open(string name) {
+    f_close(&tape);
+    tapeFileType = TAPE_FTYPE_EMPTY;
+    string fname = FileUtils::TAP_Path + name;
+    if (f_open(&tape, fname.c_str(), FA_READ) != FR_OK) {
+        OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR "\n" + fname + "\n", LEVEL_ERROR);
+        return;
+    }
+    tapeFileSize = f_size(&tape);
+    if (tapeFileSize == 0) return;
+    
+    tapeFileName = name;
+
+    UINT rb;
+    if (f_read(&tape, &wav, sizeof(wav_t), &rb) != FR_OK) {
+        OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR "\n" + fname + "\n", LEVEL_ERROR);
+        return;
+    }
+    if (strncmp("RIFF", wav.RIFF, 4) != 0 || strncmp("WAVEfmt ", wav.WAVEfmt, 8) != 0 || wav.h_size != 16) {
+        OSD::osdCenteredMsg("Unexpected file header\n" + fname + "\n", LEVEL_ERROR);
+        return;
+    }
+    if (wav.pcm != 1) {
+        OSD::osdCenteredMsg("Unsupported file type (not PCM)\n" + fname + "\n", LEVEL_ERROR);
+        return;
+    }
+    if (wav.ch != 1 && wav.ch != 2) {
+        OSD::osdCenteredMsg("Unsupported number of chanels\n" + fname + "\n", LEVEL_ERROR);
+        return;
+    }
+    if (wav.bit_per_sample != 8 && wav.bit_per_sample != 16) {
+        OSD::osdCenteredMsg("Unsupported bitness\n" + fname + "\n", LEVEL_ERROR);
+        return;
+    }
+    if (strncmp(wav.data, "LIST", 4) == 0) {
+        char* sch = new char[wav.subchunk_size];
+        size_t size;
+        if (f_read(&tape, sch, wav.subchunk_size, &size) != FR_OK || size != wav.subchunk_size) {
+            OSD::osdCenteredMsg("Unexpected end of file\n" + fname + "\n", LEVEL_ERROR);
+            delete sch;
+            return;
+        }
+        INFO_t* ch = (INFO_t*)sch;
+        if (strncmp(ch->INFO, "INFO", 4) != 0) {
+            OSD::osdCenteredMsg("Unexpected LIST section in the file\n" + fname + "\n", LEVEL_ERROR);
+            delete sch;
+            return;
+        }
+        delete sch;
+    }
+    tapeFileType = TAPE_FTYPE_WAV;
+    tapeStart = f_tell(&tape);
+    tapePlayOffset = tapeStart;
+}
+
 void Tape::TAP_Open(string name) {
     f_close(&tape);
     tapeFileType = TAPE_FTYPE_EMPTY;
@@ -313,15 +416,14 @@ void Tape::TAP_Open(string name) {
     Tape::TapeListing.clear(); // Clear TapeListing vector
     std::vector<TapeBlock>().swap(TapeListing); // free memory
 
-    int tapeListIndex=0;
-    int tapeContentIndex=0;
-    int tapeBlkLen=0;
+    int tapeListIndex = 0;
+    int tapeContentIndex = 0;
+    int tapeBlkLen = 0;
     TapeBlock block;
     FIL* tape = &Tape::tape;
     do {
-
         // Analyze .tap file
-        tapeBlkLen=(readByteFile(tape) | (readByteFile(tape) << 8));
+        tapeBlkLen = (readByteFile(tape) | (readByteFile(tape) << 8));
 
         // printf("Analyzing block %d\n",tapeListIndex);
         // printf("    Block Len: %d\n",tapeBlockLen - 2);        
@@ -535,18 +637,12 @@ string Tape::tapeBlockReadData(int Blocknum) {
             }
             fname[9]='\0';
         }
-
     } else {
-
         blktype = "Data block   ";
         fname[0]='\0';
-
     }
-
     snprintf(buf, sizeof(buf), "%04d %s %10s % 6d\n", Blocknum + 1, blktype.c_str(), fname, tapeBlkLen);
-
     return buf;
-
 }
 
 void Tape::Play() {
@@ -568,13 +664,17 @@ void Tape::Play() {
             tapePlayOffset = CalcTZXBlockPos(tapeCurBlock);
             GetBlock = &TZX_GetBlock;
             break;
+        case TAPE_FTYPE_WAV:
+            tapePlayOffset = tapeStart;
+            GetBlock = &WAV_GetBlock;
+            break;
     }
 
     // Init tape vars
     tapeEarBit = 1;
-    tapeBitMask=0x80;
+    tapeBitMask = 0x80;
     tapeLastByteUsedBits = 8;
-    tapeEndBitMask=0x80;
+    tapeEndBitMask = 0x80;
     tapeBlockLen = 0;
     tapebufByteCount = 0;
     GDBEnd = false;
@@ -584,9 +684,11 @@ void Tape::Play() {
     GetBlock();
 
     // Start loading
-    Tape::tapeStatus=TAPE_LOADING;
-    tapeStart=CPU::global_tstates + CPU::tstates;
+    Tape::tapeStatus = TAPE_LOADING;
+    tapeStart = CPU::global_tstates + CPU::tstates;
+}
 
+void Tape::WAV_GetBlock() {
 }
 
 void Tape::TAP_GetBlock() {
@@ -605,23 +707,74 @@ void Tape::TAP_GetBlock() {
     tapebufByteCount += 2;
 
     // Set sync phase values
-    tapePhase=TAPE_PHASE_SYNC;
-    tapeNext=tapeSyncLen;
-    if (tapeCurByte) tapeHdrPulses=tapeHdrShort; else tapeHdrPulses=tapeHdrLong;
-
+    tapePhase = TAPE_PHASE_SYNC;
+    tapeNext = tapeSyncLen;
+    if (tapeCurByte) tapeHdrPulses = tapeHdrShort;
+    else tapeHdrPulses = tapeHdrLong;
 }
 
 void Tape::Stop() {
-
-    tapeStatus=TAPE_STOPPED;
-    tapePhase=TAPE_PHASE_STOPPED;
-    if (VIDEO::OSD) VIDEO::OSD = 2;
-
+    tapeStatus = TAPE_STOPPED;
+    tapePhase = TAPE_PHASE_STOPPED;
+    if (VIDEO::OSD) {
+        VIDEO::OSD = 2;
+    }
 }
 
 IRAM_ATTR void Tape::Read() {
-    uint64_t tapeCurrent = CPU::global_tstates + CPU::tstates - tapeStart;
+    uint64_t tapeCurrent = CPU::global_tstates + CPU::tstates - tapeStart; // states since start
     FIL* tape = &Tape::tape;
+    if ( tapeFileType == TAPE_FTYPE_WAV ) {
+        uint32_t statesPerSample = CPU::statesInFrame / ESPectrum::samplesPerFrame;
+        if (wav.ch == 1) { // mono
+            if (wav.byte_per_sample == 1) { // 8-bit
+///                uint32_t statesPerSecond = statesPerSample * wav.freq; // states/sample * samples/second
+                FSIZE_t sampleNumber = tapeCurrent / statesPerSample + tapeStart; // states / states/sample
+                if (tapeFileSize >= sampleNumber) {
+                    f_lseek(tape, sampleNumber);
+                    int8_t v = readByteFile(tape);
+                    tapeEarBit = v > 0 ? 1 : 0;
+                    tapePlayOffset = sampleNumber;
+                } else {
+                    tapePlayOffset = tapeFileSize;
+                }
+            } else { // 2 bytes per sample
+                FSIZE_t sampleNumber = tapeCurrent * 2 / statesPerSample + tapeStart; // states / states/sample
+                if (tapeFileSize >= sampleNumber) {
+                    f_lseek(tape, sampleNumber);
+                    int16_t v = readWordFileLE(tape);
+                    tapeEarBit = v > 0 ? 1 : 0;
+                    tapePlayOffset = sampleNumber;
+                } else {
+                    tapePlayOffset = tapeFileSize;
+                }
+            }
+        } else { // 2 channels
+            if (wav.byte_per_sample == 2) { // 8-bit per channel
+                FSIZE_t sampleNumber = tapeCurrent * 2 / statesPerSample + tapeStart; // states / states/sample
+                if (tapeFileSize >= sampleNumber) {
+                    f_lseek(tape, sampleNumber);
+                    int8_t v = readByteFile(tape);
+                    tapeEarBit = v > 0 ? 1 : 0;
+                    tapePlayOffset = sampleNumber;
+                } else {
+                    tapePlayOffset = tapeFileSize;
+                }
+            } else  { // 16-bit
+                FSIZE_t sampleNumber = tapeCurrent * 4 / statesPerSample + tapeStart; // states / states/sample
+                if (tapeFileSize >= sampleNumber) {
+                    f_lseek(tape, sampleNumber);
+                    int16_t v = readWordFileLE(tape);
+                    tapeEarBit = v > 0 ? 1 : 0;
+                    tapePlayOffset = sampleNumber;
+                } else {
+                    tapePlayOffset = tapeFileSize;
+                }
+            }
+        }
+        /// TODO:
+        return;
+    }
     if (tapeCurrent >= tapeNext) {
         do {
             tapeCurrent -= tapeNext;

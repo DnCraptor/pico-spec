@@ -1532,7 +1532,6 @@ IRAM_ATTR void ESPectrum::AYGetSample() {
 // MAIN LOOP
 //=======================================================================================
 void ESPectrum::loop() {    
-  static uint32_t framecnt = 0;
   for(;;) {
     ts_start = time_us_64();
 
@@ -1543,8 +1542,7 @@ void ESPectrum::loop() {
 
     CPU::loop();
 
-    if (Config::real_player && VIDEO::framecnt != framecnt) {
-        framecnt = VIDEO::framecnt;
+    if (Config::real_player) {
         pwm_audio_in_frame_started();
     }
 

@@ -12,9 +12,12 @@ class LoadWavStream {
         uint32_t samplesPerFrame = 640;
         uint32_t statesPerSample = 100000 / 640;
         volatile size_t buf_out_off = 0;
-        uint64_t buf_started_time = 0;
-        uint8_t buf[MAX_IN_SAMPLES];
         volatile size_t bit_out_n = 0;
+        uint64_t buf_started_time = 0;
+        uint64_t prev_buf_started_time = 0;
+        size_t prev_out_off = 0;
+        size_t prev_bit_out_n = 0;
+        uint8_t buf[MAX_IN_SAMPLES];
     public:
         // out
         inline void tick(void) {
@@ -32,10 +35,13 @@ class LoadWavStream {
             }
         }
         inline void open_frame(void) {
+            prev_out_off = buf_out_off;
+            prev_bit_out_n = bit_out_n;
+            prev_buf_started_time = buf_started_time;
+
             bit_out_n = 0;
             buf_out_off = 0;
             buf_started_time = CPU::global_tstates + CPU::tstates;
-            memset(buf, 0, MAX_IN_SAMPLES);
         }
         // in
         inline bool get_in_sample(void) {
@@ -44,13 +50,26 @@ class LoadWavStream {
                 samplesPerFrame = ESPectrum::samplesPerFrame;
                 statesPerSample = statesInFrame / samplesPerFrame;
             }
-            uint64_t statesPassedFromFrameStarted = CPU::global_tstates + CPU::tstates - buf_started_time;
+            uint64_t ts = CPU::global_tstates + CPU::tstates;
+            // prev based data
+            uint64_t statesPassedFromFrameStarted = ts - prev_buf_started_time;
             size_t obuff_off = statesPassedFromFrameStarted / statesPerSample;
+            uint8_t bit = obuff_off & 7;
             size_t idx = obuff_off >> 3;
+            if (idx < prev_out_off) {
+                return (buf[idx] >> bit) & 1;
+            }
+            if (idx == prev_out_off && bit <= prev_bit_out_n) {
+                return (buf[idx] >> bit) & 1;
+            }
+            // last based data
+            statesPassedFromFrameStarted = ts - buf_started_time;
+            obuff_off = statesPassedFromFrameStarted / statesPerSample;
+            idx = obuff_off >> 3;
             if ( idx >= MAX_IN_SAMPLES ) {
                 return 0;
             }
-            uint8_t bit = obuff_off & 7;
+            bit = obuff_off & 7;
             return (buf[idx] >> bit) & 1;
         }
 };
