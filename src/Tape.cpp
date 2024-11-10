@@ -738,8 +738,8 @@ IRAM_ATTR void Tape::Read() {
                     tapeEarBit = v > 0 ? 1 : 0;
                     tapePlayOffset = sampleNumber;
                 } else {
-                    tapePlayOffset = tapeFileSize;
-                    Stop();
+///                    tapePlayOffset = tapeFileSize;
+///                    Stop();
                 }
             } else { // 2 bytes per sample
                 FSIZE_t sampleNumber = tapeCurrent * 2 / statesPerSample + wav_offset; // states / states/sample
@@ -749,8 +749,8 @@ IRAM_ATTR void Tape::Read() {
                     tapeEarBit = v > 0 ? 1 : 0;
                     tapePlayOffset = sampleNumber;
                 } else {
-                    tapePlayOffset = tapeFileSize;
-                    Stop();
+///                    tapePlayOffset = tapeFileSize;
+///                    Stop();
                 }
             }
         } else { // 2 channels
@@ -762,8 +762,8 @@ IRAM_ATTR void Tape::Read() {
                     tapeEarBit = v > 0 ? 1 : 0;
                     tapePlayOffset = sampleNumber;
                 } else {
-                    tapePlayOffset = tapeFileSize;
-                    Stop();
+///                    tapePlayOffset = tapeFileSize;
+///                    Stop();
                 }
             } else  { // 16-bit
                 FSIZE_t sampleNumber = tapeCurrent * 4 / statesPerSample + wav_offset; // states / states/sample
@@ -773,11 +773,12 @@ IRAM_ATTR void Tape::Read() {
                     tapeEarBit = v > 0 ? 1 : 0;
                     tapePlayOffset = sampleNumber;
                 } else {
-                    tapePlayOffset = tapeFileSize;
-                    Stop();
+///                    tapePlayOffset = tapeFileSize;
+///                    Stop();
                 }
             }
         }
+        tapeStart = CPU::global_tstates + CPU::tstates - tapeCurrent;
         return;
     }
     if (tapeCurrent >= tapeNext) {
