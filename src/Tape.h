@@ -179,6 +179,7 @@ public:
 
     // Tape
     static wav_t wav;
+    static uint32_t wav_offset;
     static FIL tape;
     static FIL cswBlock;    
     static string tapeFileName;

@@ -53,6 +53,7 @@ using namespace std;
 #include "Z80_JLS/z80.h"
 
 wav_t Tape::wav;
+uint32_t Tape::wav_offset = 0;
 FIL Tape::tape;
 FIL Tape::cswBlock;
 string Tape::tapeFileName = "none";
@@ -396,8 +397,8 @@ void Tape::WAV_Open(string name) {
         delete sch;
     }
     tapeFileType = TAPE_FTYPE_WAV;
-    tapeStart = f_tell(&tape);
-    tapePlayOffset = tapeStart;
+    wav_offset = f_tell(&tape);
+    tapePlayOffset = wav_offset;
 }
 
 void Tape::TAP_Open(string name) {
@@ -725,11 +726,12 @@ IRAM_ATTR void Tape::Read() {
     uint64_t tapeCurrent = CPU::global_tstates + CPU::tstates - tapeStart; // states since start
     FIL* tape = &Tape::tape;
     if ( tapeFileType == TAPE_FTYPE_WAV ) {
-        uint32_t statesPerSample = CPU::statesInFrame / ESPectrum::samplesPerFrame;
+        double FPS = VIDEO::framecnt / (ESPectrum::totalseconds / 1000000); // ~50 fps
+        double samplesPerFrame = wav.freq / FPS; // samples/second / frame/second; ~44100 / 50 = 882
+        double statesPerSample = CPU::statesInFrame / samplesPerFrame; // states/frame / samples/frame; ~70000 / 882 = 79
         if (wav.ch == 1) { // mono
             if (wav.byte_per_sample == 1) { // 8-bit
-///                uint32_t statesPerSecond = statesPerSample * wav.freq; // states/sample * samples/second
-                FSIZE_t sampleNumber = tapeCurrent / statesPerSample + tapeStart; // states / states/sample
+                FSIZE_t sampleNumber = tapeCurrent / statesPerSample + wav_offset; // states / states/sample
                 if (tapeFileSize >= sampleNumber) {
                     f_lseek(tape, sampleNumber);
                     int8_t v = readByteFile(tape);
@@ -737,9 +739,10 @@ IRAM_ATTR void Tape::Read() {
                     tapePlayOffset = sampleNumber;
                 } else {
                     tapePlayOffset = tapeFileSize;
+                    Stop();
                 }
             } else { // 2 bytes per sample
-                FSIZE_t sampleNumber = tapeCurrent * 2 / statesPerSample + tapeStart; // states / states/sample
+                FSIZE_t sampleNumber = tapeCurrent * 2 / statesPerSample + wav_offset; // states / states/sample
                 if (tapeFileSize >= sampleNumber) {
                     f_lseek(tape, sampleNumber);
                     int16_t v = readWordFileLE(tape);
@@ -747,11 +750,12 @@ IRAM_ATTR void Tape::Read() {
                     tapePlayOffset = sampleNumber;
                 } else {
                     tapePlayOffset = tapeFileSize;
+                    Stop();
                 }
             }
         } else { // 2 channels
             if (wav.byte_per_sample == 2) { // 8-bit per channel
-                FSIZE_t sampleNumber = tapeCurrent * 2 / statesPerSample + tapeStart; // states / states/sample
+                FSIZE_t sampleNumber = tapeCurrent * 2 / statesPerSample + wav_offset; // states / states/sample
                 if (tapeFileSize >= sampleNumber) {
                     f_lseek(tape, sampleNumber);
                     int8_t v = readByteFile(tape);
@@ -759,9 +763,10 @@ IRAM_ATTR void Tape::Read() {
                     tapePlayOffset = sampleNumber;
                 } else {
                     tapePlayOffset = tapeFileSize;
+                    Stop();
                 }
             } else  { // 16-bit
-                FSIZE_t sampleNumber = tapeCurrent * 4 / statesPerSample + tapeStart; // states / states/sample
+                FSIZE_t sampleNumber = tapeCurrent * 4 / statesPerSample + wav_offset; // states / states/sample
                 if (tapeFileSize >= sampleNumber) {
                     f_lseek(tape, sampleNumber);
                     int16_t v = readWordFileLE(tape);
@@ -769,10 +774,10 @@ IRAM_ATTR void Tape::Read() {
                     tapePlayOffset = sampleNumber;
                 } else {
                     tapePlayOffset = tapeFileSize;
+                    Stop();
                 }
             }
         }
-        /// TODO:
         return;
     }
     if (tapeCurrent >= tapeNext) {
