@@ -32,7 +32,7 @@ bool     Config::AY48 = true;
 bool     Config::Issue2 = true;
 bool     Config::flashload = true;
 bool     Config::tape_player = false; // Tape player mode
-bool     Config::real_player = false;
+volatile bool Config::real_player = false;
 bool     Config::tape_timing_rg = false; // Rodolfo Guerra ROMs tape timings
 bool     Config::rightSpace = true;
 
@@ -236,7 +236,7 @@ void Config::load() {
         nvs_get_b("flashload", flashload, sts);
         nvs_get_b("rightSpace", rightSpace, sts);
         nvs_get_b("tape_player", tape_player, sts);
-        nvs_get_b("real_player", real_player, sts);
+        bool b; nvs_get_b("real_player", b, sts); real_player = b;
         nvs_get_b("tape_timing_rg", tape_timing_rg, sts);
         nvs_get_u8("joystick1", Config::joystick1, sts);
         nvs_get_u8("joystick2", Config::joystick2, sts);

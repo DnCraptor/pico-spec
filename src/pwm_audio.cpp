@@ -112,6 +112,11 @@ bool pcm_data_in(void) {
 
 static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core#1?
     m_let_process_it = true;
+#if LOAD_WAV_PIO
+    if (Config::real_player) {
+        lws.tick();
+    }
+#endif
     return true;
 }
 
@@ -119,11 +124,6 @@ void pcm_call() {
     if (!m_let_process_it) {
         return;
     }
-#if LOAD_WAV_PIO
-    if (Config::real_player) {
-        lws.tick();
-    }
-#endif
 #ifndef I2S_SOUND
     m_let_process_it = false;
     uint16_t outL = 0;

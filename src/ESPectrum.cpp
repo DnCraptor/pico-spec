@@ -1542,15 +1542,24 @@ void ESPectrum::loop() {
 
     CPU::loop();
 
-    if (Config::real_player) {
-        pwm_audio_in_frame_started();
-    }
-
     // Process audio buffer
     faudbufcnt = audbufcnt;
     faudioBit = lastaudioBit;
     faudbufcntAY = audbufcntAY;
     if (ESP_delay) {
+        if (Config::real_player) {
+            if (Tape::tapeStatus != TAPE_LOADING) {  // W/A
+                Tape::tapeStatus = TAPE_LOADING;
+                Tape::tapeFileName = "REAL AUDIO";
+                TapeNameScroller = 0;
+                Tape::tapeCurBlock = 0;
+                Tape::tapeNumBlocks = 1;
+                Tape::tapebufByteCount = 0;
+                Tape::tapePlayOffset = 0;
+                Tape::tapeFileSize = 100;
+            }
+            pwm_audio_in_frame_started();
+        }
 
         ///xQueueSend(audioTaskQueue, &param, portMAX_DELAY);
         // Finish fill of beeper oversampled audio buffers

@@ -92,7 +92,7 @@ public:
     static bool     Issue2;    
     static bool     flashload;    
     static bool     tape_player;
-    static bool     real_player;
+    static volatile bool real_player;
     static bool     tape_timing_rg;
     static bool     rightSpace;    
     static uint8_t  joystick1;

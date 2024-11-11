@@ -131,9 +131,6 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
         } else {
             if (port254 & 0x10) data |= 0x40;
         }
-        if (Config::real_player) {
-            Tape::tapeEarBit = pcm_data_in();
-        }
         if (Tape::tapeEarBit) data ^= 0x40;
     } else {
         ioContentionLate(MemESP::ramContended[rambank]);

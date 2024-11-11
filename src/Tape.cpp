@@ -51,6 +51,7 @@ using namespace std;
 #include "Snapshot.h"
 #include "messages.h"
 #include "Z80_JLS/z80.h"
+#include "pwm_audio.h"
 
 wav_t Tape::wav;
 uint32_t Tape::wav_offset = 0;
@@ -724,6 +725,10 @@ void Tape::Stop() {
 }
 
 IRAM_ATTR void Tape::Read() {
+    if ( tapeFileType == TAPE_FTYPE_EMPTY && Config::real_player ) {
+        tapeEarBit = pcm_data_in();
+        return;
+    }
     uint64_t tapeCurrent = CPU::global_tstates + CPU::tstates - tapeStart; // states since start
     FIL* tape = &Tape::tape;
     if ( tapeFileType == TAPE_FTYPE_WAV ) {
