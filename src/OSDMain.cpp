@@ -831,8 +831,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 if (opt2) {
                                     if (opt2 == 1)
                                         Config::real_player = true;
-                                    else
+                                    else {
                                         Config::real_player = false;
+                                        if (Tape::tapeStatus == TAPE_LOADING) {  // W/A
+                                            Tape::tapeStatus = TAPE_STOPPED;
+                                        }
+                                    }
 
                                     if (Config::real_player != prev_opt) {
                                         if (Config::real_player) {
