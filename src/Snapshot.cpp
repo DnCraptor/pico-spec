@@ -138,7 +138,6 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
     // printf("FileSNA::load: Opening %s: size = %d\n", sna_fn.c_str(), sna_size);
 
     MemESP::page0ram = 0;
-    MemESP::page128 = 0;
     MemESP::bankLatch = 0;
     MemESP::pagingLock = 1;
     MemESP::videoLatch = 0;
@@ -653,7 +652,6 @@ bool FileZ80::load(string z80_fn) {
 
         // latches for 48K
         MemESP::page0ram = 0;
-        MemESP::page128 = 0;
         MemESP::romLatch = 0;
         MemESP::romInUse = 0;
         MemESP::bankLatch = 0;
@@ -684,7 +682,6 @@ bool FileZ80::load(string z80_fn) {
         if (z80_arch == "48K") {
 
             MemESP::page0ram = 0;
-            MemESP::page128 = 0;
             MemESP::romLatch = 0;
             MemESP::romInUse = 0;
             MemESP::bankLatch = 0;
@@ -895,7 +892,6 @@ void FileZ80::loader48() {
     z80_array += dataOffset;
 
     MemESP::page0ram = 0;
-    MemESP::page128 = 0;
     MemESP::romLatch = 0;
     MemESP::romInUse = 0;
     MemESP::bankLatch = 0;

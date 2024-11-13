@@ -623,7 +623,6 @@ void ESPectrum::setup()
     Config::requestMachine(Config::arch, Config::romSet);
 
     MemESP::page0ram = 0;
-    MemESP::page128 = 0;
     MemESP::romInUse = 0;
     MemESP::bankLatch = 0;
     MemESP::videoLatch = 0;
@@ -776,7 +775,6 @@ void ESPectrum::reset()
 
     // Memory
     MemESP::page0ram = 0;
-    MemESP::page128 = 0;
     MemESP::romInUse = 0;
     MemESP::bankLatch = 0;
     MemESP::videoLatch = 0;

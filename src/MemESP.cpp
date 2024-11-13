@@ -104,7 +104,6 @@ bool MemESP::ramContended[4];
 
 uint8_t MemESP::notMore128 = 0;
 uint8_t MemESP::page0ram = 0;
-uint8_t MemESP::page128 = 0;
 uint8_t MemESP::bankLatch = 0;
 uint8_t MemESP::videoLatch = 0;
 uint8_t MemESP::romLatch = 0;

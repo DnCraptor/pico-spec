@@ -187,8 +187,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
                 // //  http://www.speccy.org/foro/viewtopic.php?f=8&t=2374
                 if (!MemESP::pagingLock) {
                     MemESP::pagingLock = bitRead(data, 5);
-                    MemESP::page128 = (data & 0x7);
-                    uint8_t page = MemESP::page128;
+                    uint8_t page = (data & 0x7);
                     if (MemESP::bankLatch != page) {
                         MemESP::bankLatch = page;
                         MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
@@ -331,9 +330,12 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     if ((!Z80Ops::is48) && ((address & 0x8002) == 0)) { // 8002 !-> 7FFD
         if (!MemESP::pagingLock) {
             uint8_t D5 = bitRead(data, 5);
-            MemESP::pagingLock = Z80Ops::is1024 && MemESP::notMore128 ? D5 : 0;
-            MemESP::page128 = (data & 0x7);
-            uint8_t page = MemESP::page128;
+            if (Z80Ops::is1024) {
+                MemESP::pagingLock = MemESP::notMore128 ? D5 : 0;
+            } else {
+                MemESP::pagingLock = D5;
+            }
+            uint8_t page = (data & 0x7);
             if ((Z80Ops::is512 || Z80Ops::is1024) && !MemESP::notMore128 && !MemESP::pagingLock) {
                 uint8_t D6 = bitRead(data, 6);
                 uint8_t D7 = bitRead(data, 7);
