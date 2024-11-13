@@ -52,6 +52,7 @@ using namespace std;
 #include "messages.h"
 #include "Z80_JLS/z80.h"
 #include "pwm_audio.h"
+#include "music_file.h"
 
 wav_t Tape::wav;
 uint32_t Tape::wav_offset = 0;
@@ -232,7 +233,14 @@ void (*Tape::GetBlock)() = &Tape::TAP_GetBlock;
 // Load tape file (.wav, .tap, .tzx)
 void Tape::LoadTape(string mFile) {
 
-    if (FileUtils::hasWAVextension(mFile)) {
+    if (FileUtils::hasMP3extension(mFile)) {
+        string keySel = mFile.substr(0,1);
+        mFile.erase(0, 1);
+        Tape::Stop();
+        // Read and analyze tap file
+        Tape::MP3_Open(mFile);
+        ESPectrum::TapeNameScroller = 0;
+    } else if (FileUtils::hasWAVextension(mFile)) {
         string keySel = mFile.substr(0,1);
         mFile.erase(0, 1);
         Tape::Stop();
@@ -401,6 +409,30 @@ void Tape::WAV_Open(string name) {
     wav_offset = f_tell(&tape);
     tapePlayOffset = wav_offset; // initial offset
     tapeNumBlocks = 1; // one huge block
+}
+
+#define WORKING_SIZE        512
+///16000
+///#define RAM_BUFFER_LENGTH   6000
+
+///static int16_t d_buff[RAM_BUFFER_LENGTH];
+static unsigned char working[WORKING_SIZE];
+static music_file mf;
+
+void Tape::MP3_Open(string name) {
+    f_close(&tape);
+    tapeFileType = TAPE_FTYPE_EMPTY;
+    string fname = FileUtils::TAP_Path + name;
+
+///    if (!musicFileCreate(&mf, fname.c_str(), working, WORKING_SIZE)) {
+        OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR "\n" + fname + "\n", LEVEL_ERROR);
+        return;
+///    }
+///    tapeFileSize = f_size(&tape);
+///    if (tapeFileSize == 0) return;
+    
+    tapeFileName = name;
+/// TODO:
 }
 
 void Tape::TAP_Open(string name) {
@@ -692,6 +724,9 @@ void Tape::Play() {
 }
 
 void Tape::WAV_GetBlock() {
+}
+
+void Tape::MP3_GetBlock() {
 }
 
 void Tape::TAP_GetBlock() {

@@ -55,6 +55,7 @@ set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${OUTPUT_DIR}")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${OUTPUT_DIR}")
 
 add_subdirectory(drivers/audio)
+add_subdirectory(drivers/picomp3lib)
 add_subdirectory(drivers/ps2)
 add_subdirectory(drivers/nespad)
 add_subdirectory(drivers/fatfs)
@@ -146,6 +147,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         psram
         audio
         graphics
+        picomp3lib
 
         ps2
         nespad

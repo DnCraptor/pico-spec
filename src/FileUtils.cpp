@@ -62,7 +62,7 @@ string FileUtils::DSK_Path = "/";
 string FileUtils::ROM_Path = "/";
 DISK_FTYPE FileUtils::fileTypes[4] = {
     {".sna,.SNA,.z80,.Z80,.p,.P",".s",2,2,0,""},
-    {".tap,.TAP,.tzx,.TZX,.wav,.WAV",".t",2,2,0,""},
+    {".tap,.TAP,.tzx,.TZX,.wav,.WAV,.mp3,.MP3",".t",2,2,0,""},
     {".trd,.TRD,.scl,.SCL",".d",2,2,0,""},
     {".rom,.ROM,.bin,.BIN",".s",2,2,0,""}
 };
@@ -142,6 +142,13 @@ bool FileUtils::hasWAVextension(string filename)
 {
     if (filename.substr(filename.size()-4,4) == ".wav") return true;
     if (filename.substr(filename.size()-4,4) == ".WAV") return true;
+    return false;
+}
+
+bool FileUtils::hasMP3extension(string filename)
+{
+    if (filename.substr(filename.size()-4,4) == ".mp3") return true;
+    if (filename.substr(filename.size()-4,4) == ".MP3") return true;
     return false;
 }
 

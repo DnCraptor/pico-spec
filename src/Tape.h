@@ -216,6 +216,8 @@ private:
 
     static void (*GetBlock)();
 
+    static void MP3_Open(string name);
+    static void MP3_GetBlock();
     static void WAV_Open(string name);
     static void WAV_GetBlock();
     static void TAP_Open(string name);
