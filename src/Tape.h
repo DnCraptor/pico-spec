@@ -48,6 +48,7 @@ using namespace std;
 #define TAPE_FTYPE_TAP 1
 #define TAPE_FTYPE_TZX 2
 #define TAPE_FTYPE_WAV 3
+#define TAPE_FTYPE_MP3 4
 
 // Tape status definitions
 #define TAPE_STOPPED 0

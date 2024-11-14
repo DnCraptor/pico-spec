@@ -61,10 +61,10 @@ string FileUtils::TAP_Path = "/";
 string FileUtils::DSK_Path = "/";
 string FileUtils::ROM_Path = "/";
 DISK_FTYPE FileUtils::fileTypes[4] = {
-    {".sna,.SNA,.z80,.Z80,.p,.P",".s",2,2,0,""},
-    {".tap,.TAP,.tzx,.TZX,.wav,.WAV,.mp3,.MP3",".t",2,2,0,""},
-    {".trd,.TRD,.scl,.SCL",".d",2,2,0,""},
-    {".rom,.ROM,.bin,.BIN",".s",2,2,0,""}
+    {".sna,.SNA,.z80,.Z80,.p,.P",2,2,0,""},
+    {".tap,.TAP,.tzx,.TZX,.wav,.WAV,.mp3,.MP3",2,2,0,""},
+    {".trd,.TRD,.scl,.SCL",2,2,0,""},
+    {".rom,.ROM,.bin,.BIN",2,2,0,""}
 };
 
 size_t fwrite(const void* v, size_t sz1, size_t sz2, FIL* f);

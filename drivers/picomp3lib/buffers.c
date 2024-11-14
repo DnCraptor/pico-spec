@@ -53,6 +53,10 @@
 #endif
 #endif
 
+#include <stdlib.h>
+
+#define MPDEC_ALLOCATOR(x) malloc(x)
+
 /**************************************************************************************
  * Function:    ClearBuffer
  *

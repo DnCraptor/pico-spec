@@ -307,7 +307,9 @@ void Tape::LoadTape(string mFile) {
         // printf("%s loaded.\n",mFile.c_str());
 
     }
-
+    else {
+        OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR, LEVEL_WARN);
+    }
 }
 
 void Tape::Init() {
@@ -411,28 +413,36 @@ void Tape::WAV_Open(string name) {
     tapeNumBlocks = 1; // one huge block
 }
 
-#define WORKING_SIZE        512
-///16000
+#define WORKING_SIZE        16000
 ///#define RAM_BUFFER_LENGTH   6000
 
 ///static int16_t d_buff[RAM_BUFFER_LENGTH];
-static unsigned char working[WORKING_SIZE];
-static music_file mf;
+static unsigned char* working = 0;;
+static music_file* mf = 0;
 
 void Tape::MP3_Open(string name) {
     f_close(&tape);
     tapeFileType = TAPE_FTYPE_EMPTY;
     string fname = FileUtils::TAP_Path + name;
+    if (!working) {
+        working = MemESP::ram[0].revoke_ram();
+        mf = new music_file();
+    }
 
-///    if (!musicFileCreate(&mf, fname.c_str(), working, WORKING_SIZE)) {
+///    if (!musicFileCreate(mf, fname.c_str(), working, WORKING_SIZE)) {
         OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR "\n" + fname + "\n", LEVEL_ERROR);
         return;
-///    }
-///    tapeFileSize = f_size(&tape);
-///    if (tapeFileSize == 0) return;
+        /**
+    }
+    tapeFileSize = f_size(&tape);
+    if (tapeFileSize == 0) return;
     
     tapeFileName = name;
-/// TODO:
+
+    tapeFileType = TAPE_FTYPE_MP3;
+    tapePlayOffset = 0; // TODO: initial offset
+    tapeNumBlocks = 1; // one huge block
+    */
 }
 
 void Tape::TAP_Open(string name) {
@@ -703,6 +713,10 @@ void Tape::Play() {
             tapePlayOffset = tapeStart;
             GetBlock = &WAV_GetBlock;
             break;
+        case TAPE_FTYPE_MP3:
+            tapePlayOffset = tapeStart; /// TODO:
+            GetBlock = &MP3_GetBlock;
+            break;
     }
 
     // Init tape vars
@@ -766,7 +780,10 @@ IRAM_ATTR void Tape::Read() {
     }
     uint64_t tapeCurrent = CPU::global_tstates + CPU::tstates - tapeStart; // states since start
     FIL* tape = &Tape::tape;
-    if ( tapeFileType == TAPE_FTYPE_WAV ) {
+    if ( tapeFileType == TAPE_FTYPE_MP3 ) {
+        /// TODO:
+    }
+    else if ( tapeFileType == TAPE_FTYPE_WAV ) {
         uint32_t FPS = 50; /// VIDEO::framecnt / (ESPectrum::totalseconds / 1000000); // ~50 fps
         uint32_t samplesPerFrame = wav.freq / FPS; // samples/second / frame/second; ~44100 / 50 = 882
         uint32_t statesPerSample = CPU::statesInFrame / samplesPerFrame; // states/frame / samples/frame; ~70000 / 882 = 79

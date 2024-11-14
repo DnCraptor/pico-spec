@@ -56,7 +56,7 @@ using namespace std;
 
 struct DISK_FTYPE {
     string fileExts;
-    string indexFilename;
+    ///string indexFilename;
     int begin_row;
     int focus;
     uint8_t fdMode;

@@ -73,6 +73,22 @@ public:
         this->_int->vram_off = page * 0x4000;
         this->_int->in_vram = true;
     }
+    inline uint8_t* revoke_ram() {
+        if (this->_int->is_rom) return 0;
+        this->_sync(); // TODO: optimize it
+        for (auto it = pages.begin(); it != pages.end(); ++it) {
+            mem_desc_t& page = *it;
+            if (&page == this) {
+                uint8_t* p = this->_int->p;
+                if (!page._int->in_vram) {
+                    page.to_vram();
+                }
+                pages.erase(it);
+                return p;
+            }
+        }
+        return 0;
+    }
     inline void assign_ram(uint8_t* p, uint32_t page, bool locked) {
         this->_int->p = p;
         this->_int->vram_off = page * 0x4000;

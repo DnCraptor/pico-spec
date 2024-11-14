@@ -363,7 +363,7 @@ printf("========================================================================
 // BOOT KEYBOARD
 //=======================================================================================
 void ESPectrum::bootKeyboard() {
-
+/***
     auto Kbd = PS2Controller.keyboard();
     fabgl::VirtualKeyItem NextKey;
     int i = 0;
@@ -444,7 +444,7 @@ void ESPectrum::bootKeyboard() {
         Config::save();
         // printf("%s\n", s.c_str());
     }
-
+*/
 }
 
 //=======================================================================================

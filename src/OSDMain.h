@@ -105,8 +105,8 @@ public:
     static string fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols, uint8_t mfrows);
     static int menuTape(string title);    
     static void menuScroll(bool up);
-    static void fd_Redraw(string title, string fdir, uint8_t ftype);
-    static void fd_PrintRow(uint8_t virtual_row_num, uint8_t line_type);
+    static void fd_Redraw(string title, string fdir, uint8_t ftype, const vector<string>& filexts);
+    static void fd_PrintRow(uint8_t virtual_row_num, uint8_t line_type, const vector<string>& filexts);
     static void tapemenuRedraw(string title);
     static void PrintRow(uint8_t virtual_row_num, uint8_t line_type);
     static void menuAt(short int row, short int col);

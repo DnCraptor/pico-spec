@@ -439,7 +439,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                 Config::save();
                 mFile.erase(0, 1);
                 string fname = FileUtils::SNA_Path + mFile;
-                LoadSnapshot(fname, "", "");
+                if(!LoadSnapshot(fname, "", "")) {
+                    OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
+                }
                 Config::ram_file = fname;
                 Config::last_ram_file = fname;
             }
@@ -676,9 +678,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 Config::save();
                                 mFile.erase(0, 1);
                                 string fname = FileUtils::SNA_Path + mFile;
-                                LoadSnapshot(fname, "", "");
-                                Config::ram_file = fname;
-                                Config::last_ram_file = fname;
+                                if(!LoadSnapshot(fname, "", "")) {
+                                    OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
+                                } else {
+                                    Config::ram_file = fname;
+                                    Config::last_ram_file = fname;
+                                }
                                 return;
                             }
                         }
@@ -1122,8 +1127,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                     if (opt2 == 1) {
                         // Soft
                         if (Config::last_ram_file != NO_RAM_FILE) {
-                            LoadSnapshot(Config::last_ram_file, "", "");
-                            Config::ram_file = Config::last_ram_file;
+                            if(!LoadSnapshot(Config::last_ram_file, "", "")) {
+                                OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
+                            } else {
+                                Config::ram_file = Config::last_ram_file;
+                            }
                         } else ESPectrum::reset();
                         return;
                     }
