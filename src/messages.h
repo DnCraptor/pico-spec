@@ -210,8 +210,8 @@ static const char *MENU_ROM_TITLE[2] = { MENU_ROM_TITLE_EN,MENU_ROM_TITLE_ES };
 #define MENU_SNA_EN \
     "Snapshot menu\n"\
     "Load (SNA,Z80,P)\t(F2) >\n"\
-    "Load snapshot\t(F3) >\n"\
-    "Save snapshot\t(F4) >\n"
+    "Load fast-snap\t(F3) >\n"\
+    "Save fast-snap\t(F4) >\n"
 #define MENU_SNA_ES \
     "Menu snapshots\n"\
     "Cargar (SNA,Z80,P)\t(F2) >\n"\
@@ -221,7 +221,7 @@ static const char *MENU_SNA[2] = { MENU_SNA_EN, MENU_SNA_ES };
 
 #define MENU_TAPE_EN \
     "Tape menu\n"\
-    "Select (TAP)\t(F5) >\n"\
+    "Select file\t(F5) >\n"\
     "Play/Stop\t(F6)  \n"\
     "Tape browser\t(F7)  \n"\
 	"Player mode\t>\n"\
@@ -234,6 +234,19 @@ static const char *MENU_SNA[2] = { MENU_SNA_EN, MENU_SNA_ES };
 	"Modo reproductor\t>\n"\
 	"Modo de sonido real\t>\n"
 static const char *MENU_TAPE[2] = { MENU_TAPE_EN, MENU_TAPE_ES };
+#define MENU_TAPE_NO_SD_EN \
+    "Tape menu\n"\
+    "Play/Stop\t(F6)  \n"\
+    "Tape browser\t(F7)  \n"\
+	"Player mode\t>\n"\
+	"Real sound mode\t>\n"
+#define MENU_TAPE_NO_SD_ES \
+    "Casete\n"\
+    "Play/Stop\t(F6)  \n"\
+    "Navegador cinta\t(F7)  \n"\
+	"Modo reproductor\t>\n"\
+	"Modo de sonido real\t>\n"
+static const char *MENU_TAPE_NO_SD[2] = { MENU_TAPE_NO_SD_EN, MENU_TAPE_NO_SD_ES };
 
 static const char *MENU_TAPEPLAYER[2] = { "Player mode\n", "Modo reproductor\n" };
 static const char *MENU_TAPEPLAYER2[2] = { "Real input\n", "Entrada real\n" };
@@ -280,7 +293,23 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
     "Opciones\t>\n"\
     "Ayuda\n"\
     "Acerca de\n"
-static const char *MENU_MAIN[2] = { MENU_MAIN_EN,MENU_MAIN_ES };
+static const char *MENU_MAIN[2] = { MENU_MAIN_EN, MENU_MAIN_ES };
+
+#define MENU_MAIN_NO_SD_EN \
+    "Tape\t>\n"\
+	"Machine\t>\n"\
+    "Reset\t>\n"\
+    "Options\t>\n"\
+    "Help\n"\
+    "About\n"
+#define MENU_MAIN_NO_SD_ES \
+    "Casete\t>\n"\
+    "Modelo\t>\n"\
+    "Resetear\t>\n"\
+    "Opciones\t>\n"\
+    "Ayuda\n"\
+    "Acerca de\n"
+static const char *MENU_MAIN_NO_SD[2] = { MENU_MAIN_NO_SD_EN, MENU_MAIN_NO_SD_ES };
 
 #define MENU_OPTIONS_EN \
     "Options menu\n"\
@@ -329,6 +358,14 @@ static const char *MENU_OPTIONS[2] = { MENU_OPTIONS_EN,MENU_OPTIONS_ES };
 	"Main ROM Pentagon bank #0\n"\
 	"Main ROM Pentagon bank #1\n"
 static const char *MENU_UPDATE_FW[2] = { MENU_UPDATE_EN, MENU_UPDATE_ES };
+
+#define MENU_UPDATE_NO_SD_EN \
+    "Update\n"\
+	"Firmware\n"
+#define MENU_UPDATE_NO_SD_ES \
+    "Actualizar\n"\
+	"Firmware\n"
+static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE_NO_SD_ES };
 
 #define MENU_VIDEO_EN \
     "Video\n"\

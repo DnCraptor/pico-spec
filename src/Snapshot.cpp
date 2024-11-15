@@ -65,6 +65,7 @@ using namespace std;
 
 // Change running snapshot
 bool LoadSnapshot(string filename, string force_arch, string force_romset) {
+    if (!FileUtils::fsMount) return false;
     bool res = false;
     uint8_t OSDprev = VIDEO::OSD;
     if (FileUtils::hasSNAextension(filename)) {

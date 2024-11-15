@@ -349,7 +349,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
         } else 
         if (KeytoESP == fabgl::VK_F10) { // NMI
             Z80::triggerNMI();
-        } else 
+        } ///else 
         // if (KeytoESP == fabgl::VK_F3) { 
         //     // Test variable decrease
         //     ESPectrum::ESPtestvar -= 1;
@@ -380,6 +380,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
         //     ESPectrum::ESPtestvar2 += 1;
         //     printf("ESPtestvar2: %d\n",ESPectrum::ESPtestvar2);
         // }
+        /***
         if (KeytoESP == fabgl::VK_F5) {
             if (Config::CenterH > -16) Config::CenterH--;
             Config::save("CenterH");
@@ -400,21 +401,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
             Config::save("CenterV");
             osdCenteredMsg("Vert. center: " + to_string(Config::CenterV), LEVEL_INFO, 375);
         }
-
+        */
     } else {
-
         if (KeytoESP == fabgl::VK_PAUSE) {
-
             click();
-
             osdCenteredMsg(OSD_PAUSE[Config::lang], LEVEL_INFO, 1000);
-
             while (1) {
-                
                 if (ZXKeyb::Exists) ZXKeyb::ZXKbdRead();
-
                 ESPectrum::readKbdJoy();
-
                 if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
                     if (ESPectrum::readKbd(&Nextkey)) {
                         if(!Nextkey.down) continue;
@@ -425,13 +419,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 osdCenteredMsg(OSD_PAUSE[Config::lang], LEVEL_INFO, 500);
                     }
                 }
-
                 sleep_ms(5);
-
             }
-
         }
-        else if (KeytoESP == fabgl::VK_F2) {
+        else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F2) {
             menu_level = 0;
             menu_saverect = false;
             string mFile = fileDialog(FileUtils::SNA_Path, MENU_SNA_TITLE[Config::lang], DISK_SNAFILE, 51, 22);
@@ -447,7 +438,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
             }
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
         }
-        else if (KeytoESP == fabgl::VK_F3) {
+        else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F3) {
             menu_level = 0;
             menu_curopt = 1;
             // Persist Load
@@ -460,7 +451,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                 persistLoad(opt2);
             }
         }
-        else if (KeytoESP == fabgl::VK_F4) {
+        else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F4) {
             // Persist Save
             menu_level = 0;
             menu_curopt = 1;
@@ -476,7 +467,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                 } else break;
             }
         }
-        else if (KeytoESP == fabgl::VK_F5) {
+        else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F5) {
             menu_level = 0; 
             menu_saverect = false;  
             string mFile = fileDialog(FileUtils::TAP_Path, MENU_TAP_TITLE[Config::lang],DISK_TAPFILE,51,22);
@@ -495,7 +486,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
             click();
         }
         else if (KeytoESP == fabgl::VK_F7) {
-
             // Tape Browser
             if (Tape::tapeFileName=="none") {
                 OSD::osdCenteredMsg(OSD_TAPE_SELECT_ERR[Config::lang], LEVEL_WARN);
@@ -649,17 +639,16 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
             esp_hard_reset();
         }
         else if (KeytoESP == fabgl::VK_F1) {
-
-            menu_curopt = 1;
-            
-            while(1) {
-
+        
+        menu_curopt = 1;
+        while(1) {
             // Main menu
             menu_saverect = false;
             menu_level = 0;
-            uint8_t opt = menuRun("ESPectrum " + Config::arch + "\n" + MENU_MAIN[Config::lang]);
-    
-            if (opt == 1) {
+            uint8_t opt = menuRun("ESPectrum " + Config::arch + "\n" +
+                (!FileUtils::fsMount ? MENU_MAIN_NO_SD[Config::lang] : MENU_MAIN[Config::lang])
+            );
+            if (FileUtils::fsMount && opt == 1) {
                 // ***********************************************************************************
                 // SNAPSHOTS MENU
                 // ***********************************************************************************
@@ -728,17 +717,18 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                     }
                 }
             } 
-            else if (opt == 2) {
+            else if (FileUtils::fsMount && opt == 2 || opt == 1) {
                 // ***********************************************************************************
                 // TAPE MENU
                 // ***********************************************************************************
                 menu_saverect = true;
-                menu_curopt = 1;            
+                menu_curopt = 1;
                 while(1) {
                     menu_level = 1;
                     // Tape menu
-                    uint8_t tap_num = menuRun(MENU_TAPE[Config::lang]);
+                    uint8_t tap_num = menuRun(FileUtils::fsMount ? MENU_TAPE[Config::lang] : MENU_TAPE_NO_SD[Config::lang]);
                     if (tap_num > 0) {
+                        if (!FileUtils::fsMount) ++tap_num;
                         menu_level = 2;
                         menu_saverect = true;
                         if (tap_num == 1) {
@@ -811,7 +801,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     menu_curopt = opt2;
                                     menu_saverect = false;
                                 } else {
-                                    menu_curopt = 4;
+                                    menu_curopt = FileUtils::fsMount ? 4 : 3;
                                     menu_level = 1;                                       
                                     break;
                                 }
@@ -853,19 +843,19 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     menu_curopt = opt2;
                                     menu_saverect = false;
                                 } else {
-                                    menu_curopt = 4;
+                                    menu_curopt = FileUtils::fsMount ? 5 : 4;
                                     menu_level = 1;                                       
                                     break;
                                 }
                             }
                         }
                     } else {
-                        menu_curopt = 2;
+                        menu_curopt = FileUtils::fsMount ? 2 : 1;
                         break;
                     }
                 }
             }
-            else if (opt == 3) {
+            else if (FileUtils::fsMount && opt == 3) {
                 // ***********************************************************************************
                 // BETADISK MENU
                 // ***********************************************************************************
@@ -911,7 +901,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                     }
                 }
             }
-            else if (opt == 4) { 
+            else if (FileUtils::fsMount && opt == 4 || opt == 2) { 
                 // ***********************************************************************************
                 // MACHINE MENU
                 // ***********************************************************************************
@@ -1107,12 +1097,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                         menu_curopt = arch_num;
                         menu_saverect = false;
                     } else {
-                        menu_curopt = 4;                            
+                        menu_curopt = FileUtils::fsMount ? 4 : 2;
                         break;
                     }
                 }
             }
-            else if (opt == 5) {
+            else if (FileUtils::fsMount && opt == 5 || opt == 3) {
                 // ***********************************************************************************
                 // RESET MENU
                 // ***********************************************************************************
@@ -1156,12 +1146,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                         f_unlink(MOUNT_POINT_SD STORAGE_NVS);
                         esp_hard_reset();
                     } else {
-                        menu_curopt = 5;
+                        menu_curopt = FileUtils::fsMount ? 5 : 3;
                         break;
                     }
                 }
             }
-            else if (opt == 6) {
+            else if (FileUtils::fsMount && opt == 6 || opt == 4) {
                 // ***********************************************************************************
                 // OPTIONS MENU
                 // ***********************************************************************************
@@ -2119,7 +2109,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                         menu_saverect = true;
                         while (1) {
                             // Update
-                            string Mnustr = MENU_UPDATE_FW[Config::lang];
+                            string Mnustr = FileUtils::fsMount ? MENU_UPDATE_FW[Config::lang] : MENU_UPDATE_FW_NO_SD[Config::lang];
                             uint8_t opt2 = menuRun(Mnustr);
                             if (opt2) {
                                 // Update
@@ -2145,12 +2135,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                             }
                         }
                     } else {
-                        menu_curopt = 6;
+                        menu_curopt = FileUtils::fsMount ? 6 : 4;
                         break;
                     }
                 }
             }
-            else if (opt == 7) {
+            else if (FileUtils::fsMount && opt == 7 || opt == 5) {
                 // Help
                 drawOSD(true);
                 osdAt(2, 0);
@@ -2184,8 +2174,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                 return;
 
             }        
-            else if (opt == 8) {
-
+            else if (FileUtils::fsMount && opt == 8 || opt == 6) {
                 // About
                 drawOSD(false);
                 

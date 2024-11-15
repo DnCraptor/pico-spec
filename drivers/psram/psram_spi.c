@@ -55,6 +55,18 @@ void write32psram(uint32_t addr32, uint32_t v) {
     psram_write32(&psram_spi, addr32, v);
 }
 
+void writepsram(uint32_t addr32, uint8_t* b, size_t sz) {
+    while (sz--) {
+        psram_write8(&psram_spi, addr32++, *b++);
+    }
+}
+
+void readpsram(uint8_t* b, uint32_t addr32, size_t sz) {
+    while (sz--) {
+        *b++ = psram_read8(&psram_spi, addr32++);
+    }
+}
+
 uint8_t read8psram(uint32_t addr32) {
     return psram_read8(&psram_spi, addr32);
 }

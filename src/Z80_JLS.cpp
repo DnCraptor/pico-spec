@@ -4564,56 +4564,41 @@ void Z80::decodeDDFD(RegisterPair& regIXY) {
             if (REG_PC == 0x04d4) { // Save trap
                 static uint8_t SaveRes;
                 if (REG_HL == 0x1F80) {
-                    // printf("Saving header!\n");
                     regIXY.word++;
                     // remove .tap output file if exists
-
-                    // Get save name
                     string name;
                     uint16_t header_data = REG_IX;
                     for (int i=0; i < 10; i++)
                         name += MemESP::ramCurrent[header_data++ >> 14].sync()[header_data & 0x3fff];
                     rtrim(name);
                     Tape::tapeSaveName = FileUtils::TAP_Path + name + ".tap";
-
-///                    struct stat stat_buf;
-                    SaveRes = DLG_YES;
-///                    if (stat(Tape::tapeSaveName.c_str(), &stat_buf) == 0)
-                    {
-                        string title = OSD_TAPE_SAVE[Config::lang];
-                        string msg = OSD_TAPE_SAVE_EXIST[Config::lang];
-                        SaveRes = OSD::msgDialog(title, msg);
+                    FILINFO stat_buf;
+                    SaveRes = DLG_NO;
+                    if ( FileUtils::fsMount ) {
+                        if ( f_stat(Tape::tapeSaveName.c_str(), &stat_buf) == FR_OK ) {
+                            string title = OSD_TAPE_SAVE[Config::lang];
+                            string msg = OSD_TAPE_SAVE_EXIST[Config::lang];
+                            SaveRes = OSD::msgDialog(title, msg);
+                        } else {
+                            SaveRes = DLG_YES;
+                        }
                     }
                     if (SaveRes == DLG_YES) {
                         REG_DE--;
                         regA = 0x00;
-                        Tape::Save();
+                        if (FileUtils::fsMount) Tape::Save();
                         REG_PC = 0x555;
                     }
                 } else {
-
-                    // printf("Saving data!\n");
-
-                    // Call Save function
-
-                    // printf("Saving %s block.\n",Tape::tapeSaveName.c_str());
-
                     if (SaveRes == DLG_YES) {
-
                         REG_DE--;
                         regIXY.word++;
                         regA = 0xFF;
-
-                        Tape::Save();
-
+                        if (FileUtils::fsMount) Tape::Save();
                         REG_PC = 0x555;
-
                     }
-
                 }
-
             }
-
             break;
         }
         case 0x2C:

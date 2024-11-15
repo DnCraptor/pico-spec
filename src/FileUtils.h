@@ -66,6 +66,7 @@ struct DISK_FTYPE {
 class FileUtils
 {
 public:
+    static bool fsMount;
     static void initFileSystem();
     static bool mountSDCard();
     static void unmountSDCard();

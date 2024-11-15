@@ -291,6 +291,7 @@ static void nvs_set_u16(FIL* handle, const char* name, uint16_t val) {
 
 // Dump actual config to FS
 void Config::save(string value) {
+    if (!FileUtils::fsMount) return;
     string nvs = MOUNT_POINT_SD STORAGE_NVS;
     FIL* handle = fopen2(nvs.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
     if (handle) {

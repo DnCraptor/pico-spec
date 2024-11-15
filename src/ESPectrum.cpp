@@ -450,41 +450,6 @@ void ESPectrum::bootKeyboard() {
 //=======================================================================================
 // SETUP
 //=======================================================================================
-// TaskHandle_t ESPectrum::loopTaskHandle;
-
-// uint32_t ESPectrum::sessid;
-
-#if !PICO_RP2040
-    #ifdef HDMI
-    static unsigned char MemESP_ram[(112ul + 256ul) << 10];
-    #else
-    static unsigned char MemESP_ram[(128ul + 256ul) << 10];
-    #endif
-#else
-    #ifdef HDMI
-    static unsigned char MemESP_ram[112ul << 10];
-    #else
-    static unsigned char MemESP_ram[128ul << 10];
-    #endif
-#endif
-
-static unsigned char *MemESP_ram0 = MemESP_ram;
-static unsigned char *MemESP_ram1 = MemESP_ram + 0x4000;
-static unsigned char *MemESP_ram2 = MemESP_ram + 0x4000 + 0x8000;
-
-static unsigned char *MemESP_ram4 = MemESP_ram + 4 * 0x4000;
-static unsigned char *MemESP_ram5 = MemESP_ram + 5 * 0x4000;
-#if PICO_RP2040
-    #ifdef HDMI
-    static unsigned char *MemESP_ram7 = MemESP_ram + 6 * 0x4000;
-    #else
-    static unsigned char *MemESP_ram6 = MemESP_ram + 6 * 0x4000;
-    static unsigned char *MemESP_ram7 = MemESP_ram + 7 * 0x4000;
-    #endif
-#else
-    static unsigned char *MemESP_ram6 = MemESP_ram + 6 * 0x4000;
-    static unsigned char *MemESP_ram7 = MemESP_ram + 7 * 0x4000;
-#endif
 
 void ESPectrum::setup() 
 {
@@ -503,7 +468,8 @@ void ESPectrum::setup()
     //=======================================================================================
     // LOAD CONFIG
     //=======================================================================================
-    Config::load();
+    if (FileUtils::fsMount) Config::load();
+    bool ext_ram_exist = psram_size() > 0 || FileUtils::fsMount;
     
     // Set arch if there's no snapshot to load
     if (Config::ram_file == NO_RAM_FILE) {
@@ -587,37 +553,46 @@ void ESPectrum::setup()
     //=======================================================================================
     // MEMORY SETUP
     //=======================================================================================
-    MemESP::ram[5].assign_ram(MemESP_ram5, 5, true);
-    MemESP::ram[0].assign_ram(MemESP_ram0, 0, false);
-
-    MemESP::ram[2].assign_ram(MemESP_ram2, 2, false);
-    MemESP::ram[7].assign_ram(MemESP_ram7, 7, true);
-
+    MemESP::ram[0].assign_ram(new unsigned char[0x4000], 0, false);
+    MemESP::ram[2].assign_ram(new unsigned char[0x4000], 2, false);
+    unsigned char *MemESP_ram1 = new unsigned char[0x8000];
     MemESP::ram[1].assign_ram(MemESP_ram1, 1, true);
     MemESP::ram[3].assign_ram(MemESP_ram1 + 0x4000, 3, true); /// why?
 
-    MemESP::ram[4].assign_ram(MemESP_ram4, 4, false);
 #if PICO_RP2040
     #ifdef HDMI
-    MemESP::ram[6].assign_vram(6);
+    if (ext_ram_exist) {
+        MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
+        MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);
+        MemESP::ram[6].assign_vram(6);
+        MemESP::ram[7].assign_ram(new unsigned char[0x4000], 7, true);
+    }
     #else
-    MemESP::ram[6].assign_ram(MemESP_ram6, 6, false);
+        MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
+        MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);
+        MemESP::ram[6].assign_ram(new unsigned char[0x4000], 6, false);
+        MemESP::ram[7].assign_ram(new unsigned char[0x4000], 7, true);
     #endif
 #else
-    MemESP::ram[6].assign_ram(MemESP_ram6, 6, false);
+    MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
+    MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);
+    MemESP::ram[6].assign_ram(new unsigned char[0x4000], 6, false);
+    MemESP::ram[7].assign_ram(new unsigned char[0x4000], 7, true);
 #endif
 
+    if (ext_ram_exist) {
 #if !PICO_RP2040
     #ifdef HDMI
-    for (size_t i = 8; i < 23; ++i) MemESP::ram[i].assign_ram(MemESP_ram + 0x4000 * i, i, false);
-    for (size_t i = 23; i < 64; ++i) MemESP::ram[i].assign_vram(i);
+        for (size_t i = 8; i < 23; ++i) MemESP::ram[i].assign_ram(new unsigned char[0x4000], i, false);
+        for (size_t i = 23; i < 64; ++i) MemESP::ram[i].assign_vram(i);
     #else
-    for (size_t i = 8; i < 24; ++i) MemESP::ram[i].assign_ram(MemESP_ram + 0x4000 * i, i, false);
-    for (size_t i = 24; i < 64; ++i) MemESP::ram[i].assign_vram(i);
+        for (size_t i = 8; i < 24; ++i) MemESP::ram[i].assign_ram(new unsigned char[0x4000], i, false);
+        for (size_t i = 24; i < 64; ++i) MemESP::ram[i].assign_vram(i);
     #endif
 #else
-    for (size_t i = 8; i < 64; ++i) MemESP::ram[i].assign_vram(i);
+        for (size_t i = 8; i < 64; ++i) MemESP::ram[i].assign_vram(i);
 #endif
+    }
 
     // Load romset
     Config::requestMachine(Config::arch, Config::romSet);
@@ -728,7 +703,7 @@ void ESPectrum::setup()
 
     // Load snapshot if present in Config::
     if (Config::ram_file != NO_RAM_FILE) {
-/**
+/** TODO:
         FileUtils::SNA_Path = Config::SNA_Path;
         FileUtils::fileTypes[DISK_SNAFILE].begin_row = Config::SNA_begin_row;
         FileUtils::fileTypes[DISK_SNAFILE].focus = Config::SNA_focus;
@@ -747,11 +722,11 @@ void ESPectrum::setup()
         FileUtils::fileTypes[DISK_DSKFILE].fdMode = Config::DSK_fdMode;
         FileUtils::fileTypes[DISK_DSKFILE].fileSearch = Config::DSK_fileSearch;
 */
-        LoadSnapshot(Config::ram_file, "", "");
+        if (FileUtils::fsMount) LoadSnapshot(Config::ram_file, "", "");
 
         Config::last_ram_file = Config::ram_file;
         Config::ram_file = NO_RAM_FILE;
-        Config::save("ram");
+        if (FileUtils::fsMount) Config::save();
     }
 ///    if (Config::slog_on) showMemInfo("ZX-ESPectrum-IDF setup finished.");
 

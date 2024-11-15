@@ -232,7 +232,10 @@ void (*Tape::GetBlock)() = &Tape::TAP_GetBlock;
 
 // Load tape file (.wav, .tap, .tzx)
 void Tape::LoadTape(string mFile) {
-
+    if (!FileUtils::fsMount) {
+        OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR, LEVEL_WARN);
+        return;
+    }
     if (FileUtils::hasMP3extension(mFile)) {
         string keySel = mFile.substr(0,1);
         mFile.erase(0, 1);

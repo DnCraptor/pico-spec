@@ -94,8 +94,10 @@ void FileUtils::initFileSystem() {
 }
 
 static FATFS fs;
+bool FileUtils::fsMount = false;
 bool FileUtils::mountSDCard() {
-    return f_mount(&fs, "SD", 1) == FR_OK;
+    fsMount = f_mount(&fs, "SD", 1) == FR_OK;
+    return fsMount;
 }
 
 void FileUtils::unmountSDCard() {
