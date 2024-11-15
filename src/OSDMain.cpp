@@ -907,9 +907,15 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                 // ***********************************************************************************
                 menu_saverect = true;
                 menu_curopt = 1;
+                bool ext_ram = FileUtils::fsMount || psram_size() > 0;
+                #ifdef HDMI
+                    bool exlude128 = !ext_ram;
+                #else
+                    bool exlude128 = false;
+                #endif
                 while (1) {
                     menu_level = 1;
-                    uint8_t arch_num = menuRun(MENU_ARCH[Config::lang]);
+                    uint8_t arch_num = menuRun(ext_ram ? MENU_ARCH[Config::lang] : MENU_ARCH_NO_SD[Config::lang]);
                     if (arch_num) {
                         string arch = Config::arch;
                         string romset = Config::romSet;
@@ -942,7 +948,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 menu_curopt = 1;
                                 menu_level = 2;                                       
                             }
-                        } else if (arch_num == 2) { // 128K
+                        } else if (arch_num == 2 && !exlude128) { // 128K
                             menu_level = 2;
                             menu_curopt = 1;                    
                             menu_saverect = true;
@@ -979,7 +985,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 menu_curopt = 1;
                                 menu_level = 2;                                       
                             }
-                        } else if (arch_num == 3) { // Pentagon
+                        } else if (arch_num == 3 && !exlude128) { // Pentagon
                             menu_level = 2;
                             menu_curopt = 1;                    
                             menu_saverect = true;
@@ -998,7 +1004,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 menu_curopt = 1;
                                 menu_level = 2;                                       
                             }
-                        } else if (arch_num == 4) { // Pentagon 512K
+                        } else if (ext_ram && arch_num == 4) { // Pentagon 512K
                             menu_level = 2;
                             menu_curopt = 1;                    
                             menu_saverect = true;
@@ -1017,7 +1023,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 menu_curopt = 1;
                                 menu_level = 2;                                       
                             }
-                        } else if (arch_num == 5) { // Pentagon 1024K
+                        } else if (ext_ram && arch_num == 5) { // Pentagon 1024K
                             menu_level = 2;
                             menu_curopt = 1;                    
                             menu_saverect = true;
@@ -1036,7 +1042,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 menu_curopt = 1;
                                 menu_level = 2;                                       
                             }
-                        } else if (arch_num == 6) { // ALF TV GAME
+                        } else if (arch_num == 6 || !ext_ram) { // ALF TV GAME
                             arch = "ALF";
                             romset = "ALF1";
                             menu_curopt = opt2;

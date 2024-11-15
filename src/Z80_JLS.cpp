@@ -4572,9 +4572,9 @@ void Z80::decodeDDFD(RegisterPair& regIXY) {
                         name += MemESP::ramCurrent[header_data++ >> 14].sync()[header_data & 0x3fff];
                     rtrim(name);
                     Tape::tapeSaveName = FileUtils::TAP_Path + name + ".tap";
-                    FILINFO stat_buf;
                     SaveRes = DLG_NO;
                     if ( FileUtils::fsMount ) {
+                        FILINFO stat_buf;
                         if ( f_stat(Tape::tapeSaveName.c_str(), &stat_buf) == FR_OK ) {
                             string title = OSD_TAPE_SAVE[Config::lang];
                             string msg = OSD_TAPE_SAVE_EXIST[Config::lang];

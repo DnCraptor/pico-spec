@@ -225,7 +225,7 @@ static const char *MENU_SNA[2] = { MENU_SNA_EN, MENU_SNA_ES };
     "Play/Stop\t(F6)  \n"\
     "Tape browser\t(F7)  \n"\
 	"Player mode\t>\n"\
-	"Real sound mode\t>\n"
+	"Real sound-in\t>\n"
 #define MENU_TAPE_ES \
     "Casete\n"\
     "Elegir (TAP)\t(F5) >\n"\
@@ -239,7 +239,7 @@ static const char *MENU_TAPE[2] = { MENU_TAPE_EN, MENU_TAPE_ES };
     "Play/Stop\t(F6)  \n"\
     "Tape browser\t(F7)  \n"\
 	"Player mode\t>\n"\
-	"Real sound mode\t>\n"
+	"Real sound-in\t>\n"
 #define MENU_TAPE_NO_SD_ES \
     "Casete\n"\
     "Play/Stop\t(F6)  \n"\
@@ -521,6 +521,18 @@ static const char *MENU_ISSUE2[2] = { "48K Issue 2\n", "48K Issue 2\n"};
 	"Pentagon 1024K\t>\n"\
 	"ALF TV GAME\n"
 static const char *MENU_ARCH[2] = { MENU_ARCH_EN MENU_ARCHS, MENU_ARCH_ES MENU_ARCHS };
+#ifdef HDMI
+#define MENU_ARCHS_NO_SD \
+    "Spectrum 48K\t>\n"\
+	"ALF TV GAME\n"
+#else
+#define MENU_ARCHS_NO_SD \
+    "Spectrum 48K\t>\n"\
+    "Spectrum 128K\t>\n"\
+	"Pentagon 128K\t>\n"\
+	"ALF TV GAME\n"
+#endif
+static const char *MENU_ARCH_NO_SD[2] = { MENU_ARCH_EN MENU_ARCHS_NO_SD, MENU_ARCH_ES MENU_ARCHS_NO_SD };
 
 #if NO_SPAIN_ROM_48k
 #define MENU_ROMS48_EN "Select ROM\n"\
