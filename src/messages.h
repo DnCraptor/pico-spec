@@ -521,17 +521,11 @@ static const char *MENU_ISSUE2[2] = { "48K Issue 2\n", "48K Issue 2\n"};
 	"Pentagon 1024K\t>\n"\
 	"ALF TV GAME\n"
 static const char *MENU_ARCH[2] = { MENU_ARCH_EN MENU_ARCHS, MENU_ARCH_ES MENU_ARCHS };
-#ifdef HDMI
-#define MENU_ARCHS_NO_SD \
-    "Spectrum 48K\t>\n"\
-	"ALF TV GAME\n"
-#else
 #define MENU_ARCHS_NO_SD \
     "Spectrum 48K\t>\n"\
     "Spectrum 128K\t>\n"\
 	"Pentagon 128K\t>\n"\
 	"ALF TV GAME\n"
-#endif
 static const char *MENU_ARCH_NO_SD[2] = { MENU_ARCH_EN MENU_ARCHS_NO_SD, MENU_ARCH_ES MENU_ARCHS_NO_SD };
 
 #if NO_SPAIN_ROM_48k

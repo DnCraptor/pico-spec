@@ -469,7 +469,7 @@ void ESPectrum::setup()
     // LOAD CONFIG
     //=======================================================================================
     if (FileUtils::fsMount) Config::load();
-    bool ext_ram_exist = psram_size() > 0 || FileUtils::fsMount;
+    bool ext_ram_exist = psram_size() >= (16 << 10) || FileUtils::fsMount;
     
     // Set arch if there's no snapshot to load
     if (Config::ram_file == NO_RAM_FILE) {
@@ -565,6 +565,11 @@ void ESPectrum::setup()
         MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
         MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);
         MemESP::ram[6].assign_vram(6);
+        MemESP::ram[7].assign_ram(new unsigned char[0x4000], 7, true);
+    } else {
+        MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
+        MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);
+        MemESP::ram[6].assign_ram(new unsigned char[0x4000], 6, false);
         MemESP::ram[7].assign_ram(new unsigned char[0x4000], 7, true);
     }
     #else

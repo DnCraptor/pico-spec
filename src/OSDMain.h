@@ -37,6 +37,7 @@ visit https://zxespectrum.speccy.org/contacto
 #define ESPECTRUM_OSD_H
 
 #include <string>
+#include <vector>
 #include <algorithm>
 #include "fabutils.h"
 #include "ff.h"
