@@ -52,10 +52,14 @@ using namespace std;
 #include "messages.h"
 #include "Z80_JLS/z80.h"
 #include "pwm_audio.h"
+
 #include "music_file.h"
 
 wav_t Tape::wav;
 uint32_t Tape::wav_offset = 0;
+
+uint32_t Tape:: mp3_read = 0;
+
 FIL Tape::tape;
 FIL Tape::cswBlock;
 string Tape::tapeFileName = "none";
@@ -416,36 +420,276 @@ void Tape::WAV_Open(string name) {
     tapeNumBlocks = 1; // one huge block
 }
 
-#define WORKING_SIZE        16000
-///#define RAM_BUFFER_LENGTH   6000
+#define WORKING_SIZE        4000
+///16000
+#define RAM_BUFFER_LENGTH   2000
+///6000
 
-///static int16_t d_buff[RAM_BUFFER_LENGTH];
 static unsigned char* working = 0;;
 static music_file* mf = 0;
+static int16_t* d_buff = 0;
+
+extern "C" void osd_printf(const char* msg, ...);
+
+struct free_ptr {
+    uint8_t* p;
+    size_t off;
+};
+
+static vector<free_ptr> free_ptrs;
+
+extern "C" void* malloc2(size_t sz) {
+	void* res = 0;
+    for (auto it = free_ptrs.begin(); it != free_ptrs.end(); ++it) {
+        free_ptr& fp = *it;
+        if (sz + fp.off <= (16 << 10)) {
+            res = fp.p + fp.off;
+            fp.off += sz;
+            break;
+        }
+    }
+	if (!res) {
+        char buf[16];
+		snprintf(buf, 16, "E %d\n", sz);
+		osd_printf(buf);
+	}
+	return res;
+}
+
+static bool revoke_ram_4_mp3 = false;
+
+bool writeWavHeader(FIL* fo, uint32_t sample_rate, uint16_t num_channels)
+{
+    uint32_t val32;
+    uint16_t val16;
+    UINT written;
+
+    // 0 RIFF
+    val32 = 0x46464952;
+    if ((f_write(fo, &val32, sizeof(uint32_t), &written) != FR_OK) &&
+        (written != sizeof(uint32_t)))
+    {
+        return false;
+    }
+
+    // 4 cksize - to be written at end
+    val32 = 0;
+    if ((f_write(fo, &val32, sizeof(uint32_t), &written) != FR_OK) &&
+        (written != sizeof(uint32_t)))
+    {
+        return false;
+    }
+
+    // 8 WAVE
+    val32 = 0x45564157;
+    if ((f_write(fo, &val32, sizeof(uint32_t), &written) != FR_OK) &&
+        (written != sizeof(uint32_t)))
+    {
+        return false;
+    }
+
+    // 12 fmt
+    val32 = 0x20746d66;
+    if ((f_write(fo, &val32, sizeof(uint32_t), &written) != FR_OK) &&
+        (written != sizeof(uint32_t)))
+    {
+        return false;
+    }
+
+    // 16 Subchunk1Size
+    val32 = 16;
+    if ((f_write(fo, &val32, sizeof(uint32_t), &written) != FR_OK) &&
+        (written != sizeof(uint32_t)))
+    {
+        return false;
+    }
+
+    // 20 Audio format - PCM
+    val16 = 1;
+    if ((f_write(fo, &val16, sizeof(uint16_t), &written) != FR_OK) &&
+        (written != sizeof(uint16_t)))
+    {
+        return false;
+    }
+
+    // 22 Number of channels
+    if ((f_write(fo, &num_channels, sizeof(uint16_t), &written) != FR_OK) &&
+        (written != sizeof(uint16_t)))
+    {
+        return false;
+    }
+
+    // 24 Sample rate
+    if ((f_write(fo, &sample_rate, sizeof(uint32_t), &written) != FR_OK) &&
+        (written != sizeof(uint32_t)))
+    {
+        return false;
+    }
+
+    // 28 Byte rate per sec = num_channel * sample_rate * sample_size_in_bytes
+    val32 = sample_rate * num_channels; /// * 2;
+    if ((f_write(fo, &val32, sizeof(uint32_t), &written) != FR_OK) &&
+        (written != sizeof(uint32_t)))
+    {
+        return false;
+    }
+
+    // 32 Block alignment
+    val16 = (uint16_t)(num_channels); /// * 2);
+    if ((f_write(fo, &val16, sizeof(uint16_t), &written) != FR_OK) &&
+        (written != sizeof(uint16_t)))
+    {
+        return false;
+    }
+
+    // 34 Bits per sample
+    val16 = 8; ///16;
+    if ((f_write(fo, &val16, sizeof(uint16_t), &written) != FR_OK) &&
+        (written != sizeof(uint16_t)))
+    {
+        return false;
+    }
+
+    // 36 data
+    val32 = 0x61746164;
+    if ((f_write(fo, &val32, sizeof(uint32_t), &written) != FR_OK) &&
+        (written != sizeof(uint32_t)))
+    {
+        return false;
+    }
+
+    // 40 Size of data - write 0, then update at end
+    val32 = 0;
+    if ((f_write(fo, &val32, sizeof(uint32_t), &written) != FR_OK) &&
+        (written != sizeof(uint32_t)))
+    {
+        return false;
+    }
+
+    return true;
+}
+
+bool updateWavHeader(FIL* fo, uint32_t num_samples, uint16_t num_channels)
+{
+    uint32_t val32;
+    UINT written;
+
+    if (f_lseek(fo, 4) != FR_OK)
+        return false;
+
+    val32 = 36 + num_samples * num_channels; /// * sizeof(int16_t);
+    if ((f_write(fo, &val32, sizeof(uint32_t), &written) != FR_OK) &&
+        (written != sizeof(uint32_t)))
+    {
+        return false;
+    }
+
+    if (f_lseek(fo, 40) != FR_OK)
+        return false;
+
+    val32 = num_samples * num_channels; /// * sizeof(int16_t);
+    if ((f_write(fo, &val32, sizeof(uint32_t), &written) != FR_OK) &&
+        (written != sizeof(uint32_t)))
+    {
+        return false;
+    }
+
+    return true;
+}
 
 void Tape::MP3_Open(string name) {
     f_close(&tape);
     tapeFileType = TAPE_FTYPE_EMPTY;
     string fname = FileUtils::TAP_Path + name;
-    if (!working) {
-        working = MemESP::ram[0].revoke_ram();
-        mf = new music_file();
+    tapeFileName = fname + ".wav";
+    if (f_open(&tape, tapeFileName.c_str(), FA_CREATE_ALWAYS | FA_WRITE) != FR_OK) {
+        OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR "\n" + tapeFileName + "\n", LEVEL_ERROR);
     }
 
-///    if (!musicFileCreate(mf, fname.c_str(), working, WORKING_SIZE)) {
+    if (!revoke_ram_4_mp3) {
+        for (size_t i = 0; i < 2; ++i) {
+            uint8_t* p = mem_desc_t::revoke_1_ram_page();
+            if (p == 0) continue;
+            free_ptr fp = { p , 0 };
+            free_ptrs.push_back(fp);
+        }
+    }
+    working = (uint8_t*) malloc2(WORKING_SIZE);
+    d_buff = (int16_t*) malloc2(RAM_BUFFER_LENGTH * 2);
+    mf = new music_file();
+
+    if (!musicFileCreate(mf, fname.c_str(), working, WORKING_SIZE)) {
         OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR "\n" + fname + "\n", LEVEL_ERROR);
+        delete mf;
+        mf = 0;
+        d_buff = 0;
+        working = 0;
+        for (auto it = free_ptrs.begin(); it != free_ptrs.end(); ++it)  {
+            it->off = 0;
+        }
         return;
-        /**
     }
-    tapeFileSize = f_size(&tape);
-    if (tapeFileSize == 0) return;
-    
-    tapeFileName = name;
 
+    FSIZE_t fz = f_size(&mf->fil);
+    FSIZE_t lp = 0;
+    uint32_t sample_rate = musicFileGetSampleRate(mf);
+    uint16_t num_channels =  musicFileGetChannels(mf);
+    writeWavHeader(&tape, sample_rate, num_channels);
+    bool success = true;
+    UINT num_samples, written = 0;
+    OSD::progressDialog("Convert mp3 to wav", tapeFileName, 0, 0);
+    do {
+        success = musicFileRead(mf, d_buff, RAM_BUFFER_LENGTH, &mp3_read);
+        FSIZE_t ip = f_tell(&mf->fil);
+        if (ip < lp) break;
+        lp = ip;
+        OSD::progressDialog("Convert mp3 to wav", tapeFileName, lp * 100 / fz, 1);
+        if (success && mp3_read) {
+            num_samples += mp3_read / num_channels;
+            int8_t* t = (int8_t*)d_buff;
+            for (size_t i = 0; i < mp3_read; ++i) {
+                t[i] = d_buff[i] >> 8;
+            }
+            if ((f_write(&tape, d_buff, mp3_read, &written) != FR_OK) || (written != mp3_read)) {
+                osd_printf("Error in f_write\n");
+                success = false;
+            }
+        } else {
+            if (!success) {
+                osd_printf("Error in mp3FileRead\n");
+            } else {
+                osd_printf("Convert to WAV passed\n");
+            }
+        }
+    } while (success && mp3_read) ; /// && (total_dec_time / GetClockFrequency() < stop_time));
+    OSD::progressDialog("Convert mp3 to wav", tapeFileName, 100, 2);
+    OSD::osdCenteredMsg(
+        "sample_rate: " + to_string(sample_rate) +
+        "\nchannels: " + to_string(num_channels) +
+        "; Press F6...\n",
+        LEVEL_WARN,
+        1000
+    );
+    if (success) {
+        updateWavHeader(&tape, num_samples, num_channels);
+    }
+    if (mf) {
+        musicFileClose(mf);
+        delete mf;
+        mf = 0;
+        d_buff = 0;
+        working = 0;
+    }
+    for (auto it = free_ptrs.begin(); it != free_ptrs.end(); ++it)  {
+        it->off = 0;
+    }
+    WAV_Open(name + ".wav");
+/*
+    tapeFileName = name;
     tapeFileType = TAPE_FTYPE_MP3;
-    tapePlayOffset = 0; // TODO: initial offset
+    tapePlayOffset = mf->file_offset;
     tapeNumBlocks = 1; // one huge block
-    */
+*/
 }
 
 void Tape::TAP_Open(string name) {
@@ -695,7 +939,7 @@ string Tape::tapeBlockReadData(int Blocknum) {
 
 void Tape::Play() {
 
-    if (!tape.obj.fs) {
+    if (tapeFileType != TAPE_FTYPE_MP3 && !tape.obj.fs) {
         OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR, LEVEL_ERROR);
         return;
     }
@@ -784,60 +1028,57 @@ IRAM_ATTR void Tape::Read() {
     uint64_t tapeCurrent = CPU::global_tstates + CPU::tstates - tapeStart; // states since start
     FIL* tape = &Tape::tape;
     if ( tapeFileType == TAPE_FTYPE_MP3 ) {
-        /// TODO:
+        if (!mf) return;
+        uint32_t FPS = 50;
+        uint32_t samplesPerFrame = musicFileGetSampleRate(mf) / FPS; // samples/second / frame/second; ~44100 / 50 = 882
+        uint32_t statesPerSample = CPU::statesInFrame / samplesPerFrame; // states/frame / samples/frame; ~70000 / 882 = 79
+        FSIZE_t sampleNumber = sampleNumber = tapeCurrent * (musicFileIsStereo(mf) ? 2 : 1) / statesPerSample;
+        // + wav_offset; // states / states/sample
+        size_t t = mp3_read;
+        if (sampleNumber < mp3_read) {
+            int16_t v = d_buff[sampleNumber];
+            tapeEarBit = v > 0 ? 1 : 0;
+//                    tapePlayOffset = sampleNumber;
+        } else if (!musicFileRead(mf, d_buff, RAM_BUFFER_LENGTH, &mp3_read)) {
+            Stop();
+            musicFileClose(mf);
+        } else {
+            tapePlayOffset = mf->file_offset;
+            sampleNumber -= t;
+            if (sampleNumber < mp3_read) {
+                int16_t v = d_buff[sampleNumber];
+                tapeEarBit = v > 0 ? 1 : 0;
+            }
+        }
+        tapeStart = CPU::global_tstates + CPU::tstates - tapeCurrent; // recover?
+        return;
     }
     else if ( tapeFileType == TAPE_FTYPE_WAV ) {
         uint32_t FPS = 50; /// VIDEO::framecnt / (ESPectrum::totalseconds / 1000000); // ~50 fps
         uint32_t samplesPerFrame = wav.freq / FPS; // samples/second / frame/second; ~44100 / 50 = 882
         uint32_t statesPerSample = CPU::statesInFrame / samplesPerFrame; // states/frame / samples/frame; ~70000 / 882 = 79
+        FSIZE_t sampleNumber;
         if (wav.ch == 1) { // mono
             if (wav.byte_per_sample == 1) { // 8-bit
-                FSIZE_t sampleNumber = tapeCurrent / statesPerSample + wav_offset; // states / states/sample
-                if (tapeFileSize >= sampleNumber) {
-                    f_lseek(tape, sampleNumber);
-                    int8_t v = readByteFile(tape);
-                    tapeEarBit = v > 0 ? 1 : 0;
-                    tapePlayOffset = sampleNumber;
-                } else {
-                    Stop();
-                    f_lseek(tape, 0);
-                }
+                sampleNumber = tapeCurrent / statesPerSample + wav_offset; // states / states/sample
             } else { // 2 bytes per sample
-                FSIZE_t sampleNumber = tapeCurrent * 2 / statesPerSample + wav_offset; // states / states/sample
-                if (tapeFileSize >= sampleNumber) {
-                    f_lseek(tape, sampleNumber);
-                    int16_t v = readWordFileLE(tape);
-                    tapeEarBit = v > 0 ? 1 : 0;
-                    tapePlayOffset = sampleNumber;
-                } else {
-                    Stop();
-                    f_lseek(tape, 0);
-                }
+                sampleNumber = tapeCurrent * 2 / statesPerSample + wav_offset + 1; // states / states/sample
             }
         } else { // 2 channels
             if (wav.byte_per_sample == 2) { // 8-bit per channel
-                FSIZE_t sampleNumber = tapeCurrent * 2 / statesPerSample + wav_offset; // states / states/sample
-                if (tapeFileSize >= sampleNumber) {
-                    f_lseek(tape, sampleNumber);
-                    int8_t v = readByteFile(tape);
-                    tapeEarBit = v > 0 ? 1 : 0;
-                    tapePlayOffset = sampleNumber;
-                } else {
-                    Stop();
-                    f_lseek(tape, 0);
-                }
+                sampleNumber = tapeCurrent * 2 / statesPerSample + wav_offset; // states / states/sample
             } else  { // 16-bit
-                FSIZE_t sampleNumber = tapeCurrent * 4 / statesPerSample + wav_offset; // states / states/sample
-                if (tapeFileSize >= sampleNumber) {
-                    f_lseek(tape, sampleNumber);
-                    int16_t v = readWordFileLE(tape);
-                    tapeEarBit = v > 0 ? 1 : 0;
-                    tapePlayOffset = sampleNumber;
-                } else {
-                    Stop();
-                    f_lseek(tape, 0);
-                }
+                sampleNumber = tapeCurrent * 4 / statesPerSample + wav_offset + 1; // states / states/sample
             }
+        }
+        if (tapeFileSize >= sampleNumber) {
+            f_lseek(tape, sampleNumber);
+            int8_t v = readByteFile(tape);
+            tapeEarBit = v > 0 ? 1 : 0;
+            tapePlayOffset = sampleNumber;
+        } else {
+            Stop();
+            f_lseek(tape, 0);
         }
         tapeStart = CPU::global_tstates + CPU::tstates - tapeCurrent; // recover?
         return;

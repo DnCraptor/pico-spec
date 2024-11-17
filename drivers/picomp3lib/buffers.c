@@ -54,8 +54,11 @@
 #endif
 
 #include <stdlib.h>
+void osd_printf(const char* msg, ...);
+#define printf(...) osd_printf(__VA_ARGS__)
 
-#define MPDEC_ALLOCATOR(x) malloc(x)
+void* malloc2(size_t sz);
+#define MPDEC_ALLOCATOR(x) malloc2(x)
 
 /**************************************************************************************
  * Function:    ClearBuffer

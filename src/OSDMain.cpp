@@ -2319,6 +2319,11 @@ void OSD::errorHalt(string errormsg) {
     }
 }
 
+// W/A
+extern "C" void osd_printf(const char* msg, ...) {
+    OSD::osdCenteredMsg(msg, LEVEL_WARN, 1000);
+}
+
 // Centered message
 void OSD::osdCenteredMsg(string msg, uint8_t warn_level) {
     osdCenteredMsg(msg,warn_level,1000);

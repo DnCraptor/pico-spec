@@ -52,6 +52,10 @@ static bool file_read(FIL* fil, void* buffer, uint size, const char* msg);
   #define STATUS(a) (void)0
 #endif
 
+///void osd_printf(const char* msg, ...);
+#define printf(...) 0
+// osd_printf(__VA_ARGS__)
+
 /*
  * musicFileCreate
  * mf           structure containing info for the music_file instance
@@ -103,16 +107,19 @@ bool musicFileCreate(music_file* mf, const char* filename, unsigned char* workin
                 printf("Error opening decoder\n");
                 return false;
             }
+                printf("open decoder\n");
 
             // Back to the start of the file
             if (f_lseek(&mf->fil, 0) != FR_OK)
             {
                 printf("Cannot seek to start of file in musicFileCreate\n");
             }
+                printf("mp3FileFillReadBuffer\n");
 
             // Populate the working buffer
             mp3FileFillReadBuffer(mf);
 
+                printf("mp3FileFillReadBuffer done\n");
             // Search for id v2 tags
             uint32_t skip = mp3FileSkipId3v2(mf);
 
