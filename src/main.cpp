@@ -375,11 +375,10 @@ int main() {
     sem_release(&vga_start_semaphore);
 
     init_sound();
-    pcm_setup(ESPectrum::Audio_freq, ESP_AUDIO_SAMPLES_PENTAGON << 1);
+    pcm_setup(44100, 44100 * 2 / 50); // 882 * 2  = 1764
 
     init_psram();
 
-///    kbd_state_t* ks = process_input_on_boot();
     // send kbd reset only after initial process passed
     keyboard_send(0xFF);
 

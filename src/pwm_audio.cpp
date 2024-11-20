@@ -31,16 +31,18 @@ volatile int16_t* pcm_end_callback(volatile size_t* size) {
     return NULL;
 }
 
-static int16_t buff[640 << 1];
+#define WAV_SAMPLES ((44100 / 50) * 2)
+
+static int16_t buff[WAV_SAMPLES];
 
 esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) {
     int16_t volume = vol;
-    size_t j = 0;
-    for (size_t i = 0; i < len; ++i) {
-        buff[j++] = (((int16_t)lbuf[i]) << 7) * volume / VOLUME_0DB;
-        buff[j++] = (((int16_t)rbuf[i]) << 7) * volume / VOLUME_0DB;
+    for (size_t j = 0; j < WAV_SAMPLES; j += 2) { // resampling to 44100 Hz
+        size_t i = j * len / WAV_SAMPLES;
+        buff[j  ] = (((int16_t)lbuf[i]) << 7) * volume / VOLUME_0DB;
+        buff[j+1] = (((int16_t)rbuf[i]) << 7) * volume / VOLUME_0DB;
     }
-    pcm_set_buffer(buff, 2, len, NULL);
+    pcm_set_buffer(buff, 2, WAV_SAMPLES >> 1, NULL);
     return ESP_OK;
 }
 
