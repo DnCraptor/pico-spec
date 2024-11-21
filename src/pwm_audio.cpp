@@ -86,9 +86,9 @@ void init_sound() {
     i2s_config.dma_trans_count = SOUND_FREQUENCY / 100;
     i2s_volume(&i2s_config, 0);
 #else
-    PWM_init_pin(PWM_PIN0, (1 << 8) - 1);
-    PWM_init_pin(PWM_PIN1, (1 << 8) - 1);
-    PWM_init_pin(BEEPER_PIN, (1 << 8) - 1);
+    PWM_init_pin(PWM_PIN0, (1 << 12) - 1);
+    PWM_init_pin(PWM_PIN1, (1 << 12) - 1);
+    PWM_init_pin(BEEPER_PIN, (1 << 12) - 1);
 #endif
 #ifdef LOAD_WAV_PIO
     //пин ввода звука
@@ -133,12 +133,12 @@ void pcm_call() {
     if (m_channels && m_buff && m_off < m_size) {
         volatile int16_t* b = m_buff + m_off;
         uint32_t x = ((int32_t)*b) + 0x8000;
-        outL = x >> 8; // 4
+        outL = x >> 4;
         ++m_off;
         if (m_channels == 2) {
             ++b;
             x = ((int32_t)*b) + 0x8000;
-            outR = x >> 8;///4;
+            outR = x >> 4;
             ++m_off;
         } else {
             outR = outL;
