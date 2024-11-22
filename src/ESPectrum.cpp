@@ -560,7 +560,6 @@ void ESPectrum::setup()
     MemESP::ram[3].assign_ram(MemESP_ram1 + 0x4000, 3, true); /// why?
 
 #if PICO_RP2040
-    #ifdef HDMI
     if (ext_ram_exist) {
         MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
         MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);
@@ -572,12 +571,6 @@ void ESPectrum::setup()
         MemESP::ram[6].assign_ram(new unsigned char[0x4000], 6, false);
         MemESP::ram[7].assign_ram(new unsigned char[0x4000], 7, true);
     }
-    #else
-        MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
-        MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);
-        MemESP::ram[6].assign_ram(new unsigned char[0x4000], 6, false);
-        MemESP::ram[7].assign_ram(new unsigned char[0x4000], 7, true);
-    #endif
 #else
     MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
     MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);

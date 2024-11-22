@@ -37,7 +37,7 @@ static int16_t buff[WAV_SAMPLES];
 
 esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) {
     int16_t volume = vol;
-    for (size_t j = 0; j < WAV_SAMPLES; j += 2) { // resampling to 44100 Hz
+    for (size_t j = 0; j < WAV_SAMPLES; j += 2) { // resampling to 44100 Hz with interpolation with 0-7 accurancy
         size_t im8 = (j << 3) * len / WAV_SAMPLES;
         size_t i = im8 >> 3;
         size_t i7 = im8 & 7; // 0 - 7;
