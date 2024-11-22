@@ -38,9 +38,17 @@ static int16_t buff[WAV_SAMPLES];
 esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) {
     int16_t volume = vol;
     for (size_t j = 0; j < WAV_SAMPLES; j += 2) { // resampling to 44100 Hz
-        size_t i = j * len / WAV_SAMPLES;
-        buff[j  ] = (((int16_t)lbuf[i]) << 7) * volume / VOLUME_0DB;
-        buff[j+1] = (((int16_t)rbuf[i]) << 7) * volume / VOLUME_0DB;
+        size_t im8 = (j << 3) * len / WAV_SAMPLES;
+        size_t i = im8 >> 3;
+        size_t i7 = im8 & 7; // 0 - 7;
+        int16_t lvi1 = lbuf[i] << 7;
+        int16_t lvi2 = i == (len - 1) ? lvi1 : (lbuf[i + 1] << 7);
+        int16_t lv = lvi1 + (((lvi2 - lvi1) * i7) >> 3);
+        buff[j  ] = lv * volume / VOLUME_0DB;
+        int16_t rvi1 = rbuf[i] << 7;
+        int16_t rvi2 = i == (len - 1) ? rvi1 : (rbuf[i + 1] << 7);
+        int16_t rv = rvi1 + (((rvi2 - rvi1) * i7) >> 3);
+        buff[j+1] = rv * volume / VOLUME_0DB;
     }
     pcm_set_buffer(buff, 2, WAV_SAMPLES >> 1, NULL);
     return ESP_OK;
