@@ -25,13 +25,7 @@ esp_err_t pwm_audio_set_volume(int8_t volume) {
     return ESP_OK;
 }
 
-// return next buffer
-volatile int16_t* pcm_end_callback(volatile size_t* size) {
-    *size = 0;
-    return NULL;
-}
-
-#define WAV_SAMPLES ((44100 / 50) * 2)
+#define WAV_SAMPLES (SOUND_FREQUENCY * 2 / 50)
 
 static int16_t buff[WAV_SAMPLES];
 
@@ -56,7 +50,6 @@ esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) 
 
 //------------------------------------------------------------
 #ifdef I2S_SOUND
-#define SOUND_FREQUENCY 44100
 static i2s_config_t i2s_config = {
 		.sample_freq = SOUND_FREQUENCY, 
 		.channel_count = 2,
@@ -96,7 +89,9 @@ void init_sound() {
 #else
     PWM_init_pin(PWM_PIN0, (1 << 12) - 1);
     PWM_init_pin(PWM_PIN1, (1 << 12) - 1);
-    PWM_init_pin(BEEPER_PIN, (1 << 12) - 1);
+    #if BEEPER_PIN
+        PWM_init_pin(BEEPER_PIN, (1 << 12) - 1);
+    #endif
 #endif
 #ifdef LOAD_WAV_PIO
     //пин ввода звука
@@ -130,14 +125,17 @@ static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core
     return true;
 }
 
+static uint16_t outL = 0;
+static uint16_t outR = 0;
+
 void pcm_call() {
     if (!m_let_process_it) {
         return;
     }
 #ifndef I2S_SOUND
     m_let_process_it = false;
-    uint16_t outL = 0;
-    uint16_t outR = 0;
+    pwm_set_gpio_level(PWM_PIN0, outR); // Право
+    pwm_set_gpio_level(PWM_PIN1, outL); // Лево
     if (m_channels && m_buff && m_off < m_size) {
         volatile int16_t* b = m_buff + m_off;
         uint32_t x = ((int32_t)*b) + 0x8000;
@@ -151,20 +149,8 @@ void pcm_call() {
         } else {
             outR = outL;
         }
-    } else {
-        return;
-    }
-    pwm_set_gpio_level(PWM_PIN0, outR); // Право
-    pwm_set_gpio_level(PWM_PIN1, outL); // Лево
-    if (m_channels == 1) {
-        pwm_set_gpio_level(BEEPER_PIN, outL); // Beeper
-    }
-    if (m_cb && m_off >= m_size) {
-        m_buff = m_cb(&m_size);
-        m_off = 0;
     }
 #endif
-    return;
 }
 
 void pcm_cleanup(void) {
@@ -177,7 +163,9 @@ void pcm_cleanup(void) {
     uint16_t o = 0;
     pwm_set_gpio_level(PWM_PIN0, o); // Право
     pwm_set_gpio_level(PWM_PIN1, o); // Лево
-    pwm_set_gpio_level(BEEPER_PIN, o); // Beeper
+    #if BEEPER_PIN
+        pwm_set_gpio_level(BEEPER_PIN, o); // Beeper
+    #endif
     m_let_process_it = false;
 #endif
 }

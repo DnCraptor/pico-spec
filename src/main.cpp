@@ -375,10 +375,10 @@ int main() {
     sem_release(&vga_start_semaphore);
 
     init_sound();
-    pcm_setup(44100, 44100 * 2 / 50); // 882 * 2  = 1764
-
+    pcm_setup(SOUND_FREQUENCY, SOUND_FREQUENCY * 2 / 50); // 882 * 2  = 1764
+#ifdef PSRAM
     init_psram();
-
+#endif
     // send kbd reset only after initial process passed
     keyboard_send(0xFF);
 

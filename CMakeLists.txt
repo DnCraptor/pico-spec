@@ -35,13 +35,19 @@ set (PORT_VERSION "0.3.5")
 ###set(SOFTTV ON)
 #set(TFT ON)
 #set(ILI9341 ON)
-set(FLASH_SIZE 4096)
-#set(FLASH_SIZE 2048)
-#set(FLASH_SIZE_GREEN ON)
-set(CPU_MHZ 408)
-#set(CPU_MHZ 378)
+#set(FLASH_SIZE 4096)
+set(FLASH_SIZE 2048)
+set(FLASH_SIZE_GREEN ON)
+#set(CPU_MHZ 408)
+set(CPU_MHZ 378)
 
-SET(BUILD_NAME "${PROJECT_NAME}-${FLASH_SIZE}-${CPU_MHZ}")
+###set (MURM2 ON)
+
+IF(MURM2)
+    SET(BUILD_NAME "m2-${PROJECT_NAME}-${FLASH_SIZE}-${CPU_MHZ}")
+ELSE()
+    SET(BUILD_NAME "${PROJECT_NAME}-${FLASH_SIZE}-${CPU_MHZ}")
+ENDIF()
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
@@ -170,14 +176,61 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         tinyusb_host tinyusb_board
 )
 
-target_compile_definitions(${PROJECT_NAME} PRIVATE
+IF(MURM2)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
+        PORT_VERSION="${PORT_VERSION}"
+        CPU_MHZ=${CPU_MHZ}
+
+        KBD_CLOCK_PIN=2
+        KBD_DATA_PIN=3
+
+        LOAD_WAV_PIO=22
+
+        #BEEPER_PIN=9
+        PWM_PIN0=10
+        PWM_PIN1=11
+        SOUND_FREQUENCY=44100
+
+        # SDCARD
+        SDCARD_PIN_SPI0_CS=5
+        SDCARD_PIN_SPI0_SCK=6
+        SDCARD_PIN_SPI0_MOSI=7
+        SDCARD_PIN_SPI0_MISO=4
+
+        #PSRAM
+        # PSRAM_MUTEX=1
+        PSRAM_SPINLOCK=1
+        PSRAM_ASYNC=1
+
+        PSRAM_PIN_CS=8
+        PSRAM_PIN_SCK=6
+        PSRAM_PIN_MOSI=7
+        PSRAM_PIN_MISO=4
+
+        # NES Gamepad
+        USE_NESPAD
+        NES_GPIO_CLK=20
+        NES_GPIO_LAT=21
+        NES_GPIO_DATA=26
+
+        # VGA 8 pins starts from pin:
+        VGA_BASE_PIN=12
+
+        # HDMI 8 pins starts from pin:
+        HDMI_BASE_PIN=12
+
+	    PICO_FLASH_SIZE_BYTES=${FLASH_SIZE}*1024
+    )
+ELSE()
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
         PORT_VERSION="${PORT_VERSION}"
         CPU_MHZ=${CPU_MHZ}
 
         LOAD_WAV_PIO=22
         PWM_PIN0=26
         PWM_PIN1=27
-        BEEPER_PIN=28
+    #    BEEPER_PIN=28
+        SOUND_FREQUENCY=44100
 
         # SDCARD
         SDCARD_PIN_SPI0_CS=5
@@ -203,8 +256,9 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
         # NES Gamepad
         USE_NESPAD
         NES_GPIO_CLK=14
-        NES_GPIO_DATA=16
         NES_GPIO_LAT=15
+        NES_GPIO_DATA=16
+    #    NES_GPIO_DATA=28 - instead of BEEPER_PIN
 
         # VGA 8 pins starts from pin:
         VGA_BASE_PIN=6
@@ -221,7 +275,8 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
         TFT_CLK_PIN=13
 
 	    PICO_FLASH_SIZE_BYTES=${FLASH_SIZE}*1024
-)
+    )
+ENDIF()
 
 pico_set_linker_script(${PROJECT_NAME} "${CMAKE_SOURCE_DIR}/memmap.ld")
 target_link_options(${PROJECT_NAME} PRIVATE -Xlinker --print-memory-usage --data-sections)

@@ -18,6 +18,7 @@ class LoadWavStream {
     public:
         // out
         inline void tick(void) {
+#ifdef LOAD_WAV_PIO
             if ( !buf1 || (buf_out_off >> 3) >= MAX_IN_SAMPLES ) {
                 return; /// ??
             }
@@ -29,6 +30,7 @@ class LoadWavStream {
             uint8_t c = bit_out_n == 0 ? 0 : *pv;
             *pv = c | (v << bit_out_n);
             ++buf_out_off;
+#endif
         }
         inline void open_frame(void) {
             uint64_t st = CPU::global_tstates + CPU::tstates;
