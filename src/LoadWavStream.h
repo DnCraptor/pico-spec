@@ -6,7 +6,7 @@
 #include "CPU.h"
 #include "Tape.h"
 
-#define MAX_IN_SAMPLES 128
+#define MAX_IN_SAMPLES (128+64)
 
 class LoadWavStream {
         uint32_t samplesPerFrame = 0;
