@@ -25,26 +25,36 @@ esp_err_t pwm_audio_set_volume(int8_t volume) {
     return ESP_OK;
 }
 
-#define WAV_SAMPLES (SOUND_FREQUENCY * 2 / 50)
-
-static int16_t buff[WAV_SAMPLES];
-
 esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) {
+    static int16_t buff1[640*2];
+    static int16_t buff2[640*2];
+    static bool is_buff1 = true;
+    int16_t* buff = is_buff1 ? buff1 : buff2;
+    is_buff1 = !is_buff1;
     int16_t volume = vol;
-    for (size_t j = 0; j < WAV_SAMPLES; j += 2) { // resampling to 44100 Hz with interpolation with 0-7 accurancy
-        size_t im8 = (j << 3) * len / WAV_SAMPLES;
-        size_t i = im8 >> 3;
-        size_t i7 = im8 & 7; // 0 - 7;
-        int16_t lvi1 = lbuf[i] << 7;
-        int16_t lvi2 = i == (len - 1) ? lvi1 : (lbuf[i + 1] << 7);
-        int16_t lv = lvi1 + (((lvi2 - lvi1) * i7) >> 3);
-        buff[j  ] = lv * volume / VOLUME_0DB;
-        int16_t rvi1 = rbuf[i] << 7;
-        int16_t rvi2 = i == (len - 1) ? rvi1 : (rbuf[i + 1] << 7);
-        int16_t rv = rvi1 + (((rvi2 - rvi1) * i7) >> 3);
-        buff[j+1] = rv * volume / VOLUME_0DB;
+# if 1
+    for (size_t i = 0; i < len; ++i) {
+        size_t j = i << 1;
+        buff[j  ] = (lbuf[i] << 7) * volume / VOLUME_0DB;
+        buff[j+1] = (rbuf[i] << 7) * volume / VOLUME_0DB;
     }
-    pcm_set_buffer(buff, 2, WAV_SAMPLES >> 1, NULL);
+# else
+    static int lv, rv, n = 0;
+    static int div = 4;
+    for (size_t j = 0; j < len*2; j += 2) {
+        buff[j  ] = lv * volume / VOLUME_0DB;
+        buff[j+1] = rv * volume / VOLUME_0DB;
+        if ((n++ % div) == 0) {
+            if (lv == 0) {
+                lv = (1 << 12) - 1;
+                rv = lv;
+            } else {
+                rv = lv = 0;
+            }
+        }
+    }
+# endif
+    pcm_set_buffer(buff, 2, len, NULL);
     return ESP_OK;
 }
 
@@ -104,7 +114,6 @@ static volatile pcm_end_callback_t m_cb = NULL;
 #ifndef I2S_SOUND
 static volatile int16_t* m_buff = NULL;
 static volatile uint8_t m_channels = 0;
-static volatile size_t m_off = 0; // in 16-bit words
 static volatile size_t m_size = 0; // 16-bit values prepared (available)
 static volatile bool m_let_process_it = false;
 #endif
@@ -115,42 +124,40 @@ bool pcm_data_in(void) {
     return lws.get_in_sample();
 }
 
+static volatile uint32_t current_buffer_start_us = 0;
+static volatile uint32_t buffer_us = SOUND_FREQUENCY / 50; // длина буфера в микросекундах
+
 static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core#1?
+    static uint16_t outL = 0;
+    static uint16_t outR = 0;
     m_let_process_it = true;
 #if LOAD_WAV_PIO
     if (Config::real_player) {
         lws.tick();
     }
 #endif
+#ifndef I2S_SOUND
+    m_let_process_it = false;
+    pwm_set_gpio_level(PWM_PIN0, outR); // Право
+    pwm_set_gpio_level(PWM_PIN1, outL); // Лево
+    uint32_t ct = time_us_32();
+    uint32_t dtf = ct - current_buffer_start_us;
+    size_t m_off = (!buffer_us ? 0 : dtf * m_size / buffer_us) & 0xFFFFFFFFFE; /// (us per start) * (samples per us) -> sample# since start => m_off
+    if (m_buff && m_off < m_size) {
+        volatile int16_t* b = m_buff + m_off;
+        uint32_t x = ((int32_t)*b++) + 0x8000;
+        outL = x >> 4;
+        x = ((int32_t)*b) + 0x8000;
+        outR = x >> 4;
+    }
+#endif
     return true;
 }
-
-static uint16_t outL = 0;
-static uint16_t outR = 0;
 
 void pcm_call() {
     if (!m_let_process_it) {
         return;
     }
-#ifndef I2S_SOUND
-    m_let_process_it = false;
-    pwm_set_gpio_level(PWM_PIN0, outR); // Право
-    pwm_set_gpio_level(PWM_PIN1, outL); // Лево
-    if (m_channels && m_buff && m_off < m_size) {
-        volatile int16_t* b = m_buff + m_off;
-        uint32_t x = ((int32_t)*b) + 0x8000;
-        outL = x >> 4;
-        ++m_off;
-        if (m_channels == 2) {
-            ++b;
-            x = ((int32_t)*b) + 0x8000;
-            outR = x >> 4;
-            ++m_off;
-        } else {
-            outR = outL;
-        }
-    }
-#endif
 }
 
 void pcm_cleanup(void) {
@@ -187,7 +194,7 @@ void pcm_setup(int hz, size_t size) {
     m_let_process_it = false;
     //hz; // 44100;	//44000 //44100 //96000 //22050
 	// negative timeout means exact delay (rather than delay between callbacks)
-	add_repeating_timer_us(-1000000 / hz, timer_callback, NULL, &m_timer);
+	add_repeating_timer_us(-1000000ll / hz, timer_callback, NULL, &m_timer);
 #endif
 }
 
@@ -195,6 +202,8 @@ void pcm_setup(int hz, size_t size) {
 void pwm_audio_in_frame_started(void) {
     lws.open_frame();
 }
+
+static uint32_t prev_buffer_start_us = 0;
 
 // size - in 16-bit values count
 void pcm_set_buffer(int16_t* buff, uint8_t channels, size_t size, pcm_end_callback_t cb) {
@@ -208,6 +217,9 @@ void pcm_set_buffer(int16_t* buff, uint8_t channels, size_t size, pcm_end_callba
     m_buff = buff;
     m_channels = channels;
     m_size = size * channels;
-    m_off = 0;
+
+    prev_buffer_start_us = current_buffer_start_us;
+    current_buffer_start_us = time_us_32();
+    buffer_us = current_buffer_start_us - prev_buffer_start_us;
 #endif
 }
