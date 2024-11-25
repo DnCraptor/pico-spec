@@ -1548,6 +1548,8 @@ void ESPectrum::loop() {
             }
         }
         pwm_audio_write(audioBuffer_L, audioBuffer_R, samplesPerFrame);
+        memset(audioBuffer_L, 0, samplesPerFrame);
+        memset(audioBuffer_R, 0, samplesPerFrame);
     }
     processKeyboard();
     // Update stats every 50 frames
