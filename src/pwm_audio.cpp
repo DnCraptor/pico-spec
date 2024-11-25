@@ -32,6 +32,16 @@ esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) 
     int16_t* buff = is_buff1 ? buff1 : buff2;
     is_buff1 = !is_buff1;
     int16_t volume = vol;
+    if (len < 500) { // W/A
+        for (size_t i = 0; i < 640; ++i) {
+            size_t j = i << 1;
+            size_t k = i * len / 640;
+            buff[j  ] = (lbuf[k] << 7) * volume / VOLUME_0DB;
+            buff[j+1] = (rbuf[k] << 7) * volume / VOLUME_0DB;
+        }
+        pcm_set_buffer(buff, 2, 640, NULL);
+        return ESP_OK;
+    }
 # if 1
     for (size_t i = 0; i < len; ++i) {
         size_t j = i << 1;

@@ -1524,18 +1524,18 @@ void ESPectrum::loop() {
             if(++audioBitbufCount == audioSampleDivider) {
                 overSamplebuf[audbufcntover++] = audioBitBuf;
                 audioBitBuf = 0;
-                audioBitbufCount = 0; 
+                audioBitbufCount = 0;
             }
         }
         if (AY_emu) {
             if (faudbufcntAY < samplesPerFrame) {
-                chip0.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
-                chip1.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
+                chip0.gen_sound(samplesPerFrame - faudbufcntAY, faudbufcntAY);
+                chip1.gen_sound(samplesPerFrame - faudbufcntAY, faudbufcntAY);
             }
             for (int i = 0; i < samplesPerFrame; ++i) {
                 auto os = overSamplebuf[i] / audioSampleDivider;
-                int l = os + chip0.SamplebufAY_L[i]+ chip1.SamplebufAY_L[i];
-                int r = os + chip0.SamplebufAY_R[i]+ chip1.SamplebufAY_R[i];
+                int l = os + chip0.SamplebufAY_L[i] + chip1.SamplebufAY_L[i];
+                int r = os + chip0.SamplebufAY_R[i] + chip1.SamplebufAY_R[i];
                 // Clamp
                 audioBuffer_L[i] = l > 255 ? 255 : l;
                 audioBuffer_R[i] = r > 255 ? 255 : r;
@@ -1550,6 +1550,7 @@ void ESPectrum::loop() {
         pwm_audio_write(audioBuffer_L, audioBuffer_R, samplesPerFrame);
         memset(audioBuffer_L, 0, samplesPerFrame);
         memset(audioBuffer_R, 0, samplesPerFrame);
+        memset(overSamplebuf, 0, samplesPerFrame);
     }
     processKeyboard();
     // Update stats every 50 frames
