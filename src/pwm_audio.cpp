@@ -177,6 +177,7 @@ static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core
     pwm_set_gpio_level(PWM_PIN1, outL); // Лево
     uint32_t ct = time_us_32();
     uint32_t dtf = ct - current_buffer_start_us;
+    if (dtf > SOUND_FREQUENCY) return true;
     size_t m_off = (!buffer_us ? 0 : dtf * m_size / buffer_us) & 0xFFFFFFFFFE; /// (us per start) * (samples per us) -> sample# since start => m_off
     if (m_buff && m_off < m_size) {
         volatile int16_t* b = m_buff + m_off;
