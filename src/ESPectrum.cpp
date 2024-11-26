@@ -82,6 +82,8 @@ fabgl::VirtualKey get_last_key_pressed(void) {
     return last_key_pressed;
 }
 
+void close_all(void);
+
 void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
     static bool ctrlPressed = false;
     static bool altPressed = false;
@@ -91,6 +93,7 @@ void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
     else if (virtualKey == fabgl::VirtualKey::VK_DELETE || virtualKey == fabgl::VirtualKey::VK_KP_PERIOD) delPressed = down;
     if (ctrlPressed && altPressed && delPressed) {
         f_unlink(MOS_FILE);
+        close_all();
         watchdog_enable(1, true);
         while (true);
     }

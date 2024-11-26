@@ -25,6 +25,13 @@ esp_err_t pwm_audio_set_volume(int8_t volume) {
     return ESP_OK;
 }
 
+# if WAV_FILE
+bool writeWavHeader(FIL* fo, uint32_t sample_rate, uint16_t num_channels);
+bool updateWavHeader(FIL* fo, uint32_t num_samples, uint16_t num_channels);
+static FIL fo = { 0 };
+static volatile uint32_t num_samples = 0;
+#endif
+
 esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) {
     static int16_t buff1[640*2];
     static int16_t buff2[640*2];
@@ -42,6 +49,24 @@ esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) 
         pcm_set_buffer(buff, 2, 640, NULL);
         return ESP_OK;
     }
+
+# if WAV_FILE
+    uint8_t* b8 = (uint8_t*)(is_buff1 ? buff1 : buff2);
+    for (size_t i = 0; i < len; ++i) {
+        size_t j = i << 1;
+        b8[j  ] = lbuf[i];
+        b8[j+1] = rbuf[i];
+    }
+    if (!fo.obj.fs) {
+        f_open(&fo, "/1.wav", FA_WRITE | FA_CREATE_ALWAYS);
+        writeWavHeader(&fo, len * 50, 2);
+    }
+    UINT written;
+    f_write(&fo, buff, len * 2, &written);
+    num_samples += len;
+    return ESP_OK;
+# endif
+
 # if 1
     for (size_t i = 0; i < len; ++i) {
         size_t j = i << 1;
@@ -56,7 +81,7 @@ esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) 
         buff[j+1] = rv * volume / VOLUME_0DB;
         if ((n++ % div) == 0) {
             if (lv == 0) {
-                lv = (1 << 12) - 1;
+                lv = (1 << 8) - 1;
                 rv = lv;
             } else {
                 rv = lv = 0;
@@ -107,10 +132,10 @@ void init_sound() {
     i2s_config.dma_trans_count = SOUND_FREQUENCY / 100;
     i2s_volume(&i2s_config, 0);
 #else
-    PWM_init_pin(PWM_PIN0, (1 << 12) - 1);
-    PWM_init_pin(PWM_PIN1, (1 << 12) - 1);
+    PWM_init_pin(PWM_PIN0, (1 << 8) - 1);
+    PWM_init_pin(PWM_PIN1, (1 << 8) - 1);
     #if BEEPER_PIN
-        PWM_init_pin(BEEPER_PIN, (1 << 12) - 1);
+        PWM_init_pin(BEEPER_PIN, (1 << 8) - 1);
     #endif
 #endif
 #ifdef LOAD_WAV_PIO
@@ -156,9 +181,9 @@ static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core
     if (m_buff && m_off < m_size) {
         volatile int16_t* b = m_buff + m_off;
         uint32_t x = ((int32_t)*b++) + 0x8000;
-        outL = x >> 4;
+        outL = x >> 8;
         x = ((int32_t)*b) + 0x8000;
-        outR = x >> 4;
+        outR = x >> 8;
     }
 #endif
     return true;
@@ -185,6 +210,13 @@ void pcm_cleanup(void) {
     #endif
     m_let_process_it = false;
 #endif
+}
+
+void close_all(void) {
+# if WAV_FILE
+    updateWavHeader(&fo, num_samples, 2);
+    f_close(&fo);
+# endif
 }
 
 /// size - bytes
