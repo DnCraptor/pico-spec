@@ -1509,6 +1509,7 @@ void ESPectrum::loop() {
         if (Config::real_player) {
             if (Tape::tapeStatus != TAPE_LOADING) {  // W/A
                 Tape::tapeStatus = TAPE_LOADING;
+                Tape::tapeFileType = TAPE_FTYPE_EMPTY;
                 Tape::tapeFileName = "REAL AUDIO";
                 TapeNameScroller = 0;
                 Tape::tapeCurBlock = 0;

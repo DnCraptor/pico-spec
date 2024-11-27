@@ -824,16 +824,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 }
                                 uint8_t opt2 = menuRun(Mnustr);
                                 if (opt2) {
-                                    if (opt2 == 1)
-                                        Config::real_player = true;
-                                    else {
-                                        Config::real_player = false;
-                                        if (Tape::tapeStatus == TAPE_LOADING) {  // W/A
-                                            Tape::tapeStatus = TAPE_STOPPED;
-                                        }
-                                    }
-
+                                    Config::real_player = (opt2 == 1);
                                     if (Config::real_player != prev_opt) {
+                                        if (Tape::tapeStatus == TAPE_LOADING) {  // W/A
+                                            Tape::Stop();
+                                        }
                                         if (Config::real_player) {
                                             ESPectrum::aud_volume = ESP_VOLUME_MAX;
                                             pwm_audio_set_volume(ESPectrum::aud_volume);
