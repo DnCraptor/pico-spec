@@ -173,6 +173,12 @@ static void nvs_get_b(const char* key, bool& v, const vector<string>& sts) {
         v = (t == "true");
     }
 }
+static void nvs_get_i(const char* key, int& v, const vector<string>& sts) {
+    string t;
+    if (nvs_get_str(key, t, sts)) {
+        v = atoi(t.c_str());
+    }
+}
 static void nvs_get_i8(const char* key, int8_t& v, const vector<string>& sts) {
     string t;
     if (nvs_get_str(key, t, sts)) {
@@ -242,11 +248,12 @@ void Config::load() {
         nvs_get_u8("joystick2", Config::joystick2, sts);
 
         // Read joystick definition
-        for (int n=0; n < 24; n++) {
-            char joykey[9];
-            sprintf(joykey,"joydef%02u",n);
+        for (int n = 0; n < 24; ++n) {
+            char joykey[16];
+            snprintf(joykey, 16, "joydef%02u", n);
             // printf("%s\n",joykey);
-            nvs_get_u16("joystick2", Config::joydef[n], sts);
+            nvs_get_u16(joykey, Config::joydef[n], sts);
+            ESPectrum::JoyVKTranslation[n] = (fabgl::VirtualKey) Config::joydef[n];
         }
 
         nvs_get_u8("joyPS2", Config::joyPS2, sts);
@@ -258,6 +265,15 @@ void Config::load() {
         nvs_get_str("SNA_Path", FileUtils::SNA_Path, sts);
         nvs_get_str("TAP_Path", FileUtils::TAP_Path, sts);
         nvs_get_str("DSK_Path", FileUtils::DSK_Path, sts);
+        nvs_get_str("ROM_Path", FileUtils::ROM_Path, sts);
+        for (size_t i = 0; i < 4; ++i) {
+            DISK_FTYPE& ft = FileUtils::fileTypes[i];
+            const string s = "fileTypes" + to_string(i);
+            nvs_get_i((s + ".begin_row").c_str(), ft.begin_row, sts);
+            nvs_get_i((s + ".focus").c_str(), ft.focus, sts);
+            nvs_get_u8((s + ".fdMode").c_str(), ft.fdMode, sts);
+            nvs_get_str((s + ".fileSearch").c_str(), ft.fileSearch, sts);
+        }
         nvs_get_u8("scanlines", Config::scanlines, sts);
         nvs_get_u8("render", Config::render, sts);
         nvs_get_b("TABasfire1", Config::TABasfire1, sts);
@@ -275,6 +291,10 @@ static void nvs_set_str(FIL* handle, const char* name, const char* val) {
     f_write(handle, "=", 1, &btw);
     f_write(handle, val, strlen(val), &btw);
     f_write(handle, "\n", 1, &btw);
+}
+static void nvs_set_i(FIL* handle, const char* name, int val) {
+    string v = to_string(val);
+    nvs_set_str(handle, name, v.c_str());
 }
 static void nvs_set_i8(FIL* handle, const char* name, int8_t val) {
     string v = to_string(val);
@@ -323,10 +343,10 @@ void Config::save(string value) {
         nvs_set_u8(handle,"joystick1", Config::joystick1);
         nvs_set_u8(handle,"joystick2", Config::joystick2);
         // Write joystick definition
-        for (int n=0; n < 24; n++) {
-            char joykey[9];
-            sprintf(joykey,"joydef%02u",n);
-            nvs_set_u16(handle,joykey,Config::joydef[n]);
+        for (int n = 0; n < 24; ++n) {
+            char joykey[16];
+            snprintf(joykey, 16, "joydef%02u", n);
+            nvs_set_u16(handle, joykey, Config::joydef[n]);
         }
         nvs_set_u8(handle,"joyPS2",Config::joyPS2);
         nvs_set_u8(handle,"AluTiming",Config::AluTiming);
@@ -337,6 +357,15 @@ void Config::save(string value) {
         nvs_set_str(handle,"SNA_Path",FileUtils::SNA_Path.c_str());
         nvs_set_str(handle,"TAP_Path",FileUtils::TAP_Path.c_str());
         nvs_set_str(handle,"DSK_Path",FileUtils::DSK_Path.c_str());
+        nvs_set_str(handle,"ROM_Path",FileUtils::ROM_Path.c_str());
+        for (size_t i = 0; i < 4; ++i) {
+            const DISK_FTYPE& ft = FileUtils::fileTypes[i];
+            const string s = "fileTypes" + to_string(i);
+            nvs_set_i(handle, (s + ".begin_row").c_str(), ft.begin_row);
+            nvs_set_i(handle, (s + ".focus").c_str(), ft.focus);
+            nvs_set_u8(handle, (s + ".fdMode").c_str(), ft.fdMode);
+            nvs_set_str(handle, (s + ".fileSearch").c_str(), ft.fileSearch.c_str());
+        }
         nvs_set_u8(handle,"scanlines",Config::scanlines);
         nvs_set_u8(handle,"render",Config::render);
         nvs_set_str(handle,"TABasfire1", TABasfire1 ? "true" : "false");
@@ -395,8 +424,8 @@ void Config::setJoyMap(uint8_t joynum, uint8_t joytype) {
     }
     // Fill joystick values in Config and clean Kempston or Fuller values if needed
     int m = (joynum == 1) ? 0 : 12;
+    bool save = false;
     for (int n = m; n < m + 12; n++) {
-        bool save = false;
         if (newJoy[n - m] != fabgl::VK_NONE) {
             ESPectrum::JoyVKTranslation[n] = newJoy[n - m];
             save = true;
@@ -415,14 +444,10 @@ void Config::setJoyMap(uint8_t joynum, uint8_t joytype) {
             }
         }
         if (save) {
-            // Save to config (only changes)
-            if (Config::joydef[n] != (uint16_t) ESPectrum::JoyVKTranslation[n]) {
-                Config::joydef[n] = (uint16_t) ESPectrum::JoyVKTranslation[n];
-                char joykey[9];
-                sprintf(joykey,"joydef%02u",n);
-                Config::save(joykey);
-                // printf("%s %u\n",joykey, joydef[n]);
-            }
+            Config::joydef[n] = (uint16_t) ESPectrum::JoyVKTranslation[n];
         }
+    }
+    if (save) {
+        Config::save();
     }
 }

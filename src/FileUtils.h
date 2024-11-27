@@ -56,11 +56,10 @@ using namespace std;
 
 struct DISK_FTYPE {
     string fileExts;
-    ///string indexFilename;
     int begin_row;
     int focus;
     uint8_t fdMode;
-    string fileSearch;    
+    string fileSearch;
 };
 
 class FileUtils

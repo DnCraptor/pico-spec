@@ -703,25 +703,6 @@ void ESPectrum::setup()
 
     // Load snapshot if present in Config::
     if (Config::ram_file != NO_RAM_FILE) {
-/** TODO:
-        FileUtils::SNA_Path = Config::SNA_Path;
-        FileUtils::fileTypes[DISK_SNAFILE].begin_row = Config::SNA_begin_row;
-        FileUtils::fileTypes[DISK_SNAFILE].focus = Config::SNA_focus;
-        FileUtils::fileTypes[DISK_SNAFILE].fdMode = Config::SNA_fdMode;
-        FileUtils::fileTypes[DISK_SNAFILE].fileSearch = Config::SNA_fileSearch;
-
-        FileUtils::TAP_Path = Config::TAP_Path;
-        FileUtils::fileTypes[DISK_TAPFILE].begin_row = Config::TAP_begin_row;
-        FileUtils::fileTypes[DISK_TAPFILE].focus = Config::TAP_focus;
-        FileUtils::fileTypes[DISK_TAPFILE].fdMode = Config::TAP_fdMode;
-        FileUtils::fileTypes[DISK_TAPFILE].fileSearch = Config::TAP_fileSearch;
-
-        FileUtils::DSK_Path = Config::DSK_Path;
-        FileUtils::fileTypes[DISK_DSKFILE].begin_row = Config::DSK_begin_row;
-        FileUtils::fileTypes[DISK_DSKFILE].focus = Config::DSK_focus;
-        FileUtils::fileTypes[DISK_DSKFILE].fdMode = Config::DSK_fdMode;
-        FileUtils::fileTypes[DISK_DSKFILE].fileSearch = Config::DSK_fileSearch;
-*/
         if (FileUtils::fsMount) LoadSnapshot(Config::ram_file, "", "");
 
         Config::last_ram_file = Config::ram_file;
@@ -897,16 +878,6 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
     bool Kdown;
     bool r = false;
     bool j[10] = { true, true, true, true, true, true, true, true, true, true };
-    // bool j1 =  true;
-    // bool j2 = true;
-    // bool j3 = true;
-    // bool j4 = true;
-    // bool j5 = true;
-    // bool j6 = true;
-    // bool j7 = true;
-    // bool j8 = true;
-    // bool j9 = true;
-    // bool j0 = true;
     bool jShift = true;
 
     readKbdJoy();
