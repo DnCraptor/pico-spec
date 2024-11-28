@@ -692,7 +692,7 @@ void ESPectrum::setup()
     if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER || Config::joyPS2 == JOYPS2_FULLER) Ports::port[0x7f] = 0xff; // Fuller
 
     // Read joystick default definition
-    for (int n = 0; n < 24; n++)
+    for (int n = 0; n < 26; n++)
         ESPectrum::JoyVKTranslation[n] = (fabgl::VirtualKey) Config::joydef[n];
 
     // Init disk controller
@@ -726,7 +726,7 @@ void ESPectrum::reset()
     if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER || Config::joyPS2 == JOYPS2_FULLER) Ports::port[0x7f] = 0xff; // Fuller
 
     // Read joystick default definition
-    for (int n = 0; n < 24; n++)
+    for (int n = 0; n < 26; n++)
         ESPectrum::JoyVKTranslation[n] = (fabgl::VirtualKey) Config::joydef[n];
 
     // Memory
@@ -849,7 +849,7 @@ IRAM_ATTR void ESPectrum::readKbdJoy() {
     }
 }
 
-fabgl::VirtualKey ESPectrum::JoyVKTranslation[24];
+fabgl::VirtualKey ESPectrum::JoyVKTranslation[26];
 //     fabgl::VK_FULLER_LEFT, // Left
 //     fabgl::VK_FULLER_RIGHT, // Right
 //     fabgl::VK_FULLER_UP, // Up
@@ -962,11 +962,9 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
             if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER || Config::joyPS2 == JOYPS2_FULLER) Ports::port[0x7f] = 0xff;
 
             if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON) {
-
-                for (int i = fabgl::VK_KEMPSTON_RIGHT; i <= fabgl::VK_KEMPSTON_ALTFIRE; i++)
+                for (int i = fabgl::VK_KEMPSTON_RIGHT; i <= fabgl::VK_KEMPSTON_SELECT; i++)
                     if (Kbd->isVKDown((fabgl::VirtualKey) i))
                         bitWrite(Ports::port[0x1f], i - fabgl::VK_KEMPSTON_RIGHT, 1);
-
             }
 
             if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER) {

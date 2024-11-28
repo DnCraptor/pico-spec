@@ -38,13 +38,15 @@ bool     Config::rightSpace = true;
 
 uint8_t  Config::joystick1 = JOY_KEMPSTON;
 uint8_t  Config::joystick2 = JOY_CURSOR;
-uint16_t Config::joydef[24] = { 
+uint16_t Config::joydef[26] = { 
     fabgl::VK_KEMPSTON_LEFT,
     fabgl::VK_KEMPSTON_RIGHT,
     fabgl::VK_KEMPSTON_UP,
     fabgl::VK_KEMPSTON_DOWN,
     fabgl::VK_KEMPSTON_FIRE,
     fabgl::VK_KEMPSTON_ALTFIRE,
+    fabgl::VK_KEMPSTON_START,
+    fabgl::VK_KEMPSTON_SELECT,
     fabgl::VK_0,
     fabgl::VK_NONE,
     fabgl::VK_NONE,
@@ -248,7 +250,7 @@ void Config::load() {
         nvs_get_u8("joystick2", Config::joystick2, sts);
 
         // Read joystick definition
-        for (int n = 0; n < 24; ++n) {
+        for (int n = 0; n < 26; ++n) {
             char joykey[16];
             snprintf(joykey, 16, "joydef%02u", n);
             // printf("%s\n",joykey);
@@ -343,7 +345,7 @@ void Config::save(string value) {
         nvs_set_u8(handle,"joystick1", Config::joystick1);
         nvs_set_u8(handle,"joystick2", Config::joystick2);
         // Write joystick definition
-        for (int n = 0; n < 24; ++n) {
+        for (int n = 0; n < 26; ++n) {
             char joykey[16];
             snprintf(joykey, 16, "joydef%02u", n);
             nvs_set_u16(handle, joykey, Config::joydef[n]);
@@ -396,6 +398,8 @@ void Config::setJoyMap(uint8_t joynum, uint8_t joytype) {
             newJoy[1] = fabgl::VK_KEMPSTON_RIGHT;
             newJoy[2] = fabgl::VK_KEMPSTON_UP;
             newJoy[3] = fabgl::VK_KEMPSTON_DOWN;
+            newJoy[4] = fabgl::VK_KEMPSTON_START;
+            newJoy[5] = fabgl::VK_KEMPSTON_SELECT;
             newJoy[6] = fabgl::VK_KEMPSTON_FIRE;
             newJoy[7] = fabgl::VK_KEMPSTON_ALTFIRE;
             break;
@@ -431,7 +435,7 @@ void Config::setJoyMap(uint8_t joynum, uint8_t joytype) {
             save = true;
         } else {
             if (joytype != JOY_KEMPSTON) {
-                if (ESPectrum::JoyVKTranslation[n] >= fabgl::VK_KEMPSTON_RIGHT && ESPectrum::JoyVKTranslation[n] <= fabgl::VK_KEMPSTON_ALTFIRE) {
+                if (ESPectrum::JoyVKTranslation[n] >= fabgl::VK_KEMPSTON_RIGHT && ESPectrum::JoyVKTranslation[n] <= fabgl::VK_KEMPSTON_SELECT) {
                     ESPectrum::JoyVKTranslation[n] = fabgl::VK_NONE;
                     save = true;
                 }

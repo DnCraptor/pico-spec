@@ -55,9 +55,9 @@ visit https://zxespectrum.speccy.org/contacto
 
 // OSD
 #if !PICO_RP2040
-#define OSD_TITLE  " ESPectrum (RP2350 port) " PORT_VERSION "     "
+#define OSD_TITLE  " ESPectrum v.1.2 (RP2350 port v." PORT_VERSION ")  "
 #else
-#define OSD_TITLE  " ESPectrum (RP2040 port) " PORT_VERSION "     "
+#define OSD_TITLE  " ESPectrum v.1.2 (RP2040 port v." PORT_VERSION ")  "
 #endif
 // #define OSD_BOTTOM " SCIENCE LEADS TO PROGRESS              "
 #define OSD_BOTTOM " Murmulator port by MikeV73 " EMU_VERSION

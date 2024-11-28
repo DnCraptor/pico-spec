@@ -3140,7 +3140,9 @@ static const char *MENU_JOYSELKEY[2] = { MENU_JOYSELKEY_EN, MENU_JOYSELKEY_ES };
     "Up\n"\
     "Down\n"\
     "Fire 1\n"\
-    "Fire 2\n"		
+    "Fire 2\n"\
+    "Start\n"\
+    "Select\n"
 
 #define MENU_JOY_FULLER "Fuller\n"\
     "Left\n"\
@@ -3282,7 +3284,11 @@ case fabgl::VK_KEMPSTON_DOWN:
 case fabgl::VK_KEMPSTON_FIRE:    
     return "Kmp.Fire1";
 case fabgl::VK_KEMPSTON_ALTFIRE:
-    return "Kmp.Fire2";		
+    return "Kmp.Fire2";
+case fabgl::VK_KEMPSTON_SELECT:
+    return "Kmp.Sel  ";
+case fabgl::VK_KEMPSTON_START:
+    return "Kmp.Start";
 case fabgl::VK_FULLER_LEFT:
     return "Fll.Left ";
 case fabgl::VK_FULLER_RIGHT:
@@ -3695,6 +3701,12 @@ void OSD::joyDialog(uint8_t joynum) {
                                         } else
                                         if (opt2 == 6) {
                                             joyDropdown[curDropDown][6] = fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE;
+                                        } else
+                                        if (opt2 == 7) {
+                                            joyDropdown[curDropDown][6] = fabgl::VirtualKey::VK_KEMPSTON_START;
+                                        } else
+                                        if (opt2 == 8) {
+                                            joyDropdown[curDropDown][6] = fabgl::VirtualKey::VK_KEMPSTON_SELECT;
                                         }
                                         if (joytype == JOY_FULLER)
                                             joyDropdown[curDropDown][6] += 6;
@@ -3724,29 +3736,13 @@ void OSD::joyDialog(uint8_t joynum) {
                                 break;
                             }
                         }
-
                         // Ask to save changes
                         if (changed) {
-
                             string title = (joynum == 1 ? "Joystick 1" : "Joystick 2");
                             string msg = OSD_DLG_JOYSAVE[Config::lang];
                             uint8_t res = OSD::msgDialog(title,msg);
                             if (res == DLG_YES) {
-
-                                // Fill joystick values in Config
-                                int m = (joynum == 1) ? 0 : 12;
-                                for (int n = m; n < m + 12; n++) {
-                                    // Save to config (only changes)
-                                    if (Config::joydef[n] != (uint16_t) joyDropdown[n - m][6]) {
-                                        ESPectrum::JoyVKTranslation[n] = (fabgl::VirtualKey) joyDropdown[n - m][6];
-                                        Config::joydef[n] = (uint16_t) joyDropdown[n - m][6];
-                                        char joykey[9];
-                                        sprintf(joykey,"joydef%02u",n);
-                                        Config::save(joykey);
-                                        // printf("%s %u\n",joykey, joydef[n]);
-                                    }
-                                }
-
+                                Config::save();
                                 click();
                                 break;
 
@@ -3755,12 +3751,10 @@ void OSD::joyDialog(uint8_t joynum) {
                                 click();
                                 break;
                             }
-
                         } else {
                             click();
                             break;
                         }
-
                     } else
                     if (curDropDown == 13) {                    
                         // Enable joyTest
