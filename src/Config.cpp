@@ -7,6 +7,7 @@
 #include "messages.h"
 #include "OSDMain.h"
 #include "psram_spi.h"
+#include "pwm_audio.h"
 
 string   Config::arch = "48K";
 string   Config::romSet = "48K";
@@ -244,7 +245,11 @@ void Config::load() {
         nvs_get_b("flashload", flashload, sts);
         nvs_get_b("rightSpace", rightSpace, sts);
         nvs_get_b("tape_player", tape_player, sts);
-        bool b; nvs_get_b("real_player", b, sts); real_player = b;
+        bool b; nvs_get_b("real_player", b, sts);
+        if (real_player && !b) {
+            pcm_audio_in_stop();
+        }
+        real_player = b;
         nvs_get_b("tape_timing_rg", tape_timing_rg, sts);
         nvs_get_u8("joystick1", Config::joystick1, sts);
         nvs_get_u8("joystick2", Config::joystick2, sts);

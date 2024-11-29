@@ -153,11 +153,23 @@ static volatile size_t m_size = 0; // 16-bit values prepared (available)
 static volatile bool m_let_process_it = false;
 #endif
 
-static LoadWavStream lws;
+#if LOAD_WAV_PIO
+static LoadWavStream* lws = 0;
 
 bool pcm_data_in(void) {
-    return lws.get_in_sample();
+    return lws ? lws->get_in_sample() : false;
 }
+
+// reset input buffer to start on each frame started
+void pwm_audio_in_frame_started(void) {
+    if (!lws) lws = new LoadWavStream();
+    lws->open_frame();
+}
+void pcm_audio_in_stop(void) {
+    if (lws) delete lws;
+    lws = 0;
+}
+#endif
 
 static volatile uint32_t current_buffer_start_us = 0;
 static volatile uint32_t buffer_us = SOUND_FREQUENCY / 50; // длина буфера в микросекундах
@@ -167,8 +179,8 @@ static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core
     static uint16_t outR = 0;
     m_let_process_it = true;
 #if LOAD_WAV_PIO
-    if (Config::real_player) {
-        lws.tick();
+    if (lws && Config::real_player) {
+        lws->tick();
     }
 #endif
 #ifndef I2S_SOUND
@@ -239,11 +251,6 @@ void pcm_setup(int hz, size_t size) {
 	// negative timeout means exact delay (rather than delay between callbacks)
 	add_repeating_timer_us(-1000000ll / hz, timer_callback, NULL, &m_timer);
 #endif
-}
-
-// reset input buffer to start on each frame started
-void pwm_audio_in_frame_started(void) {
-    lws.open_frame();
 }
 
 static uint32_t prev_buffer_start_us = 0;

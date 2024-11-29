@@ -1,6 +1,8 @@
 #ifndef LOAD_WAV_STREAM
 #define LOAD_WAV_STREAM
 
+#ifdef LOAD_WAV_PIO
+
 #include <queue>
 #include <hardware/gpio.h>
 #include "CPU.h"
@@ -19,7 +21,6 @@ class LoadWavStream {
     public:
         // out
         inline void tick(void) {
-#ifdef LOAD_WAV_PIO
             if ( (buf_out_off >> 3) >= MAX_IN_SAMPLES ) {
                 return; /// ??
             }
@@ -31,7 +32,6 @@ class LoadWavStream {
             uint8_t c = bit_out_n == 0 ? 0 : *pv;
             *pv = c | (v << bit_out_n);
             ++buf_out_off;
-#endif
         }
         inline void open_frame(void) {
             uint64_t st = CPU::global_tstates + CPU::tstates;
@@ -61,5 +61,7 @@ class LoadWavStream {
             return ((a_in ? bufA : bufB)[idx] >> bit) & 1;
         }
 };
+
+#endif
 
 #endif

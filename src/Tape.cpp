@@ -234,13 +234,18 @@ int Tape::inflateCSW(int blocknumber, long startPos, long data_length) {
 
 void (*Tape::GetBlock)() = &Tape::TAP_GetBlock;
 
+void StopRealPlayer(void) {
+    Config::real_player = false;
+    pcm_audio_in_stop();
+}
+
 // Load tape file (.wav, .tap, .tzx)
 void Tape::LoadTape(string mFile) {
     if (!FileUtils::fsMount) {
         OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR, LEVEL_WARN);
         return;
     }
-    Config::real_player = false;
+    StopRealPlayer();
     if (FileUtils::hasMP3extension(mFile)) {
         string keySel = mFile.substr(0,1);
         mFile.erase(0, 1);
@@ -1007,10 +1012,12 @@ void Tape::Stop() {
 }
 
 IRAM_ATTR void Tape::Read() {
+#if LOAD_WAV_PIO
     if ( tapeFileType == TAPE_FTYPE_EMPTY && Config::real_player ) {
         tapeEarBit = pcm_data_in();
         return;
     }
+#endif
     uint64_t tapeCurrent = CPU::global_tstates + CPU::tstates - tapeStart; // states since start
     FIL* tape = &Tape::tape;
     if ( tapeFileType == TAPE_FTYPE_MP3 ) {

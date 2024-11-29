@@ -832,6 +832,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                         if (Config::real_player) {
                                             ESPectrum::aud_volume = ESP_VOLUME_MAX;
                                             pwm_audio_set_volume(ESPectrum::aud_volume);
+                                        } else {
+                                            if (Config::real_player) pcm_audio_in_stop();
                                         }
                                         Config::save();
                                     }
