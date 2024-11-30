@@ -55,9 +55,9 @@ visit https://zxespectrum.speccy.org/contacto
 
 // OSD
 #if !PICO_RP2040
-#define OSD_TITLE  " ESPectrum (RP2350 port) " PORT_VERSION "     "
+#define OSD_TITLE  " ESPectrum v.1.2 (RP2350 port v." PORT_VERSION ")  "
 #else
-#define OSD_TITLE  " ESPectrum (RP2040 port) " PORT_VERSION "     "
+#define OSD_TITLE  " ESPectrum v.1.2 (RP2040 port v." PORT_VERSION ")  "
 #endif
 // #define OSD_BOTTOM " SCIENCE LEADS TO PROGRESS              "
 #define OSD_BOTTOM " Murmulator port by MikeV73 " EMU_VERSION
@@ -210,8 +210,8 @@ static const char *MENU_ROM_TITLE[2] = { MENU_ROM_TITLE_EN,MENU_ROM_TITLE_ES };
 #define MENU_SNA_EN \
     "Snapshot menu\n"\
     "Load (SNA,Z80,P)\t(F2) >\n"\
-    "Load snapshot\t(F3) >\n"\
-    "Save snapshot\t(F4) >\n"
+    "Load fast-snap\t(F3) >\n"\
+    "Save fast-snap\t(F4) >\n"
 #define MENU_SNA_ES \
     "Menu snapshots\n"\
     "Cargar (SNA,Z80,P)\t(F2) >\n"\
@@ -221,11 +221,11 @@ static const char *MENU_SNA[2] = { MENU_SNA_EN, MENU_SNA_ES };
 
 #define MENU_TAPE_EN \
     "Tape menu\n"\
-    "Select (TAP)\t(F5) >\n"\
+    "Select file\t(F5) >\n"\
     "Play/Stop\t(F6)  \n"\
     "Tape browser\t(F7)  \n"\
 	"Player mode\t>\n"\
-	"Real sound mode\t>\n"
+	"Real sound-in\t>\n"
 #define MENU_TAPE_ES \
     "Casete\n"\
     "Elegir (TAP)\t(F5) >\n"\
@@ -234,6 +234,19 @@ static const char *MENU_SNA[2] = { MENU_SNA_EN, MENU_SNA_ES };
 	"Modo reproductor\t>\n"\
 	"Modo de sonido real\t>\n"
 static const char *MENU_TAPE[2] = { MENU_TAPE_EN, MENU_TAPE_ES };
+#define MENU_TAPE_NO_SD_EN \
+    "Tape menu\n"\
+    "Play/Stop\t(F6)  \n"\
+    "Tape browser\t(F7)  \n"\
+	"Player mode\t>\n"\
+	"Real sound-in\t>\n"
+#define MENU_TAPE_NO_SD_ES \
+    "Casete\n"\
+    "Play/Stop\t(F6)  \n"\
+    "Navegador cinta\t(F7)  \n"\
+	"Modo reproductor\t>\n"\
+	"Modo de sonido real\t>\n"
+static const char *MENU_TAPE_NO_SD[2] = { MENU_TAPE_NO_SD_EN, MENU_TAPE_NO_SD_ES };
 
 static const char *MENU_TAPEPLAYER[2] = { "Player mode\n", "Modo reproductor\n" };
 static const char *MENU_TAPEPLAYER2[2] = { "Real input\n", "Entrada real\n" };
@@ -280,7 +293,23 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
     "Opciones\t>\n"\
     "Ayuda\n"\
     "Acerca de\n"
-static const char *MENU_MAIN[2] = { MENU_MAIN_EN,MENU_MAIN_ES };
+static const char *MENU_MAIN[2] = { MENU_MAIN_EN, MENU_MAIN_ES };
+
+#define MENU_MAIN_NO_SD_EN \
+    "Tape\t>\n"\
+	"Machine\t>\n"\
+    "Reset\t>\n"\
+    "Options\t>\n"\
+    "Help\n"\
+    "About\n"
+#define MENU_MAIN_NO_SD_ES \
+    "Casete\t>\n"\
+    "Modelo\t>\n"\
+    "Resetear\t>\n"\
+    "Opciones\t>\n"\
+    "Ayuda\n"\
+    "Acerca de\n"
+static const char *MENU_MAIN_NO_SD[2] = { MENU_MAIN_NO_SD_EN, MENU_MAIN_NO_SD_ES };
 
 #define MENU_OPTIONS_EN \
     "Options menu\n"\
@@ -311,14 +340,32 @@ static const char *MENU_OPTIONS[2] = { MENU_OPTIONS_EN,MENU_OPTIONS_ES };
 	"Firmware\n"\
 	"Custom ROM 48K\n"\
 	"Custom ROM 128k\n"\
-	"Custom ROM Pentagon\n"
+	"Custom ROM Pentagon\n"\
+	"Custom ROM ALF\n"\
+	"Cartridge ROM ALF\n"\
+	"TRDOS ROM\n"\
+	"Main ROM Pentagon bank #0\n"\
+	"Main ROM Pentagon bank #1\n"
 #define MENU_UPDATE_ES \
     "Actualizar\n"\
 	"Firmware\n"\
 	"ROM Custom 48K\n"\
 	"ROM Custom 128k\n"\
-	"ROM Custom Pentagon\n"
+	"ROM Custom Pentagon\n"\
+	"ROM Custom ALF\n"\
+	"ROM Cartridge ALF\n"\
+	"TRDOS ROM\n"\
+	"Main ROM Pentagon bank #0\n"\
+	"Main ROM Pentagon bank #1\n"
 static const char *MENU_UPDATE_FW[2] = { MENU_UPDATE_EN, MENU_UPDATE_ES };
+
+#define MENU_UPDATE_NO_SD_EN \
+    "Update\n"\
+	"Firmware\n"
+#define MENU_UPDATE_NO_SD_ES \
+    "Actualizar\n"\
+	"Firmware\n"
+static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE_NO_SD_ES };
 
 #define MENU_VIDEO_EN \
     "Video\n"\
@@ -471,34 +518,57 @@ static const char *MENU_ISSUE2[2] = { "48K Issue 2\n", "48K Issue 2\n"};
     "Spectrum 128K\t>\n"\
 	"Pentagon 128K\t>\n"\
 	"Pentagon 512K\t>\n"\
-	"Pentagon 1024K\t>\n"
+	"Pentagon 1024K\t>\n"\
+	"ALF TV GAME\n"
 static const char *MENU_ARCH[2] = { MENU_ARCH_EN MENU_ARCHS, MENU_ARCH_ES MENU_ARCHS };
+#define MENU_ARCHS_NO_SD \
+    "Spectrum 48K\t>\n"\
+    "Spectrum 128K\t>\n"\
+	"Pentagon 128K\t>\n"\
+	"ALF TV GAME\n"
+static const char *MENU_ARCH_NO_SD[2] = { MENU_ARCH_EN MENU_ARCHS_NO_SD, MENU_ARCH_ES MENU_ARCHS_NO_SD };
 
+#if NO_SPAIN_ROM_48k
+#define MENU_ROMS48_EN "Select ROM\n"\
+	"48K\n"\
+    "Custom\n"
+#define MENU_ROMS48_ES "Elija ROM\n"\
+	"48K\n"\
+    "Custom\n"
+#else
 #define MENU_ROMS48_EN "Select ROM\n"\
 	"48K\n"\
     "48K Spanish\n"\
     "Custom\n"
+#define MENU_ROMS48_ES "Elija ROM\n"\
+	"48K\n"\
+    "48K Espa" "\xA4" "ol\n"\
+    "Custom\n"
+#endif
 
+#if NO_SPAIN_ROM_128k
+#define MENU_ROMS128_EN "Select ROM\n"\
+	"128K\n"\
+    "Custom\n"
+#define MENU_ROMS128_ES "Elija ROM\n"\
+	"128K\n"\
+    "Custom\n"
+#else
 #define MENU_ROMS128_EN "Select ROM\n"\
 	"128K\n"\
     "128K Spanish\n"\
 	"+2\n"\
     "+2 Spanish\n"\
     "ZX81+\n"\
-    "Custom\n"\
-
-#define MENU_ROMS48_ES "Elija ROM\n"\
-	"48K\n"\
-    "48K Espa" "\xA4" "ol\n"\
     "Custom\n"
-
 #define MENU_ROMS128_ES "Elija ROM\n"\
 	"128K\n"\
     "128K Espa" "\xA4" "ol\n"\
 	"+2\n"\
     "+2 Espa" "\xA4" "ol\n"\
     "ZX81+\n"\
-    "Custom\n"\
+    "Custom\n"
+#endif
 
 static const char *MENU_ROMS48[2] = { MENU_ROMS48_EN, MENU_ROMS48_ES };
 static const char *MENU_ROMS128[2] = { MENU_ROMS128_EN, MENU_ROMS128_ES };
@@ -545,12 +615,39 @@ static const char *MENU_ROM_PREF[2] = {
   "ROM preferida\n" MENU_ROMS_PREF
 };
 
+#if NO_SPAIN_ROM_48k
+#define MENU_ROMS48_PREF_EN "Select ROM\n"\
+	"48K\t[48K  ]\n"\
+    "Custom\t[48Kcs]\n"\
+	"Last used\t[Last ]\n"
+#define MENU_ROMS48_PREF_ES "Elija ROM\n"\
+	"48K\t[48K  ]\n"\
+    "Custom\t[48Kcs]\n"\
+	"Ultima usada\t[Last ]\n"
+#else
 #define MENU_ROMS48_PREF_EN "Select ROM\n"\
 	"48K\t[48K  ]\n"\
     "48K Spanish\t[48Kes]\n"\
     "Custom\t[48Kcs]\n"\
 	"Last used\t[Last ]\n"
+#define MENU_ROMS48_PREF_ES "Elija ROM\n"\
+	"48K\t[48K  ]\n"\
+    "48K Espa" "\xA4" "ol\t[48Kes]\n"\
+    "Custom\t[48Kcs]\n"\
+	"Ultima usada\t[Last ]\n"
+#endif
+static const char *MENU_ROM_PREF_48[2] = { MENU_ROMS48_PREF_EN, MENU_ROMS48_PREF_ES };
 
+#if NO_SPAIN_ROM_128k
+#define MENU_ROMS128_PREF_EN "Select ROM\n"\
+	"128K\t[128K  ]\n"\
+    "Custom\t[128Kcs]\n"\
+	"Last used\t[Last  ]\n"	
+#define MENU_ROMS128_PREF_ES "Elija ROM\n"\
+	"128K\t[128K  ]\n"\
+    "Custom\t[128Kcs]\n"\
+	"Ultima usada\t[Last  ]\n"
+#else
 #define MENU_ROMS128_PREF_EN "Select ROM\n"\
 	"128K\t[128K  ]\n"\
     "128K Spanish\t[128Kes]\n"\
@@ -559,13 +656,6 @@ static const char *MENU_ROM_PREF[2] = {
     "ZX81+\t[ZX81+ ]\n"\
     "Custom\t[128Kcs]\n"\
 	"Last used\t[Last  ]\n"	
-
-#define MENU_ROMS48_PREF_ES "Elija ROM\n"\
-	"48K\t[48K  ]\n"\
-    "48K Espa" "\xA4" "ol\t[48Kes]\n"\
-    "Custom\t[48Kcs]\n"\
-	"Ultima usada\t[Last ]\n"
-
 #define MENU_ROMS128_PREF_ES "Elija ROM\n"\
 	"128K\t[128K  ]\n"\
     "128K Espa" "\xA4" "ol\t[128Kes]\n"\
@@ -574,9 +664,7 @@ static const char *MENU_ROM_PREF[2] = {
     "ZX81+\t[ZX81+ ]\n"\
     "Custom\t[128Kcs]\n"\
 	"Ultima usada\t[Last  ]\n"
-
-static const char *MENU_ROM_PREF_48[2] = { MENU_ROMS48_PREF_EN, MENU_ROMS48_PREF_ES };
-
+#endif
 static const char *MENU_ROM_PREF_128[2] = { MENU_ROMS128_PREF_EN, MENU_ROMS128_PREF_ES };
 
 #define MENU_ROMS_PENT_PREF_EN \

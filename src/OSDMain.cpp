@@ -238,13 +238,13 @@ static bool persistSave(uint8_t slotnumber)
     OSD::osdCenteredMsg(OSD_PSNA_SAVING, LEVEL_INFO, 500);
 
     // Save info file
-    FIL f;
-    if (f_open(&f, finfo.c_str(), FA_WRITE | FA_CREATE_ALWAYS) != FR_OK) {
+    FIL* f = fopen2(finfo.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
+    if (!f) {
         OSD::osdCenteredMsg(finfo + " - unable to open", LEVEL_ERROR, 5000);
         return false;
     }
-    fputs((Config::arch + "\n" + Config::romSet + "\n").c_str(), f);    // Put architecture and romset on info file
-    f_close(&f);
+    fputs((Config::arch + "\n" + Config::romSet + "\n").c_str(), *f);    // Put architecture and romset on info file
+    fclose2(f);
 
     string fsna = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfname;
     if (!FileSNA::save(fsna)) {
@@ -274,8 +274,6 @@ static void f_gets(char* b, size_t sz, FIL& f) {
     b[sz - 1] = 0;
 }
 
-static FIL f;
-
 static bool persistLoad(uint8_t slotnumber)
 {
     char persistfname[sizeof(DISK_PSNA_FILE) + 7];
@@ -290,20 +288,18 @@ static bool persistLoad(uint8_t slotnumber)
     } else {
         // Read info file
         string finfo = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfinfo;
-        if (f_open(&f, finfo.c_str(), FA_READ) != FR_OK) {
+        FIL* f = fopen2(finfo.c_str(), FA_READ);
+        if (!f) {
             OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
             // printf("Error opening %s\n",persistfinfo);
             return false;
         }
         char buf[256];
-
-        f_gets(buf, sizeof(buf), f);
+        f_gets(buf, sizeof(buf), *f);
         string persist_arch = buf;
-
-        f_gets(buf, sizeof(buf), f);
+        f_gets(buf, sizeof(buf), *f);
         string persist_romset = buf;
-
-        f_close(&f);
+        fclose2(f);
 
         if (!LoadSnapshot(FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfname, persist_arch, persist_romset)) {
             OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
@@ -353,7 +349,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
         } else 
         if (KeytoESP == fabgl::VK_F10) { // NMI
             Z80::triggerNMI();
-        } else 
+        } ///else 
         // if (KeytoESP == fabgl::VK_F3) { 
         //     // Test variable decrease
         //     ESPectrum::ESPtestvar -= 1;
@@ -384,6 +380,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
         //     ESPectrum::ESPtestvar2 += 1;
         //     printf("ESPtestvar2: %d\n",ESPectrum::ESPtestvar2);
         // }
+        /***
         if (KeytoESP == fabgl::VK_F5) {
             if (Config::CenterH > -16) Config::CenterH--;
             Config::save("CenterH");
@@ -404,21 +401,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
             Config::save("CenterV");
             osdCenteredMsg("Vert. center: " + to_string(Config::CenterV), LEVEL_INFO, 375);
         }
-
+        */
     } else {
-
         if (KeytoESP == fabgl::VK_PAUSE) {
-
             click();
-
             osdCenteredMsg(OSD_PAUSE[Config::lang], LEVEL_INFO, 1000);
-
             while (1) {
-                
                 if (ZXKeyb::Exists) ZXKeyb::ZXKbdRead();
-
                 ESPectrum::readKbdJoy();
-
                 if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
                     if (ESPectrum::readKbd(&Nextkey)) {
                         if(!Nextkey.down) continue;
@@ -429,13 +419,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 osdCenteredMsg(OSD_PAUSE[Config::lang], LEVEL_INFO, 500);
                     }
                 }
-
                 sleep_ms(5);
-
             }
-
         }
-        else if (KeytoESP == fabgl::VK_F2) {
+        else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F2) {
             menu_level = 0;
             menu_saverect = false;
             string mFile = fileDialog(FileUtils::SNA_Path, MENU_SNA_TITLE[Config::lang], DISK_SNAFILE, 51, 22);
@@ -443,13 +430,15 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                 Config::save();
                 mFile.erase(0, 1);
                 string fname = FileUtils::SNA_Path + mFile;
-                LoadSnapshot(fname, "", "");
+                if(!LoadSnapshot(fname, "", "")) {
+                    OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
+                }
                 Config::ram_file = fname;
                 Config::last_ram_file = fname;
             }
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
         }
-        else if (KeytoESP == fabgl::VK_F3) {
+        else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F3) {
             menu_level = 0;
             menu_curopt = 1;
             // Persist Load
@@ -462,7 +451,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                 persistLoad(opt2);
             }
         }
-        else if (KeytoESP == fabgl::VK_F4) {
+        else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F4) {
             // Persist Save
             menu_level = 0;
             menu_curopt = 1;
@@ -478,7 +467,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                 } else break;
             }
         }
-        else if (KeytoESP == fabgl::VK_F5) {
+        else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F5) {
             menu_level = 0; 
             menu_saverect = false;  
             string mFile = fileDialog(FileUtils::TAP_Path, MENU_TAP_TITLE[Config::lang],DISK_TAPFILE,51,22);
@@ -497,7 +486,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
             click();
         }
         else if (KeytoESP == fabgl::VK_F7) {
-
             // Tape Browser
             if (Tape::tapeFileName=="none") {
                 OSD::osdCenteredMsg(OSD_TAPE_SELECT_ERR[Config::lang], LEVEL_WARN);
@@ -651,17 +639,16 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
             esp_hard_reset();
         }
         else if (KeytoESP == fabgl::VK_F1) {
-
-            menu_curopt = 1;
-            
-            while(1) {
-
+        
+        menu_curopt = 1;
+        while(1) {
             // Main menu
             menu_saverect = false;
             menu_level = 0;
-            uint8_t opt = menuRun("ESPectrum " + Config::arch + "\n" + MENU_MAIN[Config::lang]);
-    
-            if (opt == 1) {
+            uint8_t opt = menuRun("ESPectrum " + Config::arch + "\n" +
+                (!FileUtils::fsMount ? MENU_MAIN_NO_SD[Config::lang] : MENU_MAIN[Config::lang])
+            );
+            if (FileUtils::fsMount && opt == 1) {
                 // ***********************************************************************************
                 // SNAPSHOTS MENU
                 // ***********************************************************************************
@@ -680,9 +667,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 Config::save();
                                 mFile.erase(0, 1);
                                 string fname = FileUtils::SNA_Path + mFile;
-                                LoadSnapshot(fname, "", "");
-                                Config::ram_file = fname;
-                                Config::last_ram_file = fname;
+                                if(!LoadSnapshot(fname, "", "")) {
+                                    OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
+                                } else {
+                                    Config::ram_file = fname;
+                                    Config::last_ram_file = fname;
+                                }
                                 return;
                             }
                         }
@@ -727,17 +717,18 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                     }
                 }
             } 
-            else if (opt == 2) {
+            else if (FileUtils::fsMount && opt == 2 || opt == 1) {
                 // ***********************************************************************************
                 // TAPE MENU
                 // ***********************************************************************************
                 menu_saverect = true;
-                menu_curopt = 1;            
+                menu_curopt = 1;
                 while(1) {
                     menu_level = 1;
                     // Tape menu
-                    uint8_t tap_num = menuRun(MENU_TAPE[Config::lang]);
+                    uint8_t tap_num = menuRun(FileUtils::fsMount ? MENU_TAPE[Config::lang] : MENU_TAPE_NO_SD[Config::lang]);
                     if (tap_num > 0) {
+                        if (!FileUtils::fsMount) ++tap_num;
                         menu_level = 2;
                         menu_saverect = true;
                         if (tap_num == 1) {
@@ -810,7 +801,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     menu_curopt = opt2;
                                     menu_saverect = false;
                                 } else {
-                                    menu_curopt = 4;
+                                    menu_curopt = FileUtils::fsMount ? 4 : 3;
                                     menu_level = 1;                                       
                                     break;
                                 }
@@ -833,34 +824,35 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 }
                                 uint8_t opt2 = menuRun(Mnustr);
                                 if (opt2) {
-                                    if (opt2 == 1)
-                                        Config::real_player = true;
-                                    else
-                                        Config::real_player = false;
-
+                                    Config::real_player = (opt2 == 1);
                                     if (Config::real_player != prev_opt) {
+                                        if (Tape::tapeStatus == TAPE_LOADING) {  // W/A
+                                            Tape::Stop();
+                                        }
                                         if (Config::real_player) {
                                             ESPectrum::aud_volume = ESP_VOLUME_MAX;
                                             pwm_audio_set_volume(ESPectrum::aud_volume);
+                                        } else {
+                                            if (Config::real_player) pcm_audio_in_stop();
                                         }
                                         Config::save();
                                     }
                                     menu_curopt = opt2;
                                     menu_saverect = false;
                                 } else {
-                                    menu_curopt = 4;
+                                    menu_curopt = FileUtils::fsMount ? 5 : 4;
                                     menu_level = 1;                                       
                                     break;
                                 }
                             }
                         }
                     } else {
-                        menu_curopt = 2;
+                        menu_curopt = FileUtils::fsMount ? 2 : 1;
                         break;
                     }
                 }
             }
-            else if (opt == 3) {
+            else if (FileUtils::fsMount && opt == 3) {
                 // ***********************************************************************************
                 // BETADISK MENU
                 // ***********************************************************************************
@@ -906,15 +898,16 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                     }
                 }
             }
-            else if (opt == 4) { 
+            else if (FileUtils::fsMount && opt == 4 || opt == 2) { 
                 // ***********************************************************************************
                 // MACHINE MENU
                 // ***********************************************************************************
                 menu_saverect = true;
                 menu_curopt = 1;
+                bool ext_ram = FileUtils::fsMount || psram_size() > 0;
                 while (1) {
                     menu_level = 1;
-                    uint8_t arch_num = menuRun(MENU_ARCH[Config::lang]);
+                    uint8_t arch_num = menuRun(ext_ram ? MENU_ARCH[Config::lang] : MENU_ARCH_NO_SD[Config::lang]);
                     if (arch_num) {
                         string arch = Config::arch;
                         string romset = Config::romSet;
@@ -928,13 +921,19 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 arch = "48K";
                                 if (opt2 == 1) {
                                     romset = "48K";
-                                } else 
+                                } else
+#if NO_SPAIN_ROM_48k                                 
+                                if (opt2 == 2) {
+                                    romset = "48Kcs";
+                                }
+#else
                                 if (opt2 == 2) {
                                     romset = "48Kes";
                                 } else 
                                 if (opt2 == 3) {
                                     romset = "48Kcs";
                                 }
+#endif
                                 menu_curopt = opt2;
                                 menu_saverect = false;
                             } else {
@@ -951,6 +950,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 if (opt2 == 1) {
                                     romset = "128K";
                                 } else 
+#if NO_SPAIN_ROM_128k
+                                if (opt2 == 2) {
+                                    romset = "128Kcs";
+                                }
+#else
                                 if (opt2 == 2) {
                                     romset = "128Kes";
                                 } else 
@@ -966,6 +970,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 if (opt2 == 6) {
                                     romset = "128Kcs";
                                 }
+#endif
                                 menu_curopt = opt2;
                                 menu_saverect = false;
                             } else {
@@ -991,7 +996,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 menu_curopt = 1;
                                 menu_level = 2;                                       
                             }
-                        } else if (arch_num == 4) { // Pentagon 512K
+                        } else if (ext_ram && arch_num == 4) { // Pentagon 512K
                             menu_level = 2;
                             menu_curopt = 1;                    
                             menu_saverect = true;
@@ -1010,7 +1015,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 menu_curopt = 1;
                                 menu_level = 2;                                       
                             }
-                        } else if (arch_num == 5) { // Pentagon 1024K
+                        } else if (ext_ram && arch_num == 5) { // Pentagon 1024K
                             menu_level = 2;
                             menu_curopt = 1;                    
                             menu_saverect = true;
@@ -1029,6 +1034,18 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 menu_curopt = 1;
                                 menu_level = 2;                                       
                             }
+                        } else if (arch_num == 6 || !ext_ram) { // ALF TV GAME
+                            arch = "ALF";
+                            romset = "ALF1";
+                            menu_curopt = opt2;
+                            menu_saverect = false;
+                            Config::romSet = romset;
+                            click();
+                            if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes                
+                            Config::save();
+                            Config::requestMachine(arch, romset);
+                            ESPectrum::reset();
+                            return;
                         }
 
                         if (opt2) {
@@ -1060,6 +1077,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             Config::romSet = romset;
                                             Config::romSetP1M = romset;
                                         }
+                                    } else {
+                                        Config::romSet = romset;
                                     }
                                 }
                                 if (arch != Config::arch) {
@@ -1076,12 +1095,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                         menu_curopt = arch_num;
                         menu_saverect = false;
                     } else {
-                        menu_curopt = 4;                            
+                        menu_curopt = FileUtils::fsMount ? 4 : 2;
                         break;
                     }
                 }
             }
-            else if (opt == 5) {
+            else if (FileUtils::fsMount && opt == 5 || opt == 3) {
                 // ***********************************************************************************
                 // RESET MENU
                 // ***********************************************************************************
@@ -1096,8 +1115,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                     if (opt2 == 1) {
                         // Soft
                         if (Config::last_ram_file != NO_RAM_FILE) {
-                            LoadSnapshot(Config::last_ram_file, "", "");
-                            Config::ram_file = Config::last_ram_file;
+                            if(!LoadSnapshot(Config::last_ram_file, "", "")) {
+                                OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
+                            } else {
+                                Config::ram_file = Config::last_ram_file;
+                            }
                         } else ESPectrum::reset();
                         return;
                     }
@@ -1122,12 +1144,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                         f_unlink(MOUNT_POINT_SD STORAGE_NVS);
                         esp_hard_reset();
                     } else {
-                        menu_curopt = 5;
+                        menu_curopt = FileUtils::fsMount ? 5 : 3;
                         break;
                     }
                 }
             }
-            else if (opt == 6) {
+            else if (FileUtils::fsMount && opt == 6 || opt == 4) {
                 // ***********************************************************************************
                 // OPTIONS MENU
                 // ***********************************************************************************
@@ -1331,10 +1353,16 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                         string prev_rpref48 = Config::pref_romSet_48;
                                         uint8_t opt2 = menuRun(rpref48_menu);
                                         if (opt2) {
-
                                             if (opt2 == 1)
                                                 Config::pref_romSet_48 = "48K";
                                             else
+#if NO_SPAIN_ROM_48k
+                                            if (opt2 == 2)
+                                                Config::pref_romSet_48 = "48Kcs";
+                                            else
+                                            if (opt2 == 3)
+                                                Config::pref_romSet_48 = "Last";
+#else
                                             if (opt2 == 2)
                                                 Config::pref_romSet_48 = "48Kes";
                                             else
@@ -1343,7 +1371,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             else
                                             if (opt2 == 4)
                                                 Config::pref_romSet_48 = "Last";
-
+#endif
                                             if (Config::pref_romSet_48 != prev_rpref48) {
                                                 Config::save("pref_romSet_48");
                                             }
@@ -1375,10 +1403,16 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                         string prev_rpref128 = Config::pref_romSet_128;
                                         uint8_t opt2 = menuRun(rpref128_menu);
                                         if (opt2) {
-
                                             if (opt2 == 1)
                                                 Config::pref_romSet_128 = "128K";
                                             else
+#if NO_SPAIN_ROM_128k
+                                            if (opt2 == 2)
+                                                Config::pref_romSet_128 = "128Kcs";
+                                            else
+                                            if (opt2 == 3)
+                                                Config::pref_romSet_128 = "Last";
+#else
                                             if (opt2 == 2)
                                                 Config::pref_romSet_128 = "128Kes";
                                             else
@@ -1396,6 +1430,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             else
                                             if (opt2 == 7)
                                                 Config::pref_romSet_128 = "Last";
+#endif
                                             if (Config::pref_romSet_128 != prev_rpref128) {
                                                 Config::save("pref_romSet_128");
                                             }
@@ -1433,7 +1468,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             if (opt2 == 2)
                                                 Config::pref_romSetPent = "128Kcs";
                                             else
-                                            if (opt2 == 7)
+                                            if (opt2 == 3)
                                                 Config::pref_romSetPent = "Last";
                                             if (Config::pref_romSetPent != prev_rprefPent) {
                                                 Config::save();
@@ -1472,7 +1507,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             if (opt2 == 2)
                                                 Config::pref_romSetP512 = "128Kcs";
                                             else
-                                            if (opt2 == 7)
+                                            if (opt2 == 3)
                                                 Config::pref_romSetP512 = "Last";
                                             if (Config::pref_romSetP512 != prev_rprefP512) {
                                                 Config::save();
@@ -1511,7 +1546,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             if (opt2 == 2)
                                                 Config::pref_romSetP1M = "128Kcs";
                                             else
-                                            if (opt2 == 7)
+                                            if (opt2 == 3)
                                                 Config::pref_romSetP1M = "Last";
                                             if (Config::pref_romSetP1M != prev_rprefP1M) {
                                                 Config::save();
@@ -2072,7 +2107,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                         menu_saverect = true;
                         while (1) {
                             // Update
-                            string Mnustr = MENU_UPDATE_FW[Config::lang];
+                            string Mnustr = FileUtils::fsMount ? MENU_UPDATE_FW[Config::lang] : MENU_UPDATE_FW_NO_SD[Config::lang];
                             uint8_t opt2 = menuRun(Mnustr);
                             if (opt2) {
                                 // Update
@@ -2080,56 +2115,30 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     /// TODO: close all files
                                     reset_usb_boot(0, 0);
                                     while(1);
-                                } else if (opt2 == 2) {
-                                        // Flash custom ROM 48K
-                                        string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang],DISK_ROMFILE,26,15);
-                                        if (mFile != "") {
-                                            mFile.erase(0, 1);
-                                            string fname = FileUtils::ROM_Path + mFile;
-                                            bool res = updateROM(fname, 1);
-                                            if (res) return;
-                                        }
-                                        menu_curopt = 1;
-                                        menu_level = 2;
-                                        menu_saverect = false;
-                                } else if (opt2 == 3) {                                    
-                                        // Flash custom ROM 128K
-                                        string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang],DISK_ROMFILE,26,15);
-                                        if (mFile != "") {
-                                            mFile.erase(0, 1);
-                                            string fname = FileUtils::ROM_Path +  mFile;
-                                            bool res = updateROM(fname, 2);
-                                            if (res) return;
-                                        }
-                                        menu_curopt = 1;
-                                        menu_level = 2;
-                                        menu_saverect = false;
-                                } else if (opt2 == 4) {                                    
-                                        // Flash custom ROM 128K
-                                        string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang],DISK_ROMFILE,26,15);
-                                        if (mFile != "") {
-                                            mFile.erase(0, 1);
-                                            string fname = FileUtils::ROM_Path +  mFile;
-                                            bool res = updateROM(fname, 3);
-                                            if (res) return;
-                                        }
-                                        menu_curopt = 1;
-                                        menu_level = 2;
-                                        menu_saverect = false;
+                                } else {
+                                    string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang], DISK_ROMFILE, 26, 15);
+                                    if (mFile != "") {
+                                        mFile.erase(0, 1);
+                                        string fname = FileUtils::ROM_Path + mFile;
+                                        bool res = updateROM(fname, opt2 - 1);
+                                        if (res) return;
+                                    }
+                                    menu_curopt = 1;
+                                    menu_level = 2;
+                                    menu_saverect = false;
                                 }
                             } else {
                                 menu_curopt = 9;
                                 break;
                             }
                         }
-
                     } else {
-                        menu_curopt = 6;
+                        menu_curopt = FileUtils::fsMount ? 6 : 4;
                         break;
                     }
                 }
             }
-            else if (opt == 7) {
+            else if (FileUtils::fsMount && opt == 7 || opt == 5) {
                 // Help
                 drawOSD(true);
                 osdAt(2, 0);
@@ -2163,8 +2172,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                 return;
 
             }        
-            else if (opt == 8) {
-
+            else if (FileUtils::fsMount && opt == 8 || opt == 6) {
                 // About
                 drawOSD(false);
                 
@@ -2306,6 +2314,11 @@ void OSD::errorHalt(string errormsg) {
     while (1) {
         sleep_ms(5);
     }
+}
+
+// W/A
+extern "C" void osd_printf(const char* msg, ...) {
+    OSD::osdCenteredMsg(msg, LEVEL_WARN, 1000);
 }
 
 // Centered message
@@ -2545,24 +2558,38 @@ static void __not_in_flash_func(cleanup_block)(size_t flash_target_offset) {
 }
 
 bool OSD::updateROM(const string& fname, uint8_t arch) {
-    if (f_open(&f, fname.c_str(), FA_READ) != FR_OK) {
+    FIL* f = fopen2(fname.c_str(), FA_READ);
+    if (!f) {
         osdCenteredMsg(OSD_NOROMFILE_ERR[Config::lang], LEVEL_WARN, 2000);
         return false;
     }
-    FSIZE_t bytesfirmware = f_size(&f); 
+    FSIZE_t bytesfirmware = f_size(f); 
     const uint8_t* rom;
-    size_t max_flash_target_offset, flash_target_offset = 0;
+    size_t max_rom_size = 0;
     string dlgTitle = OSD_ROM[Config::lang];
     // Flash custom ROM 48K
     if ( arch == 1 ) {
+#if !CARTRIDGE_AS_CUSTOM
         if( bytesfirmware > 0x4000 ) {
             osdCenteredMsg("Too long file", LEVEL_WARN, 2000);
-            f_close(&f);
+            fclose2(f);
             return false;
         }
+#if NO_SEPARATE_48K_CUSTOM
+        rom = gb_rom_0_128k_custom;
+#else
         rom = gb_rom_0_48k_custom;
-        flash_target_offset = (size_t)rom - XIP_BASE;
-        max_flash_target_offset = flash_target_offset + (16 << 10);
+#endif
+        max_rom_size = 16 << 10;
+#else
+        if( bytesfirmware > (1ul << 20) ) {
+            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
+            fclose2(f);
+            return false;
+        }
+        rom = gb_rom_Alf_cart;
+        max_rom_size = 1ul << 20;
+#endif
         dlgTitle += " 48K   ";
         Config::arch = "48K";
         Config::romSet = "48Kcs";
@@ -2572,14 +2599,33 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     }
     // Flash custom ROM 128K
     else if ( arch == 2 ) {
+#if !CARTRIDGE_AS_CUSTOM
         if( bytesfirmware > 0x8000 ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
-            f_close(&f);
+            fclose2(f);
             return false;
         }
         rom = gb_rom_0_128k_custom;
-        flash_target_offset = (size_t)rom - XIP_BASE;
-        max_flash_target_offset = flash_target_offset + (32 << 10);
+        if (bytesfirmware <= (16 << 10)) {
+            max_rom_size = 16 << 10;
+        } else {
+            max_rom_size = 32 << 10;
+        }
+#else
+        if( bytesfirmware > (1ul << 20) ) {
+            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
+            fclose2(f);
+            return false;
+        }
+        rom = gb_rom_Alf_cart;
+        if (bytesfirmware <= (16 << 10)) {
+            max_rom_size = 16 << 10;
+        } else if (bytesfirmware <= (32 << 10)) {
+            max_rom_size = 32 << 10;
+        } else {
+            max_rom_size = 1ul << 20;
+        }
+#endif
         dlgTitle += " 128K  ";
         Config::arch = "128K";
         Config::romSet = "128Kcs";
@@ -2588,14 +2634,33 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         Config::pref_romSet_128 = "128Kcs";
     }
     else if ( arch == 3 ) {
+#if !CARTRIDGE_AS_CUSTOM
         if( bytesfirmware > 0x8000 ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
-            f_close(&f);
+            fclose2(f);
             return false;
         }
         rom = gb_rom_0_128k_custom;
-        flash_target_offset = (size_t)rom - XIP_BASE;
-        max_flash_target_offset = flash_target_offset + (32 << 10);
+        if (bytesfirmware <= (16 << 10)) {
+            max_rom_size = 16 << 10;
+        } else {
+            max_rom_size = 32 << 10;
+        }
+#else
+        if( bytesfirmware > (1ul << 20) ) {
+            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
+            fclose2(f);
+            return false;
+        }
+        rom = gb_rom_Alf_cart;
+        if (bytesfirmware <= (16 << 10)) {
+            max_rom_size = 16 << 10;
+        } else if (bytesfirmware <= (32 << 10)) {
+            max_rom_size = 32 << 10;
+        } else {
+            max_rom_size = 1ul << 20;
+        }
+#endif
         dlgTitle += " Pentagon ";
         Config::arch = "Pentagon";
         Config::romSet = "128Kcs";
@@ -2603,7 +2668,78 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         Config::pref_arch = "Pentagon";
         Config::pref_romSetPent = "128Kcs";
     }
-
+    else if ( arch == 4 ) {
+        if( bytesfirmware > (256ul << 10) ) {
+            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
+            fclose2(f);
+            return false;
+        }
+        rom = gb_rom_Alf;
+        max_rom_size = 256ul << 10;
+        dlgTitle += " ALF ROM ";
+        Config::arch = "ALF";
+        Config::romSet = "ALF";
+        Config::pref_arch = "ALF";
+    }
+    else if ( arch == 5 ) {
+        if( bytesfirmware > (1ul << 20) ) {
+            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
+            fclose2(f);
+            return false;
+        }
+        rom = gb_rom_Alf_cart;
+        max_rom_size = 1ul << 20;
+        dlgTitle += " ALF Cartridge ";
+        Config::arch = "ALF";
+    }
+    else if ( arch == 6 ) {
+        if( bytesfirmware > (16ul << 10) ) {
+            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
+            fclose2(f);
+            return false;
+        }
+        rom = gb_rom_4_trdos_503;
+        max_rom_size = 16ul << 10;
+        dlgTitle += " TRDOS ";
+        Config::arch = "Pentagon";
+    }
+    else if ( arch == 7 ) {
+        if( bytesfirmware > (32ul << 10) ) {
+            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
+            fclose2(f);
+            return false;
+        }
+        rom = gb_rom_pentagon_128k;
+        max_rom_size = bytesfirmware > (16ul << 10) ? (32ul << 10) : (16ul << 10);
+        dlgTitle += " Pentagon#0 ";
+        Config::arch = "Pentagon";
+        Config::romSet = "128Kp";
+        Config::romSetPent = "128Kp";
+        Config::pref_arch = "Pentagon";
+        Config::pref_romSetPent = "128Kp";
+    }
+    else if ( arch == 8 ) {
+        if( bytesfirmware > (16 << 10) ) {
+            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
+            fclose2(f);
+            return false;
+        }
+        rom = gb_rom_pentagon_128k;
+        max_rom_size = 16 << 10;
+        dlgTitle += " Pentagon#1 ";
+        Config::arch = "Pentagon";
+        Config::romSet = "128Kp";
+        Config::romSetPent = "128Kp";
+        Config::pref_arch = "Pentagon";
+        Config::pref_romSetPent = "128Kp";
+    }
+    else {
+        osdCenteredMsg("Unexpected ROM type: " + to_string(arch), LEVEL_WARN, 2000);
+        fclose2(f);
+        return false;
+    }
+    size_t flash_target_offset = (size_t)rom - XIP_BASE;
+    size_t max_flash_target_offset = flash_target_offset + max_rom_size;
     for (size_t i = flash_target_offset; i < max_flash_target_offset; i += FLASH_SECTOR_SIZE) {
         cleanup_block(i);
     }
@@ -2612,17 +2748,17 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     const size_t sz = 512;
     uint8_t* buffer = (uint8_t*)malloc(sz);
     for (FSIZE_t i = 0; i < bytesfirmware; i += sz) {
-        if ( f_read(&f, buffer, sz, &br) != FR_OK) {
+        if ( f_read(f, buffer, sz, &br) != FR_OK) {
             osdCenteredMsg(fname + " - unable to read", LEVEL_ERROR, 5000);
-            f_close(&f);
+            fclose2(f);
             return false;
         }
         flash_block(buffer, flash_target_offset + (size_t)(i & 0xFFFFFFFF));
     }
+    fclose2(f);
     free(buffer);
-    f_close(&f);
     Config::save();
-    Config::requestMachine(Config::arch, Config::romSet128);
+///    Config::requestMachine(Config::arch, Config::romSet);
     // Firmware written: reboot
 ///    ESPectrum::reset();
     OSD::esp_hard_reset();
@@ -3006,7 +3142,9 @@ static const char *MENU_JOYSELKEY[2] = { MENU_JOYSELKEY_EN, MENU_JOYSELKEY_ES };
     "Up\n"\
     "Down\n"\
     "Fire 1\n"\
-    "Fire 2\n"		
+    "Fire 2\n"\
+    "Start\n"\
+    "Select\n"
 
 #define MENU_JOY_FULLER "Fuller\n"\
     "Left\n"\
@@ -3148,7 +3286,11 @@ case fabgl::VK_KEMPSTON_DOWN:
 case fabgl::VK_KEMPSTON_FIRE:    
     return "Kmp.Fire1";
 case fabgl::VK_KEMPSTON_ALTFIRE:
-    return "Kmp.Fire2";		
+    return "Kmp.Fire2";
+case fabgl::VK_KEMPSTON_SELECT:
+    return "Kmp.Sel  ";
+case fabgl::VK_KEMPSTON_START:
+    return "Kmp.Start";
 case fabgl::VK_FULLER_LEFT:
     return "Fll.Left ";
 case fabgl::VK_FULLER_RIGHT:
@@ -3561,6 +3703,12 @@ void OSD::joyDialog(uint8_t joynum) {
                                         } else
                                         if (opt2 == 6) {
                                             joyDropdown[curDropDown][6] = fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE;
+                                        } else
+                                        if (opt2 == 7) {
+                                            joyDropdown[curDropDown][6] = fabgl::VirtualKey::VK_KEMPSTON_START;
+                                        } else
+                                        if (opt2 == 8) {
+                                            joyDropdown[curDropDown][6] = fabgl::VirtualKey::VK_KEMPSTON_SELECT;
                                         }
                                         if (joytype == JOY_FULLER)
                                             joyDropdown[curDropDown][6] += 6;
@@ -3590,29 +3738,13 @@ void OSD::joyDialog(uint8_t joynum) {
                                 break;
                             }
                         }
-
                         // Ask to save changes
                         if (changed) {
-
                             string title = (joynum == 1 ? "Joystick 1" : "Joystick 2");
                             string msg = OSD_DLG_JOYSAVE[Config::lang];
                             uint8_t res = OSD::msgDialog(title,msg);
                             if (res == DLG_YES) {
-
-                                // Fill joystick values in Config
-                                int m = (joynum == 1) ? 0 : 12;
-                                for (int n = m; n < m + 12; n++) {
-                                    // Save to config (only changes)
-                                    if (Config::joydef[n] != (uint16_t) joyDropdown[n - m][6]) {
-                                        ESPectrum::JoyVKTranslation[n] = (fabgl::VirtualKey) joyDropdown[n - m][6];
-                                        Config::joydef[n] = (uint16_t) joyDropdown[n - m][6];
-                                        char joykey[9];
-                                        sprintf(joykey,"joydef%02u",n);
-                                        Config::save(joykey);
-                                        // printf("%s %u\n",joykey, joydef[n]);
-                                    }
-                                }
-
+                                Config::save();
                                 click();
                                 break;
 
@@ -3621,12 +3753,10 @@ void OSD::joyDialog(uint8_t joynum) {
                                 click();
                                 break;
                             }
-
                         } else {
                             click();
                             break;
                         }
-
                     } else
                     if (curDropDown == 13) {                    
                         // Enable joyTest
@@ -4134,37 +4264,23 @@ void OSD::pokeDialog() {
                         trim(bank);
                         MemESP::ram[stoi(bank)].sync()[address] = value;
                     }
-
-                    click();
-
-                    break;
-
-                } else
-                if (dlg_Objects[curObject].Name == "Cancel") {
-
                     click();
                     break;
-
+                } else if (dlg_Objects[curObject].Name == "Cancel") {
+                    click();
+                    break;
                 }
-
-            } else
-            if (Nextkey.vk == fabgl::VK_ESCAPE || Nextkey.vk == fabgl::VK_JOY1A || Nextkey.vk == fabgl::VK_JOY2A) {
-                
+            } else if (Nextkey.vk == fabgl::VK_ESCAPE || Nextkey.vk == fabgl::VK_JOY1A || Nextkey.vk == fabgl::VK_JOY2A) {
                 click();
                 break;
-
             }
-
         }
 
         if (dlg_Objects[curObject].objType == DLG_OBJ_INPUT) {
-
             if ((++CursorFlash & 0xF) == 0) {
-
                 VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));                
                 VIDEO::vga.setCursor(x + dlg_Objects[curObject].posx, y + dlg_Objects[curObject].posy);
                 VIDEO::vga.print(dlgValues[curObject].c_str());
-
                 if (CursorFlash > 63) {
                     VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(0, 1));
                     if (CursorFlash == 128) CursorFlash = 0;
@@ -4172,16 +4288,10 @@ void OSD::pokeDialog() {
                     VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
                 }
                 VIDEO::vga.print("K");
-
                 VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
                 VIDEO::vga.print(" ");
-
             }
-
         }
-
         sleep_ms(5);
-
     }
-
 }

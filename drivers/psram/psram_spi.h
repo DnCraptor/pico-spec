@@ -618,6 +618,8 @@ uint8_t read8psram(uint32_t addr32);
 uint16_t read16psram(uint32_t addr32);
 uint32_t read32psram(uint32_t addr32);
 void psram_id(uint8_t rx[8]);
+void writepsram(uint32_t addr32, uint8_t* b, size_t sz);
+void readpsram(uint8_t* b, uint32_t addr32, size_t sz);
 
 #ifdef __cplusplus
 }

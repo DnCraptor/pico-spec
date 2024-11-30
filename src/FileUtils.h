@@ -56,16 +56,16 @@ using namespace std;
 
 struct DISK_FTYPE {
     string fileExts;
-    string indexFilename;
     int begin_row;
     int focus;
     uint8_t fdMode;
-    string fileSearch;    
+    string fileSearch;
 };
 
 class FileUtils
 {
 public:
+    static bool fsMount;
     static void initFileSystem();
     static bool mountSDCard();
     static void unmountSDCard();
@@ -82,7 +82,9 @@ public:
     static bool hasZ80extension(string filename);
     static bool hasPextension(string filename);
     static bool hasTAPextension(string filename);
-    static bool hasTZXextension(string filename);    
+    static bool hasTZXextension(string filename);
+    static bool hasWAVextension(string filename);
+    static bool hasMP3extension(string filename);
 
     static void deleteFilesWithExtension(const char *folder_path, const char *extension);
 
@@ -136,50 +138,50 @@ private:
 // inline utility functions for uniform access to file/memory
 // and making it easy to to implement SNA/Z80 functions
 
-static inline uint8_t readByteFile(FIL& f)
+static inline uint8_t readByteFile(FIL* f)
 {
     uint8_t result;
     UINT br;
-    if (f_read(&f, &result, 1, &br) != FR_OK || br != 1) {
+    if (f_read(f, &result, 1, &br) != FR_OK || br != 1) {
         return -1;
     }
     return result;
 }
 
-static inline uint16_t readWordFileLE(FIL& f)
+static inline uint16_t readWordFileLE(FIL* f)
 {
     uint8_t lo = readByteFile(f);
     uint8_t hi = readByteFile(f);
     return lo | (hi << 8);
 }
 
-static inline uint16_t readWordFileBE(FIL& f)
+static inline uint16_t readWordFileBE(FIL* f)
 {
     uint8_t hi = readByteFile(f);
     uint8_t lo = readByteFile(f);
     return lo | (hi << 8);
 }
 
-static inline size_t readBlockFile(FIL& f, uint8_t* dstBuffer, size_t size)
+static inline size_t readBlockFile(FIL* f, uint8_t* dstBuffer, size_t size)
 {
     UINT br;
-    f_read(&f, dstBuffer, 0x4000, &br);
+    f_read(f, dstBuffer, 0x4000, &br);
     return br;
 }
 
-static inline void writeByteFile(uint8_t value, FIL& f)
+static inline void writeByteFile(uint8_t value, FIL* f)
 {
     UINT bw;
-    f_write(&f, &value, 1, &bw);
+    f_write(f, &value, 1, &bw);
 }
 
-static inline void writeWordFileLE(uint16_t value, FIL& f)
+static inline void writeWordFileLE(uint16_t value, FIL* f)
 {
     UINT bw;
     uint8_t lo =  value       & 0xFF;
     uint8_t hi = (value >> 8) & 0xFF;
-    f_write(&f, &lo, 1, &bw);
-    f_write(&f, &hi, 1, &bw);
+    f_write(f, &lo, 1, &bw);
+    f_write(f, &hi, 1, &bw);
 }
 
 // static inline void writeWordFileBE(uint16_t value, File f)

@@ -54,6 +54,19 @@ struct input_bits_t {
 static input_bits_t gamepad1_bits = { false, false, false, false, false, false, false, false };
 static input_bits_t gamepad2_bits = { false, false, false, false, false, false, false, false };
 
+uint8_t nes_pad2_for_alf(void) {
+    uint8_t data = 0;
+    data |= gamepad2_bits.a ? 0 : 1;
+    data |= gamepad2_bits.down ? 0 : 0b10;
+    data |= gamepad2_bits.right ? 0 : 0b100;
+    data |= gamepad2_bits.up ? 0 : 0b1000;
+    data |= gamepad2_bits.left ? 0 : 0b10000;
+    data |= gamepad2_bits.b ? 0 : 0b100000;
+    data |= gamepad2_bits.start ? 0 : 0b1000000;
+    data |= gamepad2_bits.select ? 0 : 0b10000000;
+    return data;
+}
+
 /* Renderer loop on Pico's second core */
 #define DISP_WIDTH 320
 #define DISP_HEIGHT 240
@@ -204,12 +217,16 @@ void nespad_tick() {
     else if (!(nespad_state & DPAD_B) && gamepad1_bits.b) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE, false);
     gamepad1_bits.b = (nespad_state & DPAD_B) != 0;
     
-    if ((nespad_state & DPAD_SELECT) && !gamepad1_bits.select) joyPushData(fabgl::VirtualKey::VK_SPACE, true);
-    else if (!(nespad_state & DPAD_SELECT) && gamepad1_bits.select) joyPushData(fabgl::VirtualKey::VK_SPACE, false);
+///    if ((nespad_state & DPAD_SELECT) && !gamepad1_bits.select) joyPushData(fabgl::VirtualKey::VK_SPACE, true);
+///    else if (!(nespad_state & DPAD_SELECT) && gamepad1_bits.select) joyPushData(fabgl::VirtualKey::VK_SPACE, false);
+    if ((nespad_state & DPAD_SELECT) && !gamepad1_bits.select) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_SELECT, true);
+    else if (!(nespad_state & DPAD_SELECT) && gamepad1_bits.select) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_SELECT, false);
     gamepad1_bits.select = (nespad_state & DPAD_SELECT) != 0;
 
-    if ((nespad_state & DPAD_START) && !gamepad1_bits.start) joyPushData(fabgl::VirtualKey::VK_RETURN, true);
-    else if (!(nespad_state & DPAD_START) && gamepad1_bits.start) joyPushData(fabgl::VirtualKey::VK_RETURN, false);
+///    if ((nespad_state & DPAD_START) && !gamepad1_bits.start) joyPushData(fabgl::VirtualKey::VK_RETURN, true);
+///    else if (!(nespad_state & DPAD_START) && gamepad1_bits.start) joyPushData(fabgl::VirtualKey::VK_RETURN, false);
+    if ((nespad_state & DPAD_START) && !gamepad1_bits.start) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_START, true);
+    else if (!(nespad_state & DPAD_START) && gamepad1_bits.start) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_START, false);
     gamepad1_bits.start = (nespad_state & DPAD_START) != 0;
 
     if ((nespad_state & DPAD_UP) && !gamepad1_bits.up) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_UP, true);
@@ -229,36 +246,36 @@ void nespad_tick() {
     gamepad1_bits.right = (nespad_state & DPAD_RIGHT) != 0;
 
     // second
-    if ((nespad_state2 & DPAD_A) && !gamepad2_bits.a) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_FIRE, true);
-    else if (!(nespad_state2 & DPAD_A) && gamepad2_bits.a) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_FIRE, false);
+//    if ((nespad_state2 & DPAD_A) && !gamepad2_bits.a) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_FIRE, true);
+//    else if (!(nespad_state2 & DPAD_A) && gamepad2_bits.a) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_FIRE, false);
     gamepad2_bits.a = (nespad_state2 & DPAD_A) != 0;
 
-    if ((nespad_state2 & DPAD_B) && !gamepad2_bits.b) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE, true);
-    else if (!(nespad_state2 & DPAD_B) && gamepad2_bits.b) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE, false);
+//    if ((nespad_state2 & DPAD_B) && !gamepad2_bits.b) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE, true);
+//    else if (!(nespad_state2 & DPAD_B) && gamepad2_bits.b) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE, false);
     gamepad2_bits.b = (nespad_state2 & DPAD_B) != 0;
     
-    if ((nespad_state2 & DPAD_SELECT) && !gamepad2_bits.select) joyPushData(fabgl::VirtualKey::VK_KP_PERIOD, true);
-    else if (!(nespad_state2 & DPAD_SELECT) && gamepad2_bits.select) joyPushData(fabgl::VirtualKey::VK_KP_PERIOD, false);
+//    if ((nespad_state2 & DPAD_SELECT) && !gamepad2_bits.select) joyPushData(fabgl::VirtualKey::VK_KP_PERIOD, true);
+//    else if (!(nespad_state2 & DPAD_SELECT) && gamepad2_bits.select) joyPushData(fabgl::VirtualKey::VK_KP_PERIOD, false);
     gamepad2_bits.select = (nespad_state2 & DPAD_SELECT) != 0;
 
-    if ((nespad_state2 & DPAD_START) && !gamepad2_bits.start) joyPushData(fabgl::VirtualKey::VK_KP_ENTER, true);
-    else if (!(nespad_state2 & DPAD_START) && gamepad2_bits.start) joyPushData(fabgl::VirtualKey::VK_KP_ENTER, false);
+//    if ((nespad_state2 & DPAD_START) && !gamepad2_bits.start) joyPushData(fabgl::VirtualKey::VK_KP_ENTER, true);
+//    else if (!(nespad_state2 & DPAD_START) && gamepad2_bits.start) joyPushData(fabgl::VirtualKey::VK_KP_ENTER, false);
     gamepad2_bits.start = (nespad_state2 & DPAD_START) != 0;
 
-    if ((nespad_state2 & DPAD_UP) && !gamepad2_bits.up) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_UP, true);
-    else if (!(nespad_state2 & DPAD_UP) && gamepad2_bits.up) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_UP, false);
+//    if ((nespad_state2 & DPAD_UP) && !gamepad2_bits.up) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_UP, true);
+//    else if (!(nespad_state2 & DPAD_UP) && gamepad2_bits.up) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_UP, false);
     gamepad2_bits.up = (nespad_state2 & DPAD_UP) != 0;
 
-    if ((nespad_state2 & DPAD_DOWN) && !gamepad2_bits.down) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_DOWN, true);
-    else if (!(nespad_state2 & DPAD_DOWN) && gamepad2_bits.down) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_DOWN, false);
+//    if ((nespad_state2 & DPAD_DOWN) && !gamepad2_bits.down) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_DOWN, true);
+//    else if (!(nespad_state2 & DPAD_DOWN) && gamepad2_bits.down) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_DOWN, false);
     gamepad2_bits.down = (nespad_state2 & DPAD_DOWN) != 0;
 
-    if ((nespad_state2 & DPAD_LEFT) && !gamepad2_bits.left) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_LEFT, true);
-    else if (!(nespad_state2 & DPAD_LEFT) && gamepad2_bits.left) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_LEFT, false);
+//    if ((nespad_state2 & DPAD_LEFT) && !gamepad2_bits.left) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_LEFT, true);
+//    else if (!(nespad_state2 & DPAD_LEFT) && gamepad2_bits.left) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_LEFT, false);
     gamepad2_bits.left = (nespad_state2 & DPAD_LEFT) != 0;
 
-    if ((nespad_state2 & DPAD_RIGHT) && !gamepad2_bits.right) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_RIGHT, true);
-    else if (!(nespad_state2 & DPAD_RIGHT) && gamepad2_bits.right) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_RIGHT, false);
+//    if ((nespad_state2 & DPAD_RIGHT) && !gamepad2_bits.right) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_RIGHT, true);
+//    else if (!(nespad_state2 & DPAD_RIGHT) && gamepad2_bits.right) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_RIGHT, false);
     gamepad2_bits.right = (nespad_state2 & DPAD_RIGHT) != 0;
 }
 #endif
@@ -362,11 +379,10 @@ int main() {
     sem_release(&vga_start_semaphore);
 
     init_sound();
-    pcm_setup(ESPectrum::Audio_freq, ESP_AUDIO_SAMPLES_PENTAGON << 1);
-
+    pcm_setup(SOUND_FREQUENCY, SOUND_FREQUENCY * 2 / 50); // 882 * 2  = 1764
+#ifdef PSRAM
     init_psram();
-
-///    kbd_state_t* ks = process_input_on_boot();
+#endif
     // send kbd reset only after initial process passed
     keyboard_send(0xFF);
 

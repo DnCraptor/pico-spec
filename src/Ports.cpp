@@ -44,6 +44,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "CPU.h"
 #include "wd1793.h"
 #include "pwm_audio.h"
+#include "roms.h"
 
 // #pragma GCC optimize("O3")
 
@@ -100,32 +101,36 @@ uint8_t Ports::getFloatBusData128() {
 
 }
 
+uint8_t nes_pad2_for_alf(void);
+
 IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     uint8_t data;
     uint8_t rambank = address >> 14;    
 
     VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
     
-    
     // ULA PORT    
     if ((address & 0x0001) == 0) {
         VIDEO::Draw(3, !Z80Ops::isPentagon);   // I/O Contention (Late)
-        data = 0xbf; // default port value is 0xBF.
-        uint8_t portHigh = ~(address >> 8) & 0xff;
-        for (int row = 0, mask = 0x01; row < 8; row++, mask <<= 1) {
-            if ((portHigh & mask) != 0)
-                data &= port[row];
-        }
-        if (Tape::tapeStatus==TAPE_LOADING) Tape::Read();
 
+        if (Z80Ops::isALF) {
+            data = nes_pad2_for_alf(); // default port value is 0xFF.
+        } else {
+            data = 0xbf; // default port value is 0xBF.
+            uint8_t portHigh = ~(address >> 8) & 0xff;
+            for (int row = 0, mask = 0x01; row < 8; row++, mask <<= 1) {
+                if ((portHigh & mask) != 0)
+                    data &= port[row];
+            }
+        }
+        if (Tape::tapeStatus == TAPE_LOADING) {
+            Tape::Read();
+        }
         if ((Z80Ops::is48) && (Config::Issue2)) {// Issue 2 behaviour only on Spectrum 48K
             if (port254 & 0x18) data |= 0x40;
         } else {
             if (port254 & 0x10) data |= 0x40;
         }
-///        if (Config::real_player) {
-///            Tape::tapeEarBit = pcm_data_in();
-///        }
         if (Tape::tapeEarBit) data ^= 0x40;
     } else {
         ioContentionLate(MemESP::ramContended[rambank]);
@@ -182,8 +187,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
                 // //  http://www.speccy.org/foro/viewtopic.php?f=8&t=2374
                 if (!MemESP::pagingLock) {
                     MemESP::pagingLock = bitRead(data, 5);
-                    MemESP::page128 = (data & 0x7);
-                    uint8_t page = MemESP::page128;
+                    uint8_t page = (data & 0x7);
                     if (MemESP::bankLatch != page) {
                         MemESP::bankLatch = page;
                         MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
@@ -195,7 +199,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
                     }
                     MemESP::romLatch = bitRead(data, 4);
                     MemESP::romInUse = MemESP::romLatch;
-                    MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];            
+                    MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
                 }
             }
         }
@@ -209,6 +213,19 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
 
     VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
 
+    if (Z80Ops::isALF && bitRead(address, 7) == 0 && (address & 1) == 1) { // ALF ROM selector A7=0, A0=1
+        uint8_t* base = bitRead(data, 7) ? gb_rom_Alf_cart : gb_rom_Alf;
+        if (MemESP::ramCurrent[0].direct() != base) {
+            int border_page = base == gb_rom_Alf ? 16 : 64;
+            for (int i = 0; i < 64; ++i) {
+                MemESP::rom[i].assign_rom(i >= border_page ? gb_rom_Alf_ep : base + ((16 * i) << 10));
+            }
+        }
+        MemESP::romInUse = (data & 0b01111111);
+        while (MemESP::romInUse >= 64) MemESP::romInUse -= 64; // rolling ROM
+        MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
+    }
+    
     // ULA =======================================================================
     if ((address & 0x0001) == 0) {
         port254 = data;
@@ -313,9 +330,12 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     if ((!Z80Ops::is48) && ((address & 0x8002) == 0)) { // 8002 !-> 7FFD
         if (!MemESP::pagingLock) {
             uint8_t D5 = bitRead(data, 5);
-            MemESP::pagingLock = Z80Ops::is1024 && MemESP::notMore128 ? D5 : 0;
-            MemESP::page128 = (data & 0x7);
-            uint8_t page = MemESP::page128;
+            if (Z80Ops::is1024) {
+                MemESP::pagingLock = MemESP::notMore128 ? D5 : 0;
+            } else {
+                MemESP::pagingLock = D5;
+            }
+            uint8_t page = (data & 0x7);
             if ((Z80Ops::is512 || Z80Ops::is1024) && !MemESP::notMore128 && !MemESP::pagingLock) {
                 uint8_t D6 = bitRead(data, 6);
                 uint8_t D7 = bitRead(data, 7);

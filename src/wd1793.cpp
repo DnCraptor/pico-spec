@@ -43,11 +43,12 @@ visit https://zxespectrum.speccy.org/contacto
 using namespace std;
 
 #include "wd1793.h"
+#include "OSDMain.h"
 
 void fgets(char* b, size_t sz, FIL& f);
-size_t fwrite(const void* v, size_t sz1, size_t sz2, FIL& f);
+size_t fwrite(const void* v, size_t sz1, size_t sz2, FIL* f);
 size_t fread(uint8_t* v, size_t sz1, size_t sz2, FIL& f);
-int fseek (FIL& stream, long offset, int origin);
+int fseek (FIL* stream, long offset, int origin);
 inline void fclose(FIL& f) {
     f_close(&f);
 }
@@ -287,7 +288,7 @@ void WD1793::ReadRawOneSectorData(unsigned char UnitNum,  unsigned char C,  unsi
         // Create track0 from SCL file if not already done
         if (!sclConverted) {
             // printf("Converting SCL track0 of drive %d\n",UnitNUm);
-            SCLtoTRD(Track0,UnitNum);
+            SCLtoTRD(Track0, UnitNum);
             sclConverted = true;
         }
 
@@ -307,7 +308,7 @@ void WD1793::ReadRawOneSectorData(unsigned char UnitNum,  unsigned char C,  unsi
         // printf("SeekPtr no Offset: %d\n", seekptr);
         seekptr += Drive[UnitNum].sclDataOffset;
         // printf("SeekPtr Offset: %d\n",seekptr);        
-        fseek(Drive[UnitNum].DiskFile, seekptr, SEEK_SET);
+        fseek(&Drive[UnitNum].DiskFile, seekptr, SEEK_SET);
         fread(DataBuffer,1,Drive[UnitNum].SectorSize,Drive[UnitNum].DiskFile);
 
         // printf("<WD1793 - ReadRawOneSectorData> No SCL track0. Unit %d, seekptr %d\n", (int)UnitNum, seekptr);
@@ -320,13 +321,11 @@ void WD1793::ReadRawOneSectorData(unsigned char UnitNum,  unsigned char C,  unsi
 
 // write one sector at CHS on specified unit from Drive's sector data buffer
 void WD1793::WriteRawOneSectorData(unsigned char UnitNum,  unsigned char C,  unsigned char H,  unsigned char S) {
-
     if (!(Drive[UnitNum].IsSCLFile)) {
         int seekptr = ( ( C * Drive[UnitNum].Heads + H ) * Drive[UnitNum].Sectors * Drive[UnitNum].SectorSize ) + ( S * Drive[UnitNum].SectorSize );
-        fseek(Drive[UnitNum].DiskFile,seekptr,SEEK_SET);
-        fwrite(DataBuffer,1,Drive[UnitNum].SectorSize, Drive[UnitNum].DiskFile);
+        fseek(&Drive[UnitNum].DiskFile,seekptr,SEEK_SET);
+        fwrite(DataBuffer,1,Drive[UnitNum].SectorSize, &Drive[UnitNum].DiskFile);
     }
-
 }
 
 #else
@@ -410,7 +409,7 @@ bool WD1793::InsertDisk(unsigned char UnitNum, string Filename) {
     // close any open disk in this unit
     EjectDisk(UnitNum);
 
-    if (f_open(&Drive[UnitNum].DiskFile, Filename.c_str(), FA_READ) == FR_OK) {
+    if (f_open(&Drive[UnitNum].DiskFile, Filename.c_str(), FA_READ | FA_WRITE) == FR_OK) {
 
         Drive[UnitNum].Available = true;
         Drive[UnitNum].Heads = 1;
@@ -418,13 +417,14 @@ bool WD1793::InsertDisk(unsigned char UnitNum, string Filename) {
         Drive[UnitNum].SectorSize = 256;
         Drive[UnitNum].FName = Filename;
 
-        fgets(magic,9, Drive[UnitNum].DiskFile);
+        fgets(magic, 9, Drive[UnitNum].DiskFile);
         // printf("%s\n",magic);
+///        OSD::osdCenteredMsg(magic, LEVEL_WARN, 2000);
         
-        if (strcmp(magic,"SINCLAIR") == 0) {
+        if (strncmp(magic, "SINCLAIR", 8) == 0) {
             // SCL file
             // printf("SCL disk loaded\n");
-            Drive[UnitNum].IsSCLFile=true;
+            Drive[UnitNum].IsSCLFile = true;
             diskType = 0x16;
             // SCLtoTRD(Track0,UnitNum);
 
@@ -433,7 +433,7 @@ bool WD1793::InsertDisk(unsigned char UnitNum, string Filename) {
             Drive[UnitNum].IsSCLFile=false;
             Drive[UnitNum].sclDataOffset = 0;
 
-            fseek(Drive[UnitNum].DiskFile,2048 + 227,SEEK_SET);    
+            fseek(&Drive[UnitNum].DiskFile,2048 + 227, SEEK_SET);
             fread(&diskType,1,1,Drive[UnitNum].DiskFile);
 
         }
@@ -675,7 +675,7 @@ void WD1793::SCLtoTRD(unsigned char* track0, unsigned char UnitNum) {
     // Reset track 0 info
     memset(track0,0,2304);
 
-    fseek(Drive[UnitNum].DiskFile,8,SEEK_SET);
+    fseek(&Drive[UnitNum].DiskFile,8,SEEK_SET);
     fread(&numberOfFiles,1,1,Drive[UnitNum].DiskFile);
 
     // printf("Number of files: %d\n",(int)numberOfFiles);

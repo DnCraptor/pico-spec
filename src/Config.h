@@ -92,12 +92,12 @@ public:
     static bool     Issue2;    
     static bool     flashload;    
     static bool     tape_player;
-    static bool     real_player;
+    static volatile bool real_player;
     static bool     tape_timing_rg;
     static bool     rightSpace;    
     static uint8_t  joystick1;
     static uint8_t  joystick2;
-    static uint16_t joydef[24];
+    static uint16_t joydef[26];
     static uint8_t  joyPS2;    
     static uint8_t  AluTiming;
     static uint8_t  ps2_dev2;

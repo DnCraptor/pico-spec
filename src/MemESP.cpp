@@ -97,14 +97,13 @@ void mem_desc_t::_sync(void) {
     }
 }
 
-mem_desc_t MemESP::rom[5];
+mem_desc_t MemESP::rom[64];
 mem_desc_t MemESP::ram[64];
 mem_desc_t MemESP::ramCurrent[4];
 bool MemESP::ramContended[4];
 
 uint8_t MemESP::notMore128 = 0;
 uint8_t MemESP::page0ram = 0;
-uint8_t MemESP::page128 = 0;
 uint8_t MemESP::bankLatch = 0;
 uint8_t MemESP::videoLatch = 0;
 uint8_t MemESP::romLatch = 0;

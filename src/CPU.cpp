@@ -54,6 +54,7 @@ uint8_t CPU::IntEnd = 0;
 uint32_t CPU::stFrame = 0;
 
 bool Z80Ops::is48;
+bool Z80Ops::isALF;
 bool Z80Ops::is128;
 bool Z80Ops::isPentagon;
 bool Z80Ops::is512 = false;
@@ -65,7 +66,8 @@ void CPU::reset() {
     
     CPU::latetiming = Config::AluTiming;
 
-    if (Config::arch == "48K") {
+    Z80Ops::isALF = (Config::arch == "ALF");
+    if (Config::arch == "48K" || Z80Ops::isALF) {
         Ports::getFloatBusData = &Ports::getFloatBusData48;
         Z80Ops::is48 = true;
         Z80Ops::is128 = false;

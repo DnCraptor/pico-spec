@@ -34,6 +34,7 @@ visit https://zxespectrum.speccy.org/contacto
 */
 
 #include "Video.h"
+#include "FileUtils.h"
 #include "VidPrecalc.h"
 #include "CPU.h"
 #include "MemESP.h"
@@ -44,6 +45,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "hardpins.h"
 #include "Z80_JLS/z80.h"
 #include "Z80_JLS/z80operations.h"
+#include "psram_spi.h"
 
 #pragma GCC optimize("O3")
 
@@ -270,7 +272,7 @@ const int bluPins[] = {BLU_PINS_6B};
 
 void VIDEO::vgataskinit(void *unused) {
     uint8_t Mode;
-    Mode = 16 + (Config::arch == "48K" ? 0 : (Config::arch == "128K" ? 2 : 4)) + (Config::aspect_16_9 ? 1 : 0);
+    Mode = 16 + ((Config::arch == "48K" || Config::arch == "ALF") ? 0 : (Config::arch == "128K" ? 2 : 4)) + (Config::aspect_16_9 ? 1 : 0);
     OSD::scrW = vidmodes[Mode][vmodeproperties::hRes];
     OSD::scrH = vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv];
     vga.VGA6Bit_useinterrupt = true; // ????
@@ -318,7 +320,7 @@ void VIDEO::Reset() {
 
     OSD = 0;
 
-    if (Config::arch == "48K") {
+    if (Config::arch == "48K" || Config::arch == "ALF") {
         tStatesPerLine = TSTATES_PER_LINE;
         tStatesScreen = TS_SCREEN_48;
         tStatesBorder = is169 ? TS_BORDER_360x200 : TS_BORDER_320x240;        
@@ -1130,18 +1132,13 @@ IRAM_ATTR void VIDEO::BottomBorder_Pentagon() {
 }    
 
 IRAM_ATTR void VIDEO::BottomBorder_OSD_Pentagon() {
-
     while (lastBrdTstate <= CPU::tstates) {
-
         if (brdlin_cnt < 220 || brdlin_cnt > 235)
             brdptr16[brdcol_cnt ^ 1] = (uint16_t) brd;
         else if (brdcol_cnt < 84 || brdcol_cnt > 155)
             brdptr16[brdcol_cnt ^ 1] = (uint16_t) brd;
-
         lastBrdTstate++;
-
         brdcol_cnt++;
-
         if (brdcol_cnt == brdcol_end) {
             brdlin_cnt++;
             brdptr16 = (uint16_t *)(vga.frameBuffer[brdlin_cnt]);
@@ -1153,60 +1150,86 @@ IRAM_ATTR void VIDEO::BottomBorder_OSD_Pentagon() {
                 return;
             }
         }
-
     }
-
 }    
 
 void SaveRectT::save(int16_t x, int16_t y, int16_t w, int16_t h) {
     if (offsets.empty()) {
         offsets.push_back(0);
     }
-    size_t off = offsets.back();
-    FIL f;
-    f_open(&f, "/tmp/save_rect.tmp", FA_WRITE | FA_CREATE_ALWAYS);
-    f_lseek(&f, off);
-    UINT bw;
     x -= 2; if (x < 0) x = 0; // W/A
     w += 4; // W/A
-    f_write(&f, &x, 2, &bw);
-    f_write(&f, &y, 2, &bw);
-    f_write(&f, &w, 2, &bw);
-    f_write(&f, &h, 2, &bw);
-    off += 8;
-    for (size_t line = y; line < y + h; ++line) {
-        uint8_t *backbuffer = VIDEO::vga.frameBuffer[line];
-        f_write(&f, backbuffer + x, w, &bw);
-        off += w;
+    size_t off = offsets.back();
+    if (psram_size() >= (1 << 20)) {
+        off += 1 << 20;
+        write16psram(off, x); off += 2;
+        write16psram(off, y); off += 2;
+        write16psram(off, w); off += 2;
+        write16psram(off, h); off += 2;
+        for (size_t line = y; line < y + h; ++line) {
+            uint8_t *backbuffer = VIDEO::vga.frameBuffer[line];
+            writepsram(off, backbuffer + x, w);
+            off += w;
+        }
+        offsets.push_back(off - (1 << 20));
+        return;
     }
-    f_close(&f);
-    offsets.push_back(off);
+    if (FileUtils::fsMount) {
+        FIL f;
+        f_open(&f, "/tmp/save_rect.tmp", FA_WRITE | FA_CREATE_ALWAYS);
+        f_lseek(&f, off);
+        UINT bw;
+        f_write(&f, &x, 2, &bw);
+        f_write(&f, &y, 2, &bw);
+        f_write(&f, &w, 2, &bw);
+        f_write(&f, &h, 2, &bw);
+        off += 8;
+        for (size_t line = y; line < y + h; ++line) {
+            uint8_t *backbuffer = VIDEO::vga.frameBuffer[line];
+            f_write(&f, backbuffer + x, w, &bw);
+            off += w;
+        }
+        f_close(&f);
+        offsets.push_back(off);
+    }
 }
 void SaveRectT::restore_last() {
     if (offsets.empty()) return; /// ???
     offsets.pop_back();
     size_t off = offsets.back();
-    FIL f;
-    f_open(&f, "/tmp/save_rect.tmp", FA_READ);
-    f_lseek(&f, off);
-    UINT br;
     uint16_t x;
     uint16_t y;
     uint16_t w;
     uint16_t h;
-    f_read(&f, &x, 2, &br);
-    f_read(&f, &y, 2, &br);
-    f_read(&f, &w, 2, &br);
-    f_read(&f, &h, 2, &br);
-    if (!w || !h) {
+    if (psram_size() >= (1 << 20)) {
+        off += 1 << 20;
+        x = read16psram(off); off += 2;
+        y = read16psram(off); off += 2;
+        w = read16psram(off); off += 2;
+        h = read16psram(off); off += 2;
+        if (!w || !h) return;
+        for (size_t line = y; line < y + h; ++line) {
+            readpsram(VIDEO::vga.frameBuffer[line] + x, off, w);
+            off += w;
+        }
+    } else if (FileUtils::fsMount) {
+        FIL f;
+        f_open(&f, "/tmp/save_rect.tmp", FA_READ);
+        f_lseek(&f, off);
+        UINT br;
+        f_read(&f, &x, 2, &br);
+        f_read(&f, &y, 2, &br);
+        f_read(&f, &w, 2, &br);
+        f_read(&f, &h, 2, &br);
+        if (!w || !h) {
+            f_close(&f);
+            return;
+        }
+        for (size_t line = y; line < y + h; ++line) {
+            f_read(&f, VIDEO::vga.frameBuffer[line] + x, w, &br);
+        }
         f_close(&f);
-        return;
     }
-    for (size_t line = y; line < y + h; ++line) {
-        uint8_t *backbuffer = VIDEO::vga.frameBuffer[line];
-        f_read(&f, backbuffer + x, w, &br);
-    }
-    f_close(&f);
     if (offsets.empty()) {
         offsets.push_back(0);
     }

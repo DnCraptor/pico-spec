@@ -73,6 +73,17 @@ public:
         this->_int->vram_off = page * 0x4000;
         this->_int->in_vram = true;
     }
+    static inline uint8_t* revoke_1_ram_page() {
+        auto it = pages.begin();
+        if (it == pages.end()) return 0;
+        it->sync(); // TODO: optimize it
+        uint8_t* p = it->_int->p;
+        if (!it->_int->in_vram) {
+            it->to_vram();
+        }
+        pages.erase(it);
+        return p;
+    }
     inline void assign_ram(uint8_t* p, uint32_t page, bool locked) {
         this->_int->p = p;
         this->_int->vram_off = page * 0x4000;
@@ -96,7 +107,7 @@ public:
 class MemESP
 {
 public:
-    static mem_desc_t rom[5];
+    static mem_desc_t rom[64];
     static mem_desc_t ram[64];
 
     static mem_desc_t ramCurrent[4];    
@@ -104,7 +115,6 @@ public:
 
     static uint8_t notMore128;
     static uint8_t page0ram;
-    static uint8_t page128;
     static uint8_t bankLatch;
     static uint8_t videoLatch;
     static uint8_t romLatch;

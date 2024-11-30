@@ -47,6 +47,8 @@ using namespace std;
 #define TAPE_FTYPE_EMPTY 0
 #define TAPE_FTYPE_TAP 1
 #define TAPE_FTYPE_TZX 2
+#define TAPE_FTYPE_WAV 3
+#define TAPE_FTYPE_MP3 4
 
 // Tape status definitions
 #define TAPE_STOPPED 0
@@ -140,10 +142,46 @@ public:
     uint32_t StartPosition; // Start point of this block?
 };
 
+/*
+from https://eax.me/scala-wav/
+Смещение   Байт  Описание
+------------------------------------------------------------------
+0x00 (00)  4     "RIFF", сигнатура
+0x04 (04)  4     размер фала в байтах минус 8
+0x08 (08)  8     "WAVEfmt "
+0x10 (16)  4     16 для PCM, оставшийся размер заголовка
+0x14 (20)  2     1 для PCM, иначе есть какое-то сжатие
+0x16 (22)  2     число каналов - 1, 2, 3...
+0x18 (24)  4     частота дискретизации
+0x1c (28)  4     байт на одну секунду воспроизведения
+0x20 (32)  2     байт для одного сэпла включая все каналы
+0x22 (34)  2     бит в сэмпле на один канал
+0x24 (36)  4     "data" (id сабчанка)
+0x28 (40)  4     сколько байт данных идет далее (размер сабчанка)
+0x2c (44)  -     данные
+*/
+typedef struct wav {
+    char RIFF[4];
+    uint32_t f_szie; // -8
+    char WAVEfmt[8];
+    uint32_t h_size; // 16
+    uint16_t pcm; // 1
+    uint16_t ch; // 1 or 2
+    uint32_t freq;
+    uint32_t byte_per_second;
+    uint16_t byte_per_sample;
+    uint16_t bit_per_sample; // for 1 channel
+    char data[4]; // id for subchunk
+    uint32_t subchunk_size;
+} wav_t;
+
 class Tape {
 public:
 
     // Tape
+    static wav_t wav;
+    static uint32_t wav_offset;
+    static uint32_t mp3_read;
     static FIL tape;
     static FIL cswBlock;    
     static string tapeFileName;
@@ -180,10 +218,14 @@ private:
 
     static void (*GetBlock)();
 
+    static void MP3_Open(string name);
+    static void MP3_GetBlock();
+    static void WAV_Open(string name);
+    static void WAV_GetBlock();
     static void TAP_Open(string name);
-    static void TAP_GetBlock();    
+    static void TAP_GetBlock();
     static void TZX_Open(string name);
-    static void TZX_GetBlock();    
+    static void TZX_GetBlock();
     static void TZX_BlockLen(TZXBlock &blockdata);
 
     static int inflateCSW(int blocknumber, long startPos, long data_length);

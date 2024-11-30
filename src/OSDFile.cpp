@@ -73,75 +73,53 @@ class sorted_files {
     std::string folder;
     std::string idx_file;
     size_t sz = 0;
-    FIL storage_file = { 0 };
+    FIL* storage_file = 0;
     bool open = false;
     inline void calc_sz() {
         sz = 0;
-        if ( f_open(&storage_file, idx_file.c_str(), FA_READ) == FR_OK ) {
+        storage_file = fopen2(idx_file.c_str(), FA_READ);
+        if (storage_file) {
             UINT br;
             char buf[rec_size];
-            while ( f_read(&storage_file, buf, rec_size, &br) == FR_OK && br == rec_size ) {
+            while ( f_read(storage_file, buf, rec_size, &br) == FR_OK && br == rec_size ) {
                 ++sz;
             }
-            f_close(&storage_file);
+            fclose2(storage_file);
         }
-        f_open(&storage_file, idx_file.c_str(), FA_READ | FA_WRITE | FA_CREATE_ALWAYS);
-        open = true;
+        storage_file = fopen2(idx_file.c_str(), FA_READ | FA_WRITE);
+        if (storage_file) open = true;
     }
 public:
     inline sorted_files() { }
-    inline void close(void) { if (open) f_close(&storage_file); open = false; }
+    inline void close(void) { if (open && storage_file) fclose2(storage_file); open = false; }
     inline ~sorted_files() { close(); }
     inline size_t size(void) { return sz; }
     inline void unlink(void) {
         close();
         f_unlink(idx_file.c_str());
-        f_open(&storage_file, idx_file.c_str(), FA_READ | FA_WRITE | FA_CREATE_NEW | FA_CREATE_ALWAYS);
-        open = true;
+        storage_file = fopen2(idx_file.c_str(), FA_READ | FA_WRITE | FA_CREATE_ALWAYS);
+        if (storage_file) open = true;
         sz = 0;
     }
-    inline void init(const std::string& folder, uint8_t ftype) {
+    inline void init(const std::string& folder) {
         close();
         this->folder = folder;
-        idx_file = folder + to_string(ftype) + ".idx";
+        const char* prefix;
+        std::string s = folder;
+        std::replace( s.begin(), s.end(), '/', '_');
+        idx_file = "/tmp/." + s + ".idx";
         calc_sz();
     }
     inline void put(size_t i, const std::string& s) {
-        f_lseek(&storage_file, rec_size * i);
+        f_lseek(storage_file, rec_size * i);
         UINT bw;
         char buf[rec_size] = { 0 };
         strncpy(buf, s.c_str(), rec_size - 1);
-        f_write(&storage_file, buf, rec_size, &bw);
+        f_write(storage_file, buf, rec_size, &bw);
     }
     inline void push(const std::string& s) {
         put(sz++, s);
     }
-    /**
-    inline void push(const std::string& s) {
-        size_t i;
-        for (i = 0; i < sz; ++i) {
-            int rc = s.compare(get(i));
-            if (!rc) { // already there
-                return;
-            }
-            if (rc < 0) { // save before this record
-                break;
-            }
-        }
-        if (i < sz) { // shift down from sz - 1 to i
-            UINT br;
-            for (int j = sz - 1; j >= i; --j) {
-                char buf[rec_size];
-                f_lseek(&storage_file, rec_size * j);
-                f_read(&storage_file, buf, rec_size, &br);
-                f_lseek(&storage_file, rec_size * (j + 1));
-                f_write(&storage_file, buf, rec_size, &br);
-            }
-        }
-        put(i, s); // replace i by s
-        ++sz;
-    }
-    */
     inline size_t crc(void) {
         size_t res = 0;
         for (size_t i = 0; i < sz; ++i) {
@@ -150,10 +128,10 @@ public:
         return res;
     }
     inline std::string get(size_t i) {
-        f_lseek(&storage_file, rec_size * i);
+        f_lseek(storage_file, rec_size * i);
         UINT br;
         char buf[rec_size];
-        f_read(&storage_file, buf, rec_size, &br);
+        f_read(storage_file, buf, rec_size, &br);
         return (buf);
     }
     inline std::string operator[](size_t i) {
@@ -279,7 +257,7 @@ uint8_t OSD::fdCursorFlash;
 bool OSD::fdSearchRefresh;    
 
 size_t fread(uint8_t* v, size_t sz1, size_t sz2, FIL& f);
-int fseek (FIL& stream, long offset, int origin);
+int fseek (FIL* stream, long offset, int origin);
 inline void fclose(FIL& f) {
     f_close(&f);
 }
@@ -318,6 +296,15 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
         FileUtils::fileTypes[ftype].focus = mf_rows - 1;
     }
 
+    size_t pos = 0;
+    std::vector<std::string> filexts;
+    string ss = FileUtils::fileTypes[ftype].fileExts;
+    while ((pos = ss.find(",")) != std::string::npos) {
+        filexts.push_back(ss.substr(0, pos));
+        ss.erase(0, pos + 1);
+    }
+    filexts.push_back(ss.substr(0));
+
     // Size
     w = (cols * OSD_FONT_W) + 2;
     h = ((mf_rows + 1) * OSD_FONT_H) + 2;
@@ -332,7 +319,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
 
     menu = title + "\n" + fdir + "\n";
     WindowDraw(); // Draw menu outline
-    fd_PrintRow(1, IS_INFO);    // Path
+    fd_PrintRow(1, IS_INFO, filexts);    // Path
 
     // Draw blank rows
     uint8_t row = 2;
@@ -348,17 +335,9 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
     VIDEO::vga.print(std::string(cols, ' ').c_str());    
 
     while(1) {
-        filenames.init(fdir, ftype);
+        filenames.init(fdir);
         fdCursorFlash = 0;
         // Count dir items and calc hash
-        std::vector<std::string> filexts;
-        size_t pos = 0;
-        string ss = FileUtils::fileTypes[ftype].fileExts;
-        while ((pos = ss.find(",")) != std::string::npos) {
-            filexts.push_back(ss.substr(0, pos));
-            ss.erase(0, pos + 1);
-        }
-        filexts.push_back(ss.substr(0));
         elements = 0;
         ndirs = 0;
         OSD::progressDialog(OSD_FILE_INDEXING[Config::lang], OSD_FILE_INDEXING_1[Config::lang], 0, 0);
@@ -375,11 +354,11 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                 if (lkp == fabgl::VirtualKey::VK_ESCAPE || lkp == fabgl::VirtualKey::VK_F1) break;
                 string fname = fileInfo.fname;
                 if (fname.compare(0,1,".") != 0) {
-                    size_t fpos = fname.find_last_of(".");
-                    if (
-                        (fileInfo.fattrib & AM_DIR) ||
-                        ((fpos != string::npos) && (std::find(filexts.begin(), filexts.end(), fname.substr(fpos)) != filexts.end()))
-                    ) {
+                    ///size_t fpos = fname.find_last_of(".");
+                    ///if (
+                    ///    (fileInfo.fattrib & AM_DIR) ||
+                    ///    ((fpos != string::npos) && (std::find(filexts.begin(), filexts.end(), fname.substr(fpos)) != filexts.end()))
+                    ///) {
                         if (fileInfo.fattrib & AM_DIR) {
                             ++ndirs;
                             crc += ::crc(char(32) + fname);
@@ -388,11 +367,13 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             ++elements; // Count elements in dir
                             crc += ::crc(fname);
                         }
-                    }
+                    ///}
                 }
             }
             f_closedir(&f_dir);
-            if (filenames.crc() != crc) { // reindex
+            uint32_t rcrc = filenames.crc();
+            //OSD::osdCenteredMsg(to_string(rcrc) + " / " + to_string(crc), LEVEL_INFO, 5000);
+            if (rcrc != crc) { // reindex
                 filenames.unlink();
                 if (fdir.size() > 1) {
                     filenames.push("  ..");
@@ -405,11 +386,11 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                     if (lkp == fabgl::VirtualKey::VK_ESCAPE || lkp == fabgl::VirtualKey::VK_F1) break;
                     string fname = fileInfo.fname;
                     if (fname.compare(0,1,".") != 0) {
-                        size_t fpos = fname.find_last_of(".");
-                        if (
-                            (fileInfo.fattrib & AM_DIR) ||
-                            ((fpos != string::npos) && (std::find(filexts.begin(), filexts.end(), fname.substr(fpos)) != filexts.end()))
-                        ) {
+                        ///size_t fpos = fname.find_last_of(".");
+                        ///if (
+                        ///    (fileInfo.fattrib & AM_DIR) ||
+                        ///    ((fpos != string::npos) && (std::find(filexts.begin(), filexts.end(), fname.substr(fpos)) != filexts.end()))
+                        ///) {
                             if (fileInfo.fattrib & AM_DIR) {
                                 filenames.push(char(32) + fname);
                             }
@@ -423,15 +404,13 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                                 f_idx * 95 / (ndirs + elements) + 5,
                                 1
                             );
-                        }
+                        ///}
                     }
                 }
                 f_closedir(&f_dir);
                 filenames.sort();
             }
         }
-        filexts.clear(); // Clear vector
-        std::vector<std::string>().swap(filexts); // free memory
         OSD::progressDialog(OSD_FILE_INDEXING[Config::lang], OSD_FILE_INDEXING_1[Config::lang], 100, 2);
         real_rows = ndirs + elements + 2; // Add 2 for title and status bar        
         virtual_rows = (real_rows > mf_rows ? mf_rows : real_rows);
@@ -444,7 +423,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
             FileUtils::fileTypes[ftype].begin_row = real_rows - (mf_rows - 2);
         }
 
-        fd_Redraw(title, fdir, ftype); // Draw content
+        fd_Redraw(title, fdir, ftype, filexts); // Draw content
 
         // Focus line scroll position
         fdScrollPos = 0;
@@ -519,7 +498,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                                         FileUtils::fileTypes[ftype].focus = cnt + 2;
                                         FileUtils::fileTypes[ftype].begin_row = 2;
                                     }
-                                    fd_Redraw(title,fdir,ftype);
+                                    fd_Redraw(title,fdir,ftype, filexts);
                                     click();
                                 }
                             }
@@ -539,7 +518,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                                 last_begin_row = last_focus = 0;
                                 FileUtils::fileTypes[ftype].focus = 2;
                                 FileUtils::fileTypes[ftype].begin_row = 2;
-                                fd_Redraw(title, fdir, ftype);
+                                fd_Redraw(title, fdir, ftype, filexts);
                             }
                         }
                         click();
@@ -547,22 +526,22 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         if (FileUtils::fileTypes[ftype].focus == 2 && FileUtils::fileTypes[ftype].begin_row > 2) {
                             last_begin_row = FileUtils::fileTypes[ftype].begin_row;
                             FileUtils::fileTypes[ftype].begin_row--;
-                            fd_Redraw(title, fdir, ftype);
+                            fd_Redraw(title, fdir, ftype, filexts);
                         } else if (FileUtils::fileTypes[ftype].focus > 2) {
                             last_focus = FileUtils::fileTypes[ftype].focus;
-                            fd_PrintRow(FileUtils::fileTypes[ftype].focus--, IS_NORMAL);
-                            fd_PrintRow(FileUtils::fileTypes[ftype].focus, IS_FOCUSED);
+                            fd_PrintRow(FileUtils::fileTypes[ftype].focus--, IS_NORMAL, filexts);
+                            fd_PrintRow(FileUtils::fileTypes[ftype].focus, IS_FOCUSED, filexts);
                         }
                         click();
                     } else if (Menukey.vk == fabgl::VK_DOWN || Menukey.vk == fabgl::VK_JOY1DOWN || Menukey.vk == fabgl::VK_JOY2DOWN) {
                         if (FileUtils::fileTypes[ftype].focus == virtual_rows - 1 && FileUtils::fileTypes[ftype].begin_row + virtual_rows - 2 < real_rows) {
                             last_begin_row = FileUtils::fileTypes[ftype].begin_row;
                             FileUtils::fileTypes[ftype].begin_row++;
-                            fd_Redraw(title, fdir, ftype);
+                            fd_Redraw(title, fdir, ftype, filexts);
                         } else if (FileUtils::fileTypes[ftype].focus < virtual_rows - 1) {
                             last_focus = FileUtils::fileTypes[ftype].focus;
-                            fd_PrintRow(FileUtils::fileTypes[ftype].focus++, IS_NORMAL);
-                            fd_PrintRow(FileUtils::fileTypes[ftype].focus, IS_FOCUSED);
+                            fd_PrintRow(FileUtils::fileTypes[ftype].focus++, IS_NORMAL, filexts);
+                            fd_PrintRow(FileUtils::fileTypes[ftype].focus, IS_FOCUSED, filexts);
                         }
                         click();
                     } else if (Menukey.vk == fabgl::VK_PAGEUP || Menukey.vk == fabgl::VK_LEFT || Menukey.vk == fabgl::VK_JOY1LEFT ||
@@ -574,7 +553,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             FileUtils::fileTypes[ftype].focus = 2;
                             FileUtils::fileTypes[ftype].begin_row = 2;
                         }
-                        fd_Redraw(title, fdir, ftype);
+                        fd_Redraw(title, fdir, ftype, filexts);
                         click();
                     } else if (Menukey.vk == fabgl::VK_PAGEDOWN || Menukey.vk == fabgl::VK_RIGHT || Menukey.vk == fabgl::VK_JOY1RIGHT
                             || Menukey.vk == fabgl::VK_JOY2RIGHT) {
@@ -585,21 +564,21 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             FileUtils::fileTypes[ftype].focus = virtual_rows - 1;
                             FileUtils::fileTypes[ftype].begin_row = real_rows - virtual_rows + 2;
                         }
-                        fd_Redraw(title, fdir, ftype);
+                        fd_Redraw(title, fdir, ftype, filexts);
                         click();
                     } else if (Menukey.vk == fabgl::VK_HOME) {
                         last_focus = FileUtils::fileTypes[ftype].focus;
                         last_begin_row = FileUtils::fileTypes[ftype].begin_row;
                         FileUtils::fileTypes[ftype].focus = 2;
                         FileUtils::fileTypes[ftype].begin_row = 2;
-                        fd_Redraw(title, fdir, ftype);
+                        fd_Redraw(title, fdir, ftype, filexts);
                         click();
                     } else if (Menukey.vk == fabgl::VK_END) {
                         last_focus = FileUtils::fileTypes[ftype].focus;
                         last_begin_row = FileUtils::fileTypes[ftype].begin_row;                        
                         FileUtils::fileTypes[ftype].focus = virtual_rows - 1;
                         FileUtils::fileTypes[ftype].begin_row = real_rows - virtual_rows + 2;
-                        fd_Redraw(title, fdir, ftype);
+                        fd_Redraw(title, fdir, ftype, filexts);
                         click();
                     } else if (Menukey.vk == fabgl::VK_BACKSPACE) {
                         if (FileUtils::fileTypes[ftype].fdMode) {
@@ -675,7 +654,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                 timeScroll++;
                 if (timeScroll == 50) {  
                     fdScrollPos++;
-                    fd_PrintRow(FileUtils::fileTypes[ftype].focus, IS_FOCUSED);
+                    fd_PrintRow(FileUtils::fileTypes[ftype].focus, IS_FOCUSED, filexts);
                     timeScroll = 0;
                 }
             }
@@ -726,19 +705,20 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         last_begin_row = last_focus = 0;
                         FileUtils::fileTypes[ftype].focus = 2;
                         FileUtils::fileTypes[ftype].begin_row = 2;
-                        fd_Redraw(title, fdir, ftype);
+                        fd_Redraw(title, fdir, ftype, filexts);
                     }
                     fdSearchRefresh = false;
                 }
             }
             sleep_ms(5);
         }
+        filenames.close();
     }
     filenames.close();
 }
 
 // Redraw inside rows
-void OSD::fd_Redraw(string title, string fdir, uint8_t ftype) {
+void OSD::fd_Redraw(string title, string fdir, uint8_t ftype, const vector<string>& filexts) {
     if ((FileUtils::fileTypes[ftype].focus != last_focus) || (FileUtils::fileTypes[ftype].begin_row != last_begin_row)) {
         // printf("fd_Redraw\n");
         // Read bunch of rows
@@ -783,13 +763,13 @@ void OSD::fd_Redraw(string title, string fdir, uint8_t ftype) {
                 }
             }
         }
-        fd_PrintRow(1, IS_INFO); // Print status bar
+        fd_PrintRow(1, IS_INFO, filexts); // Print status bar
         uint8_t row = 2;
         for (; row < virtual_rows; row++) {
             if (row == FileUtils::fileTypes[ftype].focus) {
-                fd_PrintRow(row, IS_FOCUSED);
+                fd_PrintRow(row, IS_FOCUSED, filexts);
             } else {
-                fd_PrintRow(row, IS_NORMAL);
+                fd_PrintRow(row, IS_NORMAL, filexts);
             }
         }
         if (real_rows > virtual_rows) {        
@@ -808,13 +788,26 @@ void OSD::fd_Redraw(string title, string fdir, uint8_t ftype) {
 }
 
 // Print a virtual row
-void OSD::fd_PrintRow(uint8_t virtual_row_num, uint8_t line_type) {
+void OSD::fd_PrintRow(uint8_t virtual_row_num, uint8_t line_type, const vector<string>& filexts) {
     
     uint8_t margin;
 
     string line = rowGet(menu, virtual_row_num);
     
     bool isDir = (line[0] == ASCII_SPC);
+    bool isExc = false;
+    if (!isDir) {
+        size_t fpos = line.find_last_of(".");
+        if (fpos != string::npos) {
+            string sbstr = line.substr(fpos);
+            for (auto it = filexts.begin(); it != filexts.end(); ++it) {
+                if (sbstr == *it) {
+                    isExc = true;
+                    break;
+                }
+            }
+        }
+    }
 
     trim(line);
 
@@ -840,7 +833,7 @@ void OSD::fd_PrintRow(uint8_t virtual_row_num, uint8_t line_type) {
 
     VIDEO::vga.print(" ");
 
-    if (isDir) {
+    if (isDir || isExc) {
 
         // Directory
         if (line.length() <= cols - margin - 6)
@@ -854,7 +847,7 @@ void OSD::fd_PrintRow(uint8_t virtual_row_num, uint8_t line_type) {
                 }
             }
 
-        line = line.substr(0,cols - margin - 6) + " <DIR>";
+        line = line.substr(0, cols - margin - 6) + (isExc ? "   * " : " <DIR>");
 
     } else {
 
@@ -883,5 +876,4 @@ void OSD::fd_PrintRow(uint8_t virtual_row_num, uint8_t line_type) {
     VIDEO::vga.print(line.c_str());
 
     VIDEO::vga.print(" ");
-
 }

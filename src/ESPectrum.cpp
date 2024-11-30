@@ -82,6 +82,8 @@ fabgl::VirtualKey get_last_key_pressed(void) {
     return last_key_pressed;
 }
 
+void close_all(void);
+
 void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
     static bool ctrlPressed = false;
     static bool altPressed = false;
@@ -91,6 +93,7 @@ void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
     else if (virtualKey == fabgl::VirtualKey::VK_DELETE || virtualKey == fabgl::VirtualKey::VK_KP_PERIOD) delPressed = down;
     if (ctrlPressed && altPressed && delPressed) {
         f_unlink(MOS_FILE);
+        close_all();
         watchdog_enable(1, true);
         while (true);
     }
@@ -119,7 +122,7 @@ void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
             case fabgl::VirtualKey::VK_KP_2: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_DOWN; break;
             case fabgl::VirtualKey::VK_KP_3: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE; break;
             case fabgl::VirtualKey::VK_KP_4: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_LEFT; break;
-            case fabgl::VirtualKey::VK_KP_5: virtualKey = fabgl::VirtualKey::VK_SPACE; break;
+            case fabgl::VirtualKey::VK_KP_5: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_DOWN; break;
             case fabgl::VirtualKey::VK_KP_6: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_RIGHT; break;
             case fabgl::VirtualKey::VK_KP_7: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_FIRE; break;
             case fabgl::VirtualKey::VK_KP_8: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_UP; break;
@@ -173,8 +176,8 @@ int ESPectrum::lastaudioBit = 0;
 int ESPectrum::faudioBit = 0;
 int ESPectrum::samplesPerFrame;
 bool ESPectrum::AY_emu = false;
-int ESPectrum::Audio_freq = 44100;
-static int prevAudio_freq = 44100;
+int ESPectrum::Audio_freq = 44000;
+static int prevAudio_freq = 44000;
 unsigned char ESPectrum::audioSampleDivider;
 static int audioBitBuf = 0;
 static unsigned char audioBitbufCount = 0;
@@ -363,7 +366,7 @@ printf("========================================================================
 // BOOT KEYBOARD
 //=======================================================================================
 void ESPectrum::bootKeyboard() {
-
+/***
     auto Kbd = PS2Controller.keyboard();
     fabgl::VirtualKeyItem NextKey;
     int i = 0;
@@ -444,47 +447,12 @@ void ESPectrum::bootKeyboard() {
         Config::save();
         // printf("%s\n", s.c_str());
     }
-
+*/
 }
 
 //=======================================================================================
 // SETUP
 //=======================================================================================
-// TaskHandle_t ESPectrum::loopTaskHandle;
-
-// uint32_t ESPectrum::sessid;
-
-#if !PICO_RP2040
-    #ifdef HDMI
-    static unsigned char MemESP_ram[(112ul + 256ul) << 10];
-    #else
-    static unsigned char MemESP_ram[(128ul + 256ul) << 10];
-    #endif
-#else
-    #ifdef HDMI
-    static unsigned char MemESP_ram[112ul << 10];
-    #else
-    static unsigned char MemESP_ram[128ul << 10];
-    #endif
-#endif
-
-static unsigned char *MemESP_ram0 = MemESP_ram;
-static unsigned char *MemESP_ram1 = MemESP_ram + 0x4000;
-static unsigned char *MemESP_ram2 = MemESP_ram + 0x4000 + 0x8000;
-
-static unsigned char *MemESP_ram4 = MemESP_ram + 4 * 0x4000;
-static unsigned char *MemESP_ram5 = MemESP_ram + 5 * 0x4000;
-#if PICO_RP2040
-    #ifdef HDMI
-    static unsigned char *MemESP_ram7 = MemESP_ram + 6 * 0x4000;
-    #else
-    static unsigned char *MemESP_ram6 = MemESP_ram + 6 * 0x4000;
-    static unsigned char *MemESP_ram7 = MemESP_ram + 7 * 0x4000;
-    #endif
-#else
-    static unsigned char *MemESP_ram6 = MemESP_ram + 6 * 0x4000;
-    static unsigned char *MemESP_ram7 = MemESP_ram + 7 * 0x4000;
-#endif
 
 void ESPectrum::setup() 
 {
@@ -503,7 +471,8 @@ void ESPectrum::setup()
     //=======================================================================================
     // LOAD CONFIG
     //=======================================================================================
-    Config::load();
+    if (FileUtils::fsMount) Config::load();
+    bool ext_ram_exist = psram_size() >= (16 << 10) || FileUtils::fsMount;
     
     // Set arch if there's no snapshot to load
     if (Config::ram_file == NO_RAM_FILE) {
@@ -518,6 +487,8 @@ void ESPectrum::setup()
                     Config::romSet = Config::pref_romSet_48;
                 else
                     Config::romSet = Config::romSet48;            
+            } else if (Config::arch == "ALF") {
+                Config::romSet = "ALF";
             } else if (Config::arch == "128K") {
                 if (Config::pref_romSet_128 != "Last")
                     Config::romSet = Config::pref_romSet_128;
@@ -585,43 +556,49 @@ void ESPectrum::setup()
     //=======================================================================================
     // MEMORY SETUP
     //=======================================================================================
-    MemESP::ram[5].assign_ram(MemESP_ram5, 5, true);
-    MemESP::ram[0].assign_ram(MemESP_ram0, 0, false);
-
-    MemESP::ram[2].assign_ram(MemESP_ram2, 2, false);
-    MemESP::ram[7].assign_ram(MemESP_ram7, 7, true);
-
+    MemESP::ram[0].assign_ram(new unsigned char[0x4000], 0, false);
+    MemESP::ram[2].assign_ram(new unsigned char[0x4000], 2, false);
+    unsigned char *MemESP_ram1 = new unsigned char[0x8000];
     MemESP::ram[1].assign_ram(MemESP_ram1, 1, true);
     MemESP::ram[3].assign_ram(MemESP_ram1 + 0x4000, 3, true); /// why?
 
-    MemESP::ram[4].assign_ram(MemESP_ram4, 4, false);
 #if PICO_RP2040
-    #ifdef HDMI
-    MemESP::ram[6].assign_vram(6);
-    #else
-    MemESP::ram[6].assign_ram(MemESP_ram6, 6, false);
-    #endif
+    if (ext_ram_exist) {
+        MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
+        MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);
+        MemESP::ram[6].assign_vram(6);
+        MemESP::ram[7].assign_ram(new unsigned char[0x4000], 7, true);
+    } else {
+        MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
+        MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);
+        MemESP::ram[6].assign_ram(new unsigned char[0x4000], 6, false);
+        MemESP::ram[7].assign_ram(new unsigned char[0x4000], 7, true);
+    }
 #else
-    MemESP::ram[6].assign_ram(MemESP_ram6, 6, false);
+    MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
+    MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);
+    MemESP::ram[6].assign_ram(new unsigned char[0x4000], 6, false);
+    MemESP::ram[7].assign_ram(new unsigned char[0x4000], 7, true);
 #endif
 
+    if (ext_ram_exist) {
 #if !PICO_RP2040
     #ifdef HDMI
-    for (size_t i = 8; i < 23; ++i) MemESP::ram[i].assign_ram(MemESP_ram + 0x4000 * i, i, false);
-    for (size_t i = 23; i < 64; ++i) MemESP::ram[i].assign_vram(i);
+        for (size_t i = 8; i < 23; ++i) MemESP::ram[i].assign_ram(new unsigned char[0x4000], i, false);
+        for (size_t i = 23; i < 64; ++i) MemESP::ram[i].assign_vram(i);
     #else
-    for (size_t i = 8; i < 24; ++i) MemESP::ram[i].assign_ram(MemESP_ram + 0x4000 * i, i, false);
-    for (size_t i = 24; i < 64; ++i) MemESP::ram[i].assign_vram(i);
+        for (size_t i = 8; i < 24; ++i) MemESP::ram[i].assign_ram(new unsigned char[0x4000], i, false);
+        for (size_t i = 24; i < 64; ++i) MemESP::ram[i].assign_vram(i);
     #endif
 #else
-    for (size_t i = 8; i < 64; ++i) MemESP::ram[i].assign_vram(i);
+        for (size_t i = 8; i < 64; ++i) MemESP::ram[i].assign_vram(i);
 #endif
+    }
 
     // Load romset
     Config::requestMachine(Config::arch, Config::romSet);
 
     MemESP::page0ram = 0;
-    MemESP::page128 = 0;
     MemESP::romInUse = 0;
     MemESP::bankLatch = 0;
     MemESP::videoLatch = 0;
@@ -638,7 +615,7 @@ void ESPectrum::setup()
     MemESP::ramContended[3] = false;
 
     // if (Config::arch == "48K") MemESP::pagingLock = 1; else MemESP::pagingLock = 0;
-    MemESP::pagingLock = Config::arch == "48K" ? 1 : 0;
+    MemESP::pagingLock = Config::arch == "48K" || Config::arch == "ALF" ? 1 : 0;
 
 ///    if (Config::slog_on) showMemInfo("RAM Initialized");
 
@@ -657,7 +634,7 @@ void ESPectrum::setup()
     // AUDIO
     //=======================================================================================
     // Set samples per frame and AY_emu flag depending on arch
-    if (Config::arch == "48K") {
+    if (Config::arch == "48K" || Config::arch == "ALF") {
         samplesPerFrame=ESP_AUDIO_SAMPLES_48; 
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;
         AY_emu = Config::AY48;
@@ -687,7 +664,6 @@ void ESPectrum::setup()
     // Latest parameter = Core. In ESPIF, main task runs on core 0 by default. In Arduino, loop() runs on core 1.
 ///    xTaskCreatePinnedToCore(&ESPectrum::audioTask, "audioTask", 1024 /*1536*/, NULL, configMAX_PRIORITIES - 1, &audioTaskHandle, 1);
     pwm_audio_set_volume(aud_volume);
-    pcm_setup(Audio_freq, samplesPerFrame << 1);
     prevAudio_freq = Audio_freq;
 
     // AY Sound
@@ -716,7 +692,7 @@ void ESPectrum::setup()
     if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER || Config::joyPS2 == JOYPS2_FULLER) Ports::port[0x7f] = 0xff; // Fuller
 
     // Read joystick default definition
-    for (int n = 0; n < 24; n++)
+    for (int n = 0; n < 26; n++)
         ESPectrum::JoyVKTranslation[n] = (fabgl::VirtualKey) Config::joydef[n];
 
     // Init disk controller
@@ -727,30 +703,11 @@ void ESPectrum::setup()
 
     // Load snapshot if present in Config::
     if (Config::ram_file != NO_RAM_FILE) {
-/**
-        FileUtils::SNA_Path = Config::SNA_Path;
-        FileUtils::fileTypes[DISK_SNAFILE].begin_row = Config::SNA_begin_row;
-        FileUtils::fileTypes[DISK_SNAFILE].focus = Config::SNA_focus;
-        FileUtils::fileTypes[DISK_SNAFILE].fdMode = Config::SNA_fdMode;
-        FileUtils::fileTypes[DISK_SNAFILE].fileSearch = Config::SNA_fileSearch;
-
-        FileUtils::TAP_Path = Config::TAP_Path;
-        FileUtils::fileTypes[DISK_TAPFILE].begin_row = Config::TAP_begin_row;
-        FileUtils::fileTypes[DISK_TAPFILE].focus = Config::TAP_focus;
-        FileUtils::fileTypes[DISK_TAPFILE].fdMode = Config::TAP_fdMode;
-        FileUtils::fileTypes[DISK_TAPFILE].fileSearch = Config::TAP_fileSearch;
-
-        FileUtils::DSK_Path = Config::DSK_Path;
-        FileUtils::fileTypes[DISK_DSKFILE].begin_row = Config::DSK_begin_row;
-        FileUtils::fileTypes[DISK_DSKFILE].focus = Config::DSK_focus;
-        FileUtils::fileTypes[DISK_DSKFILE].fdMode = Config::DSK_fdMode;
-        FileUtils::fileTypes[DISK_DSKFILE].fileSearch = Config::DSK_fileSearch;
-*/
-        LoadSnapshot(Config::ram_file, "", "");
+        if (FileUtils::fsMount) LoadSnapshot(Config::ram_file, "", "");
 
         Config::last_ram_file = Config::ram_file;
         Config::ram_file = NO_RAM_FILE;
-        Config::save("ram");
+        if (FileUtils::fsMount) Config::save();
     }
 ///    if (Config::slog_on) showMemInfo("ZX-ESPectrum-IDF setup finished.");
 
@@ -769,12 +726,11 @@ void ESPectrum::reset()
     if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER || Config::joyPS2 == JOYPS2_FULLER) Ports::port[0x7f] = 0xff; // Fuller
 
     // Read joystick default definition
-    for (int n = 0; n < 24; n++)
+    for (int n = 0; n < 26; n++)
         ESPectrum::JoyVKTranslation[n] = (fabgl::VirtualKey) Config::joydef[n];
 
     // Memory
     MemESP::page0ram = 0;
-    MemESP::page128 = 0;
     MemESP::romInUse = 0;
     MemESP::bankLatch = 0;
     MemESP::videoLatch = 0;
@@ -790,7 +746,7 @@ void ESPectrum::reset()
     MemESP::ramContended[2] = false;
     MemESP::ramContended[3] = false;
 
-    MemESP::pagingLock = Config::arch == "48K" ? 1 : 0;
+    MemESP::pagingLock = Config::arch == "48K" || Config::arch == "ALF" ? 1 : 0;
 
     VIDEO::Reset();
 
@@ -820,7 +776,7 @@ void ESPectrum::reset()
 
     // Set samples per frame and AY_emu flag depending on arch
     prevAudio_freq = Audio_freq;
-    if (Config::arch == "48K") {
+    if (Config::arch == "48K" || Config::arch == "ALF") {
         samplesPerFrame=ESP_AUDIO_SAMPLES_48; 
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;
         AY_emu = Config::AY48;
@@ -840,20 +796,6 @@ void ESPectrum::reset()
     if (Config::tape_player) AY_emu = false; // Disable AY emulation if tape player mode is set
 
     ESPoffset = 0;
-
-    // Readjust output pwmaudio frequency if needed
-    if (prevAudio_freq != Audio_freq) {
-        
-        // printf("Resetting pwmaudio to freq: %d\n",Audio_freq);
-        pcm_setup(Audio_freq, samplesPerFrame << 1);
-/***
-        esp_err_t res;
-        res = pwm_audio_set_sample_rate(Audio_freq);
-        if (res != ESP_OK) {
-            printf("Can't set sample rate\n");
-        }
-*/
-    }
     
     // Reset AY emulation
     chip0.init();
@@ -907,7 +849,7 @@ IRAM_ATTR void ESPectrum::readKbdJoy() {
     }
 }
 
-fabgl::VirtualKey ESPectrum::JoyVKTranslation[24];
+fabgl::VirtualKey ESPectrum::JoyVKTranslation[26];
 //     fabgl::VK_FULLER_LEFT, // Left
 //     fabgl::VK_FULLER_RIGHT, // Right
 //     fabgl::VK_FULLER_UP, // Up
@@ -936,16 +878,6 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
     bool Kdown;
     bool r = false;
     bool j[10] = { true, true, true, true, true, true, true, true, true, true };
-    // bool j1 =  true;
-    // bool j2 = true;
-    // bool j3 = true;
-    // bool j4 = true;
-    // bool j5 = true;
-    // bool j6 = true;
-    // bool j7 = true;
-    // bool j8 = true;
-    // bool j9 = true;
-    // bool j0 = true;
     bool jShift = true;
 
     readKbdJoy();
@@ -1030,11 +962,9 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
             if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER || Config::joyPS2 == JOYPS2_FULLER) Ports::port[0x7f] = 0xff;
 
             if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON) {
-
-                for (int i = fabgl::VK_KEMPSTON_RIGHT; i <= fabgl::VK_KEMPSTON_ALTFIRE; i++)
+                for (int i = fabgl::VK_KEMPSTON_RIGHT; i <= fabgl::VK_KEMPSTON_SELECT; i++)
                     if (Kbd->isVKDown((fabgl::VirtualKey) i))
                         bitWrite(Ports::port[0x1f], i - fabgl::VK_KEMPSTON_RIGHT, 1);
-
             }
 
             if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER) {
@@ -1545,10 +1475,22 @@ void ESPectrum::loop() {
     faudioBit = lastaudioBit;
     faudbufcntAY = audbufcntAY;
     if (ESP_delay) {
-///        if (Config::real_player) {
-///            pwm_audio_in_frame_started();
-///        }
-
+#if LOAD_WAV_PIO
+        if (Config::real_player) {
+            if (Tape::tapeStatus != TAPE_LOADING) {  // W/A
+                Tape::tapeStatus = TAPE_LOADING;
+                Tape::tapeFileType = TAPE_FTYPE_EMPTY;
+                Tape::tapeFileName = "REAL AUDIO";
+                TapeNameScroller = 0;
+                Tape::tapeCurBlock = 0;
+                Tape::tapeNumBlocks = 1;
+                Tape::tapebufByteCount = 0;
+                Tape::tapePlayOffset = 0;
+                Tape::tapeFileSize = 100;
+            }
+            pwm_audio_in_frame_started();
+        }
+#endif
         ///xQueueSend(audioTaskQueue, &param, portMAX_DELAY);
         // Finish fill of beeper oversampled audio buffers
         for (;faudbufcnt < (samplesPerFrame * audioSampleDivider); ++faudbufcnt) {
@@ -1556,18 +1498,18 @@ void ESPectrum::loop() {
             if(++audioBitbufCount == audioSampleDivider) {
                 overSamplebuf[audbufcntover++] = audioBitBuf;
                 audioBitBuf = 0;
-                audioBitbufCount = 0; 
+                audioBitbufCount = 0;
             }
         }
         if (AY_emu) {
             if (faudbufcntAY < samplesPerFrame) {
-                chip0.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
-                chip1.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
+                chip0.gen_sound(samplesPerFrame - faudbufcntAY, faudbufcntAY);
+                chip1.gen_sound(samplesPerFrame - faudbufcntAY, faudbufcntAY);
             }
             for (int i = 0; i < samplesPerFrame; ++i) {
                 auto os = overSamplebuf[i] / audioSampleDivider;
-                int l = os + chip0.SamplebufAY_L[i]+ chip1.SamplebufAY_L[i];
-                int r = os + chip0.SamplebufAY_R[i]+ chip1.SamplebufAY_R[i];
+                int l = os + chip0.SamplebufAY_L[i] + chip1.SamplebufAY_L[i];
+                int r = os + chip0.SamplebufAY_R[i] + chip1.SamplebufAY_R[i];
                 // Clamp
                 audioBuffer_L[i] = l > 255 ? 255 : l;
                 audioBuffer_R[i] = r > 255 ? 255 : r;
@@ -1580,6 +1522,9 @@ void ESPectrum::loop() {
             }
         }
         pwm_audio_write(audioBuffer_L, audioBuffer_R, samplesPerFrame);
+        memset(audioBuffer_L, 0, samplesPerFrame);
+        memset(audioBuffer_R, 0, samplesPerFrame);
+        memset(overSamplebuf, 0, samplesPerFrame);
     }
     processKeyboard();
     // Update stats every 50 frames
@@ -1604,7 +1549,6 @@ void ESPectrum::loop() {
                 snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2), " %05.2f%% %07d%s%07d ", percent, Tape::tapebufByteCount + Tape::tapePlayOffset, "/" , Tape::tapeFileSize);
                 if ((++ESPectrum::TapeNameScroller + 12) > Tape::tapeFileName.length()) ESPectrum::TapeNameScroller = 0;
                 OSD::drawStats();
-
             } else if (VIDEO::OSD == 2) {
                 snprintf(OSD::stats_lin1, sizeof(OSD::stats_lin1), "CPU: %05d / IDL: %05d ", (int)(ESPectrum::elapsed), (int)(ESPectrum::idle));
                 snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2), "FPS:%6.2f / FND:%6.2f ", VIDEO::framecnt / (ESPectrum::totalseconds / 1000000), VIDEO::framecnt / (ESPectrum::totalsecondsnodelay / 1000000));

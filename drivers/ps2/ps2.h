@@ -7,6 +7,7 @@ extern "C" {
 #include "stdio.h"
 
 #include <stdbool.h>
+#include <stdint.h>
 
 #ifndef KBD_CLOCK_PIN
 #define KBD_CLOCK_PIN   (0)

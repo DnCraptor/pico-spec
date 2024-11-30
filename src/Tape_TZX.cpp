@@ -47,7 +47,7 @@ using namespace std;
 #include "messages.h"
 #include "Z80_JLS/z80.h"
 
-int fseek (FIL& stream, long offset, int origin);
+int fseek (FIL* stream, long offset, int origin);
 inline static void fclose(FIL& stream) {
     f_close(&stream);
 }
@@ -61,7 +61,7 @@ size_t fread(uint8_t* v, size_t sz1, size_t sz2, FIL& f);
 void Tape::TZX_BlockLen(TZXBlock &blockdata) {
 
     uint32_t tapeBlkLen;
-
+    FIL* tape = &Tape::tape;
     uint8_t tzx_blk_type = readByteFile(tape);
 
     switch (tzx_blk_type) {
@@ -447,6 +447,7 @@ void Tape::TZX_Open(string name) {
 
     tapeFileName = name;
 
+    FIL* tape = &Tape::tape;
     fseek(tape, 2, SEEK_CUR); // Jump TZX version bytes
     // printf("TZX version: %d.%d\n",(int)readByteFile(tape),(int)readByteFile(tape));
 
@@ -473,7 +474,7 @@ void Tape::TZX_Open(string name) {
             std::vector<TapeBlock>().swap(TapeListing); // free memory
 
             OSD::osdCenteredMsg("Block type not supported.", LEVEL_ERROR);
-            fclose(tape);
+            fclose(Tape::tape);
             tapeFileName="none";
             tapeFileType = TAPE_FTYPE_EMPTY;
             return;
@@ -503,7 +504,7 @@ void Tape::TZX_Open(string name) {
 
     tapeFileType = TAPE_FTYPE_TZX;
 
-    rewind(tape);
+    rewind(Tape::tape);
 
 }
 
@@ -514,7 +515,7 @@ uint32_t Tape::CalcTZXBlockPos(int block) {
     int TapeBlockRest = block & (TAPE_LISTING_DIV -1);
     int CurrentPos = TapeListing[block / TAPE_LISTING_DIV].StartPosition;
 
-    fseek(tape,CurrentPos,SEEK_SET);
+    fseek(&tape, CurrentPos, SEEK_SET);
 
     while (TapeBlockRest-- != 0) {
         TZX_BlockLen(TZXblock);
@@ -528,13 +529,11 @@ uint32_t Tape::CalcTZXBlockPos(int block) {
 }
 
 void Tape::TZX_GetBlock() {
-
     int tapeData;
     short jumpDistance;
     char cswFileName[16]; // Nombre del archivo descomprimido    
-
+    FIL* tape = &Tape::tape;
     for (;;) {
-
         if (tapeCurBlock >= tapeNumBlocks) {
             if (GDBEnd) {
                 tapeEarBit ^= 1;
@@ -543,7 +542,7 @@ void Tape::TZX_GetBlock() {
             } else {
                 tapeCurBlock = 0;
                 Stop();
-                rewind(tape);
+                rewind(Tape::tape);
                 tapeNext = 0xFFFFFFFF;
             }
             return;
@@ -738,14 +737,14 @@ void Tape::TZX_GetBlock() {
                         printf("Failed opening csw block!\n");
                         tapeCurBlock = 0;
                         Stop();
-                        fclose(tape);
+                        fclose(Tape::tape);
                         tapeFileName="none";
                         tapeFileType = TAPE_FTYPE_EMPTY;
                         return;
                     }
-                    CSW_PulseLenght = readByteFile(cswBlock);
+                    CSW_PulseLenght = readByteFile(&cswBlock);
                     if (CSW_PulseLenght == 0) {
-                        CSW_PulseLenght = readByteFile(cswBlock) | (readByteFile(cswBlock) << 8) | (readByteFile(cswBlock) << 16) | (readByteFile(cswBlock) << 24);
+                        CSW_PulseLenght = readByteFile(&cswBlock) | (readByteFile(&cswBlock) << 8) | (readByteFile(&cswBlock) << 16) | (readByteFile(&cswBlock) << 24);
                     }                
                     fseek(tape,tapeData - 0x0a,SEEK_CUR);
                     tapebufByteCount = tapeBlockLen;
@@ -947,7 +946,7 @@ void Tape::TZX_GetBlock() {
                     } else {
                         tapeCurBlock = 0;
                         tapeEarBit = 0;
-                        rewind(tape);
+                        rewind(Tape::tape);
                     }
 
                 } else {
@@ -998,7 +997,7 @@ void Tape::TZX_GetBlock() {
                 if (tapeCurBlock >= (tapeNumBlocks - 1)) {
                     tapeCurBlock = 0;
                     Stop();
-                    rewind(tape);
+                    rewind(Tape::tape);
                     return;
                 }
 
@@ -1073,7 +1072,7 @@ void Tape::TZX_GetBlock() {
                 if (tapeCurBlock >= (tapeNumBlocks - 1)) {
                     tapeCurBlock = 0;
                     Stop();
-                    rewind(tape);
+                    rewind(Tape::tape);
                     return;
                 }
 
@@ -1131,7 +1130,7 @@ void Tape::TZX_GetBlock() {
                         tapeCurBlock++;
                     } else {
                         tapeCurBlock = 0;
-                        rewind(tape);
+                        rewind(Tape::tape);
                     }
 
                     return;

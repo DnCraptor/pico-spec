@@ -42,7 +42,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "OSDMain.h"
 #include "ff.h"
 
-size_t fwrite(const void* v, size_t sz1, size_t sz2, FIL& f);
+size_t fwrite(const void* v, size_t sz1, size_t sz2, FIL* f);
 
 void CaptureToBmp()
 {
@@ -109,8 +109,8 @@ void CaptureToBmp()
     std::string fullfn = (string) MOUNT_POINT_SD + DISK_SCR_DIR + "/" + filename;
 
     // open file for writing
-    FIL pf;
-    if (f_open(&pf, fullfn.c_str(), FA_CREATE_ALWAYS | FA_WRITE) != FR_OK) {
+    FIL* f = fopen2(fullfn.c_str(), FA_CREATE_ALWAYS | FA_WRITE);
+    if (!f) {
         delete[] linebuf;
         printf("Capture BMP: unable to open file %s for writing\n", fullfn.c_str());
         return;
@@ -127,13 +127,13 @@ void CaptureToBmp()
     *biSizeImage = w * h;
 
     // write header 1
-    fwrite(bmp_header1, BMP_HEADER1_SIZE, 1, pf);
+    fwrite(bmp_header1, BMP_HEADER1_SIZE, 1, f);
 
     // write header 2
-    fwrite(bmp_header2, BMP_HEADER2_SIZE, 1, pf);
+    fwrite(bmp_header2, BMP_HEADER2_SIZE, 1, f);
 
     // write header 3
-    fwrite(bmp_header3, BMP_HEADER3_SIZE, 1, pf);
+    fwrite(bmp_header3, BMP_HEADER3_SIZE, 1, f);
 
     // process every scanline in reverse order (BMP is topdown)
     for (int y = h - 1; y >= 0; y--) {
@@ -149,11 +149,11 @@ void CaptureToBmp()
             *dst++ = dstval;
         }
         // write line to file
-        fwrite(linebuf, sizeof(uint32_t), count, pf);
+        fwrite(linebuf, sizeof(uint32_t), count, f);
     }
 
     // cleanup
-    f_close(&pf);
+    fclose2(f);
 
     delete[] linebuf;
 

@@ -2,6 +2,7 @@
  #define ROM_PLUS2_ES_H
 
 //ROM 0,1 PLUS2_ES
+#if !NO_SPAIN_ROM_128k
 
 const unsigned char gb_rom_0_plus2_es[]={
 	0xF3, 0x01, 0x2B, 0x69, 0x0B, 0x78, 0xB1, 0x20, 0xFB, 0xC3, 0xC7, 0x00,
@@ -2741,4 +2742,6 @@ const unsigned char gb_rom_1_plus2_es[]={
 	0xA1, 0x99, 0x42, 0x3C
 };
 
-#endif	
+#endif
+
+#endif

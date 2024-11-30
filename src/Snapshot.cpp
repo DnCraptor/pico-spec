@@ -65,6 +65,7 @@ using namespace std;
 
 // Change running snapshot
 bool LoadSnapshot(string filename, string force_arch, string force_romset) {
+    if (!FileUtils::fsMount) return false;
     bool res = false;
     uint8_t OSDprev = VIDEO::OSD;
     if (FileUtils::hasSNAextension(filename)) {
@@ -85,17 +86,16 @@ bool LoadSnapshot(string filename, string force_arch, string force_romset) {
     return res;
 }
 
-static FIL file; // to do not use huge stack objects
-
 bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
     int sna_size;
     string snapshotArch;
-    if (f_open(&file, sna_fn.c_str(), FA_READ) != FR_OK)
+    FIL* file = fopen2(sna_fn.c_str(), FA_READ);
+    if (!file)
     {
         OSD::osdCenteredMsg("Error opening file:\n" + sna_fn + "\n", LEVEL_INFO, 5000);
         return false;
     }
-    sna_size = f_size(&file);
+    sna_size = f_size(file);
     // Check snapshot arch
     if (sna_size == SNA_48K_SIZE) {
         snapshotArch = "48K";
@@ -139,7 +139,6 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
     // printf("FileSNA::load: Opening %s: size = %d\n", sna_fn.c_str(), sna_size);
 
     MemESP::page0ram = 0;
-    MemESP::page128 = 0;
     MemESP::bankLatch = 0;
     MemESP::pagingLock = 1;
     MemESP::videoLatch = 0;
@@ -229,22 +228,21 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
         if (Z80Ops::isPentagon) CPU::tstates = 22; // Pentagon SNA load fix... still dunno why this works but it works
 
     }
-    f_close(&file);
+    fclose2(file);
     return true;
 
 }
 
 bool FileSNA::isPersistAvailable(string filename) {
-    if (f_open(&file, filename.c_str(), FA_READ) != FR_OK)
-        return false;
-    else
-        f_close(&file);
+    FIL* file = fopen2(filename.c_str(), FA_READ);
+    if (!file) return false;
+    fclose2(file);
     return true;
 }
 
-size_t fwrite(const void* v, size_t sz1, size_t sz2, FIL& f) {
+size_t fwrite(const void* v, size_t sz1, size_t sz2, FIL* f) {
     UINT bw;
-    if (f_write(&f, v, sz1 * sz2, &bw) != FR_OK) return -1;
+    if (f_write(f, v, sz1 * sz2, &bw) != FR_OK) return -1;
     return sz2;
 }
 
@@ -254,7 +252,7 @@ size_t fread(uint8_t* v, size_t sz1, size_t sz2, FIL& f) {
     return sz2;
 }
 
-static bool writeMemPage(uint8_t page, FIL& file, bool blockMode)
+static bool writeMemPage(uint8_t page, FIL* file, bool blockMode)
 {
     page = page & 0x07;
     uint8_t* buffer = MemESP::ram[page].sync();
@@ -273,8 +271,8 @@ bool FileSNA::save(string sna_file) {
 }
 
 bool FileSNA::save(string sna_file, bool blockMode) {
-    if (f_open(&file, sna_file.c_str(), FA_WRITE | FA_CREATE_ALWAYS) != FR_OK)
-    {
+    FIL* file = fopen2(sna_file.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
+    if (!file) {
         printf("FileSNA: Error opening %s for writing",sna_file.c_str());
         return false;
     }
@@ -322,7 +320,7 @@ bool FileSNA::save(string sna_file, bool blockMode) {
     for (uint8_t ipage = 0; ipage < 3; ipage++) {
         uint8_t page = pages[ipage];
         if (!writeMemPage(page, file, blockMode)) {
-            f_close(&file);
+            fclose2(file);
             return false;
         }
     }
@@ -352,13 +350,13 @@ bool FileSNA::save(string sna_file, bool blockMode) {
         for (int page = 0; page < pages; ++page) {
             if (page != MemESP::bankLatch && page != 2 && page != 5) {
                 if (!writeMemPage(page, file, blockMode)) {
-                    f_close(&file);
+                    fclose2(file);
                     return false;
                 }
             }
         }
     }
-    f_close(&file);
+    fclose2(file);
     return true;
 }
 
@@ -369,28 +367,29 @@ static uint16_t mkword(uint8_t lobyte, uint8_t hibyte) {
 inline void fclose (FIL& stream) {
     f_close(&stream);
 }
-inline uint32_t ftell (FIL& stream) {
-    return f_tell(&stream);
+inline uint32_t ftell (FIL* stream) {
+    return f_tell(stream);
 }
-inline void rewind(FIL& stream) {
-    f_lseek(&stream, 0);
+inline void rewind(FIL* stream) {
+    f_lseek(stream, 0);
 }
 
-int fseek (FIL& stream, long offset, int origin) {
+int fseek (FIL* stream, long offset, int origin) {
     if ( origin == SEEK_SET ) {
-        return FR_OK != f_lseek(&stream, offset);
+        return FR_OK != f_lseek(stream, offset);
     }
     if ( origin == SEEK_CUR ) {
-        return FR_OK != f_lseek(&stream, ftell(stream) + offset);
+        return FR_OK != f_lseek(stream, ftell(stream) + offset);
     }
     if ( origin == SEEK_END ) {
-        return FR_OK != f_lseek(&stream, f_size(&stream) + offset);
+        return FR_OK != f_lseek(stream, f_size(stream) + offset);
     }
     return 1;
 }
 
 bool FileZ80::load(string z80_fn) {
-    if (f_open(&file, z80_fn.c_str(), FA_READ) != FR_OK)
+    FIL* file = fopen2(z80_fn.c_str(), FA_READ);
+    if (!file)
     {
         printf("FileZ80: Error opening %s\n",z80_fn.c_str());
         return false;
@@ -423,7 +422,7 @@ bool FileZ80::load(string z80_fn) {
         else {
             OSD::osdCenteredMsg("Z80 load: unknown version", LEVEL_ERROR);
             printf("Z80.load: unknown version, ahblen = %u\n", (unsigned int) ahb_len);
-            fclose(file);
+            fclose2(file);
             return false;
         }
 
@@ -459,7 +458,7 @@ bool FileZ80::load(string z80_fn) {
     if (z80_arch == "") {
         OSD::osdCenteredMsg("Z80 load: unknown machine", LEVEL_ERROR);
         printf("Z80.load: unknown machine, machine code = %u\n", (unsigned char)mch);
-        fclose(file);
+        fclose2(file);
         return false;
     }
 
@@ -551,7 +550,7 @@ bool FileZ80::load(string z80_fn) {
     // Get file size
     fseek(file,0,SEEK_END);
     uint32_t file_size = ftell(file);
-    rewind (file);
+    rewind(file);
 
     uint32_t dataOffset = 0;
 
@@ -654,7 +653,6 @@ bool FileZ80::load(string z80_fn) {
 
         // latches for 48K
         MemESP::page0ram = 0;
-        MemESP::page128 = 0;
         MemESP::romLatch = 0;
         MemESP::romInUse = 0;
         MemESP::bankLatch = 0;
@@ -685,7 +683,6 @@ bool FileZ80::load(string z80_fn) {
         if (z80_arch == "48K") {
 
             MemESP::page0ram = 0;
-            MemESP::page128 = 0;
             MemESP::romLatch = 0;
             MemESP::romInUse = 0;
             MemESP::bankLatch = 0;
@@ -770,11 +767,11 @@ bool FileZ80::load(string z80_fn) {
             VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct() : MemESP::ram[5].direct();
         }
     }
-    fclose(file);
+    fclose2(file);
     return true;
 }
 
-void FileZ80::loadCompressedMemData(FIL& f, uint16_t dataLen, uint16_t memoff, uint16_t memlen) {
+void FileZ80::loadCompressedMemData(FIL* f, uint16_t dataLen, uint16_t memoff, uint16_t memlen) {
 
     uint16_t dataOff = 0;
     uint8_t ed_cnt = 0;
@@ -812,7 +809,7 @@ void FileZ80::loadCompressedMemData(FIL& f, uint16_t dataLen, uint16_t memoff, u
     }
 }
 
-void FileZ80::loadCompressedMemPage(FIL& f, uint16_t dataLen, uint8_t* memPage, uint16_t memlen)
+void FileZ80::loadCompressedMemPage(FIL* f, uint16_t dataLen, uint8_t* memPage, uint16_t memlen)
 {
     uint16_t dataOff = 0;
     uint8_t ed_cnt = 0;
@@ -896,7 +893,6 @@ void FileZ80::loader48() {
     z80_array += dataOffset;
 
     MemESP::page0ram = 0;
-    MemESP::page128 = 0;
     MemESP::romLatch = 0;
     MemESP::romInUse = 0;
     MemESP::bankLatch = 0;
@@ -1121,8 +1117,8 @@ void FileZ80::loader128() {
 
 bool FileP::load(string p_fn) {
     int p_size;
-
-    if (f_open(&file, p_fn.c_str(), FA_READ) != FR_OK) {
+    FIL* file = fopen2(p_fn.c_str(), FA_READ);
+    if (!file) {
         printf("FileP: Error opening %s\n",p_fn.c_str());
         return false;
     }
@@ -1145,9 +1141,9 @@ bool FileP::load(string p_fn) {
 
     uint16_t address = 16393;
     uint8_t page = address >> 14;
-    fread(&MemESP::ramCurrent[page].sync()[address & 0x3fff], p_size, 1, file);
+    fread(&MemESP::ramCurrent[page].sync()[address & 0x3fff], p_size, 1, *file);
 
-    fclose(file);
+    fclose2(file);
 
     return true;
 
