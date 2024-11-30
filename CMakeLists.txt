@@ -229,8 +229,8 @@ ELSE()
         LOAD_WAV_PIO=22
         PWM_PIN0=26
         PWM_PIN1=27
-    #    BEEPER_PIN=28
-        SOUND_FREQUENCY=50000
+        BEEPER_PIN=28
+        SOUND_FREQUENCY=25000
 
         # SDCARD
         SDCARD_PIN_SPI0_CS=5

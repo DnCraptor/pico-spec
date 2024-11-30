@@ -39,7 +39,7 @@ bool     Config::rightSpace = true;
 
 uint8_t  Config::joystick1 = JOY_KEMPSTON;
 uint8_t  Config::joystick2 = JOY_CURSOR;
-uint16_t Config::joydef[26] = { 
+uint16_t Config::joydef[26] = {
     fabgl::VK_KEMPSTON_LEFT,
     fabgl::VK_KEMPSTON_RIGHT,
     fabgl::VK_KEMPSTON_UP,

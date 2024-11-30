@@ -108,14 +108,6 @@ static i2s_config_t i2s_config = {
         .volume = 0,
         .program_offset = 0
 	};
-#else
-static void PWM_init_pin(uint8_t pinN, uint16_t max_lvl) {
-    pwm_config config = pwm_get_default_config();
-    gpio_set_function(pinN, GPIO_FUNC_PWM);
-    pwm_config_set_clkdiv(&config, 1.0);
-    pwm_config_set_wrap(&config, max_lvl); // MAX PWM value
-    pwm_init(pwm_gpio_to_slice_num(pinN), &config, true);
-}
 #endif
 
 #ifdef LOAD_WAV_PIO
@@ -132,10 +124,17 @@ void init_sound() {
     i2s_config.dma_trans_count = SOUND_FREQUENCY / 100;
     i2s_volume(&i2s_config, 0);
 #else
-    PWM_init_pin(PWM_PIN0, (1 << 8) - 1);
-    PWM_init_pin(PWM_PIN1, (1 << 8) - 1);
+    pwm_config config = pwm_get_default_config();
+    gpio_set_function(PWM_PIN0, GPIO_FUNC_PWM);
+    gpio_set_function(PWM_PIN1, GPIO_FUNC_PWM);
+    pwm_config_set_clkdiv(&config, 1.0f);
+    pwm_config_set_wrap(&config, (1 << 12) - 1); // MAX PWM value
+    pwm_init(pwm_gpio_to_slice_num(PWM_PIN0), &config, true);
+    pwm_init(pwm_gpio_to_slice_num(PWM_PIN1), &config, true);
     #if BEEPER_PIN
-        PWM_init_pin(BEEPER_PIN, (1 << 8) - 1);
+        gpio_set_function(BEEPER_PIN, GPIO_FUNC_PWM);
+        pwm_config_set_clkdiv(&config, 127);
+        pwm_init(pwm_gpio_to_slice_num(BEEPER_PIN), &config, true);
     #endif
 #endif
 #ifdef LOAD_WAV_PIO
@@ -175,8 +174,6 @@ static volatile uint32_t current_buffer_start_us = 0;
 static volatile uint32_t buffer_us = SOUND_FREQUENCY / 50; // длина буфера в микросекундах
 
 static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core#1?
-    static uint16_t outL = 0;
-    static uint16_t outR = 0;
     m_let_process_it = true;
 #if LOAD_WAV_PIO
     if (lws && Config::real_player) {
@@ -185,18 +182,17 @@ static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core
 #endif
 #ifndef I2S_SOUND
     m_let_process_it = false;
-    pwm_set_gpio_level(PWM_PIN0, outR); // Право
-    pwm_set_gpio_level(PWM_PIN1, outL); // Лево
     uint32_t ct = time_us_32();
     uint32_t dtf = ct - current_buffer_start_us;
     if (dtf > SOUND_FREQUENCY) return true;
     size_t m_off = (!buffer_us ? 0 : dtf * m_size / buffer_us) & 0xFFFFFFFFFE; /// (us per start) * (samples per us) -> sample# since start => m_off
     if (m_buff && m_off < m_size) {
         volatile int16_t* b = m_buff + m_off;
-        uint32_t x = ((int32_t)*b++) + 0x8000;
-        outL = x >> 8;
-        x = ((int32_t)*b) + 0x8000;
-        outR = x >> 8;
+        int16_t outL = *b++; // TODO: ensure L/R seq.
+        int16_t outR = *b;
+        pwm_set_gpio_level(PWM_PIN0, (uint16_t) ((int32_t) outR + 0x8000L) >> 4); // Право
+        pwm_set_gpio_level(PWM_PIN1, (uint16_t) ((int32_t) outL + 0x8000L) >> 4); // Лево
+        pwm_set_gpio_level(BEEPER_PIN, 0);
     }
 #endif
     return true;
