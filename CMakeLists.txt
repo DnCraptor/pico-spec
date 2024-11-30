@@ -35,11 +35,11 @@ set (PORT_VERSION "0.3.5")
 ###set(SOFTTV ON)
 #set(TFT ON)
 #set(ILI9341 ON)
-#set(FLASH_SIZE 4096)
-set(FLASH_SIZE 2048)
-set(FLASH_SIZE_GREEN ON)
-#set(CPU_MHZ 408)
-set(CPU_MHZ 378)
+set(FLASH_SIZE 4096)
+#set(FLASH_SIZE 2048)
+#set(FLASH_SIZE_GREEN ON)
+set(CPU_MHZ 408)
+#set(CPU_MHZ 378)
 
 ###set (MURM2 ON)
 
@@ -233,25 +233,30 @@ ELSE()
         SOUND_FREQUENCY=50000
 
         # SDCARD
-        SDCARD_PIN_SPI0_CS=5
-        SDCARD_PIN_SPI0_SCK=2
-        SDCARD_PIN_SPI0_MOSI=3
-        SDCARD_PIN_SPI0_MISO=4
+#        SDCARD_PIN_SPI0_CS=5
+#        SDCARD_PIN_SPI0_SCK=2
+#        SDCARD_PIN_SPI0_MOSI=3
+#        SDCARD_PIN_SPI0_MISO=4
+
+        SDCARD_PIN_SPI0_CS=23
+        SDCARD_PIN_SPI0_SCK=18
+        SDCARD_PIN_SPI0_MOSI=19
+        SDCARD_PIN_SPI0_MISO=20
 
         PSRAM
         # PSRAM_MUTEX=1
         PSRAM_SPINLOCK=1
         PSRAM_ASYNC=1
 
-        PSRAM_PIN_CS=18
-        PSRAM_PIN_SCK=19
-        PSRAM_PIN_MOSI=20
-        PSRAM_PIN_MISO=21
+#        PSRAM_PIN_CS=18
+#        PSRAM_PIN_SCK=19
+#        PSRAM_PIN_MOSI=20
+#        PSRAM_PIN_MISO=21
 
-#        PSRAM_PIN_CS=17
-#        PSRAM_PIN_SCK=18
-#        PSRAM_PIN_MOSI=19
-#        PSRAM_PIN_MISO=16
+        PSRAM_PIN_CS=5
+        PSRAM_PIN_SCK=2
+        PSRAM_PIN_MOSI=3
+        PSRAM_PIN_MISO=4
 
         # NES Gamepad
         USE_NESPAD
