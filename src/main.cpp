@@ -209,6 +209,8 @@ void joyPushData(fabgl::VirtualKey virtualKey, bool down);
 void nespad_tick() {
     nespad_read();
 
+    bool wasF1emu1 = gamepad1_bits.start && gamepad1_bits.b;
+
     if ((nespad_state & DPAD_A) && !gamepad1_bits.a) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_FIRE, true);
     else if (!(nespad_state & DPAD_A) && gamepad1_bits.a) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_FIRE, false);
     gamepad1_bits.a = (nespad_state & DPAD_A) != 0;
@@ -229,6 +231,12 @@ void nespad_tick() {
     else if (!(nespad_state & DPAD_START) && gamepad1_bits.start) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_START, false);
     gamepad1_bits.start = (nespad_state & DPAD_START) != 0;
 
+    if (gamepad1_bits.start && gamepad1_bits.b && !wasF1emu1) { // W/A to simulate F1 on START + B
+        kbdPushData(fabgl::VirtualKey::VK_F1, true);
+    } else if (wasF1emu1) {
+        kbdPushData(fabgl::VirtualKey::VK_F1, false);
+    }
+
     if ((nespad_state & DPAD_UP) && !gamepad1_bits.up) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_UP, true);
     else if (!(nespad_state & DPAD_UP) && gamepad1_bits.up) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_UP, false);
     gamepad1_bits.up = (nespad_state & DPAD_UP) != 0;
@@ -246,6 +254,7 @@ void nespad_tick() {
     gamepad1_bits.right = (nespad_state & DPAD_RIGHT) != 0;
 
     // second
+    bool wasF1emu2 = gamepad2_bits.start && gamepad2_bits.b;
 //    if ((nespad_state2 & DPAD_A) && !gamepad2_bits.a) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_FIRE, true);
 //    else if (!(nespad_state2 & DPAD_A) && gamepad2_bits.a) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_FIRE, false);
     gamepad2_bits.a = (nespad_state2 & DPAD_A) != 0;
@@ -261,6 +270,12 @@ void nespad_tick() {
 //    if ((nespad_state2 & DPAD_START) && !gamepad2_bits.start) joyPushData(fabgl::VirtualKey::VK_KP_ENTER, true);
 //    else if (!(nespad_state2 & DPAD_START) && gamepad2_bits.start) joyPushData(fabgl::VirtualKey::VK_KP_ENTER, false);
     gamepad2_bits.start = (nespad_state2 & DPAD_START) != 0;
+
+    if (gamepad2_bits.start && gamepad2_bits.b && !wasF1emu2) { // W/A to simulate F1 on START + B
+        kbdPushData(fabgl::VirtualKey::VK_F1, true);
+    } else if (wasF1emu2) {
+        kbdPushData(fabgl::VirtualKey::VK_F1, false);
+    }
 
 //    if ((nespad_state2 & DPAD_UP) && !gamepad2_bits.up) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_UP, true);
 //    else if (!(nespad_state2 & DPAD_UP) && gamepad2_bits.up) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_UP, false);
