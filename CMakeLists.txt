@@ -16,8 +16,8 @@ cmake_minimum_required(VERSION 3.13)
 
 set(VGA_DRV ON)
 ##set(HDMI ON)
-##set(CPU_MHZ 366)
-set(CPU_MHZ 378)
+set(CPU_MHZ 372)
+##set(CPU_MHZ 378)
 set (PORT_VERSION "0.3.5")
 #set (MURM2 ON)
 

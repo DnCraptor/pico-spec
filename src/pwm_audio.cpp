@@ -180,11 +180,18 @@ static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core
         lws->tick();
     }
 #endif
+    return true;
+}
+
+void pcm_call() {
+    if (!m_let_process_it) {
+        return;
+    }
 #ifndef I2S_SOUND
     m_let_process_it = false;
     uint32_t ct = time_us_32();
     uint32_t dtf = ct - current_buffer_start_us;
-    if (dtf > SOUND_FREQUENCY) return true;
+    if (dtf > SOUND_FREQUENCY) return;
     size_t m_off = (!buffer_us ? 0 : dtf * m_size / buffer_us) & 0xFFFFFFFFFE; /// (us per start) * (samples per us) -> sample# since start => m_off
     if (m_buff && m_off < m_size) {
         volatile int16_t* b = m_buff + m_off;
@@ -195,13 +202,6 @@ static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core
         pwm_set_gpio_level(BEEPER_PIN, 0);
     }
 #endif
-    return true;
-}
-
-void pcm_call() {
-    if (!m_let_process_it) {
-        return;
-    }
 }
 
 void pcm_cleanup(void) {
