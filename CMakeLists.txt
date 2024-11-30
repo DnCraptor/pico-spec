@@ -16,9 +16,10 @@ cmake_minimum_required(VERSION 3.13)
 
 set(VGA_DRV ON)
 ##set(HDMI ON)
-set(CPU_MHZ 366)
-###set(CPU_MHZ 378)
-set (PORT_VERSION "0.3.0")
+##set(CPU_MHZ 366)
+set(CPU_MHZ 378)
+set (PORT_VERSION "0.3.5")
+#set (MURM2 ON)
 
 set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
@@ -31,7 +32,12 @@ include(pico_sdk_import.cmake)
 
 SET(PROJECT_NAME pico2-spec)
 set(FLASH_SIZE 4096)
-SET(BUILD_NAME "${PROJECT_NAME}-${CPU_MHZ}")
+
+IF(MURM2)
+    SET(BUILD_NAME "m2-${PROJECT_NAME}-${CPU_MHZ}")
+ELSE()
+    SET(BUILD_NAME "${PROJECT_NAME}-${CPU_MHZ}")
+ENDIF()
 
 set(OUTPUT_DIR "${CMAKE_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${OUTPUT_DIR}")
@@ -44,6 +50,7 @@ project(pico2-spec C CXX ASM)
 pico_sdk_init()
 
 add_subdirectory(drivers/audio)
+add_subdirectory(drivers/picomp3lib)
 add_subdirectory(drivers/ps2)
 add_subdirectory(drivers/nespad)
 add_subdirectory(drivers/fatfs)
@@ -74,6 +81,7 @@ target_link_libraries(pico2-spec PRIVATE
     psram
     audio
     graphics
+    picomp3lib
     
     ps2
     nespad
@@ -132,13 +140,70 @@ target_compile_options(${PROJECT_NAME} PUBLIC
 )
 endif ()
 
-target_compile_definitions(${PROJECT_NAME} PRIVATE
+IF(MURM2)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
         PORT_VERSION="${PORT_VERSION}"
         CPU_MHZ=${CPU_MHZ}
 
+        KBD_CLOCK_PIN=2
+        KBD_DATA_PIN=3
+
+        LOAD_WAV_PIO=22
+
+        BEEPER_PIN=9
+        PWM_PIN0=10
+        PWM_PIN1=11
+        SOUND_FREQUENCY=44100
+
+        # SDCARD
+        SDCARD_PIN_SPI0_CS=5
+        SDCARD_PIN_SPI0_SCK=6
+        SDCARD_PIN_SPI0_MOSI=7
+        SDCARD_PIN_SPI0_MISO=4
+
+    #    PSRAM
+        # PSRAM_MUTEX=1
+        PSRAM_SPINLOCK=1
+        PSRAM_ASYNC=1
+
+        PSRAM_PIN_CS=18
+        PSRAM_PIN_SCK=19
+        PSRAM_PIN_MOSI=20
+        PSRAM_PIN_MISO=21
+
+        # NES Gamepad
+        USE_NESPAD
+        NES_GPIO_CLK=20
+        NES_GPIO_LAT=21
+        NES_GPIO_DATA=26
+
+        # VGA 8 pins starts from pin:
+        VGA_BASE_PIN=12
+
+        # HDMI 8 pins starts from pin:
+        HDMI_BASE_PIN=12
+
+        # TFT
+#        TFT_CS_PIN=6
+#        TFT_RST_PIN=8
+#        TFT_LED_PIN=9
+#        TFT_DC_PIN=10
+#        TFT_DATA_PIN=12
+#        TFT_CLK_PIN=13
+    )
+ELSE()
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
+        PORT_VERSION="${PORT_VERSION}"
+        CPU_MHZ=${CPU_MHZ}
+
+        KBD_CLOCK_PIN=0
+        KBD_DATA_PIN=1
+
+        LOAD_WAV_PIO=22
         PWM_PIN0=26
         PWM_PIN1=27
         BEEPER_PIN=28
+        SOUND_FREQUENCY=50000
 
         # SDCARD
         SDCARD_PIN_SPI0_CS=5
@@ -175,8 +240,8 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
         TFT_DC_PIN=10
         TFT_DATA_PIN=12
         TFT_CLK_PIN=13
-
-)
+    )
+ENDIF()
 
 IF(TFT)
     target_link_libraries(${PROJECT_NAME} PRIVATE st7789)
