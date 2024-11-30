@@ -186,7 +186,7 @@ IF(MURM2)
 
         LOAD_WAV_PIO=22
 
-        #BEEPER_PIN=9
+        BEEPER_PIN=9
         PWM_PIN0=10
         PWM_PIN1=11
         SOUND_FREQUENCY=50000
@@ -230,7 +230,7 @@ ELSE()
         PWM_PIN0=26
         PWM_PIN1=27
         BEEPER_PIN=28
-        SOUND_FREQUENCY=25000
+        SOUND_FREQUENCY=50000
 
         # SDCARD
         SDCARD_PIN_SPI0_CS=5
