@@ -72,7 +72,6 @@ uint8_t nes_pad2_for_alf(void) {
 #define DISP_HEIGHT 240
 
 #include "fabutils.h"
-void kbdPushData(fabgl::VirtualKey virtualKey, bool down);
 void repeat_handler(void);
 
 extern "C" bool handleScancode(const uint32_t ps2scancode) {
@@ -234,31 +233,6 @@ static void nespad_tick1(void) {
     if ((nespad_state & DPAD_RIGHT) && !gamepad1_bits.right) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_RIGHT, true);
     else if (!(nespad_state & DPAD_RIGHT) && gamepad1_bits.right) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_RIGHT, false);
 
-    if (Config::joy2cursor) {
-        if ((nespad_state & DPAD_A) && !gamepad1_bits.a) kbdPushData(fabgl::VirtualKey::VK_RETURN, true);
-        else if (!(nespad_state & DPAD_A) && gamepad1_bits.a) kbdPushData(fabgl::VirtualKey::VK_RETURN, false);
-
-        if ((nespad_state & DPAD_B) && !gamepad1_bits.b) kbdPushData(fabgl::VirtualKey::VK_SPACE, true);
-        else if (!(nespad_state & DPAD_B) && gamepad1_bits.b) kbdPushData(fabgl::VirtualKey::VK_SPACE, false);
-    
-        if ((nespad_state & DPAD_SELECT) && !gamepad1_bits.select) kbdPushData(fabgl::VirtualKey::VK_K, true);
-        else if (!(nespad_state & DPAD_SELECT) && gamepad1_bits.select) kbdPushData(fabgl::VirtualKey::VK_K, false);
-
-        if ((nespad_state & DPAD_START) && !gamepad1_bits.start) kbdPushData(fabgl::VirtualKey::VK_R, true);
-        else if (!(nespad_state & DPAD_START) && gamepad1_bits.start) kbdPushData(fabgl::VirtualKey::VK_R, false);
-
-        if ((nespad_state & DPAD_UP) && !gamepad1_bits.up) kbdPushData(fabgl::VirtualKey::VK_UP, true);
-        else if (!(nespad_state & DPAD_UP) && gamepad1_bits.up) kbdPushData(fabgl::VirtualKey::VK_UP, false);
-
-        if ((nespad_state & DPAD_DOWN) && !gamepad1_bits.down) kbdPushData(fabgl::VirtualKey::VK_DOWN, true);
-        else if (!(nespad_state & DPAD_DOWN) && gamepad1_bits.down) kbdPushData(fabgl::VirtualKey::VK_DOWN, false);
-
-        if ((nespad_state & DPAD_LEFT) && !gamepad1_bits.left) kbdPushData(fabgl::VirtualKey::VK_LEFT, true);
-        else if (!(nespad_state & DPAD_LEFT) && gamepad1_bits.left) kbdPushData(fabgl::VirtualKey::VK_LEFT, false);
-
-        if ((nespad_state & DPAD_RIGHT) && !gamepad1_bits.right) kbdPushData(fabgl::VirtualKey::VK_RIGHT, true);
-        else if (!(nespad_state & DPAD_RIGHT) && gamepad1_bits.right) kbdPushData(fabgl::VirtualKey::VK_RIGHT, false);
-    }
     gamepad1_bits.a = (nespad_state & DPAD_A) != 0;
     gamepad1_bits.b = (nespad_state & DPAD_B) != 0;
     gamepad1_bits.start = (nespad_state & DPAD_START) != 0;
@@ -267,11 +241,6 @@ static void nespad_tick1(void) {
     gamepad1_bits.down = (nespad_state & DPAD_DOWN) != 0;
     gamepad1_bits.left = (nespad_state & DPAD_LEFT) != 0;
     gamepad1_bits.right = (nespad_state & DPAD_RIGHT) != 0;
-
-    if (gamepad1_bits.start && gamepad1_bits.b && !wasF1emu1) // W/A to simulate F1 on START + B
-        kbdPushData(fabgl::VirtualKey::VK_F1, true);
-    else if (!(gamepad1_bits.start && gamepad1_bits.b) && wasF1emu1)
-        kbdPushData(fabgl::VirtualKey::VK_F1, false);
 }
 
 static void nespad_tick2(void) {

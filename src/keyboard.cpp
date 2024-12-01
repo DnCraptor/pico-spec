@@ -26,15 +26,11 @@
 
 
 #include <string.h>
-/**
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#include "freertos/timers.h"
-#include "freertos/queue.h"
-*/
 #include "keyboard.h"
 #include "ps2.h"
 #include <hardware/timer.h>
+#include "Config.h"
+#include "ESPectrum.h"
 
 #pragma GCC optimize ("O2")
 
@@ -558,18 +554,13 @@ void Keyboard::injectVirtualKey(VirtualKeyItem const & item, bool insert)
   else
     m_VKMap[(int)item.vk >> 3] &= ~(1 << ((int)item.vk & 7));
 
-//  while (m_virtualKeyQueue.size() > 20) {
-//    m_virtualKeyQueue.pop();
-//  }
-
   // has VK queue? Insert VK into it.
 ///  if (m_virtualKeyQueue) {
 ///    auto ticksToWait = (m_uiApp ? 0 : portMAX_DELAY);  // 0, and not portMAX_DELAY to avoid uiApp locks
-    if (insert)
-      m_virtualKeyQueue.push(item); // TODO: front?
+    m_virtualKeyQueue.push(item);
+///    if (insert)
 ///      xQueueSendToFront(m_virtualKeyQueue, &item, ticksToWait);
-    else
-      m_virtualKeyQueue.push(item);
+///    else
 ///      xQueueSendToBack(m_virtualKeyQueue, &item, ticksToWait);
 ///  }
 }
@@ -715,21 +706,61 @@ bool Keyboard::isVKDown(VirtualKey virtualKey)
   return r;
 }
 
-static bool xQueueReceive(std::queue<VirtualKeyItem>& q, VirtualKeyItem* item, uint64_t timeOutMkS) {
-  uint64_t t1 = time_us_64();
-  do {
-    if ( !q.empty() ) {
-      *item = q.front();
-      q.pop();
-      return true;
+static bool jstart = false;
+
+inline static void joy2kbd(const VirtualKeyItem& it) {
+    if (!Config::joy2cursor) return;
+    if (it.vk == VirtualKey::VK_KEMPSTON_LEFT) {
+        kbdPushData(VirtualKey::VK_LEFT, it.down);
+        return;
     }
-  } while (t1 + timeOutMkS < time_us_64());
-  return false;
+    if (it.vk == VirtualKey::VK_KEMPSTON_RIGHT) {
+        kbdPushData(VirtualKey::VK_RIGHT, it.down);
+        return;
+    }
+    if (it.vk == VirtualKey::VK_KEMPSTON_UP) {
+        kbdPushData(VirtualKey::VK_UP, it.down);
+        return;
+    }
+    if (it.vk == VirtualKey::VK_KEMPSTON_DOWN) {
+        kbdPushData(VirtualKey::VK_DOWN, it.down);
+        return;
+    }
+    if (it.vk == VirtualKey::VK_KEMPSTON_FIRE) {
+        kbdPushData(VirtualKey::VK_RETURN, it.down);
+        return;
+    }
+    if (it.vk == VirtualKey::VK_KEMPSTON_ALTFIRE) {
+        if (jstart)
+          kbdPushData(VirtualKey::VK_F1, it.down);
+        else
+          kbdPushData(VirtualKey::VK_SPACE, it.down);
+        return;
+    }
+    if (it.vk == VirtualKey::VK_KEMPSTON_START) {
+        kbdPushData(VirtualKey::VK_R, it.down);
+        jstart = it.down;
+        return;
+    }
+    if (it.vk == VirtualKey::VK_KEMPSTON_SELECT) {
+        kbdPushData(VirtualKey::VK_K, it.down);
+        return;
+    }
+}
+
+static bool xQueueReceive(std::queue<VirtualKeyItem>& q, VirtualKeyItem* item) {
+    if ( !q.empty() ) {
+        *item = q.front();
+        q.pop();
+        joy2kbd(*item);
+        return true;
+    }
+    return false;
 }
 
 bool Keyboard::getNextVirtualKey(VirtualKeyItem* item, int timeOutMS)
 {
-  bool r = item && xQueueReceive(m_virtualKeyQueue, item, timeOutMS * 1000ull);
+  bool r = item && xQueueReceive(m_virtualKeyQueue, item);
   if (r && m_scancodeSet == 1) /// TODO: ???
     convertScancode2to1(item);
   return r;

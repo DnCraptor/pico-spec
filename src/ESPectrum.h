@@ -65,7 +65,6 @@ using namespace std;
 #define ESP_VOLUME_MIN -16
 
 #include "keyboard.h"
-#include "kbjoystick.h"
 
 #define esp_timer_get_time() time_us_64()
 
@@ -149,5 +148,7 @@ inline void delay(uint32_t ms) {
 inline void delayMicroseconds(int64_t us) {
     sleep_us(us);
 }
+
+void kbdPushData(fabgl::VirtualKey virtualKey, bool down);
 
 #endif
