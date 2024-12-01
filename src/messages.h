@@ -481,22 +481,22 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
     "AY on 48K\t>\n"\
     "ALU Timing\t>\n"\
     "48K Issue 2\t>\n"\
-    "Second PS/2 device\t>\n"
+    "Map joystick to cursor\t>\n"
 #define MENU_OTHER_ES "Otros\n"\
     "AY en 48K\t>\n"\
     "Timing ULA\t>\n"\
     "48K Issue 2\t>\n"\
-    "Segundo disp. PS/2\t>\n"	
+    "Asignar el joystick al cursor\t>\n"	
 static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
 
 static const char *MENU_AY48[2] = { "AY on 48K\n" , "AY en 48K\n"};
 
-#define MENU_KBD2NDPS2_EN "Device\n"\
-    "None\t[N]\n"\
-    "Keyboard\t[K]\n"
-#define MENU_KBD2NDPS2_ES "Dispositivo\n"\
-    "Nada\t[N]\n"\
-    "Teclado\t[K]\n"
+#define MENU_KBD2NDPS2_EN "Enable\n"\
+    "No\t[N]\n"\
+    "Yes\t[K]\n"
+#define MENU_KBD2NDPS2_ES "Permitir\n"\
+    "No\t[N]\n"\
+    "Si\t[K]\n"
 static const char *MENU_KBD2NDPS2[2] = { MENU_KBD2NDPS2_EN, MENU_KBD2NDPS2_ES };
 
 #define MENU_ALUTIMING_EN "ALU Timing\n"\
@@ -996,46 +996,6 @@ static const char *AboutMsg[2][9] = {
     " [CTRL+F10]   NMI\n"\
     " [Pause]      Pausa\n"\
     " [ImpPant]    Captura BMP (Carpeta /.c)\n"
-
-#define OSD_HELP_EN_ZX \
-    " Press CAPS SHIFT + SYMBOL SHIFT and:\n"\
-	" [1]       Main menu\n"\
-    " [2]       Load (SNA,Z80,P)\n"\
-    " [3-4]     Load / Save snapshot\n"\
-    " [5]       Select tape file\n"\
-    " [6]       Play/Stop tape\n"\
-    " [7]       Tape browser\n"\
-    " [8]       CPU / Tape load stats\n"\
-    " [9-0]     Volume down-up\n"\
-    " [Q]       Hard reset\n"\
-    " [W]       Reset RP2350\n"\
-    " [I]       Hardware info\n"\
-    " [T]       Turbo mode\n"\
-    " [Z,X,C,V] Center CRT Screen\n"\
-    " [O]       Input poke\n"\
-    " [N]       NMI\n"\
-    " [P]       Pause\n"\
-    " [S]       BMP capture (folder /.c)\n"
-
-#define OSD_HELP_ES_ZX \
-    " Presione CAPS SHIFT + SYMBOL SHIFT y:\n"\
-    " [1]       Menu principal\n"\
-    " [2]       Cargar (SNA,Z80,P)\n"\
-    " [3-4]     Cargar / Guardar snapshot\n"\
-    " [5]       Elegir archivo de cinta\n"\
-    " [6]       Play/Stop cinta\n"\
-    " [7]       Explorador cinta\n"\
-    " [8]       Status CPU / Carga cinta\n"\
-    " [9-0]     Bajar-Subir volumen\n"\
-    " [Q]       Reset completo\n"\
-    " [W]       Resetear RP2350\n"\
-    " [I]       Info hardware\n"\
-    " [T]       Modo turbo\n"\
-    " [Z,X,C,V] Centrar pantalla CRT\n"\
-    " [O]       Introducir poke\n"\
-    " [N]       NMI\n"\
-    " [P]       Pausa\n"\
-    " [S]       Captura BMP (Carpeta /.c)\n"
 #else
 #define OSD_HELP_EN \
     " [F1]         Main menu\n"\
@@ -1074,46 +1034,6 @@ static const char *AboutMsg[2][9] = {
     " [CTRL+F10]   NMI\n"\
     " [Pause]      Pausa\n"\
     " [ImpPant]    Captura BMP (Carpeta /.c)\n"
-
-#define OSD_HELP_EN_ZX \
-    " Press CAPS SHIFT + SYMBOL SHIFT and:\n"\
-	" [1]       Main menu\n"\
-    " [2]       Load (SNA,Z80,P)\n"\
-    " [3-4]     Load / Save snapshot\n"\
-    " [5]       Select tape file\n"\
-    " [6]       Play/Stop tape\n"\
-    " [7]       Tape browser\n"\
-    " [8]       CPU / Tape load stats\n"\
-    " [9-0]     Volume down-up\n"\
-    " [Q]       Hard reset\n"\
-    " [W]       Reset RP2040\n"\
-    " [I]       Hardware info\n"\
-    " [T]       Turbo mode\n"\
-    " [Z,X,C,V] Center CRT Screen\n"\
-    " [O]       Input poke\n"\
-    " [N]       NMI\n"\
-    " [P]       Pause\n"\
-    " [S]       BMP capture (folder /.c)\n"
-
-#define OSD_HELP_ES_ZX \
-    " Presione CAPS SHIFT + SYMBOL SHIFT y:\n"\
-    " [1]       Menu principal\n"\
-    " [2]       Cargar (SNA,Z80,P)\n"\
-    " [3-4]     Cargar / Guardar snapshot\n"\
-    " [5]       Elegir archivo de cinta\n"\
-    " [6]       Play/Stop cinta\n"\
-    " [7]       Explorador cinta\n"\
-    " [8]       Status CPU / Carga cinta\n"\
-    " [9-0]     Bajar-Subir volumen\n"\
-    " [Q]       Reset completo\n"\
-    " [W]       Resetear RP2040\n"\
-    " [I]       Info hardware\n"\
-    " [T]       Modo turbo\n"\
-    " [Z,X,C,V] Centrar pantalla CRT\n"\
-    " [O]       Introducir poke\n"\
-    " [N]       NMI\n"\
-    " [P]       Pausa\n"\
-    " [S]       Captura BMP (Carpeta /.c)\n"
 #endif
 
 static const char *StartMsg[2] = {

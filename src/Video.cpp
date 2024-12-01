@@ -38,7 +38,6 @@ visit https://zxespectrum.speccy.org/contacto
 #include "VidPrecalc.h"
 #include "CPU.h"
 #include "MemESP.h"
-#include "ZXKeyb.h"
 #include "Config.h"
 #include "OSDMain.h"
 #include "hardconfig.h"

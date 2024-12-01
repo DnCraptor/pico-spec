@@ -68,7 +68,7 @@ uint16_t Config::joydef[24] = {
 
 uint8_t  Config::joyPS2 = JOY_KEMPSTON;
 uint8_t  Config::AluTiming = 0;
-uint8_t  Config::ps2_dev2 = 0; // Second port PS/2 device: 0 -> None, 1 -> PS/2 keyboard, 2 -> PS/2 Mouse (TO DO)
+uint8_t  Config::joy2cursor = 0;
 bool     Config::CursorAsJoy = false;
 int8_t   Config::CenterH = 0;
 int8_t   Config::CenterV = 0;
@@ -262,7 +262,7 @@ void Config::load() {
 
         nvs_get_u8("joyPS2", Config::joyPS2, sts);
         nvs_get_u8("AluTiming", Config::AluTiming, sts);
-        nvs_get_u8("PS2Dev2", Config::ps2_dev2, sts);
+        nvs_get_u8("joy2cursor", Config::joy2cursor, sts);
         nvs_get_b("CursorAsJoy", CursorAsJoy, sts);
         nvs_get_i8("CenterH", Config::CenterH, sts);
         nvs_get_i8("CenterV", Config::CenterV, sts);
@@ -283,10 +283,6 @@ void Config::load() {
         nvs_get_b("TABasfire1", Config::TABasfire1, sts);
         nvs_get_b("StartMsg", Config::StartMsg, sts);
     }
-}
-
-void Config::save() {
-    Config::save("all");
 }
 
 static void nvs_set_str(FIL* handle, const char* name, const char* val) {
@@ -314,7 +310,7 @@ static void nvs_set_u16(FIL* handle, const char* name, uint16_t val) {
 }
 
 // Dump actual config to FS
-void Config::save(string value) {
+void Config::save() {
     if (!FileUtils::fsMount) return;
     string nvs = MOUNT_POINT_SD STORAGE_NVS;
     FIL* handle = fopen2(nvs.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
@@ -354,7 +350,7 @@ void Config::save(string value) {
         }
         nvs_set_u8(handle,"joyPS2",Config::joyPS2);
         nvs_set_u8(handle,"AluTiming",Config::AluTiming);
-        nvs_set_u8(handle,"PS2Dev2",Config::ps2_dev2);
+        nvs_set_u8(handle,"joy2cursor",Config::joy2cursor);
         nvs_set_str(handle,"CursorAsJoy", CursorAsJoy ? "true" : "false");
         nvs_set_i8(handle,"CenterH",Config::CenterH);
         nvs_set_i8(handle,"CenterV",Config::CenterV);

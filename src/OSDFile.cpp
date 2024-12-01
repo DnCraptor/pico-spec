@@ -38,9 +38,6 @@ visit https://zxespectrum.speccy.org/contacto
 #include <sys/stat.h>
 #include "errno.h"
 
-///#include "esp_vfs.h"
-///#include "esp_vfs_fat.h"
-
 using namespace std;
 
 #include "OSDMain.h"
@@ -51,8 +48,6 @@ using namespace std;
 #include "Video.h"
 #include "messages.h"
 #include <math.h>
-#include "ZXKeyb.h"
-///#include "pwm_audio.h"
 #include "Z80_JLS/z80.h"
 #include "Tape.h"
 
@@ -432,8 +427,6 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
 
         fabgl::VirtualKeyItem Menukey;
         while (1) {
-            if (ZXKeyb::Exists) ZXKeyb::ZXKbdRead();
-            ESPectrum::readKbdJoy();
             // Process external keyboard
             if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
                 timeStartScroll = 0;
@@ -522,7 +515,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             }
                         }
                         click();
-                    } else if (Menukey.vk == fabgl::VK_UP || Menukey.vk == fabgl::VK_KEMPSTON_UP ||
+                    } else if (Menukey.vk == fabgl::VK_UP || !Config::joy2cursor && Menukey.vk == fabgl::VK_KEMPSTON_UP ||
                                Menukey.vk == fabgl::VK_JOY1UP || Menukey.vk == fabgl::VK_JOY2UP
                     ) {
                         if (FileUtils::fileTypes[ftype].focus == 2 && FileUtils::fileTypes[ftype].begin_row > 2) {
@@ -535,7 +528,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             fd_PrintRow(FileUtils::fileTypes[ftype].focus, IS_FOCUSED, filexts);
                         }
                         click();
-                    } else if (Menukey.vk == fabgl::VK_DOWN || Menukey.vk == fabgl::VK_KEMPSTON_DOWN ||
+                    } else if (Menukey.vk == fabgl::VK_DOWN || !Config::joy2cursor && Menukey.vk == fabgl::VK_KEMPSTON_DOWN ||
                                Menukey.vk == fabgl::VK_JOY1DOWN || Menukey.vk == fabgl::VK_JOY2DOWN
                     ) {
                         if (FileUtils::fileTypes[ftype].focus == virtual_rows - 1 && FileUtils::fileTypes[ftype].begin_row + virtual_rows - 2 < real_rows) {
@@ -549,7 +542,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         }
                         click();
                     } else if (Menukey.vk == fabgl::VK_PAGEUP || Menukey.vk == fabgl::VK_LEFT || Menukey.vk == fabgl::VK_JOY1LEFT ||
-                               Menukey.vk == fabgl::VK_JOY2LEFT || Menukey.vk == fabgl::VK_KEMPSTON_LEFT
+                               Menukey.vk == fabgl::VK_JOY2LEFT || !Config::joy2cursor && Menukey.vk == fabgl::VK_KEMPSTON_LEFT
                     ) {
                         if (FileUtils::fileTypes[ftype].begin_row > virtual_rows) {
                             FileUtils::fileTypes[ftype].focus = 2;
@@ -561,7 +554,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         fd_Redraw(title, fdir, ftype, filexts);
                         click();
                     } else if (Menukey.vk == fabgl::VK_PAGEDOWN || Menukey.vk == fabgl::VK_RIGHT || Menukey.vk == fabgl::VK_JOY1RIGHT ||
-                               Menukey.vk == fabgl::VK_JOY2RIGHT || Menukey.vk == fabgl::VK_KEMPSTON_RIGHT
+                               Menukey.vk == fabgl::VK_JOY2RIGHT || !Config::joy2cursor && Menukey.vk == fabgl::VK_KEMPSTON_RIGHT
                     ) {
                         if (real_rows - FileUtils::fileTypes[ftype].begin_row  - virtual_rows > virtual_rows) {
                             FileUtils::fileTypes[ftype].focus = 2;
@@ -604,7 +597,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         }                  
                     } else if (Menukey.vk == fabgl::VK_RETURN || Menukey.vk == fabgl::VK_SPACE ||
                                Menukey.vk == fabgl::VK_JOY1B || Menukey.vk == fabgl::VK_JOY2B ||
-                               Menukey.vk == fabgl::VK_JOY1C || Menukey.vk == fabgl::VK_JOY2C || Menukey.vk == fabgl::VK_KEMPSTON_FIRE
+                               Menukey.vk == fabgl::VK_JOY1C || Menukey.vk == fabgl::VK_JOY2C || !Config::joy2cursor && Menukey.vk == fabgl::VK_KEMPSTON_FIRE
                     ) {
                         string filedir = rowGet(menu, FileUtils::fileTypes[ftype].focus);
                         if (filedir[0] == ASCII_SPC) {

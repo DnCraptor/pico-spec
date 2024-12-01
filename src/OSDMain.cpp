@@ -45,7 +45,6 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Snapshot.h"
 #include "MemESP.h"
 #include "Tape.h"
-#include "ZXKeyb.h"
 #include "pwm_audio.h"
 #include "Z80_JLS/z80.h"
 #include "roms.h"
@@ -383,22 +382,22 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
         /***
         if (KeytoESP == fabgl::VK_F5) {
             if (Config::CenterH > -16) Config::CenterH--;
-            Config::save("CenterH");
+            Config::save();
             osdCenteredMsg("Horiz. center: " + to_string(Config::CenterH), LEVEL_INFO, 375);
         } else 
         if (KeytoESP == fabgl::VK_F6) {
             if (Config::CenterH < 16) Config::CenterH++;
-            Config::save("CenterH");
+            Config::save();
             osdCenteredMsg("Horiz. center: " + to_string(Config::CenterH), LEVEL_INFO, 375);
         } else 
         if (KeytoESP == fabgl::VK_F7) {
             if (Config::CenterV > -16) Config::CenterV--;
-            Config::save("CenterV");
+            Config::save();
             osdCenteredMsg("Vert. center: " + to_string(Config::CenterV), LEVEL_INFO, 375);
         } else 
         if (KeytoESP == fabgl::VK_F8) {
             if (Config::CenterV < 16) Config::CenterV++;
-            Config::save("CenterV");
+            Config::save();
             osdCenteredMsg("Vert. center: " + to_string(Config::CenterV), LEVEL_INFO, 375);
         }
         */
@@ -407,8 +406,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
             click();
             osdCenteredMsg(OSD_PAUSE[Config::lang], LEVEL_INFO, 1000);
             while (1) {
-                if (ZXKeyb::Exists) ZXKeyb::ZXKbdRead();
-                ESPectrum::readKbdJoy();
                 if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
                     if (ESPectrum::readKbd(&Nextkey)) {
                         if(!Nextkey.down) continue;
@@ -635,7 +632,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
         else if (KeytoESP == fabgl::VK_F12) { // ESP32 reset
             // ESP host reset
             Config::ram_file = NO_RAM_FILE;
-            Config::save("ram");
+            Config::save();
             esp_hard_reset();
         }
         else if (KeytoESP == fabgl::VK_F1) {
@@ -796,7 +793,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             ESPectrum::aud_volume = ESP_VOLUME_MAX;
                                             pwm_audio_set_volume(ESPectrum::aud_volume);
                                         }
-                                        Config::save("tape_player");
+                                        Config::save();
                                     }
                                     menu_curopt = opt2;
                                     menu_saverect = false;
@@ -1135,7 +1132,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                     else if (opt2 == 3) {
                         // ESP host reset
                         Config::ram_file = NO_RAM_FILE;
-                        Config::save("ram");
+                        Config::save();
                         esp_hard_reset();
                     } else if (mos && opt2 == 4) {
                         f_unlink(MOS_FILE);
@@ -1190,7 +1187,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                                 Config::flashload = false;
 
                                             if (Config::flashload != prev_flashload) {
-                                                Config::save("flashload");
+                                                Config::save();
                                             }
                                             menu_curopt = opt2;
                                             menu_saverect = false;
@@ -1224,7 +1221,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                                 Config::tape_timing_rg = false;
 
                                             if (Config::tape_timing_rg != prev_opt) {
-                                                Config::save("tape_timing_rg");
+                                                Config::save();
                                             }
                                             menu_curopt = opt2;
                                             menu_saverect = false;
@@ -1314,7 +1311,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     Config::pref_arch = "Last";
 
                                 if (Config::pref_arch != prev_archpref) {
-                                    Config::save("pref_arch");
+                                    Config::save();
                                 }
 
                                 menu_curopt = opt2;
@@ -1373,7 +1370,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                                 Config::pref_romSet_48 = "Last";
 #endif
                                             if (Config::pref_romSet_48 != prev_rpref48) {
-                                                Config::save("pref_romSet_48");
+                                                Config::save();
                                             }
                                             menu_curopt = opt2;
                                             menu_saverect = false;
@@ -1432,7 +1429,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                                 Config::pref_romSet_128 = "Last";
 #endif
                                             if (Config::pref_romSet_128 != prev_rpref128) {
-                                                Config::save("pref_romSet_128");
+                                                Config::save();
                                             }
                                             menu_curopt = opt2;
                                             menu_saverect = false;
@@ -1599,7 +1596,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                                 Config::render = 1;
 
                                             if (Config::render != prev_opt) {
-                                                Config::save("render");
+                                                Config::save();
 
                                                 VIDEO::snow_toggle =
                                                     Config::arch != "P1024" && Config::arch != "Pentagon" && Config::arch != "P512"
@@ -1649,8 +1646,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             */
                                             if (Config::aspect_16_9 != prev_asp) {
                                                 Config::ram_file = "none";
-                                                ///Config::save("asp169");
-                                                Config::save("ram");
+                                                Config::save();
                                                 esp_hard_reset();
                                             }
 
@@ -1688,8 +1684,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
 
                                             if (Config::scanlines != prev_opt) {
                                                 Config::ram_file = "none";
-                                                Config::save("scanlines");
-                                                Config::save("ram");
+                                                Config::save();
+                                                Config::save();
                                                 // Reset to apply if mode != CRT
                                                 esp_hard_reset();
                                             }
@@ -1790,7 +1786,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     if (optjoy > 0 && optjoy < 6) {
                                         if (Config::joyPS2 != (optjoy - 1)) {
                                             Config::joyPS2 = optjoy - 1;
-                                            Config::save("joyPS2");
+                                            Config::save();
                                         }
                                         menu_curopt = optjoy;
                                         menu_saverect = false;
@@ -1823,9 +1819,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             Config::CursorAsJoy = false;
 
                                         ESPectrum::PS2Controller.keyboard()->setLEDs(false,false,Config::CursorAsJoy);
-                                        if(ESPectrum::ps2kbd2)
-                                            ESPectrum::PS2Controller.keybjoystick()->setLEDs(false, false, Config::CursorAsJoy);
-                                        Config::save("CursorAsJoy");
+                                        Config::save();
 
                                         menu_curopt = opt2;
                                         menu_saverect = false;
@@ -1872,7 +1866,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                                 ESPectrum::VK_ESPECTRUM_GRAVEACCENT = fabgl::VK_GRAVEACCENT;
                                             }
 
-                                            Config::save("TABasfire1");
+                                            Config::save();
                                         }
 
                                         menu_curopt = opt2;
@@ -1942,7 +1936,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                             if (opt2) {
                                 if (Config::lang != (opt2 - 1)) {
                                     Config::lang = opt2 - 1;
-                                    Config::save("language");
+                                    Config::save();
                                     return;
                                 }
                                 menu_curopt = opt2;
@@ -1984,7 +1978,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                                 Config::AY48 = false;
 
                                             if (Config::AY48 != prev_ay48) {
-                                                Config::save("AY48");
+                                                Config::save();
                                             }
                                             menu_curopt = opt2;
                                             menu_saverect = false;
@@ -2018,7 +2012,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
 
                                             if (Config::AluTiming != prev_AluTiming) {
                                                 CPU::latetiming = Config::AluTiming;
-                                                Config::save("AluTiming");
+                                                Config::save();
                                             }
                                             menu_curopt = opt2;
                                             menu_saverect = false;
@@ -2052,7 +2046,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                                 Config::Issue2 = false;
 
                                             if (Config::Issue2 != prev_iss) {
-                                                Config::save("Issue2");
+                                                Config::save();
                                             }
                                             menu_curopt = opt2;
                                             menu_saverect = false;
@@ -2069,7 +2063,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     menu_saverect = true;
                                     while (1) {
                                         string ps2_menu = MENU_KBD2NDPS2[Config::lang];
-                                        uint8_t prev_ps2 = Config::ps2_dev2;
+                                        uint8_t prev_ps2 = Config::joy2cursor;
                                         if (prev_ps2) {
                                             ps2_menu.replace(ps2_menu.find("[N",0),2,"[ ");                        
                                             ps2_menu.replace(ps2_menu.find("[K",0),2,"[*");
@@ -2080,12 +2074,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                         uint8_t opt2 = menuRun(ps2_menu);
                                         if (opt2) {
                                             if (opt2 == 1)
-                                                Config::ps2_dev2 = 0;
+                                                Config::joy2cursor = 0;
                                             else
-                                                Config::ps2_dev2 = 1;
+                                                Config::joy2cursor = 1;
 
-                                            if (Config::ps2_dev2 != prev_ps2) {
-                                                Config::save("PS2Dev2");
+                                            if (Config::joy2cursor != prev_ps2) {
+                                                Config::save();
                                             }
                                             menu_curopt = opt2;
                                             menu_saverect = false;
@@ -2143,16 +2137,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                 drawOSD(true);
                 osdAt(2, 0);
                 VIDEO::vga.setTextColor(zxColor(7, 0), zxColor(1, 0));
-                if (ZXKeyb::Exists)
-                    VIDEO::vga.print(Config::lang ? OSD_HELP_ES_ZX : OSD_HELP_EN_ZX);
-                else
-                    VIDEO::vga.print(Config::lang ? OSD_HELP_ES : OSD_HELP_EN);
+                VIDEO::vga.print(Config::lang ? OSD_HELP_ES : OSD_HELP_EN);
 
                 while (1) {
-
-                    if (ZXKeyb::Exists) ZXKeyb::ZXKbdRead();
-
-                    ESPectrum::readKbdJoy();
 
                     if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
                         if (ESPectrum::readKbd(&Nextkey)) {
@@ -2254,10 +2241,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                     }
 
                     VIDEO::vga.fillRect(pos_x + ((osdCol + 1) * 6), pos_y + (osdRow * 8), 6,8, cursorCol );
-                    
-                    if (ZXKeyb::Exists) ZXKeyb::ZXKbdRead();
-
-                    ESPectrum::readKbdJoy();
 
                     if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
                         if (ESPectrum::readKbd(&Nextkey)) {
@@ -2517,10 +2500,6 @@ void OSD::HWInfo() {
 */
     // Wait for key
     while (1) {
-
-        if (ZXKeyb::Exists) ZXKeyb::ZXKbdRead();
-
-        ESPectrum::readKbdJoy();
 
         if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
             ESPectrum::PS2Controller.keyboard()->getNextVirtualKey(&Nextkey);
@@ -2997,10 +2976,6 @@ uint8_t OSD::msgDialog(string title, string msg) {
     // Keyboard loop
     fabgl::VirtualKeyItem Menukey;
     while (1) {
-
-        if (ZXKeyb::Exists) ZXKeyb::ZXKbdRead();
-
-        ESPectrum::readKbdJoy();
 
         // Process external keyboard
         if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
@@ -3510,10 +3485,6 @@ void OSD::joyDialog(uint8_t joynum) {
             DrawjoyControls(x,y);            
         }
 
-        if (ZXKeyb::Exists) ZXKeyb::ZXKbdRead();
-
-        ESPectrum::readKbdJoy();
-
         if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
             ESPectrum::PS2Controller.keyboard()->getNextVirtualKey(&Nextkey);
             if(!Nextkey.down) continue;
@@ -3945,10 +3916,6 @@ void OSD::pokeDialog() {
     uint8_t CursorFlash = 0;
 
     while (1) {
-
-        if (ZXKeyb::Exists) ZXKeyb::ZXKbdRead();
-
-        ESPectrum::readKbdJoy();
 
         if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
 

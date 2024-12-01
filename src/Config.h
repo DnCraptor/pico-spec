@@ -63,7 +63,6 @@ public:
 
     static void load();
     static void save();
-    static void save(string value);
 
     static void requestMachine(string newArch, string newRomSet);
 
@@ -100,7 +99,7 @@ public:
     static uint16_t joydef[24];
     static uint8_t  joyPS2;    
     static uint8_t  AluTiming;
-    static uint8_t  ps2_dev2;
+    static uint8_t  joy2cursor;
     static bool CursorAsJoy;
     static int8_t CenterH;
     static int8_t CenterV;    

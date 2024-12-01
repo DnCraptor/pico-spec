@@ -72,10 +72,8 @@ using namespace std;
 namespace fabgl {
     class PS2Controller {
         Keyboard kbd;
-        KeybJoystick kbj;
     public:
         Keyboard* keyboard() { return &kbd; }
-        KeybJoystick* keybjoystick() { return &kbj; }
     };
 };
 
@@ -91,7 +89,6 @@ public:
     static void processKeyboard();
     static void bootKeyboard();
     static bool readKbd(fabgl::VirtualKeyItem *Nextkey);
-    static void readKbdJoy();
     static fabgl::PS2Controller PS2Controller;
     static fabgl::VirtualKey VK_ESPECTRUM_FIRE1;
     static fabgl::VirtualKey VK_ESPECTRUM_FIRE2;
@@ -136,27 +133,14 @@ public:
 
     static volatile bool vsync;
 
-///    static TaskHandle_t audioTaskHandle;    
-
-    static bool ps2kbd2;
-
     static bool trdos;
     static WD1793 Betadisk;
-
-    // static uint32_t sessid;
-
-private:
-
-    static void audioTask(void* unused);
-
 };
 
 #define bitRead(value, bit) (((value) >> (bit)) & 0x01)
 #define bitSet(value, bit) ((value) |= (1UL << (bit)))
 #define bitClear(value, bit) ((value) &= ~(1UL << (bit)))
 #define bitWrite(value, bit, bitvalue) ((bitvalue) ? bitSet(value, bit) : bitClear(value, bit))
-
-unsigned long millis();
 
 inline void delay(uint32_t ms) {
     sleep_ms(ms);

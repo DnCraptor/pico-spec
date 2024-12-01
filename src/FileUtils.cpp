@@ -48,7 +48,6 @@ visit https://zxespectrum.speccy.org/contacto
 #include "OSDMain.h"
 #include "roms.h"
 #include "Video.h"
-#include "ZXKeyb.h"
 
 using namespace std;
 
@@ -81,8 +80,7 @@ inline void fclose(FIL& f) {
 }
 
 void FileUtils::initFileSystem() {
-    if ((!ZXKeyb::Exists) && (!SDReady)) SDReady = true;
-    mountSDCard();
+    SDReady = mountSDCard();
     f_mkdir("/tmp");
     f_mkdir(MOUNT_POINT_SD);
     f_mkdir(MOUNT_POINT_SD DISK_ROM_DIR);

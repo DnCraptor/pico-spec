@@ -53,10 +53,6 @@ visit https://zxespectrum.speccy.org/contacto
 #include "pwm_audio.h"
 #include "wd1793.h"
 
-#ifndef ESP32_SDL2_WRAPPER
-#include "ZXKeyb.h"
-#endif
-
 #include "psram_spi.h"
 #include "ps2.h"
 
@@ -66,7 +62,6 @@ using namespace std;
 // KEYBOARD
 //=======================================================================================
 fabgl::PS2Controller ESPectrum::PS2Controller;
-bool ESPectrum::ps2kbd2 = false;
 
 void joyPushData(fabgl::VirtualKey virtualKey, bool down) {
     fabgl::Keyboard* kbd = ESPectrum::PS2Controller.keyboard();
@@ -115,7 +110,6 @@ void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
         tickKbdRep = 0;
     }
     fabgl::Keyboard* kbd = ESPectrum::PS2Controller.keyboard();
-    fabgl::KeybJoystick* kbdj = ESPectrum::PS2Controller.keybjoystick();
     if ( kbd ) {
         switch (virtualKey) {
             case fabgl::VirtualKey::VK_KP_1: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_FIRE; break;
@@ -188,11 +182,6 @@ void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
             kbd->injectVirtualKey(fabgl::VK_JOY2B, down);
         }
         // 20..24
-    }
-    if (kbdj) {
-        if ( ESPectrum::ps2kbd2 ) {
-            kbdj->injectVirtualKey(virtualKey, down);
-        }
     }
 }
 
@@ -355,7 +344,7 @@ void ShowStartMsg() {
 
     // Disable StartMsg
     Config::StartMsg = false;
-    Config::save("StartMsg");
+    Config::save();
 }
 
 /**
@@ -509,11 +498,6 @@ void ESPectrum::bootKeyboard() {
 void ESPectrum::setup() 
 {
     //=======================================================================================
-    // PHYSICAL KEYBOARD (SINCLAIR 8 + 5 MEMBRANE KEYBOARD)
-    //=======================================================================================
-    ZXKeyb::setup();
-
-    //=======================================================================================
     // INIT FILESYSTEM
     //=======================================================================================
     FileUtils::initFileSystem();
@@ -530,7 +514,7 @@ void ESPectrum::setup()
     if (Config::ram_file == NO_RAM_FILE) {
         if (Config::pref_arch.substr(Config::pref_arch.length()-1) == "R") {
             Config::pref_arch.pop_back();
-            Config::save("pref_arch");
+            Config::save();
         } else {
             if (Config::pref_arch != "Last") Config::arch = Config::pref_arch;
 
@@ -569,20 +553,8 @@ void ESPectrum::setup()
     // INIT PS/2 KEYBOARD
     //=======================================================================================
 
-    ESPectrum::ps2kbd2 = (Config::ps2_dev2 != 0);
-    
-    if (ZXKeyb::Exists) {
-///        PS2Controller.begin(ps2kbd2 ? PS2Preset::KeyboardPort0 : PS2Preset::zxKeyb, KbdMode::CreateVirtualKeysQueue);
-    } else {
-///        PS2Controller.begin(ps2kbd2 ? PS2Preset::KeyboardPort0_KeybJoystickPort1 : PS2Preset::KeyboardPort0, KbdMode::CreateVirtualKeysQueue);
-    }
-
-    ps2kbd2 &= !ZXKeyb::Exists;
-
     // Set Scroll Lock Led as current CursorAsJoy value
     PS2Controller.keyboard()->setLEDs(false, false, Config::CursorAsJoy);
-    if(ps2kbd2)
-        PS2Controller.keybjoystick()->setLEDs(false, false, Config::CursorAsJoy);
 
     // Set TAB and GRAVEACCENT behaviour
     if (Config::TABasfire1) {
@@ -869,28 +841,12 @@ IRAM_ATTR bool ESPectrum::readKbd(fabgl::VirtualKeyItem *Nextkey) {
         if (Nextkey->vk == fabgl::VK_SCROLLLOCK) { // Change CursorAsJoy setting
             Config::CursorAsJoy = !Config::CursorAsJoy;
             PS2Controller.keyboard()->setLEDs(false, false, Config::CursorAsJoy);
-            if(ps2kbd2)
-                PS2Controller.keybjoystick()->setLEDs(false, false, Config::CursorAsJoy);
-            Config::save("CursorAsJoy");
+            Config::save();
             r = false;
         }
     }
 
     return r;
-}
-
-//
-// Read second ps/2 port and inject on first queue
-//
-IRAM_ATTR void ESPectrum::readKbdJoy() {
-    if (ps2kbd2) {
-        fabgl::VirtualKeyItem NextKey;
-        auto KbdJoy = PS2Controller.keybjoystick();    
-        while (KbdJoy->virtualKeyAvailable()) {
-            PS2Controller.keybjoystick()->getNextVirtualKey(&NextKey);
-            ESPectrum::PS2Controller.keyboard()->injectVirtualKey(NextKey.vk, NextKey.down, false);
-        }
-    }
 }
 
 fabgl::VirtualKey ESPectrum::VK_ESPECTRUM_FIRE1 = fabgl::VK_NONE;
@@ -909,8 +865,6 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
     bool r = false;
     bool j[10] = { true, true, true, true, true, true, true, true, true, true };
     bool jShift = true;
-
-    readKbdJoy();
 
     while (Kbd->virtualKeyAvailable()) {
 
@@ -936,7 +890,6 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                 Kbd->emptyVirtualKeyQueue();
                 
                 // Set all zx keys as not pressed
-                for (uint8_t i = 0; i < 8; i++) ZXKeyb::ZXcols[i] = 0xbf;
                 zxDelay = 15;
                 
                 // totalseconds = 0;
@@ -963,7 +916,7 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                         // printf("Ctrl + Alt + Supr!\n");
                         // ESP host reset
                         Config::ram_file = NO_RAM_FILE;
-                        Config::save("ram");
+                        Config::save();
                         OSD::esp_hard_reset();
                     } else if (KeytoESP == fabgl::VK_BACKSPACE) {
                         // printf("Ctrl + Alt + backSpace!\n");
@@ -1346,117 +1299,9 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
         }
 
     }
-
-    if (ZXKeyb::Exists) { // START - ZXKeyb Exists
-
-        if (zxDelay > 0)
-            zxDelay--;
-        else
-            // Process physical keyboard
-            ZXKeyb::process();
-
-        // Detect and process physical kbd menu key combinations
-        // CS+SS+<1..0> -> F1..F10 Keys, CS+SS+Q -> F11, CS+SS+W -> F12, CS+SS+S -> Capture screen
-        if ((!bitRead(ZXKeyb::ZXcols[0],0)) && (!bitRead(ZXKeyb::ZXcols[7],1))) {
-
-            zxDelay = 15;
-
-            int64_t osd_start = esp_timer_get_time();
-            if (!bitRead(ZXKeyb::ZXcols[3],0)) {
-                OSD::do_OSD(fabgl::VK_F1,0);
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[3],1)) {
-                OSD::do_OSD(fabgl::VK_F2,0);
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[3],2)) {
-                OSD::do_OSD(fabgl::VK_F3,0);
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[3],3)) {
-                OSD::do_OSD(fabgl::VK_F4,0);
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[3],4)) {
-                OSD::do_OSD(fabgl::VK_F5,0);
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[4],4)) {
-                OSD::do_OSD(fabgl::VK_F6,0);
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[4],3)) {
-                OSD::do_OSD(fabgl::VK_F7,0);
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[4],2)) {
-                OSD::do_OSD(fabgl::VK_F8,0);
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[4],1)) {
-                OSD::do_OSD(fabgl::VK_F9,0);
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[4],0)) {
-                OSD::do_OSD(fabgl::VK_F10,0);
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[2],0)) {
-                OSD::do_OSD(fabgl::VK_F11,0);
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[2],1)) {
-                OSD::do_OSD(fabgl::VK_F12,0);
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[5],0)) { // P -> Pause
-                OSD::do_OSD(fabgl::VK_PAUSE,0);
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[5],2)) { // I -> Info
-                OSD::do_OSD(fabgl::VK_F1,true);
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[2],4)) { // T -> Turbo
-                OSD::do_OSD(fabgl::VK_F2,true);
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[1],1)) { // S -> Screen capture
-                CaptureToBmp();
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[5],1)) { // O -> Poke
-                OSD::pokeDialog();
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[7],3)) { // N -> NMI
-                Z80::triggerNMI();
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[0],1)) { // Z -> CenterH
-                if (Config::CenterH > -16) Config::CenterH--;
-                Config::save("CenterH");
-                OSD::osdCenteredMsg("Horiz. center: " + to_string(Config::CenterH), LEVEL_INFO, 375);
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[0],2)) { // X -> CenterH
-                if (Config::CenterH < 16) Config::CenterH++;
-                Config::save("CenterH");
-                OSD::osdCenteredMsg("Horiz. center: " + to_string(Config::CenterH), LEVEL_INFO, 375);
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[0],3)) { // C -> CenterV
-                if (Config::CenterV > -16) Config::CenterV--;
-                Config::save("CenterV");
-                OSD::osdCenteredMsg("Vert. center: " + to_string(Config::CenterV), LEVEL_INFO, 375);
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[0],4)) { // V -> CenterV
-                if (Config::CenterV < 16) Config::CenterV++;
-                Config::save("CenterV");
-                OSD::osdCenteredMsg("Vert. center: " + to_string(Config::CenterV), LEVEL_INFO, 375);
-            } else
-                zxDelay = 0;
-
-            if (zxDelay) {
-                // Set all keys as not pressed
-                for (uint8_t i = 0; i < 8; i++) ZXKeyb::ZXcols[i] = 0xbf;
-                // Refresh border
-                VIDEO::brdnextframe = true;                
-                ESPectrum::ts_start += esp_timer_get_time() - osd_start;
-                return;
-            }
-        }
-
-        // Combine both keyboards
+    if (r) {
         for (uint8_t rowidx = 0; rowidx < 8; rowidx++) {
-            Ports::port[rowidx] = PS2cols[rowidx] & ZXKeyb::ZXcols[rowidx];
-        }
-    } else {
-        if (r) {
-            for (uint8_t rowidx = 0; rowidx < 8; rowidx++) {
-                Ports::port[rowidx] = PS2cols[rowidx];
-            }
+            Ports::port[rowidx] = PS2cols[rowidx];
         }
     }
 }
