@@ -93,7 +93,6 @@ public:
     static bool readKbd(fabgl::VirtualKeyItem *Nextkey);
     static void readKbdJoy();
     static fabgl::PS2Controller PS2Controller;
-    static fabgl::VirtualKey JoyVKTranslation[26];
     static fabgl::VirtualKey VK_ESPECTRUM_FIRE1;
     static fabgl::VirtualKey VK_ESPECTRUM_FIRE2;
     static fabgl::VirtualKey VK_ESPECTRUM_TAB;

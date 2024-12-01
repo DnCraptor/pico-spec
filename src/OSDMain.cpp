@@ -3469,11 +3469,12 @@ void OSD::joyDialog(uint8_t joynum) {
     }
 
     // Read joy definition into joyDropdown
-    for (int n=0; n<12; n++)
-        joyDropdown[n][6] = ESPectrum::JoyVKTranslation[n + (joynum == 1 ? 0 : 12)];
+    int m = joynum == 1 ? 0 : 12;
+    for (int n = 0; n < 12; ++n)
+        joyDropdown[n][6] = Config::joydef[n + m];
 
     // Draw Joy DropDowns
-    for (int n=0; n<12; n++) {
+    for (int n = 0; n < 12; ++n) {
         VIDEO::vga.rect(x + joyDropdown[n][0] - 2, y + joyDropdown[n][1] - 2, 58, 12, zxColor(0, 0));
         if (n == curDropDown) 
             VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
@@ -3732,9 +3733,11 @@ void OSD::joyDialog(uint8_t joynum) {
 
                         // Check if there are changes and ask to save them
                         bool changed = false;
+                        int m = joynum == 1 ? 0 : 12;
                         for (int n = 0; n < 12; n++) {
-                            if (ESPectrum::JoyVKTranslation[n + (joynum == 1 ? 0 : 12)] != joyDropdown[n][6]) {
+                            if (Config::joydef[n + m] != joyDropdown[n][6]) {
                                 changed = true;
+                                Config::joydef[n + m] = joyDropdown[n][6];
                                 break;
                             }
                         }
@@ -3788,45 +3791,22 @@ void OSD::joyDialog(uint8_t joynum) {
                         VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
                         VIDEO::vga.setCursor(x + joyDropdown[13][0], y + joyDropdown[13][1]);
                         VIDEO::vga.print(" JoyTest ");
-                        
                         for (int n = 0; n < 12; n++)
                             joyControl[n][2] = zxColor(0,0);  
-
                         DrawjoyControls(x,y);
-
                         click();
-
                     }
-
                 } else {
-
-                    // Check if there are changes and ask to discard them
-                    bool changed = false;
-                    for (int n = 0; n < 12; n++) {
-                        if (ESPectrum::JoyVKTranslation[n + (joynum == 1 ? 0 : 12)] != joyDropdown[n][6]) {
-                            changed = true;
-                            break;
-                        }
-                    }
-
                     // Ask to discard changes
-                    if (changed) {
-                        string title = (joynum == 1 ? "Joystick 1" : "Joystick 2");
-                        string msg = OSD_DLG_JOYDISCARD[Config::lang];
-                        uint8_t res = OSD::msgDialog(title,msg);
-                        if (res == DLG_YES) {
-                            click();
-                            break;
-                        }
-                    } else {
+                    string title = (joynum == 1 ? "Joystick 1" : "Joystick 2");
+                    string msg = OSD_DLG_JOYDISCARD[Config::lang];
+                    uint8_t res = OSD::msgDialog(title,msg);
+                    if (res == DLG_YES) {
                         click();
                         break;
                     }
-
                 }
-
             }
-
         }
 
         // Joy Test Mode: Check joy status and color controls
@@ -3852,13 +3832,9 @@ void OSD::joyDialog(uint8_t joynum) {
                     ESPectrum::PS2Controller.keyboard()->injectVirtualKey(fabgl::VK_ESCAPE,true,false);
             } else
                 joyTestExitCount2 = 0;
-
         }
-
         sleep_ms(50);
-
     }
-
 }
 
 // POKE DIALOG

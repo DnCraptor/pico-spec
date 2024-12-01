@@ -556,11 +556,8 @@ void OSD::menuScrollBar(unsigned short br) {
 
 // Print a virtual row
 void OSD::PrintRow(uint8_t virtual_row_num, uint8_t line_type) {
-    
     uint8_t margin;
-
     string line = rowGet(menu, virtual_row_num);
-    
     switch (line_type) {
     case IS_TITLE:
         VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(0, 0));

@@ -39,33 +39,31 @@ bool     Config::rightSpace = true;
 
 uint8_t  Config::joystick1 = JOY_KEMPSTON;
 uint8_t  Config::joystick2 = JOY_CURSOR;
-uint16_t Config::joydef[26] = {
-    fabgl::VK_KEMPSTON_LEFT,
-    fabgl::VK_KEMPSTON_RIGHT,
-    fabgl::VK_KEMPSTON_UP,
-    fabgl::VK_KEMPSTON_DOWN,
-    fabgl::VK_KEMPSTON_FIRE,
-    fabgl::VK_KEMPSTON_ALTFIRE,
-    fabgl::VK_KEMPSTON_START,
-    fabgl::VK_KEMPSTON_SELECT,
-    fabgl::VK_0,
-    fabgl::VK_NONE,
-    fabgl::VK_NONE,
-    fabgl::VK_NONE,
-    fabgl::VK_NONE,
-    fabgl::VK_NONE,
-    fabgl::VK_1,
-    fabgl::VK_2,
-    fabgl::VK_4,
-    fabgl::VK_3,
-    fabgl::VK_NONE,
-    fabgl::VK_NONE,
-    fabgl::VK_5,
-    fabgl::VK_NONE,
-    fabgl::VK_NONE,
-    fabgl::VK_NONE,
-    fabgl::VK_NONE,
-    fabgl::VK_NONE
+uint16_t Config::joydef[24] = {
+    fabgl::VK_KEMPSTON_LEFT,  // 0
+    fabgl::VK_KEMPSTON_RIGHT, // 1
+    fabgl::VK_KEMPSTON_UP,    // 2
+    fabgl::VK_KEMPSTON_DOWN,  // 3
+    fabgl::VK_KEMPSTON_START, // 4
+    fabgl::VK_KEMPSTON_SELECT,// 5
+    fabgl::VK_KEMPSTON_FIRE,  // 6 A
+    fabgl::VK_KEMPSTON_ALTFIRE,//7 B
+    fabgl::VK_NONE,           // 8 C
+    fabgl::VK_NONE,           // 9 D ?
+    fabgl::VK_NONE,           // 10 X ?
+    fabgl::VK_NONE,           // 11 Y ? Z...
+    fabgl::VK_1,    // 0
+    fabgl::VK_2,    // 1
+    fabgl::VK_4,    // 2
+    fabgl::VK_3,    // 3
+    fabgl::VK_NONE, // 4
+    fabgl::VK_NONE, // 5
+    fabgl::VK_5,    // 6
+    fabgl::VK_NONE, // 7
+    fabgl::VK_NONE, // 8
+    fabgl::VK_NONE, // 9
+    fabgl::VK_NONE, // 10
+    fabgl::VK_NONE  // 11
 };
 
 uint8_t  Config::joyPS2 = JOY_KEMPSTON;
@@ -255,12 +253,11 @@ void Config::load() {
         nvs_get_u8("joystick2", Config::joystick2, sts);
 
         // Read joystick definition
-        for (int n = 0; n < 26; ++n) {
+        for (int n = 0; n < 24; ++n) {
             char joykey[16];
             snprintf(joykey, 16, "joydef%02u", n);
             // printf("%s\n",joykey);
             nvs_get_u16(joykey, Config::joydef[n], sts);
-            ESPectrum::JoyVKTranslation[n] = (fabgl::VirtualKey) Config::joydef[n];
         }
 
         nvs_get_u8("joyPS2", Config::joyPS2, sts);
@@ -350,7 +347,7 @@ void Config::save(string value) {
         nvs_set_u8(handle,"joystick1", Config::joystick1);
         nvs_set_u8(handle,"joystick2", Config::joystick2);
         // Write joystick definition
-        for (int n = 0; n < 26; ++n) {
+        for (int n = 0; n < 24; ++n) {
             char joykey[16];
             snprintf(joykey, 16, "joydef%02u", n);
             nvs_set_u16(handle, joykey, Config::joydef[n]);
@@ -383,80 +380,53 @@ void Config::save(string value) {
 }
 
 void Config::setJoyMap(uint8_t joynum, uint8_t joytype) {
-    fabgl::VirtualKey newJoy[12];
-    for (int n=0; n < 12; n++) newJoy[n] = fabgl::VK_NONE;
+    int m = (joynum == 1) ? 0 : 12;
+    for (int n = 0; n < 12; n++) joydef[m + n] = fabgl::VK_NONE;
     // Ask to overwrite map with default joytype values
     string title = (joynum == 1 ? "Joystick 1" : "Joystick 2");
     string msg = OSD_DLG_SETJOYMAPDEFAULTS[Config::lang];
-    uint8_t res = OSD::msgDialog(title,msg);
+    uint8_t res = OSD::msgDialog(title, msg);
     if (res == DLG_YES) {
         switch (joytype) {
         case JOY_CURSOR:
-            newJoy[0] = fabgl::VK_5;
-            newJoy[1] = fabgl::VK_8;
-            newJoy[2] = fabgl::VK_7;
-            newJoy[3] = fabgl::VK_6;
-            newJoy[6] = fabgl::VK_0;
+            joydef[m + 0] = fabgl::VK_5;
+            joydef[m + 1] = fabgl::VK_8;
+            joydef[m + 2] = fabgl::VK_7;
+            joydef[m + 3] = fabgl::VK_6;
+            joydef[m + 6] = fabgl::VK_0;
             break;
         case JOY_KEMPSTON:
-            newJoy[0] = fabgl::VK_KEMPSTON_LEFT;
-            newJoy[1] = fabgl::VK_KEMPSTON_RIGHT;
-            newJoy[2] = fabgl::VK_KEMPSTON_UP;
-            newJoy[3] = fabgl::VK_KEMPSTON_DOWN;
-            newJoy[4] = fabgl::VK_KEMPSTON_START;
-            newJoy[5] = fabgl::VK_KEMPSTON_SELECT;
-            newJoy[6] = fabgl::VK_KEMPSTON_FIRE;
-            newJoy[7] = fabgl::VK_KEMPSTON_ALTFIRE;
+            joydef[m + 0] = fabgl::VK_KEMPSTON_LEFT;
+            joydef[m + 1] = fabgl::VK_KEMPSTON_RIGHT;
+            joydef[m + 2] = fabgl::VK_KEMPSTON_UP;
+            joydef[m + 3] = fabgl::VK_KEMPSTON_DOWN;
+            joydef[m + 4] = fabgl::VK_KEMPSTON_START;
+            joydef[m + 5] = fabgl::VK_KEMPSTON_SELECT;
+            joydef[m + 6] = fabgl::VK_KEMPSTON_FIRE;
+            joydef[m + 7] = fabgl::VK_KEMPSTON_ALTFIRE;
             break;
         case JOY_SINCLAIR1:
-            newJoy[0] = fabgl::VK_6;
-            newJoy[1] = fabgl::VK_7;
-            newJoy[2] = fabgl::VK_9;
-            newJoy[3] = fabgl::VK_8;
-            newJoy[6] = fabgl::VK_0;
+            joydef[m + 0] = fabgl::VK_6;
+            joydef[m + 1] = fabgl::VK_7;
+            joydef[m + 2] = fabgl::VK_9;
+            joydef[m + 3] = fabgl::VK_8;
+            joydef[m + 6] = fabgl::VK_0;
             break;
         case JOY_SINCLAIR2:
-            newJoy[0] = fabgl::VK_1;
-            newJoy[1] = fabgl::VK_2;
-            newJoy[2] = fabgl::VK_4;
-            newJoy[3] = fabgl::VK_3;
-            newJoy[6] = fabgl::VK_5;
+            joydef[m + 0] = fabgl::VK_1;
+            joydef[m + 1] = fabgl::VK_2;
+            joydef[m + 2] = fabgl::VK_4;
+            joydef[m + 3] = fabgl::VK_3;
+            joydef[m + 6] = fabgl::VK_5;
             break;
         case JOY_FULLER:
-            newJoy[0] = fabgl::VK_FULLER_LEFT;
-            newJoy[1] = fabgl::VK_FULLER_RIGHT;
-            newJoy[2] = fabgl::VK_FULLER_UP;
-            newJoy[3] = fabgl::VK_FULLER_DOWN;
-            newJoy[6] = fabgl::VK_FULLER_FIRE;
+            joydef[m + 0] = fabgl::VK_FULLER_LEFT;
+            joydef[m + 1] = fabgl::VK_FULLER_RIGHT;
+            joydef[m + 2] = fabgl::VK_FULLER_UP;
+            joydef[m + 3] = fabgl::VK_FULLER_DOWN;
+            joydef[m + 6] = fabgl::VK_FULLER_FIRE;
             break;
         }
-    }
-    // Fill joystick values in Config and clean Kempston or Fuller values if needed
-    int m = (joynum == 1) ? 0 : 12;
-    bool save = false;
-    for (int n = m; n < m + 12; n++) {
-        if (newJoy[n - m] != fabgl::VK_NONE) {
-            ESPectrum::JoyVKTranslation[n] = newJoy[n - m];
-            save = true;
-        } else {
-            if (joytype != JOY_KEMPSTON) {
-                if (ESPectrum::JoyVKTranslation[n] >= fabgl::VK_KEMPSTON_RIGHT && ESPectrum::JoyVKTranslation[n] <= fabgl::VK_KEMPSTON_SELECT) {
-                    ESPectrum::JoyVKTranslation[n] = fabgl::VK_NONE;
-                    save = true;
-                }
-            }
-            if (joytype != JOY_FULLER) {
-                if (ESPectrum::JoyVKTranslation[n] >= fabgl::VK_FULLER_RIGHT && ESPectrum::JoyVKTranslation[n] <= fabgl::VK_FULLER_FIRE) {
-                    ESPectrum::JoyVKTranslation[n] = fabgl::VK_NONE;
-                    save = true;                
-                }
-            }
-        }
-        if (save) {
-            Config::joydef[n] = (uint16_t) ESPectrum::JoyVKTranslation[n];
-        }
-    }
-    if (save) {
         Config::save();
     }
 }

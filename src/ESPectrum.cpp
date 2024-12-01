@@ -124,9 +124,9 @@ void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
             case fabgl::VirtualKey::VK_KP_4: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_LEFT; break;
             case fabgl::VirtualKey::VK_KP_5: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_DOWN; break;
             case fabgl::VirtualKey::VK_KP_6: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_RIGHT; break;
-            case fabgl::VirtualKey::VK_KP_7: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_FIRE; break;
+            case fabgl::VirtualKey::VK_KP_7: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_START; break;
             case fabgl::VirtualKey::VK_KP_8: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_UP; break;
-            case fabgl::VirtualKey::VK_KP_9: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE; break;
+            case fabgl::VirtualKey::VK_KP_9: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_SELECT; break;
             case fabgl::VirtualKey::VK_KP_0: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE; break;
             case fabgl::VirtualKey::VK_KP_PERIOD: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_FIRE; break;
             case fabgl::VirtualKey::VK_KP_ENTER:
@@ -138,9 +138,61 @@ void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
             virtualKey = kbd->manageCAPSLOCK(virtualKey);
         }
         kbd->injectVirtualKey(virtualKey, down);
+        if (virtualKey == Config::joydef[0] && virtualKey != fabgl::VK_KEMPSTON_LEFT) {
+            kbd->injectVirtualKey(fabgl::VK_KEMPSTON_LEFT, down);
+        }
+        else if (virtualKey == Config::joydef[1] && virtualKey != fabgl::VK_KEMPSTON_RIGHT) {
+            kbd->injectVirtualKey(fabgl::VK_KEMPSTON_RIGHT, down);
+        }
+        else if (virtualKey == Config::joydef[2] && virtualKey != fabgl::VK_KEMPSTON_UP) {
+            kbd->injectVirtualKey(fabgl::VK_KEMPSTON_UP, down);
+        }
+        else if (virtualKey == Config::joydef[3] && virtualKey != fabgl::VK_KEMPSTON_DOWN) {
+            kbd->injectVirtualKey(fabgl::VK_KEMPSTON_DOWN, down);
+        }
+        else if (virtualKey == Config::joydef[4] && virtualKey != fabgl::VK_KEMPSTON_START) {
+            kbd->injectVirtualKey(fabgl::VK_KEMPSTON_START, down);
+        }
+        else if (virtualKey == Config::joydef[5] && virtualKey != fabgl::VK_KEMPSTON_SELECT) {
+            kbd->injectVirtualKey(fabgl::VK_KEMPSTON_SELECT, down);
+        }
+        else if (virtualKey == Config::joydef[6] && virtualKey != fabgl::VK_KEMPSTON_FIRE) {
+            kbd->injectVirtualKey(fabgl::VK_KEMPSTON_FIRE, down);
+        }
+        else if (virtualKey == Config::joydef[7] && virtualKey != fabgl::VK_KEMPSTON_ALTFIRE) {
+            kbd->injectVirtualKey(fabgl::VK_KEMPSTON_ALTFIRE, down);
+        }
+        // 8..11
+        else if (virtualKey == Config::joydef[12]) {
+            kbd->injectVirtualKey(fabgl::VK_JOY2LEFT, down);
+        }
+        else if (virtualKey == Config::joydef[13]) {
+            kbd->injectVirtualKey(fabgl::VK_JOY2RIGHT, down);
+        }
+        else if (virtualKey == Config::joydef[14]) {
+            kbd->injectVirtualKey(fabgl::VK_JOY2UP, down);
+        }
+        else if (virtualKey == Config::joydef[15]) {
+            kbd->injectVirtualKey(fabgl::VK_JOY2DOWN, down);
+        }
+        else if (virtualKey == Config::joydef[16]) {
+            kbd->injectVirtualKey(fabgl::VK_JOY1START, down);
+        }
+        else if (virtualKey == Config::joydef[17]) {
+            kbd->injectVirtualKey(fabgl::VK_JOY2MODE, down);
+        }
+        else if (virtualKey == Config::joydef[18]) {
+            kbd->injectVirtualKey(fabgl::VK_JOY2A, down);
+        }
+        else if (virtualKey == Config::joydef[19]) {
+            kbd->injectVirtualKey(fabgl::VK_JOY2B, down);
+        }
+        // 20..24
     }
-    if ( ESPectrum::ps2kbd2 && kbdj ) {
-        kbdj->injectVirtualKey(virtualKey, down);
+    if (kbdj) {
+        if ( ESPectrum::ps2kbd2 ) {
+            kbdj->injectVirtualKey(virtualKey, down);
+        }
     }
 }
 
@@ -691,10 +743,6 @@ void ESPectrum::setup()
     if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON || Config::joyPS2 == JOYPS2_KEMPSTON) Ports::port[0x1f] = 0; // Kempston
     if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER || Config::joyPS2 == JOYPS2_FULLER) Ports::port[0x7f] = 0xff; // Fuller
 
-    // Read joystick default definition
-    for (int n = 0; n < 26; n++)
-        ESPectrum::JoyVKTranslation[n] = (fabgl::VirtualKey) Config::joydef[n];
-
     // Init disk controller
     Betadisk.Init();
 
@@ -724,10 +772,6 @@ void ESPectrum::reset()
     for (int i = 0; i < 128; i++) Ports::port[i] = 0xBF;
     if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON || Config::joyPS2 == JOYPS2_KEMPSTON) Ports::port[0x1f] = 0; // Kempston
     if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER || Config::joyPS2 == JOYPS2_FULLER) Ports::port[0x7f] = 0xff; // Fuller
-
-    // Read joystick default definition
-    for (int n = 0; n < 26; n++)
-        ESPectrum::JoyVKTranslation[n] = (fabgl::VirtualKey) Config::joydef[n];
 
     // Memory
     MemESP::page0ram = 0;
@@ -849,20 +893,6 @@ IRAM_ATTR void ESPectrum::readKbdJoy() {
     }
 }
 
-fabgl::VirtualKey ESPectrum::JoyVKTranslation[26];
-//     fabgl::VK_FULLER_LEFT, // Left
-//     fabgl::VK_FULLER_RIGHT, // Right
-//     fabgl::VK_FULLER_UP, // Up
-//     fabgl::VK_FULLER_DOWN, // Down
-//     fabgl::VK_S, // Start
-//     fabgl::VK_M, // Mode
-//     fabgl::VK_FULLER_FIRE, // A
-//     fabgl::VK_9, // B
-//     fabgl::VK_SPACE, // C
-//     fabgl::VK_X, // X
-//     fabgl::VK_Y, // Y
-//     fabgl::VK_Z, // Z
-
 fabgl::VirtualKey ESPectrum::VK_ESPECTRUM_FIRE1 = fabgl::VK_NONE;
 fabgl::VirtualKey ESPectrum::VK_ESPECTRUM_FIRE2 = fabgl::VK_NONE;
 fabgl::VirtualKey ESPectrum::VK_ESPECTRUM_TAB = fabgl::VK_TAB;
@@ -890,13 +920,13 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
 
             KeytoESP = NextKey.vk;
             Kdown = NextKey.down;
-          
+            /**
             if (KeytoESP >= fabgl::VK_JOY1LEFT && KeytoESP <= fabgl::VK_JOY2Z) {
                 // printf("KeytoESP: %d\n",KeytoESP);
                 ESPectrum::PS2Controller.keyboard()->injectVirtualKey(JoyVKTranslation[KeytoESP - 248], Kdown, false);
                 continue;
             }
-
+            */
             if ((Kdown) && ((KeytoESP >= fabgl::VK_F1 && KeytoESP <= fabgl::VK_F12) || KeytoESP == fabgl::VK_PAUSE || KeytoESP == fabgl::VK_VOLUMEUP || KeytoESP == fabgl::VK_VOLUMEDOWN || KeytoESP == fabgl::VK_VOLUMEMUTE)) {
 
                 int64_t osd_start = esp_timer_get_time();
