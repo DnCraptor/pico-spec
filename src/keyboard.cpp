@@ -558,9 +558,9 @@ void Keyboard::injectVirtualKey(VirtualKeyItem const & item, bool insert)
   else
     m_VKMap[(int)item.vk >> 3] &= ~(1 << ((int)item.vk & 7));
 
-  while (m_virtualKeyQueue.size() > 10) {
-    m_virtualKeyQueue.pop();
-  }
+//  while (m_virtualKeyQueue.size() > 20) {
+//    m_virtualKeyQueue.pop();
+//  }
 
   // has VK queue? Insert VK into it.
 ///  if (m_virtualKeyQueue) {

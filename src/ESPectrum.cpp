@@ -64,6 +64,7 @@ using namespace std;
 fabgl::PS2Controller ESPectrum::PS2Controller;
 
 void joyPushData(fabgl::VirtualKey virtualKey, bool down) {
+///    OSD::msgDialog("Joystick", to_string((int)virtualKey) + (down ? " down" : " up"));
     fabgl::Keyboard* kbd = ESPectrum::PS2Controller.keyboard();
     if ( kbd ) {
         kbd->injectVirtualKey(virtualKey, down);

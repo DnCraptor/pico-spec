@@ -206,9 +206,8 @@ extern "C" bool handleScancode(const uint32_t ps2scancode) {
 
 void joyPushData(fabgl::VirtualKey virtualKey, bool down);
 
-void nespad_tick() {
+static void nespad_tick1(void) {
     nespad_read();
-
     bool wasF1emu1 = gamepad1_bits.start && gamepad1_bits.b;
 
     if ((nespad_state & DPAD_A) && !gamepad1_bits.a) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_FIRE, true);
@@ -242,8 +241,8 @@ void nespad_tick() {
         if ((nespad_state & DPAD_B) && !gamepad1_bits.b) kbdPushData(fabgl::VirtualKey::VK_SPACE, true);
         else if (!(nespad_state & DPAD_B) && gamepad1_bits.b) kbdPushData(fabgl::VirtualKey::VK_SPACE, false);
     
-        if ((nespad_state & DPAD_SELECT) && !gamepad1_bits.select) kbdPushData(fabgl::VirtualKey::VK_L, true);
-        else if (!(nespad_state & DPAD_SELECT) && gamepad1_bits.select) kbdPushData(fabgl::VirtualKey::VK_L, false);
+        if ((nespad_state & DPAD_SELECT) && !gamepad1_bits.select) kbdPushData(fabgl::VirtualKey::VK_K, true);
+        else if (!(nespad_state & DPAD_SELECT) && gamepad1_bits.select) kbdPushData(fabgl::VirtualKey::VK_K, false);
 
         if ((nespad_state & DPAD_START) && !gamepad1_bits.start) kbdPushData(fabgl::VirtualKey::VK_R, true);
         else if (!(nespad_state & DPAD_START) && gamepad1_bits.start) kbdPushData(fabgl::VirtualKey::VK_R, false);
@@ -273,9 +272,9 @@ void nespad_tick() {
         kbdPushData(fabgl::VirtualKey::VK_F1, true);
     else if (!(gamepad1_bits.start && gamepad1_bits.b) && wasF1emu1)
         kbdPushData(fabgl::VirtualKey::VK_F1, false);
+}
 
-    // second
-    bool wasF1emu2 = gamepad2_bits.start && gamepad2_bits.b;
+static void nespad_tick2(void) {
 //    if ((nespad_state2 & DPAD_A) && !gamepad2_bits.a) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_FIRE, true);
 //    else if (!(nespad_state2 & DPAD_A) && gamepad2_bits.a) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_FIRE, false);
     gamepad2_bits.a = (nespad_state2 & DPAD_A) != 0;
@@ -291,12 +290,6 @@ void nespad_tick() {
 //    if ((nespad_state2 & DPAD_START) && !gamepad2_bits.start) joyPushData(fabgl::VirtualKey::VK_KP_ENTER, true);
 //    else if (!(nespad_state2 & DPAD_START) && gamepad2_bits.start) joyPushData(fabgl::VirtualKey::VK_KP_ENTER, false);
     gamepad2_bits.start = (nespad_state2 & DPAD_START) != 0;
-
-    if (gamepad2_bits.start && gamepad2_bits.b && !wasF1emu2) { // W/A to simulate F1 on START + B
-        kbdPushData(fabgl::VirtualKey::VK_F1, true);
-    } else if (!(gamepad2_bits.start && gamepad2_bits.b) && wasF1emu2) {
-        kbdPushData(fabgl::VirtualKey::VK_F1, false);
-    }
 
 //    if ((nespad_state2 & DPAD_UP) && !gamepad2_bits.up) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_UP, true);
 //    else if (!(nespad_state2 & DPAD_UP) && gamepad2_bits.up) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_UP, false);
@@ -316,6 +309,9 @@ void nespad_tick() {
 }
 #endif
 
+static void nespad_tick1(void);
+static void nespad_tick2(void);
+
 void __scratch_x("render") render_core() {
     multicore_lockout_victim_init();
     graphics_init();
@@ -329,6 +325,7 @@ void __scratch_x("render") render_core() {
     // 60 FPS loop
 #define frame_tick (16666)
     uint64_t tick = time_us_64();
+    bool tick1 = true;
 #ifdef TFT
     uint64_t last_renderer_tick = tick;
 #endif
@@ -341,9 +338,11 @@ void __scratch_x("render") render_core() {
             last_renderer_tick = tick;
         }
 #endif
-        if (tick >= last_input_tick + frame_tick * 1) {
-///            kbd_state_t* ks = get_kbd_state();
-            nespad_tick();
+        if (tick >= last_input_tick + frame_tick) {
+#ifdef USE_NESPAD
+            (tick1 ? nespad_tick1 : nespad_tick2)(); // split call for joy1 and 2
+            tick1 = !tick1;
+#endif
             last_input_tick = tick;
         }
         tick = time_us_64();
