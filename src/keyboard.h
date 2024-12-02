@@ -424,8 +424,6 @@ private:
 ///  TaskHandle_t              m_SCodeToVKConverterTask; // Task that converts scancodes to virtual key and populates m_virtualKeyQueue
   std::queue<VirtualKeyItem>m_virtualKeyQueue;
 
-  uint8_t                   m_VKMap[(int)(VK_LAST + 7) / 8];
-
   // allowed values: 1, 2 or 3
   // If virtual keys are enabled only 1 and 2 are possible. In case of scancode set 1 it is converted from scan code set 2, which is necessary
   // in order to decode virtual keys.

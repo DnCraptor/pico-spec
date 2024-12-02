@@ -481,12 +481,14 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
     "AY on 48K\t>\n"\
     "ALU Timing\t>\n"\
     "48K Issue 2\t>\n"\
-    "Map joystick to cursor\t>\n"
+    "Map joystick to cursor\t>\n"\
+    "ALF second joystick\t>\n"
 #define MENU_OTHER_ES "Otros\n"\
     "AY en 48K\t>\n"\
     "Timing ULA\t>\n"\
     "48K Issue 2\t>\n"\
-    "Asignar el joystick al cursor\t>\n"	
+    "Asignar el joystick al cursor\t>\n"\
+    "ALF second joystick\t>\n"
 static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
 
 static const char *MENU_AY48[2] = { "AY on 48K\n" , "AY en 48K\n"};
@@ -498,6 +500,11 @@ static const char *MENU_AY48[2] = { "AY on 48K\n" , "AY en 48K\n"};
     "No\t[N]\n"\
     "Si\t[K]\n"
 static const char *MENU_KBD2NDPS2[2] = { MENU_KBD2NDPS2_EN, MENU_KBD2NDPS2_ES };
+
+#define MENU_ALF_JOY_EN "DPAD #\n"\
+    "DPAD #1\t[1]\n"\
+    "DPAD #2\t[2]\n"
+static const char *MENU_ALF_JOY[2] = { MENU_ALF_JOY_EN, MENU_ALF_JOY_EN };
 
 #define MENU_ALUTIMING_EN "ALU Timing\n"\
     "Early\t[E]\n"\

@@ -67,7 +67,8 @@ uint16_t Config::joydef[24] = {
 };
 
 uint8_t  Config::AluTiming = 0;
-volatile uint8_t  Config::joy2cursor = 0;
+uint8_t  Config::joy2cursor = 0;
+uint8_t  Config::alfJoy = 2;
 bool     Config::CursorAsJoy = false;
 int8_t   Config::CenterH = 0;
 int8_t   Config::CenterV = 0;
@@ -260,7 +261,8 @@ void Config::load() {
         }
 
         nvs_get_u8("AluTiming", Config::AluTiming, sts);
-        uint8_t u8; nvs_get_u8("joy2cursor", u8, sts); Config::joy2cursor = u8;
+        nvs_get_u8("joy2cursor", Config::joy2cursor, sts);
+        nvs_get_u8("alfJoy", Config::alfJoy, sts);
         nvs_get_b("CursorAsJoy", CursorAsJoy, sts);
         nvs_get_i8("CenterH", Config::CenterH, sts);
         nvs_get_i8("CenterV", Config::CenterV, sts);
@@ -348,6 +350,7 @@ void Config::save() {
         }
         nvs_set_u8(handle,"AluTiming",Config::AluTiming);
         nvs_set_u8(handle,"joy2cursor",Config::joy2cursor);
+        nvs_set_u8(handle,"alfJoy",Config::alfJoy);
         nvs_set_str(handle,"CursorAsJoy", CursorAsJoy ? "true" : "false");
         nvs_set_i8(handle,"CenterH",Config::CenterH);
         nvs_set_i8(handle,"CenterV",Config::CenterV);

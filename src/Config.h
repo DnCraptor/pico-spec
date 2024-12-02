@@ -91,7 +91,8 @@ public:
     static uint8_t  joystick2;
     static uint16_t joydef[24];
     static uint8_t  AluTiming;
-    static volatile uint8_t  joy2cursor;
+    static uint8_t  joy2cursor;
+    static uint8_t  alfJoy;
     static bool CursorAsJoy;
     static int8_t CenterH;
     static int8_t CenterV;    

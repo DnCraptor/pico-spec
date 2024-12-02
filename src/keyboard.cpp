@@ -112,6 +112,8 @@ void Keyboard::enableVirtualKeys(bool generateVirtualKeys, bool createVKQueue)
   */
 }
 
+uint8_t m_VKMap[(int)(VK_LAST + 7) / 8];
+
 // reset keyboard, set scancode 2 and US layout
 bool Keyboard::reset(bool sendCmdReset)
 {
@@ -760,80 +762,95 @@ inline static void joy2kbd(const VirtualKeyItem& it) {
     }
 }
 
+inline static void repalceKey(VirtualKeyItem& it, const VirtualKey k) {
+  // update m_VKMap
+  if (!it.down)
+    m_VKMap[(int)it.vk >> 3] |= 1 << ((int)it.vk & 7);
+  else
+    m_VKMap[(int)it.vk >> 3] &= ~(1 << ((int)it.vk & 7));
+
+  it.vk = k;
+
+  if (it.down)
+    m_VKMap[(int)it.vk >> 3] |= 1 << ((int)it.vk & 7);
+  else
+    m_VKMap[(int)it.vk >> 3] &= ~(1 << ((int)it.vk & 7));
+}
+
 inline static void joyMap(VirtualKeyItem& it) {
     VirtualKey virtualKey = it.vk;
     if (virtualKey == Config::joydef[0]) {
-        it.vk = fabgl::VK_JOY1LEFT;
+        repalceKey(it, fabgl::VK_JOY1LEFT);
     }
     else if (virtualKey == Config::joydef[1]) {
-        it.vk = fabgl::VK_JOY1RIGHT;
+        repalceKey(it, fabgl::VK_JOY1RIGHT);
     }
     else if (virtualKey == Config::joydef[2]) {
-        it.vk = fabgl::VK_JOY1UP;
+        repalceKey(it, fabgl::VK_JOY1UP);
     }
     else if (virtualKey == Config::joydef[3]) {
-        it.vk = fabgl::VK_JOY1DOWN;
+        repalceKey(it, fabgl::VK_JOY1DOWN);
     }
     else if (virtualKey == Config::joydef[4]) {
-        it.vk = fabgl::VK_JOY1START;
+        repalceKey(it, fabgl::VK_JOY1START);
     }
     else if (virtualKey == Config::joydef[5]) {
-        it.vk = fabgl::VK_JOY1MODE;
+        repalceKey(it, fabgl::VK_JOY1MODE);
     }
     else if (virtualKey == Config::joydef[6]) {
-        it.vk = fabgl::VK_JOY1A;
+        repalceKey(it, fabgl::VK_JOY1A);
     }
     else if (virtualKey == Config::joydef[7]) {
-        it.vk = fabgl::VK_JOY1B;
+        repalceKey(it, fabgl::VK_JOY1B);
     }
     else if (virtualKey == Config::joydef[8]) {
-        it.vk = fabgl::VK_JOY1C;
+        repalceKey(it, fabgl::VK_JOY1C);
     }
     else if (virtualKey == Config::joydef[9]) {
-        it.vk = fabgl::VK_JOY1X;
+        repalceKey(it, fabgl::VK_JOY1X);
     }
     else if (virtualKey == Config::joydef[10]) {
-        it.vk = fabgl::VK_JOY1Y;
+        repalceKey(it, fabgl::VK_JOY1Y);
     }
     else if (virtualKey == Config::joydef[11]) {
-        it.vk = fabgl::VK_JOY1Z;
+        repalceKey(it, fabgl::VK_JOY1Z);
     }
     // J 2
     else if (virtualKey == Config::joydef[12]) {
-        it.vk = fabgl::VK_JOY2LEFT;
+        repalceKey(it, fabgl::VK_JOY2LEFT);
     }
     else if (virtualKey == Config::joydef[13]) {
-        it.vk = fabgl::VK_JOY2RIGHT;
+        repalceKey(it, fabgl::VK_JOY2RIGHT);
     }
     else if (virtualKey == Config::joydef[14]) {
-        it.vk = fabgl::VK_JOY2UP;
+        repalceKey(it, fabgl::VK_JOY2UP);
     }
     else if (virtualKey == Config::joydef[15]) {
-        it.vk = fabgl::VK_JOY2DOWN;
+        repalceKey(it, fabgl::VK_JOY2DOWN);
     }
     else if (virtualKey == Config::joydef[16]) {
-        it.vk = fabgl::VK_JOY2START;
+        repalceKey(it, fabgl::VK_JOY2START);
     }
     else if (virtualKey == Config::joydef[17]) {
-        it.vk = fabgl::VK_JOY2MODE;
+        repalceKey(it, fabgl::VK_JOY2MODE);
     }
     else if (virtualKey == Config::joydef[18]) {
-        it.vk = fabgl::VK_JOY2A;
+        repalceKey(it, fabgl::VK_JOY2A);
     }
     else if (virtualKey == Config::joydef[19]) {
-        it.vk = fabgl::VK_JOY2B;
+        repalceKey(it, fabgl::VK_JOY2B);
     }
     else if (virtualKey == Config::joydef[20]) {
-        it.vk = fabgl::VK_JOY2C;
+        repalceKey(it, fabgl::VK_JOY2C);
     }
     else if (virtualKey == Config::joydef[21]) {
-        it.vk = fabgl::VK_JOY2X;
+        repalceKey(it, fabgl::VK_JOY2X);
     }
     else if (virtualKey == Config::joydef[22]) {
-        it.vk = fabgl::VK_JOY2Y;
+        repalceKey(it, fabgl::VK_JOY2Y);
     }
     else if (virtualKey == Config::joydef[23]) {
-        it.vk = fabgl::VK_JOY2Z;
+        repalceKey(it, fabgl::VK_JOY2Z);
     }
 }
 
