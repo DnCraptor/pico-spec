@@ -50,13 +50,6 @@ using namespace std;
 #define JOY_CUSTOM 5
 #define JOY_NONE 6
 
-#define JOYPS2_CURSOR 0
-#define JOYPS2_KEMPSTON 1
-#define JOYPS2_SINCLAIR1 2
-#define JOYPS2_SINCLAIR2 3
-#define JOYPS2_FULLER 4
-#define JOYPS2_CUSTOM 5
-#define JOYPS2_NONE 6
 class Config
 {
 public:
@@ -97,7 +90,6 @@ public:
     static uint8_t  joystick1;
     static uint8_t  joystick2;
     static uint16_t joydef[24];
-    static uint8_t  joyPS2;    
     static uint8_t  AluTiming;
     static volatile uint8_t  joy2cursor;
     static bool CursorAsJoy;

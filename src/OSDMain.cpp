@@ -409,11 +409,15 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                 if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
                     if (ESPectrum::readKbd(&Nextkey)) {
                         if(!Nextkey.down) continue;
-                            if (Nextkey.vk == fabgl::VK_RETURN || Nextkey.vk == fabgl::VK_ESCAPE || Nextkey.vk == fabgl::VK_JOY1A || Nextkey.vk == fabgl::VK_JOY2A || Nextkey.vk == fabgl::VK_JOY1B || Nextkey.vk == fabgl::VK_JOY2B || Nextkey.vk == fabgl::VK_PAUSE) {
-                                click();
-                                break;
-                            } else
-                                osdCenteredMsg(OSD_PAUSE[Config::lang], LEVEL_INFO, 500);
+                        if (Nextkey.vk == fabgl::VK_RETURN || Nextkey.vk == fabgl::VK_ESCAPE || Nextkey.vk == fabgl::VK_PAUSE ||
+                            (Nextkey.vk == fabgl::VK_JOY1A || Nextkey.vk == fabgl::VK_JOY2A ||
+                             Nextkey.vk == fabgl::VK_JOY1B || Nextkey.vk == fabgl::VK_JOY2B) && !Config::joy2cursor
+                        ) {
+                            click();
+                            break;
+                        } else {
+                            osdCenteredMsg(OSD_PAUSE[Config::lang], LEVEL_INFO, 500);
+                        }
                     }
                 }
                 sleep_ms(5);
@@ -496,7 +500,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                     Tape::Stop();
                 }
             }
-
         }
         else if (KeytoESP == fabgl::VK_F8) {
             // Show / hide OnScreen Stats
@@ -514,7 +517,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                 }
                 VIDEO::OSD &= 0xfc;
             } else {
-
                 if ((VIDEO::OSD & 0x04) == 0) {
                     if (Config::aspect_16_9) 
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
@@ -523,13 +525,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
 
                     OSD::drawStats();
                 }
-
                 ESPectrum::TapeNameScroller = 0;
-
             }
-
             click();
-
         }
         // else if (KeytoESP == fabgl::VK_F9) { 
         //     // Test variable decrease
@@ -542,29 +540,22 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
         //     printf("ESPtestvar: %d\n",ESPectrum::ESPtestvar);
         // }
         else if (KeytoESP == fabgl::VK_F9 || KeytoESP == fabgl::VK_VOLUMEDOWN) { 
-
             if (VIDEO::OSD == 0) {
-
                 if (Config::aspect_16_9) 
                     VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                 else
                     VIDEO::Draw_OSD43  = Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
-
                 VIDEO::OSD = 0x04;
-
-            } else VIDEO::OSD |= 0x04;
-
+            } else
+                VIDEO::OSD |= 0x04;
             ESPectrum::totalseconds = 0;
             ESPectrum::totalsecondsnodelay = 0;
             VIDEO::framecnt = 0;
-
             if (ESPectrum::aud_volume>ESP_VOLUME_MIN) {
                 ESPectrum::aud_volume--;
                 pwm_audio_set_volume(ESPectrum::aud_volume);
             }
-
-            unsigned short x,y;
-
+            unsigned short x, y;
             if (Config::aspect_16_9) {
                 x = 156;
                 y = 180;
@@ -572,39 +563,32 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                 x = 168;
                 y = 224;
             }
-
             VIDEO::vga.fillRect(x ,y - 4, 24 * 6, 16, zxColor(1, 0));
             VIDEO::vga.setTextColor(zxColor(7, 0), zxColor(1, 0));
             VIDEO::vga.setFont(Font6x8);
             VIDEO::vga.setCursor(x + 4,y + 1);
             VIDEO::vga.print(Config::tape_player ? "TAP" : "VOL");
-            for (int i = 0; i < ESPectrum::aud_volume + 16; i++)
-                VIDEO::vga.fillRect(x + 26 + (i * 7) , y + 1, 6, 7, zxColor( 7, 0));                
-
+            for (int i = 0; i < ESPectrum::aud_volume + 16; i++) {
+                VIDEO::vga.fillRect(x + 26 + (i * 7) , y + 1, 6, 7, zxColor( 7, 0));
+            }
         }
         else if (KeytoESP == fabgl::VK_F10 || KeytoESP == fabgl::VK_VOLUMEUP) { 
-
             if (VIDEO::OSD == 0) {
-
                 if (Config::aspect_16_9) 
                     VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                 else
                     VIDEO::Draw_OSD43  = Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
-
                 VIDEO::OSD = 0x04;
-
-            } else VIDEO::OSD |= 0x04;
-
+            } else
+                VIDEO::OSD |= 0x04;
             ESPectrum::totalseconds = 0;
             ESPectrum::totalsecondsnodelay = 0;
             VIDEO::framecnt = 0;
-
             if (ESPectrum::aud_volume<ESP_VOLUME_MAX) {
                 ESPectrum::aud_volume++;
                 pwm_audio_set_volume(ESPectrum::aud_volume);
             }
-
-            unsigned short x,y;
+            unsigned short x, y;
             if (Config::aspect_16_9) {
                 x = 156;
                 y = 180;
@@ -612,15 +596,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                 x = 168;
                 y = 224;
             }
-
             VIDEO::vga.fillRect(x ,y - 4, 24 * 6, 16, zxColor(1, 0));
             VIDEO::vga.setTextColor(zxColor(7, 0), zxColor(1, 0));
             VIDEO::vga.setFont(Font6x8);
             VIDEO::vga.setCursor(x + 4,y + 1);
             VIDEO::vga.print(Config::tape_player ? "TAP" : "VOL");
-            for (int i = 0; i < ESPectrum::aud_volume + 16; i++)
-                VIDEO::vga.fillRect(x + 26 + (i * 7) , y + 1, 6, 7, zxColor( 7, 0));                                
-
+            for (int i = 0; i < ESPectrum::aud_volume + 16; i++) {
+                VIDEO::vga.fillRect(x + 26 + (i * 7) , y + 1, 6, 7, zxColor( 7, 0));
+            }
         }
         else if (KeytoESP == fabgl::VK_F11) { // Hard reset
             if (Config::ram_file != NO_RAM_FILE) {
@@ -636,7 +619,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
             esp_hard_reset();
         }
         else if (KeytoESP == fabgl::VK_F1) {
-        
         menu_curopt = 1;
         while(1) {
             // Main menu
@@ -1775,19 +1757,19 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     std::size_t pos = joy_menu.find("[",0);
                                     int nfind = 0;
                                     while (pos != string::npos) {
-                                        if (nfind == Config::joyPS2) {
-                                            joy_menu.replace(pos,2,"[*");
-                                            break;
-                                        }
+///                                        if (nfind == Config::joyPS2) {
+///                                            joy_menu.replace(pos,2,"[*");
+///                                            break;
+///                                        }
                                         pos = joy_menu.find("[",pos + 1);
                                         nfind++;
                                     }
                                     uint8_t optjoy = menuRun(joy_menu);
                                     if (optjoy > 0 && optjoy < 6) {
-                                        if (Config::joyPS2 != (optjoy - 1)) {
-                                            Config::joyPS2 = optjoy - 1;
-                                            Config::save();
-                                        }
+///                                        if (Config::joyPS2 != (optjoy - 1)) {
+///                                            Config::joyPS2 = optjoy - 1;
+///                                            Config::save();
+///                                        }
                                         menu_curopt = optjoy;
                                         menu_saverect = false;
                                     } else {
@@ -2138,26 +2120,21 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                 osdAt(2, 0);
                 VIDEO::vga.setTextColor(zxColor(7, 0), zxColor(1, 0));
                 VIDEO::vga.print(Config::lang ? OSD_HELP_ES : OSD_HELP_EN);
-
                 while (1) {
-
                     if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
                         if (ESPectrum::readKbd(&Nextkey)) {
                             if(!Nextkey.down) continue;
-                            if (Nextkey.vk == fabgl::VK_F1 || Nextkey.vk == fabgl::VK_ESCAPE || Nextkey.vk == fabgl::VK_RETURN || Nextkey.vk == fabgl::VK_JOY1A || Nextkey.vk == fabgl::VK_JOY1B || Nextkey.vk == fabgl::VK_JOY2A || Nextkey.vk == fabgl::VK_JOY2B) break;
+                            if (Nextkey.vk == fabgl::VK_F1 || Nextkey.vk == fabgl::VK_ESCAPE || Nextkey.vk == fabgl::VK_RETURN ||
+                                (Nextkey.vk == fabgl::VK_JOY1A || Nextkey.vk == fabgl::VK_JOY1B ||
+                                 Nextkey.vk == fabgl::VK_JOY2A || Nextkey.vk == fabgl::VK_JOY2B) && !Config::joy2cursor
+                            ) break;
                         }
                     }
-
                     sleep_ms(5);
-
                 }
-
                 click();
-
                 if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes                
-
                 return;
-
             }        
             else if (FileUtils::fsMount && opt == 8 || opt == 6) {
                 // About
@@ -2245,7 +2222,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                     if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
                         if (ESPectrum::readKbd(&Nextkey)) {
                             if(!Nextkey.down) continue;
-                            if (Nextkey.vk == fabgl::VK_F1 || Nextkey.vk == fabgl::VK_ESCAPE || Nextkey.vk == fabgl::VK_RETURN || Nextkey.vk == fabgl::VK_JOY1A || Nextkey.vk == fabgl::VK_JOY1B || Nextkey.vk == fabgl::VK_JOY2A || Nextkey.vk == fabgl::VK_JOY2B) break;                            
+                            if (Nextkey.vk == fabgl::VK_F1 || Nextkey.vk == fabgl::VK_ESCAPE || Nextkey.vk == fabgl::VK_RETURN ||
+                                (Nextkey.vk == fabgl::VK_JOY1A || Nextkey.vk == fabgl::VK_JOY1B ||
+                                 Nextkey.vk == fabgl::VK_JOY2A || Nextkey.vk == fabgl::VK_JOY2B) && !Config::joy2cursor
+                            ) break;
                         }
                     }
 
@@ -2460,60 +2440,21 @@ void OSD::HWInfo() {
         }
         VIDEO::vga.print(buf);
     }
-
-///    multi_heap_info_t info;    
-///    heap_caps_get_info(&info, MALLOC_CAP_SPIRAM);
-///    uint32_t psramsize = (info.total_free_bytes + info.total_allocated_bytes) >> 10;
-///    textout = " PSRAM size    : " + ( psramsize == 0 ? "N/A or disabled" : to_string(psramsize) + " MB") + "\n";
-///    VIDEO::vga.print(textout.c_str());
-/**
-    textout = " IDF Version   : " + (string)(esp_get_idf_version()) + "\n";
-    VIDEO::vga.print(textout.c_str());
-
-    VIDEO::vga.print("\n Memory info\n");
-    VIDEO::vga.print(" --------------------------------------\n");
-
-    heap_caps_get_info(&info, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); // internal RAM, memory capable to store data or to create new task
-    textout = " Total free bytes           : " + to_string(info.total_free_bytes) + "\n";
-    VIDEO::vga.print(textout.c_str());
-
-    textout = " Minimum free ever          : " + to_string(info.minimum_free_bytes) + "\n";
-    VIDEO::vga.print(textout.c_str());    
-    
-    textout = " Largest free block         : " + to_string(info.largest_free_block) + "\n";
-    VIDEO::vga.print(textout.c_str());
-    
-    textout = " Free (MALLOC_CAP_32BIT)    : " + to_string(heap_caps_get_free_size(MALLOC_CAP_INTERNAL | MALLOC_CAP_32BIT)) + "\n";
-    VIDEO::vga.print(textout.c_str());
-        
-    UBaseType_t wm;
-    wm = uxTaskGetStackHighWaterMark(ESPectrum::audioTaskHandle);
-    textout = " Audio Task Stack HWM       : " + to_string(wm) + "\n";
-    VIDEO::vga.print(textout.c_str());
-
-    // wm = uxTaskGetStackHighWaterMark(loopTaskHandle);
-    // printf("Loop Task Stack HWM: %u\n", wm);
-
-    wm = uxTaskGetStackHighWaterMark(VIDEO::videoTaskHandle);
-    textout = " Video Task Stack HWM       : " + (Config::videomode ? to_string(wm) : "N/A") + "\n";    
-    VIDEO::vga.print(textout.c_str());
-*/
     // Wait for key
     while (1) {
-
         if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
             ESPectrum::PS2Controller.keyboard()->getNextVirtualKey(&Nextkey);
             if(!Nextkey.down) continue;
-            if (Nextkey.vk == fabgl::VK_F1 || Nextkey.vk == fabgl::VK_ESCAPE || Nextkey.vk == fabgl::VK_RETURN || Nextkey.vk == fabgl::VK_JOY1A || Nextkey.vk == fabgl::VK_JOY1B || Nextkey.vk == fabgl::VK_JOY2A || Nextkey.vk == fabgl::VK_JOY2B) {
+            if (Nextkey.vk == fabgl::VK_F1 || Nextkey.vk == fabgl::VK_ESCAPE || Nextkey.vk == fabgl::VK_RETURN ||
+                (Nextkey.vk == fabgl::VK_JOY1A || Nextkey.vk == fabgl::VK_JOY1B ||
+                 Nextkey.vk == fabgl::VK_JOY2A || Nextkey.vk == fabgl::VK_JOY2B) && !Config::joy2cursor
+            ) {
                 click();
                 break;
             }
         }
-
         sleep_ms(5);
-
     }
-
 }
 
 static void __not_in_flash_func(flash_block)(const uint8_t* buffer, size_t flash_target_offset) {
@@ -2976,12 +2917,10 @@ uint8_t OSD::msgDialog(string title, string msg) {
     // Keyboard loop
     fabgl::VirtualKeyItem Menukey;
     while (1) {
-
         // Process external keyboard
         if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
             if (ESPectrum::readKbd(&Menukey)) {
                 if (!Menukey.down) continue;
-
                 if (Menukey.vk == fabgl::VK_LEFT || Menukey.vk == fabgl::VK_JOY1LEFT || Menukey.vk == fabgl::VK_JOY2LEFT) {
                     // Yes
                     VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
@@ -3004,18 +2943,18 @@ uint8_t OSD::msgDialog(string title, string msg) {
                     VIDEO::vga.print("  No  ");
                     click();
                     res = DLG_NO;
-                } else if (Menukey.vk == fabgl::VK_RETURN || Menukey.vk == fabgl::VK_SPACE || Menukey.vk == fabgl::VK_JOY1B || Menukey.vk == fabgl::VK_JOY2B || Menukey.vk == fabgl::VK_JOY1C || Menukey.vk == fabgl::VK_JOY2C) {
+                } else if (Menukey.vk == fabgl::VK_RETURN || Menukey.vk == fabgl::VK_SPACE ||
+                           (Menukey.vk == fabgl::VK_JOY1A || Menukey.vk == fabgl::VK_JOY2A ||
+                            Menukey.vk == fabgl::VK_JOY1B || Menukey.vk == fabgl::VK_JOY2B) && !Config::joy2cursor
+                ) {
                     break;
-                } else if (Menukey.vk == fabgl::VK_ESCAPE || Menukey.vk == fabgl::VK_JOY1A || Menukey.vk == fabgl::VK_JOY2A) {
+                } else if (Menukey.vk == fabgl::VK_ESCAPE) {
                     res = DLG_CANCEL;
                     break;
                 }
             }
-
         }
-
         sleep_ms(5);
-
     }
 
     click();
@@ -3035,12 +2974,12 @@ return text;
 
 #define MENU_JOYSELKEY_EN "Key      \n"\
     "A-Z      \n"\
-    "1-0      \n"\
+    "0-9      \n"\
     "Special  \n"\
     "PS/2     \n"
 #define MENU_JOYSELKEY_ES "Tecla    \n"\
     "A-Z      \n"\
-    "1-0      \n"\
+    "0-9      \n"\
     "Especial \n"\
     "PS/2     \n"
 static const char *MENU_JOYSELKEY[2] = { MENU_JOYSELKEY_EN, MENU_JOYSELKEY_ES };
@@ -3251,31 +3190,21 @@ case fabgl::VK_UP:
 case fabgl::VK_DOWN:
     return "  Down   ";
 case fabgl::VK_KEMPSTON_LEFT:
-    return "Kmp.Left ";
+    return "Joy.Left ";
 case fabgl::VK_KEMPSTON_RIGHT:
-    return "Kmp.Right";
+    return "Joy.Right";
 case fabgl::VK_KEMPSTON_UP:   
-    return " Kmp.Up  ";
+    return " Joy.Up  ";
 case fabgl::VK_KEMPSTON_DOWN:
-    return "Kmp.Down ";
+    return "Joy.Down ";
 case fabgl::VK_KEMPSTON_FIRE:    
-    return "Kmp.Fire1";
+    return "  Joy.A  ";
 case fabgl::VK_KEMPSTON_ALTFIRE:
-    return "Kmp.Fire2";
+    return "  Joy.B  ";
 case fabgl::VK_KEMPSTON_SELECT:
-    return "Kmp.Sel  ";
+    return " Joy.Sel ";
 case fabgl::VK_KEMPSTON_START:
-    return "Kmp.Start";
-case fabgl::VK_FULLER_LEFT:
-    return "Fll.Left ";
-case fabgl::VK_FULLER_RIGHT:
-    return "Fll.Right";
-case fabgl::VK_FULLER_UP:
-    return " Fll.Up  ";
-case fabgl::VK_FULLER_DOWN:
-    return "Fll.Down ";
-case fabgl::VK_FULLER_FIRE:
-    return "Fll.Fire ";
+    return "Joy.Start";
 default:
     return "  None   ";
 }
@@ -3465,138 +3394,105 @@ void OSD::joyDialog(uint8_t joynum) {
     VIDEO::vga.print("   Ok    ");
     VIDEO::vga.setCursor(x + joyDropdown[13][0], y + joyDropdown[13][1]);
     VIDEO::vga.print(" JoyTest ");
-
-    // // Ruler
-    // VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));        
-    // VIDEO::vga.setCursor(x + 1, y + 1 + (OSD_FONT_H * 3));
-    // VIDEO::vga.print("123456789012345678901234567");
-
-    DrawjoyControls(x,y);
+    DrawjoyControls(x, y);
 
     // Wait for key
     fabgl::VirtualKeyItem Nextkey;
-
     int joyTestExitCount1 = 0;
     int joyTestExitCount2 = 0;    
-
     while (1) {
-
         if (joyDialogMode) {
             DrawjoyControls(x,y);            
         }
-
         if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
             ESPectrum::PS2Controller.keyboard()->getNextVirtualKey(&Nextkey);
             if(!Nextkey.down) continue;
-            
-            if (Nextkey.vk == fabgl::VK_LEFT || Nextkey.vk == fabgl::VK_JOY1LEFT || Nextkey.vk == fabgl::VK_JOY2LEFT) {
-
+            if (Nextkey.vk == fabgl::VK_LEFT ||
+                (Nextkey.vk == fabgl::VK_JOY1LEFT || Nextkey.vk == fabgl::VK_JOY2LEFT) && !Config::joy2cursor
+            ) {
                 if (joyDialogMode == 0 && joyDropdown[curDropDown][2] >= 0) {
-
                     VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
                     VIDEO::vga.setCursor(x + joyDropdown[curDropDown][0], y + joyDropdown[curDropDown][1]);
                     if (curDropDown < 12)
                         VIDEO::vga.print(vkToText(joyDropdown[curDropDown][6]).c_str());                    
                     else
                         VIDEO::vga.print(curDropDown == 12 ? "   Ok    " : " JoyTest ");
-
                     curDropDown = joyDropdown[curDropDown][2];
-
                     VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
                     VIDEO::vga.setCursor(x + joyDropdown[curDropDown][0], y + joyDropdown[curDropDown][1]);
                     if (curDropDown < 12)
                         VIDEO::vga.print(vkToText(joyDropdown[curDropDown][6]).c_str());                    
                     else
                         VIDEO::vga.print(curDropDown == 12 ? "   Ok    " : " JoyTest ");
-
-                    click();                        
-
+                    click();
                 }
-
             } else
-            if (Nextkey.vk == fabgl::VK_RIGHT || Nextkey.vk == fabgl::VK_JOY1RIGHT || Nextkey.vk == fabgl::VK_JOY2RIGHT) {
-
+            if (Nextkey.vk == fabgl::VK_RIGHT || 
+                (Nextkey.vk == fabgl::VK_JOY1RIGHT || Nextkey.vk == fabgl::VK_JOY2RIGHT) && !Config::joy2cursor
+            ) {
                 if (joyDialogMode == 0 && joyDropdown[curDropDown][3] >= 0) {
-
                     VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
                     VIDEO::vga.setCursor(x + joyDropdown[curDropDown][0], y + joyDropdown[curDropDown][1]);
                     if (curDropDown < 12)
                         VIDEO::vga.print(vkToText(joyDropdown[curDropDown][6]).c_str());                    
                     else
                         VIDEO::vga.print(curDropDown == 12 ? "   Ok    " : " JoyTest ");
-
                     curDropDown = joyDropdown[curDropDown][3];
-
                     VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
                     VIDEO::vga.setCursor(x + joyDropdown[curDropDown][0], y + joyDropdown[curDropDown][1]);
                     if (curDropDown < 12)
                         VIDEO::vga.print(vkToText(joyDropdown[curDropDown][6]).c_str());                    
                     else
                         VIDEO::vga.print(curDropDown == 12 ? "   Ok    " : " JoyTest ");
-
-                    click();                        
-
+                    click();
                 }
-
             } else
-            if (Nextkey.vk == fabgl::VK_UP || Nextkey.vk == fabgl::VK_JOY1UP || Nextkey.vk == fabgl::VK_JOY2UP) {
-
+            if (Nextkey.vk == fabgl::VK_UP ||
+                 (Nextkey.vk == fabgl::VK_JOY1UP || Nextkey.vk == fabgl::VK_JOY2UP) && !Config::joy2cursor
+            ) {
                 if (joyDialogMode == 0 && joyDropdown[curDropDown][4] >= 0) {
-
                     VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
                     VIDEO::vga.setCursor(x + joyDropdown[curDropDown][0], y + joyDropdown[curDropDown][1]);
                     if (curDropDown < 12)
                         VIDEO::vga.print(vkToText(joyDropdown[curDropDown][6]).c_str());                    
                     else
                         VIDEO::vga.print(curDropDown == 12 ? "   Ok    " : " JoyTest ");
-
                     curDropDown = joyDropdown[curDropDown][4];
-
                     VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
                     VIDEO::vga.setCursor(x + joyDropdown[curDropDown][0], y + joyDropdown[curDropDown][1]);
                     if (curDropDown < 12)
                         VIDEO::vga.print(vkToText(joyDropdown[curDropDown][6]).c_str());                    
                     else
                         VIDEO::vga.print(curDropDown == 12 ? "   Ok    " : " JoyTest ");
-
                     click();                        
-
                 }
-
             } else
-            if (Nextkey.vk == fabgl::VK_DOWN || Nextkey.vk == fabgl::VK_JOY1DOWN || Nextkey.vk == fabgl::VK_JOY2DOWN) {
-
+            if (Nextkey.vk == fabgl::VK_DOWN ||
+                 (Nextkey.vk == fabgl::VK_JOY1DOWN || Nextkey.vk == fabgl::VK_JOY2DOWN) && !Config::joy2cursor
+            ) {
                 if (joyDialogMode == 0 && joyDropdown[curDropDown][5] >= 0) {
-
                     VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
                     VIDEO::vga.setCursor(x + joyDropdown[curDropDown][0], y + joyDropdown[curDropDown][1]);
                     if (curDropDown < 12)
                         VIDEO::vga.print(vkToText(joyDropdown[curDropDown][6]).c_str());                    
                     else
                         VIDEO::vga.print(curDropDown == 12 ? "   Ok    " : " JoyTest ");
-
                     curDropDown = joyDropdown[curDropDown][5];
-
                     VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
                     VIDEO::vga.setCursor(x + joyDropdown[curDropDown][0], y + joyDropdown[curDropDown][1]);
                     if (curDropDown < 12)
                         VIDEO::vga.print(vkToText(joyDropdown[curDropDown][6]).c_str());                    
                     else
                         VIDEO::vga.print(curDropDown == 12 ? "   Ok    " : " JoyTest ");
-
-                    click();                        
-
+                    click();
                 }
-
             } else
-            if (Nextkey.vk == fabgl::VK_RETURN || Nextkey.vk == fabgl::VK_JOY1B || Nextkey.vk == fabgl::VK_JOY2B) {
-
+            if (Nextkey.vk == fabgl::VK_RETURN ||
+                 (Nextkey.vk == fabgl::VK_JOY1B || Nextkey.vk == fabgl::VK_JOY2B) && !Config::joy2cursor
+            ) {
                 if (joyDialogMode == 0) {
-
                     if (curDropDown>=0 && curDropDown<12) {
-                        
                         click();
-
                         // Launch assign menu
                         menu_curopt = 1;
                         while (1) {
@@ -3610,11 +3506,10 @@ void OSD::joyDialog(uint8_t joynum) {
                                 menu_curopt = 1;
                                 uint8_t opt2 = simpleMenuRun(selkeymenu[opt - 1],x + joyDropdown[curDropDown][0],y + joyDropdown[curDropDown][1],6,11);
                                 if(opt2!=0) {
-
                                     if (opt == 1) {// A-Z
                                         joyDropdown[curDropDown][6] = (fabgl::VirtualKey) 47 + opt2;
                                     } else
-                                    if (opt == 2) {// 1-0
+                                    if (opt == 2) {// 0-9
                                         joyDropdown[curDropDown][6] = (fabgl::VirtualKey) 1 + opt2;
                                     } else
                                     if (opt == 3) {// Special
@@ -3684,20 +3579,15 @@ void OSD::joyDialog(uint8_t joynum) {
                                         }
                                         if (joytype == JOY_FULLER)
                                             joyDropdown[curDropDown][6] += 6;
-
                                     }
-
                                     VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
                                     VIDEO::vga.setCursor(x + joyDropdown[curDropDown][0], y + joyDropdown[curDropDown][1]);
                                     VIDEO::vga.print(vkToText(joyDropdown[curDropDown][6]).c_str());
-
                                     break;
-
                                 }
                             } else break;
                             menu_curopt = opt;
                         }
-
                     } else
                     if (curDropDown == 12) {
                         // Ok button
@@ -3735,30 +3625,20 @@ void OSD::joyDialog(uint8_t joynum) {
                     if (curDropDown == 13) {                    
                         // Enable joyTest
                         joyDialogMode = 1;
-
                         joyTestExitCount1 = 0;
                         joyTestExitCount2 = 0;
-
                         VIDEO::vga.setTextColor(zxColor(4, 1), zxColor(5, 1));
                         VIDEO::vga.setCursor(x + joyDropdown[13][0], y + joyDropdown[13][1]);
                         VIDEO::vga.print(" JoyTest ");
-
                         click();
-
                     }
-
                 }
-
             } else
-            if (Nextkey.vk == fabgl::VK_ESCAPE || Nextkey.vk == fabgl::VK_JOY1A || Nextkey.vk == fabgl::VK_JOY2A) {
-                
+            if (Nextkey.vk == fabgl::VK_ESCAPE) {
                 if (joyDialogMode) {
-
                     if (Nextkey.vk == fabgl::VK_ESCAPE) {
-
                         // Disable joyTest
                         joyDialogMode = 0;
-                        
                         VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
                         VIDEO::vga.setCursor(x + joyDropdown[13][0], y + joyDropdown[13][1]);
                         VIDEO::vga.print(" JoyTest ");
@@ -3782,27 +3662,26 @@ void OSD::joyDialog(uint8_t joynum) {
 
         // Joy Test Mode: Check joy status and color controls
         if (joyDialogMode) {
-
             for (int n = (joynum == 1 ? fabgl::VK_JOY1LEFT : fabgl::VK_JOY2LEFT); n <= (joynum == 1 ? fabgl::VK_JOY1Z : fabgl::VK_JOY2Z); n++) {
                 if (ESPectrum::PS2Controller.keyboard()->isVKDown((fabgl::VirtualKey) n))
                     joyControl[n - (joynum == 1 ? 248 : 260)][2] = zxColor(4,1);            
                 else
                     joyControl[n - (joynum == 1 ? 248 : 260)][2] = zxColor(0,0);
             }
-
             if (ESPectrum::PS2Controller.keyboard()->isVKDown(fabgl::VK_JOY1A)) {
                 joyTestExitCount1++;
                 if (joyTestExitCount1 == 30)
                     ESPectrum::PS2Controller.keyboard()->injectVirtualKey(fabgl::VK_ESCAPE,true,false);
-            } else
+            } else {
                 joyTestExitCount1 = 0;
-
+            }
             if (ESPectrum::PS2Controller.keyboard()->isVKDown(fabgl::VK_JOY2A)) {
                 joyTestExitCount2++;
                 if (joyTestExitCount2 == 30)
                     ESPectrum::PS2Controller.keyboard()->injectVirtualKey(fabgl::VK_ESCAPE,true,false);
-            } else
+            } else {
                 joyTestExitCount2 = 0;
+            }
         }
         sleep_ms(50);
     }
@@ -3909,35 +3788,25 @@ void OSD::pokeDialog() {
         }
 
     }
-
     // Wait for key
     fabgl::VirtualKeyItem Nextkey;
-
     uint8_t CursorFlash = 0;
-
     while (1) {
-
         if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
-
             ESPectrum::PS2Controller.keyboard()->getNextVirtualKey(&Nextkey);
-
             if(!Nextkey.down) continue;
-            
             if ((Nextkey.vk >= fabgl::VK_0) && (Nextkey.vk <= fabgl::VK_9)) {
-
                 if (dlg_Objects[curObject].objType == DLG_OBJ_INPUT) {
                     if (dlgValues[curObject].length() < (curObject == 1 ? 5 : 3)) {
                         dlgValues[curObject] += char(Nextkey.vk + 46);
                     }
                 }
-
                 click();
-
             } else
-            if (Nextkey.vk == fabgl::VK_LEFT || Nextkey.vk == fabgl::VK_JOY1LEFT || Nextkey.vk == fabgl::VK_JOY2LEFT) {
-
+            if (Nextkey.vk == fabgl::VK_LEFT || 
+                (Nextkey.vk == fabgl::VK_JOY1LEFT || Nextkey.vk == fabgl::VK_JOY2LEFT) && !Config::joy2cursor
+            ) {
                 if (dlg_Objects[curObject].objLeft >= 0) {
-
                     VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
                     VIDEO::vga.setCursor(x + dlg_Objects[curObject].posx, y + dlg_Objects[curObject].posy);
                     if (dlg_Objects[curObject].objType == DLG_OBJ_BUTTON) {
@@ -3945,9 +3814,7 @@ void OSD::pokeDialog() {
                     } else {
                         VIDEO::vga.print(dlgValues[curObject].c_str());
                     }
-
                     curObject = dlg_Objects[curObject].objLeft;
-
                     VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
                     VIDEO::vga.setCursor(x + dlg_Objects[curObject].posx, y + dlg_Objects[curObject].posy);
                     if (dlg_Objects[curObject].objType == DLG_OBJ_BUTTON) {
@@ -3955,16 +3822,13 @@ void OSD::pokeDialog() {
                     } else {
                         VIDEO::vga.print(dlgValues[curObject].c_str());
                     }
-
-                    click();                        
-
+                    click();
                 }
-
             } else
-            if (Nextkey.vk == fabgl::VK_RIGHT || Nextkey.vk == fabgl::VK_JOY1RIGHT || Nextkey.vk == fabgl::VK_JOY2RIGHT) {
-
+            if (Nextkey.vk == fabgl::VK_RIGHT ||
+                 (Nextkey.vk == fabgl::VK_JOY1RIGHT || Nextkey.vk == fabgl::VK_JOY2RIGHT) && !Config::joy2cursor
+            ) {
                 if (dlg_Objects[curObject].objRight >= 0) {
-
                     VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
                     VIDEO::vga.setCursor(x + dlg_Objects[curObject].posx, y + dlg_Objects[curObject].posy);
                     if (dlg_Objects[curObject].objType == DLG_OBJ_BUTTON) {
@@ -3972,9 +3836,7 @@ void OSD::pokeDialog() {
                     } else {
                         VIDEO::vga.print(dlgValues[curObject].c_str());
                     }
-
                     curObject = dlg_Objects[curObject].objRight;
-
                     VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
                     VIDEO::vga.setCursor(x + dlg_Objects[curObject].posx, y + dlg_Objects[curObject].posy);
                     if (dlg_Objects[curObject].objType == DLG_OBJ_BUTTON) {
@@ -3982,21 +3844,16 @@ void OSD::pokeDialog() {
                     } else {
                         VIDEO::vga.print(dlgValues[curObject].c_str());
                     }
-
-                    click();                        
-
+                    click();
                 }
-
             } else
-            if (Nextkey.vk == fabgl::VK_UP || Nextkey.vk == fabgl::VK_JOY1UP || Nextkey.vk == fabgl::VK_JOY2UP) {
-
+            if (Nextkey.vk == fabgl::VK_UP ||
+                (Nextkey.vk == fabgl::VK_JOY1UP || Nextkey.vk == fabgl::VK_JOY2UP) && !Config::joy2cursor
+            ) {
                 if (dlg_Objects[curObject].objTop >= 0) {
-
                     // Input values validation
                     bool validated = true;
-
                     if (dlg_Objects[curObject].Name == "Address") {
-
                         string val = dlgValues[1];
                         trim(val);
                         if (val!="") {
@@ -4012,7 +3869,6 @@ void OSD::pokeDialog() {
                                     validated = false;
                                 }
                             }
-
                         } else {
                             dlgValues[1]= dlgValues[0] == "   -   " ? "16384" : "0";
                         }
@@ -4031,9 +3887,7 @@ void OSD::pokeDialog() {
                             dlgValues[2]="0";
                         }
                     }
-
                     if (validated) {
-
                         VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
                         VIDEO::vga.setCursor(x + dlg_Objects[curObject].posx, y + dlg_Objects[curObject].posy);
                         if (dlg_Objects[curObject].objType == DLG_OBJ_BUTTON) {
@@ -4042,9 +3896,7 @@ void OSD::pokeDialog() {
                             VIDEO::vga.print(dlgValues[curObject].c_str());
                             if (dlg_Objects[curObject].objType == DLG_OBJ_INPUT) VIDEO::vga.print(" "); // Clear K cursor
                         }
-
                         curObject = dlg_Objects[curObject].objTop;
-
                         VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
                         VIDEO::vga.setCursor(x + dlg_Objects[curObject].posx, y + dlg_Objects[curObject].posy);
                         if (dlg_Objects[curObject].objType == DLG_OBJ_BUTTON) {
@@ -4052,23 +3904,17 @@ void OSD::pokeDialog() {
                         } else {
                             VIDEO::vga.print(dlgValues[curObject].c_str());
                         }
-
-                        click();                        
-
+                        click();
                     }
-
                 }
-
             } else
-            if (Nextkey.vk == fabgl::VK_DOWN || Nextkey.vk == fabgl::VK_JOY1DOWN || Nextkey.vk == fabgl::VK_JOY2DOWN) {
-
+            if (Nextkey.vk == fabgl::VK_DOWN || 
+                (Nextkey.vk == fabgl::VK_JOY1DOWN || Nextkey.vk == fabgl::VK_JOY2DOWN) && !Config::joy2cursor
+            ) {
                 if (dlg_Objects[curObject].objDown >= 0) {
-
                     // Input values validation
                     bool validated = true;
-
                     if (dlg_Objects[curObject].Name == "Address") {
-
                         string val = dlgValues[1];
                         trim(val);
                         if (val!="") {
@@ -4084,7 +3930,6 @@ void OSD::pokeDialog() {
                                     validated = false;
                                 }
                             }
-
                         } else {
                             dlgValues[1]= dlgValues[0] == "   -   " ? "16384" : "0";
                         }
@@ -4103,9 +3948,7 @@ void OSD::pokeDialog() {
                             dlgValues[2]="0";
                         }
                     }
-
                     if (validated) {
-
                         VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
                         VIDEO::vga.setCursor(x + dlg_Objects[curObject].posx, y + dlg_Objects[curObject].posy);
                         if (dlg_Objects[curObject].objType == DLG_OBJ_BUTTON) {
@@ -4114,9 +3957,7 @@ void OSD::pokeDialog() {
                             VIDEO::vga.print(dlgValues[curObject].c_str());
                             if (dlg_Objects[curObject].objType == DLG_OBJ_INPUT) VIDEO::vga.print(" "); // Clear K cursor
                         }
-
                         curObject = dlg_Objects[curObject].objDown;
-
                         VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
                         VIDEO::vga.setCursor(x + dlg_Objects[curObject].posx, y + dlg_Objects[curObject].posy);
                         if (dlg_Objects[curObject].objType == DLG_OBJ_BUTTON) {
@@ -4124,29 +3965,21 @@ void OSD::pokeDialog() {
                         } else {
                             VIDEO::vga.print(dlgValues[curObject].c_str());
                         }
-
                         click();                        
-
                     }
-
                 }
-
             } else
             if (Nextkey.vk == fabgl::VK_BACKSPACE) {            
-
                 if (dlg_Objects[curObject].objType == DLG_OBJ_INPUT) {
                     if (dlgValues[curObject] != "") dlgValues[curObject].pop_back();
                 }
-
                 click();
-
             } else
-            if (Nextkey.vk == fabgl::VK_RETURN || Nextkey.vk == fabgl::VK_JOY1B || Nextkey.vk == fabgl::VK_JOY2B) {
-
+            if (Nextkey.vk == fabgl::VK_RETURN || 
+                (Nextkey.vk == fabgl::VK_JOY1B || Nextkey.vk == fabgl::VK_JOY2B) && !Config::joy2cursor
+            ) {
                 if (dlg_Objects[curObject].Name == "Bank" && !Z80Ops::is48) {
-
                     click();
-
                     // Launch bank menu
                     menu_curopt = 1;
                     while (1) {
@@ -4213,7 +4046,7 @@ void OSD::pokeDialog() {
                     click();
                     break;
                 }
-            } else if (Nextkey.vk == fabgl::VK_ESCAPE || Nextkey.vk == fabgl::VK_JOY1A || Nextkey.vk == fabgl::VK_JOY2A) {
+            } else if (Nextkey.vk == fabgl::VK_ESCAPE) {
                 click();
                 break;
             }

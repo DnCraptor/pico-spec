@@ -66,7 +66,6 @@ uint16_t Config::joydef[24] = {
     fabgl::VK_NONE  // 11
 };
 
-uint8_t  Config::joyPS2 = JOY_KEMPSTON;
 uint8_t  Config::AluTiming = 0;
 volatile uint8_t  Config::joy2cursor = 0;
 bool     Config::CursorAsJoy = false;
@@ -260,7 +259,6 @@ void Config::load() {
             nvs_get_u16(joykey, Config::joydef[n], sts);
         }
 
-        nvs_get_u8("joyPS2", Config::joyPS2, sts);
         nvs_get_u8("AluTiming", Config::AluTiming, sts);
         uint8_t u8; nvs_get_u8("joy2cursor", u8, sts); Config::joy2cursor = u8;
         nvs_get_b("CursorAsJoy", CursorAsJoy, sts);
@@ -348,7 +346,6 @@ void Config::save() {
             snprintf(joykey, 16, "joydef%02u", n);
             nvs_set_u16(handle, joykey, Config::joydef[n]);
         }
-        nvs_set_u8(handle,"joyPS2",Config::joyPS2);
         nvs_set_u8(handle,"AluTiming",Config::AluTiming);
         nvs_set_u8(handle,"joy2cursor",Config::joy2cursor);
         nvs_set_str(handle,"CursorAsJoy", CursorAsJoy ? "true" : "false");
@@ -416,11 +413,11 @@ void Config::setJoyMap(uint8_t joynum, uint8_t joytype) {
             joydef[m + 6] = fabgl::VK_5;
             break;
         case JOY_FULLER:
-            joydef[m + 0] = fabgl::VK_FULLER_LEFT;
-            joydef[m + 1] = fabgl::VK_FULLER_RIGHT;
-            joydef[m + 2] = fabgl::VK_FULLER_UP;
-            joydef[m + 3] = fabgl::VK_FULLER_DOWN;
-            joydef[m + 6] = fabgl::VK_FULLER_FIRE;
+            joydef[m + 0] = fabgl::VK_KEMPSTON_LEFT;
+            joydef[m + 1] = fabgl::VK_KEMPSTON_RIGHT;
+            joydef[m + 2] = fabgl::VK_KEMPSTON_UP;
+            joydef[m + 3] = fabgl::VK_KEMPSTON_DOWN;
+            joydef[m + 6] = fabgl::VK_KEMPSTON_FIRE;
             break;
         }
         Config::save();

@@ -133,56 +133,6 @@ void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
             virtualKey = kbd->manageCAPSLOCK(virtualKey);
         }
         kbd->injectVirtualKey(virtualKey, down);
-        if (virtualKey == Config::joydef[0] && virtualKey != fabgl::VK_KEMPSTON_LEFT) {
-            kbd->injectVirtualKey(fabgl::VK_KEMPSTON_LEFT, down);
-        }
-        else if (virtualKey == Config::joydef[1] && virtualKey != fabgl::VK_KEMPSTON_RIGHT) {
-            kbd->injectVirtualKey(fabgl::VK_KEMPSTON_RIGHT, down);
-        }
-        else if (virtualKey == Config::joydef[2] && virtualKey != fabgl::VK_KEMPSTON_UP) {
-            kbd->injectVirtualKey(fabgl::VK_KEMPSTON_UP, down);
-        }
-        else if (virtualKey == Config::joydef[3] && virtualKey != fabgl::VK_KEMPSTON_DOWN) {
-            kbd->injectVirtualKey(fabgl::VK_KEMPSTON_DOWN, down);
-        }
-        else if (virtualKey == Config::joydef[4] && virtualKey != fabgl::VK_KEMPSTON_START) {
-            kbd->injectVirtualKey(fabgl::VK_KEMPSTON_START, down);
-        }
-        else if (virtualKey == Config::joydef[5] && virtualKey != fabgl::VK_KEMPSTON_SELECT) {
-            kbd->injectVirtualKey(fabgl::VK_KEMPSTON_SELECT, down);
-        }
-        else if (virtualKey == Config::joydef[6] && virtualKey != fabgl::VK_KEMPSTON_FIRE) {
-            kbd->injectVirtualKey(fabgl::VK_KEMPSTON_FIRE, down);
-        }
-        else if (virtualKey == Config::joydef[7] && virtualKey != fabgl::VK_KEMPSTON_ALTFIRE) {
-            kbd->injectVirtualKey(fabgl::VK_KEMPSTON_ALTFIRE, down);
-        }
-        // 8..11
-        else if (virtualKey == Config::joydef[12]) {
-            kbd->injectVirtualKey(fabgl::VK_JOY2LEFT, down);
-        }
-        else if (virtualKey == Config::joydef[13]) {
-            kbd->injectVirtualKey(fabgl::VK_JOY2RIGHT, down);
-        }
-        else if (virtualKey == Config::joydef[14]) {
-            kbd->injectVirtualKey(fabgl::VK_JOY2UP, down);
-        }
-        else if (virtualKey == Config::joydef[15]) {
-            kbd->injectVirtualKey(fabgl::VK_JOY2DOWN, down);
-        }
-        else if (virtualKey == Config::joydef[16]) {
-            kbd->injectVirtualKey(fabgl::VK_JOY1START, down);
-        }
-        else if (virtualKey == Config::joydef[17]) {
-            kbd->injectVirtualKey(fabgl::VK_JOY2MODE, down);
-        }
-        else if (virtualKey == Config::joydef[18]) {
-            kbd->injectVirtualKey(fabgl::VK_JOY2A, down);
-        }
-        else if (virtualKey == Config::joydef[19]) {
-            kbd->injectVirtualKey(fabgl::VK_JOY2B, down);
-        }
-        // 20..24
     }
 }
 
@@ -713,8 +663,8 @@ void ESPectrum::setup()
 
     // Set Ports starting values
     for (int i = 0; i < 128; i++) Ports::port[i] = 0xBF;
-    if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON || Config::joyPS2 == JOYPS2_KEMPSTON) Ports::port[0x1f] = 0; // Kempston
-    if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER || Config::joyPS2 == JOYPS2_FULLER) Ports::port[0x7f] = 0xff; // Fuller
+    if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON) Ports::port[0x1f] = 0; // Kempston
+    if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER) Ports::port[0x7f] = 0xff; // Fuller
 
     // Init disk controller
     Betadisk.Init();
@@ -725,7 +675,6 @@ void ESPectrum::setup()
     // Load snapshot if present in Config::
     if (Config::ram_file != NO_RAM_FILE) {
         if (FileUtils::fsMount) LoadSnapshot(Config::ram_file, "", "");
-
         Config::last_ram_file = Config::ram_file;
         Config::ram_file = NO_RAM_FILE;
         if (FileUtils::fsMount) Config::save();
@@ -743,8 +692,8 @@ void ESPectrum::reset()
 {
     // Ports
     for (int i = 0; i < 128; i++) Ports::port[i] = 0xBF;
-    if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON || Config::joyPS2 == JOYPS2_KEMPSTON) Ports::port[0x1f] = 0; // Kempston
-    if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER || Config::joyPS2 == JOYPS2_FULLER) Ports::port[0x7f] = 0xff; // Fuller
+    if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON) Ports::port[0x1f] = 0; // Kempston
+    if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER) Ports::port[0x7f] = 0xff; // Fuller
 
     // Memory
     MemESP::page0ram = 0;
@@ -868,48 +817,26 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
     bool jShift = true;
 
     while (Kbd->virtualKeyAvailable()) {
-
         r = readKbd(&NextKey);
-
         if (r) {
-
             KeytoESP = NextKey.vk;
             Kdown = NextKey.down;
-            /**
-            if (KeytoESP >= fabgl::VK_JOY1LEFT && KeytoESP <= fabgl::VK_JOY2Z) {
-                // printf("KeytoESP: %d\n",KeytoESP);
-                ESPectrum::PS2Controller.keyboard()->injectVirtualKey(JoyVKTranslation[KeytoESP - 248], Kdown, false);
-                continue;
-            }
-            */
-            if ((Kdown) && ((KeytoESP >= fabgl::VK_F1 && KeytoESP <= fabgl::VK_F12) || KeytoESP == fabgl::VK_PAUSE || KeytoESP == fabgl::VK_VOLUMEUP || KeytoESP == fabgl::VK_VOLUMEDOWN || KeytoESP == fabgl::VK_VOLUMEMUTE)) {
-
+            if ((Kdown) && ((KeytoESP >= fabgl::VK_F1 && KeytoESP <= fabgl::VK_F12) || KeytoESP == fabgl::VK_PAUSE ||
+                KeytoESP == fabgl::VK_VOLUMEUP || KeytoESP == fabgl::VK_VOLUMEDOWN || KeytoESP == fabgl::VK_VOLUMEMUTE)
+            ) {
                 int64_t osd_start = esp_timer_get_time();
-
                 OSD::do_OSD(KeytoESP, Kbd->isVKDown(fabgl::VK_LCTRL) || Kbd->isVKDown(fabgl::VK_RCTRL));
-
                 Kbd->emptyVirtualKeyQueue();
-                
                 // Set all zx keys as not pressed
                 zxDelay = 15;
-                
-                // totalseconds = 0;
-                // totalsecondsnodelay = 0;
-                // VIDEO::framecnt = 0;
-
                 #ifdef DIRTY_LINES
                 for (int i=0; i < SPEC_H; i++) VIDEO::dirty_lines[i] |= 0x01;
                 #endif // DIRTY_LINES
-
                 // Refresh border
                 VIDEO::brdnextframe = true;
-
                 ESPectrum::ts_start += esp_timer_get_time() - osd_start;
-
                 return;
-
             }
-
             // Reset keys
             if (Kdown && NextKey.LALT) {
                 if (NextKey.CTRL) {
@@ -942,285 +869,74 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                 }
             }
 
-            if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON || Config::joyPS2 == JOYPS2_KEMPSTON) Ports::port[0x1f] = 0;
-            if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER || Config::joyPS2 == JOYPS2_FULLER) Ports::port[0x7f] = 0xff;
+            if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON) Ports::port[0x1f] = 0;
+            if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER) Ports::port[0x7f] = 0xff;
 
-            if (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON) {
-                for (int i = fabgl::VK_KEMPSTON_RIGHT; i <= fabgl::VK_KEMPSTON_SELECT; i++)
+            if (Config::joystick1 == JOY_KEMPSTON) {
+                for (int i = fabgl::VK_JOY1RIGHT; i <= fabgl::VK_JOY1C; i++)
                     if (Kbd->isVKDown((fabgl::VirtualKey) i))
-                        bitWrite(Ports::port[0x1f], i - fabgl::VK_KEMPSTON_RIGHT, 1);
+                        bitWrite(Ports::port[0x1f], i - fabgl::VK_JOY1RIGHT, 1);
+            }
+            if (Config::joystick2 == JOY_KEMPSTON) {
+                for (int i = fabgl::VK_JOY2RIGHT; i <= fabgl::VK_JOY2C; i++)
+                    if (Kbd->isVKDown((fabgl::VirtualKey) i))
+                        bitWrite(Ports::port[0x1f], i - fabgl::VK_JOY2RIGHT, 1);
             }
 
-            if (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER) {
-
-                // Fuller
-                if (Kbd->isVKDown(fabgl::VK_FULLER_RIGHT)) {
+            if (Config::joystick1 == JOY_FULLER) {  // Fuller
+                if (Kbd->isVKDown(fabgl::VK_JOY1RIGHT)) {
                     bitWrite(Ports::port[0x7f], 3, 0);
                 }
-
-                if (Kbd->isVKDown(fabgl::VK_FULLER_LEFT)) {
+                if (Kbd->isVKDown(fabgl::VK_JOY1LEFT)) {
                     bitWrite(Ports::port[0x7f], 2, 0);
                 }
-
-                if (Kbd->isVKDown(fabgl::VK_FULLER_DOWN)) {
+                if (Kbd->isVKDown(fabgl::VK_JOY1DOWN)) {
                     bitWrite(Ports::port[0x7f], 1, 0);
                 }
-
-                if (Kbd->isVKDown(fabgl::VK_FULLER_UP)) {
+                if (Kbd->isVKDown(fabgl::VK_JOY1UP)) {
                     bitWrite(Ports::port[0x7f], 0, 0);
                 }
-
-                if (Kbd->isVKDown(fabgl::VK_FULLER_FIRE)) {
+                if (Kbd->isVKDown(fabgl::VK_JOY1A)) {
                     bitWrite(Ports::port[0x7f], 7, 0);
                 }
-
+            }
+            if (Config::joystick2 == JOY_FULLER) {  // Fuller
+                if (Kbd->isVKDown(fabgl::VK_JOY2RIGHT)) {
+                    bitWrite(Ports::port[0x7f], 3, 0);
+                }
+                if (Kbd->isVKDown(fabgl::VK_JOY2LEFT)) {
+                    bitWrite(Ports::port[0x7f], 2, 0);
+                }
+                if (Kbd->isVKDown(fabgl::VK_JOY2DOWN)) {
+                    bitWrite(Ports::port[0x7f], 1, 0);
+                }
+                if (Kbd->isVKDown(fabgl::VK_JOY2UP)) {
+                    bitWrite(Ports::port[0x7f], 0, 0);
+                }
+                if (Kbd->isVKDown(fabgl::VK_JOY2A)) {
+                    bitWrite(Ports::port[0x7f], 7, 0);
+                }
             }
 
             jShift = !(Kbd->isVKDown(fabgl::VK_LSHIFT) || Kbd->isVKDown(fabgl::VK_RSHIFT));
-           
-            if (Config::CursorAsJoy) {
-                // Kempston Joystick emulation
-                if (Config::joyPS2 == JOYPS2_KEMPSTON) {
-
-                    if (Kbd->isVKDown(fabgl::VK_RIGHT)) {
-                        j[8] = jShift;
-                        bitWrite(Ports::port[0x1f], 0, j[8]);
-                    }
-
-                    if (Kbd->isVKDown(fabgl::VK_LEFT)) {
-                        j[5] = jShift;
-                        bitWrite(Ports::port[0x1f], 1, j[5]);
-                    }
-
-                    if (Kbd->isVKDown(fabgl::VK_DOWN)) {
-                        j[6] = jShift;
-                        bitWrite(Ports::port[0x1f], 2, j[6]);
-                    }
-
-                    if (Kbd->isVKDown(fabgl::VK_UP)) {
-                        j[7] = jShift;
-                        bitWrite(Ports::port[0x1f], 3, j[7]);
-                    }
-
-                // Fuller Joystick emulation
-                } else if (Config::joyPS2 == JOYPS2_FULLER) {
-
-                    if (Kbd->isVKDown(fabgl::VK_RIGHT)) {
-                        j[8] = jShift;
-                        bitWrite(Ports::port[0x7f], 3, !j[8]);
-                    }
-
-                    if (Kbd->isVKDown(fabgl::VK_LEFT)) {
-                        j[5] = jShift;
-                        bitWrite(Ports::port[0x7f], 2, !j[5]);
-                    }
-
-                    if (Kbd->isVKDown(fabgl::VK_DOWN)) {
-                        j[6] = jShift;
-                        bitWrite(Ports::port[0x7f], 1, !j[6]);
-                    }
-
-                    if (Kbd->isVKDown(fabgl::VK_UP)) {
-                        j[7] = jShift;
-                        bitWrite(Ports::port[0x7f], 0, !j[7]);
-                    }
-
-                } else if (Config::joyPS2 == JOYPS2_CURSOR) {
-
-                    j[5] =  !Kbd->isVKDown(fabgl::VK_LEFT);
-                    j[8] =  !Kbd->isVKDown(fabgl::VK_RIGHT);
-                    j[7] =  !Kbd->isVKDown(fabgl::VK_UP);
-                    j[6] =  !Kbd->isVKDown(fabgl::VK_DOWN);
-                  
-                } else if (Config::joyPS2 == JOYPS2_SINCLAIR1) { // Right Sinclair
-
-                    if (jShift) {
-                        j[9] =  !Kbd->isVKDown(fabgl::VK_UP);
-                        j[8] =  !Kbd->isVKDown(fabgl::VK_DOWN);
-                        j[7] =  !Kbd->isVKDown(fabgl::VK_RIGHT);
-                        j[6] =  !Kbd->isVKDown(fabgl::VK_LEFT);
-                    } else {
-                        j[5] =  !Kbd->isVKDown(fabgl::VK_LEFT);
-                        j[8] =  !Kbd->isVKDown(fabgl::VK_RIGHT);
-                        j[7] =  !Kbd->isVKDown(fabgl::VK_UP);
-                        j[6] =  !Kbd->isVKDown(fabgl::VK_DOWN);
-                    }
-
-                } else if (Config::joyPS2 == JOYPS2_SINCLAIR2) { // Left Sinclair
-
-                    if (jShift) {
-                        j[4] =  !Kbd->isVKDown(fabgl::VK_UP);
-                        j[3] =  !Kbd->isVKDown(fabgl::VK_DOWN);
-                        j[2] =  !Kbd->isVKDown(fabgl::VK_RIGHT);
-                        j[1] =  !Kbd->isVKDown(fabgl::VK_LEFT);
-                    } else {
-                        j[5] =  !Kbd->isVKDown(fabgl::VK_LEFT);
-                        j[8] =  !Kbd->isVKDown(fabgl::VK_RIGHT);
-                        j[7] =  !Kbd->isVKDown(fabgl::VK_UP);
-                        j[6] =  !Kbd->isVKDown(fabgl::VK_DOWN);
-                    }
-
-                }
-            } else {
-                // Cursor Keys
-                if (Kbd->isVKDown(fabgl::VK_RIGHT)) {
-                    jShift = false;
-                    j[8] = jShift;
-                }
-
-                if (Kbd->isVKDown(fabgl::VK_LEFT)) {
-                    jShift = false;
-                    j[5] = jShift;
-                }
-
-                if (Kbd->isVKDown(fabgl::VK_DOWN)) {
-                    jShift = false;                
-                    j[6] = jShift;
-                }
-
-                if (Kbd->isVKDown(fabgl::VK_UP)) {
-                    jShift = false;
-                    j[7] = jShift;
-                }
-
+            // Cursor Keys
+            if (Kbd->isVKDown(fabgl::VK_RIGHT)) {
+                jShift = false;
+                j[8] = jShift;
             }
-
-            // Keypad PS/2 Joystick emulation
-            if (Config::joyPS2 == JOYPS2_KEMPSTON) {
-
-                if (Kbd->isVKDown(fabgl::VK_KP_RIGHT)) {
-                    bitWrite(Ports::port[0x1f], 0, 1);
-                }
-
-                if (Kbd->isVKDown(fabgl::VK_KP_LEFT)) {
-                    bitWrite(Ports::port[0x1f], 1, 1);
-                }
-
-                if (Kbd->isVKDown(fabgl::VK_KP_DOWN) || Kbd->isVKDown(fabgl::VK_KP_CENTER)) {
-                    bitWrite(Ports::port[0x1f], 2, 1);
-                }
-
-                if (Kbd->isVKDown(fabgl::VK_KP_UP)) {
-                    bitWrite(Ports::port[0x1f], 3, 1);
-                }
-
-                if (Kbd->isVKDown(fabgl::VK_RALT) || Kbd->isVKDown(VK_ESPECTRUM_FIRE1)) {
-                    bitWrite(Ports::port[0x1f], 4, 1);
-                }
-
-                if (Kbd->isVKDown(fabgl::VK_SLASH) ||
-                 //Kbd->isVKDown(fabgl::VK_QUESTION) ||
-                 Kbd->isVKDown(fabgl::VK_RGUI) || Kbd->isVKDown(fabgl::VK_APPLICATION) || Kbd->isVKDown(VK_ESPECTRUM_FIRE2)) {
-                    bitWrite(Ports::port[0x1f], 5, 1);
-                }
-
-            } else if (Config::joyPS2 == JOYPS2_FULLER) {
-
-                if (Kbd->isVKDown(fabgl::VK_KP_RIGHT)) {
-                    bitWrite(Ports::port[0x7f], 3, 0);
-                }
-
-                if (Kbd->isVKDown(fabgl::VK_KP_LEFT)) {
-                    bitWrite(Ports::port[0x7f], 2, 0);
-                }
-
-                if (Kbd->isVKDown(fabgl::VK_KP_DOWN) || Kbd->isVKDown(fabgl::VK_KP_CENTER)) {
-                    bitWrite(Ports::port[0x7f], 1, 0);
-                }
-
-                if (Kbd->isVKDown(fabgl::VK_KP_UP)) {
-                    bitWrite(Ports::port[0x7f], 0, 0);
-                }
-
-                if (Kbd->isVKDown(fabgl::VK_RALT) || Kbd->isVKDown(VK_ESPECTRUM_FIRE1)) {
-                    bitWrite(Ports::port[0x7f], 7, 0);
-                }
-
-            } else if (Config::joyPS2 == JOYPS2_CURSOR) {
-
-                if (Kbd->isVKDown(fabgl::VK_KP_LEFT)) {
-                    jShift = true;
-                    j[5] = false;
-                };
-
-                if (Kbd->isVKDown(fabgl::VK_KP_RIGHT)) {
-                    jShift = true;
-                    j[8] = false;
-                };
-
-                if (Kbd->isVKDown(fabgl::VK_KP_UP)) {
-                    jShift = true;
-                    j[7] = false;
-                };
-
-                if (Kbd->isVKDown(fabgl::VK_KP_DOWN) || Kbd->isVKDown(fabgl::VK_KP_CENTER)) {
-                    jShift = true;
-                    j[6] = false;
-                };
-
-                if (Kbd->isVKDown(fabgl::VK_RALT) || Kbd->isVKDown(VK_ESPECTRUM_FIRE1)) {
-                    jShift = true;
-                    j[0] = false;
-                };
-                
-            } else if (Config::joyPS2 == JOYPS2_SINCLAIR1) { // Right Sinclair
-
-                if (Kbd->isVKDown(fabgl::VK_KP_LEFT)) {
-                    jShift = true;
-                    j[6] = false;
-                };
-
-                if (Kbd->isVKDown(fabgl::VK_KP_RIGHT)) {
-                    jShift = true;
-                    j[7] = false;
-                };
-
-                if (Kbd->isVKDown(fabgl::VK_KP_UP)) {
-                    jShift = true;
-                    j[9] = false;
-                };
-
-                if (Kbd->isVKDown(fabgl::VK_KP_DOWN) || Kbd->isVKDown(fabgl::VK_KP_CENTER)) {
-                    jShift = true;
-                    j[8] = false;
-                };
-
-                if (Kbd->isVKDown(fabgl::VK_RALT) || Kbd->isVKDown(VK_ESPECTRUM_FIRE1)) {
-                    jShift = true;
-                    j[0] = false;
-                };
-
-            } else if (Config::joyPS2 == JOYPS2_SINCLAIR2) { // Left Sinclair
-
-                if (Kbd->isVKDown(fabgl::VK_KP_LEFT)) {
-                    jShift = true;
-                    j[1] = false;
-                };
-
-                if (Kbd->isVKDown(fabgl::VK_KP_RIGHT)) {
-                    jShift = true;
-                    j[2] = false;
-                };
-
-                if (Kbd->isVKDown(fabgl::VK_KP_UP)) {
-                    jShift = true;
-                    j[4] = false;
-                };
-
-                if (Kbd->isVKDown(fabgl::VK_KP_DOWN) || Kbd->isVKDown(fabgl::VK_KP_CENTER)) {
-                    jShift = true;
-                    j[3] = false;
-                };
-
-                if (Kbd->isVKDown(fabgl::VK_RALT) || Kbd->isVKDown(VK_ESPECTRUM_FIRE1)) {
-                    jShift = true;
-                    j[5] = false;
-                };
-
+            if (Kbd->isVKDown(fabgl::VK_LEFT)) {
+                jShift = false;
+                j[5] = jShift;
             }
-
+            if (Kbd->isVKDown(fabgl::VK_DOWN)) {
+                jShift = false;                
+                j[6] = jShift;
+            }
+            if (Kbd->isVKDown(fabgl::VK_UP)) {
+                jShift = false;
+                j[7] = jShift;
+            }
             // Check keyboard status and map it to Spectrum Ports
-            
             bitWrite(PS2cols[0], 0, (jShift) 
                 & (!Kbd->isVKDown(fabgl::VK_BACKSPACE))
                 & (!Kbd->isVKDown(fabgl::VK_CAPSLOCK)) // Caps lock   
