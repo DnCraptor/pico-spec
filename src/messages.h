@@ -482,13 +482,15 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
     "ALU Timing\t>\n"\
     "48K Issue 2\t>\n"\
     "Map joystick to cursor\t>\n"\
-    "ALF second joystick\t>\n"
+    "ALF second joystick\t>\n"\
+    "Kempston joystick port\t>\n"
 #define MENU_OTHER_ES "Otros\n"\
     "AY en 48K\t>\n"\
     "Timing ULA\t>\n"\
     "48K Issue 2\t>\n"\
     "Asignar el joystick al cursor\t>\n"\
-    "ALF second joystick\t>\n"
+    "ALF second joystick\t>\n"\
+    "Kempston joystick port\t>\n"
 static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
 
 static const char *MENU_AY48[2] = { "AY on 48K\n" , "AY en 48K\n"};
@@ -505,6 +507,11 @@ static const char *MENU_KBD2NDPS2[2] = { MENU_KBD2NDPS2_EN, MENU_KBD2NDPS2_ES };
     "DPAD #1\t[1]\n"\
     "DPAD #2\t[2]\n"
 static const char *MENU_ALF_JOY[2] = { MENU_ALF_JOY_EN, MENU_ALF_JOY_EN };
+
+#define MENU_K_JOY_EN "PORT #\n"\
+    "1Fh (31)\t[1]\n"\
+    "37h (55)\t[3]\n"
+static const char *MENU_K_JOY[2] = { MENU_K_JOY_EN, MENU_K_JOY_EN };
 
 #define MENU_ALUTIMING_EN "ALU Timing\n"\
     "Early\t[E]\n"\
@@ -726,22 +733,17 @@ static const char *MENU_DEFJOY[2] = { MENU_DEFJOY_TITLE MENU_DEFJOYS MENU_DEFJOY
 
 #define MENU_JOYPS2_EN \
   "Joystick emulation\n"\
-    "Joy type\t>\n" \
 	"Cursor Keys as Joy\t>\n" \
 	"TAB as fire 1\t>\n"\
 	"Right Enter\t>\n"
 
 #define MENU_JOYPS2_ES \
-  "Emulaci" \
-    "\xA2" "n Joystick\n" \
-	"Tipo joystick\t>\n" \
+  "Joystick emulaci" \
 	"Joy en teclas de cursor\t>\n" \
 	"TAB como disparo 1\t>\n" \
 	"Derecho Enter\t>\n"
 
 static const char *MENU_JOYPS2[2] = { MENU_JOYPS2_EN, MENU_JOYPS2_ES };
-
-static const char *MENU_PS2JOYTYPE[2] = { "Joy type\n" MENU_DEFJOYS, "Tipo joystick\n" MENU_DEFJOYS};
 
 static const char *MENU_CURSORJOY[2] = { "Cursor as Joy\n" , "Joy en Cursor\n" };
 

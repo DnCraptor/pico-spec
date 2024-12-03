@@ -1728,37 +1728,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                             string Mnustr = MENU_JOYPS2[Config::lang];
                             uint8_t opt2 = menuRun(Mnustr);
                             if (opt2 == 1) {
-                                // Joystick type
-                                menu_level = 3;
-                                menu_curopt = 1;
-                                menu_saverect = true;
-                                while (1) {
-                                    string joy_menu = MENU_PS2JOYTYPE[Config::lang];
-                                    std::size_t pos = joy_menu.find("[",0);
-                                    int nfind = 0;
-                                    while (pos != string::npos) {
-///                                        if (nfind == Config::joyPS2) {
-///                                            joy_menu.replace(pos,2,"[*");
-///                                            break;
-///                                        }
-                                        pos = joy_menu.find("[",pos + 1);
-                                        nfind++;
-                                    }
-                                    uint8_t optjoy = menuRun(joy_menu);
-                                    if (optjoy > 0 && optjoy < 6) {
-///                                        if (Config::joyPS2 != (optjoy - 1)) {
-///                                            Config::joyPS2 = optjoy - 1;
-///                                            Config::save();
-///                                        }
-                                        menu_curopt = optjoy;
-                                        menu_saverect = false;
-                                    } else {
-                                        menu_curopt = 1;
-                                        menu_level = 2;                                       
-                                        break;
-                                    }
-                                }
-                            } else if (opt2 == 2) {
                                 // Menu cursor keys as joy
                                 menu_level = 3;
                                 menu_curopt = 1;
@@ -1786,12 +1755,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                         menu_curopt = opt2;
                                         menu_saverect = false;
                                     } else {
-                                        menu_curopt = 2;
+                                        menu_curopt = 1;
                                         menu_level = 2;                                       
                                         break;
                                     }
                                 }
-                            } else if (opt2 == 3) {
+                            } else if (opt2 == 2) {
                                 // Menu TAB as fire 1
                                 menu_level = 3;
                                 menu_curopt = 1;
@@ -1834,12 +1803,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                         menu_curopt = opt2;
                                         menu_saverect = false;
                                     } else {
-                                        menu_curopt = 3;
+                                        menu_curopt = 2;
                                         menu_level = 2;                                       
                                         break;
                                     }
                                 }
-                            } else if (opt2 == 4) {
+                            } else if (opt2 == 3) {
                                 // Menu Right Enter as Space
                                 menu_level = 3;
                                 menu_curopt = 1;
@@ -2080,6 +2049,39 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             menu_saverect = false;
                                         } else {
                                             menu_curopt = 5;
+                                            menu_level = 2;                                       
+                                            break;
+                                        }
+                                    }
+                                }
+                                else if (options_num == 6) {
+                                    menu_level = 3;
+                                    menu_curopt = 1;                    
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string menu = MENU_K_JOY[Config::lang];
+                                        uint8_t prev = Config::kempstonPort;
+                                        if (prev == 0x37) {
+                                            menu.replace(menu.find("[1",0),2,"[ ");                        
+                                            menu.replace(menu.find("[3",0),2,"[*");
+                                        } else {
+                                            menu.replace(menu.find("[1",0),2,"[*");
+                                            menu.replace(menu.find("[3",0),2,"[ ");
+                                        }
+                                        uint8_t opt2 = menuRun(menu);
+                                        if (opt2) {
+                                            if (opt2 == 1)
+                                                Config::kempstonPort = 0x1F;
+                                            else
+                                                Config::kempstonPort = 0x37;
+
+                                            if (Config::kempstonPort != prev) {
+                                                Config::save();
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = 6;
                                             menu_level = 2;                                       
                                             break;
                                         }
@@ -2977,12 +2979,14 @@ return text;
     "A-Z      \n"\
     "0-9      \n"\
     "Special  \n"\
-    "PS/2     \n"
+    "PS/2     \n"\
+    "Joystick \n"
 #define MENU_JOYSELKEY_ES "Tecla    \n"\
     "A-Z      \n"\
     "0-9      \n"\
     "Especial \n"\
-    "PS/2     \n"
+    "PS/2     \n"\
+    "Joystick \n"
 static const char *MENU_JOYSELKEY[2] = { MENU_JOYSELKEY_EN, MENU_JOYSELKEY_ES };
 
 #define MENU_JOY_AZ "A-Z\n"\
@@ -3051,7 +3055,7 @@ static const char *MENU_JOYSELKEY[2] = { MENU_JOYSELKEY_EN, MENU_JOYSELKEY_ES };
     "Up\n"\
     "Down\n"
 
-#define MENU_JOY_KEMPSTON "Kempston\n"\
+#define MENU_JOY_KEMPSTON "DPAD\n"\
     "Left\n"\
     "Right\n"\
     "Up\n"\
@@ -3060,13 +3064,6 @@ static const char *MENU_JOYSELKEY[2] = { MENU_JOYSELKEY_EN, MENU_JOYSELKEY_ES };
     "Fire 2\n"\
     "Start\n"\
     "Select\n"
-
-#define MENU_JOY_FULLER "Fuller\n"\
-    "Left\n"\
-    "Right\n"\
-    "Up\n"\
-    "Down\n"\
-    "Fire\n"	
 
 string vkToText(int key) {
 
@@ -3326,19 +3323,12 @@ void OSD::joyDialog(void) {
         MENU_JOY_09,
         "",
         MENU_JOY_PS2,
-        ""
+        "Joystick"
     };
 
     selkeymenu[2] = (Config::lang ? "Especial\n" : "Special\n");
     selkeymenu[2] += MENU_JOY_SPECIAL;
-    if (joytype == JOY_KEMPSTON) {
-        keymenu += "Kempston \n";
-        selkeymenu[4] = MENU_JOY_KEMPSTON;
-    } else
-    if (joytype == JOY_FULLER) {
-        keymenu += "Fuller   \n";
-        selkeymenu[4] = MENU_JOY_FULLER;
-    }
+    selkeymenu[4] = MENU_JOY_KEMPSTON;
     int curDropDown = 2;
     uint8_t joyDialogMode = 0; // 0 -> Define, 1 -> Test
 

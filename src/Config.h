@@ -92,7 +92,7 @@ public:
     static uint8_t  AluTiming;
     static uint8_t  joy2cursor;
     static uint8_t  alfJoy;
-    static uint8_t  joyEmuType;
+    static uint8_t  kempstonPort;
     static bool CursorAsJoy;
     static int8_t CenterH;
     static int8_t CenterV;    

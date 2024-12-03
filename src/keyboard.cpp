@@ -778,7 +778,8 @@ inline static void repalceKey(VirtualKeyItem& it, const VirtualKey k) {
 }
 
 inline static void joyMap(VirtualKeyItem& it) {
-    VirtualKey virtualKey = it.vk;
+  VirtualKey virtualKey = it.vk;
+  if (Config::joystick == JOY_KEMPSTON || Config::joystick == JOY_FULLER || Config::joystick == JOY_CUSTOM) {
     if (virtualKey == Config::joydef[0]) {
         repalceKey(it, fabgl::VK_JOY1LEFT);
     }
@@ -815,6 +816,58 @@ inline static void joyMap(VirtualKeyItem& it) {
     else if (virtualKey == Config::joydef[11]) {
         repalceKey(it, fabgl::VK_JOY1Z);
     }
+  }
+  else if (Config::joystick == JOY_SINCLAIR2) {
+    if (virtualKey == Config::joydef[0]) {
+        repalceKey(it, fabgl::VK_1);
+    }
+    else if (virtualKey == Config::joydef[1]) {
+        repalceKey(it, fabgl::VK_2);
+    }
+    else if (virtualKey == Config::joydef[2]) {
+        repalceKey(it, fabgl::VK_4);
+    }
+    else if (virtualKey == Config::joydef[3]) {
+        repalceKey(it, fabgl::VK_3);
+    }
+    else if (virtualKey == Config::joydef[6]) {
+        repalceKey(it, fabgl::VK_5);
+    }
+  }
+  else if (Config::joystick == JOY_SINCLAIR1) {
+    if (virtualKey == Config::joydef[0]) {
+        repalceKey(it, fabgl::VK_6); // left
+    }
+    else if (virtualKey == Config::joydef[1]) {
+        repalceKey(it, fabgl::VK_7); // right
+    }
+    else if (virtualKey == Config::joydef[2]) {
+        repalceKey(it, fabgl::VK_9); // up
+    }
+    else if (virtualKey == Config::joydef[3]) {
+        repalceKey(it, fabgl::VK_8); // down
+    }
+    else if (virtualKey == Config::joydef[6]) {
+        repalceKey(it, fabgl::VK_0); // fire
+    }
+  }
+  else if (Config::joystick == JOY_CURSOR) {
+    if (virtualKey == Config::joydef[0]) {
+        repalceKey(it, fabgl::VK_5); // left
+    }
+    else if (virtualKey == Config::joydef[1]) {
+        repalceKey(it, fabgl::VK_8); // right
+    }
+    else if (virtualKey == Config::joydef[2]) {
+        repalceKey(it, fabgl::VK_7); // up
+    }
+    else if (virtualKey == Config::joydef[3]) {
+        repalceKey(it, fabgl::VK_6); // down
+    }
+    else if (virtualKey == Config::joydef[6]) {
+        repalceKey(it, fabgl::VK_0); // fire
+    }
+  }
 }
 
 static bool xQueueReceive(std::queue<VirtualKeyItem>& q, VirtualKeyItem* item) {

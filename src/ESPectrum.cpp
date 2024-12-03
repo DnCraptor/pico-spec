@@ -663,7 +663,7 @@ void ESPectrum::setup()
 
     // Set Ports starting values
     for (int i = 0; i < 128; i++) Ports::port[i] = 0xBF;
-    if (Config::joystick == JOY_KEMPSTON) Ports::port[0x1f] = 0; // Kempston
+    if (Config::joystick == JOY_KEMPSTON) Ports::port[Config::kempstonPort] = 0; // Kempston
     if (Config::joystick == JOY_FULLER) Ports::port[0x7f] = 0xff; // Fuller
 
     // Init disk controller
@@ -692,7 +692,7 @@ void ESPectrum::reset()
 {
     // Ports
     for (int i = 0; i < 128; i++) Ports::port[i] = 0xBF;
-    if (Config::joystick == JOY_KEMPSTON) Ports::port[0x1f] = 0; // Kempston
+    if (Config::joystick == JOY_KEMPSTON) Ports::port[Config::kempstonPort] = 0; // Kempston
     else if (Config::joystick == JOY_FULLER) Ports::port[0x7f] = 0xff; // Fuller
 
     // Memory
@@ -869,13 +869,13 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                 }
             }
 
-            if (Config::joystick == JOY_KEMPSTON) Ports::port[0x1f] = 0;
+            if (Config::joystick == JOY_KEMPSTON) Ports::port[Config::kempstonPort] = 0;
             else if (Config::joystick == JOY_FULLER) Ports::port[0x7f] = 0xff;
 
             if (Config::joystick == JOY_KEMPSTON) {
                 for (int i = fabgl::VK_JOY1RIGHT; i <= fabgl::VK_JOY1C; i++)
                     if (Kbd->isVKDown((fabgl::VirtualKey) i))
-                        bitWrite(Ports::port[0x1f], i - fabgl::VK_JOY1RIGHT, 1);
+                        bitWrite(Ports::port[Config::kempstonPort], i - fabgl::VK_JOY1RIGHT, 1);
             } else
             if (Config::joystick == JOY_FULLER) {  // Fuller
                 if (Kbd->isVKDown(fabgl::VK_JOY1RIGHT)) {

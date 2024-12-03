@@ -166,7 +166,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
         if (
             (Config::joystick == JOY_KEMPSTON) &&
             ((address & 0x00E0) == 0 || (address & 0xFF) == 0xDF)
-        ) return port[0x1f];
+        ) return port[Config::kempstonPort];
 
         // Fuller Joystick
         if (

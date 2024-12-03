@@ -56,7 +56,7 @@ uint16_t Config::joydef[12] = {
 uint8_t  Config::AluTiming = 0;
 uint8_t  Config::joy2cursor = 0;
 uint8_t  Config::alfJoy = 2;
-uint8_t  Config::joyEmuType = JOY_KEMPSTON;
+uint8_t  Config::kempstonPort = 0x1F;
 bool     Config::CursorAsJoy = false;
 int8_t   Config::CenterH = 0;
 int8_t   Config::CenterV = 0;
@@ -250,6 +250,7 @@ void Config::load() {
         nvs_get_u8("AluTiming", Config::AluTiming, sts);
         nvs_get_u8("joy2cursor", Config::joy2cursor, sts);
         nvs_get_u8("alfJoy", Config::alfJoy, sts);
+        nvs_get_u8("kempstonPort", Config::kempstonPort, sts);
         nvs_get_b("CursorAsJoy", CursorAsJoy, sts);
         nvs_get_i8("CenterH", Config::CenterH, sts);
         nvs_get_i8("CenterV", Config::CenterV, sts);
@@ -337,6 +338,7 @@ void Config::save() {
         nvs_set_u8(handle,"AluTiming",Config::AluTiming);
         nvs_set_u8(handle,"joy2cursor",Config::joy2cursor);
         nvs_set_u8(handle,"alfJoy",Config::alfJoy);
+        nvs_set_u8(handle,"kempstonPort",Config::kempstonPort);
         nvs_set_str(handle,"CursorAsJoy", CursorAsJoy ? "true" : "false");
         nvs_set_i8(handle,"CenterH",Config::CenterH);
         nvs_set_i8(handle,"CenterV",Config::CenterV);
@@ -368,45 +370,15 @@ void Config::setJoyMap(uint8_t joytype) {
     string msg = OSD_DLG_SETJOYMAPDEFAULTS[Config::lang];
     uint8_t res = OSD::msgDialog(title, msg);
     if (res == DLG_YES) {
-        switch (joytype) {
-        case JOY_CURSOR:
-            joydef[0] = fabgl::VK_5;
-            joydef[1] = fabgl::VK_8;
-            joydef[2] = fabgl::VK_7;
-            joydef[3] = fabgl::VK_6;
-            joydef[6] = fabgl::VK_0;
-            break;
-        case JOY_KEMPSTON:
-            joydef[0] = fabgl::VK_KEMPSTON_LEFT;
-            joydef[1] = fabgl::VK_KEMPSTON_RIGHT;
-            joydef[2] = fabgl::VK_KEMPSTON_UP;
-            joydef[3] = fabgl::VK_KEMPSTON_DOWN;
+        joydef[0] = fabgl::VK_KEMPSTON_LEFT;
+        joydef[1] = fabgl::VK_KEMPSTON_RIGHT;
+        joydef[2] = fabgl::VK_KEMPSTON_UP;
+        joydef[3] = fabgl::VK_KEMPSTON_DOWN;
+        joydef[6] = fabgl::VK_KEMPSTON_FIRE;
+        if (joytype == JOY_KEMPSTON) {
             joydef[4] = fabgl::VK_KEMPSTON_START;
             joydef[5] = fabgl::VK_KEMPSTON_SELECT;
-            joydef[6] = fabgl::VK_KEMPSTON_FIRE;
             joydef[7] = fabgl::VK_KEMPSTON_ALTFIRE;
-            break;
-        case JOY_SINCLAIR1:
-            joydef[0] = fabgl::VK_6;
-            joydef[1] = fabgl::VK_7;
-            joydef[2] = fabgl::VK_9;
-            joydef[3] = fabgl::VK_8;
-            joydef[6] = fabgl::VK_0;
-            break;
-        case JOY_SINCLAIR2:
-            joydef[0] = fabgl::VK_1;
-            joydef[1] = fabgl::VK_2;
-            joydef[2] = fabgl::VK_4;
-            joydef[3] = fabgl::VK_3;
-            joydef[6] = fabgl::VK_5;
-            break;
-        case JOY_FULLER:
-            joydef[0] = fabgl::VK_KEMPSTON_LEFT;
-            joydef[1] = fabgl::VK_KEMPSTON_RIGHT;
-            joydef[2] = fabgl::VK_KEMPSTON_UP;
-            joydef[3] = fabgl::VK_KEMPSTON_DOWN;
-            joydef[6] = fabgl::VK_KEMPSTON_FIRE;
-            break;
         }
         Config::save();
     }
