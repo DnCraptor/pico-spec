@@ -516,7 +516,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         }
                         click();
                     } else if (Menukey.vk == fabgl::VK_UP ||
-                               !Config::joy2cursor && (Menukey.vk == fabgl::VK_JOY1UP || Menukey.vk == fabgl::VK_JOY2UP)
+                               !Config::joy2cursor && (Menukey.vk == fabgl::VK_JOY1UP)
                     ) {
                         if (FileUtils::fileTypes[ftype].focus == 2 && FileUtils::fileTypes[ftype].begin_row > 2) {
                             last_begin_row = FileUtils::fileTypes[ftype].begin_row;
@@ -529,7 +529,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         }
                         click();
                     } else if (Menukey.vk == fabgl::VK_DOWN ||
-                               !Config::joy2cursor && (Menukey.vk == fabgl::VK_JOY1DOWN || Menukey.vk == fabgl::VK_JOY2DOWN)
+                               !Config::joy2cursor && (Menukey.vk == fabgl::VK_JOY1DOWN)
                     ) {
                         if (FileUtils::fileTypes[ftype].focus == virtual_rows - 1 && FileUtils::fileTypes[ftype].begin_row + virtual_rows - 2 < real_rows) {
                             last_begin_row = FileUtils::fileTypes[ftype].begin_row;
@@ -542,7 +542,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         }
                         click();
                     } else if (Menukey.vk == fabgl::VK_PAGEUP || Menukey.vk == fabgl::VK_LEFT ||
-                               !Config::joy2cursor && (Menukey.vk == fabgl::VK_JOY1LEFT || Menukey.vk == fabgl::VK_JOY2LEFT)
+                               !Config::joy2cursor && (Menukey.vk == fabgl::VK_JOY1LEFT)
                     ) {
                         if (FileUtils::fileTypes[ftype].begin_row > virtual_rows) {
                             FileUtils::fileTypes[ftype].focus = 2;
@@ -554,7 +554,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         fd_Redraw(title, fdir, ftype, filexts);
                         click();
                     } else if (Menukey.vk == fabgl::VK_PAGEDOWN || Menukey.vk == fabgl::VK_RIGHT ||
-                               !Config::joy2cursor && ( Menukey.vk == fabgl::VK_JOY1RIGHT || Menukey.vk == fabgl::VK_JOY2RIGHT)
+                               !Config::joy2cursor && ( Menukey.vk == fabgl::VK_JOY1RIGHT)
                     ) {
                         if (real_rows - FileUtils::fileTypes[ftype].begin_row  - virtual_rows > virtual_rows) {
                             FileUtils::fileTypes[ftype].focus = 2;
@@ -566,7 +566,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         fd_Redraw(title, fdir, ftype, filexts);
                         click();
                     } else if (Menukey.vk == fabgl::VK_HOME ||
-                               !Config::joy2cursor && ( Menukey.vk == fabgl::VK_JOY1START || Menukey.vk == fabgl::VK_JOY2START)
+                               !Config::joy2cursor && ( Menukey.vk == fabgl::VK_JOY1START)
                     ) {
                         last_focus = FileUtils::fileTypes[ftype].focus;
                         last_begin_row = FileUtils::fileTypes[ftype].begin_row;
@@ -582,7 +582,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         fd_Redraw(title, fdir, ftype, filexts);
                         click();
                     } else if (Menukey.vk == fabgl::VK_BACKSPACE ||
-                               Menukey.vk == fabgl::VK_JOY1MODE || Menukey.vk == fabgl::VK_JOY2MODE
+                               Menukey.vk == fabgl::VK_JOY1MODE
                     ) {
                         if (FileUtils::fileTypes[ftype].fdMode) {
                             if (FileUtils::fileTypes[ftype].fileSearch.length()) {
@@ -601,8 +601,8 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         }                  
                     } else if (Menukey.vk == fabgl::VK_RETURN || Menukey.vk == fabgl::VK_SPACE ||
                                !Config::joy2cursor && (
-                                Menukey.vk == fabgl::VK_JOY1B || Menukey.vk == fabgl::VK_JOY2B ||
-                                Menukey.vk == fabgl::VK_JOY1C || Menukey.vk == fabgl::VK_JOY2C
+                                Menukey.vk == fabgl::VK_JOY1A ||
+                                Menukey.vk == fabgl::VK_JOY1B
                                )
                     ) {
                         string filedir = rowGet(menu, FileUtils::fileTypes[ftype].focus);
@@ -626,11 +626,11 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             rtrim(filedir);
                             click();
                             filenames.close();
-                            return (Menukey.vk == fabgl::VK_RETURN || Menukey.vk == fabgl::VK_JOY1A || Menukey.vk == fabgl::VK_JOY2A ? "R" : "S")
+                            return (Menukey.vk == fabgl::VK_RETURN || Menukey.vk == fabgl::VK_JOY1A ? "R" : "S")
                                    + filedir;
                         }
                     } else if (Menukey.vk == fabgl::VK_ESCAPE || 
-                               Menukey.vk == fabgl::VK_JOY1LEFT || Menukey.vk == fabgl::VK_JOY2LEFT
+                               Menukey.vk == fabgl::VK_JOY1LEFT
                     ) {
                         // Restore backbuffer data
                         if (menu_saverect) {

@@ -815,43 +815,6 @@ inline static void joyMap(VirtualKeyItem& it) {
     else if (virtualKey == Config::joydef[11]) {
         repalceKey(it, fabgl::VK_JOY1Z);
     }
-    // J 2
-    else if (virtualKey == Config::joydef[12]) {
-        repalceKey(it, fabgl::VK_JOY2LEFT);
-    }
-    else if (virtualKey == Config::joydef[13]) {
-        repalceKey(it, fabgl::VK_JOY2RIGHT);
-    }
-    else if (virtualKey == Config::joydef[14]) {
-        repalceKey(it, fabgl::VK_JOY2UP);
-    }
-    else if (virtualKey == Config::joydef[15]) {
-        repalceKey(it, fabgl::VK_JOY2DOWN);
-    }
-    else if (virtualKey == Config::joydef[16]) {
-        repalceKey(it, fabgl::VK_JOY2START);
-    }
-    else if (virtualKey == Config::joydef[17]) {
-        repalceKey(it, fabgl::VK_JOY2MODE);
-    }
-    else if (virtualKey == Config::joydef[18]) {
-        repalceKey(it, fabgl::VK_JOY2A);
-    }
-    else if (virtualKey == Config::joydef[19]) {
-        repalceKey(it, fabgl::VK_JOY2B);
-    }
-    else if (virtualKey == Config::joydef[20]) {
-        repalceKey(it, fabgl::VK_JOY2C);
-    }
-    else if (virtualKey == Config::joydef[21]) {
-        repalceKey(it, fabgl::VK_JOY2X);
-    }
-    else if (virtualKey == Config::joydef[22]) {
-        repalceKey(it, fabgl::VK_JOY2Y);
-    }
-    else if (virtualKey == Config::joydef[23]) {
-        repalceKey(it, fabgl::VK_JOY2Z);
-    }
 }
 
 static bool xQueueReceive(std::queue<VirtualKeyItem>& q, VirtualKeyItem* item) {

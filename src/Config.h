@@ -59,7 +59,7 @@ public:
 
     static void requestMachine(string newArch, string newRomSet);
 
-    static void setJoyMap(uint8_t joynum, uint8_t joy_type);
+    static void setJoyMap(uint8_t joy_type);
 
     static string   arch;
     static string   romSet;
@@ -87,12 +87,12 @@ public:
     static volatile bool real_player;
     static bool     tape_timing_rg;
     static bool     rightSpace;    
-    static uint8_t  joystick1;
-    static uint8_t  joystick2;
-    static uint16_t joydef[24];
+    static uint8_t  joystick;
+    static uint16_t joydef[12];
     static uint8_t  AluTiming;
     static uint8_t  joy2cursor;
     static uint8_t  alfJoy;
+    static uint8_t  joyEmuType;
     static bool CursorAsJoy;
     static int8_t CenterH;
     static int8_t CenterV;    

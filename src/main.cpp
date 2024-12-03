@@ -84,7 +84,7 @@ extern "C" bool handleScancode(const uint32_t ps2scancode) {
             case 0x5B: kbdPushData(fabgl::VirtualKey::VK_LCTRL, pressed); return true; /// L WIN
             case 0x1D: kbdPushData(fabgl::VirtualKey::VK_RCTRL, pressed); return true;
             case 0x38: kbdPushData(fabgl::VirtualKey::VK_RALT, pressed); return true;
-            case 0x5C: kbdPushData(fabgl::VirtualKey::VK_RCTRL, pressed); return true; /// R WIN
+            case 0x5C: kbdPushData(Config::CursorAsJoy ? fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE : fabgl::VirtualKey::VK_RCTRL, pressed); return true; /// R WIN
             case 0x5D: kbdPushData(fabgl::VirtualKey::VK_F1, pressed); return true; /// MENU
             case 0x37: kbdPushData(fabgl::VirtualKey::VK_PRINTSCREEN, pressed); return true;
             case 0x46: kbdPushData(fabgl::VirtualKey::VK_BREAK, pressed); return true;
@@ -94,10 +94,10 @@ extern "C" bool handleScancode(const uint32_t ps2scancode) {
             case 0x49: kbdPushData(fabgl::VirtualKey::VK_PAGEUP, pressed); return true;
             case 0x51: kbdPushData(fabgl::VirtualKey::VK_PAGEDOWN, pressed); return true;
             case 0x53: kbdPushData(fabgl::VirtualKey::VK_DELETE, pressed); return true;
-            case 0x48: kbdPushData(fabgl::VirtualKey::VK_UP, pressed); return true;
-            case 0x4B: kbdPushData(fabgl::VirtualKey::VK_LEFT, pressed); return true;
-            case 0x50: kbdPushData(fabgl::VirtualKey::VK_DOWN, pressed); return true;
-            case 0x4D: kbdPushData(fabgl::VirtualKey::VK_RIGHT, pressed); return true;
+            case 0x48: kbdPushData(Config::CursorAsJoy ? fabgl::VirtualKey::VK_KEMPSTON_UP : fabgl::VirtualKey::VK_UP, pressed); return true;
+            case 0x4B: kbdPushData(Config::CursorAsJoy ? fabgl::VirtualKey::VK_KEMPSTON_LEFT : fabgl::VirtualKey::VK_LEFT, pressed); return true;
+            case 0x50: kbdPushData(Config::CursorAsJoy ? fabgl::VirtualKey::VK_KEMPSTON_DOWN : fabgl::VirtualKey::VK_DOWN, pressed); return true;
+            case 0x4D: kbdPushData(Config::CursorAsJoy ? fabgl::VirtualKey::VK_KEMPSTON_RIGHT : fabgl::VirtualKey::VK_RIGHT, pressed); return true;
             case 0x35: kbdPushData(fabgl::VirtualKey::VK_SLASH, pressed); return true;
             case 0x1C: kbdPushData(fabgl::VirtualKey::VK_KP_ENTER, pressed); return true;
         }
@@ -159,11 +159,11 @@ extern "C" bool handleScancode(const uint32_t ps2scancode) {
 
         case 0x0E: kbdPushData(fabgl::VirtualKey::VK_BACKSPACE, pressed); return true;
         case 0x39: kbdPushData(fabgl::VirtualKey::VK_SPACE, pressed); return true;
-        case 0x0F: kbdPushData(fabgl::VirtualKey::VK_TAB, pressed); return true;
+        case 0x0F: kbdPushData(Config::TABasfire1 ? fabgl::VirtualKey::VK_KEMPSTON_FIRE : fabgl::VirtualKey::VK_TAB, pressed); return true;
         case 0x3A: kbdPushData(fabgl::VirtualKey::VK_CAPSLOCK, pressed); return true; /// TODO: CapsLock
         case 0x2A: kbdPushData(fabgl::VirtualKey::VK_LSHIFT, pressed); return true;
         case 0x1D: kbdPushData(fabgl::VirtualKey::VK_LCTRL, pressed); return true;
-        case 0x38: kbdPushData(fabgl::VirtualKey::VK_LALT, pressed); return true;
+        case 0x38: kbdPushData(Config::CursorAsJoy ? fabgl::VirtualKey::VK_KEMPSTON_FIRE : fabgl::VirtualKey::VK_LALT, pressed); return true;
         case 0x36: kbdPushData(fabgl::VirtualKey::VK_RSHIFT, pressed); return true;
         case 0x1C: kbdPushData(fabgl::VirtualKey::VK_RETURN, pressed); return true;
 

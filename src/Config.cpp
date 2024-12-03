@@ -37,9 +37,8 @@ volatile bool Config::real_player = false;
 bool     Config::tape_timing_rg = false; // Rodolfo Guerra ROMs tape timings
 bool     Config::rightSpace = true;
 
-uint8_t  Config::joystick1 = JOY_KEMPSTON;
-uint8_t  Config::joystick2 = JOY_CURSOR;
-uint16_t Config::joydef[24] = {
+uint8_t  Config::joystick = JOY_KEMPSTON;
+uint16_t Config::joydef[12] = {
     fabgl::VK_KEMPSTON_LEFT,  // 0
     fabgl::VK_KEMPSTON_RIGHT, // 1
     fabgl::VK_KEMPSTON_UP,    // 2
@@ -49,26 +48,15 @@ uint16_t Config::joydef[24] = {
     fabgl::VK_KEMPSTON_FIRE,  // 6 A
     fabgl::VK_KEMPSTON_ALTFIRE,//7 B
     fabgl::VK_NONE,           // 8 C
-    fabgl::VK_NONE,           // 9 D ?
-    fabgl::VK_NONE,           // 10 X ?
-    fabgl::VK_NONE,           // 11 Y ? Z...
-    fabgl::VK_1,    // 0
-    fabgl::VK_2,    // 1
-    fabgl::VK_4,    // 2
-    fabgl::VK_3,    // 3
-    fabgl::VK_NONE, // 4
-    fabgl::VK_NONE, // 5
-    fabgl::VK_5,    // 6
-    fabgl::VK_NONE, // 7
-    fabgl::VK_NONE, // 8
-    fabgl::VK_NONE, // 9
-    fabgl::VK_NONE, // 10
-    fabgl::VK_NONE  // 11
+    fabgl::VK_NONE,           // 9  X
+    fabgl::VK_NONE,           // 10 Y
+    fabgl::VK_NONE            // 11 Z
 };
 
 uint8_t  Config::AluTiming = 0;
 uint8_t  Config::joy2cursor = 0;
 uint8_t  Config::alfJoy = 2;
+uint8_t  Config::joyEmuType = JOY_KEMPSTON;
 bool     Config::CursorAsJoy = false;
 int8_t   Config::CenterH = 0;
 int8_t   Config::CenterV = 0;
@@ -249,11 +237,10 @@ void Config::load() {
         }
         real_player = b;
         nvs_get_b("tape_timing_rg", tape_timing_rg, sts);
-        nvs_get_u8("joystick1", Config::joystick1, sts);
-        nvs_get_u8("joystick2", Config::joystick2, sts);
+        nvs_get_u8("joystick", Config::joystick, sts);
 
         // Read joystick definition
-        for (int n = 0; n < 24; ++n) {
+        for (int n = 0; n < 12; ++n) {
             char joykey[16];
             snprintf(joykey, 16, "joydef%02u", n);
             // printf("%s\n",joykey);
@@ -340,10 +327,9 @@ void Config::save() {
         nvs_set_str(handle,"real_player", real_player ? "true" : "false");
         nvs_set_str(handle,"rightSpace", rightSpace ? "true" : "false");
         nvs_set_str(handle,"tape_timing_rg",tape_timing_rg ? "true" : "false");
-        nvs_set_u8(handle,"joystick1", Config::joystick1);
-        nvs_set_u8(handle,"joystick2", Config::joystick2);
+        nvs_set_u8(handle,"joystick", Config::joystick);
         // Write joystick definition
-        for (int n = 0; n < 24; ++n) {
+        for (int n = 0; n < 12; ++n) {
             char joykey[16];
             snprintf(joykey, 16, "joydef%02u", n);
             nvs_set_u16(handle, joykey, Config::joydef[n]);
@@ -375,52 +361,51 @@ void Config::save() {
     // printf("Config saved OK\n");
 }
 
-void Config::setJoyMap(uint8_t joynum, uint8_t joytype) {
-    int m = (joynum == 1) ? 0 : 12;
-    for (int n = 0; n < 12; n++) joydef[m + n] = fabgl::VK_NONE;
+void Config::setJoyMap(uint8_t joytype) {
+    for (int n = 0; n < 12; n++) joydef[n] = fabgl::VK_NONE;
     // Ask to overwrite map with default joytype values
-    string title = (joynum == 1 ? "Joystick 1" : "Joystick 2");
+    string title = "Joystick";
     string msg = OSD_DLG_SETJOYMAPDEFAULTS[Config::lang];
     uint8_t res = OSD::msgDialog(title, msg);
     if (res == DLG_YES) {
         switch (joytype) {
         case JOY_CURSOR:
-            joydef[m + 0] = fabgl::VK_5;
-            joydef[m + 1] = fabgl::VK_8;
-            joydef[m + 2] = fabgl::VK_7;
-            joydef[m + 3] = fabgl::VK_6;
-            joydef[m + 6] = fabgl::VK_0;
+            joydef[0] = fabgl::VK_5;
+            joydef[1] = fabgl::VK_8;
+            joydef[2] = fabgl::VK_7;
+            joydef[3] = fabgl::VK_6;
+            joydef[6] = fabgl::VK_0;
             break;
         case JOY_KEMPSTON:
-            joydef[m + 0] = fabgl::VK_KEMPSTON_LEFT;
-            joydef[m + 1] = fabgl::VK_KEMPSTON_RIGHT;
-            joydef[m + 2] = fabgl::VK_KEMPSTON_UP;
-            joydef[m + 3] = fabgl::VK_KEMPSTON_DOWN;
-            joydef[m + 4] = fabgl::VK_KEMPSTON_START;
-            joydef[m + 5] = fabgl::VK_KEMPSTON_SELECT;
-            joydef[m + 6] = fabgl::VK_KEMPSTON_FIRE;
-            joydef[m + 7] = fabgl::VK_KEMPSTON_ALTFIRE;
+            joydef[0] = fabgl::VK_KEMPSTON_LEFT;
+            joydef[1] = fabgl::VK_KEMPSTON_RIGHT;
+            joydef[2] = fabgl::VK_KEMPSTON_UP;
+            joydef[3] = fabgl::VK_KEMPSTON_DOWN;
+            joydef[4] = fabgl::VK_KEMPSTON_START;
+            joydef[5] = fabgl::VK_KEMPSTON_SELECT;
+            joydef[6] = fabgl::VK_KEMPSTON_FIRE;
+            joydef[7] = fabgl::VK_KEMPSTON_ALTFIRE;
             break;
         case JOY_SINCLAIR1:
-            joydef[m + 0] = fabgl::VK_6;
-            joydef[m + 1] = fabgl::VK_7;
-            joydef[m + 2] = fabgl::VK_9;
-            joydef[m + 3] = fabgl::VK_8;
-            joydef[m + 6] = fabgl::VK_0;
+            joydef[0] = fabgl::VK_6;
+            joydef[1] = fabgl::VK_7;
+            joydef[2] = fabgl::VK_9;
+            joydef[3] = fabgl::VK_8;
+            joydef[6] = fabgl::VK_0;
             break;
         case JOY_SINCLAIR2:
-            joydef[m + 0] = fabgl::VK_1;
-            joydef[m + 1] = fabgl::VK_2;
-            joydef[m + 2] = fabgl::VK_4;
-            joydef[m + 3] = fabgl::VK_3;
-            joydef[m + 6] = fabgl::VK_5;
+            joydef[0] = fabgl::VK_1;
+            joydef[1] = fabgl::VK_2;
+            joydef[2] = fabgl::VK_4;
+            joydef[3] = fabgl::VK_3;
+            joydef[6] = fabgl::VK_5;
             break;
         case JOY_FULLER:
-            joydef[m + 0] = fabgl::VK_KEMPSTON_LEFT;
-            joydef[m + 1] = fabgl::VK_KEMPSTON_RIGHT;
-            joydef[m + 2] = fabgl::VK_KEMPSTON_UP;
-            joydef[m + 3] = fabgl::VK_KEMPSTON_DOWN;
-            joydef[m + 6] = fabgl::VK_KEMPSTON_FIRE;
+            joydef[0] = fabgl::VK_KEMPSTON_LEFT;
+            joydef[1] = fabgl::VK_KEMPSTON_RIGHT;
+            joydef[2] = fabgl::VK_KEMPSTON_UP;
+            joydef[3] = fabgl::VK_KEMPSTON_DOWN;
+            joydef[6] = fabgl::VK_KEMPSTON_FIRE;
             break;
         }
         Config::save();

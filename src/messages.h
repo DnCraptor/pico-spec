@@ -710,15 +710,10 @@ static const char *MENU_INTERFACE_LANG[2] = { MENU_INTERFACE_LANG_EN, MENU_INTER
 
 #define MENU_JOY_ES "Menu Joystick\n"
 
-#define MENU_JOYS "Joystick 1\n"\
-    "Joystick 2\n"
+#define MENU_DEFJOY_TITLE "Joystick\n"\
 
-static const char *MENU_JOY[2] = { MENU_JOY_EN MENU_JOYS, MENU_JOY_ES MENU_JOYS};
-
-
-#define MENU_DEFJOY_TITLE "Joystick#\n"\
-
-#define MENU_DEFJOYS "Cursor\t[ ]\n"\
+#define MENU_DEFJOYS \
+    "Cursor\t[ ]\n"\
     "Kempston\t[ ]\n"\
     "Sinclair 1\t[ ]\n"\
     "Sinclair 2\t[ ]\n"\
