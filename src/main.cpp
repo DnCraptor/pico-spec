@@ -56,7 +56,7 @@ static input_bits_t gamepad2_bits = { false, false, false, false, false, false, 
 
 uint8_t nes_pad2_for_alf(void) {
     uint8_t data = 0;
-    input_bits_t& bits = Config::alfJoy != 1 ? gamepad2_bits : gamepad1_bits;
+    input_bits_t& bits = Config::secondJoy != 1 ? gamepad2_bits : gamepad1_bits;
     data |= bits.a ? 0 : 1;
     data |= bits.down ? 0 : 0b10;
     data |= bits.right ? 0 : 0b100;
@@ -209,7 +209,7 @@ void joyPushData(fabgl::VirtualKey virtualKey, bool down);
 static void nespad_tick1(void) {
     nespad_read();
     
-    if (Config::arch != "ALF" || Config::alfJoy == 2) {
+    if (Config::secondJoy != 1) { // secondJoy == 1 - first joy is in use by other (as second)
         if ((nespad_state & DPAD_A) && !gamepad1_bits.a) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_FIRE, true);
         else if (!(nespad_state & DPAD_A) && gamepad1_bits.a) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_FIRE, false);
 
@@ -245,7 +245,21 @@ static void nespad_tick1(void) {
     gamepad1_bits.right = (nespad_state & DPAD_RIGHT) != 0;
 }
 
+void back2joy2(fabgl::VirtualKey virtualKey, bool down) {
+    switch(virtualKey) {
+            case fabgl::VirtualKey::VK_KEMPSTON_FIRE    : gamepad2_bits.a = down; break;
+            case fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE : gamepad2_bits.b = down; break;
+            case fabgl::VirtualKey::VK_KEMPSTON_UP      : gamepad2_bits.up = down; break;
+            case fabgl::VirtualKey::VK_KEMPSTON_DOWN    : gamepad2_bits.down = down; break;
+            case fabgl::VirtualKey::VK_KEMPSTON_LEFT    : gamepad2_bits.left = down; break;
+            case fabgl::VirtualKey::VK_KEMPSTON_RIGHT   : gamepad2_bits.right = down; break;
+            case fabgl::VirtualKey::VK_KEMPSTON_START   : gamepad2_bits.start = down; break;
+            case fabgl::VirtualKey::VK_KEMPSTON_SELECT  : gamepad2_bits.select = down; break;
+    }
+} 
+
 static void nespad_tick2(void) {
+    if (Config::secondJoy == 3) return;
 //    if ((nespad_state2 & DPAD_A) && !gamepad2_bits.a) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_FIRE, true);
 //    else if (!(nespad_state2 & DPAD_A) && gamepad2_bits.a) joyPushData(fabgl::VirtualKey::VK_KEMPSTON_FIRE, false);
     gamepad2_bits.a = (nespad_state2 & DPAD_A) != 0;

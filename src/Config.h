@@ -91,8 +91,9 @@ public:
     static uint16_t joydef[12];
     static uint8_t  AluTiming;
     static uint8_t  joy2cursor;
-    static uint8_t  alfJoy;
+    static uint8_t  secondJoy;
     static uint8_t  kempstonPort;
+    static uint8_t  throtling;
     static bool CursorAsJoy;
     static int8_t CenterH;
     static int8_t CenterV;    

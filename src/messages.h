@@ -482,15 +482,17 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
     "ALU Timing\t>\n"\
     "48K Issue 2\t>\n"\
     "Map joystick to cursor\t>\n"\
-    "ALF second joystick\t>\n"\
-    "Kempston joystick port\t>\n"
+    "Second joystick\t>\n"\
+    "Kempston joystick port\t>\n"\
+    "Throttling\t>\n"
 #define MENU_OTHER_ES "Otros\n"\
     "AY en 48K\t>\n"\
     "Timing ULA\t>\n"\
     "48K Issue 2\t>\n"\
     "Asignar el joystick al cursor\t>\n"\
-    "ALF second joystick\t>\n"\
-    "Kempston joystick port\t>\n"
+    "Segunda joystick\t>\n"\
+    "Kempston joystick port\t>\n"\
+	"Estrangulamiento\t>\n"
 static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
 
 static const char *MENU_AY48[2] = { "AY on 48K\n" , "AY en 48K\n"};
@@ -503,15 +505,24 @@ static const char *MENU_AY48[2] = { "AY on 48K\n" , "AY en 48K\n"};
     "Si\t[K]\n"
 static const char *MENU_KBD2NDPS2[2] = { MENU_KBD2NDPS2_EN, MENU_KBD2NDPS2_ES };
 
-#define MENU_ALF_JOY_EN "DPAD #\n"\
+#define MENU_ALF_JOY_EN "Source\n"\
     "DPAD #1\t[1]\n"\
-    "DPAD #2\t[2]\n"
+    "DPAD #2\t[2]\n"\
+    "NUMPAD \t[N]\n"
 static const char *MENU_ALF_JOY[2] = { MENU_ALF_JOY_EN, MENU_ALF_JOY_EN };
 
 #define MENU_K_JOY_EN "PORT #\n"\
     "1Fh (31)\t[1]\n"\
     "37h (55)\t[3]\n"
 static const char *MENU_K_JOY[2] = { MENU_K_JOY_EN, MENU_K_JOY_EN };
+
+#define MENU_THROTTLING_EN\
+ "Microseconds\n"\
+    "None\t[N]\n"\
+    "1000\t[1]\n"\
+    "2000\t[2]\n"\
+    "3000\t[3]\n"
+static const char *MENU_THROTTLING[2] = { MENU_THROTTLING_EN, MENU_THROTTLING_EN };
 
 #define MENU_ALUTIMING_EN "ALU Timing\n"\
     "Early\t[E]\n"\

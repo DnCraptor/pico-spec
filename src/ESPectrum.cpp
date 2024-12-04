@@ -79,6 +79,7 @@ fabgl::VirtualKey get_last_key_pressed(void) {
 }
 
 void close_all(void);
+void back2joy2(fabgl::VirtualKey virtualKey, bool down);
 
 void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
     static bool ctrlPressed = false;
@@ -102,9 +103,9 @@ void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
             tickKbdRep = time_us_32();
         }
         switch (virtualKey) {
-            case fabgl::VirtualKey::VK_NUMLOCK: keyboard_toggle_led(PS2_LED_NUM_LOCK); break;
+            case fabgl::VirtualKey::VK_NUMLOCK   : keyboard_toggle_led(PS2_LED_NUM_LOCK); break;
             case fabgl::VirtualKey::VK_SCROLLLOCK: keyboard_toggle_led(PS2_LED_SCROLL_LOCK); break;
-            case fabgl::VirtualKey::VK_CAPSLOCK: keyboard_toggle_led(PS2_LED_CAPS_LOCK); break;
+            case fabgl::VirtualKey::VK_CAPSLOCK  : keyboard_toggle_led(PS2_LED_CAPS_LOCK); break;
         }
     } else {
         last_key_pressed = fabgl::VirtualKey::VK_NONE;
@@ -112,7 +113,26 @@ void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
     }
     fabgl::Keyboard* kbd = ESPectrum::PS2Controller.keyboard();
     if ( kbd ) {
-        switch (virtualKey) {
+        if (Config::secondJoy == 3) {
+          switch (virtualKey) { // map to second joy
+            case fabgl::VirtualKey::VK_KP_1: back2joy2(fabgl::VirtualKey::VK_KEMPSTON_FIRE, down); return;
+            case fabgl::VirtualKey::VK_KP_2: back2joy2(fabgl::VirtualKey::VK_KEMPSTON_DOWN, down); return;
+            case fabgl::VirtualKey::VK_KP_3: back2joy2(fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE, down); return;
+            case fabgl::VirtualKey::VK_KP_4: back2joy2(fabgl::VirtualKey::VK_KEMPSTON_LEFT, down); return;
+            case fabgl::VirtualKey::VK_KP_5: back2joy2(fabgl::VirtualKey::VK_KEMPSTON_DOWN, down); return;
+            case fabgl::VirtualKey::VK_KP_6: back2joy2(fabgl::VirtualKey::VK_KEMPSTON_RIGHT, down); return;
+            case fabgl::VirtualKey::VK_KP_7: back2joy2(fabgl::VirtualKey::VK_KEMPSTON_START, down); return;
+            case fabgl::VirtualKey::VK_KP_8: back2joy2(fabgl::VirtualKey::VK_KEMPSTON_UP, down); return;
+            case fabgl::VirtualKey::VK_KP_9: back2joy2(fabgl::VirtualKey::VK_KEMPSTON_SELECT, down); return;
+            case fabgl::VirtualKey::VK_KP_0: back2joy2(fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE, down); return;
+            case fabgl::VirtualKey::VK_KP_PERIOD: back2joy2(fabgl::VirtualKey::VK_KEMPSTON_FIRE, down); return;
+            case fabgl::VirtualKey::VK_KP_ENTER:
+                if(Config::rightSpace) virtualKey = fabgl::VirtualKey::VK_SPACE;
+                else virtualKey = fabgl::VirtualKey::VK_RETURN;
+            break;
+          }
+        } else {
+          switch (virtualKey) {
             case fabgl::VirtualKey::VK_KP_1: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_FIRE; break;
             case fabgl::VirtualKey::VK_KP_2: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_DOWN; break;
             case fabgl::VirtualKey::VK_KP_3: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE; break;
@@ -128,6 +148,7 @@ void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
                 if(Config::rightSpace) virtualKey = fabgl::VirtualKey::VK_SPACE;
                 else virtualKey = fabgl::VirtualKey::VK_RETURN;
             break;
+          }
         }
         if (virtualKey != fabgl::VirtualKey::VK_NONE) {
             virtualKey = kbd->manageCAPSLOCK(virtualKey);
@@ -1001,7 +1022,6 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
 }
 
 IRAM_ATTR void ESPectrum::BeeperGetSample() {
-
     // Beeper audiobuffer generation (oversample)
     uint32_t audbufpos = Z80Ops::is128 ? CPU::tstates / 19 : CPU::tstates >> 4;
     for (;audbufcnt < audbufpos; audbufcnt++) {
@@ -1012,7 +1032,6 @@ IRAM_ATTR void ESPectrum::BeeperGetSample() {
             audioBitbufCount = 0;
         }
     }
-
 }
 
 IRAM_ATTR void ESPectrum::AYGetSample() {
@@ -1060,7 +1079,8 @@ void ESPectrum::loop() {
             pwm_audio_in_frame_started();
         }
 #endif
-        ///xQueueSend(audioTaskQueue, &param, portMAX_DELAY);
+        int32_t t_us = Config::throtling * 1000l;
+        if (!t_us || idle > t_us)
         // Finish fill of beeper oversampled audio buffers
         for (;faudbufcnt < (samplesPerFrame * audioSampleDivider); ++faudbufcnt) {
             audioBitBuf += faudioBit;
@@ -1070,7 +1090,7 @@ void ESPectrum::loop() {
                 audioBitbufCount = 0;
             }
         }
-        if (AY_emu) {
+        if (AY_emu && (!t_us || idle > t_us)) {
             if (faudbufcntAY < samplesPerFrame) {
                 chip0.gen_sound(samplesPerFrame - faudbufcntAY, faudbufcntAY);
                 chip1.gen_sound(samplesPerFrame - faudbufcntAY, faudbufcntAY);
@@ -1141,10 +1161,9 @@ void ESPectrum::loop() {
         continue;
     }
 
-        if (idle > 0)
-            delayMicroseconds(idle);
-        // else
-        //     printf("Elapsed: %d\n",(int)elapsed);
+    if (idle > 0) {
+        delayMicroseconds(idle);
+    }
 
         // Audio sync
         if (++sync_cnt & 0x10) {

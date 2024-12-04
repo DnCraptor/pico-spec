@@ -2027,22 +2027,24 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     menu_saverect = true;
                                     while (1) {
                                         string menu = MENU_ALF_JOY[Config::lang];
-                                        uint8_t prev = Config::alfJoy;
-                                        if (prev == 2) {
+                                        uint8_t prev = Config::secondJoy;
+                                        if (prev == 3) {
+                                            menu.replace(menu.find("[1",0),2,"[ ");                        
+                                            menu.replace(menu.find("[2",0),2,"[ ");
+                                            menu.replace(menu.find("[N",0),2,"[*");
+                                        } else if (prev == 2) {
                                             menu.replace(menu.find("[1",0),2,"[ ");                        
                                             menu.replace(menu.find("[2",0),2,"[*");
+                                            menu.replace(menu.find("[N",0),2,"[ ");
                                         } else {
                                             menu.replace(menu.find("[1",0),2,"[*");
                                             menu.replace(menu.find("[2",0),2,"[ ");
+                                            menu.replace(menu.find("[N",0),2,"[ ");
                                         }
                                         uint8_t opt2 = menuRun(menu);
                                         if (opt2) {
-                                            if (opt2 == 1)
-                                                Config::alfJoy = 1;
-                                            else
-                                                Config::alfJoy = 2;
-
-                                            if (Config::alfJoy != prev) {
+                                            Config::secondJoy = opt2;
+                                            if (Config::secondJoy != prev) {
                                                 Config::save();
                                             }
                                             menu_curopt = opt2;
@@ -2082,6 +2084,49 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                             menu_saverect = false;
                                         } else {
                                             menu_curopt = 6;
+                                            menu_level = 2;                                       
+                                            break;
+                                        }
+                                    }
+                                }
+                                else if (options_num == 7) {
+                                    menu_level = 3;
+                                    menu_curopt = 1;                    
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string menu = MENU_THROTTLING[Config::lang];
+                                        uint8_t prev = Config::throtling;
+                                        if (prev == 0) {
+                                            menu.replace(menu.find("[N",0),2,"[*");
+                                            menu.replace(menu.find("[1",0),2,"[ ");
+                                            menu.replace(menu.find("[2",0),2,"[ ");
+                                            menu.replace(menu.find("[3",0),2,"[ ");
+                                        } else if (prev == 1) {
+                                            menu.replace(menu.find("[N",0),2,"[ ");
+                                            menu.replace(menu.find("[1",0),2,"[*");
+                                            menu.replace(menu.find("[2",0),2,"[ ");
+                                            menu.replace(menu.find("[3",0),2,"[ ");
+                                        } else if (prev == 2) {
+                                            menu.replace(menu.find("[N",0),2,"[ ");
+                                            menu.replace(menu.find("[1",0),2,"[ ");
+                                            menu.replace(menu.find("[2",0),2,"[*");
+                                            menu.replace(menu.find("[3",0),2,"[ ");
+                                        } else if (prev == 3) {
+                                            menu.replace(menu.find("[N",0),2,"[ ");
+                                            menu.replace(menu.find("[1",0),2,"[ ");
+                                            menu.replace(menu.find("[2",0),2,"[ ");
+                                            menu.replace(menu.find("[3",0),2,"[*");
+                                        }
+                                        uint8_t opt2 = menuRun(menu);
+                                        if (opt2) {
+                                            Config::throtling = opt2 - 1;
+                                            if (Config::throtling != prev) {
+                                                Config::save();
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = 7;
                                             menu_level = 2;                                       
                                             break;
                                         }
