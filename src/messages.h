@@ -513,7 +513,8 @@ static const char *MENU_ALF_JOY[2] = { MENU_ALF_JOY_EN, MENU_ALF_JOY_EN };
 
 #define MENU_K_JOY_EN "PORT #\n"\
     "1Fh (31)\t[1]\n"\
-    "37h (55)\t[3]\n"
+    "37h (55)\t[3]\n"\
+    "5Fh (95)\t[9]\n"
 static const char *MENU_K_JOY[2] = { MENU_K_JOY_EN, MENU_K_JOY_EN };
 
 #define MENU_THROTTLING_EN\

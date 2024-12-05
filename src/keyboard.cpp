@@ -711,7 +711,17 @@ bool Keyboard::isVKDown(VirtualKey virtualKey)
 static bool jselect = false;
 
 inline static void joy2kbd(const VirtualKeyItem& it) {
-    if (!Config::joy2cursor) return;
+    if (it.vk == VirtualKey::VK_KEMPSTON_SELECT) {
+        jselect = it.down;
+        return;
+    }
+    if (jselect && it.vk == VirtualKey::VK_KEMPSTON_START) {
+        kbdPushData(VirtualKey::VK_F1, it.down);
+        return;
+    }
+    if (!Config::joy2cursor) {
+        return;
+    }
     if (it.vk == VirtualKey::VK_KEMPSTON_LEFT) {
         if (jselect)
           kbdPushData(VirtualKey::VK_BACKSPACE, it.down);
@@ -749,15 +759,7 @@ inline static void joy2kbd(const VirtualKeyItem& it) {
         return;
     }
     if (it.vk == VirtualKey::VK_KEMPSTON_START) {
-        if (jselect)
-          kbdPushData(VirtualKey::VK_F1, it.down);
-        else
-          kbdPushData(VirtualKey::VK_R, it.down);
-        return;
-    }
-    if (it.vk == VirtualKey::VK_KEMPSTON_SELECT) {
-//        kbdPushData(VirtualKey::VK_K, it.down);
-        jselect = it.down;
+        kbdPushData(VirtualKey::VK_R, it.down);
         return;
     }
 }

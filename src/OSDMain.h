@@ -201,4 +201,10 @@ static inline std::string trim_copy(std::string s) {
     return s;
 }
 
+#define is_back(vk) (vk == fabgl::VK_ESCAPE || vk == fabgl::VK_F1 || vk == fabgl::VK_JOY1LEFT)
+#define is_enter(vk) (vk == fabgl::VK_RETURN || vk == fabgl::VK_SPACE || vk == fabgl::VK_RIGHT || \
+ (vk == fabgl::VK_JOY1A || vk == fabgl::VK_JOY1B || vk == fabgl::VK_JOY1RIGHT) && !Config::joy2cursor)
+#define is_enter_fd(vk) (vk == fabgl::VK_RETURN || vk == fabgl::VK_SPACE || \
+ (vk == fabgl::VK_JOY1A || vk == fabgl::VK_JOY1B) && !Config::joy2cursor)
+
 #endif // ESPECTRUM_OSD_H

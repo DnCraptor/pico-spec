@@ -408,10 +408,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
             while (1) {
                 if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
                     if (ESPectrum::readKbd(&Nextkey)) {
-                        if(!Nextkey.down) continue;
-                        if (Nextkey.vk == fabgl::VK_RETURN || Nextkey.vk == fabgl::VK_ESCAPE || Nextkey.vk == fabgl::VK_PAUSE ||
-                            (Nextkey.vk == fabgl::VK_JOY1A || Nextkey.vk == fabgl::VK_JOY1B ) && !Config::joy2cursor
-                        ) {
+                        if (!Nextkey.down) continue;
+                            if (is_enter(Nextkey.vk) || is_back(Nextkey.vk)) {
                             click();
                             break;
                         } else {
@@ -2066,16 +2064,24 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                         if (prev == 0x37) {
                                             menu.replace(menu.find("[1",0),2,"[ ");                        
                                             menu.replace(menu.find("[3",0),2,"[*");
+                                            menu.replace(menu.find("[9",0),2,"[ ");
+                                        } else if (prev == 0x5F) {
+                                            menu.replace(menu.find("[1",0),2,"[ ");
+                                            menu.replace(menu.find("[3",0),2,"[ ");
+                                            menu.replace(menu.find("[9",0),2,"[*");
                                         } else {
                                             menu.replace(menu.find("[1",0),2,"[*");
                                             menu.replace(menu.find("[3",0),2,"[ ");
+                                            menu.replace(menu.find("[9",0),2,"[ ");
                                         }
                                         uint8_t opt2 = menuRun(menu);
                                         if (opt2) {
                                             if (opt2 == 1)
                                                 Config::kempstonPort = 0x1F;
-                                            else
+                                            else if (opt2 == 2)
                                                 Config::kempstonPort = 0x37;
+                                            else
+                                                Config::kempstonPort = 0x5F;
 
                                             if (Config::kempstonPort != prev) {
                                                 Config::save();
@@ -2184,9 +2190,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                     if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
                         if (ESPectrum::readKbd(&Nextkey)) {
                             if(!Nextkey.down) continue;
-                            if (Nextkey.vk == fabgl::VK_F1 || Nextkey.vk == fabgl::VK_ESCAPE || Nextkey.vk == fabgl::VK_RETURN ||
-                                (Nextkey.vk == fabgl::VK_JOY1A || Nextkey.vk == fabgl::VK_JOY1B) && !Config::joy2cursor
-                            ) break;
+                            if (is_enter(Nextkey.vk) || is_back(Nextkey.vk)) break;
                         }
                     }
                     sleep_ms(5);
@@ -2280,10 +2284,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
 
                     if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
                         if (ESPectrum::readKbd(&Nextkey)) {
-                            if(!Nextkey.down) continue;
-                            if (Nextkey.vk == fabgl::VK_F1 || Nextkey.vk == fabgl::VK_ESCAPE || Nextkey.vk == fabgl::VK_RETURN ||
-                                (Nextkey.vk == fabgl::VK_JOY1A || Nextkey.vk == fabgl::VK_JOY1B) && !Config::joy2cursor
-                            ) break;
+                            if (!Nextkey.down) continue;
+                            if (is_enter(Nextkey.vk) || is_back(Nextkey.vk == fabgl::VK_ESCAPE)) break;
                         }
                     }
                     sleep_ms(20);
@@ -2494,10 +2496,8 @@ void OSD::HWInfo() {
     while (1) {
         if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
             ESPectrum::PS2Controller.keyboard()->getNextVirtualKey(&Nextkey);
-            if(!Nextkey.down) continue;
-            if (Nextkey.vk == fabgl::VK_F1 || Nextkey.vk == fabgl::VK_ESCAPE || Nextkey.vk == fabgl::VK_RETURN ||
-                (Nextkey.vk == fabgl::VK_JOY1A || Nextkey.vk == fabgl::VK_JOY1B) && !Config::joy2cursor
-            ) {
+            if (!Nextkey.down) continue;
+            if (is_enter(Nextkey.vk) || is_back(Nextkey.vk)) {
                 click();
                 break;
             }
@@ -2992,9 +2992,7 @@ uint8_t OSD::msgDialog(string title, string msg) {
                     VIDEO::vga.print("  No  ");
                     click();
                     res = DLG_NO;
-                } else if (Menukey.vk == fabgl::VK_RETURN || Menukey.vk == fabgl::VK_SPACE ||
-                           (Menukey.vk == fabgl::VK_JOY1A || Menukey.vk == fabgl::VK_JOY1B) && !Config::joy2cursor
-                ) {
+                } else if (is_enter(Menukey.vk)) {
                     break;
                 } else if (Menukey.vk == fabgl::VK_ESCAPE) {
                     res = DLG_CANCEL;
@@ -3433,7 +3431,7 @@ void OSD::joyDialog(void) {
 
     // Wait for key
     fabgl::VirtualKeyItem Nextkey;
-    int joyTestExitCount1 = 0;
+    int joyTestExitCount = 0;
     while (1) {
         if (joyDialogMode) {
             DrawjoyControls(x,y);            
@@ -3521,9 +3519,7 @@ void OSD::joyDialog(void) {
                     click();
                 }
             } else
-            if (Nextkey.vk == fabgl::VK_RETURN ||
-                 (Nextkey.vk == fabgl::VK_JOY1B) && !Config::joy2cursor
-            ) {
+            if (is_enter(Nextkey.vk)) {
                 if (joyDialogMode == 0) {
                     if (curDropDown>=0 && curDropDown<12) {
                         click();
@@ -3658,7 +3654,7 @@ void OSD::joyDialog(void) {
                     if (curDropDown == 13) {                    
                         // Enable joyTest
                         joyDialogMode = 1;
-                        joyTestExitCount1 = 0;
+                        joyTestExitCount = 0;
                         VIDEO::vga.setTextColor(zxColor(4, 1), zxColor(5, 1));
                         VIDEO::vga.setCursor(x + joyDropdown[13][0], y + joyDropdown[13][1]);
                         VIDEO::vga.print(" JoyTest ");
@@ -3694,18 +3690,33 @@ void OSD::joyDialog(void) {
 
         // Joy Test Mode: Check joy status and color controls
         if (joyDialogMode) {
-            for (int n = fabgl::VK_JOY1RIGHT; n <= fabgl::VK_JOY1Z; n++) { /// TODO:
+            for (int n = fabgl::VK_JOY1RIGHT; n <= fabgl::VK_JOY1Z; n++) {
+                int m = 0; // index in joyControl
+                switch (n) {
+                    case fabgl::VK_JOY1RIGHT: m = 1; break;
+                    case fabgl::VK_JOY1LEFT: m = 0; break;
+                    case fabgl::VK_JOY1DOWN: m = 3; break;
+                    case fabgl::VK_JOY1UP: m = 2; break;
+                    case fabgl::VK_JOY1A: m = 6; break;
+                    case fabgl::VK_JOY1B: m = 7; break;
+                    case fabgl::VK_JOY1START: m = 4; break;
+                    case fabgl::VK_JOY1MODE: m = 5; break;
+                    case fabgl::VK_JOY1C: m = 8; break;
+                    case fabgl::VK_JOY1X: m = 9; break;
+                    case fabgl::VK_JOY1Y: m = 10; break;
+                    case fabgl::VK_JOY1Z: m = 11; break;
+                }
                 if (ESPectrum::PS2Controller.keyboard()->isVKDown((fabgl::VirtualKey) n))
-                    joyControl[n - (int)fabgl::VK_JOY1RIGHT][2] = zxColor(4,1);            
+                    joyControl[m][2] = zxColor(4,1);            
                 else
-                    joyControl[n - (int)fabgl::VK_JOY1RIGHT][2] = zxColor(0,0);
+                    joyControl[m][2] = zxColor(0,0);
             }
-            if (ESPectrum::PS2Controller.keyboard()->isVKDown(fabgl::VK_JOY1A)) {
-                joyTestExitCount1++;
-                if (joyTestExitCount1 == 30)
+            if (ESPectrum::PS2Controller.keyboard()->isVKDown(fabgl::VK_JOY1B)) {
+                joyTestExitCount++;
+                if (joyTestExitCount == 5)
                     ESPectrum::PS2Controller.keyboard()->injectVirtualKey(fabgl::VK_ESCAPE, true, false);
             } else {
-                joyTestExitCount1 = 0;
+                joyTestExitCount = 0;
             }
         }
         sleep_ms(50);
@@ -4000,9 +4011,7 @@ void OSD::pokeDialog() {
                 }
                 click();
             } else
-            if (Nextkey.vk == fabgl::VK_RETURN || 
-                (Nextkey.vk == fabgl::VK_JOY1A) && !Config::joy2cursor
-            ) {
+            if (is_enter(Nextkey.vk)) {
                 if (dlg_Objects[curObject].Name == "Bank" && !Z80Ops::is48) {
                     click();
                     // Launch bank menu
@@ -4046,7 +4055,6 @@ void OSD::pokeDialog() {
 
                 } else
                 if (dlg_Objects[curObject].Name == "Ok") {
-
                     string addr = dlgValues[1];
                     string val = dlgValues[2];
                     trim(addr);
@@ -4071,7 +4079,7 @@ void OSD::pokeDialog() {
                     click();
                     break;
                 }
-            } else if (Nextkey.vk == fabgl::VK_ESCAPE) {
+            } else if (is_back(Nextkey.vk)) {
                 click();
                 break;
             }
