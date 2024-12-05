@@ -252,7 +252,11 @@ void Config::load() {
         nvs_get_u8("joy2cursor", Config::joy2cursor, sts);
         nvs_get_u8("secondJoy", Config::secondJoy, sts);
         nvs_get_u8("kempstonPort", Config::kempstonPort, sts);
+#if !PICO_RP2040
+        nvs_get_u8("throtling2", Config::throtling, sts);
+#else
         nvs_get_u8("throtling", Config::throtling, sts);
+#endif
         nvs_get_b("CursorAsJoy", CursorAsJoy, sts);
         nvs_get_i8("CenterH", Config::CenterH, sts);
         nvs_get_i8("CenterV", Config::CenterV, sts);
@@ -341,7 +345,11 @@ void Config::save() {
         nvs_set_u8(handle,"joy2cursor",Config::joy2cursor);
         nvs_set_u8(handle,"secondJoy",Config::secondJoy);
         nvs_set_u8(handle,"kempstonPort",Config::kempstonPort);
+#if !PICO_RP2040
+        nvs_set_u8(handle,"throtling2",Config::throtling);
+#else
         nvs_set_u8(handle,"throtling",Config::throtling);
+#endif
         nvs_set_str(handle,"CursorAsJoy", CursorAsJoy ? "true" : "false");
         nvs_set_i8(handle,"CenterH",Config::CenterH);
         nvs_set_i8(handle,"CenterV",Config::CenterV);
