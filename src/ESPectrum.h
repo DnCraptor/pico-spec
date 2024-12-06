@@ -150,5 +150,6 @@ inline void delayMicroseconds(int64_t us) {
 }
 
 void kbdPushData(fabgl::VirtualKey virtualKey, bool down);
+void joyPushData(fabgl::VirtualKey virtualKey, bool down);
 
 #endif

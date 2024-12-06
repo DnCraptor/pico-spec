@@ -221,9 +221,7 @@ unsigned short OSD::menuRun(string new_menu) {
         if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
             if (ESPectrum::readKbd(&Menukey)) {
                 if (!Menukey.down) continue;
-                if (Menukey.vk == fabgl::VK_UP ||
-                    (Menukey.vk == fabgl::VK_JOY1UP) && !Config::joy2cursor
-                ) {
+                if (is_up(Menukey.vk)) {
                     if (focus == 1 and begin_row > 1) {
                         menuScroll(DOWN);
                     } else {
@@ -242,9 +240,7 @@ unsigned short OSD::menuRun(string new_menu) {
                         }
                     }
                     click();
-                } else if (Menukey.vk == fabgl::VK_DOWN ||
-                           (Menukey.vk == fabgl::VK_JOY1DOWN) && !Config::joy2cursor
-                ) {
+                } else if (is_down(Menukey.vk)) {
                     if (focus == virtual_rows - 1 && virtual_rows + begin_row - 1 < real_rows) {                
                         menuScroll(UP);
                     } else {
@@ -283,9 +279,7 @@ unsigned short OSD::menuRun(string new_menu) {
                     }
                     menuRedraw();
                     click();
-                } else if (Menukey.vk == fabgl::VK_HOME ||
-                           (Menukey.vk == fabgl::VK_JOY1START) && !Config::joy2cursor
-                ) {
+                } else if (is_home(Menukey.vk)) {
                     focus = 1;
                     begin_row = 1;
                     menuRedraw();
@@ -361,9 +355,7 @@ unsigned short OSD::simpleMenuRun(string new_menu, uint16_t posx, uint16_t posy,
         if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
             if (ESPectrum::readKbd(&Menukey)) {
                 if (!Menukey.down) continue;
-                if (Menukey.vk == fabgl::VK_UP ||
-                    (Menukey.vk == fabgl::VK_JOY1UP) && !Config::joy2cursor
-                ) {
+                if (is_up(Menukey.vk)) {
                     if (focus == 1 and begin_row > 1) {
                         menuScroll(DOWN);
                     } else {
@@ -382,9 +374,7 @@ unsigned short OSD::simpleMenuRun(string new_menu, uint16_t posx, uint16_t posy,
                         }
                     }
                     click();
-                } else if (Menukey.vk == fabgl::VK_DOWN ||
-                           (Menukey.vk == fabgl::VK_JOY1DOWN) && !Config::joy2cursor
-                ) {
+                } else if (is_down(Menukey.vk)) {
                     if (focus == virtual_rows - 1 && virtual_rows + begin_row - 1 < real_rows) {                
                         menuScroll(UP);
                     } else {
@@ -423,7 +413,7 @@ unsigned short OSD::simpleMenuRun(string new_menu, uint16_t posx, uint16_t posy,
                     }
                     menuRedraw();
                     click();
-                } else if (Menukey.vk == fabgl::VK_HOME || Menukey.vk == fabgl::VK_JOY1START) {
+                } else if (is_home(Menukey.vk)) {
                     focus = 1;
                     begin_row = 1;
                     menuRedraw();
@@ -671,9 +661,7 @@ int OSD::menuTape(string title) {
         if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
             if (ESPectrum::readKbd(&Menukey)) {
                 if (!Menukey.down) continue;
-                if (Menukey.vk == fabgl::VK_UP ||
-                     (Menukey.vk == fabgl::VK_JOY1UP) && !Config::joy2cursor
-                ) {
+                if (is_up(Menukey.vk)) {
                     if (focus == 1 and begin_row > 1) {
                         if (begin_row > 1) {
                             last_begin_row = begin_row;
@@ -688,9 +676,7 @@ int OSD::menuTape(string title) {
                         PrintRow(focus + 1, IS_NORMAL);
                         click();
                     }
-                } else if (Menukey.vk == fabgl::VK_DOWN ||
-                            (Menukey.vk == fabgl::VK_JOY1DOWN) && !Config::joy2cursor
-                ) {
+                } else if (is_down(Menukey.vk)) {
                     if (focus == virtual_rows - 1) {
                         if ((begin_row + virtual_rows - 1) < real_rows) {
                             last_begin_row = begin_row;

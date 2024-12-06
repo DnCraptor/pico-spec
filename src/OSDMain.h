@@ -201,10 +201,15 @@ static inline std::string trim_copy(std::string s) {
     return s;
 }
 
-#define is_back(vk) (vk == fabgl::VK_ESCAPE || vk == fabgl::VK_F1 || vk == fabgl::VK_JOY1LEFT)
-#define is_enter(vk) (vk == fabgl::VK_RETURN || vk == fabgl::VK_SPACE || vk == fabgl::VK_RIGHT || \
- (vk == fabgl::VK_JOY1A || vk == fabgl::VK_JOY1B || vk == fabgl::VK_JOY1RIGHT) && !Config::joy2cursor)
-#define is_enter_fd(vk) (vk == fabgl::VK_RETURN || vk == fabgl::VK_SPACE || \
- (vk == fabgl::VK_JOY1A || vk == fabgl::VK_JOY1B) && !Config::joy2cursor)
+#define is_up(vk) (vk == fabgl::VK_MENU_UP)
+#define is_down(vk) (vk == fabgl::VK_MENU_DOWN)
+#define is_home(vk) (vk == fabgl::VK_MENU_HOME)
+#define is_backspace(vk) (vk == fabgl::VK_MENU_BS)
+#define is_right(vk) (vk == fabgl::VK_MENU_RIGHT)
+#define is_left(vk) (vk == fabgl::VK_MENU_LEFT)
+#define is_back(vk) (vk == fabgl::VK_ESCAPE || vk == fabgl::VK_F1 || vk == fabgl::VK_MENU_LEFT)
+#define is_enter(vk) (vk == fabgl::VK_MENU_RIGHT || vk == fabgl::VK_MENU_ENTER)
+#define is_enter_fd(vk) (vk == fabgl::VK_MENU_ENTER)
+#define is_return(vk) (vk == fabgl::VK_MENU_ENTER)
 
 #endif // ESPECTRUM_OSD_H

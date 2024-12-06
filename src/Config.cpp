@@ -39,14 +39,14 @@ bool     Config::rightSpace = true;
 
 uint8_t  Config::joystick = JOY_KEMPSTON;
 uint16_t Config::joydef[12] = {
-    fabgl::VK_KEMPSTON_LEFT,  // 0
-    fabgl::VK_KEMPSTON_RIGHT, // 1
-    fabgl::VK_KEMPSTON_UP,    // 2
-    fabgl::VK_KEMPSTON_DOWN,  // 3
-    fabgl::VK_KEMPSTON_START, // 4
-    fabgl::VK_KEMPSTON_SELECT,// 5
-    fabgl::VK_KEMPSTON_FIRE,  // 6 A
-    fabgl::VK_KEMPSTON_ALTFIRE,//7 B
+    fabgl::VK_DPAD_LEFT,  // 0
+    fabgl::VK_DPAD_RIGHT, // 1
+    fabgl::VK_DPAD_UP,    // 2
+    fabgl::VK_DPAD_DOWN,  // 3
+    fabgl::VK_DPAD_START, // 4
+    fabgl::VK_DPAD_SELECT,// 5
+    fabgl::VK_DPAD_FIRE,  // 6 A
+    fabgl::VK_DPAD_ALTFIRE,//7 B
     fabgl::VK_NONE,           // 8 C
     fabgl::VK_NONE,           // 9  X
     fabgl::VK_NONE,           // 10 Y
@@ -54,13 +54,11 @@ uint16_t Config::joydef[12] = {
 };
 
 uint8_t  Config::AluTiming = 0;
-uint8_t  Config::joy2cursor = 0;
+uint8_t  Config::joy2cursor = true;
 uint8_t  Config::secondJoy = 2;
-uint8_t  Config::kempstonPort = 0x1F;
+uint8_t  Config::kempstonPort = 0x37;
 uint8_t  Config::throtling = DEFAULT_THROTTLING;
-bool     Config::CursorAsJoy = false;
-int8_t   Config::CenterH = 0;
-int8_t   Config::CenterV = 0;
+bool     Config::CursorAsJoy = true;
 
 uint8_t Config::scanlines = 0;
 uint8_t Config::render = 0;
@@ -258,8 +256,6 @@ void Config::load() {
         nvs_get_u8("throtling", Config::throtling, sts);
 #endif
         nvs_get_b("CursorAsJoy", CursorAsJoy, sts);
-        nvs_get_i8("CenterH", Config::CenterH, sts);
-        nvs_get_i8("CenterV", Config::CenterV, sts);
         nvs_get_str("SNA_Path", FileUtils::SNA_Path, sts);
         nvs_get_str("TAP_Path", FileUtils::TAP_Path, sts);
         nvs_get_str("DSK_Path", FileUtils::DSK_Path, sts);
@@ -351,8 +347,6 @@ void Config::save() {
         nvs_set_u8(handle,"throtling",Config::throtling);
 #endif
         nvs_set_str(handle,"CursorAsJoy", CursorAsJoy ? "true" : "false");
-        nvs_set_i8(handle,"CenterH",Config::CenterH);
-        nvs_set_i8(handle,"CenterV",Config::CenterV);
         nvs_set_str(handle,"SNA_Path",FileUtils::SNA_Path.c_str());
         nvs_set_str(handle,"TAP_Path",FileUtils::TAP_Path.c_str());
         nvs_set_str(handle,"DSK_Path",FileUtils::DSK_Path.c_str());
@@ -381,15 +375,15 @@ void Config::setJoyMap(uint8_t joytype) {
     string msg = OSD_DLG_SETJOYMAPDEFAULTS[Config::lang];
     uint8_t res = OSD::msgDialog(title, msg);
     if (res == DLG_YES) {
-        joydef[0] = fabgl::VK_KEMPSTON_LEFT;
-        joydef[1] = fabgl::VK_KEMPSTON_RIGHT;
-        joydef[2] = fabgl::VK_KEMPSTON_UP;
-        joydef[3] = fabgl::VK_KEMPSTON_DOWN;
-        joydef[6] = fabgl::VK_KEMPSTON_FIRE;
+        joydef[0] = fabgl::VK_DPAD_LEFT;
+        joydef[1] = fabgl::VK_DPAD_RIGHT;
+        joydef[2] = fabgl::VK_DPAD_UP;
+        joydef[3] = fabgl::VK_DPAD_DOWN;
+        joydef[6] = fabgl::VK_DPAD_FIRE;
         if (joytype == JOY_KEMPSTON) {
-            joydef[4] = fabgl::VK_KEMPSTON_START;
-            joydef[5] = fabgl::VK_KEMPSTON_SELECT;
-            joydef[7] = fabgl::VK_KEMPSTON_ALTFIRE;
+            joydef[4] = fabgl::VK_DPAD_START;
+            joydef[5] = fabgl::VK_DPAD_SELECT;
+            joydef[7] = fabgl::VK_DPAD_ALTFIRE;
         }
         Config::save();
     }

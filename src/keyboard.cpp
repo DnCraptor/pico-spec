@@ -23,8 +23,6 @@
   along with FabGL.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-
-
 #include <string.h>
 #include "keyboard.h"
 #include "ps2.h"
@@ -34,28 +32,20 @@
 
 #pragma GCC optimize ("O2")
 
-
 namespace fabgl {
-
-///int Keyboard::scancodeToVirtualKeyTaskStackSize = FABGLIB_DEFAULT_SCODETOVK_TASK_STACK_SIZE;
-
 
 Keyboard::Keyboard()
   : m_keyboardAvailable(false),
-///    m_SCodeToVKConverterTask(nullptr),
     m_virtualKeyQueue(),
-///    m_scancodeSet(2),
     m_lastDeadKey(VK_NONE),
     m_codepage(nullptr)
 {
 }
 
-
 Keyboard::~Keyboard()
 {
   enableVirtualKeys(false, false);
 }
-
 
 void Keyboard::begin(bool generateVirtualKeys, bool createVKQueue, int PS2Port, bool doReset)
 {
@@ -74,42 +64,10 @@ void Keyboard::begin(bool generateVirtualKeys, bool createVKQueue, int PS2Port, 
   enableVirtualKeys(generateVirtualKeys, createVKQueue);
 }
 
-/**
-void Keyboard::begin(gpio_num_t clkGPIO, gpio_num_t dataGPIO, bool generateVirtualKeys, bool createVKQueue)
-{
-  PS2Controller::begin(clkGPIO, dataGPIO);
-  PS2Controller::setKeyboard(this);
-  begin(generateVirtualKeys, createVKQueue, 0);
-}
-*/
-
 void Keyboard::enableVirtualKeys(bool generateVirtualKeys, bool createVKQueue)
 {
-///  PS2DeviceLock lock(this);
-
   if (createVKQueue)
     generateVirtualKeys = true;
-
-  // create task and queue?
-/**
-  if (!m_virtualKeyQueue && createVKQueue)
-    m_virtualKeyQueue = xQueueCreate(FABGLIB_KEYBOARD_VIRTUALKEY_QUEUE_SIZE, sizeof(VirtualKeyItem));
-
-  if (!m_SCodeToVKConverterTask && generateVirtualKeys)
-    xTaskCreate(&SCodeToVKConverterTask, "", Keyboard::scancodeToVirtualKeyTaskStackSize, this, FABGLIB_SCODETOVK_TASK_PRIORITY, &m_SCodeToVKConverterTask);
-
-  // destroy in reverse order
-
-  if (m_SCodeToVKConverterTask && !generateVirtualKeys) {
-    vTaskDelete(m_SCodeToVKConverterTask);
-    m_SCodeToVKConverterTask = nullptr;
-  }
-
-  if (m_virtualKeyQueue && !createVKQueue) {
-    vQueueDelete(m_virtualKeyQueue);
-    m_virtualKeyQueue = nullptr;
-  }
-  */
 }
 
 uint8_t m_VKMap[(int)(VK_LAST + 7) / 8];
@@ -146,27 +104,6 @@ bool Keyboard::reset(bool sendCmdReset)
 }
 
 
-bool Keyboard::setScancodeSet(int value)
-{
-  /**
-  if (m_SCodeToVKConverterTask) {
-    // virtual keys enabled, just 1 and 2 are allowed
-    if (value == 1 || value == 2) {
-      m_scancodeSet = value;
-      return true;
-    }
-  } else {
-    // no virtual keys enabled, just try to tell keyboard which set we need
-    if (send_cmdSetScancodeSet(value)) {
-      m_scancodeSet = value;
-      return true;
-    }
-  }
-  */
-  return false;
-}
-
-
 bool Keyboard::setLEDs(bool numLock, bool capsLock, bool scrollLock) {
   uint8_t v = 0;
   if (numLock) v |= PS2_LED_NUM_LOCK;
@@ -183,65 +120,10 @@ void Keyboard::getLEDs(bool * numLock, bool * capsLock, bool * scrollLock) {
   *scrollLock = v & PS2_LED_SCROLL_LOCK;
 }
 
-void Keyboard::updateLEDs() {
-}
-
 int Keyboard::scancodeAvailable()
 {
   return dataAvailable();
 }
-
-
-int Keyboard::getNextScancode(int timeOutMS, bool requestResendOnTimeOut)
-{
-  /***
-  while (true) {
-    int r = getData(timeOutMS);
-    if (r == -1 && CLKTimeOutError()) {
-      // try to recover a stall sending a re-enable scanning command
-      send_cmdEnableScanning();
-    }
-    if (r == -1 && requestResendOnTimeOut) {
-      requestToResendLastByte();
-      continue;
-    }
-    return r;
-  }*/
- return 0;
-}
-
-/**
-void Keyboard::setLayout(const KeyboardLayout * layout)
-{
-  m_layout = layout;
-}
-*/
-
-#if FABGLIB_HAS_VirtualKeyO_STRING
-char const * Keyboard::virtualKeyToString(VirtualKey virtualKey)
-{
-  char const * VKTOSTR[] = { "VK_NONE", "VK_SPACE", "VK_0", "VK_1", "VK_2", "VK_3", "VK_4", "VK_5", "VK_6", "VK_7", "VK_8", "VK_9", "VK_KP_0", "VK_KP_1", "VK_KP_2",
-                             "VK_KP_3", "VK_KP_4", "VK_KP_5", "VK_KP_6", "VK_KP_7", "VK_KP_8", "VK_KP_9", "VK_a", "VK_b", "VK_c", "VK_d", "VK_e", "VK_f", "VK_g", "VK_h",
-                             "VK_i", "VK_j", "VK_k", "VK_l", "VK_m", "VK_n", "VK_o", "VK_p", "VK_q", "VK_r", "VK_s", "VK_t", "VK_u", "VK_v", "VK_w", "VK_x", "VK_y", "VK_z",
-                             "VK_A", "VK_B", "VK_C", "VK_D", "VK_E", "VK_F", "VK_G", "VK_H", "VK_I", "VK_J", "VK_K", "VK_L", "VK_M", "VK_N", "VK_O", "VK_P", "VK_Q", "VK_R",
-                             "VK_S", "VK_T", "VK_U", "VK_V", "VK_W", "VK_X", "VK_Y", "VK_Z", "VK_GRAVEACCENT", "VK_ACUTEACCENT", "VK_QUOTE", "VK_QUOTEDBL", "VK_EQUALS", "VK_MINUS", "VK_KP_MINUS",
-                             "VK_PLUS", "VK_KP_PLUS", "VK_KP_MULTIPLY", "VK_ASTERISK", "VK_BACKSLASH", "VK_KP_DIVIDE", "VK_SLASH", "VK_KP_PERIOD", "VK_PERIOD", "VK_COLON",
-                             "VK_COMMA", "VK_SEMICOLON", "VK_AMPERSAND", "VK_VERTICALBAR", "VK_HASH", "VK_AT", "VK_CARET", "VK_DOLLAR", "VK_POUND", "VK_EURO", "VK_PERCENT",
-                             "VK_EXCLAIM", "VK_QUESTION", "VK_LEFTBRACE", "VK_RIGHTBRACE", "VK_LEFTBRACKET", "VK_RIGHTBRACKET", "VK_LEFTPAREN", "VK_RIGHTPAREN", "VK_LESS",
-                             "VK_GREATER", "VK_UNDERSCORE", "VK_DEGREE", "VK_SECTION", "VK_TILDE", "VK_NEGATION", "VK_LSHIFT", "VK_RSHIFT", "VK_LALT", "VK_RALT", "VK_LCTRL", "VK_RCTRL",
-                             "VK_LGUI", "VK_RGUI", "VK_ESCAPE", "VK_PRINTSCREEN", "VK_SYSREQ", "VK_INSERT", "VK_KP_INSERT", "VK_DELETE", "VK_KP_DELETE", "VK_BACKSPACE", "VK_HOME", "VK_KP_HOME", "VK_END", "VK_KP_END", "VK_PAUSE", "VK_BREAK",
-                             "VK_SCROLLLOCK", "VK_NUMLOCK", "VK_CAPSLOCK", "VK_TAB", "VK_RETURN", "VK_KP_ENTER", "VK_APPLICATION", "VK_PAGEUP", "VK_KP_PAGEUP", "VK_PAGEDOWN", "VK_KP_PAGEDOWN", "VK_UP", "VK_KP_UP",
-                             "VK_DOWN", "VK_KP_DOWN", "VK_LEFT", "VK_KP_LEFT", "VK_RIGHT", "VK_KP_RIGHT", "VK_KP_CENTER", "VK_F1", "VK_F2", "VK_F3", "VK_F4", "VK_F5", "VK_F6", "VK_F7", "VK_F8", "VK_F9", "VK_F10", "VK_F11", "VK_F12",
-                             "VK_GRAVE_a", "VK_GRAVE_e", "VK_ACUTE_e", "VK_GRAVE_i", "VK_GRAVE_o", "VK_GRAVE_u", "VK_CEDILLA_c", "VK_ESZETT", "VK_UMLAUT_u",
-                             "VK_UMLAUT_o", "VK_UMLAUT_a", "VK_CEDILLA_C", "VK_TILDE_n", "VK_TILDE_N", "VK_UPPER_a", "VK_ACUTE_a", "VK_ACUTE_i", "VK_ACUTE_o", "VK_ACUTE_u", "VK_UMLAUT_i", "VK_EXCLAIM_INV", "VK_QUESTION_INV",
-                             "VK_ACUTE_A","VK_ACUTE_E","VK_ACUTE_I","VK_ACUTE_O","VK_ACUTE_U", "VK_GRAVE_A","VK_GRAVE_E","VK_GRAVE_I","VK_GRAVE_O","VK_GRAVE_U", "VK_INTERPUNCT", "VK_DIAERESIS",
-                             "VK_UMLAUT_e", "VK_UMLAUT_A", "VK_UMLAUT_E", "VK_UMLAUT_I", "VK_UMLAUT_O", "VK_UMLAUT_U", "VK_CARET_a", "VK_CARET_e", "VK_CARET_i", "VK_CARET_o", "VK_CARET_u", "VK_CARET_A", "VK_CARET_E",
-                             "VK_CARET_I", "VK_CARET_O", "VK_CARET_U", "VK_ASCII",
-                          };
-  return VKTOSTR[virtualKey];
-}
-#endif
-
 
 // -1 = virtual key cannot be translated to ASCII
 int Keyboard::virtualKeyToASCII(VirtualKey virtualKey)
@@ -260,92 +142,6 @@ int Keyboard::virtualKeyToASCII(VirtualKey virtualKey)
   return fabgl::virtualKeyToASCII(item, m_codepage);
 }
 
-/**
-VirtualKey Keyboard::scancodeToVK(uint8_t scancode, bool isExtended, KeyboardLayout const * layout)
-{
-  VirtualKey vk = VK_NONE;
-
-  if (layout == nullptr)
-    layout = m_layout;
-
-  VirtualKeyDef const * def = isExtended ? layout->exScancodeToVK : layout->scancodeToVK;
-  for (; def->scancode; ++def)
-    if (def->scancode == scancode) {
-      vk = def->virtualKey;
-      break;
-    }
-
-  if (vk == VK_NONE && layout->inherited)
-    vk = scancodeToVK(scancode, isExtended, layout->inherited);
-
-  // manage keypad
-  // NUMLOCK ON, SHIFT OFF => generate VK_KP_number
-  // NUMLOCK ON, SHIFT ON  => generate VK_KP_cursor_control (as when NUMLOCK is OFF)
-  // NUMLOCK OFF           => generate VK_KP_cursor_control
-  if (m_NUMLOCK & !m_SHIFT) {
-    switch (vk) {
-      case VK_KP_DELETE:
-        vk = VK_KP_PERIOD;
-        break;
-      case VK_KP_INSERT:
-        vk = VK_KP_0;
-        break;
-      case VK_KP_END:
-        vk = VK_KP_1;
-        break;
-      case VK_KP_DOWN:
-        vk = VK_KP_2;
-        break;
-      case VK_KP_PAGEDOWN:
-        vk = VK_KP_3;
-        break;
-      case VK_KP_LEFT:
-        vk = VK_KP_4;
-        break;
-      case VK_KP_CENTER:
-        vk = VK_KP_5;
-        break;
-      case VK_KP_RIGHT:
-        vk = VK_KP_6;
-        break;
-      case VK_KP_HOME:
-        vk = VK_KP_7;
-        break;
-      case VK_KP_UP:
-        vk = VK_KP_8;
-        break;
-      case VK_KP_PAGEUP:
-        vk = VK_KP_9;
-        break;
-      default:
-        break;
-    }
-  }
-
-  return vk;
-}
-
-VirtualKey Keyboard::scancodeTojoyVK(uint8_t scancode, KeyboardLayout const * layout)
-{
-  VirtualKey vk = VK_NONE;
-
-  if (layout == nullptr)
-    layout = m_layout;
-
-  VirtualKeyDef const * def = layout->exJoyScancodeToVK;
-  for (; def->scancode; ++def)
-    if (def->scancode == scancode) {
-      vk = def->virtualKey;
-      break;
-    }
-
-  if (vk == VK_NONE && layout->inherited)
-    vk = scancodeTojoyVK(scancode, layout->inherited);
-
-  return vk;
-
-}
-*/
 VirtualKey Keyboard::manageCAPSLOCK(VirtualKey vk)
 {
   if (m_CAPSLOCK) {
@@ -357,196 +153,6 @@ VirtualKey Keyboard::manageCAPSLOCK(VirtualKey vk)
   }
   return vk;
 }
-
-/**
-VirtualKey Keyboard::VKtoAlternateVK(VirtualKey in_vk, bool down, KeyboardLayout const * layout)
-{
-  VirtualKey vk = VK_NONE;
-
-  if (layout == nullptr)
-    layout = m_layout;
-
-  // this avoids releasing a required key when SHIFT has been pressed after the key but before releasing
-  if (!down && isVKDown(in_vk))
-    vk = in_vk;
-
-  if (vk == VK_NONE) {
-    // handle this case:
-    //   - derived KEY up without any SHIFT (because released before the KEY, ie SHIFT+"1" => "!", but you release the SHIFT before "1")
-    // this avoid to maintain a KEY DOWN when you release the SHIFT key before the KEY ()
-    for (AltVirtualKeyDef const * def = layout->alternateVK; def->reqVirtualKey != VK_NONE; ++def) {
-      if (def->reqVirtualKey == in_vk && isVKDown(def->virtualKey)) {
-        vk = def->virtualKey;
-        break;
-      }
-    }
-  }
-
-  if (vk == VK_NONE) {
-    // handle these cases:
-    //   - KEY down with SHIFTs already down
-    //   - KEY up with SHIFTs still down
-    for (AltVirtualKeyDef const * def = layout->alternateVK; def->reqVirtualKey != VK_NONE; ++def) {
-      if (def->reqVirtualKey == in_vk && def->ctrl == m_CTRL &&
-                                         def->lalt == m_LALT &&
-                                         def->ralt == m_RALT &&
-                                         def->shift == m_SHIFT) {
-        vk = def->virtualKey;
-        break;
-      }
-    }
-  }
-
-  if (vk == VK_NONE && layout->inherited)
-    vk = VKtoAlternateVK(in_vk, down, layout->inherited);
-
-  return vk == VK_NONE ? in_vk : vk;
-}
-
-bool Keyboard::blockingGetVirtualKey(VirtualKeyItem * item)
-{
-  item->vk         = VK_NONE;
-  item->down       = true;
-  item->CTRL       = m_CTRL;
-  item->LALT       = m_LALT;
-  item->RALT       = m_RALT;
-  item->SHIFT      = m_SHIFT;
-  item->GUI        = m_GUI;
-  item->CAPSLOCK   = m_CAPSLOCK;
-  item->NUMLOCK    = m_NUMLOCK;
-  item->SCROLLLOCK = m_SCROLLLOCK;
-
-  uint8_t * scode = item->scancode;
-
-  *scode = getNextScancode();
-  // printf("Scode: %x\n",*scode);      
-  if (*scode == 0xE0) {
-    // two bytes scancode
-    // printf("  E0 Scode: %x\n",*scode);
-    *(++scode) = getNextScancode(100, true);
-    if (*scode == 0xF0) {
-      // two bytes scancode key up
-      *(++scode) = getNextScancode(100, true);
-      item->vk = scancodeToVK(*scode, true);
-      item->down = false;
-    } else {
-      // two bytes scancode key down
-      item->vk = scancodeToVK(*scode, true);
-    }
-  } else if (*scode == 0xE1) {
-    // special case: "PAUSE" : 0xE1, 0x14, 0x77, 0xE1, 0xF0, 0x14, 0xF0, 0x77
-    static const uint8_t PAUSECODES[] = {0x14, 0x77, 0xE1, 0xF0, 0x14, 0xF0, 0x77};
-    for (int i = 0; i < sizeof(PAUSECODES); ++i) {
-      *(++scode) = getNextScancode(100, true);
-      if (*scode != PAUSECODES[i])
-        break;
-      else if (i == sizeof(PAUSECODES) - 1)
-        item->vk = VK_PAUSE;
-    }
-  } else if (*scode == 0xE2) {
-    // printf("  E2 Scode: %x\n",*scode);
-    // two bytes joy scancode
-    *(++scode) = getNextScancode(100, true);
-    if (*scode == 0xF0) {
-      // two bytes scancode key up
-      *(++scode) = getNextScancode(100, true);
-      item->vk = scancodeTojoyVK(*scode);
-      item->down = false;
-    } else {
-      // two bytes scancode key down
-      item->vk = scancodeTojoyVK(*scode);
-    }
-  } else if (*scode == 0xF0) {
-    // one byte scancode, key up
-    *(++scode) = getNextScancode(100, true);
-    item->vk = scancodeToVK(*scode, false);
-    item->down = false;
-  } else {
-    // one byte scancode, key down
-    item->vk = scancodeToVK(*scode, false);
-  }
-
-  if (item->vk != VK_NONE) {
-
-    // manage CAPSLOCK
-    item->vk = manageCAPSLOCK(item->vk);
-
-    // alternate VK (virtualkeys modified by shift, alt, ...)
-    item->vk = VKtoAlternateVK(item->vk, item->down);
-
-    // update shift, alt, ctrl, capslock, numlock and scrollock states and LEDs
-    switch (item->vk) {
-      case VK_LCTRL:
-      case VK_RCTRL:
-        m_CTRL = item->down;
-        break;
-      case VK_LALT:
-        m_LALT = item->down;
-        break;
-      case VK_RALT:
-        m_RALT = item->down;
-        break;
-      case VK_LSHIFT:
-      case VK_RSHIFT:
-        m_SHIFT = item->down;
-        break;
-      case VK_LGUI:
-      case VK_RGUI:
-        m_GUI = item->down;
-        break;
-      case VK_CAPSLOCK:
-        if (!item->down) {
-          m_CAPSLOCK = !m_CAPSLOCK;
-          updateLEDs();
-        }
-        break;
-      case VK_NUMLOCK:
-        if (!item->down) {
-          m_NUMLOCK = !m_NUMLOCK;
-          updateLEDs();
-        }
-        break;
-      case VK_SCROLLLOCK:
-        if (!item->down) {
-          m_SCROLLLOCK = !m_SCROLLLOCK;
-          updateLEDs();
-        }
-        break;
-      default:
-        break;
-    }
-
-  }
-
-  // manage dead keys - Implemented by Carles Oriol (https://github.com/carlesoriol)
-  for (VirtualKey const * dk = m_layout->deadKeysVK; *dk != VK_NONE; ++dk) {
-    if (item->vk == *dk) {
-      m_lastDeadKey = item->vk;
-      item->vk = VK_NONE;
-    }
-  }
-  if (item->vk != m_lastDeadKey && item->vk != VK_NONE) {
-    for (DeadKeyVirtualKeyDef const * dk = m_layout->deadkeysToVK; dk->deadKey != VK_NONE; ++dk) {
-      if (item->vk == dk->reqVirtualKey && m_lastDeadKey == dk->deadKey) {
-        item->vk = dk->virtualKey;
-        break;
-      }
-    }
-    if (!item->down && (item->vk != m_lastDeadKey) && (item->vk != VK_RSHIFT) && (item->vk != VK_LSHIFT))
-      m_lastDeadKey = VK_NONE;
-  }
-
-  // ending zero to item->scancode
-  if (scode < item->scancode + sizeof(VirtualKeyItem::scancode) - 1)
-    *(++scode) = 0;
-
-  // fill ASCII field
-  int ascii = fabgl::virtualKeyToASCII(*item, m_codepage);
-  item->ASCII = ascii > -1 ? ascii : 0;
-
-  return item->vk != VK_NONE;
-}
-*/
 
 void Keyboard::injectVirtualKey(VirtualKeyItem const & item, bool insert)
 {
@@ -707,63 +313,7 @@ bool Keyboard::isVKDown(VirtualKey virtualKey)
 
   return r;
 }
-
-static bool jselect = false;
-
-inline static void joy2kbd(const VirtualKeyItem& it) {
-    if (it.vk == VirtualKey::VK_KEMPSTON_SELECT) {
-        jselect = it.down;
-        return;
-    }
-    if (jselect && it.vk == VirtualKey::VK_KEMPSTON_START) {
-        kbdPushData(VirtualKey::VK_F1, it.down);
-        return;
-    }
-    if (!Config::joy2cursor) {
-        return;
-    }
-    if (it.vk == VirtualKey::VK_KEMPSTON_LEFT) {
-        if (jselect)
-          kbdPushData(VirtualKey::VK_BACKSPACE, it.down);
-        else
-          kbdPushData(VirtualKey::VK_LEFT, it.down);
-        return;
-    }
-    if (it.vk == VirtualKey::VK_KEMPSTON_RIGHT) {
-        if (jselect)
-          kbdPushData(VirtualKey::VK_K, it.down);
-        else
-          kbdPushData(VirtualKey::VK_RIGHT, it.down);
-        return;
-    }
-    if (it.vk == VirtualKey::VK_KEMPSTON_UP) {
-        if (jselect)
-          kbdPushData(VirtualKey::VK_PAGEUP, it.down);
-        else
-          kbdPushData(VirtualKey::VK_UP, it.down);
-        return;
-    }
-    if (it.vk == VirtualKey::VK_KEMPSTON_DOWN) {
-        if (jselect)
-          kbdPushData(VirtualKey::VK_PAGEDOWN, it.down);
-        else
-          kbdPushData(VirtualKey::VK_DOWN, it.down);
-        return;
-    }
-    if (it.vk == VirtualKey::VK_KEMPSTON_FIRE) {
-        kbdPushData(VirtualKey::VK_RETURN, it.down);
-        return;
-    }
-    if (it.vk == VirtualKey::VK_KEMPSTON_ALTFIRE) {
-        kbdPushData(VirtualKey::VK_SPACE, it.down);
-        return;
-    }
-    if (it.vk == VirtualKey::VK_KEMPSTON_START) {
-        kbdPushData(VirtualKey::VK_R, it.down);
-        return;
-    }
-}
-
+/*
 inline static void repalceKey(VirtualKeyItem& it, const VirtualKey k) {
   // update m_VKMap
   if (!it.down)
@@ -778,96 +328,96 @@ inline static void repalceKey(VirtualKeyItem& it, const VirtualKey k) {
   else
     m_VKMap[(int)it.vk >> 3] &= ~(1 << ((int)it.vk & 7));
 }
-
-inline static void joyMap(VirtualKeyItem& it) {
+*/
+inline static void joyMap(const VirtualKeyItem& it) {
   VirtualKey virtualKey = it.vk;
   if (Config::joystick == JOY_KEMPSTON || Config::joystick == JOY_FULLER || Config::joystick == JOY_CUSTOM) {
     if (virtualKey == Config::joydef[0]) {
-        repalceKey(it, fabgl::VK_JOY1LEFT);
+        joyPushData(fabgl::VK_JOY_LEFT, it.down);
     }
     else if (virtualKey == Config::joydef[1]) {
-        repalceKey(it, fabgl::VK_JOY1RIGHT);
+        joyPushData(fabgl::VK_JOY_RIGHT, it.down);
     }
     else if (virtualKey == Config::joydef[2]) {
-        repalceKey(it, fabgl::VK_JOY1UP);
+        joyPushData(fabgl::VK_JOY_UP, it.down);
     }
     else if (virtualKey == Config::joydef[3]) {
-        repalceKey(it, fabgl::VK_JOY1DOWN);
+        joyPushData(fabgl::VK_JOY_DOWN, it.down);
     }
     else if (virtualKey == Config::joydef[4]) {
-        repalceKey(it, fabgl::VK_JOY1START);
+        joyPushData(fabgl::VK_JOY_START, it.down);
     }
     else if (virtualKey == Config::joydef[5]) {
-        repalceKey(it, fabgl::VK_JOY1MODE);
+        joyPushData(fabgl::VK_JOY_MODE, it.down);
     }
     else if (virtualKey == Config::joydef[6]) {
-        repalceKey(it, fabgl::VK_JOY1A);
+        joyPushData(fabgl::VK_JOY_A, it.down);
     }
     else if (virtualKey == Config::joydef[7]) {
-        repalceKey(it, fabgl::VK_JOY1B);
+        joyPushData(fabgl::VK_JOY_B, it.down);
     }
     else if (virtualKey == Config::joydef[8]) {
-        repalceKey(it, fabgl::VK_JOY1C);
+        joyPushData(fabgl::VK_JOY_C, it.down);
     }
     else if (virtualKey == Config::joydef[9]) {
-        repalceKey(it, fabgl::VK_JOY1X);
+        joyPushData(fabgl::VK_JOY_X, it.down);
     }
     else if (virtualKey == Config::joydef[10]) {
-        repalceKey(it, fabgl::VK_JOY1Y);
+        joyPushData(fabgl::VK_JOY_Y, it.down);
     }
     else if (virtualKey == Config::joydef[11]) {
-        repalceKey(it, fabgl::VK_JOY1Z);
+        joyPushData(fabgl::VK_JOY_Z, it.down);
     }
   }
   else if (Config::joystick == JOY_SINCLAIR2) {
     if (virtualKey == Config::joydef[0]) {
-        repalceKey(it, fabgl::VK_1);
+        joyPushData(fabgl::VK_1, it.down);
     }
     else if (virtualKey == Config::joydef[1]) {
-        repalceKey(it, fabgl::VK_2);
+        joyPushData(fabgl::VK_2, it.down);
     }
     else if (virtualKey == Config::joydef[2]) {
-        repalceKey(it, fabgl::VK_4);
+        joyPushData(fabgl::VK_4, it.down);
     }
     else if (virtualKey == Config::joydef[3]) {
-        repalceKey(it, fabgl::VK_3);
+        joyPushData(fabgl::VK_3, it.down);
     }
     else if (virtualKey == Config::joydef[6]) {
-        repalceKey(it, fabgl::VK_5);
+        joyPushData(fabgl::VK_5, it.down);
     }
   }
   else if (Config::joystick == JOY_SINCLAIR1) {
     if (virtualKey == Config::joydef[0]) {
-        repalceKey(it, fabgl::VK_6); // left
+        joyPushData(fabgl::VK_6, it.down);
     }
     else if (virtualKey == Config::joydef[1]) {
-        repalceKey(it, fabgl::VK_7); // right
+        joyPushData(fabgl::VK_7, it.down);
     }
     else if (virtualKey == Config::joydef[2]) {
-        repalceKey(it, fabgl::VK_9); // up
+        joyPushData(fabgl::VK_9, it.down);
     }
     else if (virtualKey == Config::joydef[3]) {
-        repalceKey(it, fabgl::VK_8); // down
+        joyPushData(fabgl::VK_8, it.down);
     }
     else if (virtualKey == Config::joydef[6]) {
-        repalceKey(it, fabgl::VK_0); // fire
+        joyPushData(fabgl::VK_0, it.down);
     }
   }
   else if (Config::joystick == JOY_CURSOR) {
     if (virtualKey == Config::joydef[0]) {
-        repalceKey(it, fabgl::VK_5); // left
+        joyPushData(fabgl::VK_5, it.down);
     }
     else if (virtualKey == Config::joydef[1]) {
-        repalceKey(it, fabgl::VK_8); // right
+        joyPushData(fabgl::VK_8, it.down);
     }
     else if (virtualKey == Config::joydef[2]) {
-        repalceKey(it, fabgl::VK_7); // up
+        joyPushData(fabgl::VK_7, it.down);
     }
     else if (virtualKey == Config::joydef[3]) {
-        repalceKey(it, fabgl::VK_6); // down
+        joyPushData(fabgl::VK_6, it.down);
     }
     else if (virtualKey == Config::joydef[6]) {
-        repalceKey(it, fabgl::VK_0); // fire
+        joyPushData(fabgl::VK_0, it.down);
     }
   }
 }
@@ -876,7 +426,6 @@ static bool xQueueReceive(std::queue<VirtualKeyItem>& q, VirtualKeyItem* item) {
     if ( !q.empty() ) {
         *item = q.front();
         q.pop();
-        joy2kbd(*item);
         joyMap(*item);
         return true;
     }

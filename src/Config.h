@@ -95,8 +95,6 @@ public:
     static uint8_t  kempstonPort;
     static uint8_t  throtling;
     static bool CursorAsJoy;
-    static int8_t CenterH;
-    static int8_t CenterV;    
     static uint8_t scanlines;
     static uint8_t render;    
 

@@ -64,7 +64,6 @@ using namespace std;
 fabgl::PS2Controller ESPectrum::PS2Controller;
 
 void joyPushData(fabgl::VirtualKey virtualKey, bool down) {
-///    OSD::msgDialog("Joystick", to_string((int)virtualKey) + (down ? " down" : " up"));
     fabgl::Keyboard* kbd = ESPectrum::PS2Controller.keyboard();
     if ( kbd ) {
         kbd->injectVirtualKey(virtualKey, down);
@@ -79,7 +78,6 @@ fabgl::VirtualKey get_last_key_pressed(void) {
 }
 
 void close_all(void);
-void back2joy2(fabgl::VirtualKey virtualKey, bool down);
 
 void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
     static bool ctrlPressed = false;
@@ -113,43 +111,6 @@ void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
     }
     fabgl::Keyboard* kbd = ESPectrum::PS2Controller.keyboard();
     if ( kbd ) {
-        if (Config::secondJoy == 3) {
-          switch (virtualKey) { // map to second joy
-            case fabgl::VirtualKey::VK_KP_1: back2joy2(fabgl::VirtualKey::VK_KEMPSTON_FIRE, down); return;
-            case fabgl::VirtualKey::VK_KP_2: back2joy2(fabgl::VirtualKey::VK_KEMPSTON_DOWN, down); return;
-            case fabgl::VirtualKey::VK_KP_3: back2joy2(fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE, down); return;
-            case fabgl::VirtualKey::VK_KP_4: back2joy2(fabgl::VirtualKey::VK_KEMPSTON_LEFT, down); return;
-            case fabgl::VirtualKey::VK_KP_5: back2joy2(fabgl::VirtualKey::VK_KEMPSTON_DOWN, down); return;
-            case fabgl::VirtualKey::VK_KP_6: back2joy2(fabgl::VirtualKey::VK_KEMPSTON_RIGHT, down); return;
-            case fabgl::VirtualKey::VK_KP_7: back2joy2(fabgl::VirtualKey::VK_KEMPSTON_START, down); return;
-            case fabgl::VirtualKey::VK_KP_8: back2joy2(fabgl::VirtualKey::VK_KEMPSTON_UP, down); return;
-            case fabgl::VirtualKey::VK_KP_9: back2joy2(fabgl::VirtualKey::VK_KEMPSTON_SELECT, down); return;
-            case fabgl::VirtualKey::VK_KP_0: back2joy2(fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE, down); return;
-            case fabgl::VirtualKey::VK_KP_PERIOD: back2joy2(fabgl::VirtualKey::VK_KEMPSTON_FIRE, down); return;
-            case fabgl::VirtualKey::VK_KP_ENTER:
-                if(Config::rightSpace) virtualKey = fabgl::VirtualKey::VK_SPACE;
-                else virtualKey = fabgl::VirtualKey::VK_RETURN;
-            break;
-          }
-        } else {
-          switch (virtualKey) {
-            case fabgl::VirtualKey::VK_KP_1: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_FIRE; break;
-            case fabgl::VirtualKey::VK_KP_2: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_DOWN; break;
-            case fabgl::VirtualKey::VK_KP_3: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE; break;
-            case fabgl::VirtualKey::VK_KP_4: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_LEFT; break;
-            case fabgl::VirtualKey::VK_KP_5: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_DOWN; break;
-            case fabgl::VirtualKey::VK_KP_6: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_RIGHT; break;
-            case fabgl::VirtualKey::VK_KP_7: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_START; break;
-            case fabgl::VirtualKey::VK_KP_8: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_UP; break;
-            case fabgl::VirtualKey::VK_KP_9: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_SELECT; break;
-            case fabgl::VirtualKey::VK_KP_0: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_ALTFIRE; break;
-            case fabgl::VirtualKey::VK_KP_PERIOD: virtualKey = fabgl::VirtualKey::VK_KEMPSTON_FIRE; break;
-            case fabgl::VirtualKey::VK_KP_ENTER:
-                if(Config::rightSpace) virtualKey = fabgl::VirtualKey::VK_SPACE;
-                else virtualKey = fabgl::VirtualKey::VK_RETURN;
-            break;
-          }
-        }
         if (virtualKey != fabgl::VirtualKey::VK_NONE) {
             virtualKey = kbd->manageCAPSLOCK(virtualKey);
         }
@@ -894,24 +855,24 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
             else if (Config::joystick == JOY_FULLER) Ports::port[0x7f] = 0xff;
 
             if (Config::joystick == JOY_KEMPSTON) {
-                for (int i = fabgl::VK_JOY1RIGHT; i <= fabgl::VK_JOY1C; i++)
+                for (int i = fabgl::VK_JOY_RIGHT; i <= fabgl::VK_JOY_C; i++)
                     if (Kbd->isVKDown((fabgl::VirtualKey) i))
-                        bitWrite(Ports::port[Config::kempstonPort], i - fabgl::VK_JOY1RIGHT, 1);
+                        bitWrite(Ports::port[Config::kempstonPort], i - fabgl::VK_JOY_RIGHT, 1);
             } else
             if (Config::joystick == JOY_FULLER) {  // Fuller
-                if (Kbd->isVKDown(fabgl::VK_JOY1RIGHT)) {
+                if (Kbd->isVKDown(fabgl::VK_JOY_RIGHT)) {
                     bitWrite(Ports::port[0x7f], 3, 0);
                 }
-                if (Kbd->isVKDown(fabgl::VK_JOY1LEFT)) {
+                if (Kbd->isVKDown(fabgl::VK_JOY_LEFT)) {
                     bitWrite(Ports::port[0x7f], 2, 0);
                 }
-                if (Kbd->isVKDown(fabgl::VK_JOY1DOWN)) {
+                if (Kbd->isVKDown(fabgl::VK_JOY_DOWN)) {
                     bitWrite(Ports::port[0x7f], 1, 0);
                 }
-                if (Kbd->isVKDown(fabgl::VK_JOY1UP)) {
+                if (Kbd->isVKDown(fabgl::VK_JOY_UP)) {
                     bitWrite(Ports::port[0x7f], 0, 0);
                 }
-                if (Kbd->isVKDown(fabgl::VK_JOY1A)) {
+                if (Kbd->isVKDown(fabgl::VK_JOY_A)) {
                     bitWrite(Ports::port[0x7f], 7, 0);
                 }
             }
