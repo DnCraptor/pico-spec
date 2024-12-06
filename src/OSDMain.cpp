@@ -3100,8 +3100,8 @@ static const char *MENU_JOYSELKEY[2] = { MENU_JOYSELKEY_EN, MENU_JOYSELKEY_ES };
     "Right\n"\
     "Up\n"\
     "Down\n"\
-    "Fire 1\n"\
-    "Fire 2\n"\
+    "A\n"\
+    "B\n"\
     "Start\n"\
     "Select\n"
 
@@ -3616,7 +3616,6 @@ void OSD::joyDialog(void) {
                         for (int n = 0; n < 12; ++n) {
                             if (Config::joydef[n] != joyDropdown[n][6]) {
                                 changed = true;
-                                Config::joydef[n] = joyDropdown[n][6];
                                 break;
                             }
                         }
@@ -3626,6 +3625,9 @@ void OSD::joyDialog(void) {
                             string msg = OSD_DLG_JOYSAVE[Config::lang];
                             uint8_t res = OSD::msgDialog(title,msg);
                             if (res == DLG_YES) {
+                                for (int n = 0; n < 12; ++n) {
+                                    Config::joydef[n] = joyDropdown[n][6];
+                                }
                                 Config::save();
                                 click();
                                 break;
@@ -3643,6 +3645,10 @@ void OSD::joyDialog(void) {
                     if (curDropDown == 13) {                    
                         // Enable joyTest
                         joyDialogMode = 1;
+                        for (int n = 0; n < 12; ++n) {
+                            Config::joydef[n] = joyDropdown[n][6];
+                        }
+                        Config::save(); /// TODO: revert support
                         joyTestExitCount = 0;
                         VIDEO::vga.setTextColor(zxColor(4, 1), zxColor(5, 1));
                         VIDEO::vga.setCursor(x + joyDropdown[13][0], y + joyDropdown[13][1]);

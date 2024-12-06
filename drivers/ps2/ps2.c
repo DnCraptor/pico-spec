@@ -193,9 +193,10 @@ ERROR:
 
 void keyboard_toggle_led(uint8_t led) {
     led_status ^= led;
-    keyboard_send(0xED);
-    busy_wait_ms(50);
-    keyboard_send(led_status);
+    /// TODO: hangs on some kbds
+///    keyboard_send(0xED);
+///    busy_wait_ms(50);
+///    keyboard_send(led_status);
 }
 
 uint8_t get_led_status() {
