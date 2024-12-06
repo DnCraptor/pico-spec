@@ -100,12 +100,12 @@ void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
             last_key_pressed = virtualKey;
             tickKbdRep = time_us_32();
         }
+    } else {
         switch (virtualKey) {
             case fabgl::VirtualKey::VK_NUMLOCK   : keyboard_toggle_led(PS2_LED_NUM_LOCK); break;
             case fabgl::VirtualKey::VK_SCROLLLOCK: keyboard_toggle_led(PS2_LED_SCROLL_LOCK); break;
             case fabgl::VirtualKey::VK_CAPSLOCK  : keyboard_toggle_led(PS2_LED_CAPS_LOCK); break;
         }
-    } else {
         last_key_pressed = fabgl::VirtualKey::VK_NONE;
         tickKbdRep = 0;
     }
