@@ -54,6 +54,7 @@ uint16_t Config::joydef[12] = {
 };
 
 uint8_t  Config::AluTiming = 0;
+uint8_t  Config::ayConfig = 0;
 uint8_t  Config::joy2cursor = true;
 uint8_t  Config::secondJoy = 2;
 uint8_t  Config::kempstonPort = 0x37;
@@ -250,6 +251,7 @@ void Config::load() {
         nvs_get_u8("joy2cursor", Config::joy2cursor, sts);
         nvs_get_u8("secondJoy", Config::secondJoy, sts);
         nvs_get_u8("kempstonPort", Config::kempstonPort, sts);
+        nvs_get_u8("ayConfig", Config::ayConfig, sts);
 #if !PICO_RP2040
         nvs_get_u8("throtling2", Config::throtling, sts);
 #else
@@ -324,6 +326,7 @@ void Config::save() {
 ///        nvs_set_str(handle,"asp169",aspect_16_9 ? "true" : "false");
         nvs_set_u8(handle,"language", Config::lang);
         nvs_set_str(handle,"AY48", AY48 ? "true" : "false");
+        nvs_set_u8(handle,"ayConfig", Config::ayConfig);
         nvs_set_str(handle,"Issue2", Issue2 ? "true" : "false");
         nvs_set_str(handle,"flashload", flashload ? "true" : "false");
         nvs_set_str(handle,"tape_player", tape_player ? "true" : "false");

@@ -478,21 +478,23 @@ static const char *MENU_FLASHLOAD[2] = { "Flash load\n" , "Carga rapida\n"};
 static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
 
 #define MENU_OTHER_EN "Other\n"\
-    "AY on 48K\t>\n"\
+    "AY-3-8912 on 48K\t>\n"\
     "ALU Timing\t>\n"\
     "48K Issue 2\t>\n"\
     "Map joystick to cursor\t>\n"\
     "Second joystick\t>\n"\
     "Kempston joystick port\t>\n"\
-    "Throttling\t>\n"
+    "Throttling\t>\n"\
+    "AY-3-8912 config\t>\n"
 #define MENU_OTHER_ES "Otros\n"\
-    "AY en 48K\t>\n"\
+    "AY-3-8912 en 48K\t>\n"\
     "Timing ULA\t>\n"\
     "48K Issue 2\t>\n"\
     "Asignar el joystick al cursor\t>\n"\
     "Segunda joystick\t>\n"\
     "Kempston joystick port\t>\n"\
-	"Estrangulamiento\t>\n"
+	"Estrangulamiento\t>\n"\
+    "Configuración AY-3-8912\t>\n"
 static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
 
 static const char *MENU_AY48[2] = { "AY on 48K\n" , "AY en 48K\n"};
@@ -504,6 +506,11 @@ static const char *MENU_AY48[2] = { "AY on 48K\n" , "AY en 48K\n"};
     "No\t[N]\n"\
     "Si\t[K]\n"
 static const char *MENU_KBD2NDPS2[2] = { MENU_KBD2NDPS2_EN, MENU_KBD2NDPS2_ES };
+
+#define MENU_AY_EN "ABC\n"\
+    "ABC\t[B]\n"\
+    "ACB\t[C]\n"
+static const char *MENU_AY[2] = { MENU_AY_EN, MENU_AY_EN };
 
 #define MENU_ALF_JOY_EN "Source\n"\
     "DPAD #1\t[1]\n"\
