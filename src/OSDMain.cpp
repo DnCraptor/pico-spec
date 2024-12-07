@@ -379,12 +379,45 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
         //     ESPectrum::ESPtestvar2 += 1;
         //     printf("ESPtestvar2: %d\n",ESPectrum::ESPtestvar2);
         // }
-        /***
         if (KeytoESP == fabgl::VK_F5) {
-            if (Config::CenterH > -16) Config::CenterH--;
-            Config::save();
-            osdCenteredMsg("Horiz. center: " + to_string(Config::CenterH), LEVEL_INFO, 375);
-        } else 
+            char buf[128];
+            uint16_t pc = Z80::getRegPC();
+            if (pc < (16 << 10)) {
+                if (MemESP::page0ram)
+                    snprintf(buf, 128, "RAM%d[$%04X]: $%02X; $%02X; $%02X", MemESP::page0ram, pc,
+                     MemESP::ram[MemESP::page0ram].sync()[pc],
+                     MemESP::ram[MemESP::page0ram].sync()[pc+1],
+                     MemESP::ram[MemESP::page0ram].sync()[pc+2]
+                     );
+                else
+                    snprintf(buf, 128, "ROM%d[$%04X]: $%02X; $%02X; $%02X", MemESP::romInUse, pc,
+                     MemESP::rom[MemESP::romInUse].sync()[pc],
+                     MemESP::rom[MemESP::romInUse].sync()[pc+1],
+                     MemESP::rom[MemESP::romInUse].sync()[pc+2]
+                     );
+            }
+            else if (pc < 2 *(16 << 10))
+                snprintf(buf, 128, "RAM1[$%04X]: $%02X; $%02X; $%02X", pc,
+                 MemESP::ramCurrent[1].sync()[pc - (16 << 10)],
+                 MemESP::ramCurrent[1].sync()[pc - (16 << 10)+1],
+                 MemESP::ramCurrent[1].sync()[pc - (16 << 10)+2]
+                 );
+            else if (pc < 3 *(16 << 10))
+                snprintf(buf, 128, "RAM2[$%04X]: $%02X; $%02X; $%02X", pc,
+                 MemESP::ramCurrent[2].sync()[pc - 2*(16 << 10)],
+                 MemESP::ramCurrent[2].sync()[pc - 2*(16 << 10)+1],
+                 MemESP::ramCurrent[2].sync()[pc - 2*(16 << 10)+2]
+                );
+            else
+                snprintf(buf, 128, "RAM%d[$%04X]: $%02X; $%02X; $%02X", MemESP::bankLatch, pc,
+                 MemESP::ramCurrent[3].sync()[pc - 3*(16 << 10)],
+                 MemESP::ramCurrent[3].sync()[pc - 3*(16 << 10) + 1],
+                 MemESP::ramCurrent[3].sync()[pc - 3*(16 << 10) + 2]
+                 );
+            osdCenteredMsg(buf, LEVEL_INFO, 3000);
+        }
+        /***
+         else 
         if (KeytoESP == fabgl::VK_F6) {
             if (Config::CenterH < 16) Config::CenterH++;
             Config::save();

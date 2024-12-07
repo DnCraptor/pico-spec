@@ -995,7 +995,7 @@ static const char *AboutMsg[2][9] = {
     " [F12]        Reset RP2350\n"\
     " [CTRL+F1]    Hardware info\n"\
     " [CTRL+F2]    Turbo mode\n"\
-    " [CTRL+F5-F7] Center CRT Screen\n"\
+    " [CTRL+F5]    Debug\n"\
     " [CTRL+F9]    Input poke\n"\
     " [CTRL+F10]   NMI\n"\
     " [Pause]      Pause\n"\
@@ -1014,7 +1014,7 @@ static const char *AboutMsg[2][9] = {
     " [F12]        Resetear RP2350\n"\
     " [CTRL+F1]    Info hardware\n"\
     " [CTRL+F2]    Modo turbo\n"\
-    " [CTRL+F5-F7] Centrar pantalla CRT\n"\
+    " [CTRL+F5]    Debug\n"\
     " [CTRL+F9]    Introducir poke\n"\
     " [CTRL+F10]   NMI\n"\
     " [Pause]      Pausa\n"\
@@ -1033,7 +1033,7 @@ static const char *AboutMsg[2][9] = {
     " [F12]        Reset RP2040\n"\
     " [CTRL+F1]    Hardware info\n"\
     " [CTRL+F2]    Turbo mode\n"\
-    " [CTRL+F5-F7] Center CRT Screen\n"\
+    " [CTRL+F5]    Debug\n"\
     " [CTRL+F9]    Input poke\n"\
     " [CTRL+F10]   NMI\n"\
     " [Pause]      Pause\n"\
@@ -1052,7 +1052,7 @@ static const char *AboutMsg[2][9] = {
     " [F12]        Resetear RP2040\n"\
     " [CTRL+F1]    Info hardware\n"\
     " [CTRL+F2]    Modo turbo\n"\
-    " [CTRL+F5-F7] Centrar pantalla CRT\n"\
+    " [CTRL+F5]    Debug\n"\
     " [CTRL+F9]    Introducir poke\n"\
     " [CTRL+F10]   NMI\n"\
     " [Pause]      Pausa\n"\
