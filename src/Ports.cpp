@@ -113,7 +113,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     if ((address & 0x0001) == 0) {
         VIDEO::Draw(3, !Z80Ops::isPentagon);   // I/O Contention (Late)
 
-        if (Z80Ops::isALF) {
+        if (Z80Ops::isALF && (address & 0xFF) == 0xFE) {
             data = nes_pad2_for_alf(); // default port value is 0xFF.
         } else {
             data = 0xbf; // default port value is 0xBF.

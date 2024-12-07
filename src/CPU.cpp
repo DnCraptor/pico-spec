@@ -67,7 +67,7 @@ void CPU::reset() {
     CPU::latetiming = Config::AluTiming;
 
     Z80Ops::isALF = (Config::arch == "ALF");
-    if (Config::arch == "48K" || Z80Ops::isALF) {
+    if (Config::arch == "48K") {
         Ports::getFloatBusData = &Ports::getFloatBusData48;
         Z80Ops::is48 = true;
         Z80Ops::is128 = false;
@@ -79,7 +79,7 @@ void CPU::reset() {
         IntEnd = INT_END48 + CPU::latetiming;
         // Set emulation loop sync target
         ESPectrum::target = MICROS_PER_FRAME_48;
-    } else if (Config::arch == "128K") {
+    } else if (Config::arch == "128K" || Z80Ops::isALF) {
         Ports::getFloatBusData = &Ports::getFloatBusData128;
         Z80Ops::is48 = false;
         Z80Ops::is128 = true;

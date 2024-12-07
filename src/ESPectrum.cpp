@@ -572,7 +572,7 @@ void ESPectrum::setup()
     MemESP::ramContended[3] = false;
 
     // if (Config::arch == "48K") MemESP::pagingLock = 1; else MemESP::pagingLock = 0;
-    MemESP::pagingLock = Config::arch == "48K" || Config::arch == "ALF" ? 1 : 0;
+    MemESP::pagingLock = Config::arch == "48K" ? 1 : 0;
 
 ///    if (Config::slog_on) showMemInfo("RAM Initialized");
 
@@ -591,12 +591,12 @@ void ESPectrum::setup()
     // AUDIO
     //=======================================================================================
     // Set samples per frame and AY_emu flag depending on arch
-    if (Config::arch == "48K" || Config::arch == "ALF") {
+    if (Config::arch == "48K") {
         samplesPerFrame=ESP_AUDIO_SAMPLES_48; 
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;
         AY_emu = Config::AY48;
         Audio_freq = ESP_AUDIO_FREQ_48;
-    } else if (Config::arch == "128K") {
+    } else if (Config::arch == "128K" || Config::arch == "ALF") {
         samplesPerFrame=ESP_AUDIO_SAMPLES_128;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
         AY_emu = true;        
@@ -694,7 +694,7 @@ void ESPectrum::reset()
     MemESP::ramContended[2] = false;
     MemESP::ramContended[3] = false;
 
-    MemESP::pagingLock = Config::arch == "48K" || Config::arch == "ALF" ? 1 : 0;
+    MemESP::pagingLock = Config::arch == "48K" ? 1 : 0;
 
     VIDEO::Reset();
 
@@ -724,12 +724,12 @@ void ESPectrum::reset()
 
     // Set samples per frame and AY_emu flag depending on arch
     prevAudio_freq = Audio_freq;
-    if (Config::arch == "48K" || Config::arch == "ALF") {
+    if (Config::arch == "48K") {
         samplesPerFrame=ESP_AUDIO_SAMPLES_48; 
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;
         AY_emu = Config::AY48;
         Audio_freq = ESP_AUDIO_FREQ_48;
-    } else if (Config::arch == "128K") {
+    } else if (Config::arch == "128K" || Config::arch == "ALF") {
         samplesPerFrame=ESP_AUDIO_SAMPLES_128;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
         AY_emu = true;        

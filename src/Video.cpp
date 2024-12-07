@@ -271,7 +271,7 @@ const int bluPins[] = {BLU_PINS_6B};
 
 void VIDEO::vgataskinit(void *unused) {
     uint8_t Mode;
-    Mode = 16 + ((Config::arch == "48K" || Config::arch == "ALF") ? 0 : (Config::arch == "128K" ? 2 : 4)) + (Config::aspect_16_9 ? 1 : 0);
+    Mode = 16 + ((Config::arch == "48K") ? 0 : (Config::arch == "128K" || Config::arch == "ALF" ? 2 : 4)) + (Config::aspect_16_9 ? 1 : 0);
     OSD::scrW = vidmodes[Mode][vmodeproperties::hRes];
     OSD::scrH = vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv];
     vga.VGA6Bit_useinterrupt = true; // ????
@@ -319,7 +319,7 @@ void VIDEO::Reset() {
 
     OSD = 0;
 
-    if (Config::arch == "48K" || Config::arch == "ALF") {
+    if (Config::arch == "48K") {
         tStatesPerLine = TSTATES_PER_LINE;
         tStatesScreen = TS_SCREEN_48;
         tStatesBorder = is169 ? TS_BORDER_360x200 : TS_BORDER_320x240;        
@@ -328,8 +328,8 @@ void VIDEO::Reset() {
 
         Draw_OSD169 = MainScreen;
         Draw_OSD43 = BottomBorder;
-        DrawBorder = TopBorder_Blank;        
-    } else if (Config::arch == "128K") {
+        DrawBorder = TopBorder_Blank;
+    } else if (Config::arch == "128K" || Config::arch == "ALF") {
         tStatesPerLine = TSTATES_PER_LINE_128;
         tStatesScreen = TS_SCREEN_128;
         tStatesBorder = is169 ? TS_BORDER_360x200_128 : TS_BORDER_320x240_128;
