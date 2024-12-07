@@ -288,7 +288,7 @@ IRAM_ATTR void AySound::gen_sound(int sound_bufsize, int bufpos)
     int tmpvol;
     uint8_t *sound_buf_r = SamplebufAY_L + bufpos;
     uint8_t *sound_buf_l = SamplebufAY_R + bufpos;
-
+    bool acb = Config::ayConfig;
     // int snd_numcount = sound_bufsize / (sndfmt.channels * (sndfmt.bpc >> 3));
     // while (snd_numcount-- > 0) {
     while (sound_bufsize-- > 0) {        
@@ -340,15 +340,15 @@ IRAM_ATTR void AySound::gen_sound(int sound_bufsize, int bufpos)
             if ((bit_b | !ayregs.R7_tone_b) & (bit_n | !ayregs.R7_noise_b)) {
                 tmpvol = (ayregs.env_b) ? ENVVOL : Rampa_AY_table[ayregs.vol_b];
                 auto v = table[tmpvol] * 2;
-                mix_l += Config::ayConfig ? v >> 1 : v;
-                mix_r += Config::ayConfig ? v << 1 : v;
+                mix_l += acb ? v >> 1 : v;
+                mix_r += acb ? v << 1 : v;
             }
             
             if ((bit_c | !ayregs.R7_tone_c) & (bit_n | !ayregs.R7_noise_c)) {
                 tmpvol = (ayregs.env_c) ? ENVVOL : Rampa_AY_table[ayregs.vol_c];
                 auto v = table[tmpvol];
-                mix_l += Config::ayConfig ? v : v >> 1;
-                mix_r += Config::ayConfig ? v : v << 1;
+                mix_l += acb ? v : v >> 1;
+                mix_r += acb ? v : v << 1;
             }            
 
         }
