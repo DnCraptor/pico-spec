@@ -380,41 +380,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
         //     printf("ESPtestvar2: %d\n",ESPectrum::ESPtestvar2);
         // }
         if (KeytoESP == fabgl::VK_F5) {
-            char buf[128];
-            uint16_t pc = Z80::getRegPC();
-            if (pc < (16 << 10)) {
-                if (MemESP::page0ram)
-                    snprintf(buf, 128, "RAM%d[$%04X]: $%02X; $%02X; $%02X", MemESP::page0ram, pc,
-                     MemESP::ram[MemESP::page0ram].sync()[pc],
-                     MemESP::ram[MemESP::page0ram].sync()[pc+1],
-                     MemESP::ram[MemESP::page0ram].sync()[pc+2]
-                     );
-                else
-                    snprintf(buf, 128, "ROM%d[$%04X]: $%02X; $%02X; $%02X", MemESP::romInUse, pc,
-                     MemESP::rom[MemESP::romInUse].sync()[pc],
-                     MemESP::rom[MemESP::romInUse].sync()[pc+1],
-                     MemESP::rom[MemESP::romInUse].sync()[pc+2]
-                     );
-            }
-            else if (pc < 2 *(16 << 10))
-                snprintf(buf, 128, "RAM1[$%04X]: $%02X; $%02X; $%02X", pc,
-                 MemESP::ramCurrent[1].sync()[pc - (16 << 10)],
-                 MemESP::ramCurrent[1].sync()[pc - (16 << 10)+1],
-                 MemESP::ramCurrent[1].sync()[pc - (16 << 10)+2]
-                 );
-            else if (pc < 3 *(16 << 10))
-                snprintf(buf, 128, "RAM2[$%04X]: $%02X; $%02X; $%02X", pc,
-                 MemESP::ramCurrent[2].sync()[pc - 2*(16 << 10)],
-                 MemESP::ramCurrent[2].sync()[pc - 2*(16 << 10)+1],
-                 MemESP::ramCurrent[2].sync()[pc - 2*(16 << 10)+2]
-                );
-            else
-                snprintf(buf, 128, "RAM%d[$%04X]: $%02X; $%02X; $%02X", MemESP::bankLatch, pc,
-                 MemESP::ramCurrent[3].sync()[pc - 3*(16 << 10)],
-                 MemESP::ramCurrent[3].sync()[pc - 3*(16 << 10) + 1],
-                 MemESP::ramCurrent[3].sync()[pc - 3*(16 << 10) + 2]
-                 );
-            osdCenteredMsg(buf, LEVEL_INFO, 3000);
+            osdDebug();
         }
         /***
          else 
@@ -2449,6 +2415,410 @@ void OSD::osdCenteredMsg(string msg, uint8_t warn_level, uint16_t millispause) {
     }
 }
 
+const static char* mnem[256] {
+    "NOP", // 00
+    "LD BC, nn", // 01
+    "LD (BC),A", // 02
+    "INC BC", // 03
+    "INC B", // 04
+    "DEC B", // 05
+    "LD B,n", // 06
+    "RLCA", // 07
+    "EX AF,AF'", // 08
+    "ADD HL,BC", // 09
+    "LD A,(BC)", // 0A
+    "DEC BC", // 0B
+    "INC C", // 0C
+    "DEC C", // 0D
+    "LD C,n", // 0E
+    "RRCA", // 0F
+
+    "DJNZ d", // 10
+    "LD DE,nn", // 11
+    "LD (DE),A", // 12
+    "INC DE", // 13
+    "INC D", // 14
+    "DEC D", // 15
+    "LD D,n", // 16
+    "RLA", // 17
+    "JR d", // 18
+    "ADD HL,DE", // 19
+    "LD HL,(nn)", // 1A
+    "DEC HL", // 1B
+    "INC L", // 1C
+    "DEC L", // 1D
+    "LD L,n", // 1E
+    "CPL", // 1F
+
+    "JR NZ d", // 20
+    "LD HL,nn", // 21
+    "LD (nn),HL", // 22
+    "INC HL", // 23
+    "INC H", // 24
+    "DEC H", // 25
+    "LD H,n", // 26
+    "DAA", // 27
+    "JR Z,d", // 28
+    "ADD HL,HL", // 29
+    "LD HL,(nn)", // 2A
+    "DEC HL", // 2B
+    "INC L", // 2C
+    "DEC L", // 2D
+    "LD L,n", // 2E
+    "CPL", // 2F
+
+    "JR NC d", // 30
+    "LD SP,nn", // 31
+    "LD (nn),A", // 32
+    "INC SP", // 33
+    "INC (HL)", // 34
+    "DEC (HL)", // 35
+    "LD (HL),n", // 36
+    "SCF", // 37
+    "JR C,d", // 38
+    "ADD HL,SP", // 39
+    "LD A,(nn)", // 3A
+    "DEC SP", // 3B
+    "INC A", // 3C
+    "DEC A", // 3D
+    "LD A,n", // 3E
+    "CCF", // 3F
+
+    "LD B,B" , // 40
+    "LD B,C", // 41
+    "LD B,D", // 42
+    "LD B,E", // 43
+    "LD B,H", // 44
+    "LD B,L", // 45
+    "LD B,(HL)", // 46
+    "LD B,A", // 47
+    "LD C,B", // 48
+    "LD C,C", // 49
+    "LD C,D", // 4A
+    "LD C,E", // 4B
+    "LD C,H", // 4C
+    "LD C,L", // 4D
+    "LD C,(HL)", // 4E
+    "LD C,A", // 4F
+
+    "LD D,B", // 50
+    "LD D,C", // 51
+    "LD D,D", // 52
+    "LD D,E", // 53
+    "LD D,H", // 54
+    "LD D,L", // 55
+    "LD D,(HL)", // 56
+    "LD D,A", // 57
+    "LD E,B", // 58
+    "LD E,C", // 59
+    "LD E,D", // 5A
+    "LD E,E", // 5B
+    "LD E,H", // 5C
+    "LD E,L", // 5D
+    "LD E,(HL)", // 5E
+    "LD E,A", // 5F
+
+    "LD H,B", // 60
+    "LD H,C", // 61
+    "LD H,D", // 62
+    "LD H,E", // 63
+    "LD H,H", // 64
+    "LD H,L", // 65
+    "LD H,(HL)", // 66
+    "LD H,A", // 67
+    "LD L,B", // 68
+    "LD L,C", // 69
+    "LD L,D", // 6A
+    "LD L,E", // 6B
+    "LD L,H", // 6C
+    "LD L,L", // 6D
+    "LD L,(HL)", // 6E
+    "LD L,A", // 6F
+
+    "LD (HL),B", // 70
+    "LD (HL),C", // 71
+    "LD (HL),D", // 72
+    "LD (HL),E", // 73
+    "LD (HL),H", // 74
+    "LD (HL),L", // 75
+    "HALT", // 76
+    "LD (HL),A", // 77
+    "LD A,B", // 78
+    "LD A,C", // 79
+    "LD A,D", // 7A
+    "LD A,E", // 7B
+    "LD A,H", // 7C
+    "LD A,L", // 7D
+    "LD A,(HL)", // 7E
+    "LD A,A", // 7F
+
+    "ADD A,B", // 80
+    "ADD A,C", // 81
+    "ADD A,D", // 82
+    "ADD A,E", // 83
+    "ADD A,H", // 84
+    "ADD A,L", // 85
+    "ADD A,(HL)", // 86
+    "ADD A,A", // 87
+    "ADC A,B", // 88
+    "ADC A,C", // 89
+    "ADC A,D", // 8A
+    "ADC A,E", // 8B
+    "ADC A,H", // 8C
+    "ADC A,L", // 8D
+    "ADC A,(HL)", // 8E
+    "ADC A,A", // 8F
+
+    "SUB A,B", // 90
+    "SUB A,C", // 91
+    "SUB A,D", // 92
+    "SUB A,E", // 93
+    "SUB A,H", // 94
+    "SUB A,L", // 95
+    "SUB A,(HL)", // 96
+    "SUB A,A", // 97
+    "SBC A,B", // 98
+    "SBC A,C", // 99
+    "SBC A,D", // 9A
+    "SBC A,E", // 9B
+    "SBC A,H", // 9C
+    "SBC A,L", // 9D
+    "SBC A,(HL)", // 9E
+    "SBC A,A", // 9F
+
+    "AND A,B", // A0
+    "AND A,C", // A1
+    "AND A,D", // A2
+    "AND A,E", // A3
+    "AND A,H", // A4
+    "AND A,L", // A5
+    "AND A,(HL)", // A6
+    "AND A,A", // A7
+    "XOR A,B", // A8
+    "XOR A,C", // A9
+    "XOR A,D", // AA
+    "XOR A,E", // AB
+    "XOR A,H", // AC
+    "XOR A,L", // AD
+    "XOR A,(HL)", // AE
+    "XOR A,A", // AF
+
+    "OR A,B", // B0
+    "OR A,C", // B1
+    "OR A,D", // B2
+    "OR A,E", // B3
+    "OR A,H", // B4
+    "OR A,L", // B5
+    "OR A,(HL)", // B6
+    "OR A,A", // B7
+    "CP A,B", // B8
+    "CP A,C", // B9
+    "CP A,D", // BA
+    "CP A,E", // BB
+    "CP A,H", // BC
+    "CP A,L", // BD
+    "CP A,(HL)", // BE
+    "CP A,A", // BF
+
+    "RET NZ", // C0
+    "POP BC", // C1
+    "JP NZ,(nn)", // C2
+    "JP (nn)", // C3
+    "CALL NZ,(nn)", // C4
+    "PUSH BC", // C5
+    "ADD A,n", // C6
+    "RST 0H", // C7
+    "RET Z", // C8
+    "RET", // C9
+    "JP Z,(nn)", // CA
+    "bo->", // CB
+    "CALL Z,(nn)", // CC
+    "CALL (nn)", // CD
+    "ADC A,n", // CE
+    "RST 8H", // CF
+
+    "RET NC", // D0
+    "POP DE", // D1
+    "JP NC,(nn)", // D2
+    "OUT (n),A", // D3
+    "CALL NC,(nn)", // D4
+    "PUSH DE", // D5
+    "SUB A,n", // D6
+    "RST 10H", // D7
+    "RET C", // D8
+    "EXX", // D9
+    "JP C,(nn)", // DA
+    "IN A,(n)", // DB
+    "CALL C,(nn)", // DC
+    "op IX ->", // DD
+    "SBC A,n", // DE
+    "RST 18H", // DF
+
+    "RET PO", // E0
+    "POP HL", // E1
+    "JP PO,(nn)", // E2
+    "EX (SP),HL", // E3
+    "CALL PO,(nn)", // E4
+    "PUSH HL", // E5
+    "AND A,n", // E6
+    "RST 20H", // E7
+    "RET PE", // E8
+    "JP (HL)", // E9
+    "JP PE,(nn)", // EA
+    "EX DE,HL", // EB
+    "CALL PE,(nn)", // EC
+    "ext ->", // ED
+    "XOR A,n", // EE
+    "RST 28H", // EF
+
+    "RET P", // F0
+    "POP AF", // F1
+    "JP P,(nn)", // F2
+    "DI", // F3
+    "CALL P,(nn)", // F4
+    "PUSH AF", // F5
+    "OR A,n", // F6
+    "RST 30H", // F7
+    "RET M", // F8
+    "LD SP,HL", // F9
+    "JP M,(nn)", // FA
+    "EI", // FB
+    "CALL M,(nn)", // FC
+    "op IY ->", // FD
+    "CP A,n", // FE
+    "RST 38H", // FF
+};
+
+void OSD::osdDebug() {
+    const unsigned short h = OSD_FONT_H * 20;
+    const unsigned short y = scrAlignCenterY(h);
+    const unsigned short w = OSD_FONT_W * 40;
+    const unsigned short x = scrAlignCenterX(w);
+
+    VIDEO::SaveRect.save(x - 1, y - 1, w + 2, h + 2);
+
+    // Set font
+    VIDEO::vga.setFont(Font6x8);
+
+    // Boarder
+    VIDEO::vga.rect(x, y, w, h, zxColor(0, 0));
+
+    VIDEO::vga.fillRect(x + 1, y + 1, w - 2, OSD_FONT_H, zxColor(0,0));
+    VIDEO::vga.fillRect(x + 1, y + 1 + OSD_FONT_H, w - 2, h - OSD_FONT_H - 2, zxColor(7,1));
+
+    // Title
+    VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(0, 0));        
+    VIDEO::vga.setCursor(x + OSD_FONT_W + 1, y + 1);
+    VIDEO::vga.print("Debug");
+
+    // Rainbow
+    unsigned short rb_y = y + 8;
+    unsigned short rb_paint_x = x + w - 30;
+    uint8_t rb_colors[] = {2, 6, 4, 5};
+    for (uint8_t c = 0; c < 4; c++) {
+        for (uint8_t i = 0; i < 5; i++) {
+            VIDEO::vga.line(rb_paint_x + i, rb_y, rb_paint_x + 8 + i, rb_y - 8, zxColor(rb_colors[c], 1));
+        }
+        rb_paint_x += 5;
+    }
+
+    VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));        
+    uint16_t pc = Z80::getRegPC();
+    uint8_t pg = pc >> 14;
+    uint8_t* b = MemESP::ramCurrent[pg].sync();
+    char buf[32];
+    int i = 0;
+    int xi = x + 1;
+    for (; i < 18; ++i) {
+        uint16_t pci = pc + i - 8;
+        uint8_t bi = b[pci & 0x3fff];
+        VIDEO::vga.setCursor(xi, y + (i + 1) * OSD_FONT_H + 2);
+        snprintf(buf, 32, "%c%04X %02X %s", pci == pc ? '*' : ' ', pci, bi, mnem[bi]);
+        VIDEO::vga.print(buf);
+    }
+    i = 0;
+    xi = x + 22 * OSD_FONT_W;
+    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+    if (MemESP::ramCurrent[0].is_rom())
+        snprintf(buf, 32, "PAGE0 -> ROM#%d", MemESP::romInUse);
+    else
+        snprintf(buf, 32, "PAGE0 -> RAM#%d", MemESP::page0ram);
+    VIDEO::vga.print(buf);
+
+    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+    snprintf(buf, 32, "PAGE3 -> RAM#%d", MemESP::bankLatch);
+    VIDEO::vga.print(buf);
+
+    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+    snprintf(buf, 32, "VIDEO -> RAM#%d", MemESP::videoLatch ? 7 : 5);
+    VIDEO::vga.print(buf);
+
+    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+    snprintf(buf, 32, "PAGING LOCK %s", MemESP::pagingLock ? "true" : "false");
+    VIDEO::vga.print(buf);
+
+    ++i;
+
+    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+    snprintf(buf, 32, "AF %04X x%04X", Z80::getRegAF(), Z80::getRegAFx());
+    VIDEO::vga.print(buf);
+
+    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+    snprintf(buf, 32, "BC %04X x%04X", Z80::getRegBC(), Z80::getRegBCx());
+    VIDEO::vga.print(buf);
+
+    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+    snprintf(buf, 32, "HL %04X x%04X", Z80::getRegHL(), Z80::getRegHLx());
+    VIDEO::vga.print(buf);
+
+    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+    snprintf(buf, 32, "DE %04X x%04X", Z80::getRegDE(), Z80::getRegDEx());
+    VIDEO::vga.print(buf);
+
+    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+    snprintf(buf, 32, "Ix %04X y%04X", Z80::getRegIX(), Z80::getRegIY());
+    VIDEO::vga.print(buf);
+
+    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+    snprintf(buf, 32, "IR %02X%02X", Z80::getRegI(), Z80::getRegR());
+    VIDEO::vga.print(buf);
+
+    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+    snprintf(buf, 32, "SP %04X", Z80::getRegSP());
+    VIDEO::vga.print(buf);
+
+    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+    snprintf(buf, 32, "PC %04X", Z80::getRegPC());
+    VIDEO::vga.print(buf);
+
+/*
+            if (pc < (16 << 10)) {
+                if (MemESP::page0ram)
+                    snprintf(buf, 128, "RAM%d[$%04X]: $%02X; $%02X; $%02X", MemESP::page0ram, pc, b1, b2, b3);
+                else
+                    snprintf(buf, 128, "ROM%d[$%04X]: $%02X; $%02X; $%02X", MemESP::romInUse, pc, b1, b2, b3);
+            }
+            else if (pc < 2 *(16 << 10))
+                snprintf(buf, 128, "RAM1[$%04X]: $%02X; $%02X; $%02X", pc, b1, b2, b3);
+            else if (pc < 3 *(16 << 10))
+                snprintf(buf, 128, "RAM2[$%04X]: $%02X; $%02X; $%02X", pc, b1, b2, b3);
+            else
+                snprintf(buf, 128, "RAM%d[$%04X]: $%02X; $%02X; $%02X", MemESP::bankLatch, pc, b1, b2, b3);
+            osdCenteredMsg(buf, LEVEL_INFO, 3000);
+*/
+    // Wait for a key
+    fabgl::VirtualKeyItem Nextkey;
+    while (1) {
+        if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
+            ESPectrum::PS2Controller.keyboard()->getNextVirtualKey(&Nextkey);
+            if(!Nextkey.down) continue;
+            break;
+        }
+    }
+    VIDEO::SaveRect.restore_last();
+
+}
+
 // // Count NL chars inside a string, useful to count menu rows
 unsigned short OSD::rowCount(string menu) {
     unsigned short count = 0;
@@ -3351,12 +3721,12 @@ void DrawjoyControls(unsigned short x, unsigned short y) {
     }
 
     // START text
-    VIDEO::vga.setTextColor(joyControl[4][2], zxColor(7, 1));        
+    VIDEO::vga.setTextColor(joyControl[4][2], zxColor(7, 1));
     VIDEO::vga.setCursor(x + joyControl[4][0], y + joyControl[4][1]);
     VIDEO::vga.print("START");
 
     // MODE text
-    VIDEO::vga.setTextColor(joyControl[5][2], zxColor(7, 1));        
+    VIDEO::vga.setTextColor(joyControl[5][2], zxColor(7, 1));
     VIDEO::vga.setCursor(x + joyControl[5][0], y + joyControl[5][1]);
     VIDEO::vga.print("MODE");
 
