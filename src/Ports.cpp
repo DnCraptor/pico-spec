@@ -102,6 +102,7 @@ uint8_t Ports::getFloatBusData128() {
 }
 
 uint8_t nes_pad2_for_alf(void);
+uint8_t newAlfBit = false;
 
 IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     uint8_t data;
@@ -109,11 +110,12 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
 
     VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
     
+    bool ia = Z80Ops::isALF;
     // ULA PORT    
     if ((address & 0x0001) == 0) {
         VIDEO::Draw(3, !Z80Ops::isPentagon);   // I/O Contention (Late)
 
-        if (Z80Ops::isALF && (address & 0xFF) == 0xFE) {
+        if (ia && (address & 0xFF) == 0xFE) {
             data = nes_pad2_for_alf(); // default port value is 0xFF.
         } else {
             data = 0xbf; // default port value is 0xBF.
@@ -167,7 +169,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
             (Config::joystick == JOY_KEMPSTON) &&
             ((address & 0x00E0) == 0 || (address & 0xFF) == 0xDF ||
              (address & 0xFF) == Config::kempstonPort)
-        ) return Z80Ops::isALF ? (port[0x1F] ^ 0xA0) : port[Config::kempstonPort];
+        ) return ia ? (port[0x1F] ^ 0xA0) : port[Config::kempstonPort];
 
         // Fuller Joystick
         if (
@@ -177,8 +179,12 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
 
         // Sound (AY-3-8912)
         if (ESPectrum::AY_emu) {
-            if ((address & 0xC002) == 0xC000)
+            if ((address & 0xC002) == 0xC000) {
+                if (ia) {
+                    return chips[AySound::selected_chip]->getRegisterData() | newAlfBit;
+                }
                 return chips[AySound::selected_chip]->getRegisterData();
+            }
         }
         if (!Z80Ops::isPentagon) {
             data = getFloatBusData();
@@ -214,7 +220,13 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
 
     VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
 
-    if (Z80Ops::isALF && bitRead(address, 7) == 0 && (address & 1) == 1) { // ALF ROM selector A7=0, A0=1
+    bool ia = Z80Ops::isALF;
+
+    if (ia && (address & 0xFF) == 0xFE) {
+        newAlfBit = (data >> 3) & 1;
+    }
+
+    if (ia && bitRead(address, 7) == 0 && (address & 1) == 1) { // ALF ROM selector A7=0, A0=1
         uint8_t* base = bitRead(data, 7) ? gb_rom_Alf_cart : gb_rom_Alf;
         if (MemESP::ramCurrent[0].direct() != base) {
             int border_page = base == gb_rom_Alf ? 16 : 64;
