@@ -55,16 +55,14 @@ static input_bits_t gamepad1_bits = { false, false, false, false, false, false, 
 static input_bits_t gamepad2_bits = { false, false, false, false, false, false, false, false };
 
 uint8_t nes_pad2_for_alf(void) {
-    uint8_t data = 0;
     input_bits_t& bits = Config::secondJoy != 1 ? gamepad2_bits : gamepad1_bits;
-    data |= bits.a ? 0 : 1;
+    uint8_t data = 0xA0;
+    data |= bits.b ? 0 : 1;
     data |= bits.down ? 0 : 0b10;
     data |= bits.right ? 0 : 0b100;
     data |= bits.up ? 0 : 0b1000;
     data |= bits.left ? 0 : 0b10000;
-    data |= bits.b ? 0 : 0b100000;
-    data |= bits.start ? 0 : 0b1000000;
-    data |= bits.select ? 0 : 0b10000000;
+    data |= bits.a ? 0 : 0b1000000;
     return data;
 }
 
