@@ -133,6 +133,10 @@ void CPU::reset() {
 
 }
 
+IRAM_ATTR void CPU::step() {
+    Z80::execute();
+}
+
 IRAM_ATTR void CPU::loop() {
 
     // Check NMI

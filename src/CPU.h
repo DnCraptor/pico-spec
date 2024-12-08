@@ -60,6 +60,7 @@ visit https://zxespectrum.speccy.org/contacto
 class CPU
 {
 public:
+    static void step();
     
     // call this for executing a frame's worth of instructions
     static void loop();

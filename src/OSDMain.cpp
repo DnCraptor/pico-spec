@@ -2697,6 +2697,7 @@ void OSD::osdDebug() {
 
     VIDEO::SaveRect.save(x - 1, y - 1, w + 2, h + 2);
 
+c:
     // Set font
     VIDEO::vga.setFont(Font6x8);
 
@@ -2791,28 +2792,15 @@ void OSD::osdDebug() {
     snprintf(buf, 32, "PC %04X", Z80::getRegPC());
     VIDEO::vga.print(buf);
 
-/*
-            if (pc < (16 << 10)) {
-                if (MemESP::page0ram)
-                    snprintf(buf, 128, "RAM%d[$%04X]: $%02X; $%02X; $%02X", MemESP::page0ram, pc, b1, b2, b3);
-                else
-                    snprintf(buf, 128, "ROM%d[$%04X]: $%02X; $%02X; $%02X", MemESP::romInUse, pc, b1, b2, b3);
-            }
-            else if (pc < 2 *(16 << 10))
-                snprintf(buf, 128, "RAM1[$%04X]: $%02X; $%02X; $%02X", pc, b1, b2, b3);
-            else if (pc < 3 *(16 << 10))
-                snprintf(buf, 128, "RAM2[$%04X]: $%02X; $%02X; $%02X", pc, b1, b2, b3);
-            else
-                snprintf(buf, 128, "RAM%d[$%04X]: $%02X; $%02X; $%02X", MemESP::bankLatch, pc, b1, b2, b3);
-            osdCenteredMsg(buf, LEVEL_INFO, 3000);
-*/
     // Wait for a key
     fabgl::VirtualKeyItem Nextkey;
     while (1) {
         if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
             ESPectrum::PS2Controller.keyboard()->getNextVirtualKey(&Nextkey);
-            if(!Nextkey.down) continue;
-            break;
+            if (!Nextkey.down) continue;
+            if (Nextkey.vk == fabgl::VK_ESCAPE) break;
+            CPU::step();
+            goto c;
         }
     }
     VIDEO::SaveRect.restore_last();
