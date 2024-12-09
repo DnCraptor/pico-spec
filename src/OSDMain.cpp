@@ -50,6 +50,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "roms.h"
 #include "ff.h"
 #include "psram_spi.h"
+#include "Ports.h"
 
 /**
 #ifndef ESP32_SDL2_WRAPPER
@@ -2740,7 +2741,9 @@ c:
     i = 0;
     xi = x + 22 * OSD_FONT_W;
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    if (MemESP::ramCurrent[0].is_rom())
+    if (MemESP::newAlfSRAM)
+        snprintf(buf, 32, "PAGE0 -> SRAM#%d", MemESP::romLatch);
+    else if (MemESP::ramCurrent[0].is_rom())
         snprintf(buf, 32, "PAGE0 -> ROM#%d", MemESP::romInUse);
     else
         snprintf(buf, 32, "PAGE0 -> RAM#%d", MemESP::page0ram);
@@ -2792,15 +2795,35 @@ c:
     snprintf(buf, 32, "PC %04X", Z80::getRegPC());
     VIDEO::vga.print(buf);
 
+    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+    uint8_t b1 = b[(pc+1) & 0x3fff];
+    uint8_t b2 = b[(pc+2) & 0x3fff];
+    snprintf(buf, 32, "nn %02X%02X", b1, b2);
+    VIDEO::vga.print(buf);
+
     // Wait for a key
     fabgl::VirtualKeyItem Nextkey;
+    auto Kbd = ESPectrum::PS2Controller.keyboard();
     while (1) {
-        if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
-            ESPectrum::PS2Controller.keyboard()->getNextVirtualKey(&Nextkey);
-            if (!Nextkey.down) continue;
-            if (Nextkey.vk == fabgl::VK_ESCAPE) break;
-            CPU::step();
-            goto c;
+        if (Kbd->virtualKeyAvailable()) {
+            Kbd->getNextVirtualKey(&Nextkey);
+
+            if (Nextkey.down && Nextkey.vk == fabgl::VK_ESCAPE) break;
+
+            if (Config::joystick == JOY_KEMPSTON) {
+                Ports::port[Config::kempstonPort] = 0;
+                Ports::port[Config::kempstonPort] = 0;
+                for (int i = fabgl::VK_JOY_RIGHT; i <= fabgl::VK_JOY_C; i++) {
+                    if (Kbd->isVKDown((fabgl::VirtualKey) i)) {
+                        bitWrite(Ports::port[Config::kempstonPort], i - fabgl::VK_JOY_RIGHT, 1);
+                    }
+                }
+            }
+
+            if (Nextkey.down) {
+                CPU::step();
+                goto c;
+            }
         }
     }
     VIDEO::SaveRect.restore_last();
