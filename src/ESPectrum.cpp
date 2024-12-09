@@ -551,6 +551,8 @@ void ESPectrum::setup()
         for (size_t i = 8; i < 64; ++i) MemESP::ram[i].assign_vram(i);
 #endif
     }
+    MemESP::alfSRAM[0].assign_vram(64);
+    MemESP::alfSRAM[1].assign_vram(65);
 
     // Load romset
     Config::requestMachine(Config::arch, Config::romSet);
@@ -565,6 +567,7 @@ void ESPectrum::setup()
     MemESP::ramCurrent[1] = MemESP::ram[5];
     MemESP::ramCurrent[2] = MemESP::ram[2];
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
+    MemESP::newAlfSRAM = false;
 
     MemESP::ramContended[0] = false;
     MemESP::ramContended[1] = Config::arch == "P1024" || Config::arch == "P512" || Config::arch == "Pentagon" ? false : true;
@@ -688,6 +691,7 @@ void ESPectrum::reset()
     MemESP::ramCurrent[1] = MemESP::ram[5];
     MemESP::ramCurrent[2] = MemESP::ram[2];
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
+    MemESP::newAlfSRAM = false;
 
     MemESP::ramContended[0] = false;
     MemESP::ramContended[1] = Config::arch == "P1024" || Config::arch == "P512" || Config::arch == "Pentagon" ? false : true;

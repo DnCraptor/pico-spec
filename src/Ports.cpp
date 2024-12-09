@@ -102,7 +102,7 @@ uint8_t Ports::getFloatBusData128() {
 }
 
 uint8_t nes_pad2_for_alf(void);
-uint8_t newAlfBit = false;
+static uint8_t newAlfBit = 0;
 
 IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     uint8_t data;
@@ -111,11 +111,11 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
     
     bool ia = Z80Ops::isALF;
+    uint8_t p8 = address & 0xFF;
     // ULA PORT    
     if ((address & 0x0001) == 0) {
         VIDEO::Draw(3, !Z80Ops::isPentagon);   // I/O Contention (Late)
-
-        if (ia && (address & 0xFF) == 0xFE) {
+        if (ia && p8 == 0xFE) {
             data = nes_pad2_for_alf(); // default port value is 0xFF.
         } else {
             data = 0xbf; // default port value is 0xBF.
@@ -136,11 +136,21 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
         if (Tape::tapeEarBit) data ^= 0x40;
     } else {
         ioContentionLate(MemESP::ramContended[rambank]);
+        if (ia && bitRead(p8, 7) == 0) {
+            if (bitRead(p8, 1) == 0) { // 1D
+                MemESP::ramCurrent[0] = MemESP::alfSRAM[MemESP::romLatch];
+                MemESP::newAlfSRAM = true;
+            }
+            else { // 1F
+                MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
+                MemESP::newAlfSRAM = false;
+            }
+        }
         // The default port value is 0xFF.
         data = 0xff;
         // Check if TRDOS Rom is mapped.
         if (ESPectrum::trdos) {
-            switch (address & 0xFF) {
+            switch (p8) {
                 case 0xFF:
                     data = ESPectrum::Betadisk.ReadSystemReg();
                     // printf("WD1793 Read Control Register: %d\n",(int)data);
@@ -167,15 +177,11 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
         // Kempston Joystick
         if (
             (Config::joystick == JOY_KEMPSTON) &&
-            ((address & 0x00E0) == 0 || (address & 0xFF) == 0xDF ||
-             (address & 0xFF) == Config::kempstonPort)
+            ((address & 0x00E0) == 0 || p8 == 0xDF || p8 == Config::kempstonPort)
         ) return ia ? (port[0x1F] ^ 0xA0) : port[Config::kempstonPort];
 
         // Fuller Joystick
-        if (
-            (Config::joystick == JOY_FULLER) &&
-            (address & 0xFF) == 0x7F
-        ) return port[0x7f];
+        if (Config::joystick == JOY_FULLER && p8 == 0x7F) return port[0x7f];
 
         // Sound (AY-3-8912)
         if (ESPectrum::AY_emu) {
@@ -206,7 +212,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
                     }
                     MemESP::romLatch = bitRead(data, 4);
                     MemESP::romInUse = MemESP::romLatch;
-                    MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
+                    MemESP::ramCurrent[0] = MemESP::newAlfSRAM ? MemESP::alfSRAM[MemESP::romLatch] : MemESP::rom[MemESP::romInUse];
                 }
             }
         }
@@ -236,7 +242,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         }
         MemESP::romInUse = (data & 0b01111111);
         while (MemESP::romInUse >= 64) MemESP::romInUse -= 64; // rolling ROM
-        MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
+        MemESP::ramCurrent[0] = MemESP::newAlfSRAM ? MemESP::alfSRAM[MemESP::romLatch] : MemESP::rom[MemESP::romInUse];
     }
     
     // ULA =======================================================================
@@ -363,7 +369,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
             }
             MemESP::romLatch = bitRead(data, 4);
             MemESP::romInUse = MemESP::romLatch;
-            MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
+            MemESP::ramCurrent[0] = MemESP::newAlfSRAM ? MemESP::alfSRAM[MemESP::romLatch] : (MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse]);
             if (MemESP::videoLatch != bitRead(data, 3)) {
                 MemESP::videoLatch = bitRead(data, 3);
                 VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct() : MemESP::ram[5].direct();

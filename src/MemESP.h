@@ -110,6 +110,9 @@ public:
     static mem_desc_t rom[64];
     static mem_desc_t ram[64];
 
+    static mem_desc_t alfSRAM[2];
+    static bool newAlfSRAM;
+
     static mem_desc_t ramCurrent[4];    
     static bool ramContended[4];
 
