@@ -551,8 +551,6 @@ void ESPectrum::setup()
         for (size_t i = 8; i < 64; ++i) MemESP::ram[i].assign_vram(i);
 #endif
     }
-    MemESP::alfSRAM[0].assign_vram(64);
-    MemESP::alfSRAM[1].assign_vram(65);
 
     // Load romset
     Config::requestMachine(Config::arch, Config::romSet);

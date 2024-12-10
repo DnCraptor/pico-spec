@@ -2418,7 +2418,7 @@ void OSD::osdCenteredMsg(string msg, uint8_t warn_level, uint16_t millispause) {
 
 const static char* mnem[256] {
     "NOP", // 00
-    "LD BC, nn", // 01
+    "LD BC,nn", // 01
     "LD (BC),A", // 02
     "INC BC", // 03
     "INC B", // 04
@@ -2690,6 +2690,100 @@ const static char* mnem[256] {
     "RST 38H", // FF
 };
 
+const char* mnemED(uint8_t b) {
+    switch(b) {
+        case 0x40: return "IN B,(BC)";
+        case 0x41: return "OUT (BC),B";
+        case 0x42: return "SBC HL,BC";
+        case 0x43: return "LD (nn),BC";
+        case 0x44: return "NEG";
+        case 0x45: return "RETN";
+        case 0x46: return "IM 0";
+        case 0x47: return "LD I,A";
+        case 0x48: return "IN C,(BC)";
+        case 0x49: return "OUT (BC),C";
+        case 0x4A: return "ADC HL,BC";
+        case 0x4B: return "LD BC,(nn)";
+        case 0x4C: return "NEG";
+        case 0x4D: return "RETI";
+        case 0x4E: return "IM 0/1";
+        case 0x4F: return "LD R,A";
+
+        case 0x50: return "IN D,(BC)";
+        case 0x51: return "OUT (BC),D";
+        case 0x52: return "SBC HL,DE";
+        case 0x53: return "LD (nn),DE";
+        case 0x54: return "NEG";
+        case 0x55: return "RETN";
+        case 0x56: return "IM 1";
+        case 0x57: return "LD A,I";
+        case 0x58: return "IN E,(BC)";
+        case 0x59: return "OUT (BC),E";
+        case 0x5A: return "ADC HL,DE";
+        case 0x5B: return "LD DE,(nn)";
+        case 0x5C: return "NEG";
+        case 0x5D: return "RETN";
+        case 0x5E: return "IM 2";
+        case 0x5F: return "LD A,R";
+
+        case 0x60: return "IN H,(BC)";
+        case 0x61: return "OUT (BC),H";
+        case 0x62: return "SBC HL,HL";
+        case 0x63: return "LD (nn),HL";
+        case 0x64: return "NEG";
+        case 0x65: return "RETN";
+        case 0x66: return "IM 0";
+        case 0x67: return "RRD";
+        case 0x68: return "IN L,(BC)";
+        case 0x69: return "OUT (BC),L";
+        case 0x6A: return "ADC HL,HL";
+        case 0x6B: return "LD HL,(nn)";
+        case 0x6C: return "NEG";
+        case 0x6D: return "RETN";
+        case 0x6E: return "IM 0/1";
+        case 0x6F: return "RLD";
+
+        case 0x70: return "IN F,(BC)";
+        case 0x71: return "OUT (BC),0";
+        case 0x72: return "SBC HL,SP";
+        case 0x73: return "LD (nn),SP";
+        case 0x74: return "NEG";
+        case 0x75: return "RETN";
+        case 0x76: return "IM 1";
+
+        case 0x78: return "IN A,(BC)";
+        case 0x79: return "OUT (BC),A";
+        case 0x7A: return "ADC HL,SP";
+        case 0x7B: return "LD SP,(nn)";
+        case 0x7C: return "NEG";
+        case 0x7D: return "RETN";
+        case 0x7E: return "IM 2";
+
+        case 0xA0: return "LDI";
+        case 0xA1: return "CPI";
+        case 0xA2: return "INI";
+        case 0xA3: return "OUTI";
+
+        case 0xA8: return "LDD";
+        case 0xA9: return "CPD";
+        case 0xAA: return "IND";
+        case 0xAB: return "OUTD";
+
+        case 0xB0: return "LDIR";
+        case 0xB1: return "CPIR";
+        case 0xB2: return "INIR";
+        case 0xB3: return "OUTIR";
+
+        case 0xB8: return "LDDR";
+        case 0xB9: return "CPDR";
+        case 0xBA: return "INDR";
+        case 0xBB: return "OUTDR";
+    }
+    return "???";
+}
+
+#define BNc(x, b) ((x >> b) & 1 ? '1' : '0')
+
 void OSD::osdDebug() {
     const unsigned short h = OSD_FONT_H * 20;
     const unsigned short y = scrAlignCenterY(h);
@@ -2697,6 +2791,8 @@ void OSD::osdDebug() {
     const unsigned short x = scrAlignCenterX(w);
 
     VIDEO::SaveRect.save(x - 1, y - 1, w + 2, h + 2);
+    char buf[32];
+    int ii = 0;
 
 c:
     // Set font
@@ -2728,14 +2824,59 @@ c:
     uint16_t pc = Z80::getRegPC();
     uint8_t pg = pc >> 14;
     uint8_t* b = MemESP::ramCurrent[pg].sync();
-    char buf[32];
     int i = 0;
     int xi = x + 1;
+    int nn = 0;
+    int n = 0;
+    int d = 0;
+    bool ED = false;
     for (; i < 18; ++i) {
-        uint16_t pci = pc + i - 8;
+        uint16_t pci = pc + i - ii;
         uint8_t bi = b[pci & 0x3fff];
+        uint8_t b1 = b[(pci+1) & 0x3fff];
+//        uint8_t b2 = b[(pci+2) & 0x3fff];
         VIDEO::vga.setCursor(xi, y + (i + 1) * OSD_FONT_H + 2);
-        snprintf(buf, 32, "%c%04X %02X %s", pci == pc ? '*' : ' ', pci, bi, mnem[bi]);
+        if (!ED && nn == 0 && n == 0 && d == 0 || pci == pc) {
+            const char* mem;
+            ED = bi == 0xED;
+            if (ED) {
+                mem = mnemED(b1);
+            } else {
+                mem = mnem[bi];
+            }
+            if (strstr(mem, "nn") != 0 || strstr(mem, "(nn)") != 0 || strstr(mem, "IX ->") != 0) {
+                d = 0;
+                n = 0;
+                nn = 2;
+            } else if (strstr(mem, "n") != 0 || strstr(mem, "(n)") != 0 || strstr(mem, "->") != 0) {
+                d = 0;
+                n = 1;
+                nn = 0;
+            } else if (strstr(mem, "d") != 0) {
+                d = 1;
+                n = 0;
+                nn = 0;
+            } else {
+                d = 0;
+                n = 0;
+                nn = 0;
+            }
+            snprintf(buf, 32, "%c%04X %02X %s", pci == pc ? '*' : ' ', pci, bi, mem);
+        } else if (d == 1) {
+            int8_t bib = bi;
+            snprintf(buf, 32, bib >= 0 ? " %04X %02X +%d(d)" : " %04X %02X %d(d)", pci, bi, bib);
+            --d;
+        } else if (n == 1) {
+            snprintf(buf, 32, " %04X    %02X", pci, bi);
+            --n;
+        } else if (nn == 2 && !ED) {
+            snprintf(buf, 32, " %04X %02X %02X%02X", pci, bi, b1, bi);
+            --nn;
+        } else {
+            snprintf(buf, 32, " %04X %02X", pci, bi);
+            if (ED) ED = false;
+            else --nn;
+        }
         VIDEO::vga.print(buf);
     }
     i = 0;
@@ -2795,11 +2936,24 @@ c:
     snprintf(buf, 32, "PC %04X", Z80::getRegPC());
     VIDEO::vga.print(buf);
 
+    ++i;
+
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    uint8_t b1 = b[(pc+1) & 0x3fff];
-    uint8_t b2 = b[(pc+2) & 0x3fff];
-    snprintf(buf, 32, "nn %02X%02X", b1, b2);
+    VIDEO::vga.print("SZxHxPAC SZxHxPAC");
+
+    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+    uint8_t f = Z80::getRegAF() & 0xFF;
+    uint8_t fx = Z80::getRegAFx() & 0xFF;
+    snprintf(buf, 32, "%c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c",
+       BNc(f , 7), BNc(f , 6), BNc(f , 5), BNc(f , 4), BNc(f , 3), BNc(f , 2), BNc(f , 1), BNc(f , 0),
+       BNc(fx, 7), BNc(fx, 6), BNc(fx, 5), BNc(fx, 4), BNc(fx, 3), BNc(fx, 2), BNc(fx, 1), BNc(fx, 0)
+    );
     VIDEO::vga.print(buf);
+
+    ++i;
+
+    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+    VIDEO::vga.print("Space/F5,+/-,Esc");
 
     // Wait for a key
     fabgl::VirtualKeyItem Nextkey;
@@ -2820,8 +2974,19 @@ c:
                 }
             }
 
-            if (Nextkey.down) {
-                CPU::step();
+            if (Nextkey.down && Nextkey.vk == fabgl::VK_PLUS && ii < 17) {
+                ++ii;
+                goto c;
+            }
+            if (Nextkey.down && Nextkey.vk == fabgl::VK_MINUS && ii > 0) {
+                --ii;;
+                goto c;
+            }
+            if (Nextkey.down && (Nextkey.vk == fabgl::VK_SPACE ||  Nextkey.vk == fabgl::VK_F5)) {
+                int i = 0;
+                while (pc == Z80::getRegPC() && i++ < 64*1024) {
+                    CPU::step();
+                }
                 goto c;
             }
         }

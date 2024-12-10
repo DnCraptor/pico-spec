@@ -1150,7 +1150,9 @@ IRAM_ATTR void VIDEO::BottomBorder_OSD_Pentagon() {
             }
         }
     }
-}    
+}
+
+#define PSRAM_SHIFT_RAM (2 << 20)
 
 void SaveRectT::save(int16_t x, int16_t y, int16_t w, int16_t h) {
     if (offsets.empty()) {
@@ -1159,8 +1161,8 @@ void SaveRectT::save(int16_t x, int16_t y, int16_t w, int16_t h) {
     x -= 2; if (x < 0) x = 0; // W/A
     w += 4; // W/A
     size_t off = offsets.back();
-    if (psram_size() >= (1 << 20)) {
-        off += 1 << 20;
+    if (psram_size() >= PSRAM_SHIFT_RAM) {
+        off += PSRAM_SHIFT_RAM;
         write16psram(off, x); off += 2;
         write16psram(off, y); off += 2;
         write16psram(off, w); off += 2;
@@ -1170,7 +1172,7 @@ void SaveRectT::save(int16_t x, int16_t y, int16_t w, int16_t h) {
             writepsram(off, backbuffer + x, w);
             off += w;
         }
-        offsets.push_back(off - (1 << 20));
+        offsets.push_back(off - PSRAM_SHIFT_RAM);
         return;
     }
     if (FileUtils::fsMount) {
@@ -1200,8 +1202,8 @@ void SaveRectT::restore_last() {
     uint16_t y;
     uint16_t w;
     uint16_t h;
-    if (psram_size() >= (1 << 20)) {
-        off += 1 << 20;
+    if (psram_size() >= PSRAM_SHIFT_RAM) {
+        off += PSRAM_SHIFT_RAM;
         x = read16psram(off); off += 2;
         y = read16psram(off); off += 2;
         w = read16psram(off); off += 2;

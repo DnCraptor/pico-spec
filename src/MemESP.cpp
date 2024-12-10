@@ -99,7 +99,6 @@ void mem_desc_t::_sync(void) {
 
 mem_desc_t MemESP::rom[64];
 mem_desc_t MemESP::ram[64];
-mem_desc_t MemESP::alfSRAM[2];
 bool MemESP::newAlfSRAM = false;
 
 mem_desc_t MemESP::ramCurrent[4];
