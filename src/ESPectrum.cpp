@@ -538,15 +538,10 @@ void ESPectrum::setup()
     MemESP::ram[7].assign_ram(new unsigned char[0x4000], 7, true);
 #endif
 
-    if (ext_ram_exist) {
+    if (ext_ram_exist) { // TODO: specific no ext RAM for RP2350
 #if !PICO_RP2040
-    #ifdef HDMI
         for (size_t i = 8; i < 23; ++i) MemESP::ram[i].assign_ram(new unsigned char[0x4000], i, false);
         for (size_t i = 23; i < 64; ++i) MemESP::ram[i].assign_vram(i);
-    #else
-        for (size_t i = 8; i < 24; ++i) MemESP::ram[i].assign_ram(new unsigned char[0x4000], i, false);
-        for (size_t i = 24; i < 64; ++i) MemESP::ram[i].assign_vram(i);
-    #endif
 #else
         for (size_t i = 8; i < 64; ++i) MemESP::ram[i].assign_vram(i);
 #endif
@@ -1002,7 +997,8 @@ IRAM_ATTR void ESPectrum::AYGetSample() {
     uint32_t audbufpos = CPU::tstates / (Z80Ops::is128 ? 114 : 112);
     if (audbufpos > audbufcntAY) {
         chip0.gen_sound(audbufpos - audbufcntAY, audbufcntAY);
-        chip1.gen_sound(audbufpos - audbufcntAY, audbufcntAY);
+        if (Config::turbosound)
+            chip1.gen_sound(audbufpos - audbufcntAY, audbufcntAY);
         audbufcntAY = audbufpos;
     }
 }
@@ -1056,15 +1052,27 @@ void ESPectrum::loop() {
         if (AY_emu && (!t_us || idle > t_us)) {
             if (faudbufcntAY < samplesPerFrame) {
                 chip0.gen_sound(samplesPerFrame - faudbufcntAY, faudbufcntAY);
-                chip1.gen_sound(samplesPerFrame - faudbufcntAY, faudbufcntAY);
+                if (Config::turbosound)
+                    chip1.gen_sound(samplesPerFrame - faudbufcntAY, faudbufcntAY);
             }
-            for (int i = 0; i < samplesPerFrame; ++i) {
-                auto os = overSamplebuf[i] / audioSampleDivider;
-                int l = os + chip0.SamplebufAY_L[i] + chip1.SamplebufAY_L[i];
-                int r = os + chip0.SamplebufAY_R[i] + chip1.SamplebufAY_R[i];
-                // Clamp
-                audioBuffer_L[i] = l > 255 ? 255 : l;
-                audioBuffer_R[i] = r > 255 ? 255 : r;
+            if (Config::turbosound) {
+                for (int i = 0; i < samplesPerFrame; ++i) {
+                    auto os = overSamplebuf[i] / audioSampleDivider;
+                    int l = os + chip0.SamplebufAY_L[i] + chip1.SamplebufAY_L[i];
+                    int r = os + chip0.SamplebufAY_R[i] + chip1.SamplebufAY_R[i];
+                    // Clamp
+                    audioBuffer_L[i] = l > 255 ? 255 : l;
+                    audioBuffer_R[i] = r > 255 ? 255 : r;
+                }
+            } else {
+                for (int i = 0; i < samplesPerFrame; ++i) {
+                    auto os = overSamplebuf[i] / audioSampleDivider;
+                    int l = os + chip0.SamplebufAY_L[i];
+                    int r = os + chip0.SamplebufAY_R[i];
+                    // Clamp
+                    audioBuffer_L[i] = l > 255 ? 255 : l;
+                    audioBuffer_R[i] = r > 255 ? 255 : r;
+                }
             }
         } else {
             for (int i = 0; i < samplesPerFrame; ++i) {

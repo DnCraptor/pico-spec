@@ -2164,6 +2164,35 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                         }
                                     }
                                 }
+                                else if (options_num == 9) {
+                                    menu_level = 3;
+                                    menu_curopt = 1;                    
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string menu = MENU_TS[Config::lang];
+                                        uint8_t prev = Config::turbosound;
+                                        if (prev == 1) {
+                                            menu.replace(menu.find("[N",0),2,"[*");
+                                            menu.replace(menu.find("[F",0),2,"[ ");
+                                        } else {
+                                            menu.replace(menu.find("[N",0),2,"[ ");
+                                            menu.replace(menu.find("[F",0),2,"[*");
+                                        }
+                                        uint8_t opt2 = menuRun(menu);
+                                        if (opt2) {
+                                            Config::turbosound = 2 - opt2;
+                                            if (Config::turbosound != prev) {
+                                                Config::save();
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = 9;
+                                            menu_level = 2;                                       
+                                            break;
+                                        }
+                                    }
+                                }
                             } else {
                                 menu_curopt = 7;
                                 break;

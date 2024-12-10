@@ -485,7 +485,8 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
     "Second joystick\t>\n"\
     "Kempston joystick port\t>\n"\
     "Throttling\t>\n"\
-    "AY-3-8912 config\t>\n"
+    "AY-3-8912 config\t>\n"\
+    "TurboSound\t>\n"
 #define MENU_OTHER_ES "Otros\n"\
     "AY-3-8912 en 48K\t>\n"\
     "Timing ULA\t>\n"\
@@ -494,7 +495,8 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
     "Segunda joystick\t>\n"\
     "Kempston joystick port\t>\n"\
 	"Aceleraci" "\xA2" "n\t>\n"\
-    "Configuraci" "\xA2" "n AY-3-8912\t>\n"
+    "Configuraci" "\xA2" "n AY-3-8912\t>\n" \
+    "TurboSound\t>\n"
 static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
 
 static const char *MENU_AY48[2] = { "AY on 48K\n" , "AY en 48K\n"};
@@ -511,6 +513,11 @@ static const char *MENU_KBD2NDPS2[2] = { MENU_KBD2NDPS2_EN, MENU_KBD2NDPS2_ES };
     "ABC\t[B]\n"\
     "ACB\t[C]\n"
 static const char *MENU_AY[2] = { MENU_AY_EN, MENU_AY_EN };
+
+#define MENU_TS_EN "TS\n"\
+    "ON \t[N]\n"\
+    "OFF\t[F]\n"
+static const char *MENU_TS[2] = { MENU_TS_EN, MENU_TS_EN };
 
 #define MENU_ALF_JOY_EN "Source\n"\
     "DPAD #1\t[1]\n"\
