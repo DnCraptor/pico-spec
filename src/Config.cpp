@@ -47,15 +47,15 @@ uint16_t Config::joydef[12] = {
     fabgl::VK_DPAD_SELECT,// 5
     fabgl::VK_DPAD_FIRE,  // 6 A
     fabgl::VK_DPAD_ALTFIRE,//7 B
-    fabgl::VK_NONE,           // 8 C
-    fabgl::VK_NONE,           // 9  X
-    fabgl::VK_NONE,           // 10 Y
-    fabgl::VK_NONE            // 11 Z
+    fabgl::VK_NONE,       // 8 C
+    fabgl::VK_NONE,       // 9  X
+    fabgl::VK_NONE,       // 10 Y
+    fabgl::VK_NONE        // 11 Z
 };
 
 uint8_t  Config::AluTiming = 0;
 uint8_t  Config::ayConfig = 0;
-uint8_t  Config::turbosound = 1;
+uint8_t  Config::turbosound = 3; // BOTH
 uint8_t  Config::joy2cursor = true;
 uint8_t  Config::secondJoy = 2; // NPAD#2
 uint8_t  Config::kempstonPort = 0x37;

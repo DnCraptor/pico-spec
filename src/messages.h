@@ -514,9 +514,11 @@ static const char *MENU_KBD2NDPS2[2] = { MENU_KBD2NDPS2_EN, MENU_KBD2NDPS2_ES };
     "ACB\t[C]\n"
 static const char *MENU_AY[2] = { MENU_AY_EN, MENU_AY_EN };
 
-#define MENU_TS_EN "TS\n"\
-    "ON \t[N]\n"\
-    "OFF\t[F]\n"
+#define MENU_TS_EN "TurboSound\n"\
+    "OFF   \t[F]\n"\
+    "NedoPC\t[N]\n"\
+    "old-TC\t[O]\n"\
+    "BOTH  \t[B]\n"
 static const char *MENU_TS[2] = { MENU_TS_EN, MENU_TS_EN };
 
 #define MENU_ALF_JOY_EN "Source\n"\

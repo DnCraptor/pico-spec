@@ -2171,16 +2171,30 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                     while (1) {
                                         string menu = MENU_TS[Config::lang];
                                         uint8_t prev = Config::turbosound;
-                                        if (prev == 1) {
-                                            menu.replace(menu.find("[N",0),2,"[*");
-                                            menu.replace(menu.find("[F",0),2,"[ ");
-                                        } else {
-                                            menu.replace(menu.find("[N",0),2,"[ ");
+                                        if (prev == 0) {
                                             menu.replace(menu.find("[F",0),2,"[*");
+                                            menu.replace(menu.find("[N",0),2,"[ ");
+                                            menu.replace(menu.find("[O",0),2,"[ ");
+                                            menu.replace(menu.find("[B",0),2,"[ ");
+                                        } else if (prev == 1) {
+                                            menu.replace(menu.find("[F",0),2,"[ ");
+                                            menu.replace(menu.find("[N",0),2,"[*");
+                                            menu.replace(menu.find("[O",0),2,"[ ");
+                                            menu.replace(menu.find("[B",0),2,"[ ");
+                                        } else if (prev == 2) {
+                                            menu.replace(menu.find("[F",0),2,"[ ");
+                                            menu.replace(menu.find("[N",0),2,"[ ");
+                                            menu.replace(menu.find("[O",0),2,"[*");
+                                            menu.replace(menu.find("[B",0),2,"[ ");
+                                        } else {
+                                            menu.replace(menu.find("[F",0),2,"[ ");
+                                            menu.replace(menu.find("[N",0),2,"[ ");
+                                            menu.replace(menu.find("[O",0),2,"[ ");
+                                            menu.replace(menu.find("[B",0),2,"[*");
                                         }
                                         uint8_t opt2 = menuRun(menu);
                                         if (opt2) {
-                                            Config::turbosound = 2 - opt2;
+                                            Config::turbosound = opt2 - 1;
                                             if (Config::turbosound != prev) {
                                                 Config::save();
                                             }
@@ -2661,7 +2675,7 @@ const static char* mnem[256] {
     "RET Z", // C8
     "RET", // C9
     "JP Z,(nn)", // CA
-    "bo->", // CB
+    "bo", // CB
     "CALL Z,(nn)", // CC
     "CALL (nn)", // CD
     "ADC A,n", // CE
@@ -2680,7 +2694,7 @@ const static char* mnem[256] {
     "JP C,(nn)", // DA
     "IN A,(n)", // DB
     "CALL C,(nn)", // DC
-    "op IX ->", // DD
+    "op IX:", // DD
     "SBC A,n", // DE
     "RST 18H", // DF
 
@@ -2697,7 +2711,7 @@ const static char* mnem[256] {
     "JP PE,(nn)", // EA
     "EX DE,HL", // EB
     "CALL PE,(nn)", // EC
-    "ext ->", // ED
+    "ext:", // ED
     "XOR A,n", // EE
     "RST 28H", // EF
 
@@ -2714,7 +2728,7 @@ const static char* mnem[256] {
     "JP M,(nn)", // FA
     "EI", // FB
     "CALL M,(nn)", // FC
-    "op IY ->", // FD
+    "op IY:", // FD
     "CP A,n", // FE
     "RST 38H", // FF
 };
@@ -2811,6 +2825,280 @@ const char* mnemED(uint8_t b) {
     return "???";
 }
 
+const char* mnemCB[256] = {
+    "RLC B", // 00
+    "RLC C", // 01
+    "RLC D", // 02
+    "RLC E", // 03
+    "RLC H", // 04
+    "RLC L", // 05
+    "RLC (HL)", // 06
+    "RLC A", // 07
+    "RRC B", // 08
+    "RRC C", // 09
+    "RRC D", // 0A
+    "RRC E", // 0B
+    "RRC H", // 0C
+    "RRC L", // 0D
+    "RRC (HL)", // 0E
+    "RRC A", // 0F
+
+    "RL B", // 10
+    "RL C", // 11
+    "RL D", // 12
+    "RL E", // 13
+    "RL H", // 14
+    "RL L", // 15
+    "RL (HL)", // 16
+    "RL A", // 17
+    "RR B", // 18
+    "RR C", // 19
+    "RR D", // 1A
+    "RR E", // 1B
+    "RR H", // 1C
+    "RR L", // 1D
+    "RR (HL)", // 1E
+    "RR A", // 1F
+
+    "SLA B", // 20
+    "SLA C", // 21
+    "SLA D", // 22
+    "SLA E", // 23
+    "SLA H", // 24
+    "SLA L", // 25
+    "SLA (HL)", // 26
+    "SLA A", // 27
+    "SRA B", // 28
+    "SRA C", // 29
+    "SRA D", // 2A
+    "SRA E", // 2B
+    "SRA H", // 2C
+    "SRA L", // 2D
+    "SRA (HL)", // 2E
+    "SRA A", // 2F
+
+    "SLL B", // 30
+    "SLL C", // 31
+    "SLL D", // 32
+    "SLL E", // 33
+    "SLL H", // 34
+    "SLL L", // 35
+    "SLL (HL)", // 36
+    "SLL A", // 37
+    "SRL B", // 38
+    "SRL C", // 39
+    "SRL D", // 3A
+    "SRL E", // 3B
+    "SRL H", // 3C
+    "SRL L", // 3D
+    "SRL (HL)", // 3E
+    "SRL A", // 3F
+
+    "BIT 0,B", // 40
+    "BIT 0,C", // 41
+    "BIT 0,D", // 42
+    "BIT 0,E", // 43
+    "BIT 0,H", // 44
+    "BIT 0,L", // 45
+    "BIT 0,(HL)", // 46
+    "BIT 0,A", // 47
+    "BIT 1,B", // 48
+    "BIT 1,C", // 49
+    "BIT 1,D", // 4A
+    "BIT 1,E", // 4B
+    "BIT 1,H", // 4C
+    "BIT 1,L", // 4D
+    "BIT 1,(HL)", // 4E
+    "BIT 1,A", // 4F
+
+    "BIT 2,B", // 50
+    "BIT 2,C", // 51
+    "BIT 2,D", // 52
+    "BIT 2,E", // 53
+    "BIT 2,H", // 54
+    "BIT 2,L", // 55
+    "BIT 2,(HL)", // 56
+    "BIT 2,A", // 57
+    "BIT 3,B", // 58
+    "BIT 3,C", // 59
+    "BIT 3,D", // 5A
+    "BIT 3,E", // 5B
+    "BIT 3,H", // 5C
+    "BIT 3,L", // 5D
+    "BIT 3,(HL)", // 5E
+    "BIT 3,A", // 5F
+
+    "BIT 4,B", // 60
+    "BIT 4,C", // 61
+    "BIT 4,D", // 62
+    "BIT 4,E", // 63
+    "BIT 4,H", // 64
+    "BIT 4,L", // 65
+    "BIT 4,(HL)", // 66
+    "BIT 4,A", // 67
+    "BIT 5,B", // 68
+    "BIT 5,C", // 69
+    "BIT 5,D", // 6A
+    "BIT 5,E", // 6B
+    "BIT 5,H", // 6C
+    "BIT 5,L", // 6D
+    "BIT 5,(HL)", // 6E
+    "BIT 5,A", // 6F
+
+    "BIT 6,B", // 70
+    "BIT 6,C", // 71
+    "BIT 6,D", // 72
+    "BIT 6,E", // 73
+    "BIT 6,H", // 74
+    "BIT 6,L", // 75
+    "BIT 6,(HL)", // 76
+    "BIT 6,A", // 77
+    "BIT 7,B", // 78
+    "BIT 7,C", // 79
+    "BIT 7,D", // 7A
+    "BIT 7,E", // 7B
+    "BIT 7,H", // 7C
+    "BIT 7,L", // 7D
+    "BIT 7,(HL)", // 7E
+    "BIT 7,A", // 7F
+
+    "RES 0,B", // 80
+    "RES 0,C", // 81
+    "RES 0,D", // 82
+    "RES 0,E", // 83
+    "RES 0,H", // 84
+    "RES 0,L", // 85
+    "RES 0,(HL)", // 86
+    "RES 0,A", // 87
+    "RES 1,B", // 88
+    "RES 1,C", // 89
+    "RES 1,D", // 8A
+    "RES 1,E", // 8B
+    "RES 1,H", // 8C
+    "RES 1,L", // 8D
+    "RES 1,(HL)", // 8E
+    "RES 1,A", // 8F
+
+    "RES 2,B", // 90
+    "RES 2,C", // 91
+    "RES 2,D", // 92
+    "RES 2,E", // 93
+    "RES 2,H", // 94
+    "RES 2,L", // 95
+    "RES 2,(HL)", // 96
+    "RES 2,A", // 97
+    "RES 3,B", // 98
+    "RES 3,C", // 99
+    "RES 3,D", // 9A
+    "RES 3,E", // 9B
+    "RES 3,H", // 9C
+    "RES 3,L", // 9D
+    "RES 3,(HL)", // 9E
+    "RES 3,A", // 9F
+
+    "RES 4,B", // A0
+    "RES 4,C", // A1
+    "RES 4,D", // A2
+    "RES 4,E", // A3
+    "RES 4,H", // A4
+    "RES 4,L", // A5
+    "RES 4,(HL)", // A6
+    "RES 4,A", // A7
+    "RES 5,B", // A8
+    "RES 5,C", // A9
+    "RES 5,D", // AA
+    "RES 5,E", // AB
+    "RES 5,H", // AC
+    "RES 5,L", // AD
+    "RES 5,(HL)", // AE
+    "RES 5,A", // AF
+
+    "RES 6,B", // B0
+    "RES 6,C", // B1
+    "RES 6,D", // B2
+    "RES 6,E", // B3
+    "RES 6,H", // B4
+    "RES 6,L", // B5
+    "RES 6,(HL)", // B6
+    "RES 6,A", // B7
+    "RES 7,B", // B8
+    "RES 7,C", // B9
+    "RES 7,D", // BA
+    "RES 7,E", // BB
+    "RES 7,H", // BC
+    "RES 7,L", // BD
+    "RES 7,(HL)", // BE
+    "RES 7,A", // BF
+
+    "SET 0,B", // C0
+    "SET 0,C", // C1
+    "SET 0,D", // C2
+    "SET 0,E", // C3
+    "SET 0,H", // C4
+    "SET 0,L", // C5
+    "SET 0,(HL)", // C6
+    "SET 0,A", // C7
+    "SET 1,B", // C8
+    "SET 1,C", // C9
+    "SET 1,D", // CA
+    "SET 1,E", // CB
+    "SET 1,H", // CC
+    "SET 1,L", // CD
+    "SET 1,(HL)", // CE
+    "SET 1,A", // CF
+
+    "SET 2,B", // 90
+    "SET 2,C", // D1
+    "SET 2,D", // D2
+    "SET 2,E", // D3
+    "SET 2,H", // D4
+    "SET 2,L", // D5
+    "SET 2,(HL)", // D6
+    "SET 2,A", // D7
+    "SET 3,B", // D8
+    "SET 3,C", // D9
+    "SET 3,D", // DA
+    "SET 3,E", // DB
+    "SET 3,H", // DC
+    "SET 3,L", // DD
+    "SET 3,(HL)", // DE
+    "SET 3,A", // DF
+
+    "SET 4,B", // E0
+    "SET 4,C", // E1
+    "SET 4,D", // E2
+    "SET 4,E", // E3
+    "SET 4,H", // E4
+    "SET 4,L", // E5
+    "SET 4,(HL)", // E6
+    "SET 4,A", // E7
+    "SET 5,B", // E8
+    "SET 5,C", // E9
+    "SET 5,D", // EA
+    "SET 5,E", // EB
+    "SET 5,H", // EC
+    "SET 5,L", // ED
+    "SET 5,(HL)", // EE
+    "SET 5,A", // EF
+
+    "SET 6,B", // F0
+    "SET 6,C", // F1
+    "SET 6,D", // F2
+    "SET 6,E", // F3
+    "SET 6,H", // F4
+    "SET 6,L", // F5
+    "SET 6,(HL)", // F6
+    "SET 6,A", // F7
+    "SET 7,B", // F8
+    "SET 7,C", // F9
+    "SET 7,D", // FA
+    "SET 7,E", // FB
+    "SET 7,H", // FC
+    "SET 7,L", // FD
+    "SET 7,(HL)", // FE
+    "SET 7,A" // FF
+};
+
 #define BNc(x, b) ((x >> b) & 1 ? '1' : '0')
 
 void OSD::osdDebug() {
@@ -2859,29 +3147,53 @@ c:
     int n = 0;
     int d = 0;
     bool ED = false;
+    bool CB = false;
+    bool IX = false;
+    bool IY = false;
+    bool r = false;
+    std::string mem;
     for (; i < 18; ++i) {
         uint16_t pci = pc + i - ii;
         uint8_t bi = b[pci & 0x3fff];
         uint8_t b1 = b[(pci+1) & 0x3fff];
-//        uint8_t b2 = b[(pci+2) & 0x3fff];
         VIDEO::vga.setCursor(xi, y + (i + 1) * OSD_FONT_H + 2);
-        if (!ED && nn == 0 && n == 0 && d == 0 || pci == pc) {
-            const char* mem;
+        if (!CB && !ED && nn == 0 && n == 0 && d == 0 || pci == pc) {
             ED = bi == 0xED;
-            if (ED) {
+            CB = bi == 0xCB;
+            IX = bi == 0xDD;
+            IY = bi == 0xFD;
+            r = IX || IY;
+            if (CB) {
+                mem = mnemCB[b1];
+            } else if (ED) {
                 mem = mnemED(b1);
             } else {
                 mem = mnem[bi];
             }
-            if (strstr(mem, "nn") != 0 || strstr(mem, "(nn)") != 0 || strstr(mem, "IX ->") != 0) {
+            if (!r && IX) {
+                if (bi == 0xE9) { // JP (HL)
+                    mem = mem.replace(mem.find("(HL)",0),4,"(IX)");
+                } else {
+                    mem = mem.replace(mem.find("(HL)",0),6,"(IX-1)");
+                }
+            } else if (!r && IY) {
+                if (bi == 0xE9) { // JP (HL)
+                    mem = mem.replace(mem.find("(HL)",0),4,"(IY)");
+                } else {
+                    mem = mem.replace(mem.find("(HL)",0),6,"(IY-1)");
+                }
+            }
+            r = false;
+            const char* memc = mem.c_str();
+            if (strstr(memc, "nn") != 0 || strstr(memc, "(nn)") != 0) {
                 d = 0;
                 n = 0;
                 nn = 2;
-            } else if (strstr(mem, "n") != 0 || strstr(mem, "(n)") != 0 || strstr(mem, "->") != 0) {
+            } else if (strstr(memc, "n") != 0 || strstr(memc, "(n)") != 0) {
                 d = 0;
                 n = 1;
                 nn = 0;
-            } else if (strstr(mem, "d") != 0) {
+            } else if (strstr(memc, "d") != 0) {
                 d = 1;
                 n = 0;
                 nn = 0;
@@ -2890,7 +3202,7 @@ c:
                 n = 0;
                 nn = 0;
             }
-            snprintf(buf, 32, "%c%04X %02X %s", pci == pc ? '*' : ' ', pci, bi, mem);
+            snprintf(buf, 32, "%c%04X %02X %s", pci == pc ? '*' : ' ', pci, bi, memc);
         } else if (d == 1) {
             int8_t bib = bi;
             snprintf(buf, 32, bib >= 0 ? " %04X %02X +%d(d)" : " %04X %02X %d(d)", pci, bi, bib);
@@ -2904,6 +3216,7 @@ c:
         } else {
             snprintf(buf, 32, " %04X %02X", pci, bi);
             if (ED) ED = false;
+            else if (CB) CB = false;
             else --nn;
         }
         VIDEO::vga.print(buf);

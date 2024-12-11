@@ -168,20 +168,6 @@ unsigned short OSD::menuRun(string new_menu) {
 
     menu = new_menu;
 
-    // Position
-    if (menu_level == 0) {
-        x = (Config::aspect_16_9 ? 24 : 8);
-        y = 8;
-    } else {
-        x = (Config::aspect_16_9 ? 24 : 8) + (60 * menu_level);
-        if (menu_saverect) {
-            y += (8 + (8 * menu_prevopt));
-            prev_y[menu_level] = y;
-        } else {
-            y = prev_y[menu_level];
-        }
-    }
-
     // Rows
     real_rows = rowCount(menu);
     virtual_rows = (real_rows > MENU_MAX_ROWS ? MENU_MAX_ROWS : real_rows);
@@ -207,6 +193,21 @@ unsigned short OSD::menuRun(string new_menu) {
     // Size
     w = (cols * OSD_FONT_W) + 2;
     h = (virtual_rows * OSD_FONT_H) + 2;
+
+    // Position
+    if (menu_level == 0) {
+        x = (Config::aspect_16_9 ? 24 : 8);
+        y = 8;
+    } else {
+        x = (Config::aspect_16_9 ? 24 : 8) + (60 * menu_level);
+        if (menu_saverect) {
+            y += (8 + (8 * menu_prevopt));
+            if (y + h >= 240) y = 240 - h;
+            prev_y[menu_level] = y;
+        } else {
+            y = prev_y[menu_level];
+        }
+    }
 
     WindowDraw(); // Draw menu outline
 

@@ -1050,12 +1050,13 @@ void ESPectrum::loop() {
             }
         }
         if (AY_emu && (!t_us || idle > t_us)) {
+            bool ts = Config::turbosound;
             if (faudbufcntAY < samplesPerFrame) {
                 chip0.gen_sound(samplesPerFrame - faudbufcntAY, faudbufcntAY);
-                if (Config::turbosound)
+                if (ts)
                     chip1.gen_sound(samplesPerFrame - faudbufcntAY, faudbufcntAY);
             }
-            if (Config::turbosound) {
+            if (ts) {
                 for (int i = 0; i < samplesPerFrame; ++i) {
                     auto os = overSamplebuf[i] / audioSampleDivider;
                     int l = os + chip0.SamplebufAY_L[i] + chip1.SamplebufAY_L[i];
