@@ -85,6 +85,28 @@ void mem_desc_t::from_vram(uint8_t* p) {
     }
     _int->in_vram = false;
 }
+uint8_t mem_desc_t::_read(uint16_t addr) {
+    uint32_t ba = _int->vram_off;
+    if (psram_size()) {
+        return read8psram(ba + addr);
+    }
+    UINT br;
+    FSIZE_t lba = ba;
+    f_lseek(&f, lba + addr);
+    uint8_t r;
+    f_read(&f, &r, 1, &br);
+    return r;
+}
+void mem_desc_t::_write(uint16_t addr, uint8_t v) {
+    uint32_t ba = _int->vram_off;
+    if (psram_size()) {
+        write8psram(ba + addr, v);
+    }
+    UINT br;
+    FSIZE_t lba = ba;
+    f_lseek(&f, lba + addr);
+    f_write(&f, &v, 1, &br);
+}
 void mem_desc_t::_sync(void) {
     for (auto it = pages.begin(); it != pages.end(); ++it) {
         mem_desc_t& page = *it;
@@ -96,12 +118,84 @@ void mem_desc_t::_sync(void) {
         }
     }
 }
+/// TODO: packet mode
+void mem_desc_t::from_file(FIL* f_in, size_t sz) {
+    UINT br;
+    if (!_int->in_vram) {
+        f_read(f_in, direct(), sz, &br);
+        return;
+    }
+    uint8_t v;
+    uint32_t ba = _int->vram_off;
+    if (psram_size()) {
+        for (size_t addr = 0; addr < sz; ++addr) {
+            f_read(f_in, &v, 1, &br);
+            write8psram(ba + addr, v);
+        }
+        return;
+    }
+    FSIZE_t lba = ba;
+    f_lseek(&f, lba);
+    for (size_t addr = 0; addr < sz; ++addr) {
+        f_read(f_in, &v, 1, &br);
+        f_write(&f, &v, 1, &br);
+    }
+}
+void mem_desc_t::to_file(FIL* f_out, size_t sz) {
+    UINT br;
+    if (!_int->in_vram) {
+        f_write(f_out, direct(), sz, &br);
+        return;
+    }
+    uint8_t v;
+    uint32_t ba = _int->vram_off;
+    if (psram_size()) {
+        for (size_t addr = 0; addr < sz; ++addr) {
+            v = read8psram(ba + addr);
+            f_write(f_out, &v, 1, &br);
+        }
+        return;
+    }
+    FSIZE_t lba = ba;
+    f_lseek(&f, lba);
+    for (size_t addr = 0; addr < sz; ++addr) {
+        f_read(&f, &v, 1, &br);
+        f_write(f_out, &v, 1, &br);
+    }
+}
+void mem_desc_t::from_mem(mem_desc_t& ram, size_t sz) {
+    if (!_int->in_vram) {
+        if (!ram._int->in_vram) {
+            memcpy(direct(), ram.direct(), sz);
+        } else {
+            for (size_t addr = 0; addr < sz; ++addr) {
+                direct()[addr] = ram._read(addr);
+            }
+        }
+    } else {
+        if (!ram._int->in_vram) {
+            for (size_t addr = 0; addr < sz; ++addr) {
+                _write(addr, ram.direct()[addr]);
+            }
+        } else {
+            for (size_t addr = 0; addr < sz; ++addr) {
+                this->write(addr, ram._read(addr));
+            }
+        }
+    }
+
+}
+void mem_desc_t::cleanup() {
+    for (size_t addr = 0; addr < 0x4000; ++addr) {
+        write(addr, 0);
+    }
+}
 
 mem_desc_t MemESP::rom[64];
 mem_desc_t MemESP::ram[64];
 bool MemESP::newAlfSRAM = false;
 
-mem_desc_t MemESP::ramCurrent[4];
+uint8_t* MemESP::ramCurrent[4];
 bool MemESP::ramContended[4];
 
 uint8_t MemESP::notMore128 = 0;

@@ -211,7 +211,7 @@ IRAM_ATTR void CPU::FlushOnHalt() {
 IRAM_ATTR uint8_t Z80Ops::peek8(uint16_t address) {
     uint8_t page = address >> 14;
     VIDEO::Draw(3, MemESP::ramContended[page]);
-    return MemESP::ramCurrent[page].sync()[address & 0x3fff];
+    return MemESP::ramCurrent[page][address & 0x3fff];
 }
 
 // // Write byte to RAM
@@ -283,13 +283,13 @@ IRAM_ATTR uint8_t Z80Ops::peek8(uint16_t address) {
 // Write byte to RAM
 IRAM_ATTR void Z80Ops::poke8(uint16_t address, uint8_t value) {
     uint8_t page = address >> 14;
-    mem_desc_t& p = MemESP::ramCurrent[page];
-    if ( p.is_rom() || (page == 0 && !MemESP::page0ram) ) {
+    uint8_t* p = MemESP::ramCurrent[page];
+    if ( p < (uint8_t*)0x20000000 || (page == 0 && !MemESP::page0ram) ) {
         VIDEO::Draw(3, false);
         return;
     }
     VIDEO::Draw(3, MemESP::ramContended[page]);
-    p.sync()[address & 0x3fff] = value;
+    p[address & 0x3fff] = value;
 }
 
 // Read word from RAM
@@ -304,7 +304,7 @@ IRAM_ATTR uint16_t Z80Ops::peek16(uint16_t address) {
             VIDEO::Draw(3, true);            
         } else
             VIDEO::Draw(6, false);
-        uint8_t* sp = MemESP::ramCurrent[page].sync();
+        uint8_t* sp = MemESP::ramCurrent[page];
         return ((sp[(address & 0x3fff) + 1] << 8) | sp[address & 0x3fff]);
 
     } else {
@@ -324,8 +324,8 @@ IRAM_ATTR void Z80Ops::poke16(uint16_t address, RegisterPair word) {
     uint16_t page_addr = address & 0x3fff;
 
     if (page_addr < 0x3fff) {    // Check if address is between two different pages    
-        mem_desc_t& p = MemESP::ramCurrent[page];
-        if ( p.is_rom() || (page == 0 && !MemESP::page0ram) ) {
+        uint8_t* p = MemESP::ramCurrent[page];
+        if ( p < (uint8_t*)0x20000000 || (page == 0 && !MemESP::page0ram) ) {
             VIDEO::Draw(6, false);
             return;
         }
@@ -336,9 +336,8 @@ IRAM_ATTR void Z80Ops::poke16(uint16_t address, RegisterPair word) {
         } else
             VIDEO::Draw(6, false);
 
-        uint8_t* sp = p.sync();
-        sp[page_addr] = word.byte8.lo;
-        sp[page_addr + 1] = word.byte8.hi;
+        p[page_addr] = word.byte8.lo;
+        p[page_addr + 1] = word.byte8.hi;
 
     } else {
         // Order matters, first write lsb, then write msb, don't "optimize"

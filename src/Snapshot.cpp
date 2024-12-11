@@ -173,8 +173,8 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
 
     // read 48K memory
     readBlockFile(file, MemESP::ram[5].direct(), 0x4000);
-    readBlockFile(file, MemESP::ram[2].sync(), 0x4000);
-    readBlockFile(file, MemESP::ram[0].sync(), 0x4000);
+    MemESP::ram[2].from_file(file, 0x4000);
+    MemESP::ram[0].from_file(file, 0x4000);
 
     if (Z80Ops::is48) {
         // in 48K mode, pop PC from stack
@@ -191,14 +191,14 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
         uint8_t tmp_latch = tmp_port & 0x07;
 
         // copy what was read into page 0 to correct page
-        memcpy(MemESP::ram[tmp_latch].sync(), MemESP::ram[0].sync(), 0x4000);
+        MemESP::ram[tmp_latch].from_mem(MemESP::ram[0], 0x4000);
 
         uint8_t tr_dos = readByteFile(file);     // Check if TR-DOS is paged
         
         // read remaining pages
         for (int page = 0; page < (Z80Ops::is1024 ? 64 : (Z80Ops::is512 ? 32 : 8)); page++) {
             if (page != tmp_latch && page != 2 && page != 5) {
-                readBlockFile(file, MemESP::ram[page].sync(), 0x4000);
+                MemESP::ram[page].from_file(file, 0x4000);
             }
         }
         /// TODO: new flags
@@ -217,8 +217,8 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
             ESPectrum::trdos = false;
         }
 
-        MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
-        MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
+        MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct();
+        MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync();
         MemESP::ramContended[3] = Z80Ops::isPentagon ? false : (MemESP::bankLatch & 0x01 ? true: false);
 
         VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct() : MemESP::ram[5].direct();
@@ -253,10 +253,7 @@ size_t fread(uint8_t* v, size_t sz1, size_t sz2, FIL& f) {
 static bool writeMemPage(uint8_t page, FIL* file, bool blockMode)
 {
     page = page & 0x07;
-    uint8_t* buffer = MemESP::ram[page].sync();
-    for (int offset = 0; offset < MEM_PG_SZ; offset+=0x4000) {
-        fwrite(&buffer[offset], 0x4000, 1, file);
-    }
+    MemESP::ram[page].to_file(file, 0x4000);
     return true;
 }
 
@@ -758,8 +755,8 @@ bool FileZ80::load(string z80_fn) {
                 dataOffset += compDataLen;
             }
 
-            MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
-            MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
+            MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct();
+            MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync();
             MemESP::ramContended[3] = Z80Ops::isPentagon ? false : (MemESP::bankLatch & 0x01 ? true: false);
 
             VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct() : MemESP::ram[5].direct();
@@ -952,10 +949,10 @@ void FileZ80::loader48() {
 
     }
 
-    memset(MemESP::ram[2].sync(), 0, 0x4000);
+    MemESP::ram[2].cleanup();
 
-    MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
-    MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
+    MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct();
+    MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync();
     MemESP::ramContended[3] = false;
 
     VIDEO::grmem = MemESP::ram[5].direct();
@@ -1097,16 +1094,16 @@ void FileZ80::loader128() {
 
     // ZX81+ loader has block 3 void and has info on block5
     if (Config::romSet128 == "ZX81+")
-        memset(MemESP::ram[0].sync(), 0, 0x4000);
+        MemESP::ram[0].cleanup();
     else
-        memset(MemESP::ram[2].sync(), 0, 0x4000);
+        MemESP::ram[2].cleanup();
 
-    memset(MemESP::ram[3].sync(), 0, 0x4000);
-    memset(MemESP::ram[4].sync(), 0, 0x4000);
-    memset(MemESP::ram[6].sync(), 0, 0x4000);
+    MemESP::ram[3].cleanup();
+    MemESP::ram[4].cleanup();
+    MemESP::ram[6].cleanup();
     
-    MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
-    MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
+    MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct();
+    MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync();
     MemESP::ramContended[3] = Z80Ops::isPentagon ? false : (MemESP::bankLatch & 0x01 ? true: false);
 
     VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct() : MemESP::ram[5].direct();
@@ -1139,7 +1136,7 @@ bool FileP::load(string p_fn) {
 
     uint16_t address = 16393;
     uint8_t page = address >> 14;
-    fread(&MemESP::ramCurrent[page].sync()[address & 0x3fff], p_size, 1, *file);
+    fread(&MemESP::ramCurrent[page][address & 0x3fff], p_size, 1, *file);
 
     fclose2(file);
 

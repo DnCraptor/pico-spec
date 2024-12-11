@@ -556,10 +556,10 @@ void ESPectrum::setup()
     MemESP::videoLatch = 0;
     MemESP::romLatch = 0;
 
-    MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
-    MemESP::ramCurrent[1] = MemESP::ram[5];
-    MemESP::ramCurrent[2] = MemESP::ram[2];
-    MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
+    MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct();
+    MemESP::ramCurrent[1] = MemESP::ram[5].sync();
+    MemESP::ramCurrent[2] = MemESP::ram[2].sync();
+    MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync();
     MemESP::newAlfSRAM = false;
 
     MemESP::ramContended[0] = false;
@@ -680,10 +680,10 @@ void ESPectrum::reset()
     MemESP::videoLatch = 0;
     MemESP::romLatch = 0;
 
-    MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
-    MemESP::ramCurrent[1] = MemESP::ram[5];
-    MemESP::ramCurrent[2] = MemESP::ram[2];
-    MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
+    MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct();
+    MemESP::ramCurrent[1] = MemESP::ram[5].sync();
+    MemESP::ramCurrent[2] = MemESP::ram[2].sync();
+    MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync();
     MemESP::newAlfSRAM = false;
 
     MemESP::ramContended[0] = false;

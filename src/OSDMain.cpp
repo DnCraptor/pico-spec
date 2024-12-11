@@ -3140,7 +3140,7 @@ c:
     VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));        
     uint16_t pc = Z80::getRegPC();
     uint8_t pg = pc >> 14;
-    uint8_t* b = MemESP::ramCurrent[pg].sync();
+    uint8_t* b = MemESP::ramCurrent[pg];
     int i = 0;
     int xi = x + 1;
     int nn = 0;
@@ -3226,7 +3226,7 @@ c:
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
     if (MemESP::newAlfSRAM)
         snprintf(buf, 32, "PAGE0 -> SRAM#%d", MemESP::romLatch);
-    else if (MemESP::ramCurrent[0].is_rom())
+    else if (MemESP::ramCurrent[0] < (uint8_t*)0x20000000)
         snprintf(buf, 32, "PAGE0 -> ROM#%d", MemESP::romInUse);
     else
         snprintf(buf, 32, "PAGE0 -> RAM#%d", MemESP::page0ram);
@@ -5003,12 +5003,12 @@ void OSD::pokeDialog() {
                     if (dlgValues[0]=="   -   ") {
                         // Poke address between 16384 and 65535                        
                         uint8_t page = address >> 14;
-                        MemESP::ramCurrent[page].sync()[address & 0x3fff] = value;
+                        MemESP::ramCurrent[page][address & 0x3fff] = value;
                     } else {
                         // Poke address in bank
                         string bank = dlgValues[0];
                         trim(bank);
-                        MemESP::ram[stoi(bank)].sync()[address] = value;
+                        MemESP::ram[stoi(bank)].write(address, value);
                     }
                     click();
                     break;
