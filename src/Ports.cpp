@@ -145,7 +145,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
 ///OSD::osdDebug();
             }
             else { // 1F
-                MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse].sync();
+                MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse].direct();
                 MemESP::newAlfSRAM = false;
             }
         }

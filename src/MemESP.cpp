@@ -168,26 +168,32 @@ void mem_desc_t::from_mem(mem_desc_t& ram, size_t sz) {
         if (!ram._int->in_vram) {
             memcpy(direct(), ram.direct(), sz);
         } else {
+            uint8_t* p = direct();
             for (size_t addr = 0; addr < sz; ++addr) {
-                direct()[addr] = ram._read(addr);
+                p[addr] = ram._read(addr);
             }
         }
     } else {
         if (!ram._int->in_vram) {
+            uint8_t* p = ram.direct();
             for (size_t addr = 0; addr < sz; ++addr) {
-                _write(addr, ram.direct()[addr]);
+                _write(addr, p[addr]);
             }
         } else {
             for (size_t addr = 0; addr < sz; ++addr) {
-                this->write(addr, ram._read(addr));
+                _write(addr, ram._read(addr));
             }
         }
     }
 
 }
 void mem_desc_t::cleanup() {
-    for (size_t addr = 0; addr < 0x4000; ++addr) {
-        write(addr, 0);
+    if (_int->in_vram) {
+        for (size_t addr = 0; addr < 0x4000; ++addr) {
+            _write(addr, 0);
+        }
+    } else {
+        memset(direct(), 0, 0x4000);
     }
 }
 

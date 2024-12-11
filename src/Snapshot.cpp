@@ -172,7 +172,7 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
     VIDEO::brd = VIDEO::border32[VIDEO::borderColor];
 
     // read 48K memory
-    readBlockFile(file, MemESP::ram[5].direct(), 0x4000);
+    MemESP::ram[5].from_file(file, 0x4000);
     MemESP::ram[2].from_file(file, 0x4000);
     MemESP::ram[0].from_file(file, 0x4000);
 
@@ -1090,8 +1090,7 @@ void FileZ80::loader128() {
     }
 
     // Empty void ram pages
-    memset(MemESP::ram[1].direct(), 0, 0x4000);
-
+    MemESP::ram[1].cleanup();
     // ZX81+ loader has block 3 void and has info on block5
     if (Config::romSet128 == "ZX81+")
         MemESP::ram[0].cleanup();

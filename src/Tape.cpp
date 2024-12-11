@@ -165,7 +165,8 @@ int Tape::inflateCSW(int blocknumber, long startPos, long data_length) {
     uint32_t *speccyram = (uint32_t *)MemESP::ram[1].direct();
 
     VIDEO::SaveRect.store_ram(speccyram, 0x8000);
-    memset(MemESP::ram[1].direct(), 0, 0x8000);
+    MemESP::ram[1].cleanup();
+    MemESP::ram[3].cleanup();
     
     if (inflateInit(&stream, MemESP::ram[1].direct())) {
         printf("inflateInit() failed!\n");

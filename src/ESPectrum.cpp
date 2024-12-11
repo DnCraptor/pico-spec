@@ -514,7 +514,7 @@ void ESPectrum::setup()
     // MEMORY SETUP
     //=======================================================================================
     MemESP::ram[0].assign_ram(new unsigned char[0x4000], 0, false);
-    MemESP::ram[2].assign_ram(new unsigned char[0x4000], 2, false);
+    MemESP::ram[2].assign_ram(new unsigned char[0x4000], 2, true);
     unsigned char *MemESP_ram1 = new unsigned char[0x8000];
     MemESP::ram[1].assign_ram(MemESP_ram1, 1, true);
     MemESP::ram[3].assign_ram(MemESP_ram1 + 0x4000, 3, true); /// why?
@@ -557,8 +557,8 @@ void ESPectrum::setup()
     MemESP::romLatch = 0;
 
     MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct();
-    MemESP::ramCurrent[1] = MemESP::ram[5].sync();
-    MemESP::ramCurrent[2] = MemESP::ram[2].sync();
+    MemESP::ramCurrent[1] = MemESP::ram[5].direct();
+    MemESP::ramCurrent[2] = MemESP::ram[2].direct();
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync();
     MemESP::newAlfSRAM = false;
 
@@ -681,8 +681,8 @@ void ESPectrum::reset()
     MemESP::romLatch = 0;
 
     MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct();
-    MemESP::ramCurrent[1] = MemESP::ram[5].sync();
-    MemESP::ramCurrent[2] = MemESP::ram[2].sync();
+    MemESP::ramCurrent[1] = MemESP::ram[5].direct();
+    MemESP::ramCurrent[2] = MemESP::ram[2].direct();
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync();
     MemESP::newAlfSRAM = false;
 
