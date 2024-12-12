@@ -2441,12 +2441,12 @@ const static char* mnem[256] {
     "RLA", // 17
     "JR d", // 18
     "ADD HL,DE", // 19
-    "LD HL,(nn)", // 1A
-    "DEC HL", // 1B
-    "INC L", // 1C
-    "DEC L", // 1D
-    "LD L,n", // 1E
-    "CPL", // 1F
+    "LD A,(DE)", // 1A
+    "DEC DE", // 1B
+    "INC E", // 1C
+    "DEC E", // 1D
+    "LD E,n", // 1E
+    "RRA", // 1F
 
     "JR NZ d", // 20
     "LD HL,nn", // 21
@@ -5027,9 +5027,10 @@ const dlgObject dlg_Objects2[3] = {
 };
 
 void OSD::jumpDialog() {
-
+    char tmp[8];
+    snprintf(tmp, 8, "%04X", Z80::getRegPC());
     string dlgValues[3]={
-        "8000", // Address
+        tmp, // Address
         "",
         ""
     };
