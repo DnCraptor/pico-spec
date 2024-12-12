@@ -145,7 +145,10 @@ IRAM_ATTR void CPU::loop() {
         Z80::doNMI();
     }
     while (tstates < IntEnd) {
-        if (bp != 0xFFFF && bp == Z80::getRegPC()) goto r;
+        if (bp != 0xFFFF && bp == Z80::getRegPC()) {
+            VIDEO::EndFrame();
+            return;
+        }
         Z80::execute();
     }
     if (!Z80::isHalted()) {
@@ -156,10 +159,12 @@ IRAM_ATTR void CPU::loop() {
         FlushOnHalt();
     }
     while (tstates < statesInFrame) {
-        if (bp != 0xFFFF && bp == Z80::getRegPC()) goto r;
+        if (bp != 0xFFFF && bp == Z80::getRegPC()) {
+            VIDEO::EndFrame();
+            return;
+        }
         Z80::execute();
     }
-r:
     VIDEO::EndFrame();
     global_tstates += statesInFrame; // increase global Tstates
     tstates -= statesInFrame;

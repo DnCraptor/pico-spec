@@ -795,6 +795,15 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
     bool j[10] = { true, true, true, true, true, true, true, true, true, true };
     bool jShift = true;
 
+    uint16_t bp = Config::breakPoint;
+    if (bp != 0xFFFF && bp == Z80::getRegPC()) {
+        int64_t osd_start = esp_timer_get_time();
+        OSD::osdDebug();
+        VIDEO::brdnextframe = true;
+        ESPectrum::ts_start += esp_timer_get_time() - osd_start;
+        return;
+    }
+
     while (Kbd->virtualKeyAvailable()) {
         r = readKbd(&NextKey);
         if (r) {
@@ -1016,10 +1025,6 @@ void ESPectrum::loop() {
     audbufcntAY = 0;
 
     CPU::loop();
-    uint16_t bp = Config::breakPoint;
-    if (bp != 0xFFFF && bp == Z80::getRegPC()) {
-        OSD::osdDebug();
-    }
 
     // Process audio buffer
     faudbufcnt = audbufcnt;

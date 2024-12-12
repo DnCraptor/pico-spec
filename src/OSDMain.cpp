@@ -323,20 +323,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
     fabgl::VirtualKeyItem Nextkey;
 
     if (CTRL) {
-
-        // if (KeytoESP == fabgl::VK_F11) { // Toggle snow effect
-
-        //     VIDEO::snow_toggle ^= 0X01;  
-
-        //     if (VIDEO::snow_toggle) {
-        //         VIDEO::Draw = &VIDEO::MainScreen_Blank_Snow;
-        //         VIDEO::Draw_Opcode = &VIDEO::MainScreen_Blank_Snow_Opcode;
-        //     } else {
-        //         VIDEO::Draw = &VIDEO::MainScreen_Blank;
-        //         VIDEO::Draw_Opcode = &VIDEO::MainScreen_Blank_Opcode;
-        //     }
-
-        // } else
         if (KeytoESP == fabgl::VK_F1) { // Show mem info
             OSD::HWInfo();
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
