@@ -74,7 +74,7 @@ static const char *OSD_PAUSE[2] = { OSD_PAUSE_EN,OSD_PAUSE_ES };
 #define OSD_PSNA_LOADED  "Persist Snapshot Loaded"
 #define OSD_PSNA_LOAD_ERR "ERROR Loading Persist Snapshot"
 #define OSD_PSNA_SAVED  "Persist Snapshot Saved"
-#define OSD_TAPE_FLASHLOAD "Flash loading tape file"
+#define OSD_TAPE_FLASHLOAD "Fast loading tape file"
 #define OSD_TAPE_LOAD_ERR "ERROR Loading tape file"
 #define OSD_TAPE_SAVE_ERR "ERROR Saving tape file"
 #define OSD_BETADISK_LOAD_ERR "ERROR Loading Disk file"
@@ -460,7 +460,7 @@ static const char *MENU_PERSIST_SAVE[2] = { MENU_PERSIST_SAVE_EN, MENU_PERSIST_S
 static const char *MENU_PERSIST_LOAD[2] = { MENU_PERSIST_LOAD_EN, MENU_PERSIST_LOAD_ES };
 
 #define MENU_STORAGE_EN "Storage\n"\
-    "Flash tape load\t>\n"\
+    "Fast tape load\t>\n"\
     "R.G. ROM timings\t>\n"	
 #define MENU_STORAGE_ES "Almacenamiento\n"\
     "Carga rapida cinta\t>\n"\
@@ -473,7 +473,7 @@ static const char *MENU_STORAGE[2] = { MENU_STORAGE_EN, MENU_STORAGE_ES };
     "No\t[N]\n"
 static const char *MENU_YESNO[2] = { MENU_YESNO_EN, MENU_YESNO_ES};
 
-static const char *MENU_FLASHLOAD[2] = { "Flash load\n" , "Carga rapida\n"};
+static const char *MENU_FLASHLOAD[2] = { "Fast load\n" , "Carga rapida\n"};
 
 static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
 
@@ -1004,11 +1004,12 @@ static const char *AboutMsg[2][9] = {
     " [F12]        Reset RP2350\n"\
     " [CTRL+F1]    Hardware info\n"\
     " [CTRL+F2]    Turbo mode\n"\
+    " [CTRL+F4]    Insert disk\n"\
     " [CTRL+F5]    Debug\n"\
     " [CTRL+F9]    Input poke\n"\
     " [CTRL+F10]   NMI\n"\
     " [Pause]      Pause\n"\
-    " [PrtScr]     BMP capture (folder /.c)\n"
+    " [PrtScr]     BMP capture (/spec/.c)\n"
 
 #define OSD_HELP_ES \
     " [F1]         Menu principal\n"\
@@ -1023,11 +1024,12 @@ static const char *AboutMsg[2][9] = {
     " [F12]        Resetear RP2350\n"\
     " [CTRL+F1]    Info hardware\n"\
     " [CTRL+F2]    Modo turbo\n"\
-    " [CTRL+F5]    Debug\n"\
+    " [CTRL+F4]    Insertar disco\n"\
+    " [CTRL+F5]    Depurar\n"\
     " [CTRL+F9]    Introducir poke\n"\
     " [CTRL+F10]   NMI\n"\
     " [Pause]      Pausa\n"\
-    " [ImpPant]    Captura BMP (Carpeta /.c)\n"
+    " [ImpPant]    Captura BMP (/spec/.c)\n"
 #else
 #define OSD_HELP_EN \
     " [F1]         Main menu\n"\
@@ -1042,11 +1044,12 @@ static const char *AboutMsg[2][9] = {
     " [F12]        Reset RP2040\n"\
     " [CTRL+F1]    Hardware info\n"\
     " [CTRL+F2]    Turbo mode\n"\
+    " [CTRL+F4]    Insert disk\n"\
     " [CTRL+F5]    Debug\n"\
     " [CTRL+F9]    Input poke\n"\
     " [CTRL+F10]   NMI\n"\
     " [Pause]      Pause\n"\
-    " [PrtScr]     BMP capture (folder /.c)\n"
+    " [PrtScr]     BMP capture (/spec/.c)\n"
 
 #define OSD_HELP_ES \
     " [F1]         Menu principal\n"\
@@ -1061,11 +1064,12 @@ static const char *AboutMsg[2][9] = {
     " [F12]        Resetear RP2040\n"\
     " [CTRL+F1]    Info hardware\n"\
     " [CTRL+F2]    Modo turbo\n"\
-    " [CTRL+F5]    Debug\n"\
+    " [CTRL+F4]    Insertar disco\n"\
+    " [CTRL+F5]    Depurar\n"\
     " [CTRL+F9]    Introducir poke\n"\
     " [CTRL+F10]   NMI\n"\
     " [Pause]      Pausa\n"\
-    " [ImpPant]    Captura BMP (Carpeta /.c)\n"
+    " [ImpPant]    Captura BMP (/spec/.c)\n"
 #endif
 
 static const char *StartMsg[2] = {

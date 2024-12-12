@@ -267,7 +267,9 @@ void Tape::LoadTape(string mFile) {
         string keySel = mFile.substr(0,1);
         mFile.erase(0, 1);
         // Flashload .tap if needed
-        if ((keySel ==  "R") && (Config::flashload) && (Config::romSet != "ZX81+") && (Config::romSet != "48Kcs") && (Config::romSet != "128Kcs")) {
+        if ((keySel ==  "R") && (Config::flashload) && (Config::arch != "ALF") &&
+             (Config::romSet != "ZX81+") && (Config::romSet != "48Kcs") && (Config::romSet != "128Kcs")
+        ) {
                 OSD::osdCenteredMsg(OSD_TAPE_FLASHLOAD, LEVEL_INFO, 0);
                 uint8_t OSDprev = VIDEO::OSD;
                 if (Z80Ops::is48)
@@ -1576,6 +1578,9 @@ void Tape::Save() {
 }
 
 bool Tape::FlashLoad() {
+    if (Z80Ops::isALF) { // unsupported now
+        return false;
+    }
     if (!tape.obj.fs) {
         string fname = FileUtils::TAP_Path + tapeFileName;        
         if (f_open(&tape, fname.c_str(), FA_READ) != FR_OK) {

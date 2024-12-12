@@ -349,58 +349,23 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
         } else 
         if (KeytoESP == fabgl::VK_F10) { // NMI
             Z80::triggerNMI();
-        } ///else 
-        // if (KeytoESP == fabgl::VK_F3) { 
-        //     // Test variable decrease
-        //     ESPectrum::ESPtestvar -= 1;
-        //     printf("ESPtestvar: %d\n",ESPectrum::ESPtestvar);
-        // } else 
-        // if (KeytoESP == fabgl::VK_F4) {
-        //     // Test variable increase
-        //     ESPectrum::ESPtestvar += 1;
-        //     printf("ESPtestvar: %d\n",ESPectrum::ESPtestvar);
-        // } else 
-        // if (KeytoESP == fabgl::VK_F5) {
-        //     // Test variable decrease
-        //     ESPectrum::ESPtestvar1 -= 1;
-        //     printf("ESPtestvar1: %d\n",ESPectrum::ESPtestvar1);
-        // } else 
-        // if (KeytoESP == fabgl::VK_F6) {
-        //     // Test variable increase
-        //     ESPectrum::ESPtestvar1 += 1;
-        //     printf("ESPtestvar1: %d\n",ESPectrum::ESPtestvar1);
-        // } else 
-        // if (KeytoESP == fabgl::VK_F7) {
-        //     // Test variable decrease
-        //     ESPectrum::ESPtestvar2 -= 1;
-        //     printf("ESPtestvar2: %d\n",ESPectrum::ESPtestvar2);
-        // } else 
-        // if (KeytoESP == fabgl::VK_F8) {
-        //     // Test variable increase
-        //     ESPectrum::ESPtestvar2 += 1;
-        //     printf("ESPtestvar2: %d\n",ESPectrum::ESPtestvar2);
-        // }
-        if (KeytoESP == fabgl::VK_F5) {
+        }
+        else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F4) {
+            menu_level = 0; 
+            menu_saverect = false;  
+            string mFile = fileDialog(FileUtils::DSK_Path, MENU_DSK_TITLE[Config::lang], DISK_DSKFILE, 51, 22);
+            if (mFile != "") {
+                Config::save();
+                mFile.erase(0, 1);
+                string fname = FileUtils::DSK_Path + "/" + mFile;
+                ESPectrum::Betadisk.EjectDisk(0);
+                ESPectrum::Betadisk.InsertDisk(0, fname);
+            }
+            if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
+        }
+        else if (KeytoESP == fabgl::VK_F5) {
             osdDebug();
         }
-        /***
-         else 
-        if (KeytoESP == fabgl::VK_F6) {
-            if (Config::CenterH < 16) Config::CenterH++;
-            Config::save();
-            osdCenteredMsg("Horiz. center: " + to_string(Config::CenterH), LEVEL_INFO, 375);
-        } else 
-        if (KeytoESP == fabgl::VK_F7) {
-            if (Config::CenterV > -16) Config::CenterV--;
-            Config::save();
-            osdCenteredMsg("Vert. center: " + to_string(Config::CenterV), LEVEL_INFO, 375);
-        } else 
-        if (KeytoESP == fabgl::VK_F8) {
-            if (Config::CenterV < 16) Config::CenterV++;
-            Config::save();
-            osdCenteredMsg("Vert. center: " + to_string(Config::CenterV), LEVEL_INFO, 375);
-        }
-        */
     } else {
         if (KeytoESP == fabgl::VK_PAUSE) {
             click();
