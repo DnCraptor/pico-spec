@@ -2689,16 +2689,16 @@ const static char* mnem[256] {
 
 const char* mnemED(uint8_t b) {
     switch(b) {
-        case 0x40: return "IN B,(BC)";
-        case 0x41: return "OUT (BC),B";
+        case 0x40: return "IN B,(C)";
+        case 0x41: return "OUT (C),B";
         case 0x42: return "SBC HL,BC";
         case 0x43: return "LD (nn),BC";
         case 0x44: return "NEG";
         case 0x45: return "RETN";
         case 0x46: return "IM 0";
         case 0x47: return "LD I,A";
-        case 0x48: return "IN C,(BC)";
-        case 0x49: return "OUT (BC),C";
+        case 0x48: return "IN C,(C)";
+        case 0x49: return "OUT (C),C";
         case 0x4A: return "ADC HL,BC";
         case 0x4B: return "LD BC,(nn)";
         case 0x4C: return "NEG";
@@ -2706,16 +2706,16 @@ const char* mnemED(uint8_t b) {
         case 0x4E: return "IM 0/1";
         case 0x4F: return "LD R,A";
 
-        case 0x50: return "IN D,(BC)";
-        case 0x51: return "OUT (BC),D";
+        case 0x50: return "IN D,(C)";
+        case 0x51: return "OUT (C),D";
         case 0x52: return "SBC HL,DE";
         case 0x53: return "LD (nn),DE";
         case 0x54: return "NEG";
         case 0x55: return "RETN";
         case 0x56: return "IM 1";
         case 0x57: return "LD A,I";
-        case 0x58: return "IN E,(BC)";
-        case 0x59: return "OUT (BC),E";
+        case 0x58: return "IN E,(C)";
+        case 0x59: return "OUT (C),E";
         case 0x5A: return "ADC HL,DE";
         case 0x5B: return "LD DE,(nn)";
         case 0x5C: return "NEG";
@@ -2723,16 +2723,16 @@ const char* mnemED(uint8_t b) {
         case 0x5E: return "IM 2";
         case 0x5F: return "LD A,R";
 
-        case 0x60: return "IN H,(BC)";
-        case 0x61: return "OUT (BC),H";
+        case 0x60: return "IN H,(C)";
+        case 0x61: return "OUT (C),H";
         case 0x62: return "SBC HL,HL";
         case 0x63: return "LD (nn),HL";
         case 0x64: return "NEG";
         case 0x65: return "RETN";
         case 0x66: return "IM 0";
         case 0x67: return "RRD";
-        case 0x68: return "IN L,(BC)";
-        case 0x69: return "OUT (BC),L";
+        case 0x68: return "IN L,(C)";
+        case 0x69: return "OUT (C),L";
         case 0x6A: return "ADC HL,HL";
         case 0x6B: return "LD HL,(nn)";
         case 0x6C: return "NEG";
@@ -2740,16 +2740,16 @@ const char* mnemED(uint8_t b) {
         case 0x6E: return "IM 0/1";
         case 0x6F: return "RLD";
 
-        case 0x70: return "IN F,(BC)";
-        case 0x71: return "OUT (BC),0";
+        case 0x70: return "IN F,(C)";
+        case 0x71: return "OUT (C),0";
         case 0x72: return "SBC HL,SP";
         case 0x73: return "LD (nn),SP";
         case 0x74: return "NEG";
         case 0x75: return "RETN";
         case 0x76: return "IM 1";
 
-        case 0x78: return "IN A,(BC)";
-        case 0x79: return "OUT (BC),A";
+        case 0x78: return "IN A,(C)";
+        case 0x79: return "OUT (C),A";
         case 0x7A: return "ADC HL,SP";
         case 0x7B: return "LD SP,(nn)";
         case 0x7C: return "NEG";
