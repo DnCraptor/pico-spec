@@ -130,6 +130,7 @@ public:
     string inputBox(int x, int y, string text);
     static void joyDialog(void);
     static void pokeDialog();
+    static void jumpDialog();
 
     // Rows
     static unsigned short rowCount(string menu);
