@@ -331,7 +331,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
             ESPectrum::ESP_delay = !ESPectrum::ESP_delay;
         } else 
         if (KeytoESP == fabgl::VK_F7) {
-            uint16_t address = addressDialog(Config::breakPoint, Config::lang ? "Punto de interrup." : "Breakpoint");
+            uint16_t address = addressDialog(Config::breakPoint, Config::lang ? "Punto de interr." : "Breakpoint");
             if (Config::breakPoint != address) {
                 Config::breakPoint = address;
                 Config::save();
@@ -3092,7 +3092,7 @@ c:
     // Title
     VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(0, 0));        
     VIDEO::vga.setCursor(x + OSD_FONT_W + 1, y + 1);
-    VIDEO::vga.print("Debug");
+    VIDEO::vga.print(Config::lang ? "Depurar" : "Debug");
 
     // Rainbow
     unsigned short rb_y = y + 8;
@@ -3292,7 +3292,7 @@ c:
                 break;
             } else
             if (Nextkey.vk == fabgl::VK_F7) {
-                uint16_t address = addressDialog(Config::breakPoint, Config::lang ? "Punto de interrup." : "Breakpoint");
+                uint16_t address = addressDialog(Config::breakPoint, Config::lang ? "Punto de interr." : "Breakpoint");
                 if (Config::breakPoint != address) {
                     Config::breakPoint = address;
                     Config::save();
@@ -3304,6 +3304,10 @@ c:
                 if (Z80::getRegPC() != address) {
                     Z80::setRegPC(address);
                 }
+                goto c;
+            } else
+            if (Nextkey.vk == fabgl::VK_F9) {
+                pokeDialog();
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_PLUS) {
@@ -4700,11 +4704,17 @@ const dlgObject dlg_Objects[5] = {
 const string BankCombo[9] = { "   -   ", "   0   ", "   1   ", "   2   ", "   3   ", "   4   ", "   5   ", "   6   ", "   7   " };
 
 void OSD::pokeDialog() {
+    char tmp1[8];
+    uint16_t address = Z80::getRegPC();
+    snprintf(tmp1, 8, "%04X", address);
+    char* tmp2 = tmp1 + 5;
+    uint8_t page = address >> 14;
+    snprintf(tmp2, 8, "%02X", MemESP::ramCurrent[page][address & 0x3fff]);
 
-    string dlgValues[5]={
+    string dlgValues[5] = {
         "   -   ", // Bank
-        "16384", // Address
-        "0", // Value
+        tmp1, // Address
+        tmp2, // Value
         "",
         ""
     };
@@ -4722,7 +4732,7 @@ void OSD::pokeDialog() {
     const unsigned short w = (OSD_FONT_W * 20) + 2;
     const unsigned short x = scrAlignCenterX(w) - 3;
 
-    click();                        
+    click();
 
     // Set font
     VIDEO::vga.setFont(Font6x8);
@@ -4734,7 +4744,7 @@ void OSD::pokeDialog() {
     VIDEO::vga.fillRect(x + 1, y + 1 + OSD_FONT_H, w - 2, h - OSD_FONT_H - 2, zxColor(7,1));
 
     // Title
-    VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(0, 0));        
+    VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(0, 0));
     VIDEO::vga.setCursor(x + OSD_FONT_W + 1, y + 1);
     VIDEO::vga.print(Config::lang ? "A" "\xA4" "adir Poke" : "Input Poke");
 
@@ -4751,26 +4761,22 @@ void OSD::pokeDialog() {
 
     // Draw objects
     for (int n = 0; n < 5; n++) {
-        
         if (dlg_Objects[n].Label[Config::lang] != "" && dlg_Objects[n].objType != DLG_OBJ_BUTTON) {
             VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
             VIDEO::vga.setCursor(x + dlg_Objects[n].posx - 63, y + dlg_Objects[n].posy);
             VIDEO::vga.print(dlg_Objects[n].Label[Config::lang].c_str());
             VIDEO::vga.rect(x + dlg_Objects[n].posx - 2, y + dlg_Objects[n].posy - 2, 46, 12, zxColor(0, 0));
         }
-
         if (n == curObject) 
             VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
         else
             VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
-
         VIDEO::vga.setCursor(x + dlg_Objects[n].posx, y + dlg_Objects[n].posy);
         if (dlg_Objects[n].objType == DLG_OBJ_BUTTON) {
             VIDEO::vga.print(dlg_Objects[n].Label[Config::lang].c_str());        
         } else {
             VIDEO::vga.print(dlgValues[n].c_str());
         }
-
     }
     // Wait for key
     fabgl::VirtualKeyItem Nextkey;
@@ -4781,8 +4787,16 @@ void OSD::pokeDialog() {
             if(!Nextkey.down) continue;
             if ((Nextkey.vk >= fabgl::VK_0) && (Nextkey.vk <= fabgl::VK_9)) {
                 if (dlg_Objects[curObject].objType == DLG_OBJ_INPUT) {
-                    if (dlgValues[curObject].length() < (curObject == 1 ? 5 : 3)) {
+                    if (dlgValues[curObject].length() < (curObject == 1 ? 4 : 2)) {
                         dlgValues[curObject] += char(Nextkey.vk + 46);
+                    }
+                }
+                click();
+            } else
+            if ((Nextkey.vk >= fabgl::VK_A) && (Nextkey.vk <= fabgl::VK_F)) {
+                if (dlg_Objects[curObject].objType == DLG_OBJ_INPUT) {
+                    if (dlgValues[curObject].length() < (curObject == 1 ? 4 : 2)) {
+                        dlgValues[curObject] += char(Nextkey.vk - fabgl::VK_A) + 'A';
                     }
                 }
                 click();
@@ -4829,43 +4843,6 @@ void OSD::pokeDialog() {
             } else
             if (is_up(Nextkey.vk)) {
                 if (dlg_Objects[curObject].objTop >= 0) {
-                    // Input values validation
-                    bool validated = true;
-                    if (dlg_Objects[curObject].Name == "Address") {
-                        string val = dlgValues[1];
-                        trim(val);
-                        if (val!="") {
-                            // Check value
-                            if (dlgValues[0] == "   -   ") {
-                                if (stoi(val) < 16384 || stoi(val) > 65535) {
-                                    osdCenteredMsg(POKE_ERR_ADDR1[Config::lang], LEVEL_WARN, 1000);
-                                    validated = false;
-                                }
-                            } else {
-                                if (stoi(val) > 16383) {
-                                    osdCenteredMsg(POKE_ERR_ADDR2[Config::lang], LEVEL_WARN, 1000);
-                                    validated = false;
-                                }
-                            }
-                        } else {
-                            dlgValues[1]= dlgValues[0] == "   -   " ? "16384" : "0";
-                        }
-                    } else
-                    if (dlg_Objects[curObject].Name == "Value") {
-                        // Input values validation
-                        string val = dlgValues[2];
-                        trim(val);
-                        if (val!="") {
-                            // Check value
-                            if (stoi(val) > 255) {
-                                osdCenteredMsg(POKE_ERR_VALUE[Config::lang], LEVEL_WARN, 1000);
-                                validated = false;  
-                            }
-                        } else {
-                            dlgValues[2]="0";
-                        }
-                    }
-                    if (validated) {
                         VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
                         VIDEO::vga.setCursor(x + dlg_Objects[curObject].posx, y + dlg_Objects[curObject].posy);
                         if (dlg_Objects[curObject].objType == DLG_OBJ_BUTTON) {
@@ -4883,48 +4860,10 @@ void OSD::pokeDialog() {
                             VIDEO::vga.print(dlgValues[curObject].c_str());
                         }
                         click();
-                    }
                 }
             } else
             if (is_down(Nextkey.vk)) {
                 if (dlg_Objects[curObject].objDown >= 0) {
-                    // Input values validation
-                    bool validated = true;
-                    if (dlg_Objects[curObject].Name == "Address") {
-                        string val = dlgValues[1];
-                        trim(val);
-                        if (val!="") {
-                            // Check value
-                            if (dlgValues[0] == "   -   ") {
-                                if (stoi(val) < 16384 || stoi(val) > 65535) {
-                                    osdCenteredMsg(POKE_ERR_ADDR1[Config::lang], LEVEL_WARN, 1000);
-                                    validated = false;
-                                }
-                            } else {
-                                if (stoi(val) > 16383) {
-                                    osdCenteredMsg(POKE_ERR_ADDR2[Config::lang], LEVEL_WARN, 1000);
-                                    validated = false;
-                                }
-                            }
-                        } else {
-                            dlgValues[1]= dlgValues[0] == "   -   " ? "16384" : "0";
-                        }
-                    } else
-                    if (dlg_Objects[curObject].Name == "Value") {
-                        // Input values validation
-                        string val = dlgValues[2];
-                        trim(val);
-                        if (val!="") {
-                            // Check value
-                            if (stoi(val) > 255) {
-                                osdCenteredMsg(POKE_ERR_VALUE[Config::lang], LEVEL_WARN, 1000);
-                                validated = false;  
-                            }
-                        } else {
-                            dlgValues[2]="0";
-                        }
-                    }
-                    if (validated) {
                         VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
                         VIDEO::vga.setCursor(x + dlg_Objects[curObject].posx, y + dlg_Objects[curObject].posy);
                         if (dlg_Objects[curObject].objType == DLG_OBJ_BUTTON) {
@@ -4942,7 +4881,6 @@ void OSD::pokeDialog() {
                             VIDEO::vga.print(dlgValues[curObject].c_str());
                         }
                         click();                        
-                    }
                 }
             } else
             if (Nextkey.vk == fabgl::VK_BACKSPACE) {            
@@ -4960,50 +4898,46 @@ void OSD::pokeDialog() {
                         menu_level = 0;
                         menu_saverect = true;
                         uint8_t opt = simpleMenuRun( Bankmenu, x + dlg_Objects[curObject].posx,y + dlg_Objects[curObject].posy, 10, 9);
-                        if(opt!=0) {
-
+                        if(opt != 0) {
                             if (BankCombo[opt -1] != dlgValues[curObject]) {
-
                                 dlgValues[curObject] = BankCombo[opt - 1];
-
                                 VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
                                 VIDEO::vga.setCursor(x + dlg_Objects[curObject].posx, y + dlg_Objects[curObject].posy);
                                 VIDEO::vga.print(dlgValues[curObject].c_str());
 
                                 if (dlgValues[curObject]==BankCombo[0]) {
-                                    dlgValues[1] = "16384";
+                                    dlgValues[1] = tmp1;
                                     VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
                                     VIDEO::vga.setCursor(x + dlg_Objects[1].posx, y + dlg_Objects[1].posy);
-                                    VIDEO::vga.print("16384");
+                                    VIDEO::vga.print(tmp1);
                                 } else {
                                     string val = dlgValues[1];
                                     trim(val);
                                     if(stoi(val) > 16383) {
-                                        dlgValues[1] = "0";
+                                        dlgValues[1] = tmp1;
                                         VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
                                         VIDEO::vga.setCursor(x + dlg_Objects[1].posx, y + dlg_Objects[1].posy);
-                                        VIDEO::vga.print("0    ");
+                                        VIDEO::vga.print(tmp1);
                                     }
                                 }
 
                             }
-
                             break;
-                        } else break;
+                        } else {
+                            break;
+                        }
                         menu_curopt = opt;
                     }
-
                 } else
                 if (dlg_Objects[curObject].Name == "Ok") {
                     string addr = dlgValues[1];
                     string val = dlgValues[2];
                     trim(addr);
                     trim(val);
-                    int address = stoi(addr);
-                    int value = stoi(val);
-
+                    address = stoul(addr, nullptr, 16);
+                    uint8_t value = stoul(val, nullptr, 16);
                     // Apply poke
-                    if (dlgValues[0]=="   -   ") {
+                    if (dlgValues[0] == "   -   ") {
                         // Poke address between 16384 and 65535                        
                         uint8_t page = address >> 14;
                         MemESP::ramCurrent[page][address & 0x3fff] = value;
@@ -5024,7 +4958,6 @@ void OSD::pokeDialog() {
                 break;
             }
         }
-
         if (dlg_Objects[curObject].objType == DLG_OBJ_INPUT) {
             if ((++CursorFlash & 0xF) == 0) {
                 VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));                
@@ -5182,28 +5115,6 @@ uint16_t OSD::addressDialog(uint16_t addr, const char* title) {
             if (is_up(Nextkey.vk)) {
                 if (dlg_Objects2[curObject].objTop >= 0) {
                     // Input values validation
-                    bool validated = true;
-                    if (dlg_Objects2[curObject].Name == "Address") {
-                        string val = dlgValues[1];
-                        trim(val);
-                        if (val!="") {
-                            // Check value
-                            if (dlgValues[0] == "   -   ") {
-                                if (stoi(val) < 16384 || stoi(val) > 65535) {
-                                    osdCenteredMsg(POKE_ERR_ADDR1[Config::lang], LEVEL_WARN, 1000);
-                                    validated = false;
-                                }
-                            } else {
-                                if (stoi(val) > 16383) {
-                                    osdCenteredMsg(POKE_ERR_ADDR2[Config::lang], LEVEL_WARN, 1000);
-                                    validated = false;
-                                }
-                            }
-                        } else {
-                            dlgValues[1]= dlgValues[0] == "   -   " ? "16384" : "0";
-                        }
-                    } else
-                    if (validated) {
                         VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
                         VIDEO::vga.setCursor(x + dlg_Objects2[curObject].posx, y + dlg_Objects2[curObject].posy);
                         if (dlg_Objects2[curObject].objType == DLG_OBJ_BUTTON) {
@@ -5221,48 +5132,10 @@ uint16_t OSD::addressDialog(uint16_t addr, const char* title) {
                             VIDEO::vga.print(dlgValues[curObject].c_str());
                         }
                         click();
-                    }
                 }
             } else
             if (is_down(Nextkey.vk)) {
                 if (dlg_Objects2[curObject].objDown >= 0) {
-                    // Input values validation
-                    bool validated = true;
-                    if (dlg_Objects2[curObject].Name == "Address") {
-                        string val = dlgValues[1];
-                        trim(val);
-                        if (val!="") {
-                            // Check value
-                            if (dlgValues[0] == "   -   ") {
-                                if (stoi(val) < 16384 || stoi(val) > 65535) {
-                                    osdCenteredMsg(POKE_ERR_ADDR1[Config::lang], LEVEL_WARN, 1000);
-                                    validated = false;
-                                }
-                            } else {
-                                if (stoi(val) > 16383) {
-                                    osdCenteredMsg(POKE_ERR_ADDR2[Config::lang], LEVEL_WARN, 1000);
-                                    validated = false;
-                                }
-                            }
-                        } else {
-                            dlgValues[1]= dlgValues[0] == "   -   " ? "16384" : "0";
-                        }
-                    } else
-                    if (dlg_Objects2[curObject].Name == "Value") {
-                        // Input values validation
-                        string val = dlgValues[2];
-                        trim(val);
-                        if (val!="") {
-                            // Check value
-                            if (stoi(val) > 255) {
-                                osdCenteredMsg(POKE_ERR_VALUE[Config::lang], LEVEL_WARN, 1000);
-                                validated = false;  
-                            }
-                        } else {
-                            dlgValues[2]="0";
-                        }
-                    }
-                    if (validated) {
                         VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
                         VIDEO::vga.setCursor(x + dlg_Objects2[curObject].posx, y + dlg_Objects2[curObject].posy);
                         if (dlg_Objects2[curObject].objType == DLG_OBJ_BUTTON) {
@@ -5280,7 +5153,6 @@ uint16_t OSD::addressDialog(uint16_t addr, const char* title) {
                             VIDEO::vga.print(dlgValues[curObject].c_str());
                         }
                         click();                        
-                    }
                 }
             } else
             if (Nextkey.vk == fabgl::VK_BACKSPACE) {            

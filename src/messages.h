@@ -79,12 +79,12 @@ static const char *OSD_PAUSE[2] = { OSD_PAUSE_EN,OSD_PAUSE_ES };
 #define OSD_TAPE_SAVE_ERR "ERROR Saving tape file"
 #define OSD_BETADISK_LOAD_ERR "ERROR Loading Disk file"
 
-#define POKE_ERR_ADDR1_EN "Address should be between 16384 and 65535"
-#define POKE_ERR_ADDR1_ES "Direccion debe estar entre 16384 y 65535"
+#define POKE_ERR_ADDR1_EN "Address should be between 0000 and FFFF"
+#define POKE_ERR_ADDR1_ES "Direccion debe estar entre 0000 y FFFF"
 static const char *POKE_ERR_ADDR1[2] = { POKE_ERR_ADDR1_EN, POKE_ERR_ADDR1_ES };
 
-#define POKE_ERR_ADDR2_EN "Address should be lower than 16384"
-#define POKE_ERR_ADDR2_ES "Direccion debe ser menor que 16384"
+#define POKE_ERR_ADDR2_EN "Address should be lower than 4000"
+#define POKE_ERR_ADDR2_ES "Direccion debe ser menor que 4000"
 static const char *POKE_ERR_ADDR2[2] = { POKE_ERR_ADDR2_EN, POKE_ERR_ADDR2_ES };
 
 #define POKE_ERR_VALUE_EN "Value should be lower than 256"
