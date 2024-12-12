@@ -3067,7 +3067,7 @@ const char* mnemCB[256] = {
 #define BNc(x, b) ((x >> b) & 1 ? '1' : '0')
 
 void OSD::osdDebug() {
-    const unsigned short h = OSD_FONT_H * 20;
+    const unsigned short h = OSD_FONT_H * 21;
     const unsigned short y = scrAlignCenterY(h);
     const unsigned short w = OSD_FONT_W * 40;
     const unsigned short x = scrAlignCenterX(w);
@@ -3075,6 +3075,10 @@ void OSD::osdDebug() {
     VIDEO::SaveRect.save(x - 1, y - 1, w + 2, h + 2);
     char buf[32];
     int ii = 0;
+    uint32_t t1 = 0;
+    uint32_t t2 = 0;
+    uint32_t T1 = 0;
+    uint32_t T2 = 0;
 
 c:
     // Set font
@@ -3117,7 +3121,7 @@ c:
     bool IY = false;
     bool r = false;
     std::string mem;
-    for (; i < 18; ++i) {
+    for (; i < 19; ++i) {
         uint16_t pci = pc + i - ii;
         uint8_t bi = b[pci & 0x3fff];
         uint8_t b1 = b[(pci+1) & 0x3fff];
@@ -3236,11 +3240,11 @@ c:
     VIDEO::vga.print(buf);
 
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    snprintf(buf, 32, "SP %04X", Z80::getRegSP());
+    snprintf(buf, 32, "SP %04X %dT", Z80::getRegSP(), T2 - T1);
     VIDEO::vga.print(buf);
 
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    snprintf(buf, 32, "PC %04X", Z80::getRegPC());
+    snprintf(buf, 32, "PC %04X %dus", Z80::getRegPC(), t2 - t1);
     VIDEO::vga.print(buf);
 
     ++i;
@@ -3258,9 +3262,10 @@ c:
     VIDEO::vga.print(buf);
 
     ++i;
+    ++i;
 
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    VIDEO::vga.print("Space/F5,+/-,Esc");
+    VIDEO::vga.print("Space/F5,+0-,Esc");
 
     // Wait for a key
     fabgl::VirtualKeyItem Nextkey;
@@ -3281,19 +3286,27 @@ c:
                 }
             }
 
-            if (Nextkey.down && Nextkey.vk == fabgl::VK_PLUS && ii < 17) {
+            if (Nextkey.down && Nextkey.vk == fabgl::VK_PLUS /*&& ii < 17*/) {
                 ++ii;
                 goto c;
             }
-            if (Nextkey.down && Nextkey.vk == fabgl::VK_MINUS && ii > 0) {
-                --ii;;
+            if (Nextkey.down && Nextkey.vk == fabgl::VK_MINUS /*&& ii > 0*/) {
+                --ii;
+                goto c;
+            }
+            if (Nextkey.down && Nextkey.vk == fabgl::VK_0 /*&& ii > 0*/) {
+                ii = 0;
                 goto c;
             }
             if (Nextkey.down && (Nextkey.vk == fabgl::VK_SPACE ||  Nextkey.vk == fabgl::VK_F5)) {
                 int i = 0;
+                T1 = CPU::tstates;
+                t1 = time_us_32();
                 while (pc == Z80::getRegPC() && i++ < 64*1024) {
                     CPU::step();
                 }
+                t2 = time_us_32();
+                T2 = CPU::tstates;
                 goto c;
             }
         }
