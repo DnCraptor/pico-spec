@@ -330,8 +330,18 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
         if (KeytoESP == fabgl::VK_F2) { // Turbo mode
             ESPectrum::ESP_delay = !ESPectrum::ESP_delay;
         } else 
+        if (KeytoESP == fabgl::VK_F7) {
+            uint16_t address = addressDialog(Config::breakPoint, Config::lang ? "Punto de interrup." : "Breakpoint");
+            if (Config::breakPoint != address) {
+                Config::breakPoint = address;
+                Config::save();
+            }
+        } else 
         if (KeytoESP == fabgl::VK_F8) {
-            jumpDialog();
+            uint16_t address = addressDialog(Z80::getRegPC(), Config::lang ? "Saltar a" : "Jump to");
+            if (Z80::getRegPC() != address) {
+                Z80::setRegPC(address);
+            }
         } else 
         if (KeytoESP == fabgl::VK_F9) { // Input Poke
             pokeDialog();
@@ -3266,9 +3276,6 @@ c:
     while (1) {
         if (Kbd->virtualKeyAvailable()) {
             Kbd->getNextVirtualKey(&Nextkey);
-
-            if (Nextkey.down && Nextkey.vk == fabgl::VK_ESCAPE) break;
-
             if (Config::joystick == JOY_KEMPSTON) {
                 Ports::port[Config::kempstonPort] = 0;
                 Ports::port[Config::kempstonPort] = 0;
@@ -3278,27 +3285,45 @@ c:
                     }
                 }
             }
-            if (Nextkey.down && Nextkey.vk == fabgl::VK_F8) {
-                jumpDialog();
+
+            if (!Nextkey.down) continue;
+
+            if (Nextkey.vk == fabgl::VK_ESCAPE) {
+                break;
+            } else
+            if (Nextkey.vk == fabgl::VK_F7) {
+                uint16_t address = addressDialog(Config::breakPoint, Config::lang ? "Punto de interrup." : "Breakpoint");
+                if (Config::breakPoint != address) {
+                    Config::breakPoint = address;
+                    Config::save();
+                }
                 goto c;
-            }
-            if (Nextkey.down && Nextkey.vk == fabgl::VK_PLUS /*&& ii < 17*/) {
+            } else 
+            if (Nextkey.vk == fabgl::VK_F8) {
+                uint16_t address = addressDialog(Z80::getRegPC(), Config::lang ? "Saltar a" : "Jump to");
+                if (Z80::getRegPC() != address) {
+                    Z80::setRegPC(address);
+                }
+                goto c;
+            } else
+            if (Nextkey.vk == fabgl::VK_PLUS) {
                 ++ii;
                 goto c;
-            }
-            if (Nextkey.down && Nextkey.vk == fabgl::VK_MINUS /*&& ii > 0*/) {
+            } else
+            if (Nextkey.vk == fabgl::VK_MINUS) {
                 --ii;
                 goto c;
-            }
-            if (Nextkey.down && Nextkey.vk == fabgl::VK_0 /*&& ii > 0*/) {
+            } else
+            if (Nextkey.down && Nextkey.vk == fabgl::VK_0) {
                 ii = 0;
                 goto c;
-            }
-            if (Nextkey.down && (Nextkey.vk == fabgl::VK_F5)) {
+            } else
+            if (Nextkey.vk == fabgl::VK_F5) {
                 Config::breakPoint = Config::breakPoint == pc ? 0xFFFF : pc;
+                Config::save();
                 goto c;
-            }
-            if (Nextkey.down && (Nextkey.vk == fabgl::VK_SPACE ||  Nextkey.vk == fabgl::VK_F5)) {
+            } else
+            if (Nextkey.vk == fabgl::VK_SPACE ||  Nextkey.vk == fabgl::VK_F5) {
                 int i = 0;
                 T1 = CPU::tstates;
                 t1 = time_us_32();
@@ -5026,9 +5051,9 @@ const dlgObject dlg_Objects2[3] = {
     {"Cancel", 52,65, 2, 2, 1, 0, DLG_OBJ_BUTTON, {"  Cancel  "," Cancelar "}}
 };
 
-void OSD::jumpDialog() {
+uint16_t OSD::addressDialog(uint16_t addr, const char* title) {
     char tmp[8];
-    snprintf(tmp, 8, "%04X", Z80::getRegPC());
+    snprintf(tmp, 8, "%04X", addr);
     string dlgValues[3]={
         tmp, // Address
         "",
@@ -5058,7 +5083,7 @@ void OSD::jumpDialog() {
     // Title
     VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(0, 0));        
     VIDEO::vga.setCursor(x + OSD_FONT_W + 1, y + 1);
-    VIDEO::vga.print(Config::lang ? "Saltar a" : "Jump to");
+    VIDEO::vga.print(title);
 
     // Rainbow
     unsigned short rb_y = y + 8;
@@ -5266,10 +5291,9 @@ void OSD::jumpDialog() {
             } else
             if (is_enter(Nextkey.vk)) {
                 if (dlg_Objects2[curObject].Name == "Ok") {
-                    string addr = dlgValues[0];
-                    trim(addr);
-                    uint16_t address = stoul(addr, nullptr, 16);
-                    Z80::setRegPC(address);
+                    string s = dlgValues[0];
+                    trim(s);
+                    addr = stoul(s, nullptr, 16);
                     click();
                     break;
                 } else if (dlg_Objects2[curObject].Name == "Cancel") {
@@ -5300,4 +5324,5 @@ void OSD::jumpDialog() {
         }
         sleep_ms(5);
     }
+    return addr;
 }
