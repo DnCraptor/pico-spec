@@ -36,6 +36,7 @@ bool     Config::tape_player = false; // Tape player mode
 volatile bool Config::real_player = false;
 bool     Config::tape_timing_rg = false; // Rodolfo Guerra ROMs tape timings
 bool     Config::rightSpace = true;
+uint16_t Config::breakPoint = 0xFFFF;
 
 uint8_t  Config::joystick = JOY_KEMPSTON;
 uint16_t Config::joydef[12] = {
@@ -231,6 +232,7 @@ void Config::load() {
         nvs_get_b("Issue2", Issue2, sts);
         nvs_get_b("flashload", flashload, sts);
         nvs_get_b("rightSpace", rightSpace, sts);
+        nvs_get_u16("breakPoint", breakPoint, sts);
         nvs_get_b("tape_player", tape_player, sts);
         bool b; nvs_get_b("real_player", b, sts);
         if (real_player && !b) {
@@ -336,6 +338,7 @@ void Config::save() {
         nvs_set_str(handle,"real_player", real_player ? "true" : "false");
         nvs_set_str(handle,"rightSpace", rightSpace ? "true" : "false");
         nvs_set_str(handle,"tape_timing_rg",tape_timing_rg ? "true" : "false");
+        nvs_set_u16(handle,"breakPoint", Config::breakPoint);
         nvs_set_u8(handle,"joystick", Config::joystick);
         // Write joystick definition
         for (int n = 0; n < 12; ++n) {

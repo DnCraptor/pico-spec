@@ -138,15 +138,16 @@ IRAM_ATTR void CPU::step() {
 }
 
 IRAM_ATTR void CPU::loop() {
-
+    uint16_t bp = Config::breakPoint;
     // Check NMI
     if (Z80::isNMI()) {
         Z80::execute();
         Z80::doNMI();
     }
-
-    while (tstates < IntEnd) Z80::execute();
-
+    while (tstates < IntEnd) {
+        if (bp != 0xFFFF && bp == Z80::getRegPC()) goto r;
+        Z80::execute();
+    }
     if (!Z80::isHalted()) {
         stFrame = statesInFrame - IntEnd;
         Z80::exec_nocheck();
@@ -154,14 +155,14 @@ IRAM_ATTR void CPU::loop() {
     } else {
         FlushOnHalt();
     }
-
-    while (tstates < statesInFrame) Z80::execute();
-
+    while (tstates < statesInFrame) {
+        if (bp != 0xFFFF && bp == Z80::getRegPC()) goto r;
+        Z80::execute();
+    }
+r:
     VIDEO::EndFrame();
-
     global_tstates += statesInFrame; // increase global Tstates
     tstates -= statesInFrame;
-
 }
 
 IRAM_ATTR void CPU::FlushOnHalt() {

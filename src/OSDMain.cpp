@@ -3125,7 +3125,8 @@ c:
         uint16_t pci = pc + i - ii;
         uint8_t bi = b[pci & 0x3fff];
         uint8_t b1 = b[(pci+1) & 0x3fff];
-        VIDEO::vga.setCursor(xi, y + (i + 1) * OSD_FONT_H + 2);
+        int yi = y + (i + 1) * OSD_FONT_H + 2;
+        VIDEO::vga.setCursor(xi, yi);
         if (!CB && !ED && nn == 0 && n == 0 && d == 0 || pci == pc) {
             ED = bi == 0xED;
             CB = bi == 0xCB;
@@ -3189,6 +3190,9 @@ c:
             else --nn;
         }
         VIDEO::vga.print(buf);
+        if (Config::breakPoint != 0xFFFF && Config::breakPoint == pci) {
+            VIDEO::vga.circle(xi+3, yi+3, 3, zxColor(2, 0));
+        }
     }
     i = 0;
     xi = x + 22 * OSD_FONT_W;
@@ -3296,6 +3300,10 @@ c:
             }
             if (Nextkey.down && Nextkey.vk == fabgl::VK_0 /*&& ii > 0*/) {
                 ii = 0;
+                goto c;
+            }
+            if (Nextkey.down && (Nextkey.vk == fabgl::VK_F5)) {
+                Config::breakPoint = Config::breakPoint == pc ? 0xFFFF : pc;
                 goto c;
             }
             if (Nextkey.down && (Nextkey.vk == fabgl::VK_SPACE ||  Nextkey.vk == fabgl::VK_F5)) {

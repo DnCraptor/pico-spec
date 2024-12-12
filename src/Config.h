@@ -86,7 +86,8 @@ public:
     static bool     tape_player;
     static volatile bool real_player;
     static bool     tape_timing_rg;
-    static bool     rightSpace;    
+    static bool     rightSpace;
+    static uint16_t breakPoint;
     static uint8_t  joystick;
     static uint16_t joydef[12];
     static uint8_t  AluTiming;

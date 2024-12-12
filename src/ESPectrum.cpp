@@ -1016,6 +1016,10 @@ void ESPectrum::loop() {
     audbufcntAY = 0;
 
     CPU::loop();
+    uint16_t bp = Config::breakPoint;
+    if (bp != 0xFFFF && bp == Z80::getRegPC()) {
+        OSD::osdDebug();
+    }
 
     // Process audio buffer
     faudbufcnt = audbufcnt;
