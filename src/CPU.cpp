@@ -52,6 +52,7 @@ uint8_t CPU::latetiming = 0;
 uint8_t CPU::IntStart = 0;
 uint8_t CPU::IntEnd = 0;
 uint32_t CPU::stFrame = 0;
+bool CPU::portBasedBP = false;
 
 bool Z80Ops::is48;
 bool Z80Ops::isALF;
@@ -145,7 +146,7 @@ IRAM_ATTR void CPU::loop() {
         Z80::doNMI();
     }
     while (tstates < IntEnd) {
-        if (bp != 0xFFFF && bp == Z80::getRegPC()) {
+        if (CPU::portBasedBP || bp != 0xFFFF && bp == Z80::getRegPC()) {
             VIDEO::EndFrame();
             return;
         }
@@ -159,7 +160,7 @@ IRAM_ATTR void CPU::loop() {
         FlushOnHalt();
     }
     while (tstates < statesInFrame) {
-        if (bp != 0xFFFF && bp == Z80::getRegPC()) {
+        if (CPU::portBasedBP || bp != 0xFFFF && bp == Z80::getRegPC()) {
             VIDEO::EndFrame();
             return;
         }

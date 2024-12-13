@@ -90,6 +90,7 @@ public:
     // CPU Tstates in frame - IntEnd
     static uint32_t stFrame;
 
+    static bool portBasedBP;
 };
 
 #endif // CPU_h

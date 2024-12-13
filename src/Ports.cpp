@@ -108,6 +108,7 @@ static uint8_t newAlfBit = 0;
 
 IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     uint8_t data;
+    if (address == Config::portReadBP && Config::portReadBP != 0xFFFF) CPU::portBasedBP = true;
     uint8_t rambank = address >> 14;    
 
     VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
@@ -225,6 +226,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
 
 IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {    
     int Audiobit;
+    if (address == Config::portWriteBP && Config::portWriteBP != 0xFFFF) CPU::portBasedBP = true;
     uint8_t rambank = address >> 14;
 
     VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)

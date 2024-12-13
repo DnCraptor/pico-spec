@@ -796,11 +796,12 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
     bool jShift = true;
 
     uint16_t bp = Config::breakPoint;
-    if (bp != 0xFFFF && bp == Z80::getRegPC()) {
+    if (bp != 0xFFFF && bp == Z80::getRegPC() || CPU::portBasedBP) {
         int64_t osd_start = esp_timer_get_time();
         OSD::osdDebug();
         VIDEO::brdnextframe = true;
         ESPectrum::ts_start += esp_timer_get_time() - osd_start;
+        CPU::portBasedBP = false;
         return;
     }
 

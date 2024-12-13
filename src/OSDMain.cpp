@@ -330,6 +330,20 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
         if (KeytoESP == fabgl::VK_F2) { // Turbo mode
             ESPectrum::ESP_delay = !ESPectrum::ESP_delay;
         } else 
+        if (KeytoESP == fabgl::VK_F3) {
+            uint16_t address = addressDialog(Config::portReadBP, "Port read BP");
+            if (Config::portReadBP != address) {
+                Config::portReadBP = address;
+                Config::save();
+            }
+        } else 
+        if (KeytoESP == fabgl::VK_F4) {
+            uint16_t address = addressDialog(Config::portWriteBP, "Port write BP");
+            if (Config::portWriteBP != address) {
+                Config::portWriteBP = address;
+                Config::save();
+            }
+        } else 
         if (KeytoESP == fabgl::VK_F7) {
             uint16_t address = addressDialog(Config::breakPoint, Config::lang ? "Punto de interr." : "Breakpoint");
             if (Config::breakPoint != address) {
@@ -3066,14 +3080,14 @@ const char* mnemCB[256] = {
 #define BNc(x, b) ((x >> b) & 1 ? '1' : '0')
 
 void OSD::osdDebug() {
-    const unsigned short h = OSD_FONT_H * 21;
+    const unsigned short h = OSD_FONT_H * 22;
     const unsigned short y = scrAlignCenterY(h);
     const unsigned short w = OSD_FONT_W * 40;
     const unsigned short x = scrAlignCenterX(w);
 
     VIDEO::SaveRect.save(x - 1, y - 1, w + 2, h + 2);
     char buf[32];
-    int ii = 0;
+    int ii = 4;
     uint32_t t1 = 0;
     uint32_t t2 = 0;
     uint32_t T1 = 0;
@@ -3120,7 +3134,7 @@ c:
     bool IY = false;
     bool r = false;
     std::string mem;
-    for (; i < 19; ++i) {
+    for (; i < 20; ++i) {
         uint16_t pci = pc + i - ii;
         uint8_t bi = b[pci & 0x3fff];
         uint8_t b1 = b[(pci+1) & 0x3fff];
@@ -3250,6 +3264,22 @@ c:
     snprintf(buf, 32, "PC %04X %dus", Z80::getRegPC(), t2 - t1);
     VIDEO::vga.print(buf);
 
+    if (Config::breakPoint == 0xFFFF)
+        ++i;
+    else {
+        VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+        snprintf(buf, 32, "BP %04X", Config::breakPoint);
+        VIDEO::vga.print(buf);
+    }
+    if (Config::portReadBP == 0xFFFF && Config::portWriteBP == 0xFFFF)
+        ++i;
+    else {
+        VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+        snprintf(buf, 32, "BPP R%04X W%04X", Config::portReadBP, Config::portWriteBP);
+        VIDEO::vga.print(buf);
+    }
+
+
     ++i;
 
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
@@ -3264,7 +3294,6 @@ c:
     );
     VIDEO::vga.print(buf);
 
-    ++i;
     ++i;
 
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
@@ -3291,6 +3320,22 @@ c:
             if (Nextkey.vk == fabgl::VK_ESCAPE) {
                 break;
             } else
+            if (Nextkey.vk == fabgl::VK_F3) {
+                uint16_t address = addressDialog(Config::portReadBP, "Port read BP");
+                if (Config::portReadBP != address) {
+                    Config::portReadBP = address;
+                    Config::save();
+                }
+                goto c;
+            } else 
+            if (Nextkey.vk == fabgl::VK_F4) {
+                uint16_t address = addressDialog(Config::portWriteBP, "Port write BP");
+                if (Config::portWriteBP != address) {
+                    Config::portWriteBP = address;
+                    Config::save();
+                }
+                goto c;
+            } else 
             if (Nextkey.vk == fabgl::VK_F7) {
                 uint16_t address = addressDialog(Config::breakPoint, Config::lang ? "Punto de interr." : "Breakpoint");
                 if (Config::breakPoint != address) {

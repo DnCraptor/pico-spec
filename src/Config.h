@@ -88,6 +88,8 @@ public:
     static bool     tape_timing_rg;
     static bool     rightSpace;
     static uint16_t breakPoint;
+    static uint16_t portReadBP;
+    static uint16_t portWriteBP;
     static uint8_t  joystick;
     static uint16_t joydef[12];
     static uint8_t  AluTiming;
