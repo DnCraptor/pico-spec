@@ -282,6 +282,7 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
 	"Machine\t>\n"\
     "Reset\t>\n"\
     "Options\t>\n"\
+    "Debug\t>\n"\
     "Help\n"\
     "About\n"
 #define MENU_MAIN_ES \
@@ -291,6 +292,7 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
     "Modelo\t>\n"\
     "Resetear\t>\n"\
     "Opciones\t>\n"\
+	"Depurar\t\n"\
     "Ayuda\n"\
     "Acerca de\n"
 static const char *MENU_MAIN[2] = { MENU_MAIN_EN, MENU_MAIN_ES };
@@ -429,6 +431,16 @@ static const char *MENU_SCANLINES[2] = { "Scanlines\n", "Scanlines\n" };
 	"Predeterminados\n"
 #endif
 static const char *MENU_RESET[2] = { MENU_RESET_EN, MENU_RESET_ES };
+
+#define MENU_DEBUG_EN \
+    "Debug Menu\n"\
+    "Port read BP  (Ctrl+F3)\n"\
+    "Port write BP (Ctrl+F4)\n"\
+    "Debug dialog  (Ctrl+F5)\n"\
+    "BreakPoint    (Ctrl+F7)\n"\
+    "Jump to       (Ctrl+F8)\n"\
+    "Input Poke    (Ctrl+F9)\n"\
+	"Trigger NMI   (Ctrl+F10)\n"
 
 #define MOS_FILE "/.firmware"
 #define MENU_RESET_MOS_EN \
@@ -1004,8 +1016,8 @@ static const char *AboutMsg[2][9] = {
     " [F12]        Reset RP2350\n"\
     " [CTRL+F1]    Hardware info\n"\
     " [CTRL+F2]    Turbo mode\n"\
-    " [CTRL+F4]    Insert disk\n"\
     " [CTRL+F5]    Debug\n"\
+    " [CTRL+F6]    Insert disk\n"\
     " [CTRL+F9]    Input poke\n"\
     " [CTRL+F10]   NMI\n"\
     " [Pause]      Pause\n"\
@@ -1024,8 +1036,8 @@ static const char *AboutMsg[2][9] = {
     " [F12]        Resetear RP2350\n"\
     " [CTRL+F1]    Info hardware\n"\
     " [CTRL+F2]    Modo turbo\n"\
-    " [CTRL+F4]    Insertar disco\n"\
     " [CTRL+F5]    Depurar\n"\
+    " [CTRL+F6]    Insertar disco\n"\
     " [CTRL+F9]    Introducir poke\n"\
     " [CTRL+F10]   NMI\n"\
     " [Pause]      Pausa\n"\
@@ -1044,8 +1056,8 @@ static const char *AboutMsg[2][9] = {
     " [F12]        Reset RP2040\n"\
     " [CTRL+F1]    Hardware info\n"\
     " [CTRL+F2]    Turbo mode\n"\
-    " [CTRL+F4]    Insert disk\n"\
     " [CTRL+F5]    Debug\n"\
+    " [CTRL+F6]    Insert disk\n"\
     " [CTRL+F9]    Input poke\n"\
     " [CTRL+F10]   NMI\n"\
     " [Pause]      Pause\n"\
@@ -1064,8 +1076,8 @@ static const char *AboutMsg[2][9] = {
     " [F12]        Resetear RP2040\n"\
     " [CTRL+F1]    Info hardware\n"\
     " [CTRL+F2]    Modo turbo\n"\
-    " [CTRL+F4]    Insertar disco\n"\
     " [CTRL+F5]    Depurar\n"\
+    " [CTRL+F6]    Insertar disco\n"\
     " [CTRL+F9]    Introducir poke\n"\
     " [CTRL+F10]   NMI\n"\
     " [Pause]      Pausa\n"\

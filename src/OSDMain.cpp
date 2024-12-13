@@ -363,7 +363,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
         if (KeytoESP == fabgl::VK_F10) { // NMI
             Z80::triggerNMI();
         }
-        else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F4) {
+        else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F6) {
             menu_level = 0; 
             menu_saverect = false;  
             string mFile = fileDialog(FileUtils::DSK_Path, MENU_DSK_TITLE[Config::lang], DISK_DSKFILE, 51, 22);
@@ -2228,6 +2228,64 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                 }
             }
             else if (FileUtils::fsMount && opt == 7 || opt == 5) {
+                // DEBUG MENU
+                menu_saverect = true;
+                menu_curopt = 1;            
+                while(1) {
+                    menu_level = 1;
+                    // Debug
+                    uint8_t opt2 = menuRun(MENU_DEBUG_EN);
+                    if (opt2 == 1) {
+                        //    "Port read BP\t(Ctrl+F3)\n"
+                        uint16_t address = addressDialog(Config::portReadBP, "Port read BP");
+                        if (Config::portReadBP != address) {
+                            Config::portReadBP = address;
+                            Config::save();
+                        }
+                        return;
+                    }
+                    else if (opt2 == 2) {
+                        //    "Port write BP\t(Ctrl+F4)\n"
+                        uint16_t address = addressDialog(Config::portWriteBP, "Port write BP");
+                        if (Config::portWriteBP != address) {
+                            Config::portWriteBP = address;
+                            Config::save();
+                        }
+                        return;
+                    }
+                    else if (opt2 == 3) {
+                        //    "Debug dialog\t(Ctrl+F5)\n"
+                        OSD::osdDebug();
+                        return;
+                    } else if (opt2 == 4) {
+                        //    "BreakPoint\t(Ctrl+F7)\n"
+                        uint16_t address = addressDialog(Config::breakPoint, Config::lang ? "Punto de interr." : "Breakpoint");
+                        if (Config::breakPoint != address) {
+                            Config::breakPoint = address;
+                            Config::save();
+                        }
+                        return;
+                    } else if (opt2 == 5) {
+                        //    "Jump to\t(Ctrl+F8)\n"
+                        uint16_t address = addressDialog(Z80::getRegPC(), Config::lang ? "Saltar a" : "Jump to");
+                        if (Z80::getRegPC() != address) {
+                            Z80::setRegPC(address);
+                        }
+                        return;
+                    } else if (opt2 == 6) {
+                        //    "Input Poke\t(Ctrl+F9)\n"
+                        pokeDialog();
+                        return;
+                    } else if (opt2 == 7) {
+                        Z80::triggerNMI();
+                        return;
+                    } else {
+                        menu_curopt = FileUtils::fsMount ? 7 : 5;
+                        break;
+                    }
+                }
+            }
+            else if (FileUtils::fsMount && opt == 8 || opt == 6) {
                 // Help
                 drawOSD(true);
                 osdAt(2, 0);
@@ -2246,7 +2304,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                 if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes                
                 return;
             }        
-            else if (FileUtils::fsMount && opt == 8 || opt == 6) {
+            else if (FileUtils::fsMount && opt == 9 || opt == 7) {
                 // About
                 drawOSD(false);
                 
