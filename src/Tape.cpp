@@ -267,10 +267,10 @@ void Tape::LoadTape(string mFile) {
         string keySel = mFile.substr(0,1);
         mFile.erase(0, 1);
         // Flashload .tap if needed
-        if ((keySel ==  "R") && (Config::flashload) && (Config::arch != "ALF") &&
+        if ((keySel == "R") && (Config::flashload) && (Config::arch != "ALF") &&
              (Config::romSet != "ZX81+") && (Config::romSet != "48Kcs") && (Config::romSet != "128Kcs")
         ) {
-                OSD::osdCenteredMsg(OSD_TAPE_FLASHLOAD, LEVEL_INFO, 0);
+                OSD::osdCenteredMsg(OSD_TAPE_FLASHLOAD, LEVEL_INFO, 100);
                 uint8_t OSDprev = VIDEO::OSD;
                 if (Z80Ops::is48)
                     FileZ80::loader48();
@@ -297,7 +297,9 @@ void Tape::LoadTape(string mFile) {
         }
         Tape::Stop();
         // Read and analyze tap file
+        OSD::osdCenteredMsg("Read and analyze tap file", LEVEL_INFO, 100);
         Tape::TAP_Open(mFile);
+        OSD::osdCenteredMsg("Read and analyze tap file - done", LEVEL_INFO, 100);
         ESPectrum::TapeNameScroller = 0;
     } else if (FileUtils::hasTZXextension(mFile)) {
         string keySel = mFile.substr(0,1);
@@ -1007,6 +1009,7 @@ void Tape::TAP_GetBlock() {
 }
 
 void Tape::Stop() {
+    OSD::osdCenteredMsg("Tape loading is stopped", LEVEL_INFO, 100);
     tapeStatus = TAPE_STOPPED;
     tapePhase = TAPE_PHASE_STOPPED;
     if (VIDEO::OSD) {

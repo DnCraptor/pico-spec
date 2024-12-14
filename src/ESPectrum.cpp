@@ -1114,7 +1114,7 @@ void ESPectrum::loop() {
             }
         }
         if ((VIDEO::OSD & 0x04) == 0) {
-            if (VIDEO::OSD == 1 && Tape::tapeStatus==TAPE_LOADING) {
+            if (VIDEO::OSD == 1 && Tape::tapeStatus == TAPE_LOADING) {
                 snprintf(OSD::stats_lin1, sizeof(OSD::stats_lin1), " %-12s %04d/%04d ", Tape::tapeFileName.substr(0 + ESPectrum::TapeNameScroller, 12).c_str(), Tape::tapeCurBlock + 1, Tape::tapeNumBlocks);
                 float percent = (float)((Tape::tapebufByteCount + Tape::tapePlayOffset) * 100) / (float)Tape::tapeFileSize;
                 snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2), " %05.2f%% %07d%s%07d ", percent, Tape::tapebufByteCount + Tape::tapePlayOffset, "/" , Tape::tapeFileSize);

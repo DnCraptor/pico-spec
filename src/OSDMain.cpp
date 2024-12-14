@@ -343,8 +343,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                 Config::portWriteBP = address;
                 Config::save();
             }
-        } else 
-        if (KeytoESP == fabgl::VK_F7) {
+        }
+        else if (KeytoESP == fabgl::VK_F5) {
+            osdDebug();
+        }
+        else if (KeytoESP == fabgl::VK_F7) {
             uint16_t address = addressDialog(Config::breakPoint, Config::lang ? "Punto de interr." : "Breakpoint");
             if (Config::breakPoint != address) {
                 Config::breakPoint = address;
@@ -376,8 +379,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
             }
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
         }
-        else if (KeytoESP == fabgl::VK_F5) {
-            osdDebug();
+        else if (KeytoESP == fabgl::VK_F12) {
+            /// TODO: close all files
+            //close_all()
+            reset_usb_boot(0, 0);
+            while(1);
         }
     } else {
         if (KeytoESP == fabgl::VK_PAUSE) {
@@ -504,16 +510,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
             }
             click();
         }
-        // else if (KeytoESP == fabgl::VK_F9) { 
-        //     // Test variable decrease
-        //     ESPectrum::ESPtestvar -= 1;
-        //     printf("ESPtestvar: %d\n",ESPectrum::ESPtestvar);
-        // }
-        // else if (KeytoESP == fabgl::VK_F10) {
-        //     // Test variable increase
-        //     ESPectrum::ESPtestvar += 1;
-        //     printf("ESPtestvar: %d\n",ESPectrum::ESPtestvar);
-        // }
         else if (KeytoESP == fabgl::VK_F9 || KeytoESP == fabgl::VK_VOLUMEDOWN) { 
             if (VIDEO::OSD == 0) {
                 if (Config::aspect_16_9) 
@@ -2202,6 +2198,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                                 // Update
                                 if (opt2 == 1) {
                                     /// TODO: close all files
+                                    //close_all()
                                     reset_usb_boot(0, 0);
                                     while(1);
                                 } else {

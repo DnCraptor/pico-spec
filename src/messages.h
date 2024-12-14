@@ -339,7 +339,7 @@ static const char *MENU_OPTIONS[2] = { MENU_OPTIONS_EN,MENU_OPTIONS_ES };
 
 #define MENU_UPDATE_EN \
     "Update\n"\
-	"Firmware\n"\
+	"Firmware [Ctrl+F12]\n"\
 	"Custom ROM 48K\n"\
 	"Custom ROM 128k\n"\
 	"Custom ROM Pentagon\n"\
@@ -350,7 +350,7 @@ static const char *MENU_OPTIONS[2] = { MENU_OPTIONS_EN,MENU_OPTIONS_ES };
 	"Main ROM Pentagon bank #1\n"
 #define MENU_UPDATE_ES \
     "Actualizar\n"\
-	"Firmware\n"\
+	"Firmware [Ctrl+F12]\n"\
 	"ROM Custom 48K\n"\
 	"ROM Custom 128k\n"\
 	"ROM Custom Pentagon\n"\
@@ -363,10 +363,10 @@ static const char *MENU_UPDATE_FW[2] = { MENU_UPDATE_EN, MENU_UPDATE_ES };
 
 #define MENU_UPDATE_NO_SD_EN \
     "Update\n"\
-	"Firmware\n"
+	"Firmware [Ctrl+F12]\n"
 #define MENU_UPDATE_NO_SD_ES \
     "Actualizar\n"\
-	"Firmware\n"
+	"Firmware [Ctrl+F12]\n"
 static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE_NO_SD_ES };
 
 #define MENU_VIDEO_EN \
