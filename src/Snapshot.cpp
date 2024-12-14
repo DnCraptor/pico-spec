@@ -452,7 +452,7 @@ bool FileZ80::load(string z80_fn) {
 
     if (z80_arch == "") {
         OSD::osdCenteredMsg("Z80 load: unknown machine", LEVEL_ERROR);
-        printf("Z80.load: unknown machine, machine code = %u\n", (unsigned char)mch);
+        ///printf("Z80.load: unknown machine, machine code = %u\n", (unsigned char)mch);
         fclose2(file);
         return false;
     }

@@ -180,10 +180,10 @@ inline void MemESP::writebyte(uint16_t addr, uint8_t data)
         ram[5].direct()[addr - 0x4000] = data;
         break;
     case 2:
-        ram[2].direct()[addr] = data;
+        ram[2].direct()[addr - 0x8000] = data;
         break;
     case 3:
-        ram[bankLatch].write(addr, data);
+        ram[bankLatch].write(addr - 0xC000, data);
         break;
     }
     return;

@@ -297,9 +297,7 @@ void Tape::LoadTape(string mFile) {
         }
         Tape::Stop();
         // Read and analyze tap file
-        OSD::osdCenteredMsg("Read and analyze tap file", LEVEL_INFO, 100);
         Tape::TAP_Open(mFile);
-        OSD::osdCenteredMsg("Read and analyze tap file - done", LEVEL_INFO, 100);
         ESPectrum::TapeNameScroller = 0;
     } else if (FileUtils::hasTZXextension(mFile)) {
         string keySel = mFile.substr(0,1);
