@@ -1084,6 +1084,21 @@ static const char *AboutMsg[2][9] = {
     " [ImpPant]    Captura BMP (/spec/.c)\n"
 #endif
 
+#define OSD_DBG_HELP_EN \
+    " [Space]      Step CPU\n"\
+    " [Esc]        Exit\n"\
+    " [F3]         Port read breakpoint\n"\
+    " [F4]         Port write breakpoint\n"\
+    " [F5]         Breakpoint current line\n"\
+    " [F7]         Breakpoint editor\n"\
+    " [F8]         Jump to address\n"\
+    " [F9]         Poke dialog\n"\
+	" [F10]        Trigger NMI\n"\
+    " [+]          Shift down position\n"\
+    " [-]          Shift up position\n"\
+    " [0]          Default position\n"\
+    " [F1]         This Help\n"
+
 static const char *StartMsg[2] = {
 	"\xAD" "Hola! " "\xAD" "Gracias por elegir    ectrum!\n"\
 	"\n"\

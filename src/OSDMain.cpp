@@ -3355,12 +3355,13 @@ c:
     ++i;
 
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    VIDEO::vga.print("Space/F5,+0-,Esc");
+    VIDEO::vga.print("F1 - Debug help");
 
     // Wait for a key
     fabgl::VirtualKeyItem Nextkey;
     auto Kbd = ESPectrum::PS2Controller.keyboard();
     while (1) {
+        sleep_ms(5);
         if (Kbd->virtualKeyAvailable()) {
             Kbd->getNextVirtualKey(&Nextkey);
             if (Config::joystick == JOY_KEMPSTON) {
@@ -3413,6 +3414,10 @@ c:
                 pokeDialog();
                 goto c;
             } else
+            if (Nextkey.vk == fabgl::VK_F10) {
+                Z80::triggerNMI();
+                goto c;
+            } else
             if (Nextkey.vk == fabgl::VK_PLUS) {
                 ++ii;
                 goto c;
@@ -3421,7 +3426,7 @@ c:
                 --ii;
                 goto c;
             } else
-            if (Nextkey.down && Nextkey.vk == fabgl::VK_0) {
+            if (Nextkey.vk == fabgl::VK_0) {
                 ii = 0;
                 goto c;
             } else
@@ -3430,7 +3435,23 @@ c:
                 Config::save();
                 goto c;
             } else
-            if (Nextkey.vk == fabgl::VK_SPACE ||  Nextkey.vk == fabgl::VK_F5) {
+            if (Nextkey.vk == fabgl::VK_F1) {
+                drawOSD(true);
+                osdAt(2, 0);
+                VIDEO::vga.setTextColor(zxColor(7, 0), zxColor(1, 0));
+                VIDEO::vga.print(OSD_DBG_HELP_EN);
+                while (1) {
+                    if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
+                        if (ESPectrum::readKbd(&Nextkey)) {
+                            if(!Nextkey.down) continue;
+                            if (is_enter(Nextkey.vk) || is_back(Nextkey.vk)) break;
+                        }
+                    }
+                    sleep_ms(5);
+                }
+                goto c;
+            } else
+            if (Nextkey.vk == fabgl::VK_SPACE) {
                 int i = 0;
                 T1 = CPU::tstates;
                 t1 = time_us_32();
