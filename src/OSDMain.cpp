@@ -317,12 +317,12 @@ static bool persistLoad(uint8_t slotnumber)
 }
 
 // OSD Main Loop
-void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
+void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
 
     static uint8_t last_sna_row = 0;
     fabgl::VirtualKeyItem Nextkey;
 
-    if (CTRL) {
+    if (ALT) {
         if (KeytoESP == fabgl::VK_F1) { // Show mem info
             OSD::HWInfo();
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
@@ -2233,7 +2233,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                     // Debug
                     uint8_t opt2 = menuRun(MENU_DEBUG_EN);
                     if (opt2 == 1) {
-                        //    "Port read BP\t(Ctrl+F3)\n"
                         uint16_t address = addressDialog(Config::portReadBP, "Port read BP");
                         if (Config::portReadBP != address) {
                             Config::portReadBP = address;
@@ -2242,7 +2241,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                         return;
                     }
                     else if (opt2 == 2) {
-                        //    "Port write BP\t(Ctrl+F4)\n"
                         uint16_t address = addressDialog(Config::portWriteBP, "Port write BP");
                         if (Config::portWriteBP != address) {
                             Config::portWriteBP = address;
@@ -2251,11 +2249,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                         return;
                     }
                     else if (opt2 == 3) {
-                        //    "Debug dialog\t(Ctrl+F5)\n"
                         OSD::osdDebug();
                         return;
                     } else if (opt2 == 4) {
-                        //    "BreakPoint\t(Ctrl+F7)\n"
                         uint16_t address = addressDialog(Config::breakPoint, Config::lang ? "Punto de interr." : "Breakpoint");
                         if (Config::breakPoint != address) {
                             Config::breakPoint = address;
@@ -2263,14 +2259,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL) {
                         }
                         return;
                     } else if (opt2 == 5) {
-                        //    "Jump to\t(Ctrl+F8)\n"
                         uint16_t address = addressDialog(Z80::getRegPC(), Config::lang ? "Saltar a" : "Jump to");
                         if (Z80::getRegPC() != address) {
                             Z80::setRegPC(address);
                         }
                         return;
                     } else if (opt2 == 6) {
-                        //    "Input Poke\t(Ctrl+F9)\n"
                         pokeDialog();
                         return;
                     } else if (opt2 == 7) {

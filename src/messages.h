@@ -339,7 +339,7 @@ static const char *MENU_OPTIONS[2] = { MENU_OPTIONS_EN,MENU_OPTIONS_ES };
 
 #define MENU_UPDATE_EN \
     "Update\n"\
-	"Firmware       [Ctrl+F12]\n"\
+	"Firmware        [ALT+F12]\n"\
 	"Custom ROM 48K\n"\
 	"Custom ROM 128k\n"\
 	"Custom ROM Pentagon\n"\
@@ -350,7 +350,7 @@ static const char *MENU_OPTIONS[2] = { MENU_OPTIONS_EN,MENU_OPTIONS_ES };
 	"Main ROM Pentagon bank #1\n"
 #define MENU_UPDATE_ES \
     "Actualizar\n"\
-	"Firmware       [Ctrl+F12]\n"\
+	"Firmware        [ALT+F12]\n"\
 	"ROM Custom 48K\n"\
 	"ROM Custom 128k\n"\
 	"ROM Custom Pentagon\n"\
@@ -363,10 +363,10 @@ static const char *MENU_UPDATE_FW[2] = { MENU_UPDATE_EN, MENU_UPDATE_ES };
 
 #define MENU_UPDATE_NO_SD_EN \
     "Update\n"\
-	"Firmware       [Ctrl+F12]\n"
+	"Firmware       [ALT+F12]\n"
 #define MENU_UPDATE_NO_SD_ES \
     "Actualizar\n"\
-	"Firmware       [Ctrl+F12]\n"
+	"Firmware       [ALT+F12]\n"
 static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE_NO_SD_ES };
 
 #define MENU_VIDEO_EN \
@@ -434,13 +434,13 @@ static const char *MENU_RESET[2] = { MENU_RESET_EN, MENU_RESET_ES };
 
 #define MENU_DEBUG_EN \
     "Debug Menu\n"\
-    "Port read BP  (Ctrl+F3)\n"\
-    "Port write BP (Ctrl+F4)\n"\
-    "Debug dialog  (Ctrl+F5)\n"\
-    "BreakPoint    (Ctrl+F7)\n"\
-    "Jump to       (Ctrl+F8)\n"\
-    "Input Poke    (Ctrl+F9)\n"\
-	"Trigger NMI   (Ctrl+F10)\n"
+    "Port read BP  (ALT+F3)\n"\
+    "Port write BP (ALT+F4)\n"\
+    "Debug dialog  (ALT+F5)\n"\
+    "BreakPoint    (ALT+F7)\n"\
+    "Jump to       (ALT+F8)\n"\
+    "Input Poke    (ALT+F9)\n"\
+	"Trigger NMI   (ALT+F10)\n"
 
 #define MOS_FILE "/.firmware"
 #define MENU_RESET_MOS_EN \
@@ -1014,12 +1014,12 @@ static const char *AboutMsg[2][9] = {
     " [F9-F10]     Volume down-up\n"\
 	" [F11]        Hard reset\n"\
     " [F12]        Reset RP2350\n"\
-    " [CTRL+F1]    Hardware info\n"\
-    " [CTRL+F2]    Turbo mode\n"\
-    " [CTRL+F5]    Debug\n"\
-    " [CTRL+F6]    Insert disk\n"\
-    " [CTRL+F9]    Input poke\n"\
-    " [CTRL+F10]   NMI\n"\
+    " [ALT+F1]     Hardware info\n"\
+    " [ALT+F2]     Turbo mode\n"\
+    " [ALT+F5]     Debug\n"\
+    " [ALT+F6]     Insert disk\n"\
+    " [ALT+F9]     Input poke\n"\
+    " [ALT+F10]    NMI\n"\
     " [Pause]      Pause\n"\
     " [PrtScr]     BMP capture (/spec/.c)\n"
 
@@ -1034,12 +1034,12 @@ static const char *AboutMsg[2][9] = {
     " [F9-F10]     Bajar-Subir volumen\n"\
     " [F11]        Reset completo\n"\
     " [F12]        Resetear RP2350\n"\
-    " [CTRL+F1]    Info hardware\n"\
-    " [CTRL+F2]    Modo turbo\n"\
-    " [CTRL+F5]    Depurar\n"\
-    " [CTRL+F6]    Insertar disco\n"\
-    " [CTRL+F9]    Introducir poke\n"\
-    " [CTRL+F10]   NMI\n"\
+    " [ALT+F1]     Info hardware\n"\
+    " [ALT+F2]     Modo turbo\n"\
+    " [ALT+F5]     Depurar\n"\
+    " [ALT+F6]     Insertar disco\n"\
+    " [ALT+F9]     Introducir poke\n"\
+    " [ALT+F10]    NMI\n"\
     " [Pause]      Pausa\n"\
     " [ImpPant]    Captura BMP (/spec/.c)\n"
 #else
@@ -1054,12 +1054,12 @@ static const char *AboutMsg[2][9] = {
     " [F9-F10]     Volume down-up\n"\
 	" [F11]        Hard reset\n"\
     " [F12]        Reset RP2040\n"\
-    " [CTRL+F1]    Hardware info\n"\
-    " [CTRL+F2]    Turbo mode\n"\
-    " [CTRL+F5]    Debug\n"\
-    " [CTRL+F6]    Insert disk\n"\
-    " [CTRL+F9]    Input poke\n"\
-    " [CTRL+F10]   NMI\n"\
+    " [ALT+F1]     Hardware info\n"\
+    " [ALT+F2]     Turbo mode\n"\
+    " [ALT+F5]     Debug\n"\
+    " [ALT+F6]     Insert disk\n"\
+    " [ALT+F9]     Input poke\n"\
+    " [ALT+F10]    NMI\n"\
     " [Pause]      Pause\n"\
     " [PrtScr]     BMP capture (/spec/.c)\n"
 
@@ -1074,12 +1074,12 @@ static const char *AboutMsg[2][9] = {
     " [F9-F10]     Bajar-Subir volumen\n"\
     " [F11]        Reset completo\n"\
     " [F12]        Resetear RP2040\n"\
-    " [CTRL+F1]    Info hardware\n"\
-    " [CTRL+F2]    Modo turbo\n"\
-    " [CTRL+F5]    Depurar\n"\
-    " [CTRL+F6]    Insertar disco\n"\
-    " [CTRL+F9]    Introducir poke\n"\
-    " [CTRL+F10]   NMI\n"\
+    " [ALT+F1]     Info hardware\n"\
+    " [ALT+F2]     Modo turbo\n"\
+    " [ALT+F5]     Depurar\n"\
+    " [ALT+F6]     Insertar disco\n"\
+    " [ALT+F9]     Introducir poke\n"\
+    " [ALT+F10]    NMI\n"\
     " [Pause]      Pausa\n"\
     " [ImpPant]    Captura BMP (/spec/.c)\n"
 #endif

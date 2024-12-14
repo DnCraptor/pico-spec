@@ -86,7 +86,7 @@ public:
     static void osdAt(uint8_t row, uint8_t col);
     static void drawOSD(bool bottom_info);
     static void drawStats();
-    static void do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL);
+    static void do_OSD(fabgl::VirtualKey KeytoESP, bool ALT);
     static void HWInfo();
 
     // Error

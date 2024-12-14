@@ -100,37 +100,18 @@ There's also no need to sort files using external utilities: the emulator create
 - F10 Volume up
 - F11 Hard reset
 - F12 Reset RP2040
-- CTRL + F1 Hardware info
-- CTRL + F2 Turbo mode
-- CTRL + F5..F8 Screen centering in CRT 15K/50hz mode
-- CTRL + F9 Input poke
-- CTRL + F10 NMI
+- ALT+F1 Hardware info
+- ALT+F2 Turbo mode
+- ALT+F3 Set port reading breakpoint
+- ALT+F4 Set port writing breakpoint
+- ALT+F5 Debug
+- ALT+F7 Breakpoint at address
+- ALT+F8 Jump to address
+- ALT+F9 Input poke
+- ALT+F10 NMI
+- ALT+F12 Update Firmware
 - Pause Pause
-- PrntScr BMP screen capture (Folder /.c at SDCard)
-
-## ZX Keyboard functions
-
-Press CAPS SHIFT + SYMBOL SHIFT and:
-
-- 1 Main menu
-- 2 Load (SNA,Z80,P)
-- 3 Load custom snapshot
-- 4 Save custom snapshot
-- 5 Select TAP file
-- 6 Play/Stop tape
-- 7 Tape browser
-- 8 CPU / Tape load stats ( [CPU] microsecs per CPU cycle, [IDL] idle microsecs, [FPS] Frames per second, [FND] FPS w/no delay applied )
-- 9 Volume down
-- 0 Volume up
-- Q Hard reset
-- W Reset RP2040
-- I Hardware info
-- T Turbo mode
-- Z,X,C,V Screen centering in CRT 15K/50hz mode
-- O Input poke
-- N NMI
-- P Pause
-- S BMP screen capture (Folder /.c at SDCard)
+- PrntScr BMP screen capture (Folder /spec/.c at SDCard)
 
 ## How to flash custom ROMs
 

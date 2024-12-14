@@ -814,7 +814,7 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                 KeytoESP == fabgl::VK_VOLUMEUP || KeytoESP == fabgl::VK_VOLUMEDOWN || KeytoESP == fabgl::VK_VOLUMEMUTE)
             ) {
                 int64_t osd_start = esp_timer_get_time();
-                OSD::do_OSD(KeytoESP, Kbd->isVKDown(fabgl::VK_LCTRL) || Kbd->isVKDown(fabgl::VK_RCTRL));
+                OSD::do_OSD(KeytoESP, Kbd->isVKDown(fabgl::VK_LALT) || Kbd->isVKDown(fabgl::VK_RALT));
                 Kbd->emptyVirtualKeyQueue();
                 // Set all zx keys as not pressed
                 zxDelay = 15;
