@@ -157,7 +157,7 @@ inline uint8_t MemESP::readbyte(uint16_t addr) {
     case 1:
         return ram[5].direct()[addr - 0x4000];
     case 2:
-        return ram[2].read(addr - 0x8000);
+        return ram[2].direct()[addr - 0x8000];
     case 3:
         return ram[bankLatch].read(addr - 0xC000);
     default:
@@ -180,7 +180,7 @@ inline void MemESP::writebyte(uint16_t addr, uint8_t data)
         ram[5].direct()[addr - 0x4000] = data;
         break;
     case 2:
-        ram[2].write(addr, data);
+        ram[2].direct()[addr] = data;
         break;
     case 3:
         ram[bankLatch].write(addr, data);
