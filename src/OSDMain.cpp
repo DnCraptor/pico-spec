@@ -3274,6 +3274,7 @@ void OSD::osdDebug() {
     uint32_t T2 = 0;
 
 c:
+    sleep_ms(5);
     // Set font
     VIDEO::vga.setFont(Font6x8);
 
