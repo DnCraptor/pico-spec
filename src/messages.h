@@ -1097,7 +1097,8 @@ static const char *AboutMsg[2][9] = {
     " [+]          Shift down position\n"\
     " [-]          Shift up position\n"\
     " [0]          Default position\n"\
-    " [F1]         This Help\n"
+    " [F1]         This Help\n"\
+    " [F11-F12]    Load / Save snapshot\n"
 
 static const char *StartMsg[2] = {
 	"\xAD" "Hola! " "\xAD" "Gracias por elegir    ectrum!\n"\

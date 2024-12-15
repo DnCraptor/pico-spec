@@ -425,7 +425,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
             menu_curopt = 1;
             // Persist Load
             string menuload = MENU_PERSIST_LOAD[Config::lang];
-            for(int i=1; i <= 10; i++) {
+            for(int i = 1; i <= 40; ++i) {
                 menuload += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
             }
             uint8_t opt2 = menuRun(menuload);
@@ -439,7 +439,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
             menu_curopt = 1;
             while (1) {
                 string menusave = MENU_PERSIST_SAVE[Config::lang];
-                for(int i=1; i <= 10; i++) {
+                for(int i = 1; i <= 40; ++i) {
                     menusave += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
                 }
                 uint8_t opt2 = menuRun(menusave);
@@ -3312,7 +3312,7 @@ c:
             int8_t b1b = b1;
             snprintf(buf, 32, b1b >= 0 ? " %04X %02X +%d(d)" : " %04X %02X %d(d)", pci, bi, b1b);
             d = 0;
-            nn = 2;
+            nn = 1;
             ICB = false;
         }
         else if (IX || IY) {
@@ -3541,6 +3541,37 @@ c:
                 Z80::triggerNMI();
                 goto c;
             } else
+            if (FileUtils::fsMount && Nextkey.vk == fabgl::VK_F11) {
+                menu_level = 0;
+                menu_curopt = 1;
+                // Persist Load
+                string menuload = MENU_PERSIST_LOAD[Config::lang];
+                for(int i = 1; i <= 40; ++i) {
+                    menuload += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
+                }
+                uint8_t opt2 = menuRun(menuload);
+                if (opt2) {
+                    persistLoad(opt2);
+                }
+                goto c;
+            }
+            else if (FileUtils::fsMount && Nextkey.vk == fabgl::VK_F12) {
+                // Persist Save
+                menu_level = 0;
+                menu_curopt = 1;
+                while (1) {
+                    string menusave = MENU_PERSIST_SAVE[Config::lang];
+                    for(int i = 1; i <= 40; ++i) {
+                        menusave += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
+                    }
+                    uint8_t opt2 = menuRun(menusave);
+                    if (opt2) {
+                        if (persistSave(opt2)) return;
+                        menu_curopt = opt2;
+                    } else break;
+                }
+                goto c;
+            }
             if (Nextkey.vk == fabgl::VK_PLUS) {
                 ++ii;
                 goto c;
