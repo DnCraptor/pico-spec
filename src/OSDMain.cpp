@@ -331,34 +331,40 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
             ESPectrum::ESP_delay = !ESPectrum::ESP_delay;
         } else 
         if (KeytoESP == fabgl::VK_F3) {
-            uint16_t address = addressDialog(Config::portReadBP, "Port read BP");
-            if (Config::portReadBP != address) {
+            uint32_t address = addressDialog(Config::portReadBP, "Port read BP");
+            if (address > 0xFFFF) {
+                Config::enablePortReadBP = false;
+            } else {
+                Config::enablePortReadBP = true;
                 Config::portReadBP = address;
-                Config::save();
             }
+            Config::save();
         } else 
         if (KeytoESP == fabgl::VK_F4) {
-            uint16_t address = addressDialog(Config::portWriteBP, "Port write BP");
-            if (Config::portWriteBP != address) {
+            uint32_t address = addressDialog(Config::portWriteBP, "Port write BP");
+            if (address > 0xFFFF) {
+                Config::enablePortWriteBP = false;
+            } else {
+                Config::enablePortWriteBP = true;
                 Config::portWriteBP = address;
-                Config::save();
             }
+            Config::save();
         }
         else if (KeytoESP == fabgl::VK_F5) {
             osdDebug();
         }
         else if (KeytoESP == fabgl::VK_F7) {
-            uint16_t address = addressDialog(Config::breakPoint, Config::lang ? "Punto de interr." : "Breakpoint");
-            if (Config::breakPoint != address) {
+            uint32_t address = addressDialog(Config::breakPoint, Config::lang ? "Punto de interr." : "Breakpoint");
+            if (address > 0xFFFF)
+                Config::enableBreakPoint = false;
+            else {
+                Config::enableBreakPoint = true;
                 Config::breakPoint = address;
-                Config::save();
             }
+            Config::save();
         } else 
         if (KeytoESP == fabgl::VK_F8) {
-            uint16_t address = addressDialog(Z80::getRegPC(), Config::lang ? "Saltar a" : "Jump to");
-            if (Z80::getRegPC() != address) {
-                Z80::setRegPC(address);
-            }
+            jumpToDialog();
         } else 
         if (KeytoESP == fabgl::VK_F9) { // Input Poke
             pokeDialog();
@@ -2233,36 +2239,42 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                     // Debug
                     uint8_t opt2 = menuRun(MENU_DEBUG_EN);
                     if (opt2 == 1) {
-                        uint16_t address = addressDialog(Config::portReadBP, "Port read BP");
-                        if (Config::portReadBP != address) {
+                        uint32_t address = addressDialog(Config::portReadBP, "Port read BP");
+                        if (address > 0xFFFF) {
+                            Config::enablePortReadBP = false;
+                        } else {
+                            Config::enablePortReadBP = true;
                             Config::portReadBP = address;
-                            Config::save();
                         }
+                        Config::save();
                         return;
                     }
                     else if (opt2 == 2) {
-                        uint16_t address = addressDialog(Config::portWriteBP, "Port write BP");
-                        if (Config::portWriteBP != address) {
+                        uint32_t address = addressDialog(Config::portWriteBP, "Port write BP");
+                        if (address > 0xFFFF) {
+                            Config::enablePortWriteBP = false;
+                        } else {
+                            Config::enablePortWriteBP = true;
                             Config::portWriteBP = address;
-                            Config::save();
                         }
+                        Config::save();
                         return;
                     }
                     else if (opt2 == 3) {
                         OSD::osdDebug();
                         return;
                     } else if (opt2 == 4) {
-                        uint16_t address = addressDialog(Config::breakPoint, Config::lang ? "Punto de interr." : "Breakpoint");
-                        if (Config::breakPoint != address) {
+                        uint32_t address = addressDialog(Config::breakPoint, Config::lang ? "Punto de interr." : "Breakpoint");
+                        if (address > 0xFFFF) {
+                            Config::enableBreakPoint = false;
+                        } else {
+                            Config::enableBreakPoint = true;
                             Config::breakPoint = address;
-                            Config::save();
                         }
+                        Config::save();
                         return;
                     } else if (opt2 == 5) {
-                        uint16_t address = addressDialog(Z80::getRegPC(), Config::lang ? "Saltar a" : "Jump to");
-                        if (Z80::getRegPC() != address) {
-                            Z80::setRegPC(address);
-                        }
+                        jumpToDialog();
                         return;
                     } else if (opt2 == 6) {
                         pokeDialog();
@@ -3382,7 +3394,7 @@ c:
             else --nn;
         }
         VIDEO::vga.print(buf);
-        if (Config::breakPoint != 0xFFFF && Config::breakPoint == pci) {
+        if (Config::enableBreakPoint && Config::breakPoint == pci) {
             VIDEO::vga.circle(xi+3, yi+3, 3, zxColor(2, 0));
         }
     }
@@ -3443,19 +3455,27 @@ c:
     snprintf(buf, 32, "PC %04X %dus", Z80::getRegPC(), t2 - t1);
     VIDEO::vga.print(buf);
 
-    if (Config::breakPoint == 0xFFFF)
+    if (!Config::enableBreakPoint)
         ++i;
     else {
         VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
         snprintf(buf, 32, "BP %04X", Config::breakPoint);
         VIDEO::vga.print(buf);
     }
-    if (Config::portReadBP == 0xFFFF && Config::portWriteBP == 0xFFFF)
-        ++i;
-    else {
+    if (Config::enablePortReadBP && Config::enablePortWriteBP) {
         VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
         snprintf(buf, 32, "BPP R%04X W%04X", Config::portReadBP, Config::portWriteBP);
         VIDEO::vga.print(buf);
+    } else if (Config::enablePortWriteBP) {
+        VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+        snprintf(buf, 32, "BPP       W%04X", Config::portWriteBP);
+        VIDEO::vga.print(buf);
+    } else if (Config::enablePortReadBP) {
+        VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+        snprintf(buf, 32, "BPP R%04X      ", Config::portReadBP);
+        VIDEO::vga.print(buf);
+    } else {
+        ++i;
     }
 
     ++i;
@@ -3500,34 +3520,40 @@ c:
                 break;
             } else
             if (Nextkey.vk == fabgl::VK_F3) {
-                uint16_t address = addressDialog(Config::portReadBP, "Port read BP");
-                if (Config::portReadBP != address) {
+                uint32_t address = addressDialog(Config::portReadBP, "Port read BP");
+                if (address > 0xFFFF) {
+                    Config::enablePortReadBP = false;
+                } else {
+                    Config::enablePortReadBP = true;
                     Config::portReadBP = address;
-                    Config::save();
                 }
+                Config::save();
                 goto c;
             } else 
             if (Nextkey.vk == fabgl::VK_F4) {
-                uint16_t address = addressDialog(Config::portWriteBP, "Port write BP");
-                if (Config::portWriteBP != address) {
+                uint32_t address = addressDialog(Config::portWriteBP, "Port write BP");
+                if (address > 0xFFFF) {
+                    Config::enablePortWriteBP = false;
+                } else {
+                    Config::enablePortWriteBP = true;
                     Config::portWriteBP = address;
-                    Config::save();
                 }
+                Config::save();
                 goto c;
             } else 
             if (Nextkey.vk == fabgl::VK_F7) {
-                uint16_t address = addressDialog(Config::breakPoint, Config::lang ? "Punto de interr." : "Breakpoint");
-                if (Config::breakPoint != address) {
+                uint32_t address = addressDialog(Config::breakPoint, Config::lang ? "Punto de interr." : "Breakpoint");
+                if (address > 0xFFFF)
+                    Config::enableBreakPoint = false;
+                else {
+                    Config::enableBreakPoint = true;
                     Config::breakPoint = address;
-                    Config::save();
                 }
+                Config::save();
                 goto c;
             } else 
             if (Nextkey.vk == fabgl::VK_F8) {
-                uint16_t address = addressDialog(Z80::getRegPC(), Config::lang ? "Saltar a" : "Jump to");
-                if (Z80::getRegPC() != address) {
-                    Z80::setRegPC(address);
-                }
+                jumpToDialog();
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_F9) {
@@ -3582,7 +3608,12 @@ c:
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_F5) {
-                Config::breakPoint = Config::breakPoint == pc ? 0xFFFF : pc;
+                if (Config::breakPoint == pc) {
+                    Config::enableBreakPoint = false;
+                } else {
+                    Config::enableBreakPoint = true;
+                    Config::breakPoint = pc;
+                }
                 Config::save();
                 goto c;
             } else
@@ -3609,6 +3640,9 @@ c:
                 while (pc == Z80::getRegPC() && i++ < 64*1024) {
                     CPU::step();
                 }
+                ii -= (int)pc - Z80::getRegPC();
+                if (ii > 16) ii = 4;
+                if (ii < 0) ii = 4;
                 t2 = time_us_32();
                 T2 = CPU::tstates;
                 goto c;
@@ -4978,6 +5012,13 @@ const dlgObject dlg_Objects[5] = {
 
 const string BankCombo[9] = { "   -   ", "   0   ", "   1   ", "   2   ", "   3   ", "   4   ", "   5   ", "   6   ", "   7   " };
 
+void OSD::jumpToDialog() {
+    uint32_t address = addressDialog(Z80::getRegPC(), Config::lang ? "Saltar a" : "Jump to");
+    if (Z80::getRegPC() != address && address <= 0xFFFF) {
+        Z80::setRegPC(address);
+    }
+}
+
 void OSD::pokeDialog() {
     char tmp1[8];
     uint16_t address = Z80::getRegPC();
@@ -5259,7 +5300,7 @@ const dlgObject dlg_Objects2[3] = {
     {"Cancel", 52,65, 2, 2, 1, 0, DLG_OBJ_BUTTON, {"  Cancel  "," Cancelar "}}
 };
 
-uint16_t OSD::addressDialog(uint16_t addr, const char* title) {
+uint32_t OSD::addressDialog(uint16_t addr, const char* title) {
     char tmp[8];
     snprintf(tmp, 8, "%04X", addr);
     string dlgValues[3]={
@@ -5442,14 +5483,14 @@ uint16_t OSD::addressDialog(uint16_t addr, const char* title) {
                     trim(s);
                     addr = stoul(s, nullptr, 16);
                     click();
-                    break;
+                    return addr;
                 } else if (dlg_Objects2[curObject].Name == "Cancel") {
                     click();
-                    break;
+                    return 0x00010001;
                 }
             } else if (is_back(Nextkey.vk)) {
                 click();
-                break;
+                return 0x00010000;
             }
         }
 
@@ -5471,5 +5512,5 @@ uint16_t OSD::addressDialog(uint16_t addr, const char* title) {
         }
         sleep_ms(5);
     }
-    return addr;
+    return 0x00010000;
 }

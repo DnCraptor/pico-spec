@@ -130,7 +130,8 @@ public:
     string inputBox(int x, int y, string text);
     static void joyDialog(void);
     static void pokeDialog();
-    static uint16_t addressDialog(uint16_t addr, const char* title);
+    static void jumpToDialog();
+    static uint32_t addressDialog(uint16_t addr, const char* title);
 
     // Rows
     static unsigned short rowCount(string menu);

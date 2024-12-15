@@ -39,6 +39,9 @@ bool     Config::rightSpace = true;
 uint16_t Config::breakPoint = 0xFFFF;
 uint16_t Config::portReadBP = 0xFFFF;
 uint16_t Config::portWriteBP = 0xFFFF;
+bool Config::enableBreakPoint = false;
+bool Config::enablePortReadBP = false;
+bool Config::enablePortWriteBP = false;
 
 uint8_t  Config::joystick = JOY_KEMPSTON;
 uint16_t Config::joydef[12] = {
@@ -237,6 +240,9 @@ void Config::load() {
         nvs_get_u16("breakPoint", breakPoint, sts);
         nvs_get_u16("portReadBP", portReadBP, sts);
         nvs_get_u16("portWriteBP", portWriteBP, sts);
+        nvs_get_b("enableBreakPoint", enableBreakPoint, sts);
+        nvs_get_b("enablePortReadBP", enablePortReadBP, sts);
+        nvs_get_b("enablePortWriteBP", enablePortWriteBP, sts);
         nvs_get_b("tape_player", tape_player, sts);
         bool b; nvs_get_b("real_player", b, sts);
         if (real_player && !b) {
@@ -345,6 +351,9 @@ void Config::save() {
         nvs_set_u16(handle,"breakPoint", Config::breakPoint);
         nvs_set_u16(handle,"portReadBP", Config::portReadBP);
         nvs_set_u16(handle,"portWriteBP", Config::portWriteBP);
+        nvs_set_str(handle,"enableBreakPoint", enableBreakPoint ? "true" : "false");
+        nvs_set_str(handle,"enablePortReadBP", enablePortReadBP ? "true" : "false");
+        nvs_set_str(handle,"enablePortWriteBP", enablePortWriteBP ? "true" : "false");
         nvs_set_u8(handle,"joystick", Config::joystick);
         // Write joystick definition
         for (int n = 0; n < 12; ++n) {

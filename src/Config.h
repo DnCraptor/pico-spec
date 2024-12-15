@@ -90,6 +90,9 @@ public:
     static uint16_t breakPoint;
     static uint16_t portReadBP;
     static uint16_t portWriteBP;
+    static bool     enableBreakPoint;
+    static bool     enablePortReadBP;
+    static bool     enablePortWriteBP;
     static uint8_t  joystick;
     static uint16_t joydef[12];
     static uint8_t  AluTiming;

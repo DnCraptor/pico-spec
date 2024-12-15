@@ -139,6 +139,8 @@ IRAM_ATTR void CPU::step() {
 }
 
 IRAM_ATTR void CPU::loop() {
+    bool bpe = Config::enableBreakPoint;
+    bool pbbp = CPU::portBasedBP;
     uint16_t bp = Config::breakPoint;
     // Check NMI
     if (Z80::isNMI()) {
@@ -146,7 +148,7 @@ IRAM_ATTR void CPU::loop() {
         Z80::doNMI();
     }
     while (tstates < IntEnd) {
-        if (CPU::portBasedBP || bp != 0xFFFF && bp == Z80::getRegPC()) {
+        if (pbbp || bpe && bp == Z80::getRegPC()) {
             VIDEO::EndFrame();
             return;
         }
@@ -160,7 +162,7 @@ IRAM_ATTR void CPU::loop() {
         FlushOnHalt();
     }
     while (tstates < statesInFrame) {
-        if (CPU::portBasedBP || bp != 0xFFFF && bp == Z80::getRegPC()) {
+        if (pbbp || bpe && bp == Z80::getRegPC()) {
             VIDEO::EndFrame();
             return;
         }
