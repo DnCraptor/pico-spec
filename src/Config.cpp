@@ -263,7 +263,7 @@ void Config::load() {
 #if !PICO_RP2040
         nvs_get_u8("throtling2", Config::throtling, sts);
 #else
-        nvs_get_u8("throtling", Config::throtling, sts);
+        nvs_get_u8("throtling1", Config::throtling, sts);
 #endif
         nvs_get_b("CursorAsJoy", CursorAsJoy, sts);
         nvs_get_str("SNA_Path", FileUtils::SNA_Path, sts);
@@ -359,7 +359,7 @@ void Config::save() {
 #if !PICO_RP2040
         nvs_set_u8(handle,"throtling2",Config::throtling);
 #else
-        nvs_set_u8(handle,"throtling",Config::throtling);
+        nvs_set_u8(handle,"throtling1",Config::throtling);
 #endif
         nvs_set_str(handle,"CursorAsJoy", CursorAsJoy ? "true" : "false");
         nvs_set_str(handle,"SNA_Path",FileUtils::SNA_Path.c_str());
