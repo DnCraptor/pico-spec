@@ -2760,6 +2760,125 @@ const static char* mnem[256] {
     "RST 38H", // FF
 };
 
+const char* mnemIX(uint8_t b) {
+    switch(b) {
+        case 0x09: return "ADD IX,BC";
+
+        case 0x19: return "ADD IX,DE";
+
+        case 0x21: return "LD IX,nn";
+        case 0x22: return "LD (nn),IX";
+        case 0x23: return "INC IX";
+        case 0x24: return "INC IXh";
+        case 0x25: return "DEC IXh";
+        case 0x26: return "LD IXh,n";
+
+        case 0x29: return "ADD IX,IX";
+        case 0x2A: return "LD IX,(nn)";
+        case 0x2B: return "DEC IX";
+        case 0x2C: return "INC IXl";
+        case 0x2D: return "DEC IXl";
+        case 0x2E: return "LD IXl,n";
+
+        case 0x34: return "INC (IX+d)";
+        case 0x35: return "DEC (IX+d)";
+        case 0x36: return "LD (IX+d),n";
+
+        case 0x39: return "ADD IX,SP";
+
+        case 0x44: return "LD B,IXh";
+        case 0x45: return "LD B,IXl";
+        case 0x46: return "LD B,(IX+d)";
+
+        case 0x4C: return "LD C,IXh";
+        case 0x4D: return "LD C,IXl";
+        case 0x4E: return "LD C,(IX+d)";
+
+        case 0x54: return "LD D,IXh";
+        case 0x55: return "LD D,IXl";
+        case 0x56: return "LD D,(IX+d)";
+
+        case 0x5C: return "LD E,IXh";
+        case 0x5D: return "LD E,IXl";
+        case 0x5E: return "LD E,(IX+d)";
+
+        case 0x60: return "LD IXh,B";
+        case 0x61: return "LD IXh,C";
+        case 0x62: return "LD IXh,D";
+        case 0x63: return "LD IXh,E";
+        case 0x64: return "LD IXh,IXh";
+        case 0x65: return "LD IXh,IXl";
+        case 0x66: return "LD H,(IX+n)";
+        case 0x67: return "LD IXh,A";
+        case 0x68: return "LD IXl,B";
+        case 0x69: return "LD IXl,C";
+        case 0x6A: return "LD IXl,D";
+        case 0x6B: return "LD IXl,E";
+        case 0x6C: return "LD IXl,IXh";
+        case 0x6D: return "LD IXl,IXl";
+        case 0x6E: return "LD L,(IX+n)";
+        case 0x6F: return "LD IXl,A";
+
+        case 0x70: return "LD (IX+d),B";
+        case 0x71: return "LD (IX+d),C";
+        case 0x72: return "LD (IX+d),D";
+        case 0x73: return "LD (IX+d),E";
+        case 0x74: return "LD (IX+d),H";
+        case 0x75: return "LD (IX+d),L";
+
+        case 0x77: return "LD (IX+d),A";
+
+        case 0x7C: return "LD A,IXh";
+        case 0x7D: return "LD A,IXl";
+        case 0x7E: return "LD A,(IX+d)";
+
+        case 0x84: return "ADD A,IXh";
+        case 0x85: return "ADD A,IXl";
+        case 0x86: return "ADD A,(IX+d)";
+
+        case 0x8C: return "ADC A,IXh";
+        case 0x8D: return "ADC A,IXl";
+        case 0x8E: return "ADC A,(IX+d)";
+
+        case 0x94: return "SUB A,IXh";
+        case 0x95: return "SUB A,IXl";
+        case 0x96: return "SUB A,(IX+d)";
+
+        case 0x9C: return "SBC A,IXh";
+        case 0x9D: return "SBC A,IXl";
+        case 0x9E: return "SBC A,(IX+d)";
+
+        case 0xA4: return "AND A,IXh";
+        case 0xA5: return "AND A,IXl";
+        case 0xA6: return "AND A,(IX+d)";
+
+        case 0xAC: return "XOR A,IXh";
+        case 0xAD: return "XOR A,IXl";
+        case 0xAE: return "XOR A,(IX+d)";
+
+        case 0xB4: return "OR A,IXh";
+        case 0xB5: return "OR A,IXl";
+        case 0xB6: return "OR A,(IX+d)";
+
+        case 0xBC: return "CP A,IXh";
+        case 0xBD: return "CP A,IXl";
+        case 0xBE: return "CP A,(IX+d)";
+
+        case 0xCB: return "IX bits:";
+
+        case 0xE1: return "POP IX";
+
+        case 0xE3: return "EX (SP),IX";
+
+        case 0xE5: return "PUSH IX";
+
+        case 0xE9: return "JP (IX)";
+
+        case 0xF9: return "LD SP,IX";
+    }
+    return "???";
+}
+
 const char* mnemED(uint8_t b) {
     switch(b) {
         case 0x40: return "IN B,(C)";
@@ -3181,7 +3300,7 @@ c:
     bool CB = false;
     bool IX = false;
     bool IY = false;
-    bool r = false;
+    bool ICB = false;
     std::string mem;
     for (; i < 20; ++i) {
         uint16_t pci = pc + i - ii;
@@ -3189,33 +3308,46 @@ c:
         uint8_t b1 = b[(pci+1) & 0x3fff];
         int yi = y + (i + 1) * OSD_FONT_H + 2;
         VIDEO::vga.setCursor(xi, yi);
-        if (!CB && !ED && nn == 0 && n == 0 && d == 0 || pci == pc) {
+        if (ICB) {
+            int8_t b1b = b1;
+            snprintf(buf, 32, b1b >= 0 ? " %04X %02X +%d(d)" : " %04X %02X %d(d)", pci, bi, b1b);
+            d = 0;
+            nn = 2;
+            ICB = false;
+        }
+        else if (IX || IY) {
+            snprintf(buf, 32, " %04X %02X", pci, bi);
+            IX = false;
+            IY = false;
+        }
+        else if (!CB && !ED && nn == 0 && n == 0 && d == 0 || pci == pc) {
             ED = bi == 0xED;
             CB = bi == 0xCB;
             IX = bi == 0xDD;
             IY = bi == 0xFD;
-            r = IX || IY;
-            if (CB) {
+            if (IX || IY) {
+                ICB = b1 == 0xCB;
+                if (ICB) {
+                    mem = mnemCB[b[(pci+3) & 0x3fff]];
+                    mem.replace(mem.find(" ", 0), 1, " (IX+d),");
+                } else {
+                    mem = mnemIX(b1);
+                }
+                auto pos = mem.find(",(HL)", 0);
+                if (pos != string::npos)
+                    mem.replace(pos, 4, " ");
+                if (mem.length() > 12)
+                    mem = mem.substr(0, 12);
+                if (IY) {
+                    mem.replace(mem.find("IX",0),2,"IY");
+                }
+            } else if (CB) {
                 mem = mnemCB[b1];
             } else if (ED) {
                 mem = mnemED(b1);
             } else {
                 mem = mnem[bi];
             }
-            if (!r && IX) {
-                if (bi == 0xE9) { // JP (HL)
-                    mem = mem.replace(mem.find("(HL)",0),4,"(IX)");
-                } else {
-                    mem = mem.replace(mem.find("(HL)",0),6,"(IX-1)");
-                }
-            } else if (!r && IY) {
-                if (bi == 0xE9) { // JP (HL)
-                    mem = mem.replace(mem.find("(HL)",0),4,"(IY)");
-                } else {
-                    mem = mem.replace(mem.find("(HL)",0),6,"(IY-1)");
-                }
-            }
-            r = false;
             const char* memc = mem.c_str();
             if (strstr(memc, "nn") != 0 || strstr(memc, "(nn)") != 0) {
                 d = 0;
