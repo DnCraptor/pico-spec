@@ -3289,8 +3289,6 @@ c:
 
     VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));        
     uint16_t pc = Z80::getRegPC();
-    uint8_t pg = pc >> 14;
-    uint8_t* b = MemESP::ramCurrent[pg];
     int i = 0;
     int xi = x + 1;
     int nn = 0;
@@ -3304,8 +3302,8 @@ c:
     std::string mem;
     for (; i < 20; ++i) {
         uint16_t pci = pc + i - ii;
-        uint8_t bi = b[pci & 0x3fff];
-        uint8_t b1 = b[(pci+1) & 0x3fff];
+        uint8_t bi = MemESP::readbyte(pci);
+        uint8_t b1 = MemESP::readbyte(pci + 1);
         int yi = y + (i + 1) * OSD_FONT_H + 2;
         VIDEO::vga.setCursor(xi, yi);
         if (ICB) {
@@ -3328,7 +3326,7 @@ c:
             if (IX || IY) {
                 ICB = b1 == 0xCB;
                 if (ICB) {
-                    mem = mnemCB[b[(pci+3) & 0x3fff]];
+                    mem = mnemCB[MemESP::readbyte(pci + 3)];
                     mem.replace(mem.find(" ", 0), 1, " (IX+d),");
                 } else {
                     mem = mnemIX(b1);
@@ -3459,7 +3457,6 @@ c:
         snprintf(buf, 32, "BPP R%04X W%04X", Config::portReadBP, Config::portWriteBP);
         VIDEO::vga.print(buf);
     }
-
 
     ++i;
 
