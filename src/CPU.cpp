@@ -148,7 +148,7 @@ IRAM_ATTR void CPU::loop() {
         Z80::doNMI();
     }
     while (tstates < IntEnd) {
-        if (pbbp || bpe && bp == Z80::getRegPC()) {
+        if (pbbp || (bpe && bp == Z80::getRegPC())) {
             VIDEO::EndFrame();
             return;
         }
@@ -162,7 +162,7 @@ IRAM_ATTR void CPU::loop() {
         FlushOnHalt();
     }
     while (tstates < statesInFrame) {
-        if (pbbp || bpe && bp == Z80::getRegPC()) {
+        if (pbbp || (bpe && bp == Z80::getRegPC())) {
             VIDEO::EndFrame();
             return;
         }

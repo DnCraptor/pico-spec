@@ -331,37 +331,16 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
             ESPectrum::ESP_delay = !ESPectrum::ESP_delay;
         } else 
         if (KeytoESP == fabgl::VK_F3) {
-            uint32_t address = addressDialog(Config::portReadBP, "Port read BP");
-            if (address > 0xFFFF) {
-                Config::enablePortReadBP = false;
-            } else {
-                Config::enablePortReadBP = true;
-                Config::portReadBP = address;
-            }
-            Config::save();
+            portReadBPDialog();
         } else 
         if (KeytoESP == fabgl::VK_F4) {
-            uint32_t address = addressDialog(Config::portWriteBP, "Port write BP");
-            if (address > 0xFFFF) {
-                Config::enablePortWriteBP = false;
-            } else {
-                Config::enablePortWriteBP = true;
-                Config::portWriteBP = address;
-            }
-            Config::save();
+            portWriteBPDialog();
         }
         else if (KeytoESP == fabgl::VK_F5) {
             osdDebug();
         }
         else if (KeytoESP == fabgl::VK_F7) {
-            uint32_t address = addressDialog(Config::breakPoint, Config::lang ? "Punto de interr." : "Breakpoint");
-            if (address > 0xFFFF)
-                Config::enableBreakPoint = false;
-            else {
-                Config::enableBreakPoint = true;
-                Config::breakPoint = address;
-            }
-            Config::save();
+            BPDialog();
         } else 
         if (KeytoESP == fabgl::VK_F8) {
             jumpToDialog();
@@ -2239,39 +2218,18 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                     // Debug
                     uint8_t opt2 = menuRun(MENU_DEBUG_EN);
                     if (opt2 == 1) {
-                        uint32_t address = addressDialog(Config::portReadBP, "Port read BP");
-                        if (address > 0xFFFF) {
-                            Config::enablePortReadBP = false;
-                        } else {
-                            Config::enablePortReadBP = true;
-                            Config::portReadBP = address;
-                        }
-                        Config::save();
+                        portReadBPDialog();
                         return;
                     }
                     else if (opt2 == 2) {
-                        uint32_t address = addressDialog(Config::portWriteBP, "Port write BP");
-                        if (address > 0xFFFF) {
-                            Config::enablePortWriteBP = false;
-                        } else {
-                            Config::enablePortWriteBP = true;
-                            Config::portWriteBP = address;
-                        }
-                        Config::save();
+                        portWriteBPDialog();
                         return;
                     }
                     else if (opt2 == 3) {
                         OSD::osdDebug();
                         return;
                     } else if (opt2 == 4) {
-                        uint32_t address = addressDialog(Config::breakPoint, Config::lang ? "Punto de interr." : "Breakpoint");
-                        if (address > 0xFFFF) {
-                            Config::enableBreakPoint = false;
-                        } else {
-                            Config::enableBreakPoint = true;
-                            Config::breakPoint = address;
-                        }
-                        Config::save();
+                        BPDialog();
                         return;
                     } else if (opt2 == 5) {
                         jumpToDialog();
@@ -3521,36 +3479,15 @@ c:
                 break;
             } else
             if (Nextkey.vk == fabgl::VK_F3) {
-                uint32_t address = addressDialog(Config::portReadBP, "Port read BP");
-                if (address > 0xFFFF) {
-                    Config::enablePortReadBP = false;
-                } else {
-                    Config::enablePortReadBP = true;
-                    Config::portReadBP = address;
-                }
-                Config::save();
+                portReadBPDialog();
                 goto c;
             } else 
             if (Nextkey.vk == fabgl::VK_F4) {
-                uint32_t address = addressDialog(Config::portWriteBP, "Port write BP");
-                if (address > 0xFFFF) {
-                    Config::enablePortWriteBP = false;
-                } else {
-                    Config::enablePortWriteBP = true;
-                    Config::portWriteBP = address;
-                }
-                Config::save();
+                portWriteBPDialog();
                 goto c;
             } else 
             if (Nextkey.vk == fabgl::VK_F7) {
-                uint32_t address = addressDialog(Config::breakPoint, Config::lang ? "Punto de interr." : "Breakpoint");
-                if (address > 0xFFFF)
-                    Config::enableBreakPoint = false;
-                else {
-                    Config::enableBreakPoint = true;
-                    Config::breakPoint = address;
-                }
-                Config::save();
+                BPDialog();
                 goto c;
             } else 
             if (Nextkey.vk == fabgl::VK_F8) {
@@ -3566,8 +3503,6 @@ c:
                 goto c;
             } else
             if (FileUtils::fsMount && Nextkey.vk == fabgl::VK_F11) {
-                menu_level = 0;
-                menu_curopt = 1;
                 // Persist Load
                 string menuload = MENU_PERSIST_LOAD[Config::lang];
                 for(int i = 1; i <= 40; ++i) {
@@ -3581,18 +3516,13 @@ c:
             }
             else if (FileUtils::fsMount && Nextkey.vk == fabgl::VK_F12) {
                 // Persist Save
-                menu_level = 0;
-                menu_curopt = 1;
-                while (1) {
-                    string menusave = MENU_PERSIST_SAVE[Config::lang];
-                    for(int i = 1; i <= 40; ++i) {
-                        menusave += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
-                    }
-                    uint8_t opt2 = menuRun(menusave);
-                    if (opt2) {
-                        if (persistSave(opt2)) return;
-                        menu_curopt = opt2;
-                    } else break;
+                string menusave = MENU_PERSIST_SAVE[Config::lang];
+                for(int i = 1; i <= 40; ++i) {
+                    menusave += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
+                }
+                uint8_t opt2 = menuRun(menusave);
+                if (opt2) {
+                    persistSave(opt2);
                 }
                 goto c;
             }
@@ -3609,7 +3539,7 @@ c:
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_F5) {
-                if (Config::breakPoint == pc) {
+                if (Config::enableBreakPoint && Config::breakPoint == pc) {
                     Config::enableBreakPoint = false;
                 } else {
                     Config::enableBreakPoint = true;
@@ -5514,4 +5444,46 @@ uint32_t OSD::addressDialog(uint16_t addr, const char* title) {
         sleep_ms(5);
     }
     return 0x00010000;
+}
+
+void OSD::portReadBPDialog() {
+    uint32_t address = addressDialog(Config::portReadBP, "Port read BP");
+    if (address == 0x00010000) {
+        return;
+    }
+    if (address == 0x00010001) {
+        Config::enablePortReadBP = false;
+    } else {
+        Config::enablePortReadBP = true;
+        Config::portReadBP = address;
+    }
+    Config::save();
+}
+
+void OSD::portWriteBPDialog() {
+    uint32_t address = addressDialog(Config::portWriteBP, "Port write BP");
+    if (address == 0x00010000) {
+        return;
+    }
+    if (address == 0x00010001) {
+        Config::enablePortWriteBP = false;
+    } else {
+        Config::enablePortWriteBP = true;
+        Config::portWriteBP = address;
+    }
+    Config::save();
+}
+
+void OSD::BPDialog() {
+    uint32_t address = addressDialog(Config::breakPoint, Config::lang ? "Punto de interr." : "Breakpoint");
+    if (address == 0x00010000) {
+        return;
+    }
+    if (address == 0x00010001) {
+        Config::enableBreakPoint = false;
+    } else {
+        Config::enableBreakPoint = true;
+        Config::breakPoint = address;
+    }
+    Config::save();
 }

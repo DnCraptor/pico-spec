@@ -131,6 +131,9 @@ public:
     static void joyDialog(void);
     static void pokeDialog();
     static void jumpToDialog();
+    static void portReadBPDialog();
+    static void portWriteBPDialog();
+    static void BPDialog();
     static uint32_t addressDialog(uint16_t addr, const char* title);
 
     // Rows
