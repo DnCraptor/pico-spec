@@ -77,7 +77,6 @@ void back2joy2(fabgl::VirtualKey virtualKey, bool down);
 #define JPAD (Config::secondJoy == 3 ? back2joy2: joyPushData)
 
 extern "C" bool handleScancode(const uint32_t ps2scancode) {
-    /// TODO: Pause	E1,1D,45, E1,9D,C5
     if ( ((ps2scancode >> 8) & 0xFF) == 0xE0) { // E0 block
         uint8_t cd = ps2scancode & 0xFF;
         bool pressed = cd < 0x80;
@@ -238,7 +237,7 @@ extern "C" bool handleScancode(const uint32_t ps2scancode) {
         case 0x58: kbdPushData(fabgl::VirtualKey::VK_F12, pressed); return true;
 
         case 0x46: kbdPushData(fabgl::VirtualKey::VK_SCROLLLOCK, pressed); return true; /// TODO:
-        case 0x45: kbdPushData(fabgl::VirtualKey::VK_NUMLOCK, pressed); return true; ///
+        case 0x45: kbdPushData(fabgl::VirtualKey::VK_PAUSE, pressed); return true;
         case 0x37: {
             JPAD(fabgl::VirtualKey::VK_DPAD_START, pressed);
             kbdPushData(fabgl::VirtualKey::VK_KP_MULTIPLY, pressed);
