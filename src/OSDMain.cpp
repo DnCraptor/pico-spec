@@ -329,6 +329,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
         } else
         if (KeytoESP == fabgl::VK_F2) { // Turbo mode
             ESPectrum::ESP_delay = !ESPectrum::ESP_delay;
+            CPU::updateStatesInFrame();
         } else 
         if (KeytoESP == fabgl::VK_F3) {
             portReadBPDialog();

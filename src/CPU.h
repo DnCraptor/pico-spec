@@ -65,6 +65,8 @@ public:
     // call this for executing a frame's worth of instructions
     static void loop();
 
+    static void updateStatesInFrame();
+
     // call this for resetting the CPU
     static void reset();
 

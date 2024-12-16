@@ -991,6 +991,7 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
 IRAM_ATTR void ESPectrum::BeeperGetSample() {
     // Beeper audiobuffer generation (oversample)
     uint32_t audbufpos = Z80Ops::is128 ? CPU::tstates / 19 : CPU::tstates >> 4;
+    if (!ESP_delay) audbufpos >>= 1;
     for (;audbufcnt < audbufpos; audbufcnt++) {
         audioBitBuf += lastaudioBit;
         if(++audioBitbufCount == audioSampleDivider) {
@@ -1004,6 +1005,7 @@ IRAM_ATTR void ESPectrum::BeeperGetSample() {
 IRAM_ATTR void ESPectrum::AYGetSample() {
     // AY audiobuffer generation (oversample)
     uint32_t audbufpos = CPU::tstates / (Z80Ops::is128 ? 114 : 112);
+    if (!ESP_delay) audbufpos >>= 1;
     if (audbufpos > audbufcntAY) {
         chip0.gen_sound(audbufpos - audbufcntAY, audbufcntAY);
         if (Config::turbosound)
@@ -1030,8 +1032,8 @@ void ESPectrum::loop() {
     faudbufcnt = audbufcnt;
     faudioBit = lastaudioBit;
     faudbufcntAY = audbufcntAY;
-    if (ESP_delay) {
 #if LOAD_WAV_PIO
+    if (ESP_delay) { /// TODO:
         if (Config::real_player) {
             if (Tape::tapeStatus != TAPE_LOADING) {  // W/A
                 Tape::tapeStatus = TAPE_LOADING;
@@ -1046,6 +1048,7 @@ void ESPectrum::loop() {
             }
             pwm_audio_in_frame_started();
         }
+    }
 #endif
         int32_t t_us = Config::throtling * 1000l;
         if (!t_us || idle > t_us)
@@ -1095,7 +1098,6 @@ void ESPectrum::loop() {
         memset(audioBuffer_L, 0, samplesPerFrame);
         memset(audioBuffer_R, 0, samplesPerFrame);
         memset(overSamplebuf, 0, samplesPerFrame);
-    }
     processKeyboard();
     // Update stats every 50 frames
     if (VIDEO::OSD && VIDEO::framecnt >= 50) {
@@ -1137,20 +1139,20 @@ void ESPectrum::loop() {
 
     totalsecondsnodelay += elapsed;
 
-    if (ESP_delay == false) {
-        totalseconds += elapsed;
-        continue;
-    }
+///    if (ESP_delay == false) {
+///        totalseconds += elapsed;
+///        continue;
+///    }
 
     if (idle > 0) {
         delayMicroseconds(idle);
     }
 
-        // Audio sync
-        if (++sync_cnt & 0x10) {
-///            ESPoffset = 128 - pwm_audio_rbstats();
-            sync_cnt = 0;
-        } 
+    // Audio sync
+    if (++sync_cnt & 0x10) {
+///     ESPoffset = 128 - pwm_audio_rbstats();
+        sync_cnt = 0;
+    } 
     totalseconds += time_us_64() - ts_start;
  }
 }
