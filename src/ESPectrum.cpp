@@ -1035,8 +1035,7 @@ void ESPectrum::loop() {
     faudbufcnt = audbufcnt;
     faudioBit = lastaudioBit;
     faudbufcntAY = audbufcntAY;
-#if LOAD_WAV_PIO
-///    if (ESP_delay) { /// TODO:
+    #if LOAD_WAV_PIO
         if (Config::real_player) {
             if (Tape::tapeStatus != TAPE_LOADING) {  // W/A
                 Tape::tapeStatus = TAPE_LOADING;
@@ -1051,8 +1050,7 @@ void ESPectrum::loop() {
             }
             pwm_audio_in_frame_started();
         }
-///    }
-#endif
+    #endif
         int32_t t_us = Config::throtling * 1000l;
         if (!t_us || idle > t_us)
         // Finish fill of beeper oversampled audio buffers
