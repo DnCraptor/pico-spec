@@ -113,7 +113,7 @@ public:
     static bool AY_emu;
     static int Audio_freq;
 
-    static bool ESP_delay;
+    static uint8_t multiplicator;
     static int sync_cnt;    
 
     static int TapeNameScroller;

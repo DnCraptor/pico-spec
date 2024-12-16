@@ -84,10 +84,11 @@ void CPU::updateStatesInFrame() {
         IntStart = INT_START_PENTAGON;
         IntEnd = INT_END_PENTAGON + CPU::latetiming;
     }
-    if (!ESPectrum::ESP_delay) {
-        statesInFrame <<= 1;
-        IntStart <<= 1;
-        IntEnd <<= 1;
+    uint8_t m = ESPectrum::multiplicator;
+    if (m) {
+        statesInFrame <<= m;
+        IntStart <<= m;
+        IntEnd <<= m;
     }
     stFrame = statesInFrame - IntEnd;
 }

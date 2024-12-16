@@ -209,7 +209,7 @@ void OSD::drawStats() {
         y = 220;
     }
 
-    VIDEO::vga.setTextColor(zxColor(7, 0), zxColor( ESPectrum::ESP_delay ? 1 : 2, 0));
+    VIDEO::vga.setTextColor(zxColor(7, 0), zxColor( ESPectrum::multiplicator + 1, 0));
     VIDEO::vga.setFont(Font6x8);
     VIDEO::vga.setCursor(x,y);
     VIDEO::vga.print(stats_lin1);
@@ -328,7 +328,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
         } else
         if (KeytoESP == fabgl::VK_F2) { // Turbo mode
-            ESPectrum::ESP_delay = !ESPectrum::ESP_delay;
+            ESPectrum::multiplicator += 1;
+            if (ESPectrum::multiplicator > 3) {
+                ESPectrum::multiplicator = 0;
+            }
             CPU::updateStatesInFrame();
         } else 
         if (KeytoESP == fabgl::VK_F3) {
@@ -3527,16 +3530,24 @@ c:
                 }
                 goto c;
             }
-            if (Nextkey.vk == fabgl::VK_PLUS) {
+            if (Nextkey.vk == fabgl::VK_PLUS || Nextkey.vk == fabgl::VK_UP) {
                 ++ii;
                 goto c;
             } else
-            if (Nextkey.vk == fabgl::VK_MINUS) {
+            if (Nextkey.vk == fabgl::VK_MINUS || Nextkey.vk == fabgl::VK_DOWN) {
                 --ii;
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_0) {
                 ii = 0;
+                goto c;
+            } else
+            if (Nextkey.vk == fabgl::VK_PAGEUP) {
+                ii += 20;
+                goto c;
+            } else
+            if (Nextkey.vk == fabgl::VK_PAGEDOWN) {
+                ii -= 20;
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_F5) {
