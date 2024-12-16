@@ -809,9 +809,6 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
         if (r) {
             KeytoESP = NextKey.vk;
             Kdown = NextKey.down;
-            if (Kdown && KeytoESP == fabgl::VK_PAUSE) {
-                while (!Kbd->virtualKeyAvailable());
-            }
             if ((Kdown) && ((KeytoESP >= fabgl::VK_F1 && KeytoESP <= fabgl::VK_F12) || KeytoESP == fabgl::VK_PAUSE ||
                 KeytoESP == fabgl::VK_VOLUMEUP || KeytoESP == fabgl::VK_VOLUMEDOWN || KeytoESP == fabgl::VK_VOLUMEMUTE)
             ) {
