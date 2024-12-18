@@ -40,7 +40,7 @@ static uint sm = 0;
 static PIO pio = pio0;
 static uint st7789_chan;
 
-uint16_t __scratch_y("tft_palette") palette[256];
+uint16_t __scratch_y("tft_palette") palette[64];
 
 static uint graphics_buffer_width = 0;
 static uint graphics_buffer_height = 0;
@@ -167,8 +167,74 @@ void graphics_init() {
     lcd_init(init_seq);
     gpio_put(TFT_LED_PIN, 1);
 
-    for (int i = 0; i < sizeof palette; i++) {
-        graphics_set_palette(i, 0x0000);
+    for (uint8_t c = 0; c <= 0b00111111; ++c) {
+        size_t idx = 0;
+        switch (c)
+        {
+        case 0b000000: idx = 0; break; // black
+
+        case 0b000001: idx = 4; break; // red
+        case 0b000010: idx = 4; break;
+
+        case 0b000011: idx = 12; break; // light red
+        case 0b010011: idx = 12; break;
+
+        case 0b000100: idx = 2; break; // green
+        case 0b001000: idx = 2; break;
+        case 0b001001: idx = 2; break;
+
+        case 0b001100: idx = 10; break; // light green
+
+        case 0b010000: idx = 1; break; // blue
+        case 0b100000: idx = 1; break;
+
+        case 0b110000: idx = 9; break; // light blue
+
+        case 0b000101: idx = 8; break; // yellow
+        case 0b000110: idx = 8; break;
+        case 0b001010: idx = 8; break;
+        case 0b001011: idx = 8; break;
+        case 0b001110: idx = 8; break;
+
+        case 0b001111: idx = 14; break; // light tellow
+
+        case 0b010001: idx = 5; break; // magenta
+        case 0b010010: idx = 5; break;
+        case 0b100001: idx = 5; break;
+        case 0b100010: idx = 5; break;
+        case 0b110010: idx = 5; break;
+        case 0b100011: idx = 5; break;
+
+        case 0b110011: idx = 13; break; // light magenta
+
+        case 0b010100: idx = 3; break; // cyan
+        case 0b100100: idx = 3; break;
+        case 0b011000: idx = 3; break;
+        case 0b101000: idx = 3; break;
+        case 0b111000: idx = 3; break;
+        case 0b101100: idx = 3; break;
+
+        case 0b111100: idx = 11; break; // light cyan
+
+        case 0b010101: idx = 7; break; // gray
+        case 0b010110: idx = 7; break;
+        case 0b100101: idx = 7; break;
+        case 0b100110: idx = 7; break;
+        case 0b010111: idx = 7; break;
+        case 0b011001: idx = 7; break;
+        case 0b011111: idx = 7; break;
+        case 0b111001: idx = 7; break;
+        case 0b111010: idx = 7; break;
+        case 0b101001: idx = 7; break;
+        case 0b101010: idx = 7; break;
+
+        case 0b111111: idx = 15; break; // white
+
+        case 0b000111: idx = 16; break; // orange
+
+        default: idx = 15; break;
+        }
+        graphics_set_palette(c, textmode_palette[idx]);
     }
     clrScr(0);
 
@@ -217,6 +283,8 @@ void st7789_dma_pixels(const uint16_t* pixels, const uint num_pixels) {
 uint8_t* getLineBuffer(int line);
 void ESPectrum_vsync();
 
+static uint8_t z = 0;
+
 void __inline __scratch_y("refresh_lcd") refresh_lcd() {
     ESPectrum_vsync();
     switch (graphics_mode) {
@@ -226,13 +294,16 @@ void __inline __scratch_y("refresh_lcd") refresh_lcd() {
             start_pixels();
             for (size_t y = 0; y < graphics_buffer_height; ++y) {
                 const uint8_t* bitmap = getLineBuffer(y);
+                if (!bitmap) continue;
                 for (size_t x = 0; x < graphics_buffer_width; ++x) {
-                   st7789_lcd_put_pixel(pio, sm, palette[*bitmap++]);
+                    register uint8_t c = bitmap[x ^ 2];
+                    st7789_lcd_put_pixel(pio, sm, palette[c]);
                 }
             }
             stop_pixels();
         }
     }
+    ++z;
 }
 
 void graphics_set_palette(const uint8_t i, const uint32_t color) {
