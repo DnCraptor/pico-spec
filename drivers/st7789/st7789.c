@@ -155,30 +155,11 @@ void create_dma_channel() {
 ///#define RGB888(c) ((R(c) << 14) | (G(c) << 9) | B(c) << 3)
 
 //RRRR RGGG GGGB BBBB
+#ifdef ILI9341
+#define RGB888(r, g, b) ((((r) >> 3) << 11) | (((g) >> 2) << 5) | ((b) >> 3))
+#else
 #define RGB888(r, g, b) ((((~r & 0xFF) >> 3) << 11) | (((~g & 0xFF) >> 2) << 5) | ((~b & 0xFF) >> 3))
-///#define RGB888(r, g, b) ((((b) >> 3) << 11) | (((g) >> 2) << 5) | ((r) >> 3))
-/**
-static const uint16_t textmode_palette_tft[17] = {
-    //R, G, B
-    RGB888(0x00, 0x00, 0x00), //black
-    RGB888(0x00, 0x00, 0xC4), //blue
-    RGB888(0x00, 0xC4, 0x00), //green
-    RGB888(0x00, 0xC4, 0xC4), //cyan
-    RGB888(0xC4, 0x00, 0x00), //red
-    RGB888(0xC4, 0x00, 0xC4), //magenta
-    RGB888(0xC4, 0x7E, 0x00), //brown
-    RGB888(0xC4, 0xC4, 0xC4), //light gray
-    RGB888(0xC4, 0xC4, 0x00), //yellow
-    RGB888(0x4E, 0x4E, 0xDC), //light blue
-    RGB888(0x4E, 0xDC, 0x4E), //light green
-    RGB888(0x4E, 0xF3, 0xF3), //light cyan
-    RGB888(0xDC, 0x4E, 0x4E), //light red
-    RGB888(0xF3, 0x4E, 0xF3), //light magenta
-    RGB888(0xF3, 0xF3, 0x4E), //light yellow
-    RGB888(0xFF, 0xFF, 0xFF), //white
-    RGB888(0xFF, 0x7E, 0x00) //orange
-};
-*/
+#endif
 
 static const uint16_t textmode_palette_tft[17] = {
     //R, G, B
