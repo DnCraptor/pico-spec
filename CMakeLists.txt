@@ -33,7 +33,7 @@ set (PORT_VERSION "1.2.4")
 ###set(TV ON)
 ###set(SOFTTV ON)
 set(TFT ON)
-set(ILI9341 ON)
+#set(ILI9341 ON)
 
 #set (MURM2 ON)
 
@@ -105,7 +105,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 IF(TFT)
     target_link_libraries(${PROJECT_NAME} PRIVATE st7789)
     target_compile_definitions(${PROJECT_NAME} PRIVATE TFT)
-    SET(BUILD_NAME "${BUILD_NAME}-TFT-${PORT_VERSION}")
+    SET(BUILD_NAME "${BUILD_NAME}-TFT")
     IF(ILI9341)
         SET(BUILD_NAME "${BUILD_NAME}-ILI9341-${PORT_VERSION}")
         target_compile_definitions(${PROJECT_NAME} PRIVATE ILI9341)

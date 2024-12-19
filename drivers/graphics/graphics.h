@@ -13,7 +13,6 @@ extern "C" {
 #include "hdmi.h"
 #endif
 #ifdef VGA_DRV
-#define RGB888(r, g, b) ((r<<16) | (g << 8 ) | b )
 #include "vga.h"
 #endif
 #ifdef TV

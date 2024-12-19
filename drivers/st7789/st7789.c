@@ -40,7 +40,7 @@ static uint sm = 0;
 static PIO pio = pio0;
 static uint st7789_chan;
 
-uint16_t __scratch_y("tft_palette") palette[64];
+static uint16_t __scratch_y("tft_palette") palette[64];
 
 static uint graphics_buffer_width = 0;
 static uint graphics_buffer_height = 0;
@@ -148,6 +148,59 @@ void create_dma_channel() {
     );
 }
 
+///#define R(c) (c & 0b11)
+///#define G(c) ((c & 0b1100) >> 2)
+////#define B(c) ((c & 0b110000) >> 4)
+//RRRRR GGGGGG BBBBB
+///#define RGB888(c) ((R(c) << 14) | (G(c) << 9) | B(c) << 3)
+
+//RRRR RGGG GGGB BBBB
+#define RGB888(r, g, b) ((((~r & 0xFF) >> 3) << 11) | (((~g & 0xFF) >> 2) << 5) | ((~b & 0xFF) >> 3))
+///#define RGB888(r, g, b) ((((b) >> 3) << 11) | (((g) >> 2) << 5) | ((r) >> 3))
+/**
+static const uint16_t textmode_palette_tft[17] = {
+    //R, G, B
+    RGB888(0x00, 0x00, 0x00), //black
+    RGB888(0x00, 0x00, 0xC4), //blue
+    RGB888(0x00, 0xC4, 0x00), //green
+    RGB888(0x00, 0xC4, 0xC4), //cyan
+    RGB888(0xC4, 0x00, 0x00), //red
+    RGB888(0xC4, 0x00, 0xC4), //magenta
+    RGB888(0xC4, 0x7E, 0x00), //brown
+    RGB888(0xC4, 0xC4, 0xC4), //light gray
+    RGB888(0xC4, 0xC4, 0x00), //yellow
+    RGB888(0x4E, 0x4E, 0xDC), //light blue
+    RGB888(0x4E, 0xDC, 0x4E), //light green
+    RGB888(0x4E, 0xF3, 0xF3), //light cyan
+    RGB888(0xDC, 0x4E, 0x4E), //light red
+    RGB888(0xF3, 0x4E, 0xF3), //light magenta
+    RGB888(0xF3, 0xF3, 0x4E), //light yellow
+    RGB888(0xFF, 0xFF, 0xFF), //white
+    RGB888(0xFF, 0x7E, 0x00) //orange
+};
+*/
+
+static const uint16_t textmode_palette_tft[17] = {
+    //R, G, B
+    RGB888(0x00, 0x00, 0x00), //black
+    RGB888(0x00, 0x00, 0xC4), //blue
+    RGB888(0x00, 0xC4, 0x00), //green
+    RGB888(0x00, 0xC4, 0xC4), //cyan
+    RGB888(0xC4, 0x00, 0x00), //red
+    RGB888(0xC4, 0x00, 0xC4), //magenta
+    RGB888(0xC4, 0x7E, 0x00), //brown
+    RGB888(0xC4, 0xC4, 0xC4), //light gray
+    RGB888(0xC4, 0xC4, 0x00), //yellow
+    RGB888(0x4E, 0x4E, 0xDC), //light blue
+    RGB888(0x4E, 0xDC, 0x4E), //light green
+    RGB888(0x4E, 0xF3, 0xF3), //light cyan
+    RGB888(0xDC, 0x4E, 0x4E), //light red
+    RGB888(0xF3, 0x4E, 0xF3), //light magenta
+    RGB888(0xF3, 0xF3, 0x4E), //light yellow
+    RGB888(0xFF, 0xFF, 0xFF), //white
+    RGB888(0xFF, 0x7E, 0x00) //orange
+};
+
 void graphics_init() {
     const uint offset = pio_add_program(pio, &st7789_lcd_program);
     sm = pio_claim_unused_sm(pio, true);
@@ -234,7 +287,7 @@ void graphics_init() {
 
         default: idx = 15; break;
         }
-        graphics_set_palette(c, textmode_palette[idx]);
+        palette[c] = textmode_palette_tft[idx];
     }
     clrScr(0);
 
@@ -292,20 +345,16 @@ void __inline __scratch_y("refresh_lcd") refresh_lcd() {
             lcd_set_window(graphics_buffer_shift_x, graphics_buffer_shift_y, graphics_buffer_width,
                            graphics_buffer_height);
             start_pixels();
-            for (size_t y = 0; y < graphics_buffer_height; ++y) {
-                const uint8_t* bitmap = getLineBuffer(y);
+            for (register size_t y = 0; y < graphics_buffer_height; ++y) {
+                register uint8_t* bitmap = getLineBuffer(y);
                 if (!bitmap) continue;
-                for (size_t x = 0; x < graphics_buffer_width; ++x) {
+                for (register size_t x = 0; x < graphics_buffer_width; ++x) {
                     register uint8_t c = bitmap[x ^ 2];
-                    st7789_lcd_put_pixel(pio, sm, palette[c]);
+                    st7789_lcd_put_pixel(pio, sm, palette[c & 0b111111]);
                 }
             }
             stop_pixels();
         }
     }
     ++z;
-}
-
-void graphics_set_palette(const uint8_t i, const uint32_t color) {
-    palette[i] = (uint16_t)color;
 }
