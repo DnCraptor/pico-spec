@@ -1095,8 +1095,8 @@ IRAM_ATTR void Tape::Read() {
                             tapeCurBlock++;
                             GetBlock();
                         } else {
-                            tapePhase=TAPE_PHASE_TAIL;
-                            tapeNext = TAPE_PHASE_TAIL_LEN;
+                            tapePhase = TAPE_PHASE_TAIL;
+                            tapeNext  = TAPE_PHASE_TAIL_LEN;
                         }
                         break;
                     }

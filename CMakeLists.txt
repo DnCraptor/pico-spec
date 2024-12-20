@@ -29,11 +29,11 @@ option(SOFTTV "Enable TV soft composite output" OFF)
 
 set (PORT_VERSION "1.2.4")
 
-###set(I2S ON)
+set(I2S ON)
 ###set(TV ON)
 ###set(SOFTTV ON)
-set(TFT ON)
-set(ILI9341 ON)
+###set(TFT ON)
+###set(ILI9341 ON)
 
 #set (MURM2 ON)
 
@@ -135,7 +135,7 @@ ELSEIF(I2S_CS4334)
     target_compile_definitions(${PROJECT_NAME} PRIVATE I2S_CS4334)
     SET(BUILD_NAME "${BUILD_NAME}-I2S-CS4334-${PORT_VERSION}")
 ELSE()
-    SET(BUILD_NAME "${BUILD_NAME}-I2S-TDA1387-${PORT_VERSION}")
+    SET(BUILD_NAME "${BUILD_NAME}-I2S")
     target_compile_definitions(${PROJECT_NAME} PRIVATE I2S_SOUND=1)
 ENDIF()
 
