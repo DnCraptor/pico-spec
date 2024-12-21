@@ -973,7 +973,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                 menu_curopt = 1;
                                 menu_level = 2;                                       
                             }
-                        } else if (arch_num == 6 || !ext_ram) { // ALF TV GAME
+                        }
+#if !NO_ALF
+                        else if (arch_num == 6 || !ext_ram) { // ALF TV GAME
                             arch = "ALF";
                             romset = "ALF1";
                             menu_curopt = opt2;
@@ -986,6 +988,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                             ESPectrum::reset();
                             return;
                         }
+#endif
 
                         if (opt2) {
                             if (arch != Config::arch || romset != Config::romSet) {
@@ -3744,7 +3747,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     string dlgTitle = OSD_ROM[Config::lang];
     // Flash custom ROM 48K
     if ( arch == 1 ) {
-#if !CARTRIDGE_AS_CUSTOM
+#if !CARTRIDGE_AS_CUSTOM || NO_ALF
         if( bytesfirmware > 0x4000 ) {
             osdCenteredMsg("Too long file", LEVEL_WARN, 2000);
             fclose2(f);
@@ -3774,7 +3777,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     }
     // Flash custom ROM 128K
     else if ( arch == 2 ) {
-#if !CARTRIDGE_AS_CUSTOM
+#if !CARTRIDGE_AS_CUSTOM || NO_ALF
         if( bytesfirmware > 0x8000 ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
             fclose2(f);
@@ -3809,7 +3812,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         Config::pref_romSet_128 = "128Kcs";
     }
     else if ( arch == 3 ) {
-#if !CARTRIDGE_AS_CUSTOM
+#if !CARTRIDGE_AS_CUSTOM || NO_ALF
         if( bytesfirmware > 0x8000 ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
             fclose2(f);
@@ -3843,6 +3846,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         Config::pref_arch = "Pentagon";
         Config::pref_romSetPent = "128Kcs";
     }
+#if !NO_ALF
     else if ( arch == 4 ) {
         if( bytesfirmware > (256ul << 10) ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
@@ -3867,6 +3871,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         dlgTitle += " ALF Cartridge ";
         Config::arch = "ALF";
     }
+#endif
     else if ( arch == 6 ) {
         if( bytesfirmware > (16ul << 10) ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);

@@ -55,14 +55,16 @@ uint32_t CPU::stFrame = 0;
 bool CPU::portBasedBP = false;
 
 bool Z80Ops::is48;
-bool Z80Ops::isALF;
+bool Z80Ops::isALF = false;
 bool Z80Ops::is128;
 bool Z80Ops::isPentagon;
 bool Z80Ops::is512 = false;
 bool Z80Ops::is1024 = false;
 
 void CPU::updateStatesInFrame() {
+#if !NO_ALF
     Z80Ops::isALF = (Config::arch == "ALF");
+#endif
     if (Config::arch == "48K") {
         statesInFrame = TSTATES_PER_FRAME_48;
         IntStart = INT_START48;
@@ -99,7 +101,9 @@ void CPU::reset() {
     
     CPU::latetiming = Config::AluTiming;
 
+#if !NO_ALF
     Z80Ops::isALF = (Config::arch == "ALF");
+#endif
     if (Config::arch == "48K") {
         Ports::getFloatBusData = &Ports::getFloatBusData48;
         Z80Ops::is48 = true;

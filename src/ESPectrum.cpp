@@ -456,9 +456,13 @@ void ESPectrum::setup()
                     Config::romSet = Config::pref_romSet_48;
                 else
                     Config::romSet = Config::romSet48;            
-            } else if (Config::arch == "ALF") {
+            }
+#if !NO_ALF
+            else if (Config::arch == "ALF") {
                 Config::romSet = "ALF";
-            } else if (Config::arch == "128K") {
+            }
+#endif
+            else if (Config::arch == "128K") {
                 if (Config::pref_romSet_128 != "Last")
                     Config::romSet = Config::pref_romSet_128;
                 else

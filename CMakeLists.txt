@@ -145,6 +145,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
         NO_SPAIN_ROM_128k=1
         CARTRIDGE_AS_CUSTOM=1
         NO_SEPARATE_48K_CUSTOM=1
+        NO_ALF=1
 )
 ENDIF()
 

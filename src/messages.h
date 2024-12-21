@@ -567,6 +567,14 @@ static const char *MENU_ISSUE2[2] = { "48K Issue 2\n", "48K Issue 2\n"};
 
 #define MENU_ARCH_ES "Elija modelo\n"
 
+#if NO_ALF
+#define MENU_ARCHS \
+    "Spectrum 48K\t>\n"\
+    "Spectrum 128K\t>\n"\
+	"Pentagon 128K\t>\n"\
+	"Pentagon 512K\t>\n"\
+	"Pentagon 1024K\t>\n"
+#else
 #define MENU_ARCHS \
     "Spectrum 48K\t>\n"\
     "Spectrum 128K\t>\n"\
@@ -574,12 +582,21 @@ static const char *MENU_ISSUE2[2] = { "48K Issue 2\n", "48K Issue 2\n"};
 	"Pentagon 512K\t>\n"\
 	"Pentagon 1024K\t>\n"\
 	"ALF TV GAME\n"
+#endif
 static const char *MENU_ARCH[2] = { MENU_ARCH_EN MENU_ARCHS, MENU_ARCH_ES MENU_ARCHS };
+
+#if NO_ALF
+#define MENU_ARCHS_NO_SD \
+    "Spectrum 48K\t>\n"\
+    "Spectrum 128K\t>\n"\
+	"Pentagon 128K\t>\n"
+#else
 #define MENU_ARCHS_NO_SD \
     "Spectrum 48K\t>\n"\
     "Spectrum 128K\t>\n"\
 	"Pentagon 128K\t>\n"\
 	"ALF TV GAME\n"
+#endif
 static const char *MENU_ARCH_NO_SD[2] = { MENU_ARCH_EN MENU_ARCHS_NO_SD, MENU_ARCH_ES MENU_ARCHS_NO_SD };
 
 #if NO_SPAIN_ROM_48k

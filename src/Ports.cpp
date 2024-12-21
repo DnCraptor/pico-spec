@@ -231,6 +231,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
 
     VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
 
+#ifndef NO_ALF
     bool ia = Z80Ops::isALF;
     if (ia) {
         if ((address & 0xFF) == 0xFE) {
@@ -249,7 +250,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
             MemESP::ramCurrent[0] = MemESP::newAlfSRAM ? MemESP::ram[62 + MemESP::romLatch].sync() : MemESP::rom[MemESP::romInUse].direct();
         }
     }
-    
+#endif    
     // ULA =======================================================================
     if ((address & 0x0001) == 0) {
         port254 = data;

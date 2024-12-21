@@ -81,7 +81,7 @@ void Config::requestMachine(string newArch, string newRomSet)
         if (newRomSet=="") romSet = "48K"; else romSet = newRomSet;
         if (newRomSet=="") romSet48 = "48K"; else romSet48 = newRomSet;
         if (romSet48 == "48Kcs") {
-#if !CARTRIDGE_AS_CUSTOM
+#if !CARTRIDGE_AS_CUSTOM || NO_ALF
 #if NO_SEPARATE_48K_CUSTOM
             MemESP::rom[0].assign_rom(gb_rom_0_128k_custom);
 #else
@@ -97,16 +97,20 @@ void Config::requestMachine(string newArch, string newRomSet)
         else
 #endif
             MemESP::rom[0].assign_rom(gb_rom_0_sinclair_48k);
-    } else if (arch == "ALF") {
+    }
+#if !NO_ALF
+    else if (arch == "ALF") {
         const uint8_t* base = gb_rom_Alf;
         for (int i = 0; i < 64; ++i) {
             MemESP::rom[i].assign_rom(i >= 16 ? gb_rom_Alf_ep : base + ((16 * i) << 10));
         }
-    } else if (arch == "128K") {
+    }
+#endif
+    else if (arch == "128K") {
         if (newRomSet=="") romSet = "128K"; else romSet = newRomSet;
         if (newRomSet=="") romSet128 = "128K"; else romSet128 = newRomSet;
         if (romSet128 == "128Kcs") {
-#if !CARTRIDGE_AS_CUSTOM
+#if !CARTRIDGE_AS_CUSTOM || NO_ALF
             MemESP::rom[0].assign_rom(gb_rom_0_128k_custom);
             MemESP::rom[1].assign_rom(gb_rom_0_128k_custom + (16 << 10)); /// 16392;
 #else
@@ -135,7 +139,7 @@ void Config::requestMachine(string newArch, string newRomSet)
         if (newRomSet=="") romSet = "128Kp"; else romSet = newRomSet;
         if (romSetPent=="") romSetPent = "128Kp"; else romSetPent = newRomSet;
         if (romSetPent == "128Kcs") {
-#if !CARTRIDGE_AS_CUSTOM
+#if !CARTRIDGE_AS_CUSTOM || NO_ALF
             MemESP::rom[0].assign_rom(gb_rom_0_128k_custom);
             MemESP::rom[1].assign_rom(gb_rom_0_128k_custom + (16 << 10)); /// 16392;
 #else
