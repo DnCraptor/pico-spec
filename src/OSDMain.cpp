@@ -145,6 +145,7 @@ IRAM_ATTR void OSD::click() {
     else
         pwm_audio_write(click128, click128, 116);
     pwm_audio_set_volume(ESPectrum::aud_volume);
+    if (CPU::paused) osdCenteredMsg(OSD_PAUSE[Config::lang], LEVEL_INFO, 500);
 }
 
 void OSD::esp_hard_reset() {
@@ -376,22 +377,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
         }
     } else {
         if (KeytoESP == fabgl::VK_PAUSE) {
+            CPU::paused = !CPU::paused;
             click();
-            osdCenteredMsg(OSD_PAUSE[Config::lang], LEVEL_INFO, 1000);
-            while (1) {
-                if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
-                    if (ESPectrum::readKbd(&Nextkey)) {
-                        if (!Nextkey.down) continue;
-                            if (is_enter(Nextkey.vk) || is_back(Nextkey.vk)) {
-                            click();
-                            break;
-                        } else {
-                            osdCenteredMsg(OSD_PAUSE[Config::lang], LEVEL_INFO, 500);
-                        }
-                    }
-                }
-                sleep_ms(5);
-            }
         }
         else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F2) {
             menu_level = 0;

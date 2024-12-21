@@ -93,6 +93,8 @@ public:
     static uint32_t stFrame;
 
     static bool portBasedBP;
+
+    static bool paused;
 };
 
 #endif // CPU_h

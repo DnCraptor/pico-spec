@@ -1036,6 +1036,7 @@ void ESPectrum::loop() {
     faudbufcnt = audbufcnt;
     faudioBit = lastaudioBit;
     faudbufcntAY = audbufcntAY;
+    if (!CPU::paused) {
     #if LOAD_WAV_PIO
         if (Config::real_player) {
             if (Tape::tapeStatus != TAPE_LOADING) {  // W/A
@@ -1100,6 +1101,7 @@ void ESPectrum::loop() {
         memset(audioBuffer_L, 0, samplesPerFrame);
         memset(audioBuffer_R, 0, samplesPerFrame);
         memset(overSamplebuf, 0, samplesPerFrame);
+    }
     processKeyboard();
     // Update stats every 50 frames
     if (VIDEO::OSD && VIDEO::framecnt >= 50) {
@@ -1116,7 +1118,7 @@ void ESPectrum::loop() {
                 }
             }
         }
-        if ((VIDEO::OSD & 0x04) == 0) {
+        if ((VIDEO::OSD & 0x04) == 0 && !CPU::paused) {
             if (VIDEO::OSD == 1 && Tape::tapeStatus == TAPE_LOADING) {
                 snprintf(OSD::stats_lin1, sizeof(OSD::stats_lin1), " %-12s %04d/%04d ", Tape::tapeFileName.substr(0 + ESPectrum::TapeNameScroller, 12).c_str(), Tape::tapeCurBlock + 1, Tape::tapeNumBlocks);
                 float percent = (float)((Tape::tapebufByteCount + Tape::tapePlayOffset) * 100) / (float)Tape::tapeFileSize;

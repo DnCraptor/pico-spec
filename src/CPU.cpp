@@ -53,6 +53,7 @@ uint8_t CPU::IntStart = 0;
 uint8_t CPU::IntEnd = 0;
 uint32_t CPU::stFrame = 0;
 bool CPU::portBasedBP = false;
+bool CPU::paused = false;
 
 bool Z80Ops::is48;
 bool Z80Ops::isALF = false;
@@ -159,6 +160,10 @@ IRAM_ATTR void CPU::step() {
 }
 
 IRAM_ATTR void CPU::loop() {
+    if (paused) {
+        VIDEO::EndFrame();
+        return;
+    }
     bool bpe = Config::enableBreakPoint;
     bool pbbp = CPU::portBasedBP;
     uint16_t bp = Config::breakPoint;
