@@ -100,7 +100,7 @@ esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) 
 //------------------------------------------------------------
 #ifdef I2S_SOUND
 static i2s_config_t i2s_config = {
-		.sample_freq = 44100, 
+		.sample_freq = I2S_FREQUENCY, 
 		.channel_count = 2,
 		.data_pin = PWM_PIN0,
 		.clock_pin_base = PWM_PIN1,
@@ -210,9 +210,9 @@ void close_all(void) {
 /// size - bytes
 void pcm_setup(int hz, size_t size) {
 #ifdef I2S_SOUND
-    i2s_config.sample_freq = 44100;
+    i2s_config.sample_freq = I2S_FREQUENCY;
     i2s_config.channel_count = 2;
-    i2s_config.dma_trans_count = 44100 / 50; // 1 sample (32-bit) = 2 * 16-bit
+    i2s_config.dma_trans_count = I2S_FREQUENCY / 50; // 1 sample (32-bit) = 2 * 16-bit
     i2s_init(&i2s_config);
 #endif
     m_let_process_it = false;

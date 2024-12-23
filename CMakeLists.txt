@@ -233,6 +233,7 @@ ELSE()
         PWM_PIN1=27
         BEEPER_PIN=28
         SOUND_FREQUENCY=50000
+        I2S_FREQUENCY=22050
 
         # SDCARD
         SDCARD_PIN_SPI0_CS=5
