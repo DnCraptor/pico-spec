@@ -271,8 +271,11 @@ void fgets(char* b, size_t sz, FIL& f) {
 #define ftell(x) f_tell(&x)
 #define feof(x) f_eof(&x)
 
+extern volatile bool blocked_TFT;
+
 // Run a new file menu
 string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols, uint8_t mfrows) {
+    blocked_TFT = true;
     // Position
     if (menu_level == 0) {
         x = (Config::aspect_16_9 ? 24 : 4);
@@ -349,11 +352,6 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                 if (lkp == fabgl::VirtualKey::VK_F1) break;
                 string fname = fileInfo.fname;
                 if (fname.compare(0,1,".") != 0) {
-                    ///size_t fpos = fname.find_last_of(".");
-                    ///if (
-                    ///    (fileInfo.fattrib & AM_DIR) ||
-                    ///    ((fpos != string::npos) && (std::find(filexts.begin(), filexts.end(), fname.substr(fpos)) != filexts.end()))
-                    ///) {
                         if (fileInfo.fattrib & AM_DIR) {
                             ++ndirs;
                             crc += ::crc(char(32) + fname);
@@ -362,12 +360,10 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             ++elements; // Count elements in dir
                             crc += ::crc(fname);
                         }
-                    ///}
                 }
             }
             f_closedir(&f_dir);
             uint32_t rcrc = filenames.crc();
-            //OSD::osdCenteredMsg(to_string(rcrc) + " / " + to_string(crc), LEVEL_INFO, 5000);
             if (rcrc != crc) { // reindex
                 filenames.unlink();
                 if (fdir.size() > 1) {
@@ -381,11 +377,6 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                     if (lkp == fabgl::VirtualKey::VK_F1) break;
                     string fname = fileInfo.fname;
                     if (fname.compare(0,1,".") != 0) {
-                        ///size_t fpos = fname.find_last_of(".");
-                        ///if (
-                        ///    (fileInfo.fattrib & AM_DIR) ||
-                        ///    ((fpos != string::npos) && (std::find(filexts.begin(), filexts.end(), fname.substr(fpos)) != filexts.end()))
-                        ///) {
                             if (fileInfo.fattrib & AM_DIR) {
                                 filenames.push(char(32) + fname);
                             }
@@ -399,7 +390,6 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                                 f_idx * 95 / (ndirs + elements) + 5,
                                 1
                             );
-                        ///}
                     }
                 }
                 f_closedir(&f_dir);
@@ -419,6 +409,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
         }
 
         fd_Redraw(title, fdir, ftype, filexts); // Draw content
+        blocked_TFT = false;
 
         // Focus line scroll position
         fdScrollPos = 0;

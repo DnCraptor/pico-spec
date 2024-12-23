@@ -317,8 +317,6 @@ void st7789_dma_pixels(const uint16_t* pixels, const uint num_pixels) {
 uint8_t* getLineBuffer(int line);
 void ESPectrum_vsync();
 
-static uint8_t z = 0;
-
 void __inline __scratch_y("refresh_lcd") refresh_lcd() {
     ESPectrum_vsync();
     switch (graphics_mode) {
@@ -337,5 +335,4 @@ void __inline __scratch_y("refresh_lcd") refresh_lcd() {
             stop_pixels();
         }
     }
-    ++z;
 }

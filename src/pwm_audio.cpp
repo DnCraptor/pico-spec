@@ -45,8 +45,8 @@ esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) 
         for (size_t i = 0; i < MAX_SAMPLES_PER_FRAME; ++i) {
             size_t j = i << 1;
             size_t k = i * len / MAX_SAMPLES_PER_FRAME;
-            buff[j  ] = (lbuf[k] << 7) * volume / VOLUME_0DB;
-            buff[j+1] = (rbuf[k] << 7) * volume / VOLUME_0DB;
+            buff[j  ] = ((int16_t)lbuf[k] << 6) * volume >> 4;
+            buff[j+1] = ((int16_t)rbuf[k] << 6) * volume >> 4;
         }
         pcm_set_buffer(buff, 2, MAX_SAMPLES_PER_FRAME, NULL);
         return ESP_OK;
@@ -73,8 +73,8 @@ esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) 
 
     for (size_t i = 0; i < len; ++i) {
         size_t j = i << 1;
-        buff[j  ] = (lbuf[i] << 7) * volume / VOLUME_0DB;
-        buff[j+1] = (rbuf[i] << 7) * volume / VOLUME_0DB;
+        buff[j  ] = ((int16_t)lbuf[i] << 6) * volume >> 4;
+        buff[j+1] = ((int16_t)rbuf[i] << 6) * volume >> 4;
     }
 
 # else
@@ -226,7 +226,7 @@ static uint32_t prev_buffer_start_us = 0;
 // size - in 16-bit values count
 void pcm_set_buffer(int16_t* buff, uint8_t channels, size_t size, pcm_end_callback_t cb) {
 #ifdef I2S_SOUND
-    i2s_dma_write(&i2s_config, buff, size << 1);
+    i2s_dma_write(&i2s_config, buff, size);
 #else
     m_buff = buff;
     m_channels = channels;
