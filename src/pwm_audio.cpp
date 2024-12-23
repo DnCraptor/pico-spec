@@ -73,8 +73,8 @@ esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) 
 
     for (size_t i = 0; i < len; ++i) {
         size_t j = i << 1;
+        buff[j++] = ((int16_t)rbuf[i] << 6) * volume >> 4;
         buff[j  ] = ((int16_t)lbuf[i] << 6) * volume >> 4;
-        buff[j+1] = ((int16_t)rbuf[i] << 6) * volume >> 4;
     }
 
 # else
