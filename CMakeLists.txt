@@ -29,7 +29,7 @@ option(SOFTTV "Enable TV soft composite output" OFF)
 
 set (PORT_VERSION "1.2.4")
 
-set(I2S ON)
+###set(I2S ON)
 ###set(TV ON)
 ###set(SOFTTV ON)
 ###set(TFT ON)
@@ -77,7 +77,7 @@ add_subdirectory(drivers/graphics)
 add_subdirectory(drivers/psram)
 
 # INCLUDE FILES THAT SHOULD BE COMPILED:
-file(GLOB_RECURSE SRC "src/*.cpp" "src/*.c fabgl/*.cpp" "src/roms/*.cpp" "src/roms/*.c" "src/miniz/*.c")
+file(GLOB_RECURSE SRC "src/*.cpp" "src/*.c" "fabgl/*.cpp" "src/roms/*.cpp" "src/roms/*.c" "src/miniz/*.c")
 
 message(STATUS "Add source files:")
 foreach (SRC_FILE IN LISTS SRC)

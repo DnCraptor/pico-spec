@@ -45,8 +45,8 @@ esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) 
         for (size_t i = 0; i < MAX_SAMPLES_PER_FRAME; ++i) {
             size_t j = i << 1;
             size_t k = i * len / MAX_SAMPLES_PER_FRAME;
-            buff[j  ] = ((int16_t)lbuf[k] << 6) * volume >> 4;
-            buff[j+1] = ((int16_t)rbuf[k] << 6) * volume >> 4;
+            buff[j  ] = ((int32_t)lbuf[k] << 7) * volume >> 4;
+            buff[j+1] = ((int32_t)rbuf[k] << 7) * volume >> 4;
         }
         pcm_set_buffer(buff, 2, MAX_SAMPLES_PER_FRAME, NULL);
         return ESP_OK;
@@ -73,8 +73,8 @@ esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) 
 
     for (size_t i = 0; i < len; ++i) {
         size_t j = i << 1;
-        buff[j++] = ((int16_t)rbuf[i] << 6) * volume >> 4;
-        buff[j  ] = ((int16_t)lbuf[i] << 6) * volume >> 4;
+        buff[j++] = ((int32_t)rbuf[i] << 7) * volume >> 4;
+        buff[j  ] = ((int32_t)lbuf[i] << 7) * volume >> 4;
     }
 
 # else
