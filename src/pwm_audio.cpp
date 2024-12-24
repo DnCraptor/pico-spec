@@ -146,7 +146,7 @@ static repeating_timer_t m_timer = { 0 };
 static volatile int16_t* m_buff = NULL;
 static volatile uint8_t m_channels = 0;
 static volatile size_t m_size = 0; // 16-bit values prepared (available)
-static volatile bool m_let_process_it = false;
+///static volatile bool m_let_process_it = false;
 
 #if LOAD_WAV_PIO
 static LoadWavStream* lws = 0;
@@ -170,7 +170,7 @@ static volatile uint32_t current_buffer_start_us = 0;
 static volatile uint32_t buffer_us = 0; // длина буфера в микросекундах
 
 static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core#1?
-    m_let_process_it = true;
+///    m_let_process_it = true;
 #if LOAD_WAV_PIO
     if (lws && Config::real_player) {
         lws->tick();
@@ -180,10 +180,10 @@ static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core
 }
 
 void pcm_call() {
-    if (!m_let_process_it) {
-        return;
-    }
-    m_let_process_it = false;
+///    if (!m_let_process_it) {
+///        return;
+///    }
+///    m_let_process_it = false;
 #ifndef I2S_SOUND
     uint32_t ct = time_us_32();
     uint32_t dtf = ct - current_buffer_start_us;
@@ -191,10 +191,10 @@ void pcm_call() {
     size_t m_off = (!buffer_us ? 0 : dtf * m_size / buffer_us) & 0xFFFFFFFFFE; /// (us per start) * (samples per us) -> sample# since start => m_off
     if (m_buff && m_off < m_size) {
         volatile int16_t* b = m_buff + m_off;
-        int16_t outL = *b++; // TODO: ensure L/R seq.
-        int16_t outR = *b;
-        pwm_set_gpio_level(PWM_PIN0, (uint16_t) ((int32_t) outR + 0x8000L) >> 4); // Право
-        pwm_set_gpio_level(PWM_PIN1, (uint16_t) ((int32_t) outL + 0x8000L) >> 4); // Лево
+        uint16_t outL = *b++;
+        uint16_t outR = *b;
+        pwm_set_gpio_level(PWM_PIN1, outL >> 4); // Лево
+        pwm_set_gpio_level(PWM_PIN0, outR >> 4); // Право
         pwm_set_gpio_level(BEEPER_PIN, 0);
     }
 #endif
@@ -215,7 +215,7 @@ void pcm_setup(int hz, size_t size) {
     i2s_config.dma_trans_count = I2S_FREQUENCY / 50; // 1 sample (32-bit) = 2 * 16-bit
     i2s_init(&i2s_config);
 #endif
-    m_let_process_it = false;
+///    m_let_process_it = false;
     //hz; // 44100;	//44000 //44100 //96000 //22050
 	// negative timeout means exact delay (rather than delay between callbacks)
 	add_repeating_timer_us(-1000000ll / hz, timer_callback, NULL, &m_timer);

@@ -488,9 +488,7 @@ void __scratch_x("render") render_core() {
 
     uint32_t tickKbdRep1 = time_us_32();
     // 60 FPS loop
-//#define frame_tick (16666)
-    // 50 FPS loop
-#define frame_tick (20000)
+#define frame_tick (16666)
     uint64_t tick = time_us_64();
     bool tick1 = true;
 #ifdef TFT
