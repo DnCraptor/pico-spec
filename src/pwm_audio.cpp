@@ -226,7 +226,7 @@ static uint32_t prev_buffer_start_us = 0;
 // size - in 16-bit values count
 void pcm_set_buffer(int16_t* buff, uint8_t channels, size_t size, pcm_end_callback_t cb) {
 #ifdef I2S_SOUND
-    i2s_dma_write(&i2s_config, buff, size);
+    i2s_dma_write(&i2s_config, buff, size >> 1);
 #else
     m_buff = buff;
     m_channels = channels;
