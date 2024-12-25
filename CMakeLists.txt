@@ -32,8 +32,8 @@ set (PORT_VERSION "1.2.4")
 set(I2S ON)
 ###set(TV ON)
 ###set(SOFTTV ON)
-###set(TFT ON)
-###set(ILI9341 ON)
+set(TFT ON)
+set(ILI9341 ON)
 
 #set (MURM2 ON)
 

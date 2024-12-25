@@ -156,7 +156,7 @@ static uint32_t conv_colorINV[2][256]; //2к
 static uint32_t* conv_color[2];
 
 //палитра сохранённая
-static uint8_t __scratch_y("buff4") paletteRGB[3][256]; //768 байт
+static uint8_t __scratch_x("buff4") paletteRGB[3][256]; //768 байт
 
 static repeating_timer_t video_timer;
 

@@ -475,8 +475,6 @@ static void nespad_tick2(void) {
 static void nespad_tick1(void);
 static void nespad_tick2(void);
 
-volatile bool blocked_TFT = false;
-
 void __scratch_x("render") render_core() {
     multicore_lockout_victim_init();
     graphics_init();
@@ -491,18 +489,9 @@ void __scratch_x("render") render_core() {
 #define frame_tick (16666)
     uint64_t tick = time_us_64();
     bool tick1 = true;
-#ifdef TFT
-    uint64_t last_renderer_tick = tick;
-#endif
     uint64_t last_input_tick = tick;
     while (true) {
         pcm_call();
-#ifdef TFT
-        if (tick >= last_renderer_tick + frame_tick && !blocked_TFT) {
-            refresh_lcd();
-            last_renderer_tick = tick;
-        }
-#endif
         if (tick >= last_input_tick + frame_tick) {
 #ifdef USE_NESPAD
             (tick1 ? nespad_tick1 : nespad_tick2)(); // split call for joy1 and 2

@@ -451,9 +451,20 @@ VirtualKey Keyboard::getNextVirtualKey(bool * keyDown, int timeOutMS)
   return VK_NONE;
 }
 
-int Keyboard::virtualKeyAvailable()
-{
-  return m_virtualKeyQueue.size();
+#ifdef TFT
+extern "C" void refresh_lcd();
+#endif
+
+int Keyboard::virtualKeyAvailable() {
+    #ifdef TFT
+    static uint64_t t1 = time_us_64();
+    uint64_t t2 = time_us_64();
+    if (t2 - t1 > 100000ull) { // 10 fps
+        t1 = t2;
+        refresh_lcd();
+    }
+    #endif
+    return m_virtualKeyQueue.size();
 }
 
 

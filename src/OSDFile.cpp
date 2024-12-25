@@ -271,11 +271,8 @@ void fgets(char* b, size_t sz, FIL& f) {
 #define ftell(x) f_tell(&x)
 #define feof(x) f_eof(&x)
 
-extern volatile bool blocked_TFT;
-
 // Run a new file menu
 string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols, uint8_t mfrows) {
-    blocked_TFT = true;
     // Position
     if (menu_level == 0) {
         x = (Config::aspect_16_9 ? 24 : 4);
@@ -341,6 +338,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
         OSD::progressDialog(OSD_FILE_INDEXING[Config::lang], OSD_FILE_INDEXING_1[Config::lang], 0, 0);
         res = f_opendir(&f_dir, fdir.c_str()) == FR_OK;
         if (res) {
+        
             FILINFO fileInfo;
             size_t crc = 0;
             if (fdir.size() > 1) {
@@ -348,8 +346,10 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                 crc += ::crc("  ..");
             }
             while (f_readdir(&f_dir, &fileInfo) == FR_OK && fileInfo.fname[0] != '\0') {
-                fabgl::VirtualKey lkp = get_last_key_pressed();
-                if (lkp == fabgl::VirtualKey::VK_F1) break;
+                if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
+                   fabgl::VirtualKey lkp = get_last_key_pressed();
+                   if (lkp == fabgl::VirtualKey::VK_F1) break;
+                }
                 string fname = fileInfo.fname;
                 if (fname.compare(0,1,".") != 0) {
                         if (fileInfo.fattrib & AM_DIR) {
@@ -362,6 +362,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         }
                 }
             }
+
             f_closedir(&f_dir);
             uint32_t rcrc = filenames.crc();
             if (rcrc != crc) { // reindex
@@ -373,8 +374,10 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                 OSD::progressDialog(OSD_FILE_INDEXING[Config::lang], OSD_FILE_INDEXING_1[Config::lang], 5, 1);
                 size_t f_idx = 0;
                 while (f_readdir(&f_dir, &fileInfo) == FR_OK && fileInfo.fname[0] != '\0') {
-                    fabgl::VirtualKey lkp = get_last_key_pressed();
-                    if (lkp == fabgl::VirtualKey::VK_F1) break;
+                    if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
+                        fabgl::VirtualKey lkp = get_last_key_pressed();
+                        if (lkp == fabgl::VirtualKey::VK_F1) break;
+                    }
                     string fname = fileInfo.fname;
                     if (fname.compare(0,1,".") != 0) {
                             if (fileInfo.fattrib & AM_DIR) {
@@ -409,7 +412,6 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
         }
 
         fd_Redraw(title, fdir, ftype, filexts); // Draw content
-        blocked_TFT = false;
 
         // Focus line scroll position
         fdScrollPos = 0;
@@ -449,13 +451,6 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             fsearch = Menukey.vk + 75;
                         else if (Menukey.vk<=fabgl::VK_Z)
                             fsearch = Menukey.vk + 17;
-                    ///    if (FileUtils::fileTypes[ftype].fdMode) {
-                    ///        if (FileUtils::fileTypes[ftype].fileSearch.length()<10) {
-                    ///            FileUtils::fileTypes[ftype].fileSearch += char(fsearch);
-                    ///            fdSearchRefresh = true;
-                    ///            click();
-                    ///       }
-                    ///    } else
                         {
                             uint8_t letra = rowGet(menu,FileUtils::fileTypes[ftype].focus).at(0);
                             if (letra != fsearch) { 

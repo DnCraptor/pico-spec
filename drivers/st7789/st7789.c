@@ -40,7 +40,7 @@ static uint sm = 0;
 static PIO pio = pio0;
 static uint st7789_chan;
 
-static uint16_t __scratch_y("tft_palette") palette[64];
+static uint16_t __scratch_x("tft_palette") palette[64];
 
 static uint graphics_buffer_width = 0;
 static uint graphics_buffer_height = 0;
@@ -317,7 +317,7 @@ void st7789_dma_pixels(const uint16_t* pixels, const uint num_pixels) {
 uint8_t* getLineBuffer(int line);
 void ESPectrum_vsync();
 
-void __inline __scratch_y("refresh_lcd") refresh_lcd() {
+void __inline __scratch_x("refresh_lcd") refresh_lcd() {
     ESPectrum_vsync();
     switch (graphics_mode) {
         case GRAPHICSMODE_DEFAULT: {
