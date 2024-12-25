@@ -104,6 +104,7 @@ void Config::requestMachine(string newArch, string newRomSet)
         for (int i = 0; i < 64; ++i) {
             MemESP::rom[i].assign_rom(i >= 16 ? gb_rom_Alf_ep : base + ((16 * i) << 10));
         }
+        Config::kempstonPort = 0x1F; // TODO: ensure, save?
     }
 #endif
     else if (arch == "128K") {
