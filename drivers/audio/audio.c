@@ -172,18 +172,16 @@ void i2s_dma_write(i2s_config_t *i2s_config, const int16_t *samples, const size_
         }
 #else
     if (resampling_from_size) {
+        const uint16_t *ps = samples;
         memset(i2s_config->dma_buf, 0, i2s_config->dma_trans_count * sizeof(int32_t));
         size_t sz = i2s_config->dma_trans_count; // size in 32-bit dwords
         uint8_t vol = i2s_config->volume;
         uint16_t* buf = i2s_config->dma_buf;
         for (size_t i = 0; i < sz; ++i) {
             size_t j = i << 1; // idx in 16-bit words
-            size_t k = (j * resampling_from_size / sz);
-            if ((k & 1) == 1) {
-                ++k;
-            }
-            buf[j++] = samples[k++]; /// >> vol;
-            buf[j  ] = samples[k  ]; /// >> vol;
+            size_t k = (j * resampling_from_size / sz) & 0xFFFFFFFFE;
+            buf[j++] = ps[k++]; /// >> vol;
+            buf[j  ] = ps[k  ]; /// >> vol;
         }
     } else
     if (i2s_config->volume == 0) {
