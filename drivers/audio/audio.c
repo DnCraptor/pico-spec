@@ -157,9 +157,9 @@ void i2s_write(const i2s_config_t *i2s_config, const int16_t *samples, const siz
  * Write samples to DMA buffer and initiate DMA transfer (non blocking)
  * i2s_config: I2S context obtained by i2s_get_default_config()
  *     sample: pointer to an array of dma_trans_count x 32 bits samples
- * resampling_from_size - in 32-bit dwords
+ * resampling_from_size - in 16-bit words
  */
-void i2s_dma_write(i2s_config_t *i2s_config, const int16_t *samples, const size_t resampling_from_size) {
+void i2s_dma_write(i2s_config_t *i2s_config, const uint8_t *samples, const size_t resampling_from_size) {
     /* Wait the completion of the previous DMA transfer */
     dma_channel_wait_for_finish_blocking(i2s_config->dma_channel);
     /* Copy samples into the DMA buffer */
@@ -172,7 +172,6 @@ void i2s_dma_write(i2s_config_t *i2s_config, const int16_t *samples, const size_
         }
 #else
     if (resampling_from_size) {
-        const uint16_t *ps = samples;
         memset(i2s_config->dma_buf, 0, i2s_config->dma_trans_count * sizeof(int32_t));
         size_t sz = i2s_config->dma_trans_count; // size in 32-bit dwords
         uint8_t vol = i2s_config->volume;
@@ -180,8 +179,8 @@ void i2s_dma_write(i2s_config_t *i2s_config, const int16_t *samples, const size_
         for (size_t i = 0; i < sz; ++i) {
             size_t j = i << 1; // idx in 16-bit words
             size_t k = (j * resampling_from_size / sz) & 0xFFFFFFFFE;
-            buf[j++] = ps[k++]; /// >> vol;
-            buf[j  ] = ps[k  ]; /// >> vol;
+            buf[j++] = (uint16_t)samples[k++] << 7;
+            buf[j  ] = (uint16_t)samples[k  ] << 7;
         }
     } else
     if (i2s_config->volume == 0) {
