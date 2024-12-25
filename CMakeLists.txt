@@ -29,20 +29,20 @@ option(SOFTTV "Enable TV soft composite output" OFF)
 
 set (PORT_VERSION "1.2.4")
 
-set(I2S ON)
+###set(I2S ON)
 ###set(TV ON)
 ###set(SOFTTV ON)
-set(TFT ON)
-set(ILI9341 ON)
+###set(TFT ON)
+###set(ILI9341 ON)
 
 #set (MURM2 ON)
 
 #set(HDMI ON)
-###set(FLASH_SIZE 4096)
-set(FLASH_SIZE 2048)
-set(FLASH_SIZE_GREEN ON)
-###set(CPU_MHZ 408)
-set(CPU_MHZ 378)
+set(FLASH_SIZE 4096)
+###set(FLASH_SIZE 2048)
+###set(FLASH_SIZE_GREEN ON)
+set(CPU_MHZ 408)
+###set(CPU_MHZ 378)
 
 IF(MURM2)
     SET(BUILD_NAME "m2-${PROJECT_NAME}-${FLASH_SIZE}-${CPU_MHZ}")
