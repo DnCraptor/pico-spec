@@ -189,11 +189,11 @@ static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core
     return true;
 }
 
+#ifdef I2S_SOUND
+static uint32_t s32 = 0;
+#endif
+
 void pcm_call() {
-///    if (!m_let_process_it) {
-///        return;
-///    }
-///    m_let_process_it = false;
     uint32_t ct = time_us_32();
     uint32_t dtf = ct - current_buffer_start_us;
     if (dtf > SOUND_FREQUENCY) return;
@@ -204,22 +204,22 @@ void pcm_call() {
         uint32_t outL = *b++;
         uint32_t outR = *b;
         uint8_t volume = vol;
-        uint32_t s;
         if (volume <= 8) {
             volume = 8 - volume;
-            s = ((outL >> volume) << 16) | (outR >> volume);
+            s32 = ((outL >> volume) << 16) | (outR >> volume);
         } else {
             volume -= 8;
-            s = ((outL << volume) << 16) | (outR << volume);
+            s32 = ((outL << volume) << 16) | (outR << volume);
         }
-        pio_sm_put_blocking(i2s_config.pio, i2s_config.sm, s);
+    }
+    pio_sm_put_blocking(i2s_config.pio, i2s_config.sm, s32);
 #else
         uint8_t outL = *b++;
         uint8_t outR = *b;
         pwm_set_gpio_level(PWM_PIN1, outL); // Лево
         pwm_set_gpio_level(PWM_PIN0, outR); // Право
-#endif
     }
+#endif
 }
 
 void close_all(void) {
