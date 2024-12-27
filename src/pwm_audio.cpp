@@ -201,8 +201,23 @@ void pcm_call() {
     if (m_buff && m_off < m_size) {
         volatile uint8_t* b = m_buff + m_off;
 #ifdef I2S_SOUND
-        uint32_t outL = *b++;
-        uint32_t outR = *b;
+        int32_t outL = *b++;
+        int32_t outR = *b;
+
+        size_t m_off2 = m_off + 2;
+
+        int32_t dtf1 = buffer_us * m_off / m_size;
+        int32_t dtf2 = buffer_us * m_off2 / m_size;
+        int32_t ddt2 = dtf2 - dtf1;
+        int32_t ddt1 = dtf - dtf1;
+        if (ddt1 != 0 && ddt2 != 0 && m_off2 < m_size) {
+            b = m_buff + m_off2;
+            int32_t outL2 = *b++;
+            int32_t outR2 = *b;
+            outL = outL + ddt1 * (outL2 - outL) / ddt2;
+            outR = outR + ddt1 * (outR2 - outR) / ddt2;
+        }
+
         uint8_t volume = vol;
         if (volume <= 8) {
             volume = 8 - volume;
