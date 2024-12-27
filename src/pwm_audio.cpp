@@ -192,6 +192,7 @@ static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core
 #ifdef I2S_SOUND
 static uint32_t s32 = 0;
 #endif
+static int32_t outL, outR = 0;
 
 void pcm_call() {
     uint32_t ct = time_us_32();
@@ -200,9 +201,8 @@ void pcm_call() {
     size_t m_off = (!buffer_us ? 0 : dtf * m_size / buffer_us) & 0xFFFFFFFE; /// (us per start) * (samples per us) -> sample# since start => m_off
     if (m_buff && m_off < m_size) {
         volatile uint8_t* b = m_buff + m_off;
-#ifdef I2S_SOUND
-        int32_t outL = *b++;
-        int32_t outR = *b;
+        outL = *b++;
+        outR = *b;
 
         size_t m_off2 = m_off + 2;
 
@@ -217,6 +217,7 @@ void pcm_call() {
             outL = outL + ddt1 * (outL2 - outL) / ddt2;
             outR = outR + ddt1 * (outR2 - outR) / ddt2;
         }
+#ifdef I2S_SOUND
 
         uint8_t volume = vol;
         if (volume <= 8) {
@@ -229,11 +230,9 @@ void pcm_call() {
     }
     pio_sm_put_blocking(i2s_config.pio, i2s_config.sm, s32);
 #else
-        uint8_t outL = *b++;
-        uint8_t outR = *b;
-        pwm_set_gpio_level(PWM_PIN1, outL); // Лево
-        pwm_set_gpio_level(PWM_PIN0, outR); // Право
     }
+    pwm_set_gpio_level(PWM_PIN1, outL); // Лево
+    pwm_set_gpio_level(PWM_PIN0, outR); // Право
 #endif
 }
 
