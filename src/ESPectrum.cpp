@@ -1052,8 +1052,8 @@ void ESPectrum::loop() {
             pwm_audio_in_frame_started();
         }
     #endif
-        int32_t t_us = Config::throtling * 1000l;
-        if (!t_us || idle > t_us)
+      int32_t t_us = Config::throtling * 1000l;
+      if (!t_us || idle > t_us) {
         // Finish fill of beeper oversampled audio buffers
         for (;faudbufcnt < (samplesPerFrame * audioSampleDivider); ++faudbufcnt) {
             audioBitBuf += faudioBit;
@@ -1063,7 +1063,7 @@ void ESPectrum::loop() {
                 audioBitbufCount = 0;
             }
         }
-        if (AY_emu && (!t_us || idle > t_us)) {
+        if (AY_emu) {
             bool ts = Config::turbosound;
             if (faudbufcntAY < samplesPerFrame) {
                 chip0.gen_sound(samplesPerFrame - faudbufcntAY, faudbufcntAY);
@@ -1100,6 +1100,7 @@ void ESPectrum::loop() {
         memset(audioBuffer_L, 0, samplesPerFrame);
         memset(audioBuffer_R, 0, samplesPerFrame);
         memset(overSamplebuf, 0, samplesPerFrame);
+      }
     }
     processKeyboard();
     // Update stats every 50 frames

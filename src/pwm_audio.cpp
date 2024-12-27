@@ -40,18 +40,12 @@ esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) 
     static bool is_buff1 = true;
     uint8_t* buff = is_buff1 ? buff1 : buff2;
     is_buff1 = !is_buff1;
-    uint8_t volume = vol;
     if (len < 500) { // W/A
         for (size_t i = 0; i < MAX_SAMPLES_PER_FRAME; ++i) {
             size_t j = i << 1;
             size_t k = i * len / MAX_SAMPLES_PER_FRAME;
-#ifdef I2S_SOUND
             buff[j  ] = lbuf[k];
             buff[j+1] = rbuf[k];
-#else
-            buff[j  ] = ((uint32_t)lbuf[k]) * volume >> 4;
-            buff[j+1] = ((uint32_t)rbuf[k]) * volume >> 4;
-#endif
         }
         pcm_set_buffer(buff, 2, MAX_SAMPLES_PER_FRAME, NULL);
         return ESP_OK;
@@ -78,13 +72,8 @@ esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) 
 
     for (size_t i = 0; i < len; ++i) {
         size_t j = i << 1;
-#ifdef I2S_SOUND
         buff[j++] = lbuf[i];
         buff[j  ] = rbuf[i];
-#else
-        buff[j++] = ((uint32_t)rbuf[i]) * volume >> 4;
-        buff[j  ] = ((uint32_t)lbuf[i]) * volume >> 4;
-#endif
     }
 
 # else
@@ -217,22 +206,19 @@ void pcm_call() {
             outL = outL + ddt1 * (outL2 - outL) / ddt2;
             outR = outR + ddt1 * (outR2 - outR) / ddt2;
         }
-#ifdef I2S_SOUND
-
         uint8_t volume = vol;
-        if (volume <= 8) {
-            volume = 8 - volume;
-            s32 = ((outL >> volume) << 16) | (outR >> volume);
-        } else {
-            volume -= 8;
-            s32 = ((outL << volume) << 16) | (outR << volume);
-        }
+#ifdef I2S_SOUND
+        outL *= volume; outL <<= 3;
+        outR *= volume; outR <<= 3;
+        s32 = (outL << 16) | outR;
     }
     pio_sm_put_blocking(i2s_config.pio, i2s_config.sm, s32);
 #else
+        outL *= volume; outL >>= 3;
+        outR *= volume; outR >>= 3;
     }
-    pwm_set_gpio_level(PWM_PIN1, outL); // Лево
-    pwm_set_gpio_level(PWM_PIN0, outR); // Право
+    pwm_set_gpio_level(PWM_PIN0, outL); // Лево
+    pwm_set_gpio_level(PWM_PIN1, outR); // Право
 #endif
 }
 

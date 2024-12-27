@@ -29,7 +29,7 @@ option(SOFTTV "Enable TV soft composite output" OFF)
 
 set (PORT_VERSION "1.2.5")
 
-#set(I2S ON)
+set(I2S ON)
 ###set(TV ON)
 ###set(SOFTTV ON)
 ###set(TFT ON)
