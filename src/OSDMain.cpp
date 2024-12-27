@@ -3453,6 +3453,7 @@ c:
     // Wait for a key
     fabgl::VirtualKeyItem Nextkey;
     auto Kbd = ESPectrum::PS2Controller.keyboard();
+    bool alt = false;
     while (1) {
         sleep_ms(5);
         if (Kbd->virtualKeyAvailable()) {
@@ -3465,6 +3466,10 @@ c:
                         bitWrite(Ports::port[Config::kempstonPort], i - fabgl::VK_JOY_RIGHT, 1);
                     }
                 }
+            }
+
+            if (Nextkey.vk == fabgl::VK_LALT || Nextkey.vk == fabgl::VK_RALT) {
+                alt = Nextkey.down;
             }
 
             if (!Nextkey.down) continue;
@@ -3570,8 +3575,19 @@ c:
                 int i = 0;
                 T1 = CPU::tstates;
                 t1 = time_us_32();
-                while (pc == Z80::getRegPC() && i++ < 64*1024) {
+                uint16_t pcs = Z80::getRegPC();
+                while (i++ < 64*1024 &&
+                    (
+                        pc == Z80::getRegPC() ||
+                        (alt && pc + 3 != Z80::getRegPC()) // CALL nn case
+                    )
+                ) {
                     CPU::step();
+                }
+                if (alt && pc + 3 != Z80::getRegPC() && i >= 64*1024) {
+                    Config::enableBreakPoint = true;
+                    Config::breakPoint = pcs + 3; // CALL nn case
+                    break;
                 }
                 ii -= (int)pc - Z80::getRegPC();
                 if (ii > 16) ii = 4;

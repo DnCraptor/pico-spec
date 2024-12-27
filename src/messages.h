@@ -1103,6 +1103,7 @@ static const char *AboutMsg[2][9] = {
 
 #define OSD_DBG_HELP_EN \
     " [Space]      Step CPU\n"\
+    " [ALT+Space]  Step over CALL operation\n"\
     " [Esc]        Exit\n"\
     " [F3]         Port read breakpoint\n"\
     " [F4]         Port write breakpoint\n"\
