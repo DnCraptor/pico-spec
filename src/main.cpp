@@ -76,7 +76,21 @@ void back2joy2(fabgl::VirtualKey virtualKey, bool down);
 
 #define JPAD (Config::secondJoy == 3 ? back2joy2: joyPushData)
 
+///#include "OSDMain.h"
+
 extern "C" bool handleScancode(const uint32_t ps2scancode) {
+    #if 0
+    if (ps2scancode != 0x45 && ps2scancode != 0x1D && ps2scancode != 0xC5) {
+        char tmp1[16];
+        snprintf(tmp1, 16, "%08X", ps2scancode);
+        OSD::osdCenteredMsg(tmp1, LEVEL_WARN, 500);
+    }
+    #endif
+    static bool pause_detected = false;
+    if (pause_detected) {
+        pause_detected = false;
+        if (ps2scancode == 0x1D) return true; // ignore next byte after 0x45, TODO: split with NumLock
+    }
     if ( ((ps2scancode >> 8) & 0xFF) == 0xE0) { // E0 block
         uint8_t cd = ps2scancode & 0xFF;
         bool pressed = cd < 0x80;
@@ -237,7 +251,11 @@ extern "C" bool handleScancode(const uint32_t ps2scancode) {
         case 0x58: kbdPushData(fabgl::VirtualKey::VK_F12, pressed); return true;
 
         case 0x46: kbdPushData(fabgl::VirtualKey::VK_SCROLLLOCK, pressed); return true; /// TODO:
-        case 0x45: kbdPushData(fabgl::VirtualKey::VK_PAUSE, pressed); return true;
+        case 0x45: {
+            kbdPushData(fabgl::VirtualKey::VK_PAUSE, pressed);
+            pause_detected = pressed;
+            return true;
+        }
         case 0x37: {
             JPAD(fabgl::VirtualKey::VK_DPAD_START, pressed);
             kbdPushData(fabgl::VirtualKey::VK_KP_MULTIPLY, pressed);
