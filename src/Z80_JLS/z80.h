@@ -88,6 +88,7 @@ public:
     enum IntMode {
         IM0, IM1, IM2
     };
+    inline static IntMode getIntMode(void) { return modeINT; }
 private:
     // Código de instrucción a ejecutar
     // Poner esta variable como local produce peor rendimiento

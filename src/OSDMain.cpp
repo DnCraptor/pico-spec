@@ -3377,27 +3377,27 @@ c:
     ++i;
 
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    snprintf(buf, 32, "AF %04X x%04X", Z80::getRegAF(), Z80::getRegAFx());
+    snprintf(buf, 32, "AF %04X AFx%04X", Z80::getRegAF(), Z80::getRegAFx());
     VIDEO::vga.print(buf);
 
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    snprintf(buf, 32, "BC %04X x%04X", Z80::getRegBC(), Z80::getRegBCx());
+    snprintf(buf, 32, "BC %04X BCx%04X", Z80::getRegBC(), Z80::getRegBCx());
     VIDEO::vga.print(buf);
 
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    snprintf(buf, 32, "HL %04X x%04X", Z80::getRegHL(), Z80::getRegHLx());
+    snprintf(buf, 32, "HL %04X HLx%04X", Z80::getRegHL(), Z80::getRegHLx());
     VIDEO::vga.print(buf);
 
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    snprintf(buf, 32, "DE %04X x%04X", Z80::getRegDE(), Z80::getRegDEx());
+    snprintf(buf, 32, "DE %04X DEx%04X", Z80::getRegDE(), Z80::getRegDEx());
     VIDEO::vga.print(buf);
 
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    snprintf(buf, 32, "Ix %04X y%04X", Z80::getRegIX(), Z80::getRegIY());
+    snprintf(buf, 32, "IX %04X IY %04X", Z80::getRegIX(), Z80::getRegIY());
     VIDEO::vga.print(buf);
 
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    snprintf(buf, 32, "IR %02X%02X", Z80::getRegI(), Z80::getRegR());
+    snprintf(buf, 32, "IR %02X%02X IM %d", Z80::getRegI(), Z80::getRegR(), Z80::getIntMode());
     VIDEO::vga.print(buf);
 
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
