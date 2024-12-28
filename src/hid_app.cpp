@@ -195,40 +195,14 @@ void cursor_movement(int8_t x, int8_t y, int8_t wheel)
 #endif
 }
 
-#include "mouse.h"
-static bool md_available = false;;
-static MouseDelta md = { 0 };
-bool mouseDeltaAvailable(void) {
-  return md_available;
-}
-bool getNextMouseDelta(MouseDelta* delta) {
-  if (!md_available) return false;
-  md_available = false;
-  *delta = md;
-  return true;
-}
+#include "ESPectrum.h"
 
 static void process_mouse_report(hid_mouse_report_t const * report)
 {
-  static hid_mouse_report_t prev_report = { 0 };
-
-  if ((prev_report.buttons & MOUSE_BUTTON_LEFT) && !(report->buttons & MOUSE_BUTTON_LEFT)) {
-    md.buttons.left = false;
-    md_available = true;
-  } else if (!(prev_report.buttons & MOUSE_BUTTON_LEFT) && (report->buttons & MOUSE_BUTTON_LEFT)) {
-    md.buttons.left = true;
-    md_available = true;
-  }
-
-  if ((prev_report.buttons & MOUSE_BUTTON_RIGHT) && !(report->buttons & MOUSE_BUTTON_RIGHT)) {
-    md.buttons.right = false;
-    md_available = true;
-  } else if (!(prev_report.buttons & MOUSE_BUTTON_RIGHT) && (report->buttons & MOUSE_BUTTON_RIGHT)) {
-    md.buttons.right = true;
-    md_available = true;
-  }
-
-  prev_report = *report;
+    ESPectrum::mouseButtonL = report->buttons & MOUSE_BUTTON_LEFT;
+    ESPectrum::mouseButtonR = report->buttons & MOUSE_BUTTON_RIGHT;
+    ESPectrum::mouseX += report->x >> 2;
+    ESPectrum::mouseY -= report->y >> 2; // TODO: DPI
   /**
 
   //------------- button state  -------------//

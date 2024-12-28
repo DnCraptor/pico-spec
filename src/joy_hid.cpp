@@ -90,16 +90,16 @@ void tuh_xinput_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t c
 
     gamepad1_bits.start = p->wButtons & XINPUT_GAMEPAD_START;
 
-
     const uint8_t dpad = p->wButtons & 0xf;
     bool up, down, right, left;
-    if (!dpad) {
-        up = p->sThumbLY > 0 || p->sThumbRY > 0;
-        down = p->sThumbLY < 0 || p->sThumbRY < 0;
-        right = p->sThumbLX > 0 || p->sThumbRX > 0;
-        left = p->sThumbLX < 0 || p->sThumbRX < 0;
-    }
-    else {
+    ///if (!dpad) {
+    ///    up = p->sThumbLY > 3 || p->sThumbRY > 3;
+    ///    down = p->sThumbLY < -3 || p->sThumbRY < -3;
+    ///    right = p->sThumbLX > 3 || p->sThumbRX > 3;
+    ///    left = p->sThumbLX < -3 || p->sThumbRX < -3;
+    ///}
+    ///else
+    {
         down = dpad & XINPUT_GAMEPAD_DPAD_DOWN;
         up = dpad & XINPUT_GAMEPAD_DPAD_UP;
         left = dpad & XINPUT_GAMEPAD_DPAD_LEFT;
