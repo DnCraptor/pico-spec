@@ -25,7 +25,8 @@
 
 #include <string.h>
 #include "keyboard.h"
-#include "ps2.h"
+///#include "ps2.h"
+#include "ps2kbd_mrmltr.h"
 #include <hardware/timer.h>
 #include "Config.h"
 #include "ESPectrum.h"
@@ -105,19 +106,19 @@ bool Keyboard::reset(bool sendCmdReset)
 
 
 bool Keyboard::setLEDs(bool numLock, bool capsLock, bool scrollLock) {
-  uint8_t v = 0;
-  if (numLock) v |= PS2_LED_NUM_LOCK;
-  if (capsLock) v |= PS2_LED_CAPS_LOCK;
-  if (scrollLock) v |= PS2_LED_SCROLL_LOCK;
-  keyboard_toggle_led(v);
+///  uint8_t v = 0;
+///  if (numLock) v |= PS2_LED_NUM_LOCK;
+///  if (capsLock) v |= PS2_LED_CAPS_LOCK;
+///  if (scrollLock) v |= PS2_LED_SCROLL_LOCK;
+///  keyboard_toggle_led(v);
   return true;
 }
 
 void Keyboard::getLEDs(bool * numLock, bool * capsLock, bool * scrollLock) {
-  uint8_t v = get_led_status();
-  *numLock    = v & PS2_LED_NUM_LOCK;
-  *capsLock   = v & PS2_LED_CAPS_LOCK;
-  *scrollLock = v & PS2_LED_SCROLL_LOCK;
+///  uint8_t v = get_led_status();
+///  *numLock    = v & PS2_LED_NUM_LOCK;
+///  *capsLock   = v & PS2_LED_CAPS_LOCK;
+///  *scrollLock = v & PS2_LED_SCROLL_LOCK;
 }
 
 int Keyboard::scancodeAvailable()
