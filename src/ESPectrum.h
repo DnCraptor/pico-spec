@@ -134,6 +134,11 @@ public:
 
     static bool trdos;
     static WD1793 Betadisk;
+
+    static int32_t mouseX;
+    static int32_t mouseY;
+    static bool mouseButtonL;
+    static bool mouseButtonR;
 };
 
 #define bitRead(value, bit) (((value) >> (bit)) & 0x01)

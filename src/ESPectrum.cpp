@@ -173,6 +173,12 @@ int ESPectrum::TapeNameScroller = 0;
 bool ESPectrum::trdos = false;
 WD1793 ESPectrum::Betadisk;
 
+/// @brief  Mouse support
+int32_t ESPectrum::mouseX = 0;
+int32_t ESPectrum::mouseY = 0;
+bool ESPectrum::mouseButtonL = 0;
+bool ESPectrum::mouseButtonR = 0;
+
 //=======================================================================================
 // ARDUINO FUNCTIONS
 //=======================================================================================

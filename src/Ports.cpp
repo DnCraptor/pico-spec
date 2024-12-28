@@ -45,6 +45,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "wd1793.h"
 #include "pwm_audio.h"
 #include "roms.h"
+#include "mouse.h"
 
 // #pragma GCC optimize("O3")
 
@@ -175,6 +176,52 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
                     data = ESPectrum::Betadisk.ReadDataReg();                    
                     // printf("WD1793 Read Data Register: %d\n",(int)data);                    
                     return data;                    
+            }
+        }
+
+        ///if (ESPectrum::ps2mouse && Config::mouse == 1)
+        {
+            if((address & 0x05ff) == 0x01df) {
+                MouseDelta delta;
+                while (mouseDeltaAvailable()) {
+                    if (getNextMouseDelta(&delta)) {
+                        ESPectrum::mouseX = (ESPectrum::mouseX + delta.deltaX) & 0xff;
+                        ESPectrum::mouseY = (ESPectrum::mouseY + delta.deltaY) & 0xff;
+                        ESPectrum::mouseButtonL = delta.buttons.left;
+                        ESPectrum::mouseButtonR = delta.buttons.right;
+                    } else {
+                        break;
+                    }
+                }
+                return (uint8_t) ESPectrum::mouseX;
+            }
+            if((address & 0x05ff) == 0x05df) {
+                MouseDelta delta;
+                while (mouseDeltaAvailable()) {
+                    if (getNextMouseDelta(&delta)) {
+                        ESPectrum::mouseX = (ESPectrum::mouseX + delta.deltaX) & 0xff;
+                        ESPectrum::mouseY = (ESPectrum::mouseY + delta.deltaY) & 0xff;
+                        ESPectrum::mouseButtonL = delta.buttons.left;
+                        ESPectrum::mouseButtonR = delta.buttons.right;
+                    } else {
+                        break;
+                    }
+                }
+                return (uint8_t) ESPectrum::mouseY;
+            }
+            if((address & 0x05ff) == 0x00df) {
+                MouseDelta delta;
+                while (mouseDeltaAvailable()) {
+                    if (getNextMouseDelta(&delta)) {
+                        ESPectrum::mouseX = (ESPectrum::mouseX + delta.deltaX) & 0xff;
+                        ESPectrum::mouseY = (ESPectrum::mouseY + delta.deltaY) & 0xff;
+                        ESPectrum::mouseButtonL = delta.buttons.left;
+                        ESPectrum::mouseButtonR = delta.buttons.right;
+                    } else {
+                        break;
+                    }
+                }
+                return 0xff & (ESPectrum::mouseButtonL ? 0xfd : 0xff) & (ESPectrum::mouseButtonR ? 0xfe : 0xff);
             }
         }
 
