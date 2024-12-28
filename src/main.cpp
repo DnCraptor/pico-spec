@@ -481,7 +481,7 @@ inline static bool isInReport(hid_keyboard_report_t const *report, const unsigne
 }
 
 uint8_t pressed_key[256] = { 0 };
-
+extern uint8_t debug_number;
 fabgl::VirtualKey map_key(uint8_t kc) {
     switch(kc) {
         case HID_KEY_SPACE: return fabgl::VirtualKey::VK_SPACE;
@@ -500,6 +500,7 @@ fabgl::VirtualKey map_key(uint8_t kc) {
         case HID_KEY_L: return fabgl::VirtualKey::VK_L;
         case HID_KEY_M: return fabgl::VirtualKey::VK_M;
         case HID_KEY_N: return fabgl::VirtualKey::VK_N;
+        case HID_KEY_O: return fabgl::VirtualKey::VK_O;
         case HID_KEY_P: return fabgl::VirtualKey::VK_P;
         case HID_KEY_Q: return fabgl::VirtualKey::VK_Q;
         case HID_KEY_R: return fabgl::VirtualKey::VK_R;
@@ -539,6 +540,7 @@ fabgl::VirtualKey map_key(uint8_t kc) {
         case HID_KEY_KEYPAD_SUBTRACT: return fabgl::VirtualKey::VK_KP_MINUS;
         case HID_KEY_KEYPAD_ADD: return fabgl::VirtualKey::VK_KP_PLUS;
         case HID_KEY_KEYPAD_ENTER: return fabgl::VirtualKey::VK_KP_ENTER;
+        case HID_KEY_KEYPAD_DECIMAL: return fabgl::VirtualKey::VK_KP_PERIOD;
         
         case HID_KEY_PRINT_SCREEN: return fabgl::VirtualKey::VK_PRINTSCREEN;
         case HID_KEY_SCROLL_LOCK: return fabgl::VirtualKey::VK_SCROLLLOCK;
@@ -580,6 +582,7 @@ fabgl::VirtualKey map_key(uint8_t kc) {
         case HID_KEY_MINUS: return fabgl::VirtualKey::VK_MINUS;
         case HID_KEY_EQUAL: return fabgl::VirtualKey::VK_EQUALS;
         case HID_KEY_BACKSLASH: return fabgl::VirtualKey::VK_BACKSLASH;
+        case HID_KEY_EUROPE_1: return fabgl::VirtualKey::VK_BACKSLASH; // ???
         case HID_KEY_BRACKET_LEFT: return fabgl::VirtualKey::VK_LEFTBRACKET;
         case HID_KEY_BRACKET_RIGHT: return fabgl::VirtualKey::VK_RIGHTBRACKET;
         case HID_KEY_SEMICOLON: return fabgl::VirtualKey::VK_SEMICOLON;
@@ -593,8 +596,83 @@ fabgl::VirtualKey map_key(uint8_t kc) {
         case HID_KEY_ARROW_DOWN: return fabgl::VirtualKey::VK_DOWN;
         case HID_KEY_ARROW_LEFT: return fabgl::VirtualKey::VK_LEFT;
         case HID_KEY_ARROW_RIGHT: return fabgl::VirtualKey::VK_RIGHT;
+ // TODO:
+        case HID_KEY_GUI_LEFT: return fabgl::VirtualKey::VK_F1;
+        case HID_KEY_GUI_RIGHT: return fabgl::VirtualKey::VK_F1;
+        default: debug_number = kc;
     }
     return fabgl::VirtualKey::VK_NONE;
+}
+
+void kbdExtraMapping(fabgl::VirtualKey virtualKey, bool pressed) {
+    switch(virtualKey) {
+        case fabgl::VirtualKey::VK_RCTRL: if (Config::CursorAsJoy) joyPushData(fabgl::VirtualKey::VK_DPAD_ALTFIRE, pressed); break;
+        case fabgl::VirtualKey::VK_MENU_RIGHT: if (Config::CursorAsJoy) joyPushData(fabgl::VirtualKey::VK_DPAD_ALTFIRE, pressed); break;
+        case fabgl::VirtualKey::VK_HOME: joyPushData(fabgl::VirtualKey::VK_MENU_HOME, pressed); break;
+        case fabgl::VirtualKey::VK_UP: {
+            if (Config::CursorAsJoy) joyPushData(fabgl::VirtualKey::VK_DPAD_UP, pressed);
+            joyPushData(fabgl::VirtualKey::VK_MENU_UP, pressed);
+            break;
+        }
+        case fabgl::VirtualKey::VK_DOWN: {
+            if (Config::CursorAsJoy) joyPushData(fabgl::VirtualKey::VK_DPAD_DOWN, pressed);
+            joyPushData(fabgl::VirtualKey::VK_MENU_DOWN, pressed);
+            break;
+        }
+        case fabgl::VirtualKey::VK_LEFT: {
+            if (Config::CursorAsJoy) joyPushData(fabgl::VirtualKey::VK_DPAD_LEFT, pressed);
+            joyPushData(fabgl::VirtualKey::VK_MENU_LEFT, pressed);
+            break;
+        }
+        case fabgl::VirtualKey::VK_RIGHT: {
+            if (Config::CursorAsJoy) joyPushData(fabgl::VirtualKey::VK_DPAD_RIGHT, pressed);
+            joyPushData(fabgl::VirtualKey::VK_MENU_RIGHT, pressed);
+            break;
+        }
+        case fabgl::VirtualKey::VK_KP_ENTER: { // VK_KP_ENTER
+            kbdPushData(Config::rightSpace ? fabgl::VirtualKey::VK_SPACE : fabgl::VirtualKey::VK_RETURN, pressed);
+            return;
+        }
+
+        case fabgl::VirtualKey::VK_BACKSPACE: joyPushData(fabgl::VirtualKey::VK_MENU_BS, pressed); break;
+        case fabgl::VirtualKey::VK_SPACE:     joyPushData(fabgl::VirtualKey::VK_MENU_ENTER, pressed); break;
+        case fabgl::VirtualKey::VK_TAB:       if (Config::TABasfire1) JPAD(fabgl::VirtualKey::VK_DPAD_FIRE, pressed); break;
+        case fabgl::VirtualKey::VK_LALT:      if (Config::CursorAsJoy) JPAD(fabgl::VirtualKey::VK_DPAD_FIRE, pressed); break;
+        case fabgl::VirtualKey::VK_RETURN:    joyPushData(fabgl::VirtualKey::VK_MENU_ENTER, pressed); break;
+
+        case fabgl::VirtualKey::VK_KP_MULTIPLY: JPAD(fabgl::VirtualKey::VK_DPAD_START, pressed); break;
+        case fabgl::VirtualKey::VK_KP_MINUS:    JPAD(fabgl::VirtualKey::VK_DPAD_SELECT, pressed); break;
+        case fabgl::VirtualKey::VK_KP_PLUS:     JPAD(fabgl::VirtualKey::VK_DPAD_FIRE, pressed); break;
+        case fabgl::VirtualKey::VK_KP_PERIOD:   JPAD(fabgl::VirtualKey::VK_DPAD_FIRE, pressed); break;
+        case fabgl::VirtualKey::VK_KP_0:        JPAD(fabgl::VirtualKey::VK_DPAD_ALTFIRE, pressed); break;
+
+        case fabgl::VirtualKey::VK_KP_1: {
+            JPAD(fabgl::VirtualKey::VK_DPAD_LEFT, pressed);
+            JPAD(fabgl::VirtualKey::VK_DPAD_DOWN, pressed);
+            break;
+        }
+        case fabgl::VirtualKey::VK_KP_2:        JPAD(fabgl::VirtualKey::VK_DPAD_DOWN, pressed); break;
+        case fabgl::VirtualKey::VK_KP_3: {
+            JPAD(fabgl::VirtualKey::VK_DPAD_RIGHT, pressed);
+            JPAD(fabgl::VirtualKey::VK_DPAD_DOWN, pressed);
+            break;
+        }
+        case fabgl::VirtualKey::VK_KP_4:        JPAD(fabgl::VirtualKey::VK_DPAD_LEFT, pressed); break;
+        case fabgl::VirtualKey::VK_KP_5:        JPAD(fabgl::VirtualKey::VK_DPAD_DOWN, pressed); break;
+        case fabgl::VirtualKey::VK_KP_6:        JPAD(fabgl::VirtualKey::VK_DPAD_RIGHT, pressed); break;
+        case fabgl::VirtualKey::VK_KP_7: {
+            JPAD(fabgl::VirtualKey::VK_DPAD_LEFT, pressed);
+            JPAD(fabgl::VirtualKey::VK_DPAD_UP, pressed);
+            break;
+        }
+        case fabgl::VirtualKey::VK_KP_8:        JPAD(fabgl::VirtualKey::VK_DPAD_UP, pressed); break;
+        case fabgl::VirtualKey::VK_KP_9: {
+            JPAD(fabgl::VirtualKey::VK_DPAD_RIGHT, pressed);
+            JPAD(fabgl::VirtualKey::VK_DPAD_UP, pressed);
+            break;
+        }
+    }
+    kbdPushData(virtualKey, pressed);
 }
 
 void __not_in_flash_func(process_kbd_report)(
@@ -611,7 +689,7 @@ void __not_in_flash_func(process_kbd_report)(
             }
         }
         if (!key_still_pressed) {
-            kbdPushData((fabgl::VirtualKey)pressed_key[pkc], false);
+            kbdExtraMapping((fabgl::VirtualKey)pressed_key[pkc], false);
             pressed_key[pkc] = 0;
         }
     }
@@ -623,7 +701,7 @@ void __not_in_flash_func(process_kbd_report)(
             vk = map_key(kc);
             if (vk != fabgl::VirtualKey::VK_NONE) {
                 *pk = (uint8_t)vk;
-                kbdPushData(vk, true);
+                kbdExtraMapping(vk, true);
             }
         }
     }

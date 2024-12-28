@@ -1018,11 +1018,19 @@ IRAM_ATTR void ESPectrum::AYGetSample() {
     }
 }
 
+uint8_t debug_number = 0;
+
 //=======================================================================================
 // MAIN LOOP
 //=======================================================================================
 void ESPectrum::loop() {    
   for(;;) {
+    if (debug_number != 0) {
+        char msg[16];
+        snprintf(msg, 16, "%02Xh", debug_number);
+        OSD::osdCenteredMsg(msg, LEVEL_WARN, 5000);
+        debug_number = 0;
+    }
     ts_start = time_us_64();
 
     // Send audioBuffer to pwmaudio
