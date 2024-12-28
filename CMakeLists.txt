@@ -37,7 +37,7 @@ set (PORT_VERSION "1.2.5")
 
 #set (MURM2 ON)
 
-#set(HDMI ON)
+set(HDMI ON)
 #set(FLASH_SIZE 4096)
 set(FLASH_SIZE 2048)
 set(FLASH_SIZE_GREEN ON)

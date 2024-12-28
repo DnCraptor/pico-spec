@@ -156,6 +156,7 @@ static uint8_t ps2kbd_page_0[] {
   /* 83 (131) */ HID_KEY_F7
 };
 
+
 Ps2Kbd_Mrmltr::Ps2Kbd_Mrmltr(PIO pio, uint base_gpio, std::function<void(hid_keyboard_report_t *curr, hid_keyboard_report_t *prev)> keyHandler) :
   _pio(pio),
   _base_gpio(base_gpio),
@@ -260,25 +261,32 @@ uint8_t Ps2Kbd_Mrmltr::hidCodePage1(uint8_t ps2code) {
   }
 }
 
+#include "ff.h"
+
 void Ps2Kbd_Mrmltr::handleActions() {
-  #ifdef DEBUG_PS2
+  /*
+  FIL f;
+  f_open(&f, "1.log", FA_OPEN_APPEND | FA_WRITE);
+  char tmp[64];
   for (uint i = 0; i <= _action; ++i) {
-    DBG_PRINTF("PS/2 key %s page %2.2X (%3.3d) code %2.2X (%3.3d)\n",
-      _actions[i].release ? "release" : "press",
+    snprintf(tmp, 64, "PS/2 key %s (i: %d) page %2.2X (%3.3d) code %2.2X (%3.3d)\n",
+      _actions[i].release ? "release" : "press", i,
       _actions[i].page,
       _actions[i].page,
       _actions[i].code,
       _actions[i].code);
+    UINT bw;
+    f_write(&f, tmp, strlen(tmp), &bw); 
   }
-  #endif
-  
+  f_close(&f);
+  */
   uint8_t hidCode;
   bool release;
   if (_action == 0) {
     switch (_actions[0].page) {
       case 1: {
         hidCode = hidCodePage1(_actions[0].code);
-        break; 
+        break;
       }
       default: {
         hidCode = hidCodePage0(_actions[0].code);
@@ -288,9 +296,14 @@ void Ps2Kbd_Mrmltr::handleActions() {
     release = _actions[0].release;
   }
   else {
+    if (_action == 1 && _actions[0].code == 0x14 && _actions[1].code == 0x77) {
+       hidCode = HID_KEY_PAUSE;
+       release = _actions[0].release;
+    } else {
     // TODO get the HID code for extended PS/2 codes
-    hidCode = HID_KEY_NONE;
-    release = false;
+      hidCode = HID_KEY_NONE;
+      release = false;
+    }
   }
   
   if (hidCode != HID_KEY_NONE) {

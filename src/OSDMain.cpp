@@ -3525,11 +3525,11 @@ c:
                 }
                 goto c;
             }
-            if (Nextkey.vk == fabgl::VK_PLUS || Nextkey.vk == fabgl::VK_UP) {
+            if (Nextkey.vk == fabgl::VK_KP_PLUS || Nextkey.vk == fabgl::VK_UP) {
                 ++ii;
                 goto c;
             } else
-            if (Nextkey.vk == fabgl::VK_MINUS || Nextkey.vk == fabgl::VK_DOWN) {
+            if (Nextkey.vk == fabgl::VK_KP_MINUS || Nextkey.vk == fabgl::VK_DOWN) {
                 --ii;
                 goto c;
             } else
