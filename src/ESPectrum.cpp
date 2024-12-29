@@ -97,7 +97,7 @@ void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
         if (ctrlPressed && virtualKey == fabgl::VirtualKey::VK_J) {
             Config::CursorAsJoy = !Config::CursorAsJoy;
         }
-        if (last_key_pressed != virtualKey) {
+        if (last_key_pressed != virtualKey && last_key_pressed != fabgl::VirtualKey::VK_MENU_UP && last_key_pressed != fabgl::VirtualKey::VK_MENU_DOWN) {
             last_key_pressed = virtualKey;
             tickKbdRep = time_us_32();
         }
@@ -123,6 +123,12 @@ void repeat_handler(void) {
     fabgl::VirtualKey v = last_key_pressed;
     if (v != fabgl::VirtualKey::VK_NONE) {
         if (tickKbdRep == 0) {
+            if (v == fabgl::VirtualKey::VK_UP) {
+                kbdPushData(fabgl::VirtualKey::VK_MENU_UP, true);
+            }
+            else if (v == fabgl::VirtualKey::VK_DOWN) {
+                kbdPushData(fabgl::VirtualKey::VK_MENU_DOWN, true);
+            }
             kbdPushData(v, true);
         } else {
             uint32_t t2 = time_us_32();
