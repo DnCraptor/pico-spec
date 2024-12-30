@@ -231,7 +231,15 @@ IF(MURM2)
         # HDMI 8 pins starts from pin:
         HDMI_BASE_PIN=12
 
-	    PICO_FLASH_SIZE_BYTES=${FLASH_SIZE}*1024
+        # TFT
+        TFT_CS_PIN=12
+        TFT_RST_PIN=14
+        TFT_LED_PIN=15
+        TFT_DC_PIN=16
+        TFT_DATA_PIN=18
+        TFT_CLK_PIN=19
+        
+        PICO_FLASH_SIZE_BYTES=${FLASH_SIZE}*1024
         DEFAULT_THROTTLING=0
     )
 ELSEIF(MONSTR)
