@@ -3213,6 +3213,110 @@ const char* mnemCB[256] = {
 
 #define BNc(x, b) ((x >> b) & 1 ? '1' : '0')
 
+void OSD::osdDump() {
+    const unsigned short h = OSD_FONT_H * 22;
+    const unsigned short y = scrAlignCenterY(h);
+    const unsigned short w = OSD_FONT_W * 46;
+    const unsigned short x = scrAlignCenterX(w);
+
+    char buf[44];
+    // Set font
+    VIDEO::vga.setFont(Font6x8);
+
+    // Boarder
+    VIDEO::vga.rect(x, y, w, h, zxColor(0, 0));
+
+    VIDEO::vga.fillRect(x + 1, y + 1, w - 2, OSD_FONT_H, zxColor(0,0));
+    VIDEO::vga.fillRect(x + 1, y + 1 + OSD_FONT_H, w - 2, h - OSD_FONT_H - 2, zxColor(7,1));
+
+    // Title
+    VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(0, 0));        
+    VIDEO::vga.setCursor(x + OSD_FONT_W + 1, y + 1);
+    VIDEO::vga.print("Dump");
+
+    // Rainbow
+    unsigned short rb_y = y + 8;
+    unsigned short rb_paint_x = x + w - 30;
+    uint8_t rb_colors[] = {2, 6, 4, 5};
+    for (uint8_t c = 0; c < 4; c++) {
+        for (uint8_t i = 0; i < 5; i++) {
+            VIDEO::vga.line(rb_paint_x + i, rb_y, rb_paint_x + 8 + i, rb_y - 8, zxColor(rb_colors[c], 1));
+        }
+        rb_paint_x += 5;
+    }
+
+    VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));        
+    uint16_t pc = Z80::getRegPC();
+
+    int ii = 0;
+c:
+    int xi = x + 1;
+
+    for (int i = 0; i < 20; ++i) {
+        uint16_t pci = (pc + i * 16 + ii) & 0b1111111111110000;
+        uint8_t bi = MemESP::readbyte(pci);
+        int yi = y + (i + 1) * OSD_FONT_H + 2;
+        VIDEO::vga.setCursor(xi, yi);
+        snprintf(
+            buf, 46, "%04X  %02X%02X %02X%02X %02X%02X %02X%02X %02X%02X %02X%02X %02X%02X %02X%02X",
+            pci,
+            MemESP::readbyte(pci++),
+            MemESP::readbyte(pci++),
+            MemESP::readbyte(pci++),
+            MemESP::readbyte(pci++),
+
+            MemESP::readbyte(pci++),
+            MemESP::readbyte(pci++),
+            MemESP::readbyte(pci++),
+            MemESP::readbyte(pci++),
+
+            MemESP::readbyte(pci++),
+            MemESP::readbyte(pci++),
+            MemESP::readbyte(pci++),
+            MemESP::readbyte(pci++),
+
+            MemESP::readbyte(pci++),
+            MemESP::readbyte(pci++),
+            MemESP::readbyte(pci++),
+            MemESP::readbyte(pci++)
+        );
+        VIDEO::vga.print(buf);
+    }
+
+    fabgl::VirtualKeyItem Nextkey;
+    auto Kbd = ESPectrum::PS2Controller.keyboard();
+    while (1) {
+        sleep_ms(5);
+        if (Kbd->virtualKeyAvailable()) {
+            Kbd->getNextVirtualKey(&Nextkey);
+            if (!Nextkey.down) continue;
+            if (Nextkey.vk == fabgl::VK_ESCAPE) {
+                break;
+            }
+            if (Nextkey.vk == fabgl::VK_KP_MINUS || Nextkey.vk == fabgl::VK_UP) {
+                ii -= 16;
+                goto c;
+            } else
+            if (Nextkey.vk == fabgl::VK_KP_PLUS || Nextkey.vk == fabgl::VK_DOWN) {
+                ii += 16;
+                goto c;
+            } else
+            if (Nextkey.vk == fabgl::VK_0) {
+                ii = 0;
+                goto c;
+            } else
+            if (Nextkey.vk == fabgl::VK_PAGEUP) {
+                ii -= 20 * 16;
+                goto c;
+            } else
+            if (Nextkey.vk == fabgl::VK_PAGEDOWN) {
+                ii += 20 * 16;
+                goto c;
+            }
+        }
+    }
+}
+
 void OSD::osdDebug() {
     const unsigned short h = OSD_FONT_H * 22;
     const unsigned short y = scrAlignCenterY(h);
@@ -3221,7 +3325,7 @@ void OSD::osdDebug() {
 
     VIDEO::SaveRect.save(x - 1, y - 1, w + 2, h + 2);
     char buf[32];
-    int ii = 4;
+    int ii = 3;
     uint32_t t1 = 0;
     uint32_t t2 = 0;
     uint32_t T1 = 0;
@@ -3462,7 +3566,6 @@ c:
             Kbd->getNextVirtualKey(&Nextkey);
             if (Config::joystick == JOY_KEMPSTON) {
                 Ports::port[Config::kempstonPort] = 0;
-                Ports::port[Config::kempstonPort] = 0;
                 for (int i = fabgl::VK_JOY_RIGHT; i <= fabgl::VK_JOY_C; i++) {
                     if (Kbd->isVKDown((fabgl::VirtualKey) i)) {
                         bitWrite(Ports::port[Config::kempstonPort], i - fabgl::VK_JOY_RIGHT, 1);
@@ -3555,6 +3658,10 @@ c:
                     Config::breakPoint = pc;
                 }
                 Config::save();
+                goto c;
+            } else
+            if (Nextkey.vk == fabgl::VK_F2) {
+                osdDump();
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_F1) {

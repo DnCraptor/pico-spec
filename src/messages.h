@@ -1105,6 +1105,8 @@ static const char *AboutMsg[2][9] = {
     " [Space]      Step CPU\n"\
     " [ALT+Space]  Step over CALL operation\n"\
     " [Esc]        Exit\n"\
+    " [F1]         This Help\n"\
+    " [F2]         Show memory dump\n"\
     " [F3]         Port read breakpoint\n"\
     " [F4]         Port write breakpoint\n"\
     " [F5]         Breakpoint current line\n"\
@@ -1112,11 +1114,10 @@ static const char *AboutMsg[2][9] = {
     " [F8]         Jump to address\n"\
     " [F9]         Poke dialog\n"\
 	" [F10]        Trigger NMI\n"\
-    " [+]          Shift down position\n"\
-    " [-]          Shift up position\n"\
-    " [0]          Default position\n"\
-    " [F1]         This Help\n"\
     " [F11-F12]    Load / Save snapshot\n"\
+    " [+]          Shift up screen\n"\
+    " [-]          Shift down screen\n"\
+    " [0]          Default position\n"\
     " + PageUp/Down and cursor keys\n"
 
 static const char *StartMsg[2] = {

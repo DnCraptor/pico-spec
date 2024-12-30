@@ -95,6 +95,7 @@ public:
     static void osdCenteredMsg(string msg, uint8_t warn_level);
     static void osdCenteredMsg(string msg, uint8_t warn_level, uint16_t millispause);
 
+    static void osdDump();
     static void osdDebug();
 
     // Menu

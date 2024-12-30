@@ -161,7 +161,7 @@ inline uint8_t MemESP::readbyte(uint16_t addr) {
     case 3:
         return ram[bankLatch].read(addr - 0xC000);
     default:
-        return (page0ram ? ram[0].read(addr) : rom[romInUse].direct()[addr]);
+        return newAlfSRAM ? ram[64 + MemESP::romLatch].read(addr) : (page0ram ? ram[0].read(addr) : rom[romInUse].direct()[addr]);
     }
 }
 
@@ -174,8 +174,9 @@ inline void MemESP::writebyte(uint16_t addr, uint8_t data)
     uint8_t page = addr >> 14;
     switch (page) {
     case 0:
-        if (page0ram && !ram[0].is_rom()) ram[0].write(addr, data);
-        return;
+        if (newAlfSRAM) ram[64 + MemESP::romLatch].write(addr, data);
+        else if (page0ram && !ram[0].is_rom()) ram[0].write(addr, data);
+        break;
     case 1:
         ram[5].direct()[addr - 0x4000] = data;
         break;
