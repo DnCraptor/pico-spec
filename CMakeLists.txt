@@ -27,7 +27,7 @@ option(HDMI "Enable HDMI display" OFF)
 option(TV "Enable TV composite output" OFF)
 option(SOFTTV "Enable TV soft composite output" OFF)
 
-set (PORT_VERSION "1.2.5")
+set (PORT_VERSION "1.2.6")
 
 #set(I2S ON)
 ###set(TV ON)
@@ -36,6 +36,7 @@ set (PORT_VERSION "1.2.5")
 ###set(ILI9341 ON)
 
 #set (MURM2 ON)
+#set (MONSTR ON)
 
 #set(HDMI ON)
 ###set(FLASH_SIZE 4096)
@@ -43,6 +44,8 @@ set(FLASH_SIZE 2048)
 set(FLASH_SIZE_GREEN ON)
 ###set(CPU_MHZ 408)
 set(CPU_MHZ 378)
+
+set(KBDUSB ON)
 
 IF(MURM2)
     SET(BUILD_NAME "m2-${PROJECT_NAME}-${FLASH_SIZE}-${CPU_MHZ}")
@@ -64,8 +67,7 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${OUTPUT_DIR}")
 
 add_subdirectory(drivers/audio)
 add_subdirectory(drivers/picomp3lib)
-#add_subdirectory(drivers/ps2)
-add_subdirectory(drivers/ps2kbd)
+
 add_subdirectory(drivers/nespad)
 add_subdirectory(drivers/fatfs)
 add_subdirectory(drivers/sdcard)
@@ -91,9 +93,6 @@ add_executable(${PROJECT_NAME} ${SRC})
 pico_define_boot_stage2(slower_boot2 ${PICO_DEFAULT_BOOT_STAGE2_FILE})
 target_compile_definitions(slower_boot2 PRIVATE PICO_FLASH_SPI_CLKDIV=4)
 pico_set_boot_stage2(${PROJECT_NAME} slower_boot2)
-
-#set(FAMILY rp2040)
-#set(BOARD pico_sdk)
 
 pico_set_program_name(pico-spec "ESpectrum port for Murmulator - ZX Spectrum emulator by DnCraptor")
 pico_set_program_version(pico-spec "test")
@@ -159,8 +158,6 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
         graphics
         picomp3lib
 
-#        ps2
-        ps2kbd
         nespad
         sdcard
         fatfs
@@ -179,6 +176,16 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
 
         tinyusb_host tinyusb_board
 )
+
+IF(KBDUSB)
+    add_subdirectory(drivers/ps2kbd)
+    target_link_libraries(${PROJECT_NAME} PRIVATE ps2kbd)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE KBDUSB)
+ELSE()
+    add_subdirectory(drivers/ps2)
+    target_link_libraries(${PROJECT_NAME} PRIVATE ps2)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE KBDPS2)
+ENDIF()
 
 IF(MURM2)
     target_compile_definitions(${PROJECT_NAME} PRIVATE
@@ -226,6 +233,57 @@ IF(MURM2)
 	    PICO_FLASH_SIZE_BYTES=${FLASH_SIZE}*1024
         DEFAULT_THROTTLING=0
     )
+ELSEIF(MONSTR)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
+        PORT_VERSION="${PORT_VERSION}"
+        CPU_MHZ=${CPU_MHZ}
+
+        LOAD_WAV_PIO=22
+        PWM_PIN0=26
+        PWM_PIN1=27
+        BEEPER_PIN=28
+        SOUND_FREQUENCY=50000
+        I2S_FREQUENCY=96000
+
+        # SDCARD
+        SDCARD_PIN_SPI0_CS=23 
+        SDCARD_PIN_SPI0_SCK=18 
+        SDCARD_PIN_SPI0_MOSI=19 
+        SDCARD_PIN_SPI0_MISO=20
+        
+        #PSRAM
+        # PSRAM_MUTEX=1
+        PSRAM_SPINLOCK=1
+        PSRAM_ASYNC=1
+
+        PSRAM_PIN_CS=5
+        PSRAM_PIN_SCK=2
+        PSRAM_PIN_MOSI=3
+        PSRAM_PIN_MISO=4
+
+        # NES Gamepad
+        USE_NESPAD
+        NES_GPIO_CLK=14
+        NES_GPIO_LAT=15
+        NES_GPIO_DATA=16
+
+        # VGA 8 pins starts from pin:
+        VGA_BASE_PIN=6
+
+        # HDMI 8 pins starts from pin:
+        HDMI_BASE_PIN=6
+
+        # TFT
+        TFT_CS_PIN=6
+        TFT_RST_PIN=8
+        TFT_LED_PIN=9
+        TFT_DC_PIN=10
+        TFT_DATA_PIN=12
+        TFT_CLK_PIN=13
+
+	    PICO_FLASH_SIZE_BYTES=${FLASH_SIZE}*1024
+        DEFAULT_THROTTLING=0
+    )
 ELSE()
     target_compile_definitions(${PROJECT_NAME} PRIVATE
         PORT_VERSION="${PORT_VERSION}"
@@ -243,7 +301,7 @@ ELSE()
         SDCARD_PIN_SPI0_SCK=2
         SDCARD_PIN_SPI0_MOSI=3
         SDCARD_PIN_SPI0_MISO=4
-
+        
         PSRAM
         # PSRAM_MUTEX=1
         PSRAM_SPINLOCK=1

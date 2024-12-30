@@ -109,13 +109,27 @@ static uint8_t newAlfBit = 0;
 IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     uint8_t data;
     if (address == Config::portReadBP && Config::enablePortReadBP) CPU::portBasedBP = true;
-    uint8_t rambank = address >> 14;    
+    uint8_t rambank = address >> 14;
 
     VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
     
     bool ia = Z80Ops::isALF;
     uint8_t p8 = address & 0xFF;
-    // ULA PORT    
+    /**
+        if (p8 == 0xFB) { // Hidden RAM on
+            MemESP::ramCurrent[0] = MemESP::ram[64 + MemESP::romLatch].sync();
+            MemESP::newAlfSRAM = true;
+            OSD::osdDebug();
+            return 0xFF;
+        }
+        if (p8 == 0x7B) { // Hidden RAM off
+            MemESP::ramCurrent[0] = (MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct());
+            MemESP::newAlfSRAM = false;
+            OSD::osdDebug();
+            return 0xFF;
+        }
+    */
+    // ULA PORT
     if ((address & 0x0001) == 0) {
         VIDEO::Draw(3, !Z80Ops::isPentagon);   // I/O Contention (Late)
         if (ia && p8 == 0xFE) {
@@ -141,7 +155,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
         ioContentionLate(MemESP::ramContended[rambank]);
         if (ia && bitRead(p8, 7) == 0) {
             if (bitRead(p8, 1) == 0) { // 1D
-                MemESP::ramCurrent[0] = MemESP::ram[62 + MemESP::romLatch].sync();
+                MemESP::ramCurrent[0] = MemESP::ram[64 + MemESP::romLatch].sync();
                 MemESP::newAlfSRAM = true;
 ///OSD::osdDebug();
             }
@@ -229,7 +243,8 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
                     }
                     MemESP::romLatch = bitRead(data, 4);
                     MemESP::romInUse = MemESP::romLatch;
-                    MemESP::ramCurrent[0] = MemESP::newAlfSRAM ? MemESP::ram[62 + MemESP::romLatch].sync() : MemESP::rom[MemESP::romInUse].direct();
+                    MemESP::ramCurrent[0] = MemESP::newAlfSRAM ? MemESP::ram[64 + MemESP::romLatch].sync() :
+                                           (MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct());
                 }
             }
         }
@@ -260,7 +275,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
             }
             MemESP::romInUse = (data & 0b01111111);
             while (MemESP::romInUse >= 64) MemESP::romInUse -= 64; // rolling ROM
-            MemESP::ramCurrent[0] = MemESP::newAlfSRAM ? MemESP::ram[62 + MemESP::romLatch].sync() : MemESP::rom[MemESP::romInUse].direct();
+            MemESP::ramCurrent[0] = MemESP::newAlfSRAM ? MemESP::ram[64 + MemESP::romLatch].sync() : MemESP::rom[MemESP::romInUse].direct();
         }
     }
 #endif    
@@ -389,7 +404,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
             MemESP::romLatch = bitRead(data, 4);
             MemESP::romInUse = MemESP::romLatch;
             MemESP::ramCurrent[0] = MemESP::newAlfSRAM ?
-                                         MemESP::ram[62 + MemESP::romLatch].sync() :
+                                         MemESP::ram[64 + MemESP::romLatch].sync() :
                                         (MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct());
             if (MemESP::videoLatch != bitRead(data, 3)) {
                 MemESP::videoLatch = bitRead(data, 3);

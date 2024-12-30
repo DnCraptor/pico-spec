@@ -25,8 +25,11 @@
 
 #include <string.h>
 #include "keyboard.h"
-///#include "ps2.h"
-#include "ps2kbd_mrmltr.h"
+#ifdef KBDUSB
+    #include "ps2kbd_mrmltr.h"
+#else
+    #include "ps2.h"
+#endif
 #include <hardware/timer.h>
 #include "Config.h"
 #include "ESPectrum.h"

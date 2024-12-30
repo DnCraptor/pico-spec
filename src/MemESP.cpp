@@ -198,7 +198,7 @@ void mem_desc_t::cleanup() {
 }
 
 mem_desc_t MemESP::rom[64];
-mem_desc_t MemESP::ram[64];
+mem_desc_t MemESP::ram[64 + 2];
 bool MemESP::newAlfSRAM = false;
 
 uint8_t* MemESP::ramCurrent[4];

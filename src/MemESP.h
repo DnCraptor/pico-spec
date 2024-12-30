@@ -127,7 +127,7 @@ class MemESP
 {
 public:
     static mem_desc_t rom[64];
-    static mem_desc_t ram[64];
+    static mem_desc_t ram[64 + 2];
 
     static bool newAlfSRAM;
 

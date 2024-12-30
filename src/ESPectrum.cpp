@@ -54,8 +54,12 @@ visit https://zxespectrum.speccy.org/contacto
 #include "wd1793.h"
 
 #include "psram_spi.h"
-///#include "ps2.h"
-#include "ps2kbd_mrmltr.h"
+
+#ifdef KBDUSB
+    #include "ps2kbd_mrmltr.h"
+#else
+    #include "ps2.h"
+#endif
 
 using namespace std;
 
@@ -558,9 +562,9 @@ void ESPectrum::setup()
     if (ext_ram_exist) { // TODO: specific no ext RAM for RP2350
 #if !PICO_RP2040
         for (size_t i = 8; i < 23; ++i) MemESP::ram[i].assign_ram(new unsigned char[0x4000], i, false);
-        for (size_t i = 23; i < 64; ++i) MemESP::ram[i].assign_vram(i);
+        for (size_t i = 23; i < 64+2; ++i) MemESP::ram[i].assign_vram(i);
 #else
-        for (size_t i = 8; i < 64; ++i) MemESP::ram[i].assign_vram(i);
+        for (size_t i = 8; i < 64+2; ++i) MemESP::ram[i].assign_vram(i);
 #endif
     }
 
@@ -573,7 +577,7 @@ void ESPectrum::setup()
     MemESP::videoLatch = 0;
     MemESP::romLatch = 0;
 
-    MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct();
+    MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse].direct();
     MemESP::ramCurrent[1] = MemESP::ram[5].direct();
     MemESP::ramCurrent[2] = MemESP::ram[2].direct();
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync();

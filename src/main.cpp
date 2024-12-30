@@ -21,8 +21,11 @@
 #include "audio.h"
 #include "ff.h"
 #include "psram_spi.h"
-///#include "ps2.h"
-#include "ps2kbd_mrmltr.h"
+#ifdef KBDUSB
+    #include "ps2kbd_mrmltr.h"
+#else
+    #include "ps2.h"
+#endif
 
 #if USE_NESPAD
 #include "nespad.h"
@@ -471,6 +474,7 @@ static void nespad_tick2(void) {
 static void nespad_tick1(void);
 static void nespad_tick2(void);
 
+#ifdef KBDUSB
 inline static bool isInReport(hid_keyboard_report_t const *report, const unsigned char keycode) {
     for (unsigned char i: report->keycode) {
         if (i == keycode) {
@@ -712,6 +716,7 @@ Ps2Kbd_Mrmltr ps2kbd(
         0,
         process_kbd_report
 );
+#endif
 
 void __scratch_x("render") render_core() {
     multicore_lockout_victim_init();
@@ -731,8 +736,10 @@ void __scratch_x("render") render_core() {
     while (true) {
         pcm_call();
         if (tick >= last_input_tick + frame_tick) {
-#ifdef USE_NESPAD
+#ifdef KBDUSB
             ps2kbd.tick();
+#endif
+#ifdef USE_NESPAD
             (tick1 ? nespad_tick1 : nespad_tick2)(); // split call for joy1 and 2
             tick1 = !tick1;
 #endif
@@ -745,7 +752,9 @@ void __scratch_x("render") render_core() {
             tickKbdRep1 = tickKbdRep2;
         }
 
+#ifdef KBDUSB
         tuh_task();
+#endif
         tight_loop_contents();
     }
     __unreachable();
@@ -786,9 +795,12 @@ int main() {
     sleep_ms(10);
     set_sys_clock_khz(CPU_MHZ * KHZ, true);
 
+#ifdef KBDUSB
     tuh_init(BOARD_TUH_RHPORT);
-///    keyboard_init();
     ps2kbd.init_gpio();
+#else
+    keyboard_init();
+#endif
 
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
