@@ -31,7 +31,9 @@ void pwm_audio_in_frame_started(void);
  */
 esp_err_t pwm_audio_set_volume(int8_t volume);
 
+#if LOAD_WAV_PIO
 void pcm_audio_in_stop(void);
+#endif
 
 /**
  * @brief Write data to play

@@ -115,20 +115,16 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     
     bool ia = Z80Ops::isALF;
     uint8_t p8 = address & 0xFF;
-    /**
         if (p8 == 0xFB) { // Hidden RAM on
             MemESP::ramCurrent[0] = MemESP::ram[64 + MemESP::romLatch].sync();
             MemESP::newAlfSRAM = true;
-            OSD::osdDebug();
             return 0xFF;
         }
         if (p8 == 0x7B) { // Hidden RAM off
             MemESP::ramCurrent[0] = (MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct());
             MemESP::newAlfSRAM = false;
-            OSD::osdDebug();
             return 0xFF;
         }
-    */
     // ULA PORT
     if ((address & 0x0001) == 0) {
         VIDEO::Draw(3, !Z80Ops::isPentagon);   // I/O Contention (Late)

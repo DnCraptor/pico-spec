@@ -237,7 +237,9 @@ void (*Tape::GetBlock)() = &Tape::TAP_GetBlock;
 
 void StopRealPlayer(void) {
     Config::real_player = false;
+#if LOAD_WAV_PIO
     pcm_audio_in_stop();
+#endif
 }
 
 // Load tape file (.wav, .tap, .tzx)

@@ -250,9 +250,11 @@ void Config::load() {
         nvs_get_b("enablePortWriteBP", enablePortWriteBP, sts);
         nvs_get_b("tape_player", tape_player, sts);
         bool b; nvs_get_b("real_player", b, sts);
+#if LOAD_WAV_PIO
         if (real_player && !b) {
             pcm_audio_in_stop();
         }
+#endif
         real_player = b;
         nvs_get_b("tape_timing_rg", tape_timing_rg, sts);
         nvs_get_u8("joystick", Config::joystick, sts);

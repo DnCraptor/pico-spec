@@ -445,6 +445,22 @@ static void nespad_tick1(void) {
     gamepad1_bits.right = (nespad_state & DPAD_RIGHT) != 0;
 }
 
+static void nespad_tick2(void) {
+    if (Config::secondJoy == 3) return;
+    gamepad2_bits.a = (nespad_state2 & DPAD_A) != 0;
+    gamepad2_bits.b = (nespad_state2 & DPAD_B) != 0;
+    gamepad2_bits.select = (nespad_state2 & DPAD_SELECT) != 0;
+    gamepad2_bits.start = (nespad_state2 & DPAD_START) != 0;
+    gamepad2_bits.up = (nespad_state2 & DPAD_UP) != 0;
+    gamepad2_bits.down = (nespad_state2 & DPAD_DOWN) != 0;
+    gamepad2_bits.left = (nespad_state2 & DPAD_LEFT) != 0;
+    gamepad2_bits.right = (nespad_state2 & DPAD_RIGHT) != 0;
+}
+
+static void nespad_tick1(void);
+static void nespad_tick2(void);
+#endif
+
 void back2joy2(fabgl::VirtualKey virtualKey, bool down) {
     switch(virtualKey) {
             case fabgl::VirtualKey::VK_DPAD_FIRE    : gamepad2_bits.a = down; break;
@@ -457,22 +473,6 @@ void back2joy2(fabgl::VirtualKey virtualKey, bool down) {
             case fabgl::VirtualKey::VK_DPAD_SELECT  : gamepad2_bits.select = down; break;
     }
 } 
-
-static void nespad_tick2(void) {
-    if (Config::secondJoy == 3) return;
-    gamepad2_bits.a = (nespad_state2 & DPAD_A) != 0;
-    gamepad2_bits.b = (nespad_state2 & DPAD_B) != 0;
-    gamepad2_bits.select = (nespad_state2 & DPAD_SELECT) != 0;
-    gamepad2_bits.start = (nespad_state2 & DPAD_START) != 0;
-    gamepad2_bits.up = (nespad_state2 & DPAD_UP) != 0;
-    gamepad2_bits.down = (nespad_state2 & DPAD_DOWN) != 0;
-    gamepad2_bits.left = (nespad_state2 & DPAD_LEFT) != 0;
-    gamepad2_bits.right = (nespad_state2 & DPAD_RIGHT) != 0;
-}
-#endif
-
-static void nespad_tick1(void);
-static void nespad_tick2(void);
 
 #ifdef KBDUSB
 inline static bool isInReport(hid_keyboard_report_t const *report, const unsigned char keycode) {

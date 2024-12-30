@@ -238,7 +238,7 @@ ELSEIF(MONSTR)
         PORT_VERSION="${PORT_VERSION}"
         CPU_MHZ=${CPU_MHZ}
 
-        LOAD_WAV_PIO=22
+    #    LOAD_WAV_PIO=22
         PWM_PIN0=26
         PWM_PIN1=27
         BEEPER_PIN=28
@@ -262,7 +262,7 @@ ELSEIF(MONSTR)
         PSRAM_PIN_MISO=4
 
         # NES Gamepad
-        USE_NESPAD
+    #    USE_NESPAD
         NES_GPIO_CLK=14
         NES_GPIO_LAT=15
         NES_GPIO_DATA=16
