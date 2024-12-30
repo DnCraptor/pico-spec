@@ -37,6 +37,7 @@ set(I2S ON)
 
 #set (MURM2 ON)
 #set (MONSTR ON)
+set(KBDUSB ON)
 
 #set(HDMI ON)
 ###set(FLASH_SIZE 4096)
@@ -45,7 +46,7 @@ set(FLASH_SIZE_GREEN ON)
 ###set(CPU_MHZ 408)
 set(CPU_MHZ 378)
 
-set(KBDUSB ON)
+
 
 IF(MURM2)
     SET(BUILD_NAME "m2-${PROJECT_NAME}-${FLASH_SIZE}-${CPU_MHZ}")
@@ -146,7 +147,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
         NO_SPAIN_ROM_128k=1
         CARTRIDGE_AS_CUSTOM=1
         NO_SEPARATE_48K_CUSTOM=1
-        NO_ALF=1
+#        NO_ALF=1
 )
 ENDIF()
 

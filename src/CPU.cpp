@@ -163,34 +163,35 @@ IRAM_ATTR void CPU::step() {
 
 
 IRAM_ATTR void CPU::loop() {
-    if (paused) {
+    bool pbbp = CPU::portBasedBP;
+    if (paused || pbbp) {
         VIDEO::EndFrame();
         return;
     }
     bool bpe = Config::enableBreakPoint;
-    bool pbbp = CPU::portBasedBP;
     uint16_t bp = Config::breakPoint;
+    BREAKPOINTS
     // Check NMI
     if (Z80::isNMI()) {
-        BREAKPOINTS
         Z80::execute();
         Z80::doNMI();
     }
     while (tstates < IntEnd) {
-        BREAKPOINTS
         Z80::execute();
+        BREAKPOINTS
     }
+    BREAKPOINTS
     if (!Z80::isHalted()) {
         stFrame = statesInFrame - IntEnd;
-        BREAKPOINTS
         Z80::exec_nocheck();
         if (stFrame == 0) FlushOnHalt();
     } else {
         FlushOnHalt();
     }
+    BREAKPOINTS
     while (tstates < statesInFrame) {
-        BREAKPOINTS
         Z80::execute();
+        BREAKPOINTS
     }
     VIDEO::EndFrame();
     global_tstates += statesInFrame; // increase global Tstates

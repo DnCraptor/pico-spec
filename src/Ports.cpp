@@ -153,7 +153,6 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
             if (bitRead(p8, 1) == 0) { // 1D
                 MemESP::ramCurrent[0] = MemESP::ram[64 + MemESP::romLatch].sync();
                 MemESP::newAlfSRAM = true;
-///OSD::osdDebug();
             }
             else { // 1F
                 MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse].direct();
@@ -398,7 +397,9 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
                 MemESP::ramContended[3] = Z80Ops::isPentagon ? false : (MemESP::bankLatch & 0x01 ? true: false);
             }
             MemESP::romLatch = bitRead(data, 4);
-            MemESP::romInUse = MemESP::romLatch;
+            if (!ia) {
+                MemESP::romInUse = MemESP::romLatch;
+            }
             MemESP::ramCurrent[0] = MemESP::newAlfSRAM ?
                                          MemESP::ram[64 + MemESP::romLatch].sync() :
                                         (MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct());

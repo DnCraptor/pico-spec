@@ -3361,7 +3361,7 @@ c:
     else if (MemESP::ramCurrent[0] < (uint8_t*)0x20000000)
         snprintf(buf, 32, "PAGE0 -> ROM#%d", MemESP::romInUse);
     else
-        snprintf(buf, 32, "PAGE0 -> RAM#%d", MemESP::page0ram);
+        snprintf(buf, 32, "PAGE0 -> RAM#0");
     VIDEO::vga.print(buf);
 
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);

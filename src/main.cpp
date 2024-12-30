@@ -824,7 +824,9 @@ int main() {
     init_psram();
 #endif
     // send kbd reset only after initial process passed
-///    keyboard_send(0xFF);
+#ifndef KBDUSB
+    keyboard_send(0xFF);
+#endif
 
     mem_desc_t::reset();
     ESPectrum::setup();
