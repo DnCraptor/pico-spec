@@ -713,7 +713,7 @@ void __not_in_flash_func(process_kbd_report)(
 
 Ps2Kbd_Mrmltr ps2kbd(
         pio1,
-        0,
+        KBD_CLOCK_PIN,
         process_kbd_report
 );
 #endif

@@ -29,7 +29,7 @@ option(SOFTTV "Enable TV soft composite output" OFF)
 
 set (PORT_VERSION "1.2.6")
 
-#set(I2S ON)
+set(I2S ON)
 ###set(TV ON)
 ###set(SOFTTV ON)
 ###set(TFT ON)
@@ -238,6 +238,9 @@ ELSEIF(MONSTR)
         PORT_VERSION="${PORT_VERSION}"
         CPU_MHZ=${CPU_MHZ}
 
+        KBD_CLOCK_PIN=0
+        KBD_DATA_PIN=1
+
     #    LOAD_WAV_PIO=22
         PWM_PIN0=26
         PWM_PIN1=27
@@ -288,6 +291,9 @@ ELSE()
     target_compile_definitions(${PROJECT_NAME} PRIVATE
         PORT_VERSION="${PORT_VERSION}"
         CPU_MHZ=${CPU_MHZ}
+
+        KBD_CLOCK_PIN=0
+        KBD_DATA_PIN=1
 
         LOAD_WAV_PIO=22
         PWM_PIN0=26
