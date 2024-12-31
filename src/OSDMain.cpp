@@ -3213,12 +3213,16 @@ const char* mnemCB[256] = {
 
 #define BNc(x, b) ((x >> b) & 1 ? '1' : '0')
 
+/// TODO:
+static uint16_t dump_pc = 0;
+
 void OSD::osdDump() {
     const unsigned short h = OSD_FONT_H * 22;
     const unsigned short y = scrAlignCenterY(h);
     const unsigned short w = OSD_FONT_W * 46;
     const unsigned short x = scrAlignCenterX(w);
 
+    VIDEO::SaveRect.save(x - 1, y - 1, w + 2, h + 2);
     char buf[44];
     // Set font
     VIDEO::vga.setFont(Font6x8);
@@ -3246,14 +3250,13 @@ void OSD::osdDump() {
     }
 
     VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));        
-    uint16_t pc = Z80::getRegPC();
 
     int ii = 0;
 c:
     int xi = x + 1;
 
     for (int i = 0; i < 20; ++i) {
-        uint16_t pci = (pc + i * 16 + ii) & 0b1111111111110000;
+        uint16_t pci = (dump_pc + i * 16 + ii) & 0b1111111111110000;
         uint8_t bi = MemESP::readbyte(pci);
         int yi = y + (i + 1) * OSD_FONT_H + 2;
         VIDEO::vga.setCursor(xi, yi);
@@ -3312,9 +3315,18 @@ c:
             if (Nextkey.vk == fabgl::VK_PAGEDOWN) {
                 ii += 20 * 16;
                 goto c;
+            } else
+            if (Nextkey.vk == fabgl::VK_F8) {
+                uint32_t address = addressDialog(dump_pc + ii, Config::lang ? "Saltar a" : "Jump to");
+                if (address <= 0xFFFF) {
+                    dump_pc = address;
+                    ii = 0;
+                }
+                goto c;
             }
         }
     }
+    VIDEO::SaveRect.restore_last();
 }
 
 void OSD::osdDebug() {
