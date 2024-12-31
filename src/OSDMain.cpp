@@ -3251,37 +3251,35 @@ void OSD::osdDump() {
 
     VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));        
 
-    int ii = 0;
 c:
     int xi = x + 1;
 
     for (int i = 0; i < 20; ++i) {
-        uint16_t pci = (dump_pc + i * 16 + ii) & 0b1111111111110000;
-        uint8_t bi = MemESP::readbyte(pci);
+        uint16_t pci = (dump_pc + i * 16) & 0b1111111111110000;
         int yi = y + (i + 1) * OSD_FONT_H + 2;
         VIDEO::vga.setCursor(xi, yi);
         snprintf(
             buf, 46, "%04X  %02X%02X %02X%02X %02X%02X %02X%02X %02X%02X %02X%02X %02X%02X %02X%02X",
             pci,
-            MemESP::readbyte(pci++),
-            MemESP::readbyte(pci++),
-            MemESP::readbyte(pci++),
-            MemESP::readbyte(pci++),
+            MemESP::readbyte(pci),
+            MemESP::readbyte(pci+1),
+            MemESP::readbyte(pci+2),
+            MemESP::readbyte(pci+3),
 
-            MemESP::readbyte(pci++),
-            MemESP::readbyte(pci++),
-            MemESP::readbyte(pci++),
-            MemESP::readbyte(pci++),
+            MemESP::readbyte(pci+4),
+            MemESP::readbyte(pci+5),
+            MemESP::readbyte(pci+6),
+            MemESP::readbyte(pci+7),
 
-            MemESP::readbyte(pci++),
-            MemESP::readbyte(pci++),
-            MemESP::readbyte(pci++),
-            MemESP::readbyte(pci++),
+            MemESP::readbyte(pci+8),
+            MemESP::readbyte(pci+9),
+            MemESP::readbyte(pci+10),
+            MemESP::readbyte(pci+11),
 
-            MemESP::readbyte(pci++),
-            MemESP::readbyte(pci++),
-            MemESP::readbyte(pci++),
-            MemESP::readbyte(pci++)
+            MemESP::readbyte(pci+12),
+            MemESP::readbyte(pci+13),
+            MemESP::readbyte(pci+14),
+            MemESP::readbyte(pci+15)
         );
         VIDEO::vga.print(buf);
     }
@@ -3297,30 +3295,29 @@ c:
                 break;
             }
             if (Nextkey.vk == fabgl::VK_KP_MINUS || Nextkey.vk == fabgl::VK_UP) {
-                ii -= 16;
+                dump_pc -= 16;
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_KP_PLUS || Nextkey.vk == fabgl::VK_DOWN) {
-                ii += 16;
+                dump_pc += 16;
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_0) {
-                ii = 0;
+                dump_pc = 0;
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_PAGEUP) {
-                ii -= 20 * 16;
+                dump_pc -= 20 * 16;
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_PAGEDOWN) {
-                ii += 20 * 16;
+                dump_pc += 20 * 16;
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_F8) {
-                uint32_t address = addressDialog(dump_pc + ii, Config::lang ? "Saltar a" : "Jump to");
+                uint32_t address = addressDialog(dump_pc, Config::lang ? "Saltar a" : "Jump to");
                 if (address <= 0xFFFF) {
                     dump_pc = address;
-                    ii = 0;
                 }
                 goto c;
             }
@@ -3472,8 +3469,8 @@ c:
     i = 0;
     xi = x + 22 * OSD_FONT_W;
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    if (MemESP::newAlfSRAM)
-        snprintf(buf, 32, "PAGE0 -> SRAM#%d", MemESP::romLatch);
+    if (MemESP::newSRAM)
+        snprintf(buf, 32, "PAGE0 -> SRAM#%d", MemESP::sramLatch);
     else if (MemESP::ramCurrent[0] < (uint8_t*)0x20000000)
         snprintf(buf, 32, "PAGE0 -> ROM#%d", MemESP::romInUse);
     else

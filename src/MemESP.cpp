@@ -66,7 +66,7 @@ uint8_t* mem_desc_t::to_vram(void) {
         f_lseek(&f, lba);
         f_write(&f, res, 0x4000, &bw);
     }
-    _int->in_vram = true;
+    _int->outside = true;
     _int->p = 0;
     return res;
 }
@@ -83,7 +83,7 @@ void mem_desc_t::from_vram(uint8_t* p) {
         f_lseek(&f, lba);
         f_read(&f, p, 0x4000, &br);
     }
-    _int->in_vram = false;
+    _int->outside = false;
 }
 uint8_t mem_desc_t::_read(uint16_t addr) {
     uint32_t ba = _int->vram_off;
@@ -110,7 +110,7 @@ void mem_desc_t::_write(uint16_t addr, uint8_t v) {
 void mem_desc_t::_sync(void) {
     for (auto it = pages.begin(); it != pages.end(); ++it) {
         mem_desc_t& page = *it;
-        if (!page._int->in_vram) {
+        if (!page._int->outside) {
             from_vram( page.to_vram() );
             pages.erase(it);
             pages.push_back(*this);
@@ -121,7 +121,7 @@ void mem_desc_t::_sync(void) {
 /// TODO: packet mode
 void mem_desc_t::from_file(FIL* f_in, size_t sz) {
     UINT br;
-    if (!_int->in_vram) {
+    if (!_int->outside) {
         f_read(f_in, direct(), sz, &br);
         return;
     }
@@ -143,7 +143,7 @@ void mem_desc_t::from_file(FIL* f_in, size_t sz) {
 }
 void mem_desc_t::to_file(FIL* f_out, size_t sz) {
     UINT br;
-    if (!_int->in_vram) {
+    if (!_int->outside) {
         f_write(f_out, direct(), sz, &br);
         return;
     }
@@ -164,8 +164,8 @@ void mem_desc_t::to_file(FIL* f_out, size_t sz) {
     }
 }
 void mem_desc_t::from_mem(mem_desc_t& ram, size_t sz) {
-    if (!_int->in_vram) {
-        if (!ram._int->in_vram) {
+    if (!_int->outside) {
+        if (!ram._int->outside) {
             memcpy(direct(), ram.direct(), sz);
         } else {
             uint8_t* p = direct();
@@ -174,7 +174,7 @@ void mem_desc_t::from_mem(mem_desc_t& ram, size_t sz) {
             }
         }
     } else {
-        if (!ram._int->in_vram) {
+        if (!ram._int->outside) {
             uint8_t* p = ram.direct();
             for (size_t addr = 0; addr < sz; ++addr) {
                 _write(addr, p[addr]);
@@ -188,7 +188,7 @@ void mem_desc_t::from_mem(mem_desc_t& ram, size_t sz) {
 
 }
 void mem_desc_t::cleanup() {
-    if (_int->in_vram) {
+    if (_int->outside) {
         for (size_t addr = 0; addr < 0x4000; ++addr) {
             _write(addr, 0);
         }
@@ -199,7 +199,7 @@ void mem_desc_t::cleanup() {
 
 mem_desc_t MemESP::rom[64];
 mem_desc_t MemESP::ram[64 + 2];
-bool MemESP::newAlfSRAM = false;
+bool MemESP::newSRAM = false;
 
 uint8_t* MemESP::ramCurrent[4];
 bool MemESP::ramContended[4];
@@ -209,6 +209,7 @@ uint8_t MemESP::page0ram = 0;
 uint8_t MemESP::bankLatch = 0;
 uint8_t MemESP::videoLatch = 0;
 uint8_t MemESP::romLatch = 0;
+uint8_t MemESP::sramLatch = 0;
 uint8_t MemESP::pagingLock = 0;
 uint8_t MemESP::romInUse = 0;
 

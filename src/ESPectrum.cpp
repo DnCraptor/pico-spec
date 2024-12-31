@@ -576,12 +576,13 @@ void ESPectrum::setup()
     MemESP::bankLatch = 0;
     MemESP::videoLatch = 0;
     MemESP::romLatch = 0;
+    MemESP::sramLatch = 0;
 
     MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse].direct();
     MemESP::ramCurrent[1] = MemESP::ram[5].direct();
     MemESP::ramCurrent[2] = MemESP::ram[2].direct();
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync();
-    MemESP::newAlfSRAM = false;
+    MemESP::newSRAM = false;
 
     MemESP::ramContended[0] = false;
     MemESP::ramContended[1] = Config::arch == "P1024" || Config::arch == "P512" || Config::arch == "Pentagon" ? false : true;
@@ -700,12 +701,13 @@ void ESPectrum::reset()
     MemESP::bankLatch = 0;
     MemESP::videoLatch = 0;
     MemESP::romLatch = 0;
+    MemESP::sramLatch = 0;
 
     MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct();
     MemESP::ramCurrent[1] = MemESP::ram[5].direct();
     MemESP::ramCurrent[2] = MemESP::ram[2].direct();
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync();
-    MemESP::newAlfSRAM = false;
+    MemESP::newSRAM = false;
 
     MemESP::ramContended[0] = false;
     MemESP::ramContended[1] = Config::arch == "P1024" || Config::arch == "P512" || Config::arch == "Pentagon" ? false : true;

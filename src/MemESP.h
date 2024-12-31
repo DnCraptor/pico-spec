@@ -45,9 +45,9 @@ class mem_desc_t {
     struct mem_desc_int_t {
         uint8_t* p;
         uint32_t vram_off;
-        bool in_vram;
+        bool outside;
         bool is_rom;
-        mem_desc_int_t() : p(0), vram_off(0), in_vram(false), is_rom(false) {}
+        mem_desc_int_t() : p(0), vram_off(0), outside(false), is_rom(false) {}
     };
     mem_desc_int_t* _int;
     uint8_t* to_vram(void);
@@ -66,19 +66,19 @@ public:
         return _int->p;
     }
     inline uint8_t* sync(void) {
-        if (_int->in_vram) {
+        if (_int->outside) {
             _sync();
         }
         return _int->p;
     }
     inline uint8_t read(uint16_t addr) {
-        if (_int->in_vram) {
+        if (_int->outside) {
             return _read(addr);
         }
         return _int->p[addr];
     }
     inline void write(uint16_t addr, uint8_t v) {
-        if (_int->in_vram) {
+        if (_int->outside) {
             return _write(addr, v);
         }
         _int->p[addr] = v;
@@ -86,14 +86,14 @@ public:
     inline void assign_vram(uint32_t page) { // virtual RAM - PSRAM or swap
         this->_int->p = 0;
         this->_int->vram_off = page * 0x4000;
-        this->_int->in_vram = true;
+        this->_int->outside = true;
     }
     static inline uint8_t* revoke_1_ram_page() {
         auto it = pages.begin();
         if (it == pages.end()) return 0;
         it->sync(); // TODO: optimize it
         uint8_t* p = it->_int->p;
-        if (!it->_int->in_vram) {
+        if (!it->_int->outside) {
             it->to_vram();
         }
         pages.erase(it);
@@ -102,7 +102,7 @@ public:
     inline void assign_ram(uint8_t* p, uint32_t page, bool locked) {
         this->_int->p = p;
         this->_int->vram_off = page * 0x4000;
-        this->_int->in_vram = false;
+        this->_int->outside = false;
         if (!locked) {
             pages.push_back(*this);
         }
@@ -110,7 +110,7 @@ public:
     inline void assign_rom(const uint8_t* p) { // TODO: prev?
         this->_int->p = (uint8_t*)p;
         this->_int->vram_off = 0;
-        this->_int->in_vram = false;
+        this->_int->outside = false;
         this->_int->is_rom = true;
     }
     inline bool is_rom(void) {
@@ -129,7 +129,7 @@ public:
     static mem_desc_t rom[64];
     static mem_desc_t ram[64 + 2];
 
-    static bool newAlfSRAM;
+    static bool newSRAM;
 
     static uint8_t* ramCurrent[4];    
     static bool ramContended[4];
@@ -139,6 +139,7 @@ public:
     static uint8_t bankLatch;
     static uint8_t videoLatch;
     static uint8_t romLatch;
+    static uint8_t sramLatch;
     static uint8_t pagingLock;
 
     static uint8_t romInUse;
@@ -161,7 +162,7 @@ inline uint8_t MemESP::readbyte(uint16_t addr) {
     case 3:
         return ram[bankLatch].read(addr - 0xC000);
     default:
-        return newAlfSRAM ? ram[64 + MemESP::romLatch].read(addr) : (page0ram ? ram[0].read(addr) : rom[romInUse].direct()[addr]);
+        return newSRAM ? ram[64 + MemESP::sramLatch].read(addr) : (page0ram ? ram[0].read(addr) : rom[romInUse].direct()[addr]);
     }
 }
 
@@ -174,7 +175,7 @@ inline void MemESP::writebyte(uint16_t addr, uint8_t data)
     uint8_t page = addr >> 14;
     switch (page) {
     case 0:
-        if (newAlfSRAM) ram[64 + MemESP::romLatch].write(addr, data);
+        if (newSRAM) ram[64 + MemESP::sramLatch].write(addr, data);
         else if (page0ram && !ram[0].is_rom()) ram[0].write(addr, data);
         break;
     case 1:
