@@ -29,9 +29,9 @@ option(SOFTTV "Enable TV soft composite output" OFF)
 
 set (PORT_VERSION "1.2.6")
 
-set(I2S ON)
+#set(I2S ON)
 ###set(TV ON)
-###set(SOFTTV ON)
+set(SOFTTV ON)
 ###set(TFT ON)
 ###set(ILI9341 ON)
 
@@ -147,7 +147,7 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
         NO_SPAIN_ROM_128k=1
         CARTRIDGE_AS_CUSTOM=1
         NO_SEPARATE_48K_CUSTOM=1
-#        NO_ALF=1
+        NO_ALF=1
 )
 ENDIF()
 
