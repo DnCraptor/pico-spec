@@ -40,12 +40,16 @@ esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) 
     static bool is_buff1 = true;
     uint8_t* buff = is_buff1 ? buff1 : buff2;
     is_buff1 = !is_buff1;
-    if (len < 500) { // W/A
+    if (len < MAX_SAMPLES_PER_FRAME / 2) { // W/A
         memset(buff, 0, sizeof(buff1));
-        for (size_t i = 0; i < len; ++i) {
-            size_t j = i * 2;
-            buff[j  ] = lbuf[i];
-            buff[j+1] = rbuf[i];
+        size_t j = 0;
+        for (size_t i = 0; i < len && j < MAX_SAMPLES_PER_FRAME*2; ++i) {
+            uint8_t l = lbuf[i] << 1;
+            uint8_t r = rbuf[i] << 1;
+            buff[j++] = l;
+            buff[j++] = r;
+            buff[j++] = l;
+            buff[j++] = r;
         }
         pcm_set_buffer(buff, 2, MAX_SAMPLES_PER_FRAME, NULL);
         return ESP_OK;
