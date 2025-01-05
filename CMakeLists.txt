@@ -29,9 +29,9 @@ option(SOFTTV "Enable TV soft composite output" OFF)
 
 set (PORT_VERSION "1.2.6")
 
-#set(I2S ON)
+set(I2S ON)
 ###set(TV ON)
-set(SOFTTV ON)
+#set(SOFTTV ON)
 ###set(TFT ON)
 ###set(ILI9341 ON)
 
@@ -45,7 +45,6 @@ set(FLASH_SIZE 2048)
 set(FLASH_SIZE_GREEN ON)
 ###set(CPU_MHZ 408)
 set(CPU_MHZ 378)
-
 
 
 IF(MURM2)

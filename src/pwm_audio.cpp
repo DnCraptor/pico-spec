@@ -41,11 +41,11 @@ esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) 
     uint8_t* buff = is_buff1 ? buff1 : buff2;
     is_buff1 = !is_buff1;
     if (len < 500) { // W/A
-        for (size_t i = 0; i < MAX_SAMPLES_PER_FRAME; ++i) {
-            size_t j = i << 1;
-            size_t k = i * len / MAX_SAMPLES_PER_FRAME;
-            buff[j  ] = lbuf[k];
-            buff[j+1] = rbuf[k];
+        memset(buff, 0, sizeof(buff1));
+        for (size_t i = 0; i < len; ++i) {
+            size_t j = i * 2;
+            buff[j  ] = lbuf[i];
+            buff[j+1] = rbuf[i];
         }
         pcm_set_buffer(buff, 2, MAX_SAMPLES_PER_FRAME, NULL);
         return ESP_OK;
@@ -186,7 +186,7 @@ static int32_t outL, outR = 0;
 void pcm_call() {
     uint32_t ct = time_us_32();
     uint32_t dtf = ct - current_buffer_start_us;
-    if (dtf > SOUND_FREQUENCY) return;
+///    if (dtf > SOUND_FREQUENCY) goto e;
     size_t m_off = (!buffer_us ? 0 : dtf * m_size / buffer_us) & 0xFFFFFFFE; /// (us per start) * (samples per us) -> sample# since start => m_off
     if (m_buff && m_off < m_size) {
         volatile uint8_t* b = m_buff + m_off;
@@ -208,8 +208,8 @@ void pcm_call() {
         }
         uint8_t volume = vol;
 #ifdef I2S_SOUND
-        outL *= volume; outL <<= 3;
-        outR *= volume; outR <<= 3;
+        outL *= volume; outL <<= 4;
+        outR *= volume; outR <<= 4;
         s32 = (outL << 16) | outR;
     }
     pio_sm_put_blocking(i2s_config.pio, i2s_config.sm, s32);
