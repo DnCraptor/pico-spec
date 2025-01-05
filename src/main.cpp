@@ -718,23 +718,13 @@ Ps2Kbd_Mrmltr ps2kbd(
 );
 #endif
 
-void __scratch_x("render") render_core() {
-    multicore_lockout_victim_init();
-    graphics_init();
-
-    graphics_set_buffer(NULL, DISP_WIDTH, DISP_HEIGHT); /// TODO:
-    graphics_set_bgcolor(0x000000);
-    graphics_set_flashmode(false, false);
-    sem_acquire_blocking(&vga_start_semaphore);
-
-    uint32_t tickKbdRep1 = time_us_32();
+void repeat_me_for_input() {
+    static uint32_t tickKbdRep1 = time_us_32();
     // 60 FPS loop
 #define frame_tick (16666)
-    uint64_t tick = time_us_64();
-    bool tick1 = true;
-    uint64_t last_input_tick = tick;
-    while (true) {
-        pcm_call();
+    static uint64_t tick = time_us_64();
+    static bool tick1 = true;
+    static uint64_t last_input_tick = tick;
         if (tick >= last_input_tick + frame_tick) {
 #ifdef KBDUSB
             ps2kbd.tick();
@@ -755,6 +745,18 @@ void __scratch_x("render") render_core() {
 #ifdef KBDUSB
         tuh_task();
 #endif
+}
+
+void __scratch_x("render") render_core() {
+    multicore_lockout_victim_init();
+    graphics_init();
+
+    graphics_set_buffer(NULL, DISP_WIDTH, DISP_HEIGHT); /// TODO:
+    graphics_set_bgcolor(0x000000);
+    graphics_set_flashmode(false, false);
+    sem_acquire_blocking(&vga_start_semaphore);
+    while (true) {
+        pcm_call();
         tight_loop_contents();
     }
     __unreachable();

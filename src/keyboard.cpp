@@ -36,6 +36,8 @@
 
 #pragma GCC optimize ("O2")
 
+void repeat_me_for_input();
+
 namespace fabgl {
 
 Keyboard::Keyboard()
@@ -460,6 +462,7 @@ extern "C" void refresh_lcd();
 #endif
 
 int Keyboard::virtualKeyAvailable() {
+    repeat_me_for_input();
     #ifdef TFT
     static uint64_t t1 = time_us_64();
     uint64_t t2 = time_us_64();

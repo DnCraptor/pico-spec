@@ -179,7 +179,8 @@ static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core
 }
 
 #ifdef I2S_SOUND
-static uint32_t s32 = 0;
+//static uint32_t s32 = 0;
+static uint16_t s32[2] = { 0 };
 #endif
 static int32_t outL, outR = 0;
 
@@ -208,11 +209,13 @@ void pcm_call() {
         }
         uint8_t volume = vol;
 #ifdef I2S_SOUND
-        outL *= volume; outL <<= 4;
-        outR *= volume; outR <<= 4;
-        s32 = (outL << 16) | outR;
+        outL *= volume; outL <<= 3;
+        outR *= volume; outR <<= 3;
+        //s32 = (outL << 16) | outR;
+        s32[0] = outL; s32[0] = outR;
     }
-    pio_sm_put_blocking(i2s_config.pio, i2s_config.sm, s32);
+//    pio_sm_put_blocking(i2s_config.pio, i2s_config.sm, s32);
+    i2s_dma_write(&i2s_config, s32);
 #else
         outL *= volume; outL >>= 3;
         outR *= volume; outR >>= 3;
@@ -234,7 +237,7 @@ void pcm_setup(int hz, size_t size) {
 #ifdef I2S_SOUND
     i2s_config.sample_freq = I2S_FREQUENCY;
     i2s_config.channel_count = 2;
-    i2s_config.dma_trans_count = I2S_FREQUENCY / 50; // 1 sample (32-bit) = 2 * 16-bit
+    i2s_config.dma_trans_count = 1;
     i2s_init(&i2s_config);
 #endif
 ///    m_let_process_it = false;
@@ -247,9 +250,6 @@ static uint32_t prev_buffer_start_us = 0;
 
 // size - in 8-bit values count
 void pcm_set_buffer(uint8_t* buff, uint8_t channels, size_t size, pcm_end_callback_t cb) {
-///#ifdef I2S_SOUND
-///    i2s_dma_write(&i2s_config, buff, size >> 1);
-///#else
 #ifndef I2S_SOUND
     pwm_set_gpio_level(BEEPER_PIN, 0);
 #endif
