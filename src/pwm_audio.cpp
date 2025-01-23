@@ -43,18 +43,21 @@ esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) 
     if (len < MAX_SAMPLES_PER_FRAME / 2) { // W/A
         memset(buff, 0, sizeof(buff1));
         size_t j = 0;
+        uint8_t l;
+        uint8_t r;
         for (size_t i = 0; i < len && j < MAX_SAMPLES_PER_FRAME*2; ++i) {
-            uint8_t l = lbuf[i] << 1;
-            uint8_t r = rbuf[i] << 1;
+            l = lbuf[i] << 1;
+            r = rbuf[i] << 1;
             buff[j++] = l;
             buff[j++] = r;
+        }
+        for (; j < MAX_SAMPLES_PER_FRAME*2; ) {
             buff[j++] = l;
             buff[j++] = r;
         }
         pcm_set_buffer(buff, 2, MAX_SAMPLES_PER_FRAME, NULL);
         return ESP_OK;
     }
-
 # if WAV_FILE
     uint8_t* b8 = (uint8_t*)(is_buff1 ? buff1 : buff2);
     for (size_t i = 0; i < len; ++i) {
@@ -215,8 +218,7 @@ void pcm_call() {
 #ifdef I2S_SOUND
         outL *= volume; outL <<= 3;
         outR *= volume; outR <<= 3;
-        //s32 = (outL << 16) | outR;
-        s32[0] = outL; s32[0] = outR;
+        s32[0] = outR; s32[1] = outL;
     }
 //    pio_sm_put_blocking(i2s_config.pio, i2s_config.sm, s32);
     i2s_dma_write(&i2s_config, s32);
