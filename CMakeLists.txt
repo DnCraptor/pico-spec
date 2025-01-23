@@ -16,7 +16,7 @@ endif()
 set(PICO_BOARD pico CACHE STRING "Board type")
 include(pico_sdk_import.cmake)
 
-project(pico-spec C CXX ASM)
+project(m1p1-spec C CXX ASM)
 
 option(I2S "Enable I2S sound" OFF)
 option(I2S_CS4334 "Enable I2S CS4334 sound" OFF)
@@ -32,7 +32,7 @@ set (PORT_VERSION "1.2.7")
 set(I2S ON)
 ###set(TV ON)
 #set(SOFTTV ON)
-###set(TFT ON)
+set(TFT ON)
 ###set(ILI9341 ON)
 
 #set (MURM2 ON)
@@ -94,8 +94,8 @@ pico_define_boot_stage2(slower_boot2 ${PICO_DEFAULT_BOOT_STAGE2_FILE})
 target_compile_definitions(slower_boot2 PRIVATE PICO_FLASH_SPI_CLKDIV=4)
 pico_set_boot_stage2(${PROJECT_NAME} slower_boot2)
 
-pico_set_program_name(pico-spec "ESpectrum port for Murmulator - ZX Spectrum emulator by DnCraptor")
-pico_set_program_version(pico-spec "test")
+pico_set_program_name(m1p1-spec "ESpectrum port for Murmulator - ZX Spectrum emulator by DnCraptor")
+pico_set_program_version(m1p1-spec "test")
 
 target_include_directories(${PROJECT_NAME} PRIVATE
         src
@@ -291,6 +291,7 @@ ELSEIF(MONSTR)
         TFT_DC_PIN=10
         TFT_DATA_PIN=12
         TFT_CLK_PIN=13
+        TFT_INV=0
 
 	    PICO_FLASH_SIZE_BYTES=${FLASH_SIZE}*1024
         DEFAULT_THROTTLING=0

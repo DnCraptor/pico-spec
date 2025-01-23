@@ -158,7 +158,11 @@ void create_dma_channel() {
 #ifdef ILI9341
 #define RGB888(r, g, b) ((((r) >> 3) << 11) | (((g) >> 2) << 5) | ((b) >> 3))
 #else
+#if TFT_INV
 #define RGB888(r, g, b) ((((~r & 0xFF) >> 3) << 11) | (((~g & 0xFF) >> 2) << 5) | ((~b & 0xFF) >> 3))
+#else
+#define RGB888(r, g, b) ((((r) >> 3) << 11) | (((g) >> 2) << 5) | ((b) >> 3))
+#endif
 #endif
 
 static const uint16_t textmode_palette_tft[17] = {
