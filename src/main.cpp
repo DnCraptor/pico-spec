@@ -790,12 +790,18 @@ bool toggle_color() {
 
 int main() {
 #if !PICO_RP2040
-    vreg_set_voltage(VREG_VOLTAGE_1_40);
+    volatile uint32_t *qmi_m0_timing=(uint32_t *)0x400d000c;
+    vreg_disable_voltage_limit();
+    vreg_set_voltage(VREG_VOLTAGE_1_60);
+    sleep_ms(33);
+    *qmi_m0_timing = 0x60007204;
+    set_sys_clock_khz(CPU_MHZ * KHZ, 0);
+    *qmi_m0_timing = 0x60007303;
 #else
     hw_set_bits(&vreg_and_chip_reset_hw->vreg, VREG_AND_CHIP_RESET_VREG_VSEL_BITS);
-#endif
     sleep_ms(10);
     set_sys_clock_khz(CPU_MHZ * KHZ, true);
+#endif
 
 #ifdef KBDUSB
     tuh_init(BOARD_TUH_RHPORT);
