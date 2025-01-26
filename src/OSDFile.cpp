@@ -38,9 +38,6 @@ visit https://zxespectrum.speccy.org/contacto
 #include <sys/stat.h>
 #include "errno.h"
 
-///#include "esp_vfs.h"
-///#include "esp_vfs_fat.h"
-
 using namespace std;
 
 #include "OSDMain.h"
@@ -51,8 +48,6 @@ using namespace std;
 #include "Video.h"
 #include "messages.h"
 #include <math.h>
-#include "ZXKeyb.h"
-///#include "pwm_audio.h"
 #include "Z80_JLS/z80.h"
 #include "Tape.h"
 
@@ -168,7 +163,7 @@ public:
         int r;
     loop:
         fabgl::VirtualKey lkp = get_last_key_pressed();
-        if (lkp == fabgl::VirtualKey::VK_ESCAPE || lkp == fabgl::VirtualKey::VK_F1) return;
+        if (lkp == fabgl::VirtualKey::VK_F1) return;
         size_t swap_cnt = 0;
         if (n < 7) {
             for (pm = ai + 1; pm < ai + n; ++pm) {
@@ -195,7 +190,7 @@ public:
 	    for (;;) {
 		    while (pb <= pc && (r = cmp(pb, ai)) <= 0) {
                 fabgl::VirtualKey lkp = get_last_key_pressed();
-                if (lkp == fabgl::VirtualKey::VK_ESCAPE || lkp == fabgl::VirtualKey::VK_F1) return;
+                if (lkp == fabgl::VirtualKey::VK_F1) return;
 			    if (r == 0) {
 				    swap_cnt = 1;
 				    swap(pa, pb);
@@ -205,7 +200,7 @@ public:
 		    }
 		    while (pb <= pc && (r = cmp(pc, ai)) >= 0) {
                 fabgl::VirtualKey lkp = get_last_key_pressed();
-                if (lkp == fabgl::VirtualKey::VK_ESCAPE || lkp == fabgl::VirtualKey::VK_F1) return;
+                if (lkp == fabgl::VirtualKey::VK_F1) return;
 			    if (r == 0) {
 				    swap_cnt = 1;
 				    swap(pc, pd);
@@ -224,7 +219,7 @@ public:
 		    for (pm = ai + 1; pm < ai + n; ++pm)
 			    for (pl = pm; pl > ai && cmp(pl - 1, pl) > 0; --pl) {
                     fabgl::VirtualKey lkp = get_last_key_pressed();
-                    if (lkp == fabgl::VirtualKey::VK_ESCAPE || lkp == fabgl::VirtualKey::VK_F1) return;
+                    if (lkp == fabgl::VirtualKey::VK_F1) return;
 				    swap(pl, pl - 1);
                 }
 		    return;
@@ -343,6 +338,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
         OSD::progressDialog(OSD_FILE_INDEXING[Config::lang], OSD_FILE_INDEXING_1[Config::lang], 0, 0);
         res = f_opendir(&f_dir, fdir.c_str()) == FR_OK;
         if (res) {
+        
             FILINFO fileInfo;
             size_t crc = 0;
             if (fdir.size() > 1) {
@@ -350,15 +346,12 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                 crc += ::crc("  ..");
             }
             while (f_readdir(&f_dir, &fileInfo) == FR_OK && fileInfo.fname[0] != '\0') {
-                fabgl::VirtualKey lkp = get_last_key_pressed();
-                if (lkp == fabgl::VirtualKey::VK_ESCAPE || lkp == fabgl::VirtualKey::VK_F1) break;
+                if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
+                   fabgl::VirtualKey lkp = get_last_key_pressed();
+                   if (lkp == fabgl::VirtualKey::VK_F1) break;
+                }
                 string fname = fileInfo.fname;
                 if (fname.compare(0,1,".") != 0) {
-                    ///size_t fpos = fname.find_last_of(".");
-                    ///if (
-                    ///    (fileInfo.fattrib & AM_DIR) ||
-                    ///    ((fpos != string::npos) && (std::find(filexts.begin(), filexts.end(), fname.substr(fpos)) != filexts.end()))
-                    ///) {
                         if (fileInfo.fattrib & AM_DIR) {
                             ++ndirs;
                             crc += ::crc(char(32) + fname);
@@ -367,12 +360,11 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             ++elements; // Count elements in dir
                             crc += ::crc(fname);
                         }
-                    ///}
                 }
             }
+
             f_closedir(&f_dir);
             uint32_t rcrc = filenames.crc();
-            //OSD::osdCenteredMsg(to_string(rcrc) + " / " + to_string(crc), LEVEL_INFO, 5000);
             if (rcrc != crc) { // reindex
                 filenames.unlink();
                 if (fdir.size() > 1) {
@@ -382,15 +374,12 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                 OSD::progressDialog(OSD_FILE_INDEXING[Config::lang], OSD_FILE_INDEXING_1[Config::lang], 5, 1);
                 size_t f_idx = 0;
                 while (f_readdir(&f_dir, &fileInfo) == FR_OK && fileInfo.fname[0] != '\0') {
-                    fabgl::VirtualKey lkp = get_last_key_pressed();
-                    if (lkp == fabgl::VirtualKey::VK_ESCAPE || lkp == fabgl::VirtualKey::VK_F1) break;
+                    if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
+                        fabgl::VirtualKey lkp = get_last_key_pressed();
+                        if (lkp == fabgl::VirtualKey::VK_F1) break;
+                    }
                     string fname = fileInfo.fname;
                     if (fname.compare(0,1,".") != 0) {
-                        ///size_t fpos = fname.find_last_of(".");
-                        ///if (
-                        ///    (fileInfo.fattrib & AM_DIR) ||
-                        ///    ((fpos != string::npos) && (std::find(filexts.begin(), filexts.end(), fname.substr(fpos)) != filexts.end()))
-                        ///) {
                             if (fileInfo.fattrib & AM_DIR) {
                                 filenames.push(char(32) + fname);
                             }
@@ -404,7 +393,6 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                                 f_idx * 95 / (ndirs + elements) + 5,
                                 1
                             );
-                        ///}
                     }
                 }
                 f_closedir(&f_dir);
@@ -432,8 +420,6 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
 
         fabgl::VirtualKeyItem Menukey;
         while (1) {
-            if (ZXKeyb::Exists) ZXKeyb::ZXKbdRead();
-            ESPectrum::readKbdJoy();
             // Process external keyboard
             if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
                 timeStartScroll = 0;
@@ -465,13 +451,6 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             fsearch = Menukey.vk + 75;
                         else if (Menukey.vk<=fabgl::VK_Z)
                             fsearch = Menukey.vk + 17;
-                    ///    if (FileUtils::fileTypes[ftype].fdMode) {
-                    ///        if (FileUtils::fileTypes[ftype].fileSearch.length()<10) {
-                    ///            FileUtils::fileTypes[ftype].fileSearch += char(fsearch);
-                    ///            fdSearchRefresh = true;
-                    ///            click();
-                    ///       }
-                    ///    } else
                         {
                             uint8_t letra = rowGet(menu,FileUtils::fileTypes[ftype].focus).at(0);
                             if (letra != fsearch) { 
@@ -522,7 +501,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             }
                         }
                         click();
-                    } else if (Menukey.vk == fabgl::VK_UP || Menukey.vk == fabgl::VK_JOY1UP || Menukey.vk == fabgl::VK_JOY2UP) {
+                    } else if (is_up(Menukey.vk)) {
                         if (FileUtils::fileTypes[ftype].focus == 2 && FileUtils::fileTypes[ftype].begin_row > 2) {
                             last_begin_row = FileUtils::fileTypes[ftype].begin_row;
                             FileUtils::fileTypes[ftype].begin_row--;
@@ -533,7 +512,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             fd_PrintRow(FileUtils::fileTypes[ftype].focus, IS_FOCUSED, filexts);
                         }
                         click();
-                    } else if (Menukey.vk == fabgl::VK_DOWN || Menukey.vk == fabgl::VK_JOY1DOWN || Menukey.vk == fabgl::VK_JOY2DOWN) {
+                    } else if (is_down(Menukey.vk)) {
                         if (FileUtils::fileTypes[ftype].focus == virtual_rows - 1 && FileUtils::fileTypes[ftype].begin_row + virtual_rows - 2 < real_rows) {
                             last_begin_row = FileUtils::fileTypes[ftype].begin_row;
                             FileUtils::fileTypes[ftype].begin_row++;
@@ -544,8 +523,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             fd_PrintRow(FileUtils::fileTypes[ftype].focus, IS_FOCUSED, filexts);
                         }
                         click();
-                    } else if (Menukey.vk == fabgl::VK_PAGEUP || Menukey.vk == fabgl::VK_LEFT || Menukey.vk == fabgl::VK_JOY1LEFT ||
-                               Menukey.vk == fabgl::VK_JOY2LEFT) {
+                    } else if (Menukey.vk == fabgl::VK_PAGEUP) {
                         if (FileUtils::fileTypes[ftype].begin_row > virtual_rows) {
                             FileUtils::fileTypes[ftype].focus = 2;
                             FileUtils::fileTypes[ftype].begin_row -= virtual_rows - 2;
@@ -555,8 +533,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         }
                         fd_Redraw(title, fdir, ftype, filexts);
                         click();
-                    } else if (Menukey.vk == fabgl::VK_PAGEDOWN || Menukey.vk == fabgl::VK_RIGHT || Menukey.vk == fabgl::VK_JOY1RIGHT
-                            || Menukey.vk == fabgl::VK_JOY2RIGHT) {
+                    } else if (Menukey.vk == fabgl::VK_PAGEDOWN) {
                         if (real_rows - FileUtils::fileTypes[ftype].begin_row  - virtual_rows > virtual_rows) {
                             FileUtils::fileTypes[ftype].focus = 2;
                             FileUtils::fileTypes[ftype].begin_row += virtual_rows - 2;
@@ -566,7 +543,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         }
                         fd_Redraw(title, fdir, ftype, filexts);
                         click();
-                    } else if (Menukey.vk == fabgl::VK_HOME) {
+                    } else if (is_home(Menukey.vk)) {
                         last_focus = FileUtils::fileTypes[ftype].focus;
                         last_begin_row = FileUtils::fileTypes[ftype].begin_row;
                         FileUtils::fileTypes[ftype].focus = 2;
@@ -580,7 +557,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         FileUtils::fileTypes[ftype].begin_row = real_rows - virtual_rows + 2;
                         fd_Redraw(title, fdir, ftype, filexts);
                         click();
-                    } else if (Menukey.vk == fabgl::VK_BACKSPACE) {
+                    } else if (is_backspace(Menukey.vk)) {
                         if (FileUtils::fileTypes[ftype].fdMode) {
                             if (FileUtils::fileTypes[ftype].fileSearch.length()) {
                                 FileUtils::fileTypes[ftype].fileSearch.pop_back();
@@ -596,8 +573,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                                 break;
                             }       
                         }                  
-                    } else if (Menukey.vk == fabgl::VK_RETURN || Menukey.vk == fabgl::VK_SPACE || Menukey.vk == fabgl::VK_JOY1B
-                            || Menukey.vk == fabgl::VK_JOY2B || Menukey.vk == fabgl::VK_JOY1C || Menukey.vk == fabgl::VK_JOY2C) {
+                    } else if (is_enter_fd(Menukey.vk)) {
                         string filedir = rowGet(menu, FileUtils::fileTypes[ftype].focus);
                         if (filedir[0] == ASCII_SPC) {
                             if (filedir[1] == ASCII_SPC) {
@@ -619,10 +595,9 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             rtrim(filedir);
                             click();
                             filenames.close();
-                            return (Menukey.vk == fabgl::VK_RETURN || Menukey.vk == fabgl::VK_JOY1B || Menukey.vk == fabgl::VK_JOY2B ? "R" : "S")
-                                   + filedir;
+                            return (is_return(Menukey.vk) ? "R" : "S") + filedir;
                         }
-                    } else if (Menukey.vk == fabgl::VK_ESCAPE || Menukey.vk == fabgl::VK_JOY1A || Menukey.vk == fabgl::VK_JOY2A) {
+                    } else if (is_back(Menukey.vk)) {
                         // Restore backbuffer data
                         if (menu_saverect) {
                             VIDEO::SaveRect.restore_last();

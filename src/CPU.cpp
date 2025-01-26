@@ -52,13 +52,49 @@ uint8_t CPU::latetiming = 0;
 uint8_t CPU::IntStart = 0;
 uint8_t CPU::IntEnd = 0;
 uint32_t CPU::stFrame = 0;
+bool CPU::portBasedBP = false;
+bool CPU::paused = false;
 
 bool Z80Ops::is48;
-bool Z80Ops::isALF;
+bool Z80Ops::isALF = false;
 bool Z80Ops::is128;
 bool Z80Ops::isPentagon;
 bool Z80Ops::is512 = false;
 bool Z80Ops::is1024 = false;
+
+void CPU::updateStatesInFrame() {
+#if !NO_ALF
+    Z80Ops::isALF = (Config::arch == "ALF");
+#endif
+    if (Config::arch == "48K") {
+        statesInFrame = TSTATES_PER_FRAME_48;
+        IntStart = INT_START48;
+        IntEnd = INT_END48 + CPU::latetiming;
+    } else if (Config::arch == "128K" || Z80Ops::isALF) {
+        statesInFrame = TSTATES_PER_FRAME_128;
+        IntStart = INT_START128;
+        IntEnd = INT_END128 + CPU::latetiming;
+    } else if (Config::arch == "P512") {
+        statesInFrame = TSTATES_PER_FRAME_PENTAGON;
+        IntStart = INT_START_PENTAGON;
+        IntEnd = INT_END_PENTAGON + CPU::latetiming;
+    } else if (Config::arch == "P1024") {
+        statesInFrame = TSTATES_PER_FRAME_PENTAGON;
+        IntStart = INT_START_PENTAGON;
+        IntEnd = INT_END_PENTAGON + CPU::latetiming;
+    } else { // if (Config::arch == "Pentagon") - by default
+        statesInFrame = TSTATES_PER_FRAME_PENTAGON;
+        IntStart = INT_START_PENTAGON;
+        IntEnd = INT_END_PENTAGON + CPU::latetiming;
+    }
+    uint8_t m = ESPectrum::multiplicator;
+    if (m) {
+        statesInFrame <<= m;
+        IntStart <<= m;
+        IntEnd <<= m;
+    }
+    stFrame = statesInFrame - IntEnd;
+}
 
 void CPU::reset() {
 
@@ -66,29 +102,25 @@ void CPU::reset() {
     
     CPU::latetiming = Config::AluTiming;
 
+#if !NO_ALF
     Z80Ops::isALF = (Config::arch == "ALF");
-    if (Config::arch == "48K" || Z80Ops::isALF) {
+#endif
+    if (Config::arch == "48K") {
         Ports::getFloatBusData = &Ports::getFloatBusData48;
         Z80Ops::is48 = true;
         Z80Ops::is128 = false;
         Z80Ops::isPentagon = false;
         Z80Ops::is512 = false;
         Z80Ops::is1024 = false;
-        statesInFrame = TSTATES_PER_FRAME_48;
-        IntStart = INT_START48;
-        IntEnd = INT_END48 + CPU::latetiming;
         // Set emulation loop sync target
         ESPectrum::target = MICROS_PER_FRAME_48;
-    } else if (Config::arch == "128K") {
+    } else if (Config::arch == "128K" || Z80Ops::isALF) {
         Ports::getFloatBusData = &Ports::getFloatBusData128;
         Z80Ops::is48 = false;
         Z80Ops::is128 = true;
         Z80Ops::isPentagon = false;
         Z80Ops::is512 = false;
         Z80Ops::is1024 = false;
-        statesInFrame = TSTATES_PER_FRAME_128;
-        IntStart = INT_START128;
-        IntEnd = INT_END128 + CPU::latetiming;
         // Set emulation loop sync target
         ESPectrum::target = MICROS_PER_FRAME_128;
     } else if (Config::arch == "P512") {
@@ -97,9 +129,6 @@ void CPU::reset() {
         Z80Ops::isPentagon = true;
         Z80Ops::is512 = true;
         Z80Ops::is1024 = false;
-        statesInFrame = TSTATES_PER_FRAME_PENTAGON;
-        IntStart = INT_START_PENTAGON;
-        IntEnd = INT_END_PENTAGON + CPU::latetiming;
         // Set emulation loop sync target
         ESPectrum::target = MICROS_PER_FRAME_PENTAGON;
     } else if (Config::arch == "P1024") {
@@ -108,9 +137,6 @@ void CPU::reset() {
         Z80Ops::isPentagon = true;
         Z80Ops::is512 = false;
         Z80Ops::is1024 = true;
-        statesInFrame = TSTATES_PER_FRAME_PENTAGON;
-        IntStart = INT_START_PENTAGON;
-        IntEnd = INT_END_PENTAGON + CPU::latetiming;
         // Set emulation loop sync target
         ESPectrum::target = MICROS_PER_FRAME_PENTAGON;
     } else { // if (Config::arch == "Pentagon") - by default
@@ -119,30 +145,42 @@ void CPU::reset() {
         Z80Ops::isPentagon = true;
         Z80Ops::is512 = false;
         Z80Ops::is1024 = false;
-        statesInFrame = TSTATES_PER_FRAME_PENTAGON;
-        IntStart = INT_START_PENTAGON;
-        IntEnd = INT_END_PENTAGON + CPU::latetiming;
         // Set emulation loop sync target
         ESPectrum::target = MICROS_PER_FRAME_PENTAGON;
     }
-
-    stFrame = statesInFrame - IntEnd;
+    updateStatesInFrame();
 
     tstates = 0;
     global_tstates = 0;
 
 }
 
-IRAM_ATTR void CPU::loop() {
+IRAM_ATTR void CPU::step() {
+    Z80::execute();
+}
 
+#define BREAKPOINTS if (pbbp || (bpe && bp == Z80::getRegPC())) { VIDEO::EndFrame(); return; }
+
+
+IRAM_ATTR void CPU::loop() {
+    bool pbbp = CPU::portBasedBP;
+    if (paused || pbbp) {
+        VIDEO::EndFrame();
+        return;
+    }
+    bool bpe = Config::enableBreakPoint;
+    uint16_t bp = Config::breakPoint;
+    BREAKPOINTS
     // Check NMI
     if (Z80::isNMI()) {
         Z80::execute();
         Z80::doNMI();
     }
-
-    while (tstates < IntEnd) Z80::execute();
-
+    while (tstates < IntEnd) {
+        Z80::execute();
+        BREAKPOINTS
+    }
+    BREAKPOINTS
     if (!Z80::isHalted()) {
         stFrame = statesInFrame - IntEnd;
         Z80::exec_nocheck();
@@ -150,14 +188,14 @@ IRAM_ATTR void CPU::loop() {
     } else {
         FlushOnHalt();
     }
-
-    while (tstates < statesInFrame) Z80::execute();
-
+    BREAKPOINTS
+    while (tstates < statesInFrame) {
+        Z80::execute();
+        BREAKPOINTS
+    }
     VIDEO::EndFrame();
-
     global_tstates += statesInFrame; // increase global Tstates
     tstates -= statesInFrame;
-
 }
 
 IRAM_ATTR void CPU::FlushOnHalt() {
@@ -207,7 +245,7 @@ IRAM_ATTR void CPU::FlushOnHalt() {
 IRAM_ATTR uint8_t Z80Ops::peek8(uint16_t address) {
     uint8_t page = address >> 14;
     VIDEO::Draw(3, MemESP::ramContended[page]);
-    return MemESP::ramCurrent[page].sync()[address & 0x3fff];
+    return MemESP::ramCurrent[page][address & 0x3fff];
 }
 
 // // Write byte to RAM
@@ -279,13 +317,13 @@ IRAM_ATTR uint8_t Z80Ops::peek8(uint16_t address) {
 // Write byte to RAM
 IRAM_ATTR void Z80Ops::poke8(uint16_t address, uint8_t value) {
     uint8_t page = address >> 14;
-    mem_desc_t& p = MemESP::ramCurrent[page];
-    if ( p.is_rom() || (page == 0 && !MemESP::page0ram) ) {
+    uint8_t* p = MemESP::ramCurrent[page];
+    if ( p < (uint8_t*)0x20000000 || (page == 0 && !MemESP::page0ram) ) {
         VIDEO::Draw(3, false);
         return;
     }
     VIDEO::Draw(3, MemESP::ramContended[page]);
-    p.sync()[address & 0x3fff] = value;
+    p[address & 0x3fff] = value;
 }
 
 // Read word from RAM
@@ -300,7 +338,7 @@ IRAM_ATTR uint16_t Z80Ops::peek16(uint16_t address) {
             VIDEO::Draw(3, true);            
         } else
             VIDEO::Draw(6, false);
-        uint8_t* sp = MemESP::ramCurrent[page].sync();
+        uint8_t* sp = MemESP::ramCurrent[page];
         return ((sp[(address & 0x3fff) + 1] << 8) | sp[address & 0x3fff]);
 
     } else {
@@ -320,8 +358,8 @@ IRAM_ATTR void Z80Ops::poke16(uint16_t address, RegisterPair word) {
     uint16_t page_addr = address & 0x3fff;
 
     if (page_addr < 0x3fff) {    // Check if address is between two different pages    
-        mem_desc_t& p = MemESP::ramCurrent[page];
-        if ( p.is_rom() || (page == 0 && !MemESP::page0ram) ) {
+        uint8_t* p = MemESP::ramCurrent[page];
+        if ( p < (uint8_t*)0x20000000 || (page == 0 && !MemESP::page0ram) ) {
             VIDEO::Draw(6, false);
             return;
         }
@@ -332,9 +370,8 @@ IRAM_ATTR void Z80Ops::poke16(uint16_t address, RegisterPair word) {
         } else
             VIDEO::Draw(6, false);
 
-        uint8_t* sp = p.sync();
-        sp[page_addr] = word.byte8.lo;
-        sp[page_addr + 1] = word.byte8.hi;
+        p[page_addr] = word.byte8.lo;
+        p[page_addr + 1] = word.byte8.hi;
 
     } else {
         // Order matters, first write lsb, then write msb, don't "optimize"

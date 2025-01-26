@@ -534,6 +534,8 @@ void graphics_set_buffer(uint8_t* buffer, uint16_t width, uint16_t height) {
     graphics_buffer_height = height;
 };
 
+#define RGB888(r, g, b) ((r<<16) | (g << 8 ) | b )
+
 //выделение и настройка общих ресурсов - 4 DMA канала, PIO программ и 2 SM
 void graphics_init() {
     //настройка PIO

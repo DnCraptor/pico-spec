@@ -6,6 +6,7 @@ static psram_spi_inst_t psram_spi;
 #define MAX_PSRAM (512ul << 20)
 
 static uint32_t _psram_size() {
+#ifdef PSRAM    
     int32_t res = 0;
     for (res = ITE_PSRAM; res < MAX_PSRAM; res += ITE_PSRAM) {
         psram_write32(&psram_spi, res, res);
@@ -15,6 +16,9 @@ static uint32_t _psram_size() {
         }
     }
     return res - psram_read32(&psram_spi, ITE_PSRAM) + ITE_PSRAM;
+#else
+    return 0;
+#endif
 }
 
 

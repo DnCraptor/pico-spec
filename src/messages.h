@@ -74,17 +74,17 @@ static const char *OSD_PAUSE[2] = { OSD_PAUSE_EN,OSD_PAUSE_ES };
 #define OSD_PSNA_LOADED  "Persist Snapshot Loaded"
 #define OSD_PSNA_LOAD_ERR "ERROR Loading Persist Snapshot"
 #define OSD_PSNA_SAVED  "Persist Snapshot Saved"
-#define OSD_TAPE_FLASHLOAD "Flash loading tape file"
+#define OSD_TAPE_FLASHLOAD "Fast loading tape file"
 #define OSD_TAPE_LOAD_ERR "ERROR Loading tape file"
 #define OSD_TAPE_SAVE_ERR "ERROR Saving tape file"
 #define OSD_BETADISK_LOAD_ERR "ERROR Loading Disk file"
 
-#define POKE_ERR_ADDR1_EN "Address should be between 16384 and 65535"
-#define POKE_ERR_ADDR1_ES "Direccion debe estar entre 16384 y 65535"
+#define POKE_ERR_ADDR1_EN "Address should be between 0000 and FFFF"
+#define POKE_ERR_ADDR1_ES "Direccion debe estar entre 0000 y FFFF"
 static const char *POKE_ERR_ADDR1[2] = { POKE_ERR_ADDR1_EN, POKE_ERR_ADDR1_ES };
 
-#define POKE_ERR_ADDR2_EN "Address should be lower than 16384"
-#define POKE_ERR_ADDR2_ES "Direccion debe ser menor que 16384"
+#define POKE_ERR_ADDR2_EN "Address should be lower than 4000"
+#define POKE_ERR_ADDR2_ES "Direccion debe ser menor que 4000"
 static const char *POKE_ERR_ADDR2[2] = { POKE_ERR_ADDR2_EN, POKE_ERR_ADDR2_ES };
 
 #define POKE_ERR_VALUE_EN "Value should be lower than 256"
@@ -282,6 +282,7 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
 	"Machine\t>\n"\
     "Reset\t>\n"\
     "Options\t>\n"\
+    "Debug\t>\n"\
     "Help\n"\
     "About\n"
 #define MENU_MAIN_ES \
@@ -291,6 +292,7 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
     "Modelo\t>\n"\
     "Resetear\t>\n"\
     "Opciones\t>\n"\
+	"Depurar\t\n"\
     "Ayuda\n"\
     "Acerca de\n"
 static const char *MENU_MAIN[2] = { MENU_MAIN_EN, MENU_MAIN_ES };
@@ -337,7 +339,7 @@ static const char *MENU_OPTIONS[2] = { MENU_OPTIONS_EN,MENU_OPTIONS_ES };
 
 #define MENU_UPDATE_EN \
     "Update\n"\
-	"Firmware\n"\
+	"Firmware        [ALT+F12]\n"\
 	"Custom ROM 48K\n"\
 	"Custom ROM 128k\n"\
 	"Custom ROM Pentagon\n"\
@@ -348,7 +350,7 @@ static const char *MENU_OPTIONS[2] = { MENU_OPTIONS_EN,MENU_OPTIONS_ES };
 	"Main ROM Pentagon bank #1\n"
 #define MENU_UPDATE_ES \
     "Actualizar\n"\
-	"Firmware\n"\
+	"Firmware        [ALT+F12]\n"\
 	"ROM Custom 48K\n"\
 	"ROM Custom 128k\n"\
 	"ROM Custom Pentagon\n"\
@@ -361,10 +363,10 @@ static const char *MENU_UPDATE_FW[2] = { MENU_UPDATE_EN, MENU_UPDATE_ES };
 
 #define MENU_UPDATE_NO_SD_EN \
     "Update\n"\
-	"Firmware\n"
+	"Firmware       [ALT+F12]\n"
 #define MENU_UPDATE_NO_SD_ES \
     "Actualizar\n"\
-	"Firmware\n"
+	"Firmware       [ALT+F12]\n"
 static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE_NO_SD_ES };
 
 #define MENU_VIDEO_EN \
@@ -430,6 +432,16 @@ static const char *MENU_SCANLINES[2] = { "Scanlines\n", "Scanlines\n" };
 #endif
 static const char *MENU_RESET[2] = { MENU_RESET_EN, MENU_RESET_ES };
 
+#define MENU_DEBUG_EN \
+    "Debug Menu\n"\
+    "Port read BP  (ALT+F3)\n"\
+    "Port write BP (ALT+F4)\n"\
+    "Debug dialog  (ALT+F5)\n"\
+    "BreakPoint    (ALT+F7)\n"\
+    "Jump to       (ALT+F8)\n"\
+    "Input Poke    (ALT+F9)\n"\
+	"Trigger NMI   (ALT+F10)\n"
+
 #define MOS_FILE "/.firmware"
 #define MENU_RESET_MOS_EN \
     "Reset Menu\n"\
@@ -460,7 +472,7 @@ static const char *MENU_PERSIST_SAVE[2] = { MENU_PERSIST_SAVE_EN, MENU_PERSIST_S
 static const char *MENU_PERSIST_LOAD[2] = { MENU_PERSIST_LOAD_EN, MENU_PERSIST_LOAD_ES };
 
 #define MENU_STORAGE_EN "Storage\n"\
-    "Flash tape load\t>\n"\
+    "Fast tape load\t>\n"\
     "R.G. ROM timings\t>\n"	
 #define MENU_STORAGE_ES "Almacenamiento\n"\
     "Carga rapida cinta\t>\n"\
@@ -473,31 +485,73 @@ static const char *MENU_STORAGE[2] = { MENU_STORAGE_EN, MENU_STORAGE_ES };
     "No\t[N]\n"
 static const char *MENU_YESNO[2] = { MENU_YESNO_EN, MENU_YESNO_ES};
 
-static const char *MENU_FLASHLOAD[2] = { "Flash load\n" , "Carga rapida\n"};
+static const char *MENU_FLASHLOAD[2] = { "Fast load\n" , "Carga rapida\n"};
 
 static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
 
 #define MENU_OTHER_EN "Other\n"\
-    "AY on 48K\t>\n"\
+    "AY-3-8912 on 48K\t>\n"\
     "ALU Timing\t>\n"\
     "48K Issue 2\t>\n"\
-    "Second PS/2 device\t>\n"
+    "Map joystick to cursor\t>\n"\
+    "Second joystick\t>\n"\
+    "Kempston joystick port\t>\n"\
+    "Throttling\t>\n"\
+    "AY-3-8912 config\t>\n"\
+    "TurboSound\t>\n"
 #define MENU_OTHER_ES "Otros\n"\
-    "AY en 48K\t>\n"\
+    "AY-3-8912 en 48K\t>\n"\
     "Timing ULA\t>\n"\
     "48K Issue 2\t>\n"\
-    "Segundo disp. PS/2\t>\n"	
+    "Joystick al cursor\t>\n"\
+    "Segunda joystick\t>\n"\
+    "Kempston joystick port\t>\n"\
+	"Aceleraci" "\xA2" "n\t>\n"\
+    "Configuraci" "\xA2" "n AY-3-8912\t>\n" \
+    "TurboSound\t>\n"
 static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
 
 static const char *MENU_AY48[2] = { "AY on 48K\n" , "AY en 48K\n"};
 
-#define MENU_KBD2NDPS2_EN "Device\n"\
-    "None\t[N]\n"\
-    "Keyboard\t[K]\n"
-#define MENU_KBD2NDPS2_ES "Dispositivo\n"\
-    "Nada\t[N]\n"\
-    "Teclado\t[K]\n"
+#define MENU_KBD2NDPS2_EN "Enable\n"\
+    "No\t[N]\n"\
+    "Yes\t[K]\n"
+#define MENU_KBD2NDPS2_ES "Permitir\n"\
+    "No\t[N]\n"\
+    "Si\t[K]\n"
 static const char *MENU_KBD2NDPS2[2] = { MENU_KBD2NDPS2_EN, MENU_KBD2NDPS2_ES };
+
+#define MENU_AY_EN "ABC\n"\
+    "ABC\t[B]\n"\
+    "ACB\t[C]\n"
+static const char *MENU_AY[2] = { MENU_AY_EN, MENU_AY_EN };
+
+#define MENU_TS_EN "TurboSound\n"\
+    "OFF   \t[F]\n"\
+    "NedoPC\t[N]\n"\
+    "old-TC\t[O]\n"\
+    "BOTH  \t[B]\n"
+static const char *MENU_TS[2] = { MENU_TS_EN, MENU_TS_EN };
+
+#define MENU_ALF_JOY_EN "Source\n"\
+    "DPAD #1\t[1]\n"\
+    "DPAD #2\t[2]\n"\
+    "NUMPAD \t[N]\n"
+static const char *MENU_ALF_JOY[2] = { MENU_ALF_JOY_EN, MENU_ALF_JOY_EN };
+
+#define MENU_K_JOY_EN "PORT #\n"\
+    "1Fh (31)\t[1]\n"\
+    "37h (55)\t[3]\n"\
+    "5Fh (95)\t[9]\n"
+static const char *MENU_K_JOY[2] = { MENU_K_JOY_EN, MENU_K_JOY_EN };
+
+#define MENU_THROTTLING_EN\
+ "Microseconds\n"\
+    "None\t[N]\n"\
+    "1000\t[1]\n"\
+    "2000\t[2]\n"\
+    "3000\t[3]\n"
+static const char *MENU_THROTTLING[2] = { MENU_THROTTLING_EN, MENU_THROTTLING_EN };
 
 #define MENU_ALUTIMING_EN "ALU Timing\n"\
     "Early\t[E]\n"\
@@ -513,6 +567,14 @@ static const char *MENU_ISSUE2[2] = { "48K Issue 2\n", "48K Issue 2\n"};
 
 #define MENU_ARCH_ES "Elija modelo\n"
 
+#if NO_ALF
+#define MENU_ARCHS \
+    "Spectrum 48K\t>\n"\
+    "Spectrum 128K\t>\n"\
+	"Pentagon 128K\t>\n"\
+	"Pentagon 512K\t>\n"\
+	"Pentagon 1024K\t>\n"
+#else
 #define MENU_ARCHS \
     "Spectrum 48K\t>\n"\
     "Spectrum 128K\t>\n"\
@@ -520,12 +582,21 @@ static const char *MENU_ISSUE2[2] = { "48K Issue 2\n", "48K Issue 2\n"};
 	"Pentagon 512K\t>\n"\
 	"Pentagon 1024K\t>\n"\
 	"ALF TV GAME\n"
+#endif
 static const char *MENU_ARCH[2] = { MENU_ARCH_EN MENU_ARCHS, MENU_ARCH_ES MENU_ARCHS };
+
+#if NO_ALF
+#define MENU_ARCHS_NO_SD \
+    "Spectrum 48K\t>\n"\
+    "Spectrum 128K\t>\n"\
+	"Pentagon 128K\t>\n"
+#else
 #define MENU_ARCHS_NO_SD \
     "Spectrum 48K\t>\n"\
     "Spectrum 128K\t>\n"\
 	"Pentagon 128K\t>\n"\
 	"ALF TV GAME\n"
+#endif
 static const char *MENU_ARCH_NO_SD[2] = { MENU_ARCH_EN MENU_ARCHS_NO_SD, MENU_ARCH_ES MENU_ARCHS_NO_SD };
 
 #if NO_SPAIN_ROM_48k
@@ -703,15 +774,10 @@ static const char *MENU_INTERFACE_LANG[2] = { MENU_INTERFACE_LANG_EN, MENU_INTER
 
 #define MENU_JOY_ES "Menu Joystick\n"
 
-#define MENU_JOYS "Joystick 1\n"\
-    "Joystick 2\n"
+#define MENU_DEFJOY_TITLE "Joystick\n"\
 
-static const char *MENU_JOY[2] = { MENU_JOY_EN MENU_JOYS, MENU_JOY_ES MENU_JOYS};
-
-
-#define MENU_DEFJOY_TITLE "Joystick#\n"\
-
-#define MENU_DEFJOYS "Cursor\t[ ]\n"\
+#define MENU_DEFJOYS \
+    "Cursor\t[ ]\n"\
     "Kempston\t[ ]\n"\
     "Sinclair 1\t[ ]\n"\
     "Sinclair 2\t[ ]\n"\
@@ -724,22 +790,17 @@ static const char *MENU_DEFJOY[2] = { MENU_DEFJOY_TITLE MENU_DEFJOYS MENU_DEFJOY
 
 #define MENU_JOYPS2_EN \
   "Joystick emulation\n"\
-    "Joy type\t>\n" \
 	"Cursor Keys as Joy\t>\n" \
 	"TAB as fire 1\t>\n"\
 	"Right Enter\t>\n"
 
 #define MENU_JOYPS2_ES \
-  "Emulaci" \
-    "\xA2" "n Joystick\n" \
-	"Tipo joystick\t>\n" \
+  "Joystick emulaci" \
 	"Joy en teclas de cursor\t>\n" \
 	"TAB como disparo 1\t>\n" \
 	"Derecho Enter\t>\n"
 
 static const char *MENU_JOYPS2[2] = { MENU_JOYPS2_EN, MENU_JOYPS2_ES };
-
-static const char *MENU_PS2JOYTYPE[2] = { "Joy type\n" MENU_DEFJOYS, "Tipo joystick\n" MENU_DEFJOYS};
 
 static const char *MENU_CURSORJOY[2] = { "Cursor as Joy\n" , "Joy en Cursor\n" };
 
@@ -970,13 +1031,14 @@ static const char *AboutMsg[2][9] = {
     " [F9-F10]     Volume down-up\n"\
 	" [F11]        Hard reset\n"\
     " [F12]        Reset RP2350\n"\
-    " [CTRL+F1]    Hardware info\n"\
-    " [CTRL+F2]    Turbo mode\n"\
-    " [CTRL+F5-F7] Center CRT Screen\n"\
-    " [CTRL+F9]    Input poke\n"\
-    " [CTRL+F10]   NMI\n"\
+    " [ALT+F1]     Hardware info\n"\
+    " [ALT+F2]     Turbo mode\n"\
+    " [ALT+F5]     Debug\n"\
+    " [ALT+F6]     Insert disk\n"\
+    " [ALT+F9]     Input poke\n"\
+    " [ALT+F10]    NMI\n"\
     " [Pause]      Pause\n"\
-    " [PrtScr]     BMP capture (folder /.c)\n"
+    " [PrtScr]     BMP capture (/spec/.c)\n"
 
 #define OSD_HELP_ES \
     " [F1]         Menu principal\n"\
@@ -989,53 +1051,14 @@ static const char *AboutMsg[2][9] = {
     " [F9-F10]     Bajar-Subir volumen\n"\
     " [F11]        Reset completo\n"\
     " [F12]        Resetear RP2350\n"\
-    " [CTRL+F1]    Info hardware\n"\
-    " [CTRL+F2]    Modo turbo\n"\
-    " [CTRL+F5-F7] Centrar pantalla CRT\n"\
-    " [CTRL+F9]    Introducir poke\n"\
-    " [CTRL+F10]   NMI\n"\
+    " [ALT+F1]     Info hardware\n"\
+    " [ALT+F2]     Modo turbo\n"\
+    " [ALT+F5]     Depurar\n"\
+    " [ALT+F6]     Insertar disco\n"\
+    " [ALT+F9]     Introducir poke\n"\
+    " [ALT+F10]    NMI\n"\
     " [Pause]      Pausa\n"\
-    " [ImpPant]    Captura BMP (Carpeta /.c)\n"
-
-#define OSD_HELP_EN_ZX \
-    " Press CAPS SHIFT + SYMBOL SHIFT and:\n"\
-	" [1]       Main menu\n"\
-    " [2]       Load (SNA,Z80,P)\n"\
-    " [3-4]     Load / Save snapshot\n"\
-    " [5]       Select tape file\n"\
-    " [6]       Play/Stop tape\n"\
-    " [7]       Tape browser\n"\
-    " [8]       CPU / Tape load stats\n"\
-    " [9-0]     Volume down-up\n"\
-    " [Q]       Hard reset\n"\
-    " [W]       Reset RP2350\n"\
-    " [I]       Hardware info\n"\
-    " [T]       Turbo mode\n"\
-    " [Z,X,C,V] Center CRT Screen\n"\
-    " [O]       Input poke\n"\
-    " [N]       NMI\n"\
-    " [P]       Pause\n"\
-    " [S]       BMP capture (folder /.c)\n"
-
-#define OSD_HELP_ES_ZX \
-    " Presione CAPS SHIFT + SYMBOL SHIFT y:\n"\
-    " [1]       Menu principal\n"\
-    " [2]       Cargar (SNA,Z80,P)\n"\
-    " [3-4]     Cargar / Guardar snapshot\n"\
-    " [5]       Elegir archivo de cinta\n"\
-    " [6]       Play/Stop cinta\n"\
-    " [7]       Explorador cinta\n"\
-    " [8]       Status CPU / Carga cinta\n"\
-    " [9-0]     Bajar-Subir volumen\n"\
-    " [Q]       Reset completo\n"\
-    " [W]       Resetear RP2350\n"\
-    " [I]       Info hardware\n"\
-    " [T]       Modo turbo\n"\
-    " [Z,X,C,V] Centrar pantalla CRT\n"\
-    " [O]       Introducir poke\n"\
-    " [N]       NMI\n"\
-    " [P]       Pausa\n"\
-    " [S]       Captura BMP (Carpeta /.c)\n"
+    " [ImpPant]    Captura BMP (/spec/.c)\n"
 #else
 #define OSD_HELP_EN \
     " [F1]         Main menu\n"\
@@ -1048,13 +1071,14 @@ static const char *AboutMsg[2][9] = {
     " [F9-F10]     Volume down-up\n"\
 	" [F11]        Hard reset\n"\
     " [F12]        Reset RP2040\n"\
-    " [CTRL+F1]    Hardware info\n"\
-    " [CTRL+F2]    Turbo mode\n"\
-    " [CTRL+F5-F7] Center CRT Screen\n"\
-    " [CTRL+F9]    Input poke\n"\
-    " [CTRL+F10]   NMI\n"\
+    " [ALT+F1]     Hardware info\n"\
+    " [ALT+F2]     Turbo mode\n"\
+    " [ALT+F5]     Debug\n"\
+    " [ALT+F6]     Insert disk\n"\
+    " [ALT+F9]     Input poke\n"\
+    " [ALT+F10]    NMI\n"\
     " [Pause]      Pause\n"\
-    " [PrtScr]     BMP capture (folder /.c)\n"
+    " [PrtScr]     BMP capture (/spec/.c)\n"
 
 #define OSD_HELP_ES \
     " [F1]         Menu principal\n"\
@@ -1067,54 +1091,34 @@ static const char *AboutMsg[2][9] = {
     " [F9-F10]     Bajar-Subir volumen\n"\
     " [F11]        Reset completo\n"\
     " [F12]        Resetear RP2040\n"\
-    " [CTRL+F1]    Info hardware\n"\
-    " [CTRL+F2]    Modo turbo\n"\
-    " [CTRL+F5-F7] Centrar pantalla CRT\n"\
-    " [CTRL+F9]    Introducir poke\n"\
-    " [CTRL+F10]   NMI\n"\
+    " [ALT+F1]     Info hardware\n"\
+    " [ALT+F2]     Modo turbo\n"\
+    " [ALT+F5]     Depurar\n"\
+    " [ALT+F6]     Insertar disco\n"\
+    " [ALT+F9]     Introducir poke\n"\
+    " [ALT+F10]    NMI\n"\
     " [Pause]      Pausa\n"\
-    " [ImpPant]    Captura BMP (Carpeta /.c)\n"
-
-#define OSD_HELP_EN_ZX \
-    " Press CAPS SHIFT + SYMBOL SHIFT and:\n"\
-	" [1]       Main menu\n"\
-    " [2]       Load (SNA,Z80,P)\n"\
-    " [3-4]     Load / Save snapshot\n"\
-    " [5]       Select tape file\n"\
-    " [6]       Play/Stop tape\n"\
-    " [7]       Tape browser\n"\
-    " [8]       CPU / Tape load stats\n"\
-    " [9-0]     Volume down-up\n"\
-    " [Q]       Hard reset\n"\
-    " [W]       Reset RP2040\n"\
-    " [I]       Hardware info\n"\
-    " [T]       Turbo mode\n"\
-    " [Z,X,C,V] Center CRT Screen\n"\
-    " [O]       Input poke\n"\
-    " [N]       NMI\n"\
-    " [P]       Pause\n"\
-    " [S]       BMP capture (folder /.c)\n"
-
-#define OSD_HELP_ES_ZX \
-    " Presione CAPS SHIFT + SYMBOL SHIFT y:\n"\
-    " [1]       Menu principal\n"\
-    " [2]       Cargar (SNA,Z80,P)\n"\
-    " [3-4]     Cargar / Guardar snapshot\n"\
-    " [5]       Elegir archivo de cinta\n"\
-    " [6]       Play/Stop cinta\n"\
-    " [7]       Explorador cinta\n"\
-    " [8]       Status CPU / Carga cinta\n"\
-    " [9-0]     Bajar-Subir volumen\n"\
-    " [Q]       Reset completo\n"\
-    " [W]       Resetear RP2040\n"\
-    " [I]       Info hardware\n"\
-    " [T]       Modo turbo\n"\
-    " [Z,X,C,V] Centrar pantalla CRT\n"\
-    " [O]       Introducir poke\n"\
-    " [N]       NMI\n"\
-    " [P]       Pausa\n"\
-    " [S]       Captura BMP (Carpeta /.c)\n"
+    " [ImpPant]    Captura BMP (/spec/.c)\n"
 #endif
+
+#define OSD_DBG_HELP_EN \
+    " [Space]      Step CPU\n"\
+    " [ALT+Space]  Step over CALL operation\n"\
+    " [Esc]        Exit\n"\
+    " [F1]         This Help\n"\
+    " [F2]         Show memory dump\n"\
+    " [F3]         Port read breakpoint\n"\
+    " [F4]         Port write breakpoint\n"\
+    " [F5]         Breakpoint current line\n"\
+    " [F7]         Breakpoint editor\n"\
+    " [F8]         Jump to address\n"\
+    " [F9]         Poke dialog\n"\
+	" [F10]        Trigger NMI\n"\
+    " [F11-F12]    Load / Save snapshot\n"\
+    " [+]          Shift up screen\n"\
+    " [-]          Shift down screen\n"\
+    " [0]          Default position\n"\
+    " + PageUp/Down and cursor keys\n"
 
 static const char *StartMsg[2] = {
 	"\xAD" "Hola! " "\xAD" "Gracias por elegir    ectrum!\n"\

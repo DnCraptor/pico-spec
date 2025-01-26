@@ -165,7 +165,8 @@ int Tape::inflateCSW(int blocknumber, long startPos, long data_length) {
     uint32_t *speccyram = (uint32_t *)MemESP::ram[1].direct();
 
     VIDEO::SaveRect.store_ram(speccyram, 0x8000);
-    memset(MemESP::ram[1].direct(), 0, 0x8000);
+    MemESP::ram[1].cleanup();
+    MemESP::ram[3].cleanup();
     
     if (inflateInit(&stream, MemESP::ram[1].direct())) {
         printf("inflateInit() failed!\n");
@@ -236,7 +237,9 @@ void (*Tape::GetBlock)() = &Tape::TAP_GetBlock;
 
 void StopRealPlayer(void) {
     Config::real_player = false;
+#if LOAD_WAV_PIO
     pcm_audio_in_stop();
+#endif
 }
 
 // Load tape file (.wav, .tap, .tzx)
@@ -266,8 +269,10 @@ void Tape::LoadTape(string mFile) {
         string keySel = mFile.substr(0,1);
         mFile.erase(0, 1);
         // Flashload .tap if needed
-        if ((keySel ==  "R") && (Config::flashload) && (Config::romSet != "ZX81+") && (Config::romSet != "48Kcs") && (Config::romSet != "128Kcs")) {
-                OSD::osdCenteredMsg(OSD_TAPE_FLASHLOAD, LEVEL_INFO, 0);
+        if ((keySel == "R") && (Config::flashload) && (Config::arch != "ALF") &&
+             (Config::romSet != "ZX81+") && (Config::romSet != "48Kcs") && (Config::romSet != "128Kcs")
+        ) {
+                OSD::osdCenteredMsg(OSD_TAPE_FLASHLOAD, LEVEL_INFO, 100);
                 uint8_t OSDprev = VIDEO::OSD;
                 if (Z80Ops::is48)
                     FileZ80::loader48();
@@ -1004,6 +1009,7 @@ void Tape::TAP_GetBlock() {
 }
 
 void Tape::Stop() {
+    OSD::osdCenteredMsg("Tape loading is stopped", LEVEL_INFO, 100);
     tapeStatus = TAPE_STOPPED;
     tapePhase = TAPE_PHASE_STOPPED;
     if (VIDEO::OSD) {
@@ -1091,8 +1097,8 @@ IRAM_ATTR void Tape::Read() {
                             tapeCurBlock++;
                             GetBlock();
                         } else {
-                            tapePhase=TAPE_PHASE_TAIL;
-                            tapeNext = TAPE_PHASE_TAIL_LEN;
+                            tapePhase = TAPE_PHASE_TAIL;
+                            tapeNext  = TAPE_PHASE_TAIL_LEN;
                         }
                         break;
                     }
@@ -1575,6 +1581,9 @@ void Tape::Save() {
 }
 
 bool Tape::FlashLoad() {
+    if (Z80Ops::isALF) { // unsupported now
+        return false;
+    }
     if (!tape.obj.fs) {
         string fname = FileUtils::TAP_Path + tapeFileName;        
         if (f_open(&tape, fname.c_str(), FA_READ) != FR_OK) {
@@ -1622,11 +1631,11 @@ bool Tape::FlashLoad() {
 
         // printf("Case 1\n");
         UINT br;
-        mem_desc_t& p = MemESP::ramCurrent[page];
-        if ( p.is_rom() || (page == 0 && !MemESP::page0ram) )
+        uint8_t* p = MemESP::ramCurrent[page];
+        if ( p < (uint8_t*)0x20000000 || (page == 0 && !MemESP::page0ram) ) {
             f_lseek(tape, f_tell(tape) + nBytes);
-        else {
-            f_read(tape, &p.sync()[addr2], nBytes, &br);
+        } else {
+            f_read(tape, &p[addr2], nBytes, &br);
         }
 
         while ((count < nBytes) && (count < blockLen - 1)) {
@@ -1646,7 +1655,7 @@ bool Tape::FlashLoad() {
 
             if ((page > 0) && (page < 4)) {
                 UINT br;
-                f_read(tape, &MemESP::ramCurrent[page].sync()[addr2], chunk1, &br);
+                f_read(tape, &MemESP::ramCurrent[page][addr2], chunk1, &br);
 
                 for (int i=0; i < chunk1; i++) {
                     Z80::Xor(MemESP::readbyte(addr));

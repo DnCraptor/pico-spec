@@ -50,24 +50,16 @@ using namespace std;
 #define JOY_CUSTOM 5
 #define JOY_NONE 6
 
-#define JOYPS2_CURSOR 0
-#define JOYPS2_KEMPSTON 1
-#define JOYPS2_SINCLAIR1 2
-#define JOYPS2_SINCLAIR2 3
-#define JOYPS2_FULLER 4
-#define JOYPS2_CUSTOM 5
-#define JOYPS2_NONE 6
 class Config
 {
 public:
 
     static void load();
     static void save();
-    static void save(string value);
 
     static void requestMachine(string newArch, string newRomSet);
 
-    static void setJoyMap(uint8_t joynum, uint8_t joy_type);
+    static void setJoyMap(uint8_t joy_type);
 
     static string   arch;
     static string   romSet;
@@ -94,16 +86,23 @@ public:
     static bool     tape_player;
     static volatile bool real_player;
     static bool     tape_timing_rg;
-    static bool     rightSpace;    
-    static uint8_t  joystick1;
-    static uint8_t  joystick2;
-    static uint16_t joydef[26];
-    static uint8_t  joyPS2;    
+    static bool     rightSpace;
+    static uint16_t breakPoint;
+    static uint16_t portReadBP;
+    static uint16_t portWriteBP;
+    static bool     enableBreakPoint;
+    static bool     enablePortReadBP;
+    static bool     enablePortWriteBP;
+    static uint8_t  joystick;
+    static uint16_t joydef[12];
     static uint8_t  AluTiming;
-    static uint8_t  ps2_dev2;
+    static uint8_t  ayConfig;
+    static uint8_t  turbosound;
+    static uint8_t  joy2cursor;
+    static uint8_t  secondJoy;
+    static uint8_t  kempstonPort;
+    static uint8_t  throtling;
     static bool CursorAsJoy;
-    static int8_t CenterH;
-    static int8_t CenterV;    
     static uint8_t scanlines;
     static uint8_t render;    
 

@@ -34,11 +34,11 @@
 // #pragma GCC optimize("O3")
 
 uint8_t page;
-// #define FETCH_OPCODE(result,address) page = address >> 14; VIDEO::Draw(4,MemESP::ramContended[page]); result = MemESP::ramCurrent[page][address & 0x3fff];
+
 #define PEEK8(result,address) \
  page = address >> 14; \
  VIDEO::Draw(3,MemESP::ramContended[page]); \
- result = MemESP::ramCurrent[page].sync()[address & 0x3fff];
+ result = MemESP::ramCurrent[page][address & 0x3fff];
 
 // miembros estáticos
 
@@ -918,9 +918,13 @@ IRAM_ATTR void Z80::check_trdos() {
         if (REG_PCh == 0x3D) {
             // TR-DOS Rom can be accessed from 48K machines and from Spectrum 128/+2 and Pentagon if the currently mapped ROM is bank 1.
             if ((Z80Ops::is48) && (MemESP::romInUse == 0) || ((!Z80Ops::is48) && MemESP::romInUse == 1)) {
-                MemESP::romInUse = 4;
-                MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
                 ESPectrum::trdos = true;
+                MemESP::romInUse = 4;
+                uint8_t* r0 = MemESP::newSRAM ? MemESP::ram[64 + MemESP::sramLatch].sync() :
+                             (MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct());
+                if (MemESP::ramCurrent[0] != r0) {
+                    MemESP::ramCurrent[0] = r0;
+                }
             }
         }
     }
@@ -929,14 +933,21 @@ IRAM_ATTR void Z80::check_trdos() {
 IRAM_ATTR void Z80::check_trdos_unpage() {
     if (ESPectrum::trdos) {
         if (REG_PCh >= 0x40) {
+            ESPectrum::trdos = false;
             if (Z80Ops::is48) {
                 MemESP::romInUse = 0;
-                MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
+                uint8_t* r0 = MemESP::rom[MemESP::romInUse].sync();
+                if (MemESP::ramCurrent[0] != r0) {
+                    MemESP::ramCurrent[0] = r0;
+                }
             } else {
                 MemESP::romInUse = MemESP::romLatch;
-                MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
+                uint8_t* r0 = MemESP::newSRAM ? MemESP::ram[64 + MemESP::sramLatch].sync() :
+                                        (MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct());
+                if (MemESP::ramCurrent[0] != r0) {
+                    MemESP::ramCurrent[0] = r0;
+                }
             }
-            ESPectrum::trdos = false;
         }
     } else if (REG_PCh == 0x3D && !Z80Ops::isALF) {
             // TR-DOS Rom can be accessed from 48K machines and from Spectrum 128/+2 and Pentagon if the currently mapped ROM is bank 1.
@@ -944,8 +955,12 @@ IRAM_ATTR void Z80::check_trdos_unpage() {
                   || ((!Z80Ops::is48) && MemESP::romInUse == 1)
             ) {
                 MemESP::romInUse = 4;
-                MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
                 ESPectrum::trdos = true;
+                uint8_t* r0 = MemESP::newSRAM ? MemESP::ram[64 + MemESP::sramLatch].sync() :
+                                        (MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct());
+                if (MemESP::ramCurrent[0] != r0) {
+                    MemESP::ramCurrent[0] = r0;
+                }
             }
     }
 }
@@ -1045,13 +1060,9 @@ IRAM_ATTR void Z80::incRegR(uint8_t inc) {
 
 
 IRAM_ATTR void Z80::execute() {
-
-//    if (!(CPU::tstates & 0xf)) {
-//    }
-
     uint8_t pg = REG_PC >> 14;
     VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
-    opCode = MemESP::ramCurrent[pg].sync()[REG_PC & 0x3fff];
+    opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
 
     regR++;
 
@@ -1090,7 +1101,7 @@ IRAM_ATTR void Z80::exec_nocheck() {
 
         uint8_t pg = REG_PC >> 14;
         VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
-        opCode = MemESP::ramCurrent[pg].sync()[REG_PC & 0x3fff];
+        opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
         regR++;
         REG_PC++;
 
@@ -2413,20 +2424,14 @@ void Z80::decodeOpcodeca()
 
 void Z80::decodeOpcodecb()
 { /* Subconjunto de instrucciones */
-
-
     uint8_t pg = REG_PC >> 14;
     VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
-    opCode = MemESP::ramCurrent[pg].sync()[REG_PC & 0x3fff];
-    // FETCH_OPCODE(opCode, REG_PC);
+    opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
 
     REG_PC++;
     regR++;
 
-    // decodeCB();
-
     dcCB[opCode]();
-
 }
 
 void Z80::decodeOpcodecc()
@@ -2615,11 +2620,9 @@ void Z80::decodeOpcodedc()
 
 void Z80::decodeOpcodedd()
 { /* Subconjunto de instrucciones */
-    // opCode = Z80Ops::fetchOpcode(REG_PC++);
     uint8_t pg = REG_PC >> 14;
     VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
-    opCode = MemESP::ramCurrent[pg].sync()[REG_PC & 0x3fff];
-    // FETCH_OPCODE(opCode,REG_PC);
+    opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
 
     REG_PC++;
     regR++;
@@ -2777,11 +2780,9 @@ void Z80::decodeOpcodeec() /* CALL PE,nn */
 
 void Z80::decodeOpcodeed() /*Subconjunto de instrucciones*/
 { 
-    // opCode = Z80Ops::fetchOpcode(REG_PC++);
     uint8_t pg = REG_PC >> 14;
     VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
-    opCode = MemESP::ramCurrent[pg].sync()[REG_PC & 0x3fff];
-    // FETCH_OPCODE(opCode,REG_PC);
+    opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
     REG_PC++;
     regR++;
     decodeED();
@@ -2927,11 +2928,9 @@ void Z80::decodeOpcodefc() /* CALL M,nn */
 
 void Z80::decodeOpcodefd() /* Subconjunto de instrucciones */
 {     
-    // opCode = Z80Ops::fetchOpcode(REG_PC++);
     uint8_t pg = REG_PC >> 14;
     VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
-    opCode = MemESP::ramCurrent[pg].sync()[REG_PC & 0x3fff];
-    // FETCH_OPCODE(opCode,REG_PC);
+    opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
     REG_PC++;
     regR++;
     decodeDDFD(regIY);
@@ -2941,9 +2940,6 @@ void Z80::decodeOpcodefe() /* CP n */
 { 
     PEEK8(uint8_t value,REG_PC);
     cp(value);
-
-    // cp(Z80Ops::peek8(REG_PC));
-
     REG_PC++;
 }
 
@@ -4569,7 +4565,7 @@ void Z80::decodeDDFD(RegisterPair& regIXY) {
                     string name;
                     uint16_t header_data = REG_IX;
                     for (int i=0; i < 10; i++)
-                        name += MemESP::ramCurrent[header_data++ >> 14].sync()[header_data & 0x3fff];
+                        name += MemESP::ramCurrent[header_data++ >> 14][header_data & 0x3fff];
                     rtrim(name);
                     Tape::tapeSaveName = FileUtils::TAP_Path + name + ".tap";
                     SaveRes = DLG_NO;

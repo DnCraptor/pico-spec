@@ -156,7 +156,7 @@ static uint32_t conv_colorINV[2][256]; //2к
 static uint32_t* conv_color[2];
 
 //палитра сохранённая
-static uint8_t __scratch_y("buff4") paletteRGB[3][256]; //768 байт
+static uint8_t __scratch_x("buff4") paletteRGB[3][256]; //768 байт
 
 static repeating_timer_t video_timer;
 
@@ -917,23 +917,22 @@ static bool __time_critical_func(video_timer_callbackTV)(repeating_timer_t* rt) 
                     switch (tv_out_mode.mode_bpp) {
                         case GRAPHICSMODE_DEFAULT: {
                             // для 8-битного буфера
-
+                            register size_t x = 0;
+                            register uint8_t c = input_buffer[(x++) ^ 2];
                             // todo bgcolor
-                            uint8_t color = graphics_buffer.shift_x ? 200 : map64colors[*input_buffer++ & 0b00111111];
+                            uint8_t color = graphics_buffer.shift_x ? 200 : map64colors[c & 0b00111111];
                             uint32_t cout32 = conv_color[li][color];
                             uint8_t* c_4 = (uint8_t*)&cout32;
                             output_buffer8 += buffer_shift;
-
-                            int x = 0;
 #pragma unroll(640)
                             for (int i = 0; i < video_mode.img_W - d_end; i++) {
                                 *output_buffer8++ = c_4[i % 4];
                                 next_ibuf -= di;
                                 if (next_ibuf <= 0) {
-                                    x++;
+                                    c = input_buffer[(x++) ^ 2];
                                     if (x > graphics_buffer.shift_x && x < graphics_buffer.shift_x + graphics_buffer.
                                         width) {
-                                        color = map64colors[*input_buffer++ & 0b00111111];
+                                        color = map64colors[c & 0b00111111];
                                     }
                                     else {
                                         color = 200;

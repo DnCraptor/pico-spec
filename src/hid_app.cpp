@@ -56,9 +56,13 @@ struct input_bits_t {
   bool down: true;
 };
 ///extern input_bits_t keyboard_bits;
-///extern input_bits_t gamepad1_bits;
+extern input_bits_t gamepad1_bits;
 
-static void process_kbd_report(hid_keyboard_report_t const *report);
+void process_kbd_report(
+  hid_keyboard_report_t const *report,
+  hid_keyboard_report_t const *prev_report
+);
+
 static void process_mouse_report(hid_mouse_report_t const * report);
 static void process_generic_report(uint8_t dev_addr, uint8_t instance, uint8_t const* report, uint16_t len);
 
@@ -103,6 +107,8 @@ void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance)
   printf("HID device address = %d, instance = %d is unmounted\r\n", dev_addr, instance);
 }
 
+static hid_keyboard_report_t prev_report = { 0 , 0 , {0}};
+
 // Invoked when received report from device via interrupt endpoint
 void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* report, uint16_t len)
 {
@@ -112,7 +118,8 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
   {
     case HID_ITF_PROTOCOL_KEYBOARD:
       TU_LOG2("HID receive boot keyboard report\r\n");
-      process_kbd_report( (hid_keyboard_report_t const*) report );
+      process_kbd_report( (hid_keyboard_report_t const*) report, &prev_report );
+      prev_report = *(hid_keyboard_report_t const*)report;
     break;
 
     case HID_ITF_PROTOCOL_MOUSE:
@@ -146,44 +153,6 @@ static inline bool find_key_in_report(hid_keyboard_report_t const *report, uint8
   }
 
   return false;
-}
-
-static void process_kbd_report(hid_keyboard_report_t const *report)
-{
-  static hid_keyboard_report_t prev_report = { 0, 0, {0} }; // previous report to check key released
-/**
-  keyboard_bits.start = find_key_in_report(report, HID_KEY_ENTER);
-  keyboard_bits.select = find_key_in_report(report, HID_KEY_BACKSPACE);
-  keyboard_bits.a = find_key_in_report(report, HID_KEY_Z);
-  keyboard_bits.b = find_key_in_report(report, HID_KEY_X);
-  keyboard_bits.up = find_key_in_report(report, HID_KEY_ARROW_UP);
-  keyboard_bits.down = find_key_in_report(report, HID_KEY_ARROW_DOWN);
-  keyboard_bits.left = find_key_in_report(report, HID_KEY_ARROW_LEFT);
-  keyboard_bits.right = find_key_in_report(report, HID_KEY_ARROW_RIGHT);
-*/
-  //------------- example code ignore control (non-printable) key affects -------------//
-  for(uint8_t i=0; i<6; i++)
-  {
-    if ( report->keycode[i] )
-    {
-      if ( find_key_in_report(&prev_report, report->keycode[i]) )
-      {
-        // exist in previous report means the current key is holding
-      }else
-      {
-        // not existed in previous report means the current key is pressed
-        bool const is_shift = report->modifier & (KEYBOARD_MODIFIER_LEFTSHIFT | KEYBOARD_MODIFIER_RIGHTSHIFT);
-        uint8_t ch = keycode2ascii[report->keycode[i]][is_shift ? 1 : 0];
-        putchar(ch);
-        if ( ch == '\r' ) putchar('\n'); // added new line for enter key
-
-        fflush(stdout); // flush right away, else nanolib will wait for newline
-      }
-    }
-    // TODO example skips key released
-  }
-
-  prev_report = *report;
 }
 
 //--------------------------------------------------------------------+
@@ -226,9 +195,15 @@ void cursor_movement(int8_t x, int8_t y, int8_t wheel)
 #endif
 }
 
+#include "ESPectrum.h"
+
 static void process_mouse_report(hid_mouse_report_t const * report)
 {
-  static hid_mouse_report_t prev_report = { 0 };
+    ESPectrum::mouseButtonL = report->buttons & MOUSE_BUTTON_LEFT;
+    ESPectrum::mouseButtonR = report->buttons & MOUSE_BUTTON_RIGHT;
+    ESPectrum::mouseX += report->x >> 2;
+    ESPectrum::mouseY -= report->y >> 2; // TODO: DPI
+  /**
 
   //------------- button state  -------------//
   uint8_t button_changed_mask = report->buttons ^ prev_report.buttons;
@@ -242,6 +217,7 @@ static void process_mouse_report(hid_mouse_report_t const * report)
 
   //------------- cursor movement -------------//
   cursor_movement(report->x, report->y, report->wheel);
+  */
 }
 
 //--------------------------------------------------------------------+
@@ -298,7 +274,8 @@ static void process_generic_report(uint8_t dev_addr, uint8_t instance, uint8_t c
       case HID_USAGE_DESKTOP_KEYBOARD:
         TU_LOG1("HID receive keyboard report\r\n");
         // Assume keyboard follow boot report layout
-        process_kbd_report( (hid_keyboard_report_t const*) report );
+        process_kbd_report( (hid_keyboard_report_t const*) report, &prev_report );
+        prev_report = *(hid_keyboard_report_t const*)report;
       break;
 
       case HID_USAGE_DESKTOP_MOUSE:

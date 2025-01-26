@@ -60,9 +60,12 @@ visit https://zxespectrum.speccy.org/contacto
 class CPU
 {
 public:
+    static void step();
     
     // call this for executing a frame's worth of instructions
     static void loop();
+
+    static void updateStatesInFrame();
 
     // call this for resetting the CPU
     static void reset();
@@ -89,6 +92,9 @@ public:
     // CPU Tstates in frame - IntEnd
     static uint32_t stFrame;
 
+    static bool portBasedBP;
+
+    static bool paused;
 };
 
 #endif // CPU_h

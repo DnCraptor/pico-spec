@@ -65,17 +65,14 @@ using namespace std;
 #define ESP_VOLUME_MIN -16
 
 #include "keyboard.h"
-#include "kbjoystick.h"
 
 #define esp_timer_get_time() time_us_64()
 
 namespace fabgl {
     class PS2Controller {
         Keyboard kbd;
-        KeybJoystick kbj;
     public:
         Keyboard* keyboard() { return &kbd; }
-        KeybJoystick* keybjoystick() { return &kbj; }
     };
 };
 
@@ -91,9 +88,7 @@ public:
     static void processKeyboard();
     static void bootKeyboard();
     static bool readKbd(fabgl::VirtualKeyItem *Nextkey);
-    static void readKbdJoy();
     static fabgl::PS2Controller PS2Controller;
-    static fabgl::VirtualKey JoyVKTranslation[26];
     static fabgl::VirtualKey VK_ESPECTRUM_FIRE1;
     static fabgl::VirtualKey VK_ESPECTRUM_FIRE2;
     static fabgl::VirtualKey VK_ESPECTRUM_TAB;
@@ -118,7 +113,7 @@ public:
     static bool AY_emu;
     static int Audio_freq;
 
-    static bool ESP_delay;
+    static uint8_t multiplicator;
     static int sync_cnt;    
 
     static int TapeNameScroller;
@@ -137,27 +132,19 @@ public:
 
     static volatile bool vsync;
 
-///    static TaskHandle_t audioTaskHandle;    
-
-    static bool ps2kbd2;
-
     static bool trdos;
     static WD1793 Betadisk;
 
-    // static uint32_t sessid;
-
-private:
-
-    static void audioTask(void* unused);
-
+    static int32_t mouseX;
+    static int32_t mouseY;
+    static bool mouseButtonL;
+    static bool mouseButtonR;
 };
 
 #define bitRead(value, bit) (((value) >> (bit)) & 0x01)
 #define bitSet(value, bit) ((value) |= (1UL << (bit)))
 #define bitClear(value, bit) ((value) &= ~(1UL << (bit)))
 #define bitWrite(value, bit, bitvalue) ((bitvalue) ? bitSet(value, bit) : bitClear(value, bit))
-
-unsigned long millis();
 
 inline void delay(uint32_t ms) {
     sleep_ms(ms);
@@ -166,5 +153,8 @@ inline void delay(uint32_t ms) {
 inline void delayMicroseconds(int64_t us) {
     sleep_us(us);
 }
+
+void kbdPushData(fabgl::VirtualKey virtualKey, bool down);
+void joyPushData(fabgl::VirtualKey virtualKey, bool down);
 
 #endif

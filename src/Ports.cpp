@@ -101,19 +101,40 @@ uint8_t Ports::getFloatBusData128() {
 
 }
 
+#include "OSDMain.h"
+
 uint8_t nes_pad2_for_alf(void);
+static uint8_t newAlfBit = 0;
 
 IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     uint8_t data;
-    uint8_t rambank = address >> 14;    
+    if (address == Config::portReadBP && Config::enablePortReadBP) CPU::portBasedBP = true;
+    uint8_t rambank = address >> 14;
 
     VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
     
-    // ULA PORT    
+    bool ia = Z80Ops::isALF;
+    uint8_t p8 = address & 0xFF;
+        if (p8 == 0xFB) { // Hidden RAM on
+            MemESP::newSRAM = true;
+            uint8_t* r0 = MemESP::ram[64 + MemESP::sramLatch].sync();
+            if (MemESP::ramCurrent[0] != r0) {
+                MemESP::ramCurrent[0] = r0;
+            }
+            return 0xFF;
+        }
+        if (p8 == 0x7B) { // Hidden RAM off
+            MemESP::newSRAM = false;
+            uint8_t* r0 = (MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct());
+            if (MemESP::ramCurrent[0] != r0) {
+                MemESP::ramCurrent[0] = r0;
+            }
+            return 0xFF;
+        }
+    // ULA PORT
     if ((address & 0x0001) == 0) {
         VIDEO::Draw(3, !Z80Ops::isPentagon);   // I/O Contention (Late)
-
-        if (Z80Ops::isALF) {
+        if (ia && p8 == 0xFE) {
             data = nes_pad2_for_alf(); // default port value is 0xFF.
         } else {
             data = 0xbf; // default port value is 0xBF.
@@ -134,11 +155,27 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
         if (Tape::tapeEarBit) data ^= 0x40;
     } else {
         ioContentionLate(MemESP::ramContended[rambank]);
+        if (ia && bitRead(p8, 7) == 0) {
+            if (bitRead(p8, 1) == 0) { // 1D
+                MemESP::newSRAM = true;
+                uint8_t* r0 = MemESP::ram[64 + MemESP::sramLatch].sync();
+                if (MemESP::ramCurrent[0] != r0) {
+                    MemESP::ramCurrent[0] = r0;
+                }
+            }
+            else { // 1F
+                MemESP::newSRAM = false;
+                uint8_t* r0 = MemESP::rom[MemESP::romInUse].direct();
+                if (MemESP::ramCurrent[0] != r0) {
+                    MemESP::ramCurrent[0] = r0;
+                }
+            }
+        }
         // The default port value is 0xFF.
         data = 0xff;
         // Check if TRDOS Rom is mapped.
         if (ESPectrum::trdos) {
-            switch (address & 0xFF) {
+            switch (p8) {
                 case 0xFF:
                     data = ESPectrum::Betadisk.ReadSystemReg();
                     // printf("WD1793 Read Control Register: %d\n",(int)data);
@@ -162,22 +199,36 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
             }
         }
 
+        ///if (ESPectrum::ps2mouse && Config::mouse == 1)
+        {
+            if((address & 0x05ff) == 0x01df) {
+                return (uint8_t) ESPectrum::mouseX;
+            }
+            if((address & 0x05ff) == 0x05df) {
+                return (uint8_t) ESPectrum::mouseY;
+            }
+            if((address & 0x05ff) == 0x00df) {
+                return 0xff & (ESPectrum::mouseButtonL ? 0xfd : 0xff) & (ESPectrum::mouseButtonR ? 0xfe : 0xff);
+            }
+        }
+
         // Kempston Joystick
         if (
-            (Config::joystick1 == JOY_KEMPSTON || Config::joystick2 == JOY_KEMPSTON || Config::joyPS2 == JOYPS2_KEMPSTON) &&
-            ((address & 0x00E0) == 0 || (address & 0xFF) == 0xDF)
-        ) return port[0x1f];
+            (Config::joystick == JOY_KEMPSTON) &&
+            ((address & 0x00E0) == 0 || p8 == 0xDF || p8 == Config::kempstonPort)
+        ) return ia ? (port[0x1F] ^ 0xA0) : port[Config::kempstonPort];
 
         // Fuller Joystick
-        if (
-            (Config::joystick1 == JOY_FULLER || Config::joystick2 == JOY_FULLER || Config::joyPS2 == JOYPS2_FULLER) &&
-            (address & 0xFF) == 0x7F
-        ) return port[0x7f];
+        if (Config::joystick == JOY_FULLER && p8 == 0x7F) return port[0x7f];
 
         // Sound (AY-3-8912)
         if (ESPectrum::AY_emu) {
-            if ((address & 0xC002) == 0xC000)
+            if ((address & 0xC002) == 0xC000) {
+                if (ia) {
+                    return chips[AySound::selected_chip]->getRegisterData() | newAlfBit;
+                }
                 return chips[AySound::selected_chip]->getRegisterData();
+            }
         }
         if (!Z80Ops::isPentagon) {
             data = getFloatBusData();
@@ -190,7 +241,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
                     uint8_t page = (data & 0x7);
                     if (MemESP::bankLatch != page) {
                         MemESP::bankLatch = page;
-                        MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
+                        MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync();
                         MemESP::ramContended[3] = MemESP::bankLatch & 0x01 ? true: false;
                     }
                     if (MemESP::videoLatch != bitRead(data, 3)) {
@@ -199,7 +250,11 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
                     }
                     MemESP::romLatch = bitRead(data, 4);
                     MemESP::romInUse = MemESP::romLatch;
-                    MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
+                    uint8_t* r0 = MemESP::newSRAM ? MemESP::ram[64 + MemESP::sramLatch].sync() :
+                                  (MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct());
+                    if (MemESP::ramCurrent[0] != r0) {
+                        MemESP::ramCurrent[0] = r0;
+                    }
                 }
             }
         }
@@ -209,23 +264,34 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
 
 IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {    
     int Audiobit;
+    if (address == Config::portWriteBP && Config::enablePortWriteBP) CPU::portBasedBP = true;
     uint8_t rambank = address >> 14;
 
     VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
 
-    if (Z80Ops::isALF && bitRead(address, 7) == 0 && (address & 1) == 1) { // ALF ROM selector A7=0, A0=1
-        uint8_t* base = bitRead(data, 7) ? gb_rom_Alf_cart : gb_rom_Alf;
-        if (MemESP::ramCurrent[0].direct() != base) {
-            int border_page = base == gb_rom_Alf ? 16 : 64;
-            for (int i = 0; i < 64; ++i) {
-                MemESP::rom[i].assign_rom(i >= border_page ? gb_rom_Alf_ep : base + ((16 * i) << 10));
+    bool ia = Z80Ops::isALF;
+#ifndef NO_ALF
+    if (ia) {
+        if ((address & 0xFF) == 0xFE) {
+            newAlfBit = (data >> 3) & 1;
+        }
+        if (bitRead(address, 7) == 0 && (address & 1) == 1) { // ALF ROM selector A7=0, A0=1
+            uint8_t* base = bitRead(data, 7) ? gb_rom_Alf_cart : gb_rom_Alf;
+            if (MemESP::ramCurrent[0] != base) { /// TODO: ensure
+                int border_page = base == gb_rom_Alf ? 16 : 64;
+                for (int i = 0; i < 64; ++i) {
+                    MemESP::rom[i].assign_rom(i >= border_page ? gb_rom_Alf_ep : base + ((16 * i) << 10));
+                }
+            }
+            MemESP::romInUse = (data & 0b01111111);
+            while (MemESP::romInUse >= 64) MemESP::romInUse -= 64; // rolling ROM
+            uint8_t* r0 = MemESP::newSRAM ? MemESP::ram[64 + MemESP::sramLatch].sync() : MemESP::rom[MemESP::romInUse].direct();
+            if (MemESP::ramCurrent[0] != r0) {
+                MemESP::ramCurrent[0] = r0;
             }
         }
-        MemESP::romInUse = (data & 0b01111111);
-        while (MemESP::romInUse >= 64) MemESP::romInUse -= 64; // rolling ROM
-        MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
     }
-    
+#endif    
     // ULA =======================================================================
     if ((address & 0x0001) == 0) {
         port254 = data;
@@ -237,7 +303,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
             VIDEO::borderColor = data & 0x07;
             VIDEO::brd = VIDEO::border32[VIDEO::borderColor];
         }
-        if (ESPectrum::ESP_delay) { // Disable beeper on turbo mode
+///        if (ESPectrum::ESP_delay) { // Disable beeper on turbo mode
             if (Config::tape_player)
                 Audiobit = Tape::tapeEarBit ? 255 : 0; // For tape player mode
             else
@@ -247,7 +313,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
                 ESPectrum::BeeperGetSample();
                 ESPectrum::lastaudioBit = Audiobit;
             }
-        }
+///        }
 
         // AY ========================================================================
         if ((ESPectrum::AY_emu) && ((address & 0x8002) == 0x8000)) {
@@ -263,7 +329,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         VIDEO::Draw(3, !Z80Ops::isPentagon);   // I/O Contention (Late)
     } else {
         // AY ========================================================================
-        if ((ESPectrum::AY_emu) && address == 0xFFFD) { // NedoPC way
+        if ((ESPectrum::AY_emu) && (Config::turbosound == 1 || Config::turbosound == 3) && address == 0xFFFD) { // NedoPC way
             if (data == 0xFF) {
                 AySound::selected_chip = 0;
             }
@@ -275,7 +341,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
             if ((address & 0xFF) == 0xFF) { // Old TS way
                 AySound::selected_chip = 0;
             }
-            else if ((address & 0xFF) == 0xFE) {
+            else if ((address & 0xFF) == 0xFE && Config::turbosound > 1) {
                 AySound::selected_chip = 1;
             }
             else if ((address & 0x4000) != 0) {
@@ -322,7 +388,12 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
             MemESP::notMore128 = bitRead(data, 2);
             MemESP::page0ram = bitRead(data, 3);
             if (MemESP::page0ram != prev) {
-                MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
+                uint8_t* r0 = MemESP::newSRAM ?
+                          MemESP::ram[64 + MemESP::sramLatch].sync() : 
+                          (MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct());
+                if (MemESP::ramCurrent[0] != r0) {
+                    MemESP::ramCurrent[0] = r0;
+                }
             }
         }
     }
@@ -345,12 +416,22 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
             }
             if (MemESP::bankLatch != page) {
                 MemESP::bankLatch = page;
-                MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch];
+                MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync();
                 MemESP::ramContended[3] = Z80Ops::isPentagon ? false : (MemESP::bankLatch & 0x01 ? true: false);
             }
             MemESP::romLatch = bitRead(data, 4);
-            MemESP::romInUse = MemESP::romLatch;
-            MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0] : MemESP::rom[MemESP::romInUse];
+            if (!ia) {
+                MemESP::romInUse = MemESP::romLatch;
+            }
+            if (MemESP::newSRAM) {
+                MemESP::sramLatch = MemESP::romLatch;
+            }
+            uint8_t* r0 = MemESP::newSRAM ?
+                          MemESP::ram[64 + MemESP::sramLatch].sync() :
+                         (MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct());
+            if (MemESP::ramCurrent[0] != r0) {
+                MemESP::ramCurrent[0] = r0;
+            }
             if (MemESP::videoLatch != bitRead(data, 3)) {
                 MemESP::videoLatch = bitRead(data, 3);
                 VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct() : MemESP::ram[5].direct();

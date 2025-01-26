@@ -86,7 +86,7 @@ public:
     static void osdAt(uint8_t row, uint8_t col);
     static void drawOSD(bool bottom_info);
     static void drawStats();
-    static void do_OSD(fabgl::VirtualKey KeytoESP, bool CTRL);
+    static void do_OSD(fabgl::VirtualKey KeytoESP, bool ALT);
     static void HWInfo();
 
     // Error
@@ -94,6 +94,9 @@ public:
     static void errorHalt(string errormsg);
     static void osdCenteredMsg(string msg, uint8_t warn_level);
     static void osdCenteredMsg(string msg, uint8_t warn_level, uint16_t millispause);
+
+    static void osdDump();
+    static void osdDebug();
 
     // Menu
     static unsigned short menuRealRowFor(uint8_t virtual_row_num);
@@ -126,8 +129,13 @@ public:
     static uint8_t msgDialog(string title, string msg);
     static void progressDialog(string title, string msg, int percent, int action);
     string inputBox(int x, int y, string text);
-    static void joyDialog(uint8_t joynum);
+    static void joyDialog(void);
     static void pokeDialog();
+    static void jumpToDialog();
+    static void portReadBPDialog();
+    static void portWriteBPDialog();
+    static void BPDialog();
+    static uint32_t addressDialog(uint16_t addr, const char* title);
 
     // Rows
     static unsigned short rowCount(string menu);
@@ -200,5 +208,16 @@ static inline std::string trim_copy(std::string s) {
     trim(s);
     return s;
 }
+
+#define is_up(vk) (vk == fabgl::VK_MENU_UP)
+#define is_down(vk) (vk == fabgl::VK_MENU_DOWN)
+#define is_home(vk) (vk == fabgl::VK_MENU_HOME)
+#define is_backspace(vk) (vk == fabgl::VK_MENU_BS)
+#define is_right(vk) (vk == fabgl::VK_MENU_RIGHT)
+#define is_left(vk) (vk == fabgl::VK_MENU_LEFT)
+#define is_back(vk) (vk == fabgl::VK_ESCAPE || vk == fabgl::VK_F1 || vk == fabgl::VK_MENU_LEFT)
+#define is_enter(vk) (vk == fabgl::VK_MENU_RIGHT || vk == fabgl::VK_MENU_ENTER)
+#define is_enter_fd(vk) (vk == fabgl::VK_MENU_ENTER)
+#define is_return(vk) (vk == fabgl::VK_MENU_ENTER)
 
 #endif // ESPECTRUM_OSD_H

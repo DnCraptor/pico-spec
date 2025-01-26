@@ -32,24 +32,32 @@ static FIL fo = { 0 };
 static volatile uint32_t num_samples = 0;
 #endif
 
+#define MAX_SAMPLES_PER_FRAME 640
+
 esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) {
-    static int16_t buff1[640*2];
-    static int16_t buff2[640*2];
+    static uint8_t buff1[MAX_SAMPLES_PER_FRAME*2]; // stereo
+    static uint8_t buff2[MAX_SAMPLES_PER_FRAME*2];
     static bool is_buff1 = true;
-    int16_t* buff = is_buff1 ? buff1 : buff2;
+    uint8_t* buff = is_buff1 ? buff1 : buff2;
     is_buff1 = !is_buff1;
-    int16_t volume = vol;
-    if (len < 500) { // W/A
-        for (size_t i = 0; i < 640; ++i) {
-            size_t j = i << 1;
-            size_t k = i * len / 640;
-            buff[j  ] = (lbuf[k] << 7) * volume / VOLUME_0DB;
-            buff[j+1] = (rbuf[k] << 7) * volume / VOLUME_0DB;
+    if (len < MAX_SAMPLES_PER_FRAME / 2) { // W/A
+        memset(buff, 0, sizeof(buff1));
+        size_t j = 0;
+        uint8_t l;
+        uint8_t r;
+        for (size_t i = 0; i < len && j < MAX_SAMPLES_PER_FRAME*2; ++i) {
+            l = lbuf[i] << 1;
+            r = rbuf[i] << 1;
+            buff[j++] = l;
+            buff[j++] = r;
         }
-        pcm_set_buffer(buff, 2, 640, NULL);
+        for (; j < MAX_SAMPLES_PER_FRAME*2; ) {
+            buff[j++] = l;
+            buff[j++] = r;
+        }
+        pcm_set_buffer(buff, 2, MAX_SAMPLES_PER_FRAME, NULL);
         return ESP_OK;
     }
-
 # if WAV_FILE
     uint8_t* b8 = (uint8_t*)(is_buff1 ? buff1 : buff2);
     for (size_t i = 0; i < len; ++i) {
@@ -68,11 +76,13 @@ esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) 
 # endif
 
 # if 1
+
     for (size_t i = 0; i < len; ++i) {
         size_t j = i << 1;
-        buff[j  ] = (lbuf[i] << 7) * volume / VOLUME_0DB;
-        buff[j+1] = (rbuf[i] << 7) * volume / VOLUME_0DB;
+        buff[j++] = lbuf[i];
+        buff[j  ] = rbuf[i];
     }
+
 # else
     static int lv, rv, n = 0;
     static int div = 4;
@@ -96,7 +106,7 @@ esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) 
 //------------------------------------------------------------
 #ifdef I2S_SOUND
 static i2s_config_t i2s_config = {
-		.sample_freq = SOUND_FREQUENCY, 
+		.sample_freq = I2S_FREQUENCY, 
 		.channel_count = 2,
 		.data_pin = PWM_PIN0,
 		.clock_pin_base = PWM_PIN1,
@@ -105,8 +115,7 @@ static i2s_config_t i2s_config = {
         .dma_channel = 0,
         .dma_trans_count = 0,
         .dma_buf = NULL,
-        .volume = 0,
-        .program_offset = 0
+        .volume = 0
 	};
 #endif
 
@@ -119,16 +128,12 @@ inline static void inInit(uint gpio) {
 #endif
 
 void init_sound() {
-#ifdef I2S_SOUND
-    i2s_config.sample_freq = SOUND_FREQUENCY;
-    i2s_config.dma_trans_count = SOUND_FREQUENCY / 100;
-    i2s_volume(&i2s_config, 0);
-#else
+#ifndef I2S_SOUND
     pwm_config config = pwm_get_default_config();
     gpio_set_function(PWM_PIN0, GPIO_FUNC_PWM);
     gpio_set_function(PWM_PIN1, GPIO_FUNC_PWM);
     pwm_config_set_clkdiv(&config, 1.0f);
-    pwm_config_set_wrap(&config, (1 << 12) - 1); // MAX PWM value
+    pwm_config_set_wrap(&config, (1 << 8) - 1); // MAX PWM value
     pwm_init(pwm_gpio_to_slice_num(PWM_PIN0), &config, true);
     pwm_init(pwm_gpio_to_slice_num(PWM_PIN1), &config, true);
     #if BEEPER_PIN
@@ -144,13 +149,10 @@ void init_sound() {
 }
 
 static repeating_timer_t m_timer = { 0 };
-static volatile pcm_end_callback_t m_cb = NULL;
-#ifndef I2S_SOUND
-static volatile int16_t* m_buff = NULL;
+static volatile uint8_t* m_buff = NULL;
 static volatile uint8_t m_channels = 0;
 static volatile size_t m_size = 0; // 16-bit values prepared (available)
-static volatile bool m_let_process_it = false;
-#endif
+///static volatile bool m_let_process_it = false;
 
 #if LOAD_WAV_PIO
 static LoadWavStream* lws = 0;
@@ -171,10 +173,10 @@ void pcm_audio_in_stop(void) {
 #endif
 
 static volatile uint32_t current_buffer_start_us = 0;
-static volatile uint32_t buffer_us = SOUND_FREQUENCY / 50; // длина буфера в микросекундах
+static volatile uint32_t buffer_us = 0; // длина буфера в микросекундах
 
 static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core#1?
-    m_let_process_it = true;
+///    m_let_process_it = true;
 #if LOAD_WAV_PIO
     if (lws && Config::real_player) {
         lws->tick();
@@ -183,41 +185,49 @@ static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core
     return true;
 }
 
+#ifdef I2S_SOUND
+//static uint32_t s32 = 0;
+static uint16_t s32[2] = { 0 };
+#endif
+static int32_t outL, outR = 0;
+
 void pcm_call() {
-    if (!m_let_process_it) {
-        return;
-    }
-#ifndef I2S_SOUND
-    m_let_process_it = false;
     uint32_t ct = time_us_32();
     uint32_t dtf = ct - current_buffer_start_us;
-    if (dtf > SOUND_FREQUENCY) return;
-    size_t m_off = (!buffer_us ? 0 : dtf * m_size / buffer_us) & 0xFFFFFFFFFE; /// (us per start) * (samples per us) -> sample# since start => m_off
+///    if (dtf > SOUND_FREQUENCY) goto e;
+    size_t m_off = (!buffer_us ? 0 : dtf * m_size / buffer_us) & 0xFFFFFFFE; /// (us per start) * (samples per us) -> sample# since start => m_off
     if (m_buff && m_off < m_size) {
-        volatile int16_t* b = m_buff + m_off;
-        int16_t outL = *b++; // TODO: ensure L/R seq.
-        int16_t outR = *b;
-        pwm_set_gpio_level(PWM_PIN0, (uint16_t) ((int32_t) outR + 0x8000L) >> 4); // Право
-        pwm_set_gpio_level(PWM_PIN1, (uint16_t) ((int32_t) outL + 0x8000L) >> 4); // Лево
-        pwm_set_gpio_level(BEEPER_PIN, 0);
-    }
-#endif
-}
+        volatile uint8_t* b = m_buff + m_off;
+        outL = *b++;
+        outR = *b;
 
-void pcm_cleanup(void) {
-    cancel_repeating_timer(&m_timer);
-    m_timer.delay_us = 0;
+        size_t m_off2 = m_off + 2;
+
+        int32_t dtf1 = buffer_us * m_off / m_size;
+        int32_t dtf2 = buffer_us * m_off2 / m_size;
+        int32_t ddt2 = dtf2 - dtf1;
+        int32_t ddt1 = dtf - dtf1;
+        if (ddt1 != 0 && ddt2 != 0 && m_off2 < m_size) {
+            b = m_buff + m_off2;
+            int32_t outL2 = *b++;
+            int32_t outR2 = *b;
+            outL = outL + ddt1 * (outL2 - outL) / ddt2;
+            outR = outR + ddt1 * (outR2 - outR) / ddt2;
+        }
+        uint8_t volume = vol;
 #ifdef I2S_SOUND
-    i2s_volume(&i2s_config, 0);
-    i2s_deinit(&i2s_config);
+        outL *= volume; outL <<= 3;
+        outR *= volume; outR <<= 3;
+        s32[0] = outR; s32[1] = outL;
+    }
+//    pio_sm_put_blocking(i2s_config.pio, i2s_config.sm, s32);
+    i2s_dma_write(&i2s_config, s32);
 #else
-    uint16_t o = 0;
-    pwm_set_gpio_level(PWM_PIN0, o); // Право
-    pwm_set_gpio_level(PWM_PIN1, o); // Лево
-    #if BEEPER_PIN
-        pwm_set_gpio_level(BEEPER_PIN, o); // Beeper
-    #endif
-    m_let_process_it = false;
+        outL *= volume; outL >>= 3;
+        outR *= volume; outR >>= 3;
+    }
+    pwm_set_gpio_level(PWM_PIN0, outL); // Лево
+    pwm_set_gpio_level(PWM_PIN1, outR); // Право
 #endif
 }
 
@@ -231,35 +241,24 @@ void close_all(void) {
 /// size - bytes
 void pcm_setup(int hz, size_t size) {
 #ifdef I2S_SOUND
-    if (i2s_config.dma_buf) {
-        pcm_cleanup();
-    }
-    i2s_config.sample_freq = hz;
+    i2s_config.sample_freq = I2S_FREQUENCY;
     i2s_config.channel_count = 2;
-    i2s_config.dma_trans_count = size >> 2;
+    i2s_config.dma_trans_count = 1;
     i2s_init(&i2s_config);
-#else
-    if (m_timer.delay_us) {
-        pcm_cleanup();
-    }
-    m_let_process_it = false;
+#endif
+///    m_let_process_it = false;
     //hz; // 44100;	//44000 //44100 //96000 //22050
 	// negative timeout means exact delay (rather than delay between callbacks)
 	add_repeating_timer_us(-1000000ll / hz, timer_callback, NULL, &m_timer);
-#endif
 }
 
 static uint32_t prev_buffer_start_us = 0;
 
-// size - in 16-bit values count
-void pcm_set_buffer(int16_t* buff, uint8_t channels, size_t size, pcm_end_callback_t cb) {
-    m_cb = cb;
-#ifdef I2S_SOUND
-    i2s_config.channel_count = 2; // let ignore momo for this chip
-    i2s_config.dma_trans_count = size; ///i2s_config.sample_freq / (size << 1); // Number of 32 bits words to transfer
-    i2s_volume(&i2s_config, vol);
-    i2s_dma_write(&i2s_config, buff);
-#else
+// size - in 8-bit values count
+void pcm_set_buffer(uint8_t* buff, uint8_t channels, size_t size, pcm_end_callback_t cb) {
+#ifndef I2S_SOUND
+    pwm_set_gpio_level(BEEPER_PIN, 0);
+#endif
     m_buff = buff;
     m_channels = channels;
     m_size = size * channels;
@@ -267,5 +266,4 @@ void pcm_set_buffer(int16_t* buff, uint8_t channels, size_t size, pcm_end_callba
     prev_buffer_start_us = current_buffer_start_us;
     current_buffer_start_us = time_us_32();
     buffer_us = current_buffer_start_us - prev_buffer_start_us;
-#endif
 }
