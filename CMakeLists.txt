@@ -14,20 +14,25 @@ endif()
 # ====================================================================================
 cmake_minimum_required(VERSION 3.13)
 
-set(I2S ON)
+#set(I2S ON)
 
 #set(SOFTTV ON)
 #set(TFT ON)
+#set(TFT_INV 0)
 #set(ILI9341 ON)
-set(VGA_DRV ON)
-#set(HDMI ON)
+#set(VGA_DRV ON)
+set(HDMI ON)
 
 #set(CPU_MHZ 366)
 #set(CPU_MHZ 372)
-#set(CPU_MHZ 378)
-set(CPU_MHZ 460)
+set(CPU_MHZ 378)
+#set(CPU_MHZ 444)
+#set(CPU_MHZ 460)
 set (PORT_VERSION "1.2.7")
-#set (MURM2 ON)
+
+set (MURM2 ON)
+set (PWM_PIN0 10)
+#set (PWM_PIN0 26)
 
 set(KBDUSB ON)
 
@@ -218,6 +223,7 @@ IF(MURM2)
         TFT_DC_PIN=16
         TFT_DATA_PIN=18
         TFT_CLK_PIN=19
+        TFT_INV=${TFT_INV}
 
         DEFAULT_THROTTLING=0
     )
@@ -271,6 +277,7 @@ ELSE()
         TFT_DC_PIN=10
         TFT_DATA_PIN=12
         TFT_CLK_PIN=13
+        TFT_INV=${TFT_INV}
 
         DEFAULT_THROTTLING=0
     )
@@ -279,7 +286,7 @@ ENDIF()
 
 IF(NOT I2S)
     SET(BUILD_NAME "${BUILD_NAME}-PWM")
-    target_compile_definitions(${PROJECT_NAME} PRIVATE AUDIO_PWM_PIN=26)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE AUDIO_PWM_PIN=${PWM_PIN0})
 ELSEIF(I2S_CS4334)
     target_compile_definitions(${PROJECT_NAME} PRIVATE I2S_CS4334)
     SET(BUILD_NAME "${BUILD_NAME}-CS4334")
@@ -295,7 +302,11 @@ IF(TFT)
         SET(BUILD_NAME "${BUILD_NAME}-ILI9341-${PORT_VERSION}")
         target_compile_definitions(${PROJECT_NAME} PRIVATE ILI9341)
     ELSE()
-        SET(BUILD_NAME "${BUILD_NAME}-ST7789-${PORT_VERSION}")
+        IF(TFT_INV)
+            SET(BUILD_NAME "${BUILD_NAME}-ST7789V-${PORT_VERSION}")
+        ELSE()
+            SET(BUILD_NAME "${BUILD_NAME}-ST7789-${PORT_VERSION}")
+        ENDIF()
     ENDIF()
 ELSEIF(HDMI)
     target_link_libraries(${PROJECT_NAME} PRIVATE hdmi)
