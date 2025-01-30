@@ -108,8 +108,13 @@ esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) 
 static i2s_config_t i2s_config = {
 		.sample_freq = I2S_FREQUENCY, 
 		.channel_count = 2,
+#if BEEPER_PIN == 9
+        .data_pin = BEEPER_PIN,
+        .clock_pin_base = PWM_PIN0,
+#else
 		.data_pin = PWM_PIN0,
 		.clock_pin_base = PWM_PIN1,
+#endif
 		.pio = pio1,
 		.sm = 0,
         .dma_channel = 0,
