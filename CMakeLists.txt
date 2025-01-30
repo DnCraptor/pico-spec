@@ -20,19 +20,19 @@ cmake_minimum_required(VERSION 3.13)
 #set(TFT ON)
 #set(TFT_INV 0)
 #set(ILI9341 ON)
-#set(VGA_DRV ON)
-set(HDMI ON)
+set(VGA_DRV ON)
+#set(HDMI ON)
 
 #set(CPU_MHZ 366)
 #set(CPU_MHZ 372)
-set(CPU_MHZ 378)
+#set(CPU_MHZ 378)
 #set(CPU_MHZ 444)
-#set(CPU_MHZ 460)
-set (PORT_VERSION "1.2.7")
+set(CPU_MHZ 460)
+set (PORT_VERSION "1.2.8")
 
-set (MURM2 ON)
-set (PWM_PIN0 10)
-#set (PWM_PIN0 26)
+#set (MURM2 ON)
+#set (PWM_PIN0 10)
+set (PWM_PIN0 26)
 
 set(KBDUSB ON)
 
@@ -197,14 +197,17 @@ IF(MURM2)
         # PSRAM_MUTEX=1
         PSRAM_SPINLOCK=1
         PSRAM_ASYNC=1
-
-        PSRAM_PIN_CS=18
-        PSRAM_PIN_SCK=19
-        PSRAM_PIN_MOSI=20
-        PSRAM_PIN_MISO=21
+        #PSRAM_PIN_CS=18
+        #PSRAM_PIN_SCK=19
+        #PSRAM_PIN_MOSI=20
+        #PSRAM_PIN_MISO=21
+        PSRAM_PIN_CS=8
+        PSRAM_PIN_SCK=23
+        PSRAM_PIN_MOSI=28
+        PSRAM_PIN_MISO=29
 
         # NES Gamepad
-       # USE_NESPAD
+        USE_NESPAD
         NES_GPIO_CLK=20
         NES_GPIO_LAT=21
         NES_GPIO_DATA=26
