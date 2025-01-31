@@ -35,16 +35,5 @@ esp_err_t pwm_audio_set_volume(int8_t volume);
 void pcm_audio_in_stop(void);
 #endif
 
-/**
- * @brief Write data to play
- *
- * @param lbuf Pointer source data to write for left channel
- * @param rbuf Pointer source data to write for right channel
- * @param len length of data in bytes
- *
- * @return
- *     - ESP_OK Success
- *     - ESP_FAIL Write encounter error
- *     - ESP_ERR_INVALID_ARG  Parameter error
- */
-esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len);
+void pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len);
+void pwm_audio_sync(const uint8_t* lbuf, const uint8_t* rbuf, size_t len);

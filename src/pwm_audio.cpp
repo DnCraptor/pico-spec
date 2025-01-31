@@ -34,30 +34,12 @@ static volatile uint32_t num_samples = 0;
 
 #define MAX_SAMPLES_PER_FRAME 640
 
-esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) {
+void pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) {
     static uint8_t buff1[MAX_SAMPLES_PER_FRAME*2]; // stereo
     static uint8_t buff2[MAX_SAMPLES_PER_FRAME*2];
     static bool is_buff1 = true;
     uint8_t* buff = is_buff1 ? buff1 : buff2;
     is_buff1 = !is_buff1;
-    if (len < MAX_SAMPLES_PER_FRAME / 2) { // W/A
-        memset(buff, 0, sizeof(buff1));
-        size_t j = 0;
-        uint8_t l;
-        uint8_t r;
-        for (size_t i = 0; i < len && j < MAX_SAMPLES_PER_FRAME*2; ++i) {
-            l = lbuf[i] << 1;
-            r = rbuf[i] << 1;
-            buff[j++] = l;
-            buff[j++] = r;
-        }
-        for (; j < MAX_SAMPLES_PER_FRAME*2; ) {
-            buff[j++] = l;
-            buff[j++] = r;
-        }
-        pcm_set_buffer(buff, 2, MAX_SAMPLES_PER_FRAME, NULL);
-        return ESP_OK;
-    }
 # if WAV_FILE
     uint8_t* b8 = (uint8_t*)(is_buff1 ? buff1 : buff2);
     for (size_t i = 0; i < len; ++i) {
@@ -100,7 +82,6 @@ esp_err_t pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) 
     }
 # endif
     pcm_set_buffer(buff, 2, len, NULL);
-    return ESP_OK;
 }
 
 //------------------------------------------------------------
@@ -195,8 +176,10 @@ static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core
 static uint16_t s32[2] = { 0 };
 #endif
 static int32_t outL, outR = 0;
+volatile bool b_sync = false;
 
 void pcm_call() {
+    if (b_sync) return;
     uint32_t ct = time_us_32();
     uint32_t dtf = ct - current_buffer_start_us;
 ///    if (dtf > SOUND_FREQUENCY) goto e;
@@ -271,4 +254,28 @@ void pcm_set_buffer(uint8_t* buff, uint8_t channels, size_t size, pcm_end_callba
     prev_buffer_start_us = current_buffer_start_us;
     current_buffer_start_us = time_us_32();
     buffer_us = current_buffer_start_us - prev_buffer_start_us;
+}
+
+void pwm_audio_sync(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) {
+    b_sync = true;
+    uint8_t volume = vol;
+    for (int i = 0; i < len; ++i) {
+        sleep_ms(3);
+        outL = lbuf[i];
+        outR = rbuf[i];
+#ifdef I2S_SOUND
+        outL *= volume; outL <<= 3;
+        outR *= volume; outR <<= 3;
+        s32[0] = outR; s32[1] = outL;
+        i2s_dma_write(&i2s_config, s32);
+#else
+        outL *= volume; outL >>= 3;
+        outR *= volume; outR >>= 3;
+        pwm_set_gpio_level(PWM_PIN0, outL); // Лево
+        pwm_set_gpio_level(PWM_PIN1, outR); // Право
+#endif
+    }
+    outL = 0;
+    outR = 0;
+    b_sync = false;
 }

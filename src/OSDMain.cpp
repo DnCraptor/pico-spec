@@ -124,7 +124,7 @@ uint8_t OSD::osdMaxCols() { return (OSD_W - (OSD_MARGIN * 2)) / OSD_FONT_W; }
 unsigned short OSD::osdInsideX() { return scrAlignCenterX(OSD_W) + OSD_MARGIN; }
 unsigned short OSD::osdInsideY() { return scrAlignCenterY(OSD_H) + OSD_MARGIN; }
 
-static const uint8_t click48[12]={ 0,8,32,32,32,32,32,32,32,32,8,0 };
+static const uint8_t click48[12] = { 0,8,32,32,32,32,32,32,32,32,8,0 };
 
 static const uint8_t click128[116] = {   0,8,32,32,32,32,32,32,32,32,32,32,32,32,32,32,
                                         32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,
@@ -139,12 +139,12 @@ static const uint8_t click128[116] = {   0,8,32,32,32,32,32,32,32,32,32,32,32,32
 IRAM_ATTR void OSD::click() {
     if (Config::tape_player /*|| Config::real_player*/)
         return; // Disable interface click on tape player mode
-    pwm_audio_set_volume(ESP_VOLUME_MAX);
+///    pwm_audio_set_volume(ESP_VOLUME_MAX);
     if (Z80Ops::is48)
-        pwm_audio_write(click48, click48, 12);
+        pwm_audio_sync(click48, click48, 12);
     else
-        pwm_audio_write(click128, click128, 116);
-    pwm_audio_set_volume(ESPectrum::aud_volume);
+        pwm_audio_sync(click128, click128, 116);
+///    pwm_audio_set_volume(ESPectrum::aud_volume);
     if (CPU::paused) osdCenteredMsg(OSD_PAUSE[Config::lang], LEVEL_INFO, 500);
 }
 
