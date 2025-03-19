@@ -37,3 +37,4 @@ void pcm_audio_in_stop(void);
 
 void pwm_audio_write(const uint8_t* lbuf, const uint8_t* rbuf, size_t len);
 void pwm_audio_sync(const uint8_t* lbuf, const uint8_t* rbuf, size_t len);
+void pwm_audio_lock(bool b);

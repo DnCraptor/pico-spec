@@ -173,7 +173,7 @@ static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core
 
 #ifdef I2S_SOUND
 //static uint32_t s32 = 0;
-static uint16_t s32[2] = { 0 };
+static int16_t s32[2] = { 0 };
 #endif
 static int32_t outL, outR = 0;
 volatile bool b_sync = false;
@@ -254,6 +254,10 @@ void pcm_set_buffer(uint8_t* buff, uint8_t channels, size_t size, pcm_end_callba
     prev_buffer_start_us = current_buffer_start_us;
     current_buffer_start_us = time_us_32();
     buffer_us = current_buffer_start_us - prev_buffer_start_us;
+}
+
+void pwm_audio_lock(bool b) {
+    b_sync = b;
 }
 
 void pwm_audio_sync(const uint8_t* lbuf, const uint8_t* rbuf, size_t len) {

@@ -158,19 +158,17 @@ void i2s_write(const i2s_config_t *i2s_config, const int16_t *samples, const siz
  * i2s_config: I2S context obtained by i2s_get_default_config()
  *     sample: pointer to an array of dma_trans_count x 32 bits samples
  */
-void i2s_dma_write(i2s_config_t *i2s_config, const uint16_t *samples) {
+void i2s_dma_write(i2s_config_t *i2s_config, const int16_t *samples) {
     /* Wait the completion of the previous DMA transfer */
     dma_channel_wait_for_finish_blocking(i2s_config->dma_channel);
     /* Copy samples into the DMA buffer */
 #ifdef AUDIO_PWM_PIN
-    for(uint16_t i=0;i<i2s_config->dma_trans_count*2;i++) {
-           
-            i2s_config->dma_buf[i] = (65536/2+(samples[i]))>>(3+i2s_config->volume);
-
-        }
+    for(uint16_t i = 0; i < i2s_config->dma_trans_count * 2; i++) {
+        i2s_config->dma_buf[i] = (65536 / 2 + (samples[i])) >> (3 + i2s_config->volume);
+    }
 #else
     if (i2s_config->volume == 0) {
-        memcpy(i2s_config->dma_buf, samples, i2s_config->dma_trans_count * sizeof(int32_t));
+        memcpy(i2s_config->dma_buf, samples, i2s_config->dma_trans_count * sizeof(uint32_t));
     } else {
         for (uint16_t i = 0; i < i2s_config->dma_trans_count * 2; i++) {
             i2s_config->dma_buf[i] = samples[i] >> i2s_config->volume;

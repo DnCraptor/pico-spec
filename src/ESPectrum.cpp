@@ -610,19 +610,19 @@ void ESPectrum::setup()
     //=======================================================================================
     // Set samples per frame and AY_emu flag depending on arch
     if (Config::arch == "48K") {
-        samplesPerFrame=ESP_AUDIO_SAMPLES_48; 
+        samplesPerFrame = ESP_AUDIO_SAMPLES_48; 
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;
         AY_emu = Config::AY48;
         Audio_freq = ESP_AUDIO_FREQ_48;
     } else if (Config::arch == "128K" || Config::arch == "ALF") {
         samplesPerFrame=ESP_AUDIO_SAMPLES_128;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
-        AY_emu = true;        
+        AY_emu = Config::AY48;        
         Audio_freq = ESP_AUDIO_FREQ_128;
     } else { /// if (Config::arch == "P512" || Config::arch == "Pentagon") {
         samplesPerFrame = ESP_AUDIO_SAMPLES_PENTAGON;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_PENTAGON;
-        AY_emu = true;        
+        AY_emu = Config::AY48;        
         Audio_freq = ESP_AUDIO_FREQ_PENTAGON;
     }
 
@@ -752,12 +752,12 @@ void ESPectrum::reset()
     } else if (Config::arch == "128K" || Config::arch == "ALF") {
         samplesPerFrame=ESP_AUDIO_SAMPLES_128;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
-        AY_emu = true;        
+        AY_emu = Config::AY48;        
         Audio_freq = ESP_AUDIO_FREQ_128;
     } else { /// if (Config::arch == "Pentagon") {
         samplesPerFrame = ESP_AUDIO_SAMPLES_PENTAGON;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_PENTAGON;
-        AY_emu = true;        
+        AY_emu = Config::AY48;        
         Audio_freq = ESP_AUDIO_FREQ_PENTAGON;
     }
 
@@ -835,12 +835,14 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                 KeytoESP == fabgl::VK_VOLUMEUP || KeytoESP == fabgl::VK_VOLUMEDOWN || KeytoESP == fabgl::VK_VOLUMEMUTE)
             ) {
                 int64_t osd_start = esp_timer_get_time();
+                pwm_audio_lock(true);
                 OSD::do_OSD(KeytoESP, Kbd->isVKDown(fabgl::VK_LALT) || Kbd->isVKDown(fabgl::VK_RALT));
+                pwm_audio_lock(false);
                 Kbd->emptyVirtualKeyQueue();
                 // Set all zx keys as not pressed
                 zxDelay = 15;
                 #ifdef DIRTY_LINES
-                for (int i=0; i < SPEC_H; i++) VIDEO::dirty_lines[i] |= 0x01;
+                for (int i = 0; i < SPEC_H; i++) VIDEO::dirty_lines[i] |= 0x01;
                 #endif // DIRTY_LINES
                 // Refresh border
                 VIDEO::brdnextframe = true;
