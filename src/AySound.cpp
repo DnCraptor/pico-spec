@@ -39,7 +39,6 @@ visit https://zxespectrum.speccy.org/contacto
 #include "AySound.h"
 #include "hardconfig.h"
 #include "ESPectrum.h"
-#include "Config.h"
 
 #define IRAM_ATTR 
 
@@ -286,15 +285,13 @@ IRAM_ATTR void AySound::gen_sound(int sound_bufsize, int bufpos)
 {
 
     int tmpvol;
-    uint8_t *sound_buf_r = SamplebufAY_L + bufpos;
-    uint8_t *sound_buf_l = SamplebufAY_R + bufpos;
-    bool acb = Config::ayConfig;
+    uint8_t *sound_buf = SamplebufAY + bufpos;
+
     // int snd_numcount = sound_bufsize / (sndfmt.channels * (sndfmt.bpc >> 3));
     // while (snd_numcount-- > 0) {
     while (sound_bufsize-- > 0) {        
 
         int mix_l = 0;
-        int mix_r = 0;
         
         for (int m = 0 ; m < ChipTacts_per_outcount ; m++) {
 
@@ -322,6 +319,60 @@ IRAM_ATTR void AySound::gen_sound(int sound_bufsize, int bufpos)
             }
             /* End of GenNoise (c) Hacker KAY & Sergey Bulba */
 
+            // /* GenNoise (c) SoftSpectrum 48 */
+            // if (++cnt_n >= (ayregs.noise * 2)) {
+            //     cnt_n = 0;
+            //     // The algorithm is explained in the Fuse source:
+            //     // The Random Number Generator of the 8910 is a 17-bit shift
+            //     // register. The input to the shift register is bit0 XOR bit3
+            //     // (bit0 is the output). This was verified on AY-3-8910 and YM2149 chips.
+            //     // The following is a fast way to compute bit17 = bit0^bit3
+            //     // Instead of doing all the logic operations, we only check
+            //     // bit0, relying on the fact that after three shifts of the
+            //     // register, what now is bit3 will become bit0, and will
+            //     // invert, if necessary, bit14, which previously was bit17
+            //     if ((Cur_Seed & 1) == 1)
+            //     {
+            //         Cur_Seed ^= 0x24000;
+            //     }
+            //     Cur_Seed >>= 1;
+            //     bit_n = Cur_Seed & 1;
+            // }
+            // /* End of GenNoise (c) SoftSpectrum 48 */
+
+            // // /* GenNoise (c) JSpeccy */
+            // if (++cnt_n >= period_n) {
+
+            //     cnt_n = 0;
+            //      // Changes to R6 take effect only when internal counter reaches 0
+            //     period_n = ayregs.noise;
+            //     if (period_n == 0) {
+            //         period_n = 1;
+            //     }
+            //     period_n <<= 1;
+
+            //     // Code borrowed from MAME sources
+            //     /* Is noise output going to change? */
+            //     if (((Cur_Seed + 1) & 0x02) != 0) { /* (bit0^bit1)? */
+            //         bit_n = !bit_n;
+            //     }
+
+            //     /* The Random Number Generator of the 8910 is a 17-bit shift */
+            //     /* register. The input to the shift register is bit0 XOR bit3 */
+            //     /* (bit0 is the output). This was verified on AY-3-8910 and YM2149 chips. */
+            //     /* The following is a fast way to compute bit17 = bit0^bit3. */
+            //     /* Instead of doing all the logic operations, we only check */
+            //     /* bit0, relying on the fact that after three shifts of the */
+            //     /* register, what now is bit3 will become bit0, and will */
+            //     /* invert, if necessary, bit14, which previously was bit17. */
+            //     if ((Cur_Seed & 0x01) != 0) {
+            //         Cur_Seed ^= 0x24000; /* This version is called the "Galois configuration". */
+            //     }
+            //     Cur_Seed >>= 1;
+            //     // End of Code borrowed from MAME sources
+            // }
+            // // /* End of GenNoise (c) JSpeccy */            
+
             if (++cnt_e >= ayregs.env_freq) {
                 cnt_e = 0;
                 if (++env_pos > 127)
@@ -332,29 +383,22 @@ IRAM_ATTR void AySound::gen_sound(int sound_bufsize, int bufpos)
 
             if ((bit_a | !ayregs.R7_tone_a) & (bit_n | !ayregs.R7_noise_a)) {
                 tmpvol = (ayregs.env_a) ? ENVVOL : Rampa_AY_table[ayregs.vol_a];
-                auto v = table[tmpvol];
-                mix_l += v << 1;
-                mix_r += v >> 1;
+                mix_l += table[tmpvol];
             }
 
             if ((bit_b | !ayregs.R7_tone_b) & (bit_n | !ayregs.R7_noise_b)) {
                 tmpvol = (ayregs.env_b) ? ENVVOL : Rampa_AY_table[ayregs.vol_b];
-                auto v = table[tmpvol] * 2;
-                mix_l += acb ? v >> 1 : v;
-                mix_r += acb ? v << 1 : v;
+                mix_l += table[tmpvol];
             }
             
             if ((bit_c | !ayregs.R7_tone_c) & (bit_n | !ayregs.R7_noise_c)) {
                 tmpvol = (ayregs.env_c) ? ENVVOL : Rampa_AY_table[ayregs.vol_c];
-                auto v = table[tmpvol];
-                mix_l += acb ? v : v >> 1;
-                mix_r += acb ? v : v << 1;
+                mix_l += table[tmpvol];
             }            
 
         }
         
-        *sound_buf_l++ = mix_l / Amp_Global;
-        *sound_buf_r++ = mix_r / Amp_Global;
+        *sound_buf++ = mix_l / Amp_Global;
 
     }
 

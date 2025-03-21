@@ -82,7 +82,9 @@ fabgl::VirtualKey get_last_key_pressed(void) {
     return last_key_pressed;
 }
 
-void close_all(void);
+void close_all(void) {
+    /// TODO:
+}
 
 void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
     static bool ctrlPressed = false;
@@ -146,8 +148,7 @@ void repeat_handler(void) {
 //=======================================================================================
 // AUDIO
 //=======================================================================================
-uint8_t ESPectrum::audioBuffer_L[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
-uint8_t ESPectrum::audioBuffer_R[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
+uint8_t ESPectrum::audioBuffer[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
 uint32_t ESPectrum::overSamplebuf[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
 signed char ESPectrum::aud_volume = ESP_VOLUME_DEFAULT;
 // signed char ESPectrum::aud_volume = ESP_VOLUME_MAX; // For .tap player test
@@ -734,12 +735,9 @@ void ESPectrum::reset()
 
     // Empty audio buffers
     memset(overSamplebuf, 0, sizeof(overSamplebuf));
-    memset(audioBuffer_L, 0, sizeof(audioBuffer_L));
-    memset(audioBuffer_R, 0, sizeof(audioBuffer_R));
-    memset(chip0.SamplebufAY_L, 0, sizeof(chip0.SamplebufAY_L));
-    memset(chip0.SamplebufAY_R, 0, sizeof(chip0.SamplebufAY_R));
-    memset(chip1.SamplebufAY_L, 0, sizeof(chip1.SamplebufAY_L));
-    memset(chip1.SamplebufAY_R, 0, sizeof(chip1.SamplebufAY_R));
+    memset(audioBuffer, 0, sizeof(audioBuffer));
+    memset(chip0.SamplebufAY, 0, sizeof(chip0.SamplebufAY));
+    memset(chip1.SamplebufAY, 0, sizeof(chip1.SamplebufAY));
     lastaudioBit=0;
 
     // Set samples per frame and AY_emu flag depending on arch
@@ -835,9 +833,7 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                 KeytoESP == fabgl::VK_VOLUMEUP || KeytoESP == fabgl::VK_VOLUMEDOWN || KeytoESP == fabgl::VK_VOLUMEMUTE)
             ) {
                 int64_t osd_start = esp_timer_get_time();
-                pwm_audio_lock(true);
                 OSD::do_OSD(KeytoESP, Kbd->isVKDown(fabgl::VK_LALT) || Kbd->isVKDown(fabgl::VK_RALT));
-                pwm_audio_lock(false);
                 Kbd->emptyVirtualKeyQueue();
                 // Set all zx keys as not pressed
                 zxDelay = 15;
@@ -1084,51 +1080,30 @@ void ESPectrum::loop() {
       int32_t t_us = Config::throtling * 1000l;
       if (!t_us || idle > t_us) {
         // Finish fill of beeper oversampled audio buffers
-        for (;faudbufcnt < (samplesPerFrame * audioSampleDivider); ++faudbufcnt) {
+        for (;faudbufcnt < (samplesPerFrame * audioSampleDivider); faudbufcnt++) {
             audioBitBuf += faudioBit;
             if(++audioBitbufCount == audioSampleDivider) {
                 overSamplebuf[audbufcntover++] = audioBitBuf;
                 audioBitBuf = 0;
-                audioBitbufCount = 0;
+                audioBitbufCount = 0; 
             }
         }
         if (AY_emu) {
-            bool ts = Config::turbosound;
             if (faudbufcntAY < samplesPerFrame) {
-                chip0.gen_sound(samplesPerFrame - faudbufcntAY, faudbufcntAY);
-                if (ts)
-                    chip1.gen_sound(samplesPerFrame - faudbufcntAY, faudbufcntAY);
+                chip0.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
+                chip1.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
             }
-            if (ts) {
-                for (int i = 0; i < samplesPerFrame; ++i) {
-                    auto os = overSamplebuf[i] / audioSampleDivider;
-                    int l = os + chip0.SamplebufAY_L[i] + chip1.SamplebufAY_L[i];
-                    int r = os + chip0.SamplebufAY_R[i] + chip1.SamplebufAY_R[i];
-                    // Clamp
-                    audioBuffer_L[i] = l > 255 ? 255 : l;
-                    audioBuffer_R[i] = r > 255 ? 255 : r;
-                }
-            } else {
-                for (int i = 0; i < samplesPerFrame; ++i) {
-                    auto os = overSamplebuf[i] / audioSampleDivider;
-                    int l = os + chip0.SamplebufAY_L[i];
-                    int r = os + chip0.SamplebufAY_R[i];
-                    // Clamp
-                    audioBuffer_L[i] = l > 255 ? 255 : l;
-                    audioBuffer_R[i] = r > 255 ? 255 : r;
-                }
+            for (int i = 0; i < samplesPerFrame; i++) {
+                int beeper = (overSamplebuf[i] / audioSampleDivider) + chip0.SamplebufAY[i];
+                beeper += chip1.SamplebufAY[i];
+                audioBuffer[i] = beeper > 255 ? 255 : beeper; // Clamp
             }
         } else {
-            for (int i = 0; i < samplesPerFrame; ++i) {
-                auto v = overSamplebuf[i] / audioSampleDivider;
-                audioBuffer_L[i] = v;
-                audioBuffer_R[i] = v;
+            for (int i = 0; i < samplesPerFrame; i++) {
+                audioBuffer[i] = overSamplebuf[i] / audioSampleDivider;
             }
         }
-        pwm_audio_write(audioBuffer_L, audioBuffer_R, samplesPerFrame);
-        memset(audioBuffer_L, 0, samplesPerFrame);
-        memset(audioBuffer_R, 0, samplesPerFrame);
-        memset(overSamplebuf, 0, samplesPerFrame);
+        pwm_audio_write((uint8_t *) audioBuffer, samplesPerFrame, 0, 0);
       }
     }
     processKeyboard();

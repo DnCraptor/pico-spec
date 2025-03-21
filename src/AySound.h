@@ -158,8 +158,7 @@ public:
     void prepare_generation();
     void gen_sound(int bufsize, int bufpos);
 
-    uint8_t SamplebufAY_L[ESP_AUDIO_SAMPLES_PENTAGON];
-    uint8_t SamplebufAY_R[ESP_AUDIO_SAMPLES_PENTAGON];
+    uint8_t SamplebufAY[ESP_AUDIO_SAMPLES_PENTAGON];
 
 private:
 

@@ -139,12 +139,12 @@ static const uint8_t click128[116] = {   0,8,32,32,32,32,32,32,32,32,32,32,32,32
 IRAM_ATTR void OSD::click() {
     if (Config::tape_player /*|| Config::real_player*/)
         return; // Disable interface click on tape player mode
-///    pwm_audio_set_volume(ESP_VOLUME_MAX);
-///    if (Z80Ops::is48)
-///        pwm_audio_sync(click48, click48, 12);
-///    else
-///        pwm_audio_sync(click128, click128, 116);
-///    pwm_audio_set_volume(ESPectrum::aud_volume);
+    pwm_audio_set_volume(ESP_VOLUME_MAX);
+    if (Z80Ops::is48)
+        pwm_audio_write((uint8_t *) click48, 12, 0, 0);
+    else
+        pwm_audio_write((uint8_t *) click128, 116, 0, 0);
+    pwm_audio_set_volume(ESPectrum::aud_volume);
     if (CPU::paused) osdCenteredMsg(OSD_PAUSE[Config::lang], LEVEL_INFO, 500);
 }
 
