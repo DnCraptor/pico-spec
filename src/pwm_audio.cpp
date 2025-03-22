@@ -102,16 +102,12 @@ static volatile uint8_t m_channels = 0;
 static volatile size_t m_off = 0; // in 16-bit words
 static volatile size_t m_size = 0; // 16-bit values prepared (available)
 static volatile bool m_let_process_it = false;
-static bool ibuff[640];
-static volatile uint16_t ibuff_off;
-static volatile uint16_t obuff_off;
 
 #if LOAD_WAV_PIO
 static LoadWavStream* lws = 0;
 
 bool pcm_data_in(void) {
-    if (obuff_off >= sizeof(ibuff)) obuff_off = 0;
-    return ibuff[obuff_off++];
+    return lws ? lws->get_in_sample() : false;
 }
 // reset input buffer to start on each frame started
 void pwm_audio_in_frame_started(void) {
@@ -127,10 +123,8 @@ void pcm_audio_in_stop(void) {
 static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core#1?
     m_let_process_it = true;
 #if LOAD_WAV_PIO
-    if (Config::real_player) {
-        ///Tape::tapeEarBit =
-        if (ibuff_off >= sizeof(ibuff)) ibuff_off = 0;
-        ibuff[ibuff_off++] = hw_get_bit_LOAD();
+    if (lws && Config::real_player) {
+        lws->tick();
     }
 #endif
     return true;
