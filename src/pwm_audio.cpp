@@ -142,17 +142,10 @@ void pcm_call() {
     m_let_process_it = false;
  #ifdef I2S_SOUND
     static int16_t v32[2];
-    if (m_channels && m_buff && m_off < m_size) {
-        volatile int16_t* b = m_buff + m_off;
-        int16_t x = *b;
-        v32[0] = x;
+    if (m_off < m_size) {
+        v32[0] = *(buff_L + m_off);
+        v32[1] = *(buff_R + m_off);
         ++m_off;
-        if (m_channels == 2) {
-            ++b;
-            x = *b;
-            ++m_off;
-        }
-        v32[1] = x;
     } else {
         v32[0] = 0;
         v32[1] = 0;
