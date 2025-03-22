@@ -4,7 +4,6 @@ void init_sound();
 void pcm_setup(int hz, size_t size);
 void pcm_cleanup(void);
 typedef volatile int16_t* (*pcm_end_callback_t)(volatile size_t* size);
-void pcm_set_buffer(int16_t* buff, uint8_t channels, size_t size, pcm_end_callback_t cb);
 // internal call on core#1
 void pcm_call();
 bool pcm_data_in(void);
@@ -52,4 +51,10 @@ esp_err_t pwm_audio_set_volume(int8_t volume);
  *     - ESP_FAIL Write encounter error
  *     - ESP_ERR_INVALID_ARG  Parameter error
  */
-esp_err_t pwm_audio_write(uint8_t *inbuf, size_t len, size_t *bytes_written, uint32_t wait_ms);
+esp_err_t pwm_audio_write(
+    uint8_t *bufL,
+    uint8_t *bufR,
+    size_t len,
+    size_t *bytes_written,
+    uint32_t wait_ms
+);

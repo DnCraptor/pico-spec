@@ -39,6 +39,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "AySound.h"
 #include "hardconfig.h"
 #include "ESPectrum.h"
+#include "Config.h"
 
 #define IRAM_ATTR 
 
@@ -285,13 +286,15 @@ IRAM_ATTR void AySound::gen_sound(int sound_bufsize, int bufpos)
 {
 
     int tmpvol;
-    uint8_t *sound_buf = SamplebufAY + bufpos;
+    uint8_t *sound_buf_L = SamplebufAY_L + bufpos;
+    uint8_t *sound_buf_R = SamplebufAY_R + bufpos;
 
     // int snd_numcount = sound_bufsize / (sndfmt.channels * (sndfmt.bpc >> 3));
     // while (snd_numcount-- > 0) {
     while (sound_bufsize-- > 0) {        
 
         int mix_l = 0;
+        int mix_r = 0;
         
         for (int m = 0 ; m < ChipTacts_per_outcount ; m++) {
 
@@ -383,22 +386,37 @@ IRAM_ATTR void AySound::gen_sound(int sound_bufsize, int bufpos)
 
             if ((bit_a | !ayregs.R7_tone_a) & (bit_n | !ayregs.R7_noise_a)) {
                 tmpvol = (ayregs.env_a) ? ENVVOL : Rampa_AY_table[ayregs.vol_a];
-                mix_l += table[tmpvol];
+                mix_l += table[tmpvol]; // ABC/ACB - A in L-channel
             }
 
             if ((bit_b | !ayregs.R7_tone_b) & (bit_n | !ayregs.R7_noise_b)) {
                 tmpvol = (ayregs.env_b) ? ENVVOL : Rampa_AY_table[ayregs.vol_b];
-                mix_l += table[tmpvol];
+                if (Config::ayConfig) {
+                    // ABC - 50% of sygnal in each channel
+                    int v = table[tmpvol] >> 1;
+                    mix_l += v;
+                    mix_r += v;
+                } else {
+                    mix_r += table[tmpvol]; // ACB - B in R-channel
+                }
             }
             
             if ((bit_c | !ayregs.R7_tone_c) & (bit_n | !ayregs.R7_noise_c)) {
                 tmpvol = (ayregs.env_c) ? ENVVOL : Rampa_AY_table[ayregs.vol_c];
-                mix_l += table[tmpvol];
+                if (Config::ayConfig) {
+                    mix_r += table[tmpvol]; // ABC - C in R-channel
+                } else {
+                    // ACB - 50% of sygnal in each channel
+                    int v = table[tmpvol] >> 1;
+                    mix_l += v;
+                    mix_r += v;
+                }
             }            
 
         }
         
-        *sound_buf++ = mix_l / Amp_Global;
+        *sound_buf_L++ = mix_l / Amp_Global;
+        *sound_buf_R++ = mix_r / Amp_Global;
 
     }
 

@@ -30,14 +30,27 @@ volatile int16_t* pcm_end_callback(volatile size_t* size) {
     return NULL;
 }
 
-static int16_t buff[640] = { 0 };
+static int16_t buff_L[640] = { 0 };
+static int16_t buff_R[640] = { 0 };
+static repeating_timer_t m_timer = { 0 };
+static volatile size_t m_off = 0; // in 16-bit words
+static volatile size_t m_size = 0; // 16-bit values prepared (available)
+static volatile bool m_let_process_it = false;
 
-esp_err_t pwm_audio_write(uint8_t *inbuf, size_t len, size_t* bytes_written, uint32_t wait_ms) {
+esp_err_t pwm_audio_write(
+    uint8_t *bufL,
+    uint8_t *bufR,
+    size_t len,
+    size_t* bytes_written,
+    uint32_t wait_ms
+) {
     int16_t volume = vol;
     for (size_t i = 0; i < len; ++i) {
-        buff[i] = (((int16_t)inbuf[i]) << 7) * volume / VOLUME_0DB;
+        buff_L[i] = (((int16_t)bufL[i]) << 7) * volume / VOLUME_0DB;
+        buff_R[i] = (((int16_t)bufR[i]) << 7) * volume / VOLUME_0DB;
     }
-    pcm_set_buffer(buff, 1, len, NULL);
+    m_off = 0;
+    m_size = len;
     if (bytes_written) *bytes_written = len;
     return ESP_OK;
 }
@@ -87,21 +100,13 @@ void init_sound() {
 #else
     PWM_init_pin(PWM_PIN0, (1 << 8) - 1);
     PWM_init_pin(PWM_PIN1, (1 << 8) - 1);
-    PWM_init_pin(BEEPER_PIN, (1 << 8) - 1);
+   /// PWM_init_pin(BEEPER_PIN, (1 << 8) - 1);
 #endif
 #ifdef LOAD_WAV_PIO
     //пин ввода звука
     inInit(LOAD_WAV_PIO);
 #endif
 }
-
-static repeating_timer_t m_timer = { 0 };
-static volatile pcm_end_callback_t m_cb = NULL;
-static volatile int16_t* m_buff = NULL;
-static volatile uint8_t m_channels = 0;
-static volatile size_t m_off = 0; // in 16-bit words
-static volatile size_t m_size = 0; // 16-bit values prepared (available)
-static volatile bool m_let_process_it = false;
 
 #if LOAD_WAV_PIO
 static LoadWavStream* lws = 0;
@@ -157,32 +162,20 @@ void pcm_call() {
 #else
     uint16_t outL = 0;
     uint16_t outR = 0;
-    if (m_channels && m_buff && m_off < m_size) {
-        volatile int16_t* b = m_buff + m_off;
-        uint32_t x = ((int32_t)*b) + 0x8000;
+    if (m_off < m_size) {
+        int16_t* b_L = buff_L + m_off;
+        int16_t* b_R = buff_R + m_off;
+        uint32_t x = ((int32_t)*b_L) + 0x8000;
         outL = x >> 8; // 4
         ++m_off;
-        if (m_channels == 2) {
-            ++b;
-            x = ((int32_t)*b) + 0x8000;
-            outR = x >> 8;///4;
-            ++m_off;
-        } else {
-            outR = outL;
-        }
+        x = ((int32_t)*b_R) + 0x8000;
+        outR = x >> 8;///4;
     } else {
         return;
     }
     pwm_set_gpio_level(PWM_PIN0, outR); // Право
     pwm_set_gpio_level(PWM_PIN1, outL); // Лево
-    if (m_channels == 1) {
-        pwm_set_gpio_level(BEEPER_PIN, outL); // Beeper
-    }
 #endif
-    if (m_cb && m_off >= m_size) {
-        m_buff = m_cb(&m_size);
-        m_off = 0;
-    }
     return;
 }
 
@@ -197,7 +190,7 @@ void pcm_cleanup(void) {
     uint16_t o = 0;
     pwm_set_gpio_level(PWM_PIN0, o); // Право
     pwm_set_gpio_level(PWM_PIN1, o); // Лево
-    pwm_set_gpio_level(BEEPER_PIN, o); // Beeper
+///    pwm_set_gpio_level(BEEPER_PIN, o); // Beeper
 #endif
 }
 
@@ -220,16 +213,4 @@ void pcm_setup(int hz, size_t size) {
     //hz; // 44100;	//44000 //44100 //96000 //22050
 	// negative timeout means exact delay (rather than delay between callbacks)
 	add_repeating_timer_us(-1000000 / hz, timer_callback, NULL, &m_timer);
-}
-
-// size - in 16-bit values count
-void pcm_set_buffer(int16_t* buff, uint8_t channels, size_t size, pcm_end_callback_t cb) {
-    m_cb = cb;
-    m_buff = buff;
-    m_channels = channels;
-    m_size = size;
-    m_off = 0;
-    if (m_size != size) {
-        m_size = size;
-    }
 }

@@ -148,7 +148,8 @@ void repeat_handler(void) {
 //=======================================================================================
 // AUDIO
 //=======================================================================================
-uint8_t ESPectrum::audioBuffer[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
+uint8_t ESPectrum::audioBuffer_L[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
+uint8_t ESPectrum::audioBuffer_R[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
 uint32_t ESPectrum::overSamplebuf[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
 signed char ESPectrum::aud_volume = ESP_VOLUME_DEFAULT;
 // signed char ESPectrum::aud_volume = ESP_VOLUME_MAX; // For .tap player test
@@ -735,9 +736,10 @@ void ESPectrum::reset()
 
     // Empty audio buffers
     memset(overSamplebuf, 0, sizeof(overSamplebuf));
-    memset(audioBuffer, 0, sizeof(audioBuffer));
-    memset(chip0.SamplebufAY, 0, sizeof(chip0.SamplebufAY));
-    memset(chip1.SamplebufAY, 0, sizeof(chip1.SamplebufAY));
+    memset(audioBuffer_L, 0, sizeof(audioBuffer_L));
+    memset(audioBuffer_R, 0, sizeof(audioBuffer_R));
+    memset(chip0.SamplebufAY_L, 0, sizeof(chip0.SamplebufAY_L));
+    memset(chip1.SamplebufAY_R, 0, sizeof(chip1.SamplebufAY_R));
     lastaudioBit=0;
 
     // Set samples per frame and AY_emu flag depending on arch
@@ -1094,16 +1096,19 @@ void ESPectrum::loop() {
                 chip1.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
             }
             for (int i = 0; i < samplesPerFrame; i++) {
-                int beeper = (overSamplebuf[i] / audioSampleDivider) + chip0.SamplebufAY[i];
-                beeper += chip1.SamplebufAY[i];
-                audioBuffer[i] = beeper > 255 ? 255 : beeper; // Clamp
+                int beeper_L = (overSamplebuf[i] / audioSampleDivider) + chip0.SamplebufAY_L[i] + chip1.SamplebufAY_L[i];
+                int beeper_R = (overSamplebuf[i] / audioSampleDivider) + chip0.SamplebufAY_R[i] + chip1.SamplebufAY_R[i];
+                audioBuffer_L[i] = beeper_L > 255 ? 255 : beeper_L; // Clamp
+                audioBuffer_R[i] = beeper_R > 255 ? 255 : beeper_R; // Clamp
             }
         } else {
             for (int i = 0; i < samplesPerFrame; i++) {
-                audioBuffer[i] = overSamplebuf[i] / audioSampleDivider;
+                auto v = overSamplebuf[i] / audioSampleDivider;
+                audioBuffer_L[i] = v;
+                audioBuffer_R[i] = v;
             }
         }
-        pwm_audio_write((uint8_t *) audioBuffer, samplesPerFrame, 0, 0);
+        pwm_audio_write((uint8_t*)audioBuffer_L, (uint8_t*)audioBuffer_R, samplesPerFrame, 0, 0);
       }
     }
     processKeyboard();

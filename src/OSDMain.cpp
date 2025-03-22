@@ -141,9 +141,9 @@ IRAM_ATTR void OSD::click() {
         return; // Disable interface click on tape player mode
     pwm_audio_set_volume(ESP_VOLUME_MAX);
     if (Z80Ops::is48)
-        pwm_audio_write((uint8_t *) click48, 12, 0, 0);
+        pwm_audio_write((uint8_t*) click48, (uint8_t*) click48, 12, 0, 0);
     else
-        pwm_audio_write((uint8_t *) click128, 116, 0, 0);
+        pwm_audio_write((uint8_t*) click128, (uint8_t*) click128, 116, 0, 0);
     pwm_audio_set_volume(ESPectrum::aud_volume);
     if (CPU::paused) osdCenteredMsg(OSD_PAUSE[Config::lang], LEVEL_INFO, 500);
 }
@@ -2091,7 +2091,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                         }
                                     }
                                 }
-                                /*
                                 else if (options_num == 8) {
                                     menu_level = 3;
                                     menu_curopt = 1;                    
@@ -2121,8 +2120,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                         }
                                     }
                                 }
-                                */
-                                else if (options_num == 8) {
+                                else if (options_num == 9) {
                                     menu_level = 3;
                                     menu_curopt = 1;                    
                                     menu_saverect = true;
@@ -2159,7 +2157,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                             menu_curopt = opt2;
                                             menu_saverect = false;
                                         } else {
-                                            menu_curopt = 8;
+                                            menu_curopt = 9;
                                             menu_level = 2;                                       
                                             break;
                                         }
