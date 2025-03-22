@@ -2091,6 +2091,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                         }
                                     }
                                 }
+                                /*
                                 else if (options_num == 8) {
                                     menu_level = 3;
                                     menu_curopt = 1;                    
@@ -2120,7 +2121,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                         }
                                     }
                                 }
-                                else if (options_num == 9) {
+                                */
+                                else if (options_num == 8) {
                                     menu_level = 3;
                                     menu_curopt = 1;                    
                                     menu_saverect = true;
@@ -2157,7 +2159,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                             menu_curopt = opt2;
                                             menu_saverect = false;
                                         } else {
-                                            menu_curopt = 9;
+                                            menu_curopt = 8;
                                             menu_level = 2;                                       
                                             break;
                                         }

@@ -497,7 +497,6 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
     "Second joystick\t>\n"\
     "Kempston joystick port\t>\n"\
     "Throttling\t>\n"\
-    "AY-3-8912 config\t>\n"\
     "TurboSound\t>\n"
 #define MENU_OTHER_ES "Otros\n"\
     "AY-3-8912 ON/OFF\t>\n"\
@@ -507,9 +506,11 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
     "Segunda joystick\t>\n"\
     "Kempston joystick port\t>\n"\
 	"Aceleraci" "\xA2" "n\t>\n"\
-    "Configuraci" "\xA2" "n AY-3-8912\t>\n" \
     "TurboSound\t>\n"
 static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
+
+///"AY-3-8912 config\t>\n"\
+///"Configuraci" "\xA2" "n AY-3-8912\t>\n" \
 
 static const char *MENU_AY48[2] = { "Turned on?\n" , "Turned on?\n"};
 

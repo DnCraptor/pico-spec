@@ -90,7 +90,7 @@ void i2s_init(i2s_config_t *i2s_config) {
     pio_sm_set_enabled(i2s_config->pio, i2s_config->sm, false);
 #endif
     /* Allocate memory for the DMA buffer */
-    i2s_config->dma_buf=malloc(i2s_config->dma_trans_count*sizeof(uint32_t));
+    i2s_config->dma_buf = malloc(i2s_config->dma_trans_count * sizeof(uint32_t));
 
     /* Direct Memory Access setup */
     i2s_config->dma_channel = dma_claim_unused_channel(true);

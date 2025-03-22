@@ -827,7 +827,7 @@ int main() {
     sem_release(&vga_start_semaphore);
 
     init_sound();
-    pcm_setup(SOUND_FREQUENCY, SOUND_FREQUENCY * 2 / 50); // 882 * 2  = 1764
+    pcm_setup(SOUND_FREQUENCY, SOUND_FREQUENCY);
 #ifdef PSRAM
     init_psram();
 #endif

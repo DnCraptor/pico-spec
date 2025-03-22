@@ -44,7 +44,6 @@ esp_err_t pwm_audio_write(uint8_t *inbuf, size_t len, size_t* bytes_written, uin
 
 //------------------------------------------------------------
 #ifdef I2S_SOUND
-#define SOUND_FREQUENCY 44100
 static i2s_config_t i2s_config = {
 		.sample_freq = SOUND_FREQUENCY, 
 		.channel_count = 2,
@@ -84,8 +83,6 @@ static bool hw_get_bit_LOAD() {
 
 void init_sound() {
 #ifdef I2S_SOUND
-    i2s_config.sample_freq = SOUND_FREQUENCY;
-    i2s_config.dma_trans_count = SOUND_FREQUENCY / 100;
     i2s_volume(&i2s_config, 0);
 #else
     PWM_init_pin(PWM_PIN0, (1 << 8) - 1);
@@ -100,13 +97,11 @@ void init_sound() {
 
 static repeating_timer_t m_timer = { 0 };
 static volatile pcm_end_callback_t m_cb = NULL;
-#ifndef I2S_SOUND
 static volatile int16_t* m_buff = NULL;
 static volatile uint8_t m_channels = 0;
 static volatile size_t m_off = 0; // in 16-bit words
 static volatile size_t m_size = 0; // 16-bit values prepared (available)
 static volatile bool m_let_process_it = false;
-#endif
 static bool ibuff[640];
 static volatile uint16_t ibuff_off;
 static volatile uint16_t obuff_off;
@@ -130,9 +125,7 @@ void pcm_audio_in_stop(void) {
 #endif
 
 static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core#1?
-#ifndef I2S_SOUND
     m_let_process_it = true;
-#endif
 #if LOAD_WAV_PIO
     if (Config::real_player) {
         ///Tape::tapeEarBit =
@@ -144,11 +137,30 @@ static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core
 }
 
 void pcm_call() {
-#ifndef I2S_SOUND
     if (!m_let_process_it) {
         return;
     }
     m_let_process_it = false;
+ #ifdef I2S_SOUND
+    static int16_t v32[2];
+    if (m_channels && m_buff && m_off < m_size) {
+        volatile int16_t* b = m_buff + m_off;
+        int16_t x = *b;
+        v32[0] = x;
+        ++m_off;
+        if (m_channels == 2) {
+            ++b;
+            x = *b;
+            ++m_off;
+        }
+        v32[1] = x;
+    } else {
+        v32[0] = 0;
+        v32[1] = 0;
+    }
+    i2s_write(&i2s_config, v32, 1);
+//    i2s_dma_write(&i2s_config, v32);
+#else
     uint16_t outL = 0;
     uint16_t outR = 0;
     if (m_channels && m_buff && m_off < m_size) {
@@ -172,26 +184,26 @@ void pcm_call() {
     if (m_channels == 1) {
         pwm_set_gpio_level(BEEPER_PIN, outL); // Beeper
     }
+#endif
     if (m_cb && m_off >= m_size) {
         m_buff = m_cb(&m_size);
         m_off = 0;
     }
-#endif
     return;
 }
 
 void pcm_cleanup(void) {
+    m_let_process_it = false;
     cancel_repeating_timer(&m_timer);
     m_timer.delay_us = 0;
 #ifdef I2S_SOUND
-    i2s_volume(&i2s_config, 0);
+    i2s_volume(&i2s_config, 16);
     i2s_deinit(&i2s_config);
 #else
     uint16_t o = 0;
     pwm_set_gpio_level(PWM_PIN0, o); // Право
     pwm_set_gpio_level(PWM_PIN1, o); // Лево
     pwm_set_gpio_level(BEEPER_PIN, o); // Beeper
-    m_let_process_it = false;
 #endif
 }
 
@@ -203,28 +215,22 @@ void pcm_setup(int hz, size_t size) {
     }
     i2s_config.sample_freq = hz;
     i2s_config.channel_count = 2;
-    i2s_config.dma_trans_count = size >> 2;
+    i2s_config.dma_trans_count = 1; // TODO: ensure
     i2s_init(&i2s_config);
 #else
     if (m_timer.delay_us) {
         pcm_cleanup();
     }
+#endif
     m_let_process_it = false;
     //hz; // 44100;	//44000 //44100 //96000 //22050
 	// negative timeout means exact delay (rather than delay between callbacks)
 	add_repeating_timer_us(-1000000 / hz, timer_callback, NULL, &m_timer);
-#endif
 }
 
 // size - in 16-bit values count
 void pcm_set_buffer(int16_t* buff, uint8_t channels, size_t size, pcm_end_callback_t cb) {
     m_cb = cb;
-#ifdef I2S_SOUND
-    i2s_config.channel_count = 2; // let ignore momo for this chip
-    i2s_config.dma_trans_count = size; ///i2s_config.sample_freq / (size << 1); // Number of 32 bits words to transfer
-    i2s_volume(&i2s_config, vol);
-    i2s_dma_write(&i2s_config, buff);
-#else
     m_buff = buff;
     m_channels = channels;
     m_size = size;
@@ -232,5 +238,4 @@ void pcm_set_buffer(int16_t* buff, uint8_t channels, size_t size, pcm_end_callba
     if (m_size != size) {
         m_size = size;
     }
-#endif
 }
