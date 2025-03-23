@@ -391,7 +391,7 @@ IRAM_ATTR void AySound::gen_sound(int sound_bufsize, int bufpos)
 
             if ((bit_b | !ayregs.R7_tone_b) & (bit_n | !ayregs.R7_noise_b)) {
                 tmpvol = (ayregs.env_b) ? ENVVOL : Rampa_AY_table[ayregs.vol_b];
-                if (Config::ayConfig) {
+                if (!Config::ayConfig) {
                     // ABC - 50% of sygnal in each channel
                     int v = table[tmpvol] >> 1;
                     mix_l += v;
@@ -403,7 +403,7 @@ IRAM_ATTR void AySound::gen_sound(int sound_bufsize, int bufpos)
             
             if ((bit_c | !ayregs.R7_tone_c) & (bit_n | !ayregs.R7_noise_c)) {
                 tmpvol = (ayregs.env_c) ? ENVVOL : Rampa_AY_table[ayregs.vol_c];
-                if (Config::ayConfig) {
+                if (!Config::ayConfig) {
                     mix_r += table[tmpvol]; // ABC - C in R-channel
                 } else {
                     // ACB - 50% of sygnal in each channel
