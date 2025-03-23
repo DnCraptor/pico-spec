@@ -2101,9 +2101,15 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                         if (prev == 0) {
                                             menu.replace(menu.find("[B",0),2,"[*");
                                             menu.replace(menu.find("[C",0),2,"[ ");
-                                        } else {
+                                            menu.replace(menu.find("[M",0),2,"[ ");
+                                        } else if (prev == 1) {
                                             menu.replace(menu.find("[B",0),2,"[ ");
                                             menu.replace(menu.find("[C",0),2,"[*");
+                                            menu.replace(menu.find("[M",0),2,"[ ");
+                                        } else {
+                                            menu.replace(menu.find("[B",0),2,"[ ");
+                                            menu.replace(menu.find("[C",0),2,"[ ");
+                                            menu.replace(menu.find("[M",0),2,"[*");
                                         }
                                         uint8_t opt2 = menuRun(menu);
                                         if (opt2) {

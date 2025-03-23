@@ -523,7 +523,8 @@ static const char *MENU_KBD2NDPS2[2] = { MENU_KBD2NDPS2_EN, MENU_KBD2NDPS2_ES };
 
 #define MENU_AY_EN "ABC\n"\
     "ABC\t[B]\n"\
-    "ACB\t[C]\n"
+    "ACB\t[C]\n"\
+    "Mono\t[M]\n"
 static const char *MENU_AY[2] = { MENU_AY_EN, MENU_AY_EN };
 
 #define MENU_TS_EN "TurboSound\n"\

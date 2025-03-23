@@ -386,14 +386,24 @@ IRAM_ATTR void AySound::gen_sound(int sound_bufsize, int bufpos)
 
             if ((bit_a | !ayregs.R7_tone_a) & (bit_n | !ayregs.R7_noise_a)) {
                 tmpvol = (ayregs.env_a) ? ENVVOL : Rampa_AY_table[ayregs.vol_a];
-                mix_l += table[tmpvol]; // ABC/ACB - A in L-channel
+                if (Config::ayConfig == 2) { // mono
+                    int v = table[tmpvol];
+                    mix_l += v;
+                    mix_r += v;
+                } else {
+                    mix_l += table[tmpvol]; // ABC/ACB - A in L-channel
+                }
             }
 
             if ((bit_b | !ayregs.R7_tone_b) & (bit_n | !ayregs.R7_noise_b)) {
                 tmpvol = (ayregs.env_b) ? ENVVOL : Rampa_AY_table[ayregs.vol_b];
-                if (!Config::ayConfig) {
+                if (Config::ayConfig == 0) {
                     // ABC - 50% of sygnal in each channel
                     int v = table[tmpvol] >> 1;
+                    mix_l += v;
+                    mix_r += v;
+                } else if (Config::ayConfig == 2) { // mono
+                    int v = table[tmpvol];
                     mix_l += v;
                     mix_r += v;
                 } else {
@@ -403,8 +413,12 @@ IRAM_ATTR void AySound::gen_sound(int sound_bufsize, int bufpos)
             
             if ((bit_c | !ayregs.R7_tone_c) & (bit_n | !ayregs.R7_noise_c)) {
                 tmpvol = (ayregs.env_c) ? ENVVOL : Rampa_AY_table[ayregs.vol_c];
-                if (!Config::ayConfig) {
+                if (Config::ayConfig == 0) {
                     mix_r += table[tmpvol]; // ABC - C in R-channel
+                } else if (Config::ayConfig == 2) { // mono
+                    int v = table[tmpvol];
+                    mix_l += v;
+                    mix_r += v;
                 } else {
                     // ACB - 50% of sygnal in each channel
                     int v = table[tmpvol] >> 1;
