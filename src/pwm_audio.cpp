@@ -146,9 +146,6 @@ void pcm_call() {
         v32[0] = *(buff_R + m_off);
         v32[1] = *(buff_L + m_off);
         ++m_off;
-    } else {
-        v32[0] = 0;
-        v32[1] = 0;
     }
     i2s_write(&i2s_config, v32, 1);
 //    i2s_dma_write(&i2s_config, v32);
