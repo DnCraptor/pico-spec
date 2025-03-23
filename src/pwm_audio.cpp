@@ -143,8 +143,8 @@ void pcm_call() {
  #ifdef I2S_SOUND
     static int16_t v32[2];
     if (m_off < m_size) {
-        v32[0] = *(buff_L + m_off);
-        v32[1] = *(buff_R + m_off);
+        v32[0] = *(buff_R + m_off);
+        v32[1] = *(buff_L + m_off);
         ++m_off;
     } else {
         v32[0] = 0;

@@ -155,10 +155,10 @@ void i2s_deinit(i2s_config_t *i2s_config) {
  *             one for the left channel and one for the right channel
  *        len: length of sample in 32 bits words
  */
-void i2s_write(const i2s_config_t *i2s_config,const int16_t *samples, const size_t len) {
+void i2s_write(const i2s_config_t *i2s_config, const int16_t *samples, const size_t len) {
     for (register size_t i = 0; i < len; ++i) {
-        register uint32_t t = (uint32_t)(samples[i]);
-        register uint32_t v = t << 16 | t;
+        register uint32_t t = *samples++; // (uint32_t)(samples[i]);
+        register uint32_t v = (t << 16) | *samples++; // v
         pio_sm_put_blocking(i2s_config->pio, i2s_config->sm, v);
     }
 }
