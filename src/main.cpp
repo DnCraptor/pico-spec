@@ -796,7 +796,7 @@ int main() {
     sleep_ms(33);
     *qmi_m0_timing = 0x60007204;
     set_sys_clock_khz(CPU_MHZ * KHZ, 0);
-    *qmi_m0_timing = 0x60007303;
+    *qmi_m0_timing = 0x60007204;
 #else
     hw_set_bits(&vreg_and_chip_reset_hw->vreg, VREG_AND_CHIP_RESET_VREG_VSEL_BITS);
     sleep_ms(10);
