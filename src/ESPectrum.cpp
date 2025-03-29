@@ -469,39 +469,7 @@ void ESPectrum::setup()
             Config::save();
         } else {
             if (Config::pref_arch != "Last") Config::arch = Config::pref_arch;
-
-            if (Config::arch == "48K") {
-                if (Config::pref_romSet_48 != "Last") 
-                    Config::romSet = Config::pref_romSet_48;
-                else
-                    Config::romSet = Config::romSet48;            
-            }
-#if !NO_ALF
-            else if (Config::arch == "ALF") {
-                Config::romSet = "ALF";
-            }
-#endif
-            else if (Config::arch == "128K") {
-                if (Config::pref_romSet_128 != "Last")
-                    Config::romSet = Config::pref_romSet_128;
-                else
-                    Config::romSet = Config::romSet128;
-            } else if (Config::arch == "P512") {
-                if (Config::pref_romSetP512 != "Last")
-                    Config::romSet = Config::pref_romSetP512;
-                else
-                    Config::romSet = Config::romSetP512;
-            } else if (Config::arch == "P1024") {
-                if (Config::pref_romSetP1M != "Last")
-                    Config::romSet = Config::pref_romSetP1M;
-                else
-                    Config::romSet = Config::romSetP1M;
-            } else {
-                if (Config::pref_romSetPent != "Last")
-                    Config::romSet = Config::pref_romSetPent;
-                else
-                    Config::romSet = Config::romSetPent;
-            }
+            Config::romSet = "ALF";
         }
     }
 
@@ -551,7 +519,7 @@ void ESPectrum::setup()
     } else {
         MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
         MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);
-        MemESP::ram[6].assign_ram(new unsigned char[0x4000], 6, false);
+        MemESP::ram[6].assign_vram(6); /// TODO: assign_ram(new unsigned char[0x4000], 6, false);
         MemESP::ram[7].assign_ram(new unsigned char[0x4000], 7, true);
     }
 #else
@@ -587,7 +555,7 @@ void ESPectrum::setup()
     MemESP::newSRAM = false;
 
     MemESP::ramContended[0] = false;
-    MemESP::ramContended[1] = Config::arch == "P1024" || Config::arch == "P512" || Config::arch == "Pentagon" ? false : true;
+    MemESP::ramContended[1] = true;
     MemESP::ramContended[2] = false;
     MemESP::ramContended[3] = false;
 
@@ -611,28 +579,11 @@ void ESPectrum::setup()
     // AUDIO
     //=======================================================================================
     // Set samples per frame and AY_emu flag depending on arch
-    if (Config::arch == "48K") {
-        samplesPerFrame = ESP_AUDIO_SAMPLES_48; 
-        audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;
-        AY_emu = Config::AY48;
-        Audio_freq = ESP_AUDIO_FREQ_48;
-    } else if (Config::arch == "128K" || Config::arch == "ALF") {
-        samplesPerFrame=ESP_AUDIO_SAMPLES_128;
-        audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
-        AY_emu = Config::AY48;        
-        Audio_freq = ESP_AUDIO_FREQ_128;
-    } else { /// if (Config::arch == "P512" || Config::arch == "Pentagon") {
-        samplesPerFrame = ESP_AUDIO_SAMPLES_PENTAGON;
-        audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_PENTAGON;
-        AY_emu = Config::AY48;        
-        Audio_freq = ESP_AUDIO_FREQ_PENTAGON;
-    }
-
-    if (Config::tape_player) {
-        AY_emu = false; // Disable AY emulation if tape player mode is set
-        ESPectrum::aud_volume = ESP_VOLUME_MAX;
-    } else
-        ESPectrum::aud_volume = ESP_VOLUME_DEFAULT;
+    samplesPerFrame=ESP_AUDIO_SAMPLES_128;
+    audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
+    AY_emu = Config::AY48;        
+    Audio_freq = ESP_AUDIO_FREQ_128;
+    ESPectrum::aud_volume = ESP_VOLUME_DEFAULT;
 
     ESPoffset = 0;
 

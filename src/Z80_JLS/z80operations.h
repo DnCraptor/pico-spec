@@ -33,12 +33,12 @@ public:
     /* Callback to know when the INT signal is active */
     static bool isActiveINT(void);
 
-    static bool is48;
-    static bool isALF;
-    static bool is128;
-    static bool isPentagon;
-    static bool is512;
-    static bool is1024;
+    static const bool is48;
+    static const bool isALF;
+    static const bool is128;
+    static const bool isPentagon;
+    static const bool is512;
+    static const bool is1024;
 };
 
 #endif // Z80OPERATIONS_H

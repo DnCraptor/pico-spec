@@ -277,9 +277,6 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
 
 #define MENU_MAIN_EN \
     "Snapshot\t>\n"\
-    "Tape\t>\n"\
-    "Betadisk\t>\n"\
-	"Machine\t>\n"\
     "Reset\t>\n"\
     "Options\t>\n"\
     "Debug\t>\n"\
@@ -287,9 +284,6 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
     "About\n"
 #define MENU_MAIN_ES \
     "Snapshots\t>\n"\
-    "Casete\t>\n"\
-    "Betadisk\t>\n"\
-    "Modelo\t>\n"\
     "Resetear\t>\n"\
     "Opciones\t>\n"\
 	"Depurar\t\n"\
@@ -298,17 +292,15 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
 static const char *MENU_MAIN[2] = { MENU_MAIN_EN, MENU_MAIN_ES };
 
 #define MENU_MAIN_NO_SD_EN \
-    "Tape\t>\n"\
-	"Machine\t>\n"\
     "Reset\t>\n"\
     "Options\t>\n"\
+    "Debug\t>\n"\
     "Help\n"\
     "About\n"
 #define MENU_MAIN_NO_SD_ES \
-    "Casete\t>\n"\
-    "Modelo\t>\n"\
     "Resetear\t>\n"\
     "Opciones\t>\n"\
+	"Depurar\t\n"\
     "Ayuda\n"\
     "Acerca de\n"
 static const char *MENU_MAIN_NO_SD[2] = { MENU_MAIN_NO_SD_EN, MENU_MAIN_NO_SD_ES };
@@ -316,8 +308,6 @@ static const char *MENU_MAIN_NO_SD[2] = { MENU_MAIN_NO_SD_EN, MENU_MAIN_NO_SD_ES
 #define MENU_OPTIONS_EN \
     "Options menu\n"\
     "Storage\t>\n"\
-    "Preferred Machine\t>\n"\
-    "Preferred ROM\t>\n"\
     "Joystick\t>\n"\
     "Joystick emulation\t>\n"\
     "Video\t>\n"\
@@ -327,38 +317,24 @@ static const char *MENU_MAIN_NO_SD[2] = { MENU_MAIN_NO_SD_EN, MENU_MAIN_NO_SD_ES
 #define MENU_OPTIONS_ES \
     "Menu opciones\n"\
     "Almacenamiento\t>\n"\
-    "Modelo preferido\t>\n"\
-    "ROM preferida\t>\n"\
     "Joystick\t>\n"\
     "Emulaci" "\xA2" "n joystick\t>\n"\
     "Video\t>\n"\
     "Otros\t>\n"\
     "Idioma\t>\n"\
 	"Actualizar\t>\n"
-static const char *MENU_OPTIONS[2] = { MENU_OPTIONS_EN,MENU_OPTIONS_ES };
+static const char *MENU_OPTIONS[2] = { MENU_OPTIONS_EN, MENU_OPTIONS_ES };
 
 #define MENU_UPDATE_EN \
     "Update\n"\
 	"Firmware        [ALT+F12]\n"\
-	"Custom ROM 48K\n"\
-	"Custom ROM 128k\n"\
-	"Custom ROM Pentagon\n"\
 	"Custom ROM ALF\n"\
-	"Cartridge ROM ALF\n"\
-	"TRDOS ROM\n"\
-	"Main ROM Pentagon bank #0\n"\
-	"Main ROM Pentagon bank #1\n"
+	"Cartridge ROM ALF\n"
 #define MENU_UPDATE_ES \
     "Actualizar\n"\
 	"Firmware        [ALT+F12]\n"\
-	"ROM Custom 48K\n"\
-	"ROM Custom 128k\n"\
-	"ROM Custom Pentagon\n"\
 	"ROM Custom ALF\n"\
-	"ROM Cartridge ALF\n"\
-	"TRDOS ROM\n"\
-	"Main ROM Pentagon bank #0\n"\
-	"Main ROM Pentagon bank #1\n"
+	"ROM Cartridge ALF\n"
 static const char *MENU_UPDATE_FW[2] = { MENU_UPDATE_EN, MENU_UPDATE_ES };
 
 #define MENU_UPDATE_NO_SD_EN \
@@ -372,12 +348,10 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 #define MENU_VIDEO_EN \
     "Video\n"\
     "Render type\t>\n"\
-    "Aspect Ratio\t>\n"\
     "Scanlines\t>\n"
 #define MENU_VIDEO_ES \
     "Video\n"\
     "Tipo render\t>\n"\
-	"Relaci" "\xA2" "n de aspecto\t>\n"\
     "Scanlines\t>\n"
 static const char *MENU_VIDEO[2] = { MENU_VIDEO_EN, MENU_VIDEO_ES };
 
@@ -568,14 +542,6 @@ static const char *MENU_ISSUE2[2] = { "48K Issue 2\n", "48K Issue 2\n"};
 
 #define MENU_ARCH_ES "Elija modelo\n"
 
-#if NO_ALF
-#define MENU_ARCHS \
-    "Spectrum 48K\t>\n"\
-    "Spectrum 128K\t>\n"\
-	"Pentagon 128K\t>\n"\
-	"Pentagon 512K\t>\n"\
-	"Pentagon 1024K\t>\n"
-#else
 #define MENU_ARCHS \
     "Spectrum 48K\t>\n"\
     "Spectrum 128K\t>\n"\
@@ -583,21 +549,13 @@ static const char *MENU_ISSUE2[2] = { "48K Issue 2\n", "48K Issue 2\n"};
 	"Pentagon 512K\t>\n"\
 	"Pentagon 1024K\t>\n"\
 	"ALF TV GAME\n"
-#endif
 static const char *MENU_ARCH[2] = { MENU_ARCH_EN MENU_ARCHS, MENU_ARCH_ES MENU_ARCHS };
 
-#if NO_ALF
-#define MENU_ARCHS_NO_SD \
-    "Spectrum 48K\t>\n"\
-    "Spectrum 128K\t>\n"\
-	"Pentagon 128K\t>\n"
-#else
 #define MENU_ARCHS_NO_SD \
     "Spectrum 48K\t>\n"\
     "Spectrum 128K\t>\n"\
 	"Pentagon 128K\t>\n"\
 	"ALF TV GAME\n"
-#endif
 static const char *MENU_ARCH_NO_SD[2] = { MENU_ARCH_EN MENU_ARCHS_NO_SD, MENU_ARCH_ES MENU_ARCHS_NO_SD };
 
 #if NO_SPAIN_ROM_48k
@@ -670,7 +628,8 @@ static const char *MENU_ROMS_SCORP[2] = { MENU_ROMS_SCORP_EN, MENU_ROMS_SCORP_ES
     "Spectrum 128K\t[1]\n"\
 	"Pentagon 128K\t[P]\n"\
 	"Pentagon 512K\t[5]\n"\
-	"Pentagon 1024K\t[2]\n"
+	"Pentagon 1024K\t[2]\n"\
+	"ALF TV GAME[A]\n"
 static const char *MENU_ARCH_PREF[2] = {
 	"Preferred machine\n" MENU_ARCHS_PREF "Last used\t[L]\n",
 	"Modelo preferido\n" MENU_ARCHS_PREF "Ultimo utilizado\t[L]\n"
@@ -681,7 +640,8 @@ static const char *MENU_ARCH_PREF[2] = {
     "Spectrum 128K\t>\n"\
     "Pentagon 128K\t>\n"\
     "Pentagon 512K\t>\n"\
-    "Pentagon 1024K\t>\n"
+    "Pentagon 1024K\t>\n"\
+	"ALF TV GAME\n"
 static const char *MENU_ROM_PREF[2] = {
   "Preferred ROM\n" MENU_ROMS_PREF,
   "ROM preferida\n" MENU_ROMS_PREF
@@ -1035,11 +995,11 @@ static const char *AboutMsg[2][9] = {
     " [ALT+F1]     Hardware info\n"\
     " [ALT+F2]     Turbo mode\n"\
     " [ALT+F5]     Debug\n"\
-    " [ALT+F6]     Insert disk\n"\
+    " \n"\
     " [ALT+F9]     Input poke\n"\
     " [ALT+F10]    NMI\n"\
     " [Pause]      Pause\n"\
-    " [PrtScr]     BMP capture (/spec/.c)\n"
+    " [PrtScr]     BMP capture (/alf/.c)\n"
 
 #define OSD_HELP_ES \
     " [F1]         Menu principal\n"\
@@ -1055,11 +1015,11 @@ static const char *AboutMsg[2][9] = {
     " [ALT+F1]     Info hardware\n"\
     " [ALT+F2]     Modo turbo\n"\
     " [ALT+F5]     Depurar\n"\
-    " [ALT+F6]     Insertar disco\n"\
+    " \n"\
     " [ALT+F9]     Introducir poke\n"\
     " [ALT+F10]    NMI\n"\
     " [Pause]      Pausa\n"\
-    " [ImpPant]    Captura BMP (/spec/.c)\n"
+    " [ImpPant]    Captura BMP (/alf/.c)\n"
 #else
 #define OSD_HELP_EN \
     " [F1]         Main menu\n"\
@@ -1075,11 +1035,11 @@ static const char *AboutMsg[2][9] = {
     " [ALT+F1]     Hardware info\n"\
     " [ALT+F2]     Turbo mode\n"\
     " [ALT+F5]     Debug\n"\
-    " [ALT+F6]     Insert disk\n"\
+    " \n"\
     " [ALT+F9]     Input poke\n"\
     " [ALT+F10]    NMI\n"\
     " [Pause]      Pause\n"\
-    " [PrtScr]     BMP capture (/spec/.c)\n"
+    " [PrtScr]     BMP capture (/alf/.c)\n"
 
 #define OSD_HELP_ES \
     " [F1]         Menu principal\n"\
@@ -1095,11 +1055,11 @@ static const char *AboutMsg[2][9] = {
     " [ALT+F1]     Info hardware\n"\
     " [ALT+F2]     Modo turbo\n"\
     " [ALT+F5]     Depurar\n"\
-    " [ALT+F6]     Insertar disco\n"\
+    " \n"\
     " [ALT+F9]     Introducir poke\n"\
     " [ALT+F10]    NMI\n"\
     " [Pause]      Pausa\n"\
-    " [ImpPant]    Captura BMP (/spec/.c)\n"
+    " [ImpPant]    Captura BMP (/alf/.c)\n"
 #endif
 
 #define OSD_DBG_HELP_EN \

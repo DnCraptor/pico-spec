@@ -356,19 +356,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
         if (KeytoESP == fabgl::VK_F10) { // NMI
             Z80::triggerNMI();
         }
-        else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F6) {
-            menu_level = 0; 
-            menu_saverect = false;  
-            string mFile = fileDialog(FileUtils::DSK_Path, MENU_DSK_TITLE[Config::lang], DISK_DSKFILE, 51, 22);
-            if (mFile != "") {
-                Config::save();
-                mFile.erase(0, 1);
-                string fname = FileUtils::DSK_Path + "/" + mFile;
-                ESPectrum::Betadisk.EjectDisk(0);
-                ESPectrum::Betadisk.InsertDisk(0, fname);
-            }
-            if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
-        }
         else if (KeytoESP == fabgl::VK_F12) {
             /// TODO: close all files
             //close_all()
@@ -645,394 +632,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
             } 
             else if (FileUtils::fsMount && opt == 2 || opt == 1) {
                 // ***********************************************************************************
-                // TAPE MENU
-                // ***********************************************************************************
-                menu_saverect = true;
-                menu_curopt = 1;
-                while(1) {
-                    menu_level = 1;
-                    // Tape menu
-                    uint8_t tap_num = menuRun(FileUtils::fsMount ? MENU_TAPE[Config::lang] : MENU_TAPE_NO_SD[Config::lang]);
-                    if (tap_num > 0) {
-                        if (!FileUtils::fsMount) ++tap_num;
-                        menu_level = 2;
-                        menu_saverect = true;
-                        if (tap_num == 1) {
-                            // menu_curopt = 1;
-                            // Select TAP File
-                            string mFile = fileDialog(FileUtils::TAP_Path, MENU_TAP_TITLE[Config::lang],DISK_TAPFILE,28,16);
-                            if (mFile != "") {
-                                Config::save();
-                                Tape::LoadTape(mFile);
-                                return;
-                            }
-                        }
-                        else if (tap_num == 2) {
-                            // Start / Stop .tap reproduction
-                            if (Tape::tapeStatus == TAPE_STOPPED)
-                                Tape::Play();
-                            else
-                                Tape::Stop();
-                            return;                        
-                        }
-                        else if (tap_num == 3) {
-
-                            // Tape Browser
-                            if (Tape::tapeFileName=="none") {
-                                OSD::osdCenteredMsg(OSD_TAPE_SELECT_ERR[Config::lang], LEVEL_WARN);
-                                menu_curopt = 2;
-                                menu_saverect = false;
-                            } else {
-                                menu_level = 0;
-                                menu_saverect = false;
-                                menu_curopt = 1;
-                                // int tBlock = menuTape(Tape::tapeFileName.substr(6,28));
-                                int tBlock = menuTape(Tape::tapeFileName.substr(0,22));
-                                if (tBlock >= 0) {
-                                    Tape::tapeCurBlock = tBlock;
-                                    Tape::Stop();
-                                }
-                                return;
-                            }
-                        }
-                        else if (tap_num == 4) {
-                            menu_level = 2;
-                            menu_curopt = 1;                    
-                            menu_saverect = true;
-                            while (1) {
-                                string Mnustr = MENU_TAPEPLAYER[Config::lang];
-                                Mnustr += MENU_YESNO[Config::lang];
-                                bool prev_opt = Config::tape_player;
-                                if (prev_opt) {
-                                    Mnustr.replace(Mnustr.find("[Y",0),2,"[*");
-                                    Mnustr.replace(Mnustr.find("[N",0),2,"[ ");                        
-                                } else {
-                                    Mnustr.replace(Mnustr.find("[Y",0),2,"[ ");
-                                    Mnustr.replace(Mnustr.find("[N",0),2,"[*");                        
-                                }
-                                uint8_t opt2 = menuRun(Mnustr);
-                                if (opt2) {
-                                    if (opt2 == 1)
-                                        Config::tape_player = true;
-                                    else
-                                        Config::tape_player = false;
-
-                                    if (Config::tape_player != prev_opt) {
-                                        if (Config::tape_player) {
-                                            ESPectrum::aud_volume = ESP_VOLUME_MAX;
-                                            pwm_audio_set_volume(ESPectrum::aud_volume);
-                                        }
-                                        Config::save();
-                                    }
-                                    menu_curopt = opt2;
-                                    menu_saverect = false;
-                                } else {
-                                    menu_curopt = FileUtils::fsMount ? 4 : 3;
-                                    menu_level = 1;                                       
-                                    break;
-                                }
-                            }
-                        }
-                        else if (tap_num == 5) {
-                            menu_level = 2;
-                            menu_curopt = 1;
-                            menu_saverect = true;
-                            while (1) {
-                                string Mnustr = MENU_TAPEPLAYER2[Config::lang];
-                                Mnustr += MENU_YESNO[Config::lang];
-                                bool prev_opt = Config::real_player;
-                                if (prev_opt) {
-                                    Mnustr.replace(Mnustr.find("[Y",0),2,"[*");
-                                    Mnustr.replace(Mnustr.find("[N",0),2,"[ ");                        
-                                } else {
-                                    Mnustr.replace(Mnustr.find("[Y",0),2,"[ ");
-                                    Mnustr.replace(Mnustr.find("[N",0),2,"[*");                        
-                                }
-                                uint8_t opt2 = menuRun(Mnustr);
-                                if (opt2) {
-                                    Config::real_player = (opt2 == 1);
-                                    if (Config::real_player != prev_opt) {
-                                        if (Tape::tapeStatus == TAPE_LOADING) {  // W/A
-                                            Tape::Stop();
-                                        }
-                                        if (Config::real_player) {
-                                            ESPectrum::aud_volume = ESP_VOLUME_MAX;
-                                            pwm_audio_set_volume(ESPectrum::aud_volume);
-                                        } else {
-#if LOAD_WAV_PIO
-                                            if (Config::real_player) pcm_audio_in_stop();
-#endif
-                                        }
-                                        Config::save();
-                                    }
-                                    menu_curopt = opt2;
-                                    menu_saverect = false;
-                                } else {
-                                    menu_curopt = FileUtils::fsMount ? 5 : 4;
-                                    menu_level = 1;                                       
-                                    break;
-                                }
-                            }
-                        }
-                    } else {
-                        menu_curopt = FileUtils::fsMount ? 2 : 1;
-                        break;
-                    }
-                }
-            }
-            else if (FileUtils::fsMount && opt == 3) {
-                // ***********************************************************************************
-                // BETADISK MENU
-                // ***********************************************************************************
-                menu_saverect = true;
-                menu_curopt = 1;            
-                while(1) {
-                    // Betadisk menu
-                    menu_level = 1;
-                    uint8_t dsk_num = menuRun(MENU_BETADISK[Config::lang]);
-                    if (dsk_num > 0) {
-                        string drvmenu = MENU_BETADRIVE[Config::lang];
-                        drvmenu.replace(drvmenu.find("#",0),1,(string)" " + char(64 + dsk_num));
-                        menu_saverect = true;
-                        menu_curopt = 1;
-                        while (1) {
-                            menu_level = 2;
-                            uint8_t opt2 = menuRun(drvmenu);
-                            if (opt2 > 0) {
-                                if (opt2 == 1) {
-                                    menu_saverect = true;
-                                    string mFile = fileDialog(FileUtils::DSK_Path, MENU_DSK_TITLE[Config::lang],DISK_DSKFILE,26,15);
-                                    if (mFile != "") {
-                                        Config::save();
-                                        mFile.erase(0, 1);
-                                        string fname = FileUtils::DSK_Path + "/" + mFile;
-                                        ESPectrum::Betadisk.EjectDisk(dsk_num - 1);
-                                        ESPectrum::Betadisk.InsertDisk(dsk_num - 1,fname);
-                                        return;
-                                    }
-                                } else 
-                                if (opt2 == 2) {
-                                    ESPectrum::Betadisk.EjectDisk(dsk_num - 1);
-                                    return;
-                                }
-                            } else {
-                                menu_curopt = dsk_num;
-                                break;                            
-                            }
-                        }
-                    } else {
-                        menu_curopt = 3;
-                        break;
-                    }
-                }
-            }
-            else if (FileUtils::fsMount && opt == 4 || opt == 2) { 
-                // ***********************************************************************************
-                // MACHINE MENU
-                // ***********************************************************************************
-                menu_saverect = true;
-                menu_curopt = 1;
-                bool ext_ram = FileUtils::fsMount || psram_size() > 0;
-                while (1) {
-                    menu_level = 1;
-                    uint8_t arch_num = menuRun(ext_ram ? MENU_ARCH[Config::lang] : MENU_ARCH_NO_SD[Config::lang]);
-                    if (arch_num) {
-                        string arch = Config::arch;
-                        string romset = Config::romSet;
-                        uint8_t opt2 = 0;
-                        if (arch_num == 1) { // 48K
-                            menu_level = 2;
-                            menu_curopt = 1;                    
-                            menu_saverect = true;
-                            opt2 = menuRun(MENU_ROMS48[Config::lang]);
-                            if (opt2) {
-                                arch = "48K";
-                                if (opt2 == 1) {
-                                    romset = "48K";
-                                } else
-#if NO_SPAIN_ROM_48k                                 
-                                if (opt2 == 2) {
-                                    romset = "48Kcs";
-                                }
-#else
-                                if (opt2 == 2) {
-                                    romset = "48Kes";
-                                } else 
-                                if (opt2 == 3) {
-                                    romset = "48Kcs";
-                                }
-#endif
-                                menu_curopt = opt2;
-                                menu_saverect = false;
-                            } else {
-                                menu_curopt = 1;
-                                menu_level = 2;                                       
-                            }
-                        } else if (arch_num == 2) { // 128K
-                            menu_level = 2;
-                            menu_curopt = 1;                    
-                            menu_saverect = true;
-                            opt2 = menuRun(MENU_ROMS128[Config::lang]);
-                            if (opt2) {
-                                arch = "128K";
-                                if (opt2 == 1) {
-                                    romset = "128K";
-                                } else 
-#if NO_SPAIN_ROM_128k
-                                if (opt2 == 2) {
-                                    romset = "128Kcs";
-                                }
-#else
-                                if (opt2 == 2) {
-                                    romset = "128Kes";
-                                } else 
-                                if (opt2 == 3) {
-                                    romset = "+2";
-                                } else
-                                if (opt2 == 4) {
-                                    romset = "+2es";
-                                } else
-                                if (opt2 == 5) {
-                                    romset = "ZX81+";
-                                } else
-                                if (opt2 == 6) {
-                                    romset = "128Kcs";
-                                }
-#endif
-                                menu_curopt = opt2;
-                                menu_saverect = false;
-                            } else {
-                                menu_curopt = 1;
-                                menu_level = 2;                                       
-                            }
-                        } else if (arch_num == 3) { // Pentagon
-                            menu_level = 2;
-                            menu_curopt = 1;                    
-                            menu_saverect = true;
-                            opt2 = menuRun(MENU_ROMS_PENT[Config::lang]);
-                            if (opt2) {
-                                arch = "Pentagon";
-                                if (opt2 == 1) {
-                                    romset = "128Kp";
-                                } else 
-                                if (opt2 == 2) {
-                                    romset = "128Kcs";
-                                }
-                                menu_curopt = opt2;
-                                menu_saverect = false;
-                            } else {
-                                menu_curopt = 1;
-                                menu_level = 2;                                       
-                            }
-                        } else if (ext_ram && arch_num == 4) { // Pentagon 512K
-                            menu_level = 2;
-                            menu_curopt = 1;                    
-                            menu_saverect = true;
-                            opt2 = menuRun(MENU_ROMS_PENT[Config::lang]);
-                            if (opt2) {
-                                arch = "P512";
-                                if (opt2 == 1) {
-                                    romset = "128Kp";
-                                } else 
-                                if (opt2 == 2) {
-                                    romset = "128Kcs";
-                                }
-                                menu_curopt = opt2;
-                                menu_saverect = false;
-                            } else {
-                                menu_curopt = 1;
-                                menu_level = 2;                                       
-                            }
-                        } else if (ext_ram && arch_num == 5) { // Pentagon 1024K
-                            menu_level = 2;
-                            menu_curopt = 1;                    
-                            menu_saverect = true;
-                            opt2 = menuRun(MENU_ROMS_PENT[Config::lang]);
-                            if (opt2) {
-                                arch = "P1024";
-                                if (opt2 == 1) {
-                                    romset = "128Kp";
-                                } else 
-                                if (opt2 == 2) {
-                                    romset = "128Kcs";
-                                }
-                                menu_curopt = opt2;
-                                menu_saverect = false;
-                            } else {
-                                menu_curopt = 1;
-                                menu_level = 2;                                       
-                            }
-                        }
-#if !NO_ALF
-                        else if (arch_num == 6 || !ext_ram) { // ALF TV GAME
-                            arch = "ALF";
-                            romset = "ALF1";
-                            menu_curopt = opt2;
-                            menu_saverect = false;
-                            Config::romSet = romset;
-                            click();
-                            if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes                
-                            Config::save();
-                            Config::requestMachine(arch, romset);
-                            ESPectrum::reset();
-                            return;
-                        }
-#endif
-
-                        if (opt2) {
-                            if (arch != Config::arch || romset != Config::romSet) {
-                                Config::ram_file = "none";
-                                if (romset != Config::romSet) {
-                                    if (arch == "48K") {
-                                        if (Config::pref_romSet_48 == "Last") {
-                                            Config::romSet = romset;
-                                            Config::romSet48 = romset;
-                                        }
-                                    } else if (arch == "128K") {
-                                        if (Config::pref_romSet_128 == "Last") {
-                                            Config::romSet = romset;
-                                            Config::romSet128 = romset;
-                                        }
-                                    } else if (arch == "Pentagon") {
-                                        if (Config::pref_romSetPent == "Last") {
-                                            Config::romSet = romset;
-                                            Config::romSetPent = romset;
-                                        }
-                                    } else if (arch == "P512") {
-                                        if (Config::pref_romSetP512 == "Last") {
-                                            Config::romSet = romset;
-                                            Config::romSetP512 = romset;
-                                        }
-                                    } else if (arch == "P1024") {
-                                        if (Config::pref_romSetP1M == "Last") {
-                                            Config::romSet = romset;
-                                            Config::romSetP1M = romset;
-                                        }
-                                    } else {
-                                        Config::romSet = romset;
-                                    }
-                                }
-                                if (arch != Config::arch) {
-                                    if (Config::pref_arch == "Last") {
-                                        Config::arch = arch;
-                                    }
-                                }
-                                Config::save();
-                                Config::requestMachine(arch, romset);
-                            }
-                            ESPectrum::reset();
-                            return;
-                        }
-                        menu_curopt = arch_num;
-                        menu_saverect = false;
-                    } else {
-                        menu_curopt = FileUtils::fsMount ? 4 : 2;
-                        break;
-                    }
-                }
-            }
-            else if (FileUtils::fsMount && opt == 5 || opt == 3) {
-                // ***********************************************************************************
                 // RESET MENU
                 // ***********************************************************************************
                 menu_saverect = true;
@@ -1075,12 +674,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                         f_unlink(MOUNT_POINT_SD STORAGE_NVS);
                         esp_hard_reset();
                     } else {
-                        menu_curopt = FileUtils::fsMount ? 5 : 3;
+                        menu_curopt = FileUtils::fsMount ? 2 : 1;
                         break;
                     }
                 }
             }
-            else if (FileUtils::fsMount && opt == 6 || opt == 4) {
+            else if (FileUtils::fsMount && opt == 3 || opt == 2) {
                 // ***********************************************************************************
                 // OPTIONS MENU
                 // ***********************************************************************************
@@ -1176,470 +775,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                     }
                     else if (options_num == 2) {
                         menu_level = 2;
-                        menu_curopt = 1;                    
-                        menu_saverect = true;
-                        while (1) {
-                            string archprefmenu = MENU_ARCH_PREF[Config::lang];
-                            string prev_archpref = Config::pref_arch;
-                            if (Config::pref_arch == "48K") {
-                                archprefmenu.replace(archprefmenu.find("[4",0),2,"[*");
-                                archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[2",0),2,"[ ");
-                            } else if (Config::pref_arch == "128K") {
-                                archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[1",0),2,"[*");
-                                archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[2",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
-                            } else if (Config::pref_arch == "Pentagon") {
-                                archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[P",0),2,"[*");
-                                archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[2",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
-                            } else if (Config::pref_arch == "P512") {
-                                archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[5",0),2,"[*");
-                                archprefmenu.replace(archprefmenu.find("[2",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
-                            } else if (Config::pref_arch == "P1024") {
-                                archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[2",0),2,"[*");
-                                archprefmenu.replace(archprefmenu.find("[L",0),2,"[ ");
-                            } else {
-                                archprefmenu.replace(archprefmenu.find("[4",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[1",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[P",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[5",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[2",0),2,"[ ");
-                                archprefmenu.replace(archprefmenu.find("[L",0),2,"[*");
-                            }
-                            uint8_t opt2 = menuRun(archprefmenu);
-                            if (opt2) {
-                                if (opt2 == 1)
-                                    Config::pref_arch = "48K";
-                                else
-                                if (opt2 == 2)
-                                    Config::pref_arch = "128K";
-                                else
-                                if (opt2 == 3)
-                                    Config::pref_arch = "Pentagon";
-                                else
-                                if (opt2 == 4)
-                                    Config::pref_arch = "P512";
-                                else
-                                if (opt2 == 5)
-                                    Config::pref_arch = "P1024";
-                                else
-                                if (opt2 == 6)
-                                    Config::pref_arch = "Last";
-
-                                if (Config::pref_arch != prev_archpref) {
-                                    Config::save();
-                                }
-
-                                menu_curopt = opt2;
-                                menu_saverect = false;
-
-                            } else {
-                                menu_curopt = 2;
-                                break;
-                            }
-                        }
-                    }
-                    else if (options_num == 3) {
-                        menu_level = 2;
-                        menu_curopt = 1;
-                        menu_saverect = true;
-                        while (1) {
-                            uint8_t opt2 = menuRun(MENU_ROM_PREF[Config::lang]);
-                            if (opt2) {
-                                if (opt2 == 1) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;                    
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string rpref48_menu = MENU_ROM_PREF_48[Config::lang];
-                                        int mpos = -1;
-                                        while(1) {
-                                            mpos = rpref48_menu.find("[",mpos + 1);
-                                            if (mpos == string::npos) break;
-                                            string rmenu = rpref48_menu.substr(mpos + 1, 5);
-                                            trim(rmenu);
-                                            if (rmenu == Config::pref_romSet_48) 
-                                                rpref48_menu.replace(mpos + 1, 5,"*");
-                                            else
-                                                rpref48_menu.replace(mpos + 1, 5," ");
-                                        }
-                                        string prev_rpref48 = Config::pref_romSet_48;
-                                        uint8_t opt2 = menuRun(rpref48_menu);
-                                        if (opt2) {
-                                            if (opt2 == 1)
-                                                Config::pref_romSet_48 = "48K";
-                                            else
-#if NO_SPAIN_ROM_48k
-                                            if (opt2 == 2)
-                                                Config::pref_romSet_48 = "48Kcs";
-                                            else
-                                            if (opt2 == 3)
-                                                Config::pref_romSet_48 = "Last";
-#else
-                                            if (opt2 == 2)
-                                                Config::pref_romSet_48 = "48Kes";
-                                            else
-                                            if (opt2 == 3)
-                                                Config::pref_romSet_48 = "48Kcs";
-                                            else
-                                            if (opt2 == 4)
-                                                Config::pref_romSet_48 = "Last";
-#endif
-                                            if (Config::pref_romSet_48 != prev_rpref48) {
-                                                Config::save();
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 1;
-                                            menu_level = 2;                                       
-                                            break;
-                                        }
-                                    }
-                                } else if (opt2 == 2) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;                    
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string rpref128_menu = MENU_ROM_PREF_128[Config::lang];
-                                        int mpos = -1;
-                                        while(1) {
-                                            mpos = rpref128_menu.find("[",mpos + 1);
-                                            if (mpos == string::npos) break;
-                                            string rmenu = rpref128_menu.substr(mpos + 1, 6);
-                                            trim(rmenu);
-                                            if (rmenu == Config::pref_romSet_128) 
-                                                rpref128_menu.replace(mpos + 1, 6,"*");
-                                            else
-                                                rpref128_menu.replace(mpos + 1, 6," ");
-                                        }
-                                        string prev_rpref128 = Config::pref_romSet_128;
-                                        uint8_t opt2 = menuRun(rpref128_menu);
-                                        if (opt2) {
-                                            if (opt2 == 1)
-                                                Config::pref_romSet_128 = "128K";
-                                            else
-#if NO_SPAIN_ROM_128k
-                                            if (opt2 == 2)
-                                                Config::pref_romSet_128 = "128Kcs";
-                                            else
-                                            if (opt2 == 3)
-                                                Config::pref_romSet_128 = "Last";
-#else
-                                            if (opt2 == 2)
-                                                Config::pref_romSet_128 = "128Kes";
-                                            else
-                                            if (opt2 == 3)
-                                                Config::pref_romSet_128 = "+2";
-                                            else
-                                            if (opt2 == 4)
-                                                Config::pref_romSet_128 = "+2es";
-                                            else
-                                            if (opt2 == 5)
-                                                Config::pref_romSet_128 = "ZX81+";
-                                            else
-                                            if (opt2 == 6)
-                                                Config::pref_romSet_128 = "128Kcs";
-                                            else
-                                            if (opt2 == 7)
-                                                Config::pref_romSet_128 = "Last";
-#endif
-                                            if (Config::pref_romSet_128 != prev_rpref128) {
-                                                Config::save();
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 1;
-                                            menu_level = 2;                                       
-                                            break;
-                                        }
-                                    }
-                                } else if (opt2 == 3) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;                    
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string rprefPent_menu = MENU_ROM_PREF_PENT[Config::lang];
-                                        int mpos = -1;
-                                        while(1) {
-                                            mpos = rprefPent_menu.find("[",mpos + 1);
-                                            if (mpos == string::npos) break;
-                                            string rmenu = rprefPent_menu.substr(mpos + 1, 6);
-                                            trim(rmenu);
-                                            if (rmenu == Config::pref_romSetPent) 
-                                                rprefPent_menu.replace(mpos + 1, 6,"*");
-                                            else
-                                                rprefPent_menu.replace(mpos + 1, 6," ");
-                                        }
-                                        string prev_rprefPent = Config::pref_romSetPent;
-                                        uint8_t opt2 = menuRun(rprefPent_menu);
-                                        if (opt2) {
-                                            if (opt2 == 1)
-                                                Config::pref_romSetPent = "128Kp";
-                                            else
-                                            if (opt2 == 2)
-                                                Config::pref_romSetPent = "128Kcs";
-                                            else
-                                            if (opt2 == 3)
-                                                Config::pref_romSetPent = "Last";
-                                            if (Config::pref_romSetPent != prev_rprefPent) {
-                                                Config::save();
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 1;
-                                            menu_level = 2;                                       
-                                            break;
-                                        }
-                                    }
-                                } else if (opt2 == 4) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;                    
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string rprefP512_menu = MENU_ROM_PREF_PENT[Config::lang];
-                                        int mpos = -1;
-                                        while(1) {
-                                            mpos = rprefP512_menu.find("[",mpos + 1);
-                                            if (mpos == string::npos) break;
-                                            string rmenu = rprefP512_menu.substr(mpos + 1, 6);
-                                            trim(rmenu);
-                                            if (rmenu == Config::pref_romSetP512) 
-                                                rprefP512_menu.replace(mpos + 1, 6,"*");
-                                            else
-                                                rprefP512_menu.replace(mpos + 1, 6," ");
-                                        }
-                                        string prev_rprefP512 = Config::pref_romSetP512;
-                                        uint8_t opt2 = menuRun(rprefP512_menu);
-                                        if (opt2) {
-                                            if (opt2 == 1)
-                                                Config::pref_romSetP512 = "128Kp";
-                                            else
-                                            if (opt2 == 2)
-                                                Config::pref_romSetP512 = "128Kcs";
-                                            else
-                                            if (opt2 == 3)
-                                                Config::pref_romSetP512 = "Last";
-                                            if (Config::pref_romSetP512 != prev_rprefP512) {
-                                                Config::save();
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 1;
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                } else if (opt2 == 5) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;                    
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string rprefP1M_menu = MENU_ROM_PREF_PENT[Config::lang];
-                                        int mpos = -1;
-                                        while(1) {
-                                            mpos = rprefP1M_menu.find("[",mpos + 1);
-                                            if (mpos == string::npos) break;
-                                            string rmenu = rprefP1M_menu.substr(mpos + 1, 6);
-                                            trim(rmenu);
-                                            if (rmenu == Config::pref_romSetP1M) 
-                                                rprefP1M_menu.replace(mpos + 1, 6,"*");
-                                            else
-                                                rprefP1M_menu.replace(mpos + 1, 6," ");
-                                        }
-                                        string prev_rprefP1M = Config::pref_romSetP1M;
-                                        uint8_t opt2 = menuRun(rprefP1M_menu);
-                                        if (opt2) {
-                                            if (opt2 == 1)
-                                                Config::pref_romSetP1M = "128Kp";
-                                            else
-                                            if (opt2 == 2)
-                                                Config::pref_romSetP1M = "128Kcs";
-                                            else
-                                            if (opt2 == 3)
-                                                Config::pref_romSetP1M = "Last";
-                                            if (Config::pref_romSetP1M != prev_rprefP1M) {
-                                                Config::save();
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 1;
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                }
-                                menu_curopt = opt2;
-                                menu_saverect = false;
-                            } else {
-                                menu_curopt = 3;                            
-                                break;
-                            }
-                        }
-                    }                          
-                    else if (options_num == 6) {
-
-                        menu_level = 2;
-                        menu_curopt = 1;                    
-                        menu_saverect = true;
-                        while (1) {
-                            // Video
-                            uint8_t options_num = menuRun(MENU_VIDEO[Config::lang]);
-                            if (options_num > 0) {
-                                if (options_num == 1) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;                    
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string opt_menu = MENU_RENDER[Config::lang];
-                                        uint8_t prev_opt = Config::render;
-                                        if (prev_opt) {
-                                            opt_menu.replace(opt_menu.find("[S",0),2,"[ ");
-                                            opt_menu.replace(opt_menu.find("[A",0),2,"[*");
-                                        } else {
-                                            opt_menu.replace(opt_menu.find("[S",0),2,"[*");
-                                            opt_menu.replace(opt_menu.find("[A",0),2,"[ ");
-                                        }
-                                        uint8_t opt2 = menuRun(opt_menu);
-                                        if (opt2) {
-                                            if (opt2 == 1)
-                                                Config::render = 0;
-                                            else
-                                                Config::render = 1;
-
-                                            if (Config::render != prev_opt) {
-                                                Config::save();
-
-                                                VIDEO::snow_toggle =
-                                                    Config::arch != "P1024" && Config::arch != "Pentagon" && Config::arch != "P512"
-                                                     ? Config::render : false;                                                
-
-                                                if (VIDEO::snow_toggle) {
-                                                    VIDEO::Draw = &VIDEO::MainScreen_Blank_Snow;
-                                                    VIDEO::Draw_Opcode = &VIDEO::MainScreen_Blank_Snow_Opcode;
-                                                } else {
-                                                    VIDEO::Draw = &VIDEO::MainScreen_Blank;
-                                                    VIDEO::Draw_Opcode = &VIDEO::MainScreen_Blank_Opcode;
-                                                }
-
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 1;
-                                            menu_level = 2;                                       
-                                            break;
-                                        }
-                                    }
-                                }
-                                else if (options_num == 2) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;                    
-                                    menu_saverect = true;
-                                    while (1) {
-
-                                        // aspect ratio
-                                        string asp_menu = MENU_ASPECT[Config::lang];
-                                        bool prev_asp = Config::aspect_16_9;
-                                        if (prev_asp) {
-                                            asp_menu.replace(asp_menu.find("[4",0),2,"[ ");
-                                            asp_menu.replace(asp_menu.find("[1",0),2,"[*");                        
-                                        } else {
-                                            asp_menu.replace(asp_menu.find("[4",0),2,"[*");
-                                            asp_menu.replace(asp_menu.find("[1",0),2,"[ ");                        
-                                        }
-                                        uint8_t opt2 = menuRun(asp_menu);
-                                        if (opt2) {
-                                            /***
-                                            if (opt2 == 1)
-                                                Config::aspect_16_9 = false;
-                                            else
-                                                Config::aspect_16_9 = true;
-                                            */
-                                            if (Config::aspect_16_9 != prev_asp) {
-                                                Config::ram_file = "none";
-                                                Config::save();
-                                                esp_hard_reset();
-                                            }
-
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-
-                                        } else {
-                                            menu_curopt = 2;
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                }
-                                else if (options_num == 3) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;                    
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string opt_menu = MENU_SCANLINES[Config::lang];
-                                        opt_menu += MENU_YESNO[Config::lang];
-                                        uint8_t prev_opt = Config::scanlines;
-                                        if (prev_opt) {
-                                            opt_menu.replace(opt_menu.find("[Y",0),2,"[*");
-                                            opt_menu.replace(opt_menu.find("[N",0),2,"[ ");                        
-                                        } else {
-                                            opt_menu.replace(opt_menu.find("[Y",0),2,"[ ");
-                                            opt_menu.replace(opt_menu.find("[N",0),2,"[*");                        
-                                        }
-                                        uint8_t opt2 = menuRun(opt_menu);
-                                        if (opt2) {
-                                            if (opt2 == 1)
-                                                Config::scanlines = 1;
-                                            else
-                                                Config::scanlines = 0;
-
-                                            if (Config::scanlines != prev_opt) {
-                                                Config::ram_file = "none";
-                                                Config::save();
-                                                Config::save();
-                                                // Reset to apply if mode != CRT
-                                                esp_hard_reset();
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 3;
-                                            menu_level = 2;                                       
-                                            break;
-                                        }
-                                    }
-                                }
-                            } else {
-                                menu_curopt = 6;
-                                break;
-                            }
-                        }
-                    }
-                    else if (options_num == 4) {
-                        menu_level = 2;
                         menu_curopt = 1;
                         menu_saverect = true;
                         while (1) {
@@ -1666,13 +801,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                 if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes                                                        
                                 return;
                             } else {
-                                menu_curopt = 4;
+                                menu_curopt = 2;
                                 menu_level = 1;                                       
                                 break;
                             }
                         }
                     }
-                    else if (options_num == 5) {
+                    else if (options_num == 3) {
                         menu_level = 2;
                         menu_curopt = 1;
                         menu_saverect = true;
@@ -1793,45 +928,110 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                     }
                                 }
                             } else {
-                                menu_curopt = 5;
+                                menu_curopt = 3;
                                 break;
                             }
                         }
                     }
-                    else if (options_num == 8) {
+                    else if (options_num == 4) {
                         menu_level = 2;
                         menu_curopt = 1;                    
                         menu_saverect = true;
                         while (1) {
-                            // language
-                            uint8_t opt2;
-                            string Mnustr = MENU_INTERFACE_LANG[Config::lang];                            
-                            std::size_t pos = Mnustr.find("[",0);
-                            int nfind = 0;
-                            while (pos != string::npos) {
-                                if (nfind == Config::lang) {
-                                    Mnustr.replace(pos,2,"[*");
-                                    break;
+                            // Video
+                            uint8_t options_num = menuRun(MENU_VIDEO[Config::lang]);
+                            if (options_num > 0) {
+                                if (options_num == 1) {
+                                    menu_level = 3;
+                                    menu_curopt = 1;                    
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string opt_menu = MENU_RENDER[Config::lang];
+                                        uint8_t prev_opt = Config::render;
+                                        if (prev_opt) {
+                                            opt_menu.replace(opt_menu.find("[S",0),2,"[ ");
+                                            opt_menu.replace(opt_menu.find("[A",0),2,"[*");
+                                        } else {
+                                            opt_menu.replace(opt_menu.find("[S",0),2,"[*");
+                                            opt_menu.replace(opt_menu.find("[A",0),2,"[ ");
+                                        }
+                                        uint8_t opt2 = menuRun(opt_menu);
+                                        if (opt2) {
+                                            if (opt2 == 1)
+                                                Config::render = 0;
+                                            else
+                                                Config::render = 1;
+
+                                            if (Config::render != prev_opt) {
+                                                Config::save();
+
+                                                VIDEO::snow_toggle =
+                                                    Config::arch != "P1024" && Config::arch != "Pentagon" && Config::arch != "P512"
+                                                     ? Config::render : false;                                                
+
+                                                if (VIDEO::snow_toggle) {
+                                                    VIDEO::Draw = &VIDEO::MainScreen_Blank_Snow;
+                                                    VIDEO::Draw_Opcode = &VIDEO::MainScreen_Blank_Snow_Opcode;
+                                                } else {
+                                                    VIDEO::Draw = &VIDEO::MainScreen_Blank;
+                                                    VIDEO::Draw_Opcode = &VIDEO::MainScreen_Blank_Opcode;
+                                                }
+
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = 1;
+                                            menu_level = 2;                                       
+                                            break;
+                                        }
+                                    }
                                 }
-                                pos = Mnustr.find("[",pos + 1);
-                                nfind++;
-                            }
-                            opt2 = menuRun(Mnustr);
-                            if (opt2) {
-                                if (Config::lang != (opt2 - 1)) {
-                                    Config::lang = opt2 - 1;
-                                    Config::save();
-                                    return;
+                                else if (options_num == 2) {
+                                    menu_level = 3;
+                                    menu_curopt = 1;                    
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string opt_menu = MENU_SCANLINES[Config::lang];
+                                        opt_menu += MENU_YESNO[Config::lang];
+                                        uint8_t prev_opt = Config::scanlines;
+                                        if (prev_opt) {
+                                            opt_menu.replace(opt_menu.find("[Y",0),2,"[*");
+                                            opt_menu.replace(opt_menu.find("[N",0),2,"[ ");                        
+                                        } else {
+                                            opt_menu.replace(opt_menu.find("[Y",0),2,"[ ");
+                                            opt_menu.replace(opt_menu.find("[N",0),2,"[*");                        
+                                        }
+                                        uint8_t opt2 = menuRun(opt_menu);
+                                        if (opt2) {
+                                            if (opt2 == 1)
+                                                Config::scanlines = 1;
+                                            else
+                                                Config::scanlines = 0;
+
+                                            if (Config::scanlines != prev_opt) {
+                                                Config::ram_file = "none";
+                                                Config::save();
+                                                Config::save();
+                                                // Reset to apply if mode != CRT
+                                                esp_hard_reset();
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = 2;
+                                            menu_level = 2;                                       
+                                            break;
+                                        }
+                                    }
                                 }
-                                menu_curopt = opt2;
-                                menu_saverect = false;
                             } else {
-                                menu_curopt = 8;
+                                menu_curopt = 4;
                                 break;
                             }
                         }
                     }
-                    else if (options_num == 7) {
+                    else if (options_num == 5) {
                         menu_level = 2;
                         menu_curopt = 1;                    
                         menu_saverect = true;
@@ -2170,11 +1370,45 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                     }
                                 }
                             } else {
-                                menu_curopt = 7;
+                                menu_curopt = 5;
                                 break;
                             }
                         }
-                    } else if (options_num == 9) {
+                    }
+                    else if (options_num == 6) {
+                        menu_level = 2;
+                        menu_curopt = 1;                    
+                        menu_saverect = true;
+                        while (1) {
+                            // language
+                            uint8_t opt2;
+                            string Mnustr = MENU_INTERFACE_LANG[Config::lang];                            
+                            std::size_t pos = Mnustr.find("[",0);
+                            int nfind = 0;
+                            while (pos != string::npos) {
+                                if (nfind == Config::lang) {
+                                    Mnustr.replace(pos,2,"[*");
+                                    break;
+                                }
+                                pos = Mnustr.find("[",pos + 1);
+                                nfind++;
+                            }
+                            opt2 = menuRun(Mnustr);
+                            if (opt2) {
+                                if (Config::lang != (opt2 - 1)) {
+                                    Config::lang = opt2 - 1;
+                                    Config::save();
+                                    return;
+                                }
+                                menu_curopt = opt2;
+                                menu_saverect = false;
+                            } else {
+                                menu_curopt = 6;
+                                break;
+                            }
+                        }
+                    }
+                    else if (options_num == 7) {
                         menu_level = 2;
                         menu_curopt = 1;
                         menu_saverect = true;
@@ -2190,6 +1424,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                     reset_usb_boot(0, 0);
                                     while(1);
                                 } else {
+                                    menu_saverect = true;
                                     string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang], DISK_ROMFILE, 26, 15);
                                     if (mFile != "") {
                                         mFile.erase(0, 1);
@@ -2202,17 +1437,17 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                     menu_saverect = false;
                                 }
                             } else {
-                                menu_curopt = 9;
+                                menu_curopt = 7;
                                 break;
                             }
                         }
                     } else {
-                        menu_curopt = FileUtils::fsMount ? 6 : 4;
+                        menu_curopt = FileUtils::fsMount ? 3 : 2;
                         break;
                     }
                 }
             }
-            else if (FileUtils::fsMount && opt == 7 || opt == 5) {
+            else if (FileUtils::fsMount && opt == 4 || opt == 3) {
                 // DEBUG MENU
                 menu_saverect = true;
                 menu_curopt = 1;            
@@ -2244,12 +1479,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                         Z80::triggerNMI();
                         return;
                     } else {
-                        menu_curopt = FileUtils::fsMount ? 7 : 5;
+                        menu_curopt = FileUtils::fsMount ? 4 : 3;
                         break;
                     }
                 }
             }
-            else if (FileUtils::fsMount && opt == 8 || opt == 6) {
+            else if (FileUtils::fsMount && opt == 5 || opt == 4) {
                 // Help
                 drawOSD(true);
                 osdAt(2, 0);
@@ -2268,7 +1503,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                 if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes                
                 return;
             }        
-            else if (FileUtils::fsMount && opt == 9 || opt == 7) {
+            else if (FileUtils::fsMount && opt == 6 || opt == 5) {
                 // About
                 drawOSD(false);
                 
@@ -3863,6 +3098,11 @@ static void __not_in_flash_func(cleanup_block)(size_t flash_target_offset) {
     gpio_put(PICO_DEFAULT_LED_PIN, false);
 }
 
+/**
+ * arch:
+ * 1 - ROM Custom ALF
+ * 2 - ROM Cartridge ALF
+ */
 bool OSD::updateROM(const string& fname, uint8_t arch) {
     FIL* f = fopen2(fname.c_str(), FA_READ);
     if (!f) {
@@ -3873,109 +3113,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     const uint8_t* rom;
     size_t max_rom_size = 0;
     string dlgTitle = OSD_ROM[Config::lang];
-    // Flash custom ROM 48K
     if ( arch == 1 ) {
-#if !CARTRIDGE_AS_CUSTOM || NO_ALF
-        if( bytesfirmware > 0x4000 ) {
-            osdCenteredMsg("Too long file", LEVEL_WARN, 2000);
-            fclose2(f);
-            return false;
-        }
-#if NO_SEPARATE_48K_CUSTOM
-        rom = gb_rom_0_128k_custom;
-#else
-        rom = gb_rom_0_48k_custom;
-#endif
-        max_rom_size = 16 << 10;
-#else
-        if( bytesfirmware > (1ul << 20) ) {
-            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
-            fclose2(f);
-            return false;
-        }
-        rom = gb_rom_Alf_cart;
-        max_rom_size = 1ul << 20;
-#endif
-        dlgTitle += " 48K   ";
-        Config::arch = "48K";
-        Config::romSet = "48Kcs";
-        Config::romSet48 = "48Kcs";
-        Config::pref_arch = "48K";
-        Config::pref_romSet_48 = "48Kcs";
-    }
-    // Flash custom ROM 128K
-    else if ( arch == 2 ) {
-#if !CARTRIDGE_AS_CUSTOM || NO_ALF
-        if( bytesfirmware > 0x8000 ) {
-            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
-            fclose2(f);
-            return false;
-        }
-        rom = gb_rom_0_128k_custom;
-        if (bytesfirmware <= (16 << 10)) {
-            max_rom_size = 16 << 10;
-        } else {
-            max_rom_size = 32 << 10;
-        }
-#else
-        if( bytesfirmware > (1ul << 20) ) {
-            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
-            fclose2(f);
-            return false;
-        }
-        rom = gb_rom_Alf_cart;
-        if (bytesfirmware <= (16 << 10)) {
-            max_rom_size = 16 << 10;
-        } else if (bytesfirmware <= (32 << 10)) {
-            max_rom_size = 32 << 10;
-        } else {
-            max_rom_size = 1ul << 20;
-        }
-#endif
-        dlgTitle += " 128K  ";
-        Config::arch = "128K";
-        Config::romSet = "128Kcs";
-        Config::romSet128 = "128Kcs";
-        Config::pref_arch = "128K";
-        Config::pref_romSet_128 = "128Kcs";
-    }
-    else if ( arch == 3 ) {
-#if !CARTRIDGE_AS_CUSTOM || NO_ALF
-        if( bytesfirmware > 0x8000 ) {
-            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
-            fclose2(f);
-            return false;
-        }
-        rom = gb_rom_0_128k_custom;
-        if (bytesfirmware <= (16 << 10)) {
-            max_rom_size = 16 << 10;
-        } else {
-            max_rom_size = 32 << 10;
-        }
-#else
-        if( bytesfirmware > (1ul << 20) ) {
-            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
-            fclose2(f);
-            return false;
-        }
-        rom = gb_rom_Alf_cart;
-        if (bytesfirmware <= (16 << 10)) {
-            max_rom_size = 16 << 10;
-        } else if (bytesfirmware <= (32 << 10)) {
-            max_rom_size = 32 << 10;
-        } else {
-            max_rom_size = 1ul << 20;
-        }
-#endif
-        dlgTitle += " Pentagon ";
-        Config::arch = "Pentagon";
-        Config::romSet = "128Kcs";
-        Config::romSetPent = "128Kcs";
-        Config::pref_arch = "Pentagon";
-        Config::pref_romSetPent = "128Kcs";
-    }
-#if !NO_ALF
-    else if ( arch == 4 ) {
         if( bytesfirmware > (256ul << 10) ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
             fclose2(f);
@@ -3988,7 +3126,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         Config::romSet = "ALF";
         Config::pref_arch = "ALF";
     }
-    else if ( arch == 5 ) {
+    else if ( arch == 2 ) {
         if( bytesfirmware > (1ul << 20) ) {
             osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
             fclose2(f);
@@ -3998,48 +3136,6 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         max_rom_size = 1ul << 20;
         dlgTitle += " ALF Cartridge ";
         Config::arch = "ALF";
-    }
-#endif
-    else if ( arch == 6 ) {
-        if( bytesfirmware > (16ul << 10) ) {
-            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
-            fclose2(f);
-            return false;
-        }
-        rom = gb_rom_4_trdos_503;
-        max_rom_size = 16ul << 10;
-        dlgTitle += " TRDOS ";
-        Config::arch = "Pentagon";
-    }
-    else if ( arch == 7 ) {
-        if( bytesfirmware > (32ul << 10) ) {
-            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
-            fclose2(f);
-            return false;
-        }
-        rom = gb_rom_pentagon_128k;
-        max_rom_size = bytesfirmware > (16ul << 10) ? (32ul << 10) : (16ul << 10);
-        dlgTitle += " Pentagon#0 ";
-        Config::arch = "Pentagon";
-        Config::romSet = "128Kp";
-        Config::romSetPent = "128Kp";
-        Config::pref_arch = "Pentagon";
-        Config::pref_romSetPent = "128Kp";
-    }
-    else if ( arch == 8 ) {
-        if( bytesfirmware > (16 << 10) ) {
-            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
-            fclose2(f);
-            return false;
-        }
-        rom = gb_rom_pentagon_128k;
-        max_rom_size = 16 << 10;
-        dlgTitle += " Pentagon#1 ";
-        Config::arch = "Pentagon";
-        Config::romSet = "128Kp";
-        Config::romSetPent = "128Kp";
-        Config::pref_arch = "Pentagon";
-        Config::pref_romSetPent = "128Kp";
     }
     else {
         osdCenteredMsg("Unexpected ROM type: " + to_string(arch), LEVEL_WARN, 2000);

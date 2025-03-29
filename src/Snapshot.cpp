@@ -464,38 +464,6 @@ bool FileZ80::load(string z80_fn) {
     if (Config::arch != z80_arch) {
 
         string z80_romset = "";
-
-        // printf("z80_arch: %s mch: %d pref_romset48: %s pref_romset128: %s z80_romset: %s\n",z80_arch.c_str(),mch,Config::pref_romSet_48.c_str(),Config::pref_romSet_128.c_str(),z80_romset.c_str());
-
-        if (z80_arch == "48K") {
-            if (Config::pref_romSet_48 == "48K" || Config::pref_romSet_48 == "48Kes")
-                z80_romset = Config::pref_romSet_48;
-        } else
-        if (z80_arch == "128K") {
-            if (mch == 12) { // +2
-                if (Config::pref_romSet_128 == "+2" || Config::pref_romSet_128 == "+2es")
-                    z80_romset = Config::pref_romSet_128;
-                else
-                    z80_romset = "+2";
-            } else {
-                if (Config::pref_romSet_128 == "128K" || Config::pref_romSet_128 == "128Kes")
-                    z80_romset = Config::pref_romSet_128;
-            }
-        } else
-        if (z80_arch == "Pentagon") {
-            if (Config::pref_romSetPent == "128Kp" || Config::pref_romSetPent == "128Kcs")
-                z80_romset = Config::pref_romSetPent;
-        } else
-        if (z80_arch == "P512") {
-            if (Config::pref_romSetP512 == "128Kp" || Config::pref_romSetP512 == "128Kcs")
-                z80_romset = Config::pref_romSetP512;
-        } else
-        if (z80_arch == "P1024") {
-            if (Config::pref_romSetP1M == "128Kp" || Config::pref_romSetP1M == "128Kcs")
-                z80_romset = Config::pref_romSetP1M;
-        }
-
-        // printf("z80_arch: %s mch: %d pref_romset48: %s pref_romset128: %s z80_romset: %s\n",z80_arch.c_str(),mch,Config::pref_romSet_48.c_str(),Config::pref_romSet_128.c_str(),z80_romset.c_str());
         
         Config::requestMachine(z80_arch, z80_romset);
                         
@@ -511,11 +479,6 @@ bool FileZ80::load(string z80_fn) {
 
                 if (Config::romSet != "+2" && Config::romSet != "+2es" && Config::romSet != "128Kcs") {
 
-                    if (Config::pref_romSet_128 == "+2" || Config::pref_romSet_128 == "+2es")
-                        z80_romset = Config::pref_romSet_128;
-                    else
-                        z80_romset = "+2";
-
                     Config::requestMachine(z80_arch, z80_romset);        
 
                 }
@@ -523,10 +486,6 @@ bool FileZ80::load(string z80_fn) {
             } else {
 
                 if (Config::romSet != "128K" && Config::romSet != "128Kes" && Config::romSet != "128Kcs") {
-
-                    if (Config::pref_romSet_128 == "128K" || Config::pref_romSet_128 == "128Kes")
-                        z80_romset = Config::pref_romSet_128;
-                    else
                         z80_romset = "128K";
 
                     Config::requestMachine(z80_arch, z80_romset);        
@@ -1091,12 +1050,7 @@ void FileZ80::loader128() {
 
     // Empty void ram pages
     MemESP::ram[1].cleanup();
-    // ZX81+ loader has block 3 void and has info on block5
-    if (Config::romSet128 == "ZX81+")
-        MemESP::ram[0].cleanup();
-    else
-        MemESP::ram[2].cleanup();
-
+    MemESP::ram[2].cleanup();
     MemESP::ram[3].cleanup();
     MemESP::ram[4].cleanup();
     MemESP::ram[6].cleanup();

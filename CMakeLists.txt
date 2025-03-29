@@ -42,17 +42,14 @@ set (PORT_VERSION "1.2.9")
 #set (MONSTR ON)
 set(KBDUSB ON)
 
-set(FLASH_SIZE 4096)
-#set(FLASH_SIZE 2048)
-#set(FLASH_SIZE_GREEN ON)
-set(CPU_MHZ 408)
-###set(CPU_MHZ 378)
-
+set(FLASH_SIZE 2048)
+set(FLASH_SIZE_GREEN ON)
+set(CPU_MHZ 378)
 
 IF(MURM2)
-    SET(BUILD_NAME "m2-${PROJECT_NAME}-${FLASH_SIZE}-${CPU_MHZ}")
+    SET(BUILD_NAME "m2-${PROJECT_NAME}-ALF-${FLASH_SIZE}-${CPU_MHZ}")
 ELSE()
-    SET(BUILD_NAME "${PROJECT_NAME}-${FLASH_SIZE}-${CPU_MHZ}")
+    SET(BUILD_NAME "${PROJECT_NAME}-ALF-${FLASH_SIZE}-${CPU_MHZ}")
 ENDIF()
 
 set(CMAKE_C_STANDARD 11)
@@ -96,7 +93,7 @@ pico_define_boot_stage2(slower_boot2 ${PICO_DEFAULT_BOOT_STAGE2_FILE})
 target_compile_definitions(slower_boot2 PRIVATE PICO_FLASH_SPI_CLKDIV=4)
 pico_set_boot_stage2(${PROJECT_NAME} slower_boot2)
 
-pico_set_program_name(m1p1-spec "ESpectrum port for Murmulator - ZX Spectrum emulator by DnCraptor")
+pico_set_program_name(m1p1-spec "ESpectrum port for Murmulator - ALF TV GAME emulator by DnCraptor")
 pico_set_program_version(m1p1-spec "test")
 
 target_include_directories(${PROJECT_NAME} PRIVATE
@@ -147,13 +144,12 @@ ELSE()
 ENDIF()
 
 IF(FLASH_SIZE_GREEN)
-target_compile_definitions(${PROJECT_NAME} PRIVATE
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
         NO_SPAIN_ROM_48k=1
         NO_SPAIN_ROM_128k=1
         CARTRIDGE_AS_CUSTOM=1
         NO_SEPARATE_48K_CUSTOM=1
-        NO_ALF=1
-)
+    )
 ENDIF()
 
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "${BUILD_NAME}")
@@ -248,61 +244,6 @@ IF(MURM2)
         PICO_FLASH_SIZE_BYTES=${FLASH_SIZE}*1024
         DEFAULT_THROTTLING=0
     )
-ELSEIF(MONSTR)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE
-        PORT_VERSION="${PORT_VERSION}"
-        CPU_MHZ=${CPU_MHZ}
-
-        KBD_CLOCK_PIN=0
-        KBD_DATA_PIN=1
-
-    #    LOAD_WAV_PIO=22
-        PWM_PIN0=26
-        PWM_PIN1=27
-        BEEPER_PIN=28
-        SOUND_FREQUENCY=30600
-        I2S_FREQUENCY=30600
-
-        # SDCARD
-        SDCARD_PIN_SPI0_CS=23 
-        SDCARD_PIN_SPI0_SCK=18 
-        SDCARD_PIN_SPI0_MOSI=19 
-        SDCARD_PIN_SPI0_MISO=20
-        
-        #PSRAM
-        # PSRAM_MUTEX=1
-        PSRAM_SPINLOCK=1
-        PSRAM_ASYNC=1
-
-        PSRAM_PIN_CS=5
-        PSRAM_PIN_SCK=2
-        PSRAM_PIN_MOSI=3
-        PSRAM_PIN_MISO=4
-
-        # NES Gamepad
-    #    USE_NESPAD
-        NES_GPIO_CLK=14
-        NES_GPIO_LAT=15
-        NES_GPIO_DATA=16
-
-        # VGA 8 pins starts from pin:
-        VGA_BASE_PIN=6
-
-        # HDMI 8 pins starts from pin:
-        HDMI_BASE_PIN=6
-
-        # TFT
-        TFT_CS_PIN=6
-        TFT_RST_PIN=8
-        TFT_LED_PIN=9
-        TFT_DC_PIN=10
-        TFT_DATA_PIN=12
-        TFT_CLK_PIN=13
-        TFT_INV=${TFT_INV}
-
-        PICO_FLASH_SIZE_BYTES=${FLASH_SIZE}*1024
-        DEFAULT_THROTTLING=0
-    )
 ELSE()
     target_compile_definitions(${PROJECT_NAME} PRIVATE
         PORT_VERSION="${PORT_VERSION}"
@@ -366,6 +307,6 @@ ELSE()
     )
 ENDIF()
 
-pico_set_linker_script(${PROJECT_NAME} "${CMAKE_SOURCE_DIR}/memmap.ld")
+pico_set_linker_script(${PROJECT_NAME} "${CMAKE_SOURCE_DIR}/memmap.g.ld")
 target_link_options(${PROJECT_NAME} PRIVATE -Xlinker --print-memory-usage --data-sections)
 pico_add_extra_outputs(${PROJECT_NAME})

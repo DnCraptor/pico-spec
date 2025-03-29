@@ -9,19 +9,9 @@
 #include "psram_spi.h"
 #include "pwm_audio.h"
 
-string   Config::arch = "48K";
-string   Config::romSet = "48K";
-string   Config::romSet48 = "48K";
-string   Config::romSet128 = "128K";
-string   Config::romSetPent = "128Kp";
-string   Config::romSetP512 = "128Kp";
-string   Config::romSetP1M = "128Kp";
-string   Config::pref_arch = "48K";
-string   Config::pref_romSet_48 = "48K";
-string   Config::pref_romSet_128 = "128K";
-string   Config::pref_romSetPent = "128Kp";
-string   Config::pref_romSetP512 = "128Kp";
-string   Config::pref_romSetP1M = "128Kp";
+string   Config::arch = "ALF";
+string   Config::romSet = "ALF";
+string   Config::pref_arch = "ALF";
 string   Config::ram_file = NO_RAM_FILE;
 string   Config::last_ram_file = NO_RAM_FILE;
 
@@ -76,83 +66,13 @@ bool     Config::StartMsg = true;
 
 void Config::requestMachine(string newArch, string newRomSet)
 {
-    arch = newArch;
-    if (arch == "48K") {
-        if (newRomSet=="") romSet = "48K"; else romSet = newRomSet;
-        if (newRomSet=="") romSet48 = "48K"; else romSet48 = newRomSet;
-        if (romSet48 == "48Kcs") {
-#if !CARTRIDGE_AS_CUSTOM || NO_ALF
-#if NO_SEPARATE_48K_CUSTOM
-            MemESP::rom[0].assign_rom(gb_rom_0_128k_custom);
-#else
-            MemESP::rom[0].assign_rom(gb_rom_0_48k_custom);
-#endif
-#else
-            MemESP::rom[0].assign_rom(gb_rom_Alf_cart);
-#endif
-        } else
-#if !NO_SPAIN_ROM_48k
-        if (romSet48 == "48Kes")
-            MemESP::rom[0].assign_rom(gb_rom_0_48k_es);
-        else
-#endif
-            MemESP::rom[0].assign_rom(gb_rom_0_sinclair_48k);
+    arch = "ALF"; /// newArch;
+    const uint8_t* base = gb_rom_Alf;
+    for (int i = 0; i < 64; ++i) {
+        MemESP::rom[i].assign_rom(i >= 16 ? gb_rom_Alf_ep : base + ((16 * i) << 10));
     }
-#if !NO_ALF
-    else if (arch == "ALF") {
-        const uint8_t* base = gb_rom_Alf;
-        for (int i = 0; i < 64; ++i) {
-            MemESP::rom[i].assign_rom(i >= 16 ? gb_rom_Alf_ep : base + ((16 * i) << 10));
-        }
-        Config::kempstonPort = 0x1F; // TODO: ensure, save?
-    }
-#endif
-    else if (arch == "128K") {
-        if (newRomSet=="") romSet = "128K"; else romSet = newRomSet;
-        if (newRomSet=="") romSet128 = "128K"; else romSet128 = newRomSet;
-        if (romSet128 == "128Kcs") {
-#if !CARTRIDGE_AS_CUSTOM || NO_ALF
-            MemESP::rom[0].assign_rom(gb_rom_0_128k_custom);
-            MemESP::rom[1].assign_rom(gb_rom_0_128k_custom + (16 << 10)); /// 16392;
-#else
-            MemESP::rom[0].assign_rom(gb_rom_Alf_cart);
-            MemESP::rom[1].assign_rom(gb_rom_Alf_cart + (16 << 10)); /// 16392;
-#endif
-#if !NO_SPAIN_ROM_128k
-        } else if (romSet128 == "128Kes") {
-            MemESP::rom[0].assign_rom(gb_rom_0_128k_es);
-            MemESP::rom[1].assign_rom(gb_rom_1_128k_es);
-        } else if (romSet128 == "+2es") {
-            MemESP::rom[0].assign_rom(gb_rom_0_plus2_es);
-            MemESP::rom[1].assign_rom(gb_rom_1_plus2_es);
-        } else if (romSet128 == "+2") {
-            MemESP::rom[0].assign_rom(gb_rom_0_plus2);
-            MemESP::rom[1].assign_rom(gb_rom_1_plus2);
-        } else if (romSet128 == "ZX81+") {
-            MemESP::rom[0].assign_rom(gb_rom_0_s128_zx81);
-            MemESP::rom[1].assign_rom(gb_rom_1_sinclair_128k);
-#endif
-        } else {
-            MemESP::rom[0].assign_rom(gb_rom_0_sinclair_128k);
-            MemESP::rom[1].assign_rom(gb_rom_1_sinclair_128k);
-        }
-    } else { // Pentagon by default
-        if (newRomSet=="") romSet = "128Kp"; else romSet = newRomSet;
-        if (romSetPent=="") romSetPent = "128Kp"; else romSetPent = newRomSet;
-        if (romSetPent == "128Kcs") {
-#if !CARTRIDGE_AS_CUSTOM || NO_ALF
-            MemESP::rom[0].assign_rom(gb_rom_0_128k_custom);
-            MemESP::rom[1].assign_rom(gb_rom_0_128k_custom + (16 << 10)); /// 16392;
-#else
-            MemESP::rom[0].assign_rom(gb_rom_Alf_cart);
-            MemESP::rom[1].assign_rom(gb_rom_Alf_cart + (16 << 10)); /// 16392;
-#endif
-        } else {
-            MemESP::rom[0].assign_rom(gb_rom_pentagon_128k);
-            MemESP::rom[1].assign_rom(gb_rom_pentagon_128k + (16 << 10));
-        }
-    }
-    MemESP::rom[4].assign_rom(gb_rom_4_trdos_503);
+    Config::kempstonPort = 0x1F; // TODO: ensure, save?
+   /// MemESP::rom[4].assign_rom(gb_rom_4_trdos_503);
 }
 
 static bool nvs_get_str(const char* key, string& v, const vector<string>& sts) {
@@ -226,17 +146,7 @@ void Config::load() {
 
         nvs_get_str("arch", arch, sts);
         nvs_get_str("romSet", romSet, sts);
-        nvs_get_str("romSet48", romSet48, sts);
-        nvs_get_str("romSet128", romSet128, sts);
-        nvs_get_str("romSetPent", romSetPent, sts);
-        nvs_get_str("romSetP512", romSetP512, sts);
-        nvs_get_str("romSetP1M", romSetP1M, sts);
         nvs_get_str("pref_arch", pref_arch, sts);
-        nvs_get_str("pref_romSet_48", pref_romSet_48, sts);
-        nvs_get_str("pref_romSet_128", pref_romSet_128, sts);
-        nvs_get_str("pref_romSetPent", pref_romSetPent, sts);
-        nvs_get_str("pref_romSetP512", pref_romSetP512, sts);
-        nvs_get_str("pref_romSetP1M", pref_romSetP1M, sts);
         nvs_get_str("ram", ram_file, sts);
         nvs_get_b("AY48", AY48, sts);
         nvs_get_b("Issue2", Issue2, sts);
@@ -330,21 +240,9 @@ void Config::save() {
     if (handle) {
         nvs_set_str(handle,"arch",arch.c_str());
         nvs_set_str(handle,"romSet",romSet.c_str());
-        nvs_set_str(handle,"romSet48",romSet48.c_str());
-        nvs_set_str(handle,"romSet128",romSet128.c_str());
-        nvs_set_str(handle,"romSetPent",romSetPent.c_str());
-        nvs_set_str(handle,"romSetP512",romSetP512.c_str());
-        nvs_set_str(handle,"romSetP1M",romSetP1M.c_str());
         nvs_set_str(handle,"pref_arch",pref_arch.c_str());
-        nvs_set_str(handle,"pref_romSet_48",pref_romSet_48.c_str());
-        nvs_set_str(handle,"pref_romSet_128",pref_romSet_128.c_str());
-        nvs_set_str(handle,"pref_romSetPent",pref_romSetPent.c_str());
-        nvs_set_str(handle,"pref_romSetP512",pref_romSetP512.c_str());
-        nvs_set_str(handle,"pref_romSetP1M",pref_romSetP1M.c_str());
         nvs_set_str(handle,"ram",ram_file.c_str());   
         nvs_set_str(handle,"slog",slog_on ? "true" : "false");
-///        nvs_set_str(handle,"sdstorage", FileUtils::MountPoint);
-///        nvs_set_str(handle,"asp169",aspect_16_9 ? "true" : "false");
         nvs_set_u8(handle,"language", Config::lang);
         nvs_set_str(handle,"AY48", AY48 ? "true" : "false");
         nvs_set_u8(handle,"ayConfig", Config::ayConfig);

@@ -111,7 +111,7 @@ There's also no need to sort files using external utilities: the emulator create
 - ALT+F10 NMI
 - ALT+F12 Update Firmware
 - Pause Pause
-- PrntScr BMP screen capture (Folder /spec/.c at SDCard)
+- PrntScr BMP screen capture (Folder /alf/.c at SDCard)
 
 ## How to flash custom ROMs
 

@@ -36,21 +36,8 @@ visit https://zxespectrum.speccy.org/contacto
 #ifndef ROMS_H
 #define ROMS_H
 
-#include "roms/romSinclair48K.h"
-#include "roms/rom48Kspanish.h"
-#include "roms/rom48Kcustom.h"
-#include "roms/romSinclair128K.h"
-#include "roms/rom128Kspanish.h"
-#include "roms/romPlus2.h"
-#include "roms/RomPlus2spanish.h"
-#include "roms/rom128Kcustom.h"
-#include "roms/S128_ZX81+_ROM.h"
-
-#ifndef NO_ALF
 extern "C" unsigned char gb_rom_Alf_cart[];
 extern "C" unsigned char gb_rom_Alf[];
 extern "C" unsigned char gb_rom_Alf_ep[];
-#endif
-extern "C" unsigned char gb_rom_4_trdos_503[];
-extern "C" unsigned char gb_rom_pentagon_128k[];
+
 #endif

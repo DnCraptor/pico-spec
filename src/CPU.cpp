@@ -55,38 +55,17 @@ uint32_t CPU::stFrame = 0;
 bool CPU::portBasedBP = false;
 bool CPU::paused = false;
 
-bool Z80Ops::is48;
-bool Z80Ops::isALF = false;
-bool Z80Ops::is128;
-bool Z80Ops::isPentagon;
-bool Z80Ops::is512 = false;
-bool Z80Ops::is1024 = false;
+const bool Z80Ops::is48 = false;
+const bool Z80Ops::isALF = true;
+const bool Z80Ops::is128 = true;
+const bool Z80Ops::isPentagon = false;
+const bool Z80Ops::is512 = false;
+const bool Z80Ops::is1024 = false;
 
 void CPU::updateStatesInFrame() {
-#if !NO_ALF
-    Z80Ops::isALF = (Config::arch == "ALF");
-#endif
-    if (Config::arch == "48K") {
-        statesInFrame = TSTATES_PER_FRAME_48;
-        IntStart = INT_START48;
-        IntEnd = INT_END48 + CPU::latetiming;
-    } else if (Config::arch == "128K" || Z80Ops::isALF) {
-        statesInFrame = TSTATES_PER_FRAME_128;
-        IntStart = INT_START128;
-        IntEnd = INT_END128 + CPU::latetiming;
-    } else if (Config::arch == "P512") {
-        statesInFrame = TSTATES_PER_FRAME_PENTAGON;
-        IntStart = INT_START_PENTAGON;
-        IntEnd = INT_END_PENTAGON + CPU::latetiming;
-    } else if (Config::arch == "P1024") {
-        statesInFrame = TSTATES_PER_FRAME_PENTAGON;
-        IntStart = INT_START_PENTAGON;
-        IntEnd = INT_END_PENTAGON + CPU::latetiming;
-    } else { // if (Config::arch == "Pentagon") - by default
-        statesInFrame = TSTATES_PER_FRAME_PENTAGON;
-        IntStart = INT_START_PENTAGON;
-        IntEnd = INT_END_PENTAGON + CPU::latetiming;
-    }
+    statesInFrame = TSTATES_PER_FRAME_128;
+    IntStart = INT_START128;
+    IntEnd = INT_END128 + CPU::latetiming;
     uint8_t m = ESPectrum::multiplicator;
     if (m) {
         statesInFrame <<= m;
@@ -97,62 +76,14 @@ void CPU::updateStatesInFrame() {
 }
 
 void CPU::reset() {
-
     Z80::reset();
-    
     CPU::latetiming = Config::AluTiming;
-
-#if !NO_ALF
-    Z80Ops::isALF = (Config::arch == "ALF");
-#endif
-    if (Config::arch == "48K") {
-        Ports::getFloatBusData = &Ports::getFloatBusData48;
-        Z80Ops::is48 = true;
-        Z80Ops::is128 = false;
-        Z80Ops::isPentagon = false;
-        Z80Ops::is512 = false;
-        Z80Ops::is1024 = false;
-        // Set emulation loop sync target
-        ESPectrum::target = MICROS_PER_FRAME_48;
-    } else if (Config::arch == "128K" || Z80Ops::isALF) {
-        Ports::getFloatBusData = &Ports::getFloatBusData128;
-        Z80Ops::is48 = false;
-        Z80Ops::is128 = true;
-        Z80Ops::isPentagon = false;
-        Z80Ops::is512 = false;
-        Z80Ops::is1024 = false;
-        // Set emulation loop sync target
-        ESPectrum::target = MICROS_PER_FRAME_128;
-    } else if (Config::arch == "P512") {
-        Z80Ops::is48 = false;
-        Z80Ops::is128 = false;
-        Z80Ops::isPentagon = true;
-        Z80Ops::is512 = true;
-        Z80Ops::is1024 = false;
-        // Set emulation loop sync target
-        ESPectrum::target = MICROS_PER_FRAME_PENTAGON;
-    } else if (Config::arch == "P1024") {
-        Z80Ops::is48 = false;
-        Z80Ops::is128 = false;
-        Z80Ops::isPentagon = true;
-        Z80Ops::is512 = false;
-        Z80Ops::is1024 = true;
-        // Set emulation loop sync target
-        ESPectrum::target = MICROS_PER_FRAME_PENTAGON;
-    } else { // if (Config::arch == "Pentagon") - by default
-        Z80Ops::is48 = false;
-        Z80Ops::is128 = false;
-        Z80Ops::isPentagon = true;
-        Z80Ops::is512 = false;
-        Z80Ops::is1024 = false;
-        // Set emulation loop sync target
-        ESPectrum::target = MICROS_PER_FRAME_PENTAGON;
-    }
+    Ports::getFloatBusData = &Ports::getFloatBusData128;
+    // Set emulation loop sync target
+    ESPectrum::target = MICROS_PER_FRAME_128;
     updateStatesInFrame();
-
     tstates = 0;
     global_tstates = 0;
-
 }
 
 IRAM_ATTR void CPU::step() {

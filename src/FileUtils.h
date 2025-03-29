@@ -106,18 +106,18 @@ private:
 #define STORAGE_NVS "/storage.nvs"
 
 #ifndef ESP32_SDL2_WRAPPER
-#define MOUNT_POINT_SPIFFS "/spec"
-#define MOUNT_POINT_SD "/spec"
+#define MOUNT_POINT_SPIFFS "/alf"
+#define MOUNT_POINT_SD "/alf"
 #else
-#define MOUNT_POINT_SPIFFS "./spec"
-#define MOUNT_POINT_SD "./spec"
+#define MOUNT_POINT_SPIFFS "./alf"
+#define MOUNT_POINT_SD "./alf"
 #endif
 
 // Use internal spiffs first
 #ifndef ESP32_SDL2_WRAPPER
-#define DISK_BOOT_FILENAME "/spec/boot.cfg"
+#define DISK_BOOT_FILENAME "/alf/boot.cfg"
 #else
-#define DISK_BOOT_FILENAME "./spec/boot.cfg"
+#define DISK_BOOT_FILENAME "./alf/boot.cfg"
 #endif
 #define DISK_ROM_DIR "/r"
 #define DISK_SNA_DIR "/s"
