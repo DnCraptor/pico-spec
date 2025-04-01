@@ -147,8 +147,9 @@ IRAM_ATTR void OSD::click() {
     pwm_audio_set_volume(ESPectrum::aud_volume);
     if (CPU::paused) osdCenteredMsg(OSD_PAUSE[Config::lang], LEVEL_INFO, 500);
 }
-
+void close_all(void);
 void OSD::esp_hard_reset() {
+    close_all();
     watchdog_enable(1, true);
     while (true);
 }
@@ -832,7 +833,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                 // ***********************************************************************************
                 menu_saverect = true;
                 menu_curopt = 1;
-                bool ext_ram = FileUtils::fsMount || psram_size() > 0;
+                bool ext_ram = BUTTER_PSRAM || FileUtils::fsMount || psram_size() > 0;
                 while (1) {
                     menu_level = 1;
                     uint8_t arch_num = menuRun(ext_ram ? MENU_ARCH[Config::lang] : MENU_ARCH_NO_SD[Config::lang]);

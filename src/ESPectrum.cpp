@@ -83,7 +83,15 @@ fabgl::VirtualKey get_last_key_pressed(void) {
 }
 
 void close_all(void) {
-    /// TODO:
+#ifdef BUTTER_PSRAM_GPIO
+    if (BUTTER_PSRAM) {
+        memset((void*)PSRAM_DATA, 0, 4 << 20);
+    }
+    gpio_init(BUTTER_PSRAM_GPIO);
+    gpio_set_dir(BUTTER_PSRAM_GPIO, GPIO_OUT);
+    gpio_put(BUTTER_PSRAM_GPIO, true);
+#endif
+    //
 }
 
 void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
@@ -460,7 +468,7 @@ void ESPectrum::setup()
     // LOAD CONFIG
     //=======================================================================================
     if (FileUtils::fsMount) Config::load();
-    bool ext_ram_exist = psram_size() >= (16 << 10) || FileUtils::fsMount;
+    bool ext_ram_exist = BUTTER_PSRAM || psram_size() >= (16 << 10) || FileUtils::fsMount;
     
     // Set arch if there's no snapshot to load
     if (Config::ram_file == NO_RAM_FILE) {

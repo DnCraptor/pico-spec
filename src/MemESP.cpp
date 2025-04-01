@@ -44,7 +44,7 @@ static FIL f;
 static const char PAGEFILE[] = "/tmp/pico-spec.512k";
 void mem_desc_t::reset(void) {
     pages.clear();
-    if ( !psram_size() ) {
+    if ( !BUTTER_PSRAM && !psram_size() ) {
         f_close(&f);
         f_unlink(PAGEFILE); // ensure it is new file
         f_open(&f, PAGEFILE, FA_WRITE | FA_CREATE_ALWAYS);
@@ -56,15 +56,21 @@ void mem_desc_t::reset(void) {
 uint8_t* mem_desc_t::to_vram(void) {
     uint8_t* res = _int->p;
     uint32_t ba = _int->vram_off;
-    if (psram_size()) {
+    if (BUTTER_PSRAM) {
+        for (size_t i = 0; i < 0x4000; i += 4) {
+            *(uint32_t*)(PSRAM_DATA + ba + i) = *(uint32_t*)(res + i);
+        }
+    } else if (psram_size()) {
         for (size_t i = 0; i < 0x4000; i += 4) {
             write32psram(ba + i, *(uint32_t*)(res + i));
         }
     } else {
+        gpio_put(PICO_DEFAULT_LED_PIN, true);
         UINT bw;
         FSIZE_t lba = ba;
         f_lseek(&f, lba);
         f_write(&f, res, 0x4000, &bw);
+        gpio_put(PICO_DEFAULT_LED_PIN, false);
     }
     _int->outside = true;
     _int->p = 0;
@@ -73,7 +79,11 @@ uint8_t* mem_desc_t::to_vram(void) {
 void mem_desc_t::from_vram(uint8_t* p) {
     this->_int->p = p;
     uint32_t ba = _int->vram_off;
-    if (psram_size()) {
+    if (BUTTER_PSRAM) {
+        for (size_t i = 0; i < 0x4000; i += 4) {
+            *(uint32_t*)(p + i) = *(uint32_t*)(PSRAM_DATA + ba + i);
+        }
+    } else if (psram_size()) {
         for (size_t i = 0; i < 0x4000; i += 4) {
             *(uint32_t*)(p + i) = read32psram(ba + i);
         }
@@ -87,6 +97,9 @@ void mem_desc_t::from_vram(uint8_t* p) {
 }
 uint8_t mem_desc_t::_read(uint16_t addr) {
     uint32_t ba = _int->vram_off;
+    if (BUTTER_PSRAM) {
+        return PSRAM_DATA[ba + addr];
+    }
     if (psram_size()) {
         return read8psram(ba + addr);
     }
@@ -99,13 +112,20 @@ uint8_t mem_desc_t::_read(uint16_t addr) {
 }
 void mem_desc_t::_write(uint16_t addr, uint8_t v) {
     uint32_t ba = _int->vram_off;
+    if (BUTTER_PSRAM) {
+        PSRAM_DATA[ba + addr] = v;
+        return;
+    }
     if (psram_size()) {
         write8psram(ba + addr, v);
+        return;
     }
+    gpio_put(PICO_DEFAULT_LED_PIN, true);
     UINT br;
     FSIZE_t lba = ba;
     f_lseek(&f, lba + addr);
     f_write(&f, &v, 1, &br);
+    gpio_put(PICO_DEFAULT_LED_PIN, false);
 }
 void mem_desc_t::_sync(void) {
     for (auto it = pages.begin(); it != pages.end(); ++it) {
@@ -127,6 +147,13 @@ void mem_desc_t::from_file(FIL* f_in, size_t sz) {
     }
     uint8_t v;
     uint32_t ba = _int->vram_off;
+    if (BUTTER_PSRAM) {
+        for (size_t addr = 0; addr < sz; ++addr) {
+            f_read(f_in, &v, 1, &br);
+            PSRAM_DATA[ba + addr] = v;
+        }
+        return;
+    }
     if (psram_size()) {
         for (size_t addr = 0; addr < sz; ++addr) {
             f_read(f_in, &v, 1, &br);
@@ -134,26 +161,39 @@ void mem_desc_t::from_file(FIL* f_in, size_t sz) {
         }
         return;
     }
+    gpio_put(PICO_DEFAULT_LED_PIN, true);
     FSIZE_t lba = ba;
     f_lseek(&f, lba);
     for (size_t addr = 0; addr < sz; ++addr) {
         f_read(f_in, &v, 1, &br);
         f_write(&f, &v, 1, &br);
     }
+    gpio_put(PICO_DEFAULT_LED_PIN, false);
 }
 void mem_desc_t::to_file(FIL* f_out, size_t sz) {
+    gpio_put(PICO_DEFAULT_LED_PIN, true);
     UINT br;
     if (!_int->outside) {
         f_write(f_out, direct(), sz, &br);
+        gpio_put(PICO_DEFAULT_LED_PIN, false);
         return;
     }
     uint8_t v;
     uint32_t ba = _int->vram_off;
+    if (BUTTER_PSRAM) {
+        for (size_t addr = 0; addr < sz; ++addr) {
+            v = PSRAM_DATA[ba + addr];
+            f_write(f_out, &v, 1, &br);
+        }
+        gpio_put(PICO_DEFAULT_LED_PIN, false);
+        return;
+    }
     if (psram_size()) {
         for (size_t addr = 0; addr < sz; ++addr) {
             v = read8psram(ba + addr);
             f_write(f_out, &v, 1, &br);
         }
+        gpio_put(PICO_DEFAULT_LED_PIN, false);
         return;
     }
     FSIZE_t lba = ba;
@@ -162,6 +202,7 @@ void mem_desc_t::to_file(FIL* f_out, size_t sz) {
         f_read(&f, &v, 1, &br);
         f_write(f_out, &v, 1, &br);
     }
+    gpio_put(PICO_DEFAULT_LED_PIN, false);
 }
 void mem_desc_t::from_mem(mem_desc_t& ram, size_t sz) {
     if (!_int->outside) {
