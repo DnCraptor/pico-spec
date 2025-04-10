@@ -490,28 +490,28 @@ static const char *MENU_FLASHLOAD[2] = { "Fast load\n" , "Carga rapida\n"};
 static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
 
 #define MENU_OTHER_EN "Other\n"\
-    "AY-3-8912 on 48K\t>\n"\
+    "AY-3-8912 ON/OFF\t>\n"\
     "ALU Timing\t>\n"\
     "48K Issue 2\t>\n"\
     "Map joystick to cursor\t>\n"\
     "Second joystick\t>\n"\
     "Kempston joystick port\t>\n"\
     "Throttling\t>\n"\
-    "AY-3-8912 config\t>\n"\
+	"AY-3-8912 Stereo\t>\n"\
     "TurboSound\t>\n"
 #define MENU_OTHER_ES "Otros\n"\
-    "AY-3-8912 en 48K\t>\n"\
+    "AY-3-8912 ON/OFF\t>\n"\
     "Timing ULA\t>\n"\
     "48K Issue 2\t>\n"\
     "Joystick al cursor\t>\n"\
     "Segunda joystick\t>\n"\
     "Kempston joystick port\t>\n"\
 	"Aceleraci" "\xA2" "n\t>\n"\
-    "Configuraci" "\xA2" "n AY-3-8912\t>\n" \
+	"AY-3-8912 Stereo\t>\n" \
     "TurboSound\t>\n"
 static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
 
-static const char *MENU_AY48[2] = { "AY on 48K\n" , "AY en 48K\n"};
+static const char *MENU_AY48[2] = { "Turned on?\n" , "Turned on?\n"};
 
 #define MENU_KBD2NDPS2_EN "Enable\n"\
     "No\t[N]\n"\
@@ -523,7 +523,8 @@ static const char *MENU_KBD2NDPS2[2] = { MENU_KBD2NDPS2_EN, MENU_KBD2NDPS2_ES };
 
 #define MENU_AY_EN "ABC\n"\
     "ABC\t[B]\n"\
-    "ACB\t[C]\n"
+    "ACB\t[C]\n"\
+    "Mono\t[M]\n"
 static const char *MENU_AY[2] = { MENU_AY_EN, MENU_AY_EN };
 
 #define MENU_TS_EN "TurboSound\n"\
@@ -792,7 +793,8 @@ static const char *MENU_DEFJOY[2] = { MENU_DEFJOY_TITLE MENU_DEFJOYS MENU_DEFJOY
   "Joystick emulation\n"\
 	"Cursor Keys as Joy\t>\n" \
 	"TAB as fire 1\t>\n"\
-	"Right Enter\t>\n"
+    "Right Enter\t>\n"\
+    "WASD/PO\t>\n"
 
 #define MENU_JOYPS2_ES \
   "Joystick emulaci" \
@@ -807,6 +809,8 @@ static const char *MENU_CURSORJOY[2] = { "Cursor as Joy\n" , "Joy en Cursor\n" }
 static const char *MENU_TABASFIRE[2] = { "TAB as fire 1\n" , "TAB disparo 1\n" };
 
 static const char *MENU_ENTERSPACE[2] = { "as Space\n" , "como Space\n" };
+
+static const char *MENU_WASD[2] = { "WASD/PO\n" , "WASD/PO\n" };
 
 #define DEDICATORIA "\nF1Dedicado especialmente a:\r"\
 	"\nB1      _       _ _\r"\

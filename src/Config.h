@@ -87,6 +87,7 @@ public:
     static volatile bool real_player;
     static bool     tape_timing_rg;
     static bool     rightSpace;
+    static bool     wasd;
     static uint16_t breakPoint;
     static uint16_t portReadBP;
     static uint16_t portWriteBP;

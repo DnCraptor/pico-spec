@@ -633,9 +633,37 @@ void kbdExtraMapping(fabgl::VirtualKey virtualKey, bool pressed) {
             joyPushData(fabgl::VirtualKey::VK_MENU_RIGHT, pressed);
             break;
         }
+        case fabgl::VirtualKey::VK_D: {
+            if (Config::wasd) joyPushData(fabgl::VirtualKey::VK_DPAD_RIGHT, pressed);
+            joyPushData(fabgl::VirtualKey::VK_MENU_RIGHT, pressed);
+            break;
+        }
+        case fabgl::VirtualKey::VK_W: {
+            if (Config::wasd) joyPushData(fabgl::VirtualKey::VK_DPAD_UP, pressed);
+            joyPushData(fabgl::VirtualKey::VK_MENU_UP, pressed);
+            break;
+        }
+        case fabgl::VirtualKey::VK_A: {
+            if (Config::wasd) joyPushData(fabgl::VirtualKey::VK_DPAD_LEFT, pressed);
+            joyPushData(fabgl::VirtualKey::VK_MENU_LEFT, pressed);
+            break;
+        }
+        case fabgl::VirtualKey::VK_S: {
+            if (Config::wasd) joyPushData(fabgl::VirtualKey::VK_DPAD_DOWN, pressed);
+            joyPushData(fabgl::VirtualKey::VK_MENU_DOWN, pressed);
+            break;
+        }
         case fabgl::VirtualKey::VK_KP_ENTER: { // VK_KP_ENTER
             kbdPushData(Config::rightSpace ? fabgl::VirtualKey::VK_SPACE : fabgl::VirtualKey::VK_RETURN, pressed);
             return;
+        }
+        case fabgl::VirtualKey::VK_P: {
+            if (Config::wasd) kbdPushData(fabgl::VirtualKey::VK_DPAD_FIRE, pressed);
+            break;
+        }
+        case fabgl::VirtualKey::VK_O: {
+            if (Config::wasd) kbdPushData(fabgl::VirtualKey::VK_DPAD_ALTFIRE, pressed);
+            break;
         }
 
         case fabgl::VirtualKey::VK_BACKSPACE: joyPushData(fabgl::VirtualKey::VK_MENU_BS, pressed); break;
@@ -788,6 +816,104 @@ bool toggle_color() {
 }
 #endif
 
+#include <hardware/exception.h>
+
+#if !PICO_RP2040
+#include <hardware/structs/qmi.h>
+#include <hardware/structs/xip.h>
+#ifdef BUTTER_PSRAM_GPIO
+volatile uint8_t* PSRAM_DATA = (uint8_t*)0x11000000;
+bool BUTTER_PSRAM = false;
+#else
+static uint8_t* PSRAM_DATA = (uint8_t*)0;
+static const bool BUTTER_PSRAM = false;
+#endif
+void __no_inline_not_in_flash_func(psram_init)(uint cs_pin) {
+    gpio_set_function(cs_pin, GPIO_FUNC_XIP_CS1);
+
+    // Enable direct mode, PSRAM CS, clkdiv of 10.
+    qmi_hw->direct_csr = 10 << QMI_DIRECT_CSR_CLKDIV_LSB | \
+                               QMI_DIRECT_CSR_EN_BITS | \
+                               QMI_DIRECT_CSR_AUTO_CS1N_BITS;
+    while (qmi_hw->direct_csr & QMI_DIRECT_CSR_BUSY_BITS)
+        ;
+
+    // Enable QPI mode on the PSRAM
+    const uint CMD_QPI_EN = 0x35;
+    qmi_hw->direct_tx = QMI_DIRECT_TX_NOPUSH_BITS | CMD_QPI_EN;
+
+    while (qmi_hw->direct_csr & QMI_DIRECT_CSR_BUSY_BITS)
+        ;
+
+    // Set PSRAM timing for APS6404
+    //
+    // Using an rxdelay equal to the divisor isn't enough when running the APS6404 close to 133MHz.
+    // So: don't allow running at divisor 1 above 100MHz (because delay of 2 would be too late),
+    // and add an extra 1 to the rxdelay if the divided clock is > 100MHz (i.e. sys clock > 200MHz).
+    const int max_psram_freq = 166000000;
+    const int clock_hz = clock_get_hz(clk_sys);
+    int divisor = (clock_hz + max_psram_freq - 1) / max_psram_freq;
+    if (divisor == 1 && clock_hz > 100000000) {
+        divisor = 2;
+    }
+    int rxdelay = divisor;
+    if (clock_hz / divisor > 100000000) {
+        rxdelay += 1;
+    }
+
+    // - Max select must be <= 8us.  The value is given in multiples of 64 system clocks.
+    // - Min deselect must be >= 18ns.  The value is given in system clock cycles - ceil(divisor / 2).
+    const int clock_period_fs = 1000000000000000ll / clock_hz;
+    const int max_select = (125 * 1000000) / clock_period_fs;  // 125 = 8000ns / 64
+    const int min_deselect = (18 * 1000000 + (clock_period_fs - 1)) / clock_period_fs - (divisor + 1) / 2;
+
+    qmi_hw->m[1].timing = 1 << QMI_M1_TIMING_COOLDOWN_LSB |
+                          QMI_M1_TIMING_PAGEBREAK_VALUE_1024 << QMI_M1_TIMING_PAGEBREAK_LSB |
+                          max_select << QMI_M1_TIMING_MAX_SELECT_LSB |
+                          min_deselect << QMI_M1_TIMING_MIN_DESELECT_LSB |
+                          rxdelay << QMI_M1_TIMING_RXDELAY_LSB |
+                          divisor << QMI_M1_TIMING_CLKDIV_LSB;
+
+    // Set PSRAM commands and formats
+    qmi_hw->m[1].rfmt =
+        QMI_M0_RFMT_PREFIX_WIDTH_VALUE_Q << QMI_M0_RFMT_PREFIX_WIDTH_LSB |\
+        QMI_M0_RFMT_ADDR_WIDTH_VALUE_Q   << QMI_M0_RFMT_ADDR_WIDTH_LSB |\
+        QMI_M0_RFMT_SUFFIX_WIDTH_VALUE_Q << QMI_M0_RFMT_SUFFIX_WIDTH_LSB |\
+        QMI_M0_RFMT_DUMMY_WIDTH_VALUE_Q  << QMI_M0_RFMT_DUMMY_WIDTH_LSB |\
+        QMI_M0_RFMT_DATA_WIDTH_VALUE_Q   << QMI_M0_RFMT_DATA_WIDTH_LSB |\
+        QMI_M0_RFMT_PREFIX_LEN_VALUE_8   << QMI_M0_RFMT_PREFIX_LEN_LSB |\
+        6                                << QMI_M0_RFMT_DUMMY_LEN_LSB;
+
+    qmi_hw->m[1].rcmd = 0xEB;
+
+    qmi_hw->m[1].wfmt =
+        QMI_M0_WFMT_PREFIX_WIDTH_VALUE_Q << QMI_M0_WFMT_PREFIX_WIDTH_LSB |\
+        QMI_M0_WFMT_ADDR_WIDTH_VALUE_Q   << QMI_M0_WFMT_ADDR_WIDTH_LSB |\
+        QMI_M0_WFMT_SUFFIX_WIDTH_VALUE_Q << QMI_M0_WFMT_SUFFIX_WIDTH_LSB |\
+        QMI_M0_WFMT_DUMMY_WIDTH_VALUE_Q  << QMI_M0_WFMT_DUMMY_WIDTH_LSB |\
+        QMI_M0_WFMT_DATA_WIDTH_VALUE_Q   << QMI_M0_WFMT_DATA_WIDTH_LSB |\
+        QMI_M0_WFMT_PREFIX_LEN_VALUE_8   << QMI_M0_WFMT_PREFIX_LEN_LSB;
+
+    qmi_hw->m[1].wcmd = 0x38;
+
+    // Disable direct mode
+    qmi_hw->direct_csr = 0;
+
+    // Enable writes to PSRAM
+    hw_set_bits(&xip_ctrl_hw->ctrl, XIP_CTRL_WRITABLE_M1_BITS);
+}
+#endif
+
+void sigbus(void) {
+    printf("SIGBUS exception caught...\n");
+    // reset_usb_boot(0, 0);
+}
+void __attribute__((naked, noreturn)) __printflike(1, 0) dummy_panic(__unused const char *fmt, ...) {
+    printf("*** PANIC ***\n");
+    if (fmt)
+        printf(fmt);
+}
+
 int main() {
 #if !PICO_RP2040
     volatile uint32_t *qmi_m0_timing=(uint32_t *)0x400d000c;
@@ -801,6 +927,27 @@ int main() {
     hw_set_bits(&vreg_and_chip_reset_hw->vreg, VREG_AND_CHIP_RESET_VREG_VSEL_BITS);
     sleep_ms(10);
     set_sys_clock_khz(CPU_MHZ * KHZ, true);
+#endif
+
+#if PICO_RP2350
+#ifdef BUTTER_PSRAM_GPIO
+    psram_init(BUTTER_PSRAM_GPIO);
+    BUTTER_PSRAM = true;
+    exception_set_exclusive_handler(HARDFAULT_EXCEPTION, sigbus);
+    printf("Try Butter-PSRAM test (on GPIO-%d)\n", BUTTER_PSRAM_GPIO);
+    uint32_t psram32 = 4 << 12;
+    uint32_t a = 0;
+    for (; a < psram32; ++a) {
+        PSRAM_DATA[a] =  a & 0xFF;
+    }
+    for (a = 0; a < psram32; ++a) {
+        if ((a & 0xFF) != PSRAM_DATA[a]) {
+            printf(" Butter-PSRAM read failed at %ph", PSRAM_DATA + a);
+            BUTTER_PSRAM = false;
+            break;
+        }
+    }
+#endif
 #endif
 
 #ifdef KBDUSB
@@ -827,9 +974,10 @@ int main() {
     sem_release(&vga_start_semaphore);
 
     init_sound();
-    pcm_setup(SOUND_FREQUENCY, SOUND_FREQUENCY * 2 / 50); // 882 * 2  = 1764
+    pcm_setup(SOUND_FREQUENCY, SOUND_FREQUENCY);
 #ifdef PSRAM
-    init_psram();
+    if (!BUTTER_PSRAM)
+        init_psram();
 #endif
     // send kbd reset only after initial process passed
 #ifndef KBDUSB

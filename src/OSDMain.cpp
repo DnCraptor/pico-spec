@@ -124,7 +124,7 @@ uint8_t OSD::osdMaxCols() { return (OSD_W - (OSD_MARGIN * 2)) / OSD_FONT_W; }
 unsigned short OSD::osdInsideX() { return scrAlignCenterX(OSD_W) + OSD_MARGIN; }
 unsigned short OSD::osdInsideY() { return scrAlignCenterY(OSD_H) + OSD_MARGIN; }
 
-static const uint8_t click48[12]={ 0,8,32,32,32,32,32,32,32,32,8,0 };
+static const uint8_t click48[12] = { 0,8,32,32,32,32,32,32,32,32,8,0 };
 
 static const uint8_t click128[116] = {   0,8,32,32,32,32,32,32,32,32,32,32,32,32,32,32,
                                         32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,32,
@@ -141,14 +141,15 @@ IRAM_ATTR void OSD::click() {
         return; // Disable interface click on tape player mode
     pwm_audio_set_volume(ESP_VOLUME_MAX);
     if (Z80Ops::is48)
-        pwm_audio_write(click48, click48, 12);
+        pwm_audio_write((uint8_t*) click48, (uint8_t*) click48, 12, 0, 0);
     else
-        pwm_audio_write(click128, click128, 116);
+        pwm_audio_write((uint8_t*) click128, (uint8_t*) click128, 116, 0, 0);
     pwm_audio_set_volume(ESPectrum::aud_volume);
     if (CPU::paused) osdCenteredMsg(OSD_PAUSE[Config::lang], LEVEL_INFO, 500);
 }
-
+void close_all(void);
 void OSD::esp_hard_reset() {
+    close_all();
     watchdog_enable(1, true);
     while (true);
 }
@@ -832,7 +833,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                 // ***********************************************************************************
                 menu_saverect = true;
                 menu_curopt = 1;
-                bool ext_ram = FileUtils::fsMount || psram_size() > 0;
+                bool ext_ram = BUTTER_PSRAM || FileUtils::fsMount || psram_size() > 0;
                 while (1) {
                     menu_level = 1;
                     uint8_t arch_num = menuRun(ext_ram ? MENU_ARCH[Config::lang] : MENU_ARCH_NO_SD[Config::lang]);
@@ -1792,6 +1793,37 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                         break;
                                     }
                                 }
+                            } else if (opt2 == 4) {
+                                // WASD
+                                menu_level = 3;
+                                menu_curopt = 1;
+                                menu_saverect = true;
+                                while (1) {
+                                    string csasjoy_menu = MENU_WASD[Config::lang];
+                                    csasjoy_menu += MENU_YESNO[Config::lang];
+                                    bool prev_opt = Config::wasd;
+                                    if (prev_opt) {
+                                        csasjoy_menu.replace(csasjoy_menu.find("[Y",0),2,"[*");
+                                        csasjoy_menu.replace(csasjoy_menu.find("[N",0),2,"[ ");                        
+                                    } else {
+                                        csasjoy_menu.replace(csasjoy_menu.find("[Y",0),2,"[ ");
+                                        csasjoy_menu.replace(csasjoy_menu.find("[N",0),2,"[*");                        
+                                    }
+                                    uint8_t opt2 = menuRun(csasjoy_menu);
+                                    if (opt2) {
+                                        if (opt2 == 1)
+                                            Config::wasd = true;
+                                        else
+                                            Config::wasd = false;
+                                        Config::save();
+                                        menu_curopt = opt2;
+                                        menu_saverect = false;
+                                    } else {
+                                        menu_curopt = 4;
+                                        menu_level = 2;                                       
+                                        break;
+                                    }
+                                }
                             } else {
                                 menu_curopt = 5;
                                 break;
@@ -1862,6 +1894,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                                 Config::AY48 = false;
 
                                             if (Config::AY48 != prev_ay48) {
+                                                ESPectrum::AY_emu = Config::AY48;
                                                 Config::save();
                                             }
                                             menu_curopt = opt2;
@@ -2100,9 +2133,15 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                         if (prev == 0) {
                                             menu.replace(menu.find("[B",0),2,"[*");
                                             menu.replace(menu.find("[C",0),2,"[ ");
-                                        } else {
+                                            menu.replace(menu.find("[M",0),2,"[ ");
+                                        } else if (prev == 1) {
                                             menu.replace(menu.find("[B",0),2,"[ ");
                                             menu.replace(menu.find("[C",0),2,"[*");
+                                            menu.replace(menu.find("[M",0),2,"[ ");
+                                        } else {
+                                            menu.replace(menu.find("[B",0),2,"[ ");
+                                            menu.replace(menu.find("[C",0),2,"[ ");
+                                            menu.replace(menu.find("[M",0),2,"[*");
                                         }
                                         uint8_t opt2 = menuRun(menu);
                                         if (opt2) {
@@ -3837,20 +3876,21 @@ void OSD::HWInfo() {
 }
 
 static void __not_in_flash_func(flash_block)(const uint8_t* buffer, size_t flash_target_offset) {
-    gpio_put(PICO_DEFAULT_LED_PIN, true);
+    // ensure it is required to write block (may be, it is already the same)
+    for (size_t i = 0; i < 512; ++i) {
+        if (buffer[i] != *(uint8_t*)(XIP_BASE + flash_target_offset + i)) {
+            goto flash_it;
+        }
+    }
+    return;
+flash_it:
+    gpio_put(PICO_DEFAULT_LED_PIN, flash_target_offset % (FLASH_SECTOR_SIZE << 2) == 0);
     multicore_lockout_start_blocking();
     const uint32_t ints = save_and_disable_interrupts();
+    if (flash_target_offset % FLASH_SECTOR_SIZE == 0) { // cleanup_block
+        flash_range_erase(flash_target_offset, FLASH_SECTOR_SIZE);
+    }
     flash_range_program(flash_target_offset, buffer, 512);
-    restore_interrupts(ints);
-    multicore_lockout_end_blocking();
-    gpio_put(PICO_DEFAULT_LED_PIN, false);
-}
-
-static void __not_in_flash_func(cleanup_block)(size_t flash_target_offset) {
-    gpio_put(PICO_DEFAULT_LED_PIN, true);
-    multicore_lockout_start_blocking();
-    const uint32_t ints = save_and_disable_interrupts();
-    flash_range_erase(flash_target_offset, FLASH_SECTOR_SIZE);
     restore_interrupts(ints);
     multicore_lockout_end_blocking();
     gpio_put(PICO_DEFAULT_LED_PIN, false);
@@ -3864,7 +3904,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
     }
     FSIZE_t bytesfirmware = f_size(f); 
     const uint8_t* rom;
-    size_t max_rom_size = 0;
+    FSIZE_t max_rom_size = 0;
     string dlgTitle = OSD_ROM[Config::lang];
     // Flash custom ROM 48K
     if ( arch == 1 ) {
@@ -3982,8 +4022,10 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         Config::pref_arch = "ALF";
     }
     else if ( arch == 5 ) {
-        if( bytesfirmware > (1ul << 20) ) {
-            osdCenteredMsg("Unsupported file (by size)", LEVEL_WARN, 2000);
+        if( (size_t)((bytesfirmware >> 10) & 0xFFFFFFFF) > (1ul << 10) ) {
+            char b[40];
+            snprintf(b, 40, "Unsupported file (by size: %d KB)", (size_t)((bytesfirmware >> 10) & 0xFFFFFFFF));
+            osdCenteredMsg(b, LEVEL_WARN, 2000);
             fclose2(f);
             return false;
         }
@@ -4040,15 +4082,12 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         return false;
     }
     size_t flash_target_offset = (size_t)rom - XIP_BASE;
-    size_t max_flash_target_offset = flash_target_offset + max_rom_size;
-    for (size_t i = flash_target_offset; i < max_flash_target_offset; i += FLASH_SECTOR_SIZE) {
-        cleanup_block(i);
-    }
-
     UINT br;
     const size_t sz = 512;
     uint8_t* buffer = (uint8_t*)malloc(sz);
-    for (FSIZE_t i = 0; i < bytesfirmware; i += sz) {
+    FSIZE_t i = 0;
+    for (; i < bytesfirmware && i < max_rom_size; i += sz) {
+        memset(buffer, 0, sz);
         if ( f_read(f, buffer, sz, &br) != FR_OK) {
             osdCenteredMsg(fname + " - unable to read", LEVEL_ERROR, 5000);
             fclose2(f);
@@ -4057,6 +4096,10 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         flash_block(buffer, flash_target_offset + (size_t)(i & 0xFFFFFFFF));
     }
     fclose2(f);
+    memset(buffer, 0, sz);
+    for (; i < max_rom_size; i += sz) {
+        flash_block(buffer, flash_target_offset + (size_t)(i & 0xFFFFFFFF));
+    }    
     free(buffer);
     Config::save();
 ///    Config::requestMachine(Config::arch, Config::romSet);
@@ -4404,10 +4447,14 @@ static const char *MENU_JOYSELKEY[2] = { MENU_JOYSELKEY_EN, MENU_JOYSELKEY_ES };
 	"8\n"\
 	"9\n"
 
-#define MENU_JOY_SPECIAL "Enter\n"\
+#define MENU_JOY_SPECIAL\
+    "Enter\n"\
     "Caps\n"\
     "SymbShift\n"\
     "Brk/Space\n"\
+    "Backspace\n"\
+    "KP 0/Ins\n"\
+    "KP ./Del\n"\
     "None\n"
 
 #define MENU_JOY_PS2 "PS/2\n"\
@@ -4520,6 +4567,12 @@ case fabgl::VK_Z:
     return "    Z    ";
 case fabgl::VK_RETURN:
     return "  Enter  ";
+case fabgl::VK_BACKSPACE:
+    return "Backspace";
+case fabgl::VK_KP_0:
+    return "KP 0/Ins ";
+case fabgl::VK_KP_PERIOD:
+    return "KP ./Del ";
 case fabgl::VK_SPACE:
     return "Brk/Space";
 case fabgl::VK_LSHIFT:

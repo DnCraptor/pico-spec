@@ -82,7 +82,16 @@ fabgl::VirtualKey get_last_key_pressed(void) {
     return last_key_pressed;
 }
 
-void close_all(void);
+void close_all(void) {
+    f_unlink(MOS_FILE);
+    if (BUTTER_PSRAM) {
+        memset((void*)PSRAM_DATA, 0, 4 << 20);
+    }
+    gpio_init(BUTTER_PSRAM_GPIO);
+    gpio_set_dir(BUTTER_PSRAM_GPIO, GPIO_OUT);
+    gpio_put(BUTTER_PSRAM_GPIO, true);
+    //
+}
 
 void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
     static bool ctrlPressed = false;
@@ -92,7 +101,6 @@ void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
     else if (virtualKey == fabgl::VirtualKey::VK_LALT || virtualKey == fabgl::VirtualKey::VK_RALT) altPressed = down;
     else if (virtualKey == fabgl::VirtualKey::VK_DELETE || virtualKey == fabgl::VirtualKey::VK_KP_PERIOD) delPressed = down;
     if (ctrlPressed && altPressed && delPressed) {
-        f_unlink(MOS_FILE);
         close_all();
         watchdog_enable(1, true);
         while (true);
@@ -458,7 +466,7 @@ void ESPectrum::setup()
     // LOAD CONFIG
     //=======================================================================================
     if (FileUtils::fsMount) Config::load();
-    bool ext_ram_exist = psram_size() >= (16 << 10) || FileUtils::fsMount;
+    bool ext_ram_exist = BUTTER_PSRAM || psram_size() >= (16 << 10) || FileUtils::fsMount;
     
     // Set arch if there's no snapshot to load
     if (Config::ram_file == NO_RAM_FILE) {
@@ -610,19 +618,19 @@ void ESPectrum::setup()
     //=======================================================================================
     // Set samples per frame and AY_emu flag depending on arch
     if (Config::arch == "48K") {
-        samplesPerFrame=ESP_AUDIO_SAMPLES_48; 
+        samplesPerFrame = ESP_AUDIO_SAMPLES_48; 
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;
         AY_emu = Config::AY48;
         Audio_freq = ESP_AUDIO_FREQ_48;
     } else if (Config::arch == "128K" || Config::arch == "ALF") {
         samplesPerFrame=ESP_AUDIO_SAMPLES_128;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
-        AY_emu = true;        
+        AY_emu = Config::AY48;        
         Audio_freq = ESP_AUDIO_FREQ_128;
     } else { /// if (Config::arch == "P512" || Config::arch == "Pentagon") {
         samplesPerFrame = ESP_AUDIO_SAMPLES_PENTAGON;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_PENTAGON;
-        AY_emu = true;        
+        AY_emu = Config::AY48;        
         Audio_freq = ESP_AUDIO_FREQ_PENTAGON;
     }
 
@@ -737,8 +745,6 @@ void ESPectrum::reset()
     memset(audioBuffer_L, 0, sizeof(audioBuffer_L));
     memset(audioBuffer_R, 0, sizeof(audioBuffer_R));
     memset(chip0.SamplebufAY_L, 0, sizeof(chip0.SamplebufAY_L));
-    memset(chip0.SamplebufAY_R, 0, sizeof(chip0.SamplebufAY_R));
-    memset(chip1.SamplebufAY_L, 0, sizeof(chip1.SamplebufAY_L));
     memset(chip1.SamplebufAY_R, 0, sizeof(chip1.SamplebufAY_R));
     lastaudioBit=0;
 
@@ -752,12 +758,12 @@ void ESPectrum::reset()
     } else if (Config::arch == "128K" || Config::arch == "ALF") {
         samplesPerFrame=ESP_AUDIO_SAMPLES_128;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
-        AY_emu = true;        
+        AY_emu = Config::AY48;        
         Audio_freq = ESP_AUDIO_FREQ_128;
     } else { /// if (Config::arch == "Pentagon") {
         samplesPerFrame = ESP_AUDIO_SAMPLES_PENTAGON;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_PENTAGON;
-        AY_emu = true;        
+        AY_emu = Config::AY48;        
         Audio_freq = ESP_AUDIO_FREQ_PENTAGON;
     }
 
@@ -840,7 +846,7 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                 // Set all zx keys as not pressed
                 zxDelay = 15;
                 #ifdef DIRTY_LINES
-                for (int i=0; i < SPEC_H; i++) VIDEO::dirty_lines[i] |= 0x01;
+                for (int i = 0; i < SPEC_H; i++) VIDEO::dirty_lines[i] |= 0x01;
                 #endif // DIRTY_LINES
                 // Refresh border
                 VIDEO::brdnextframe = true;
@@ -1082,51 +1088,41 @@ void ESPectrum::loop() {
       int32_t t_us = Config::throtling * 1000l;
       if (!t_us || idle > t_us) {
         // Finish fill of beeper oversampled audio buffers
-        for (;faudbufcnt < (samplesPerFrame * audioSampleDivider); ++faudbufcnt) {
+        for (;faudbufcnt < (samplesPerFrame * audioSampleDivider); faudbufcnt++) {
             audioBitBuf += faudioBit;
             if(++audioBitbufCount == audioSampleDivider) {
                 overSamplebuf[audbufcntover++] = audioBitBuf;
                 audioBitBuf = 0;
-                audioBitbufCount = 0;
+                audioBitbufCount = 0; 
             }
         }
         if (AY_emu) {
-            bool ts = Config::turbosound;
             if (faudbufcntAY < samplesPerFrame) {
-                chip0.gen_sound(samplesPerFrame - faudbufcntAY, faudbufcntAY);
-                if (ts)
-                    chip1.gen_sound(samplesPerFrame - faudbufcntAY, faudbufcntAY);
+                if(Config::turbosound != 0 || AySound::selected_chip == 0) chip0.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
+                if(Config::turbosound != 0 || AySound::selected_chip == 1) chip1.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
             }
-            if (ts) {
-                for (int i = 0; i < samplesPerFrame; ++i) {
-                    auto os = overSamplebuf[i] / audioSampleDivider;
-                    int l = os + chip0.SamplebufAY_L[i] + chip1.SamplebufAY_L[i];
-                    int r = os + chip0.SamplebufAY_R[i] + chip1.SamplebufAY_R[i];
-                    // Clamp
-                    audioBuffer_L[i] = l > 255 ? 255 : l;
-                    audioBuffer_R[i] = r > 255 ? 255 : r;
+            for (int i = 0; i < samplesPerFrame; i++) {
+                int beeper_L = overSamplebuf[i] / audioSampleDivider;
+                int beeper_R = overSamplebuf[i] / audioSampleDivider;
+                if(Config::turbosound != 0 || AySound::selected_chip == 0) {
+                    beeper_L += chip0.SamplebufAY_L[i];
+                    beeper_R += chip0.SamplebufAY_R[i];
                 }
-            } else {
-                for (int i = 0; i < samplesPerFrame; ++i) {
-                    auto os = overSamplebuf[i] / audioSampleDivider;
-                    int l = os + chip0.SamplebufAY_L[i];
-                    int r = os + chip0.SamplebufAY_R[i];
-                    // Clamp
-                    audioBuffer_L[i] = l > 255 ? 255 : l;
-                    audioBuffer_R[i] = r > 255 ? 255 : r;
+                if(Config::turbosound != 0 || AySound::selected_chip == 1) {
+                    beeper_L += chip1.SamplebufAY_L[i];
+                    beeper_R += chip1.SamplebufAY_R[i];
                 }
+                audioBuffer_L[i] = beeper_L > 255 ? 255 : beeper_L; // Clamp
+                audioBuffer_R[i] = beeper_R > 255 ? 255 : beeper_R; // Clamp
             }
         } else {
-            for (int i = 0; i < samplesPerFrame; ++i) {
+            for (int i = 0; i < samplesPerFrame; i++) {
                 auto v = overSamplebuf[i] / audioSampleDivider;
                 audioBuffer_L[i] = v;
                 audioBuffer_R[i] = v;
             }
         }
-        pwm_audio_write(audioBuffer_L, audioBuffer_R, samplesPerFrame);
-        memset(audioBuffer_L, 0, samplesPerFrame);
-        memset(audioBuffer_R, 0, samplesPerFrame);
-        memset(overSamplebuf, 0, samplesPerFrame);
+        pwm_audio_write((uint8_t*)audioBuffer_L, (uint8_t*)audioBuffer_R, samplesPerFrame, 0, 0);
       }
     }
     processKeyboard();

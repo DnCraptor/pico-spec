@@ -1161,6 +1161,20 @@ void SaveRectT::save(int16_t x, int16_t y, int16_t w, int16_t h) {
     x -= 2; if (x < 0) x = 0; // W/A
     w += 4; // W/A
     size_t off = offsets.back();
+    if (BUTTER_PSRAM) {
+        off += PSRAM_SHIFT_RAM;
+        *(int16_t*)(PSRAM_DATA + off) = x; off += 2;
+        *(int16_t*)(PSRAM_DATA + off) = y; off += 2;
+        *(int16_t*)(PSRAM_DATA + off) = w; off += 2;
+        *(int16_t*)(PSRAM_DATA + off) = h; off += 2;
+        for (size_t line = y; line < y + h; ++line) {
+            uint8_t *backbuffer = VIDEO::vga.frameBuffer[line];
+            memcpy((void*)PSRAM_DATA + off, backbuffer, w);
+            off += w;
+        }
+        offsets.push_back(off - PSRAM_SHIFT_RAM);
+        return;
+    }
     if (psram_size() >= PSRAM_SHIFT_RAM) {
         off += PSRAM_SHIFT_RAM;
         write16psram(off, x); off += 2;
@@ -1202,7 +1216,18 @@ void SaveRectT::restore_last() {
     uint16_t y;
     uint16_t w;
     uint16_t h;
-    if (psram_size() >= PSRAM_SHIFT_RAM) {
+    if (BUTTER_PSRAM) {
+        off += PSRAM_SHIFT_RAM;
+        x = *(int16_t*)(PSRAM_DATA + off); off += 2;
+        y = *(int16_t*)(PSRAM_DATA + off); off += 2;
+        w = *(int16_t*)(PSRAM_DATA + off); off += 2;
+        h = *(int16_t*)(PSRAM_DATA + off); off += 2;
+        if (!w || !h) return;
+        for (size_t line = y; line < y + h; ++line) {
+            memcpy(VIDEO::vga.frameBuffer[line] + x, (void*)PSRAM_DATA + off, w);
+            off += w;
+        }
+    } else if (psram_size() >= PSRAM_SHIFT_RAM) {
         off += PSRAM_SHIFT_RAM;
         x = read16psram(off); off += 2;
         y = read16psram(off); off += 2;
