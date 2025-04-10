@@ -87,10 +87,11 @@ void close_all(void) {
     if (BUTTER_PSRAM) {
         memset((void*)PSRAM_DATA, 0, 4 << 20);
     }
+#if !PICO_RP2040
     gpio_init(BUTTER_PSRAM_GPIO);
     gpio_set_dir(BUTTER_PSRAM_GPIO, GPIO_OUT);
     gpio_put(BUTTER_PSRAM_GPIO, true);
-    //
+#endif
 }
 
 void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {

@@ -816,9 +816,8 @@ bool toggle_color() {
 }
 #endif
 
-#include <hardware/exception.h>
-
 #if !PICO_RP2040
+#include <hardware/exception.h>
 #include <hardware/structs/qmi.h>
 #include <hardware/structs/xip.h>
 #ifdef BUTTER_PSRAM_GPIO
