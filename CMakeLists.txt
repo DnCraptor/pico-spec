@@ -4,9 +4,9 @@ if(WIN32)
 else()
     set(USERHOME $ENV{HOME})
 endif()
-set(sdkVersion 2.0.0)
-set(toolchainVersion 13_2_Rel1)
-set(picotoolVersion 2.0.0)
+set(sdkVersion 2.1.1)
+set(toolchainVersion 14_2_Rel1)
+set(picotoolVersion 2.1.1)
 set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
 if (EXISTS ${picoVscode})
     include(${picoVscode})
@@ -14,21 +14,24 @@ endif()
 # ====================================================================================
 cmake_minimum_required(VERSION 3.13)
 
+#set(m1p2 ON)
 #set(I2S ON)
 
+set(VGA_DRV ON)
 #set(SOFTTV ON)
 #set(TFT ON)
 #set(TFT_INV 0)
+#set(TFT_INV 1)
 #set(ILI9341 ON)
-set(VGA_DRV ON)
 #set(HDMI ON)
 
 #set(CPU_MHZ 366)
 #set(CPU_MHZ 372)
-#set(CPU_MHZ 378)
+set(CPU_MHZ 378)
 #set(CPU_MHZ 444)
-set(CPU_MHZ 460)
-set (PORT_VERSION "1.2.8")
+#set(CPU_MHZ 460)
+##set(CPU_MHZ 252)
+set (PORT_VERSION "1.2.A")
 
 #set (MURM2 ON)
 #set (PWM_PIN0 10)
@@ -119,6 +122,7 @@ target_link_libraries(p2-spec PRIVATE
     hardware_clocks
     hardware_pwm
     hardware_flash
+    hardware_exception
     stdc++
     
     tinyusb_host tinyusb_board
@@ -140,7 +144,11 @@ endif()
 pico_add_extra_outputs(${PROJECT_NAME})
 
 # add url via pico_set_program_url
-pico_set_linker_script(${PROJECT_NAME} "${CMAKE_SOURCE_DIR}/memmap.ld")
+
+if (m1p2)
+    pico_set_linker_script(${PROJECT_NAME} "${CMAKE_SOURCE_DIR}/memmap.ld")
+endif ()
+
 target_link_options(${PROJECT_NAME} PRIVATE -Xlinker --print-memory-usage --data-sections)
 target_compile_definitions(${PROJECT_NAME} PRIVATE FLASH_SIZE=${FLASH_SIZE})
 
@@ -174,6 +182,7 @@ ENDIF()
 IF(MURM2)
     target_compile_definitions(${PROJECT_NAME} PRIVATE
         PORT_VERSION="${PORT_VERSION}"
+        MURM2=1
         CPU_MHZ=${CPU_MHZ}
 
         KBD_CLOCK_PIN=2
@@ -184,8 +193,8 @@ IF(MURM2)
         BEEPER_PIN=9
         PWM_PIN0=10
         PWM_PIN1=11
-        SOUND_FREQUENCY=44100
-        I2S_FREQUENCY=50000
+        SOUND_FREQUENCY=30600
+        I2S_FREQUENCY=30600
 
         # SDCARD
         SDCARD_PIN_SPI0_CS=5
@@ -193,18 +202,17 @@ IF(MURM2)
         SDCARD_PIN_SPI0_MOSI=7
         SDCARD_PIN_SPI0_MISO=4
 
-    #    PSRAM
+        BUTTER_PSRAM_GPIO=8
+
+        PSRAM
         # PSRAM_MUTEX=1
         PSRAM_SPINLOCK=1
         PSRAM_ASYNC=1
-        #PSRAM_PIN_CS=18
-        #PSRAM_PIN_SCK=19
-        #PSRAM_PIN_MOSI=20
-        #PSRAM_PIN_MISO=21
-        PSRAM_PIN_CS=8
-        PSRAM_PIN_SCK=23
-        PSRAM_PIN_MOSI=28
-        PSRAM_PIN_MISO=29
+
+        PSRAM_PIN_CS=18
+        PSRAM_PIN_SCK=19
+        PSRAM_PIN_MOSI=20
+        PSRAM_PIN_MISO=21
 
         # NES Gamepad
         USE_NESPAD
@@ -242,8 +250,8 @@ ELSE()
         PWM_PIN0=26
         PWM_PIN1=27
         BEEPER_PIN=28
-        SOUND_FREQUENCY=50000
-        I2S_FREQUENCY=50000
+        SOUND_FREQUENCY=30600
+        I2S_FREQUENCY=30600
 
         # SDCARD
         SDCARD_PIN_SPI0_CS=5
@@ -260,6 +268,8 @@ ELSE()
         PSRAM_PIN_SCK=19
         PSRAM_PIN_MOSI=20
         PSRAM_PIN_MISO=21
+
+        BUTTER_PSRAM_GPIO=19
 
         # NES Gamepad
         USE_NESPAD

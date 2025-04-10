@@ -23,10 +23,10 @@
 
 MEMORY
 {
-    /* 128k = 20000
-    FLASH(rx) : ORIGIN = 0x10020000, LENGTH = (4096k-128k)
-    */
+    /* 64k = 10000
     FLASH(rx) : ORIGIN = 0x10000000, LENGTH = 4096k
+    */
+    FLASH(rx) : ORIGIN = 0x10010000, LENGTH = (4096k-64k)
     RAM(rwx) : ORIGIN =  0x20000000, LENGTH = 512k
     SCRATCH_X(rwx) : ORIGIN = 0x20080000, LENGTH = 4k
     SCRATCH_Y(rwx) : ORIGIN = 0x20081000, LENGTH = 4k
