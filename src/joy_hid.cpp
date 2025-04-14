@@ -22,6 +22,7 @@ usbh_class_driver_t const* usbh_app_driver_get_cb(uint8_t* driver_count) {
 
 #include "Config.h"
 #include "ESPectrum.h"
+#include "Video.h"
 
 void tuh_xinput_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* report, uint16_t len) {
     auto xid_itf = (xinputh_interface_t *)report;
@@ -129,23 +130,23 @@ void tuh_xinput_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t c
         }
 
         if (left && !gamepad1_bits.left) {
-            joyPushData(fabgl::VirtualKey::VK_MENU_LEFT, true);
+            joyPushData(VIDEO::OSD & 0x04 ? fabgl::VirtualKey::VK_F9 : fabgl::VirtualKey::VK_MENU_LEFT, true);
             if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_LEFT, true);
             if (Config::joy2cursor) joyPushData(gamepad1_bits.select ? fabgl::VirtualKey::VK_BACKSPACE : fabgl::VirtualKey::VK_LEFT, true);
         }
         else if (!left && gamepad1_bits.left) {
-            joyPushData(fabgl::VirtualKey::VK_MENU_LEFT, false);
+            joyPushData(VIDEO::OSD & 0x04 ? fabgl::VirtualKey::VK_F9 : fabgl::VirtualKey::VK_MENU_LEFT, false);
             if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_LEFT, false);
             if (Config::joy2cursor) joyPushData(gamepad1_bits.select ? fabgl::VirtualKey::VK_BACKSPACE : fabgl::VirtualKey::VK_LEFT, false);
         }
 
         if (right && !gamepad1_bits.right) {
-            joyPushData(fabgl::VirtualKey::VK_MENU_RIGHT, true);
+            joyPushData(VIDEO::OSD & 0x04 ? fabgl::VirtualKey::VK_F10 : fabgl::VirtualKey::VK_MENU_RIGHT, true);
             if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_RIGHT, true);
             if (Config::joy2cursor) joyPushData(gamepad1_bits.select ? fabgl::VirtualKey::VK_K : fabgl::VirtualKey::VK_RIGHT, true);
         }
         else if (!right && gamepad1_bits.right) {
-            joyPushData(fabgl::VirtualKey::VK_MENU_RIGHT, false);
+            joyPushData(VIDEO::OSD & 0x04 ? fabgl::VirtualKey::VK_F10 : fabgl::VirtualKey::VK_MENU_RIGHT, false);
             if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_RIGHT, false);
             if (Config::joy2cursor) joyPushData(gamepad1_bits.select ? fabgl::VirtualKey::VK_K : fabgl::VirtualKey::VK_RIGHT, false);
         }

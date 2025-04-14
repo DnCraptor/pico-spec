@@ -145,7 +145,7 @@ void pcm_call() {
         return;
     }
     m_let_process_it = false;
- #ifdef I2S_SOUND
+#ifdef I2S_SOUND
     static int16_t v32[2];
     if (m_off < m_size) {
         v32[0] = *(buff_R + m_off);

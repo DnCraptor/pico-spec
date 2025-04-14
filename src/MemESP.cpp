@@ -41,7 +41,7 @@ visit https://zxespectrum.speccy.org/contacto
 std::list<mem_desc_t> mem_desc_t::pages;
 
 static FIL f;
-static const char PAGEFILE[] = "/tmp/pico-spec.512k";
+static const char PAGEFILE[] = "/tmp/pico-spec.1M";
 void mem_desc_t::reset(void) {
     pages.clear();
     if ( !BUTTER_PSRAM && !psram_size() ) {

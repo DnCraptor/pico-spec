@@ -414,23 +414,23 @@ static void nespad_tick1(void) {
         }
 
         if ((nespad_state & DPAD_LEFT) && !gamepad1_bits.left) {
-            joyPushData(fabgl::VirtualKey::VK_MENU_LEFT, true);
+            joyPushData(VIDEO::OSD & 0x04 ? fabgl::VirtualKey::VK_F9 : fabgl::VirtualKey::VK_MENU_LEFT, true);
             if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_LEFT, true);
             if (Config::joy2cursor) joyPushData(gamepad1_bits.select ? fabgl::VirtualKey::VK_BACKSPACE : fabgl::VirtualKey::VK_LEFT, true);
         }
         else if (!(nespad_state & DPAD_LEFT) && gamepad1_bits.left) {
-            joyPushData(fabgl::VirtualKey::VK_MENU_LEFT, false);
+            joyPushData(VIDEO::OSD & 0x04 ? fabgl::VirtualKey::VK_F9 : fabgl::VirtualKey::VK_MENU_LEFT, false);
             if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_LEFT, false);
             if (Config::joy2cursor) joyPushData(gamepad1_bits.select ? fabgl::VirtualKey::VK_BACKSPACE : fabgl::VirtualKey::VK_LEFT, false);
         }
 
         if ((nespad_state & DPAD_RIGHT) && !gamepad1_bits.right) {
-            joyPushData(fabgl::VirtualKey::VK_MENU_RIGHT, true);
+            joyPushData(VIDEO::OSD & 0x04 ? fabgl::VirtualKey::VK_F10 : fabgl::VirtualKey::VK_MENU_RIGHT, true);
             if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_RIGHT, true);
             if (Config::joy2cursor) joyPushData(gamepad1_bits.select ? fabgl::VirtualKey::VK_K : fabgl::VirtualKey::VK_RIGHT, true);
         }
         else if (!(nespad_state & DPAD_RIGHT) && gamepad1_bits.right) {
-            joyPushData(fabgl::VirtualKey::VK_MENU_RIGHT, false);
+            joyPushData(VIDEO::OSD & 0x04 ? fabgl::VirtualKey::VK_F10 : fabgl::VirtualKey::VK_MENU_RIGHT, false);
             if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_RIGHT, false);
             if (Config::joy2cursor) joyPushData(gamepad1_bits.select ? fabgl::VirtualKey::VK_K : fabgl::VirtualKey::VK_RIGHT, false);
         }
@@ -983,7 +983,6 @@ int main() {
     keyboard_send(0xFF);
 #endif
 
-    mem_desc_t::reset();
     ESPectrum::setup();
     ESPectrum::loop();
     __unreachable();
