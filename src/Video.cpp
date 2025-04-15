@@ -1152,7 +1152,7 @@ IRAM_ATTR void VIDEO::BottomBorder_OSD_Pentagon() {
     }
 }
 
-#define PSRAM_SHIFT_RAM (2 << 20)
+#define PSRAM_SHIFT_RAM (2ul << 20)
 
 void SaveRectT::save(int16_t x, int16_t y, int16_t w, int16_t h) {
     if (offsets.empty()) {
@@ -1161,7 +1161,7 @@ void SaveRectT::save(int16_t x, int16_t y, int16_t w, int16_t h) {
     x -= 2; if (x < 0) x = 0; // W/A
     w += 4; // W/A
     size_t off = offsets.back();
-    if (BUTTER_PSRAM) {
+    if (butter_psram_size() >= PSRAM_SHIFT_RAM) {
         off += PSRAM_SHIFT_RAM;
         *(int16_t*)(PSRAM_DATA + off) = x; off += 2;
         *(int16_t*)(PSRAM_DATA + off) = y; off += 2;
@@ -1170,6 +1170,9 @@ void SaveRectT::save(int16_t x, int16_t y, int16_t w, int16_t h) {
         for (size_t line = y; line < y + h; ++line) {
             uint8_t *backbuffer = VIDEO::vga.frameBuffer[line];
             memcpy((void*)PSRAM_DATA + off, backbuffer, w);
+            for (int i = 0; i < w; ++i) {
+                PSRAM_DATA[off + i] = VIDEO::vga.frameBuffer[line][x + i];
+            }
             off += w;
         }
         offsets.push_back(off - PSRAM_SHIFT_RAM);
@@ -1216,7 +1219,7 @@ void SaveRectT::restore_last() {
     uint16_t y;
     uint16_t w;
     uint16_t h;
-    if (BUTTER_PSRAM) {
+    if (butter_psram_size() >= PSRAM_SHIFT_RAM) {
         off += PSRAM_SHIFT_RAM;
         x = *(int16_t*)(PSRAM_DATA + off); off += 2;
         y = *(int16_t*)(PSRAM_DATA + off); off += 2;
@@ -1224,7 +1227,9 @@ void SaveRectT::restore_last() {
         h = *(int16_t*)(PSRAM_DATA + off); off += 2;
         if (!w || !h) return;
         for (size_t line = y; line < y + h; ++line) {
-            memcpy(VIDEO::vga.frameBuffer[line] + x, (void*)PSRAM_DATA + off, w);
+            for (int i = 0; i < w; ++i) {
+                VIDEO::vga.frameBuffer[line][x + i] = PSRAM_DATA[off + i];
+            }
             off += w;
         }
     } else if (psram_size() >= PSRAM_SHIFT_RAM) {

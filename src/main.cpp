@@ -817,15 +817,55 @@ bool toggle_color() {
 #endif
 
 #if !PICO_RP2040
+#ifdef BUTTER_PSRAM_GPIO
+
 #include <hardware/exception.h>
 #include <hardware/structs/qmi.h>
 #include <hardware/structs/xip.h>
 #ifdef BUTTER_PSRAM_GPIO
-volatile uint8_t* PSRAM_DATA = (uint8_t*)0x11000000;
-bool BUTTER_PSRAM = false;
+#define MB16 (16ul << 20)
+#define MB8 (8ul << 20)
+#define MB4 (4ul << 20)
+uint8_t* PSRAM_DATA = (uint8_t*)0x11000000;
+uint32_t __not_in_flash_func(butter_psram_size)() {
+    static int BUTTER_PSRAM_SIZE = -1;
+    if (BUTTER_PSRAM_SIZE != -1) return BUTTER_PSRAM_SIZE;
+
+    for(register int i = MB16 - 1; i >= MB16 - 256; --i)
+        PSRAM_DATA[i] = i & 0xFF;
+    for(register int i = MB8 - 1; i >= MB8 - 256; --i)
+        PSRAM_DATA[i] = (i+1) & 0xFF;
+    for(register int i = MB4 - 1; i >= MB4 - 256; --i)
+        PSRAM_DATA[i] = (i+2) & 0xFF;
+    register uint32_t res = 0;
+    for(register int i = MB16 - 1; i >= MB16 - 256; --i) {
+        if (PSRAM_DATA[i] != (i & 0xFF)) {
+            for(register int i = MB8 - 1; i >= MB8 - 256; --i) {
+                if (PSRAM_DATA[i] != ((i+1) & 0xFF)) {
+                    for(register int i = MB4 - 1; i >= MB4 - 256; --i) {
+                        if (PSRAM_DATA[i] != ((i+2) & 0xFF)) {
+                            goto e0;
+                        }
+                    }
+                    res = MB4;
+                    goto e0;
+                }
+            }
+            res = MB8;
+            goto e0;
+        }
+    }
+    res = MB16;
+    goto e0;
+e0:
+    BUTTER_PSRAM_SIZE = res;
+    return res;
+}
 #else
 static uint8_t* PSRAM_DATA = (uint8_t*)0;
-static const bool BUTTER_PSRAM = false;
+#endif
+#else
+static uint8_t* PSRAM_DATA = (uint8_t*)0;
 #endif
 void __no_inline_not_in_flash_func(psram_init)(uint cs_pin) {
     gpio_set_function(cs_pin, GPIO_FUNC_XIP_CS1);
@@ -929,24 +969,10 @@ int main() {
 #endif
 
 #if PICO_RP2350
-#ifdef BUTTER_PSRAM_GPIO
+    #ifdef BUTTER_PSRAM_GPIO
     psram_init(BUTTER_PSRAM_GPIO);
-    BUTTER_PSRAM = true;
     exception_set_exclusive_handler(HARDFAULT_EXCEPTION, sigbus);
-    printf("Try Butter-PSRAM test (on GPIO-%d)\n", BUTTER_PSRAM_GPIO);
-    uint32_t psram32 = 4 << 12;
-    uint32_t a = 0;
-    for (; a < psram32; ++a) {
-        PSRAM_DATA[a] =  a & 0xFF;
-    }
-    for (a = 0; a < psram32; ++a) {
-        if ((a & 0xFF) != PSRAM_DATA[a]) {
-            printf(" Butter-PSRAM read failed at %ph", PSRAM_DATA + a);
-            BUTTER_PSRAM = false;
-            break;
-        }
-    }
-#endif
+    #endif
 #endif
 
 #ifdef KBDUSB
@@ -975,8 +1001,9 @@ int main() {
     init_sound();
     pcm_setup(SOUND_FREQUENCY, SOUND_FREQUENCY);
 #ifdef PSRAM
-    if (!BUTTER_PSRAM)
-        init_psram();
+    #ifndef MURM2
+    init_psram();
+    #endif
 #endif
     // send kbd reset only after initial process passed
 #ifndef KBDUSB

@@ -864,7 +864,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                 // ***********************************************************************************
                 menu_saverect = true;
                 menu_curopt = 1;
-                bool ext_ram = BUTTER_PSRAM || FileUtils::fsMount || psram_size() > 0;
+                bool ext_ram = butter_psram_size() || FileUtils::fsMount || psram_size() > 0;
                 while (1) {
                     menu_level = 1;
                     uint8_t arch_num = menuRun(ext_ram ? MENU_ARCH[Config::lang] : MENU_ARCH_NO_SD[Config::lang]);
@@ -3541,7 +3541,7 @@ c:
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
     if (MemESP::newSRAM)
         snprintf(buf, 32, "PAGE0 -> SRAM#%d", MemESP::sramLatch);
-    else if (MemESP::ramCurrent[0] < (uint8_t*)0x20000000)
+    else if (MemESP::ramCurrent[0] < (uint8_t*)0x11000000)
         snprintf(buf, 32, "PAGE0 -> ROM#%d", MemESP::romInUse);
     else
         snprintf(buf, 32, "PAGE0 -> RAM#0");
@@ -3890,6 +3890,14 @@ void OSD::HWInfo() {
                      psram32 >> 20, rx8[0], rx8[1], rx8[2], rx8[3], rx8[4], rx8[5], rx8[6], rx8[7]
             );
         }
+        VIDEO::vga.print(buf);
+    }
+    if (butter_psram_size()) {
+        snprintf(buf, 128,
+                     "+PSRAM on GP%02d  : QSPI\n"\
+                     "+PSRAM size     : %d MB\n",
+                     BUTTER_PSRAM_GPIO, butter_psram_size() >> 20
+        );
         VIDEO::vga.print(buf);
     }
     // Wait for key

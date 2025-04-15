@@ -1632,7 +1632,7 @@ bool Tape::FlashLoad() {
         // printf("Case 1\n");
         UINT br;
         uint8_t* p = MemESP::ramCurrent[page];
-        if ( p < (uint8_t*)0x20000000 || (page == 0 && !MemESP::page0ram) ) {
+        if ( p < (uint8_t*)0x11000000 || (page == 0 && !MemESP::page0ram) ) {
             f_lseek(tape, f_tell(tape) + nBytes);
         } else {
             f_read(tape, &p[addr2], nBytes, &br);

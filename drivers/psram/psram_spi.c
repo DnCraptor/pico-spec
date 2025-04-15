@@ -21,7 +21,6 @@ static uint32_t _psram_size() {
 #endif
 }
 
-
 uint32_t psram_size() {
     static int32_t _res = -1;
     int32_t res = 0;
