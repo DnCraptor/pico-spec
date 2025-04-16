@@ -826,28 +826,25 @@ bool toggle_color() {
 #define MB16 (16ul << 20)
 #define MB8 (8ul << 20)
 #define MB4 (4ul << 20)
-uint8_t* PSRAM_DATA = (uint8_t*)0x11000000;
+#define MB1 (1ul << 20)
+volatile uint8_t* PSRAM_DATA = (uint8_t*)0x11000000;
 uint32_t __not_in_flash_func(butter_psram_size)() {
     static int BUTTER_PSRAM_SIZE = -1;
     if (BUTTER_PSRAM_SIZE != -1) return BUTTER_PSRAM_SIZE;
 
-    for(register int i = MB16 - 1; i >= MB16 - 256; --i)
+    for(register int i = MB16 - MB1; i < MB16; ++i)
         PSRAM_DATA[i] = i & 0xFF;
-    for(register int i = MB8 - 1; i >= MB8 - 256; --i)
-        PSRAM_DATA[i] = (i+1) & 0xFF;
-    for(register int i = MB4 - 1; i >= MB4 - 256; --i)
-        PSRAM_DATA[i] = (i+2) & 0xFF;
     register uint32_t res = 0;
-    for(register int i = MB16 - 1; i >= MB16 - 256; --i) {
+    for(register int i = MB4 - MB1; i < MB4; ++i) {
         if (PSRAM_DATA[i] != (i & 0xFF)) {
-            for(register int i = MB8 - 1; i >= MB8 - 256; --i) {
-                if (PSRAM_DATA[i] != ((i+1) & 0xFF)) {
-                    for(register int i = MB4 - 1; i >= MB4 - 256; --i) {
-                        if (PSRAM_DATA[i] != ((i+2) & 0xFF)) {
+            for(register int i = MB8 - MB1; i < MB8; ++i) {
+                if (PSRAM_DATA[i] != (i & 0xFF)) {
+                    for(register int i = MB16 - MB1; i < MB16; ++i) {
+                        if (PSRAM_DATA[i] != (i & 0xFF)) {
                             goto e0;
                         }
                     }
-                    res = MB4;
+                    res = MB16;
                     goto e0;
                 }
             }
@@ -855,8 +852,7 @@ uint32_t __not_in_flash_func(butter_psram_size)() {
             goto e0;
         }
     }
-    res = MB16;
-    goto e0;
+    res = MB4;
 e0:
     BUTTER_PSRAM_SIZE = res;
     return res;

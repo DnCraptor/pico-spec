@@ -42,7 +42,7 @@ visit https://zxespectrum.speccy.org/contacto
 
 #ifdef BUTTER_PSRAM_GPIO
 #if !PICO_RP2040
-extern uint8_t* PSRAM_DATA;
+extern volatile uint8_t* PSRAM_DATA;
 uint32_t butter_psram_size();
 #else
 static uint8_t* PSRAM_DATA = (uint8_t*)0;

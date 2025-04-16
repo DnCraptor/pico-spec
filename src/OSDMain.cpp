@@ -833,13 +833,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                             if (opt2 > 0) {
                                 if (opt2 == 1) {
                                     menu_saverect = true;
-                                    string mFile = fileDialog(FileUtils::DSK_Path, MENU_DSK_TITLE[Config::lang],DISK_DSKFILE,26,15);
+                                    string mFile = fileDialog(FileUtils::DSK_Path, MENU_DSK_TITLE[Config::lang], DISK_DSKFILE, 26, 15);
                                     if (mFile != "") {
                                         Config::save();
                                         mFile.erase(0, 1);
                                         string fname = FileUtils::DSK_Path + "/" + mFile;
                                         ESPectrum::Betadisk.EjectDisk(dsk_num - 1);
-                                        ESPectrum::Betadisk.InsertDisk(dsk_num - 1,fname);
+                                        ESPectrum::Betadisk.InsertDisk(dsk_num - 1, fname);
                                         return;
                                     }
                                 } else 
@@ -3892,14 +3892,20 @@ void OSD::HWInfo() {
         }
         VIDEO::vga.print(buf);
     }
+#if !PICO_RP2040
+    #if BUTTER_PSRAM_GPIO
     if (butter_psram_size()) {
         snprintf(buf, 128,
                      "+PSRAM on GP%02d  : QSPI\n"\
                      "+PSRAM size     : %d MB\n",
                      BUTTER_PSRAM_GPIO, butter_psram_size() >> 20
         );
-        VIDEO::vga.print(buf);
+    } else {
+        snprintf(buf, 128, " PSRAM on GP%02d  : Not found\n", BUTTER_PSRAM_GPIO);
     }
+    VIDEO::vga.print(buf);
+    #endif
+#endif
     // Wait for key
     while (1) {
         if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
