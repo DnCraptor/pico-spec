@@ -694,6 +694,10 @@ if (butter_psram_size() >= (0x04000 * (64+2 - 23))) {
     // Reset cpu
     CPU::reset();
 
+    if (FileUtils::fsMount) {
+        Config::load2();
+    }
+
     // Load snapshot if present in Config::
     if (Config::ram_file != NO_RAM_FILE) {
         if (FileUtils::fsMount) LoadSnapshot(Config::ram_file, "", "");

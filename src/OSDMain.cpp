@@ -362,11 +362,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
             menu_saverect = false;  
             string mFile = fileDialog(FileUtils::DSK_Path, MENU_DSK_TITLE[Config::lang], DISK_DSKFILE, 51, 22);
             if (mFile != "") {
-                Config::save();
                 mFile.erase(0, 1);
                 string fname = FileUtils::DSK_Path + "/" + mFile;
                 ESPectrum::Betadisk.EjectDisk(0);
                 ESPectrum::Betadisk.InsertDisk(0, fname);
+                Config::save();
             }
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
         }

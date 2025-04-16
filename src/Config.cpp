@@ -204,6 +204,41 @@ static void nvs_get_u16(const char* key, uint16_t& v, const vector<string>& sts)
     }
 }
 
+void Config::load2() {
+    string nvs = MOUNT_POINT_SD STORAGE_NVS;
+    FIL* handle = fopen2(nvs.c_str(), FA_READ);
+    if (!handle) {
+        return;
+    }
+    vector<string> sts;
+    UINT br;
+    char c;
+    string s;
+    while(!f_eof(handle)) {
+        if (f_read(handle, &c, 1, &br) != FR_OK) {
+            fclose2(handle);
+            return;
+        }
+        if (c == '\n') {
+            sts.push_back(s);
+            s.clear();
+        } else {
+            s += c;
+        }
+    }
+    fclose2(handle);
+
+    for (size_t i = 0; i < 4; ++i) {
+        const string s = "drive" + to_string(i);
+        std::string fn;
+        nvs_get_str((s + ".file").c_str(), fn, sts);
+        if (!fn.empty()) {
+            ESPectrum::Betadisk.EjectDisk(i);
+            ESPectrum::Betadisk.InsertDisk(i, fn);
+        }
+    }
+}
+
 // Read config from FS
 void Config::load() {
     string nvs = MOUNT_POINT_SD STORAGE_NVS;
@@ -391,11 +426,13 @@ void Config::save() {
         nvs_set_str(handle,"ROM_Path",FileUtils::ROM_Path.c_str());
         for (size_t i = 0; i < 4; ++i) {
             const DISK_FTYPE& ft = FileUtils::fileTypes[i];
-            const string s = "fileTypes" + to_string(i);
+            string s = "fileTypes" + to_string(i);
             nvs_set_i(handle, (s + ".begin_row").c_str(), ft.begin_row);
             nvs_set_i(handle, (s + ".focus").c_str(), ft.focus);
             nvs_set_u8(handle, (s + ".fdMode").c_str(), ft.fdMode);
             nvs_set_str(handle, (s + ".fileSearch").c_str(), ft.fileSearch.c_str());
+            s = "drive" + to_string(i);
+            nvs_set_str(handle, (s + ".file").c_str(), ESPectrum::Betadisk.Drive[i].Available ? ESPectrum::Betadisk.Drive[i].FName.c_str() : "");
         }
         nvs_set_u8(handle,"scanlines",Config::scanlines);
         nvs_set_u8(handle,"render",Config::render);

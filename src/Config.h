@@ -54,7 +54,8 @@ class Config
 {
 public:
 
-    static void load();
+    static void load();  // load before initialized
+    static void load2(); // load after initialized
     static void save();
 
     static void requestMachine(string newArch, string newRomSet);
