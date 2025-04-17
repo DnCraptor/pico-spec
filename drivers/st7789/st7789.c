@@ -32,7 +32,8 @@
 #define MADCTL_BGR_PIXEL_ORDER (1<<3)
 #define MADCTL_ROW_COLUMN_EXCHANGE (1<<5)
 #define MADCTL_COLUMN_ADDRESS_ORDER_SWAP (1<<6)
-
+#define MADCTL_MY  (1 << 7) // Row Address Order (Y flip)
+#define MADCTL_MX  (1 << 6) // Column Address Order (X flip)
 
 #define CHECK_BIT(var, pos) (((var)>>(pos)) & 1)
 
@@ -55,14 +56,22 @@ static const uint8_t init_seq[] = {
     2, 2, 0x3a, 0x55, // Set colour mode to 16 bit
 #ifdef ILI9341
     // ILI9341
+    #if TFT_INV
+    2, 0, 0x36, MADCTL_MX | MADCTL_MY | MADCTL_ROW_COLUMN_EXCHANGE, // Set MADCTL
+    #else
     2, 0, 0x36, MADCTL_ROW_COLUMN_EXCHANGE | MADCTL_BGR_PIXEL_ORDER, // Set MADCTL
+    #endif
 #else
     // ST7789
     2, 0, 0x36, MADCTL_COLUMN_ADDRESS_ORDER_SWAP | MADCTL_ROW_COLUMN_EXCHANGE, // Set MADCTL
 #endif
     5, 0, 0x2a, 0x00, 0x00, SCREEN_WIDTH >> 8, SCREEN_WIDTH & 0xff, // CASET: column addresses
     5, 0, 0x2b, 0x00, 0x00, SCREEN_HEIGHT >> 8, SCREEN_HEIGHT & 0xff, // RASET: row addresses
+    #if TFT_INV
+    1, 2, 0x21, // Inversion ON
+    #else
     1, 2, 0x20, // Inversion OFF
+    #endif
     1, 2, 0x13, // Normal display on, then 10 ms delay
     1, 2, 0x29, // Main screen turn on, then wait 500 ms
     0 // Terminate list
@@ -156,13 +165,17 @@ void create_dma_channel() {
 
 //RRRR RGGG GGGB BBBB
 #ifdef ILI9341
-#define RGB888(r, g, b) ((((r) >> 3) << 11) | (((g) >> 2) << 5) | ((b) >> 3))
+    #if TFT_INV
+        #define RGB888(r, g, b) ((((r) >> 3) << 11) | (((g) >> 2) << 5) | ((b) >> 3))
+    #else
+        #define RGB888(r, g, b) ((((r) >> 3) << 11) | (((g) >> 2) << 5) | ((b) >> 3))
+    #endif
 #else
-#if TFT_INV
-#define RGB888(r, g, b) ((((~r & 0xFF) >> 3) << 11) | (((~g & 0xFF) >> 2) << 5) | ((~b & 0xFF) >> 3))
-#else
-#define RGB888(r, g, b) ((((r) >> 3) << 11) | (((g) >> 2) << 5) | ((b) >> 3))
-#endif
+    #if TFT_INV
+        #define RGB888(r, g, b) ((((~r & 0xFF) >> 3) << 11) | (((~g & 0xFF) >> 2) << 5) | ((~b & 0xFF) >> 3))
+    #else
+        #define RGB888(r, g, b) ((((r) >> 3) << 11) | (((g) >> 2) << 5) | ((b) >> 3))
+    #endif
 #endif
 
 static const uint16_t textmode_palette_tft[17] = {
