@@ -275,6 +275,32 @@ static const char *MENU_BETADISK[2] = { MENU_BETADISK_EN,MENU_BETADISK_ES };
     "Expulsar disco\n"
 static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
 
+#if TFT
+#define MENU_MAIN_EN \
+	"Volume\n"\
+    "Snapshot\t>\n"\
+    "Tape\t>\n"\
+    "Betadisk\t>\n"\
+	"Machine\t>\n"\
+    "Reset\t>\n"\
+    "Options\t>\n"\
+    "Debug\t>\n"\
+    "Help\n"\
+    "About\n"\
+	"TFT\t>\n"
+#define MENU_MAIN_ES \
+    "Volumen\n"\
+	"Snapshots\t>\n"\
+    "Casete\t>\n"\
+    "Betadisk\t>\n"\
+    "Modelo\t>\n"\
+    "Resetear\t>\n"\
+    "Opciones\t>\n"\
+	"Depurar\t\n"\
+    "Ayuda\n"\
+    "Acerca de\n"\
+	"TFT\t>\n"
+#else
 #define MENU_MAIN_EN \
 	"Volume\n"\
     "Snapshot\t>\n"\
@@ -297,6 +323,7 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
 	"Depurar\t\n"\
     "Ayuda\n"\
     "Acerca de\n"
+#endif
 static const char *MENU_MAIN[2] = { MENU_MAIN_EN, MENU_MAIN_ES };
 
 #define MENU_MAIN_NO_SD_EN \
@@ -462,6 +489,20 @@ static const char *MENU_RESET[2] = { MENU_RESET_EN, MENU_RESET_ES };
     "MurmulatorOS\n"\
 	"Predeterminados\n"
 static const char *MENU_RESET_MOS[2] = { MENU_RESET_MOS_EN, MENU_RESET_MOS_ES };
+
+#define MENU_TFT_EN \
+    "TFT Menu\n"\
+    "INVERSION\n"\
+    "FLAGS\t>\n"\
+    "Defaults\n"
+static const char *MENU_TFT[2] = { MENU_TFT_EN, MENU_TFT_EN };
+
+#define MENU_TFT2_EN \
+    "TFT FLAGS\n"\
+    "RFB/BGR\n"\
+    "Flip X\n"\
+    "Flip Y\n"
+static const char *MENU_TFT2[2] = { MENU_TFT2_EN, MENU_TFT2_EN };
 
 #define MENU_PERSIST_SAVE_EN \
     "Save snapshot\n"

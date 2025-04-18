@@ -318,6 +318,15 @@ static bool persistLoad(uint8_t slotnumber)
 
 }
 
+#define MADCTL_BGR_PIXEL_ORDER (1<<3)
+#define MADCTL_ROW_COLUMN_EXCHANGE (1<<5)
+#define MADCTL_COLUMN_ADDRESS_ORDER_SWAP (1<<6)
+#define MADCTL_MY  (1 << 7) // Row Address Order (Y flip)
+#define MADCTL_MX  (1 << 6) // Column Address Order (X flip)
+
+extern "C" uint8_t TFT_FLAGS;
+extern "C" uint8_t TFT_INVERSION;
+
 // OSD Main Loop
 void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
 
@@ -2425,6 +2434,56 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                 click();
                 if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes                
                 return;            
+            }
+            else if (FileUtils::fsMount && opt == 11) { // TFT
+                menu_saverect = true;
+                menu_curopt = 1;            
+                while(1) {
+                    menu_level = 1;
+                    uint8_t opt2 = menuRun(MENU_TFT[Config::lang]);
+                    if (opt2 == 1) {
+                        // INVERSION
+                        TFT_INVERSION = !TFT_INVERSION;
+                        Config::save();
+                        esp_hard_reset();
+                    }
+                    else if (opt2 == 2) {
+                        // FLAGS
+                        menu_level = 2;
+                        menu_saverect = true;
+                        while (1) {
+                            uint8_t opt2 = menuRun(MENU_TFT2[Config::lang]);
+                            if (opt2 == 1) {
+                                TFT_FLAGS = (TFT_FLAGS & MADCTL_BGR_PIXEL_ORDER) ? (TFT_FLAGS & MADCTL_BGR_PIXEL_ORDER) : (TFT_FLAGS | MADCTL_BGR_PIXEL_ORDER);
+                                Config::save();
+                                esp_hard_reset();
+                            }
+                            else if (opt2 == 2) {
+                                TFT_FLAGS = (TFT_FLAGS & MADCTL_MX) ? (TFT_FLAGS & MADCTL_MX) : (TFT_FLAGS | MADCTL_MX);
+                                Config::save();
+                                esp_hard_reset();
+                            }
+                            else if (opt2 == 3) {
+                                TFT_FLAGS = (TFT_FLAGS & MADCTL_MY) ? (TFT_FLAGS & MADCTL_MY) : (TFT_FLAGS | MADCTL_MY);
+                                Config::save();
+                                esp_hard_reset();
+                            } else {
+                                menu_level = 1;
+                                menu_curopt = 2;
+                                break;
+                            }
+                        }
+                    }
+                    else if (opt2 == 3) {
+                        TFT_INVERSION = 0;
+                        TFT_FLAGS = MADCTL_ROW_COLUMN_EXCHANGE | MADCTL_BGR_PIXEL_ORDER;
+                        Config::save();
+                        esp_hard_reset();
+                    } else {
+                        menu_curopt = 11;
+                        break;
+                    }
+                }
             }
             else break;
         }        

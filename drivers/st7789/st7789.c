@@ -35,6 +35,9 @@
 #define MADCTL_MY  (1 << 7) // Row Address Order (Y flip)
 #define MADCTL_MX  (1 << 6) // Column Address Order (X flip)
 
+uint8_t TFT_FLAGS = MADCTL_ROW_COLUMN_EXCHANGE | MADCTL_BGR_PIXEL_ORDER;
+uint8_t TFT_INVERSION = 0;
+
 #define CHECK_BIT(var, pos) (((var)>>(pos)) & 1)
 
 static uint sm = 0;
@@ -49,35 +52,6 @@ static int graphics_buffer_shift_x = 0;
 static int graphics_buffer_shift_y = 0;
 
 enum graphics_mode_t graphics_mode = GRAPHICSMODE_DEFAULT;
-
-static const uint8_t init_seq[] = {
-    1, 20, 0x01, // Software reset
-    1, 10, 0x11, // Exit sleep mode
-    2, 2, 0x3a, 0x55, // Set colour mode to 16 bit
-#ifdef ILI9341
-    // ILI9341
-    #if TFT_INV
-    2, 0, 0x36, MADCTL_MX | MADCTL_MY | MADCTL_ROW_COLUMN_EXCHANGE, // Set MADCTL
-    #else
-    2, 0, 0x36, MADCTL_ROW_COLUMN_EXCHANGE | MADCTL_BGR_PIXEL_ORDER, // Set MADCTL
-    #endif
-#else
-    // ST7789
-    2, 0, 0x36, MADCTL_COLUMN_ADDRESS_ORDER_SWAP | MADCTL_ROW_COLUMN_EXCHANGE, // Set MADCTL
-#endif
-    5, 0, 0x2a, 0x00, 0x00, SCREEN_WIDTH >> 8, SCREEN_WIDTH & 0xff, // CASET: column addresses
-    5, 0, 0x2b, 0x00, 0x00, SCREEN_HEIGHT >> 8, SCREEN_HEIGHT & 0xff, // RASET: row addresses
-    #if TFT_INV
-    1, 2, 0x21, // Inversion ON
-    #else
-    1, 2, 0x20, // Inversion OFF
-    #endif
-    1, 2, 0x13, // Normal display on, then 10 ms delay
-    1, 2, 0x29, // Main screen turn on, then wait 500 ms
-    0 // Terminate list
-};
-// Format: cmd length (including cmd byte), post delay in units of 5 ms, then cmd payload
-// Note the delays have been shortened a little
 
 static inline void lcd_set_dc_cs(const bool dc, const bool cs) {
     sleep_us(5);
@@ -164,19 +138,7 @@ void create_dma_channel() {
 ///#define RGB888(c) ((R(c) << 14) | (G(c) << 9) | B(c) << 3)
 
 //RRRR RGGG GGGB BBBB
-#ifdef ILI9341
-    #if TFT_INV
-        #define RGB888(r, g, b) ((((r) >> 3) << 11) | (((g) >> 2) << 5) | ((b) >> 3))
-    #else
-        #define RGB888(r, g, b) ((((r) >> 3) << 11) | (((g) >> 2) << 5) | ((b) >> 3))
-    #endif
-#else
-    #if TFT_INV
-        #define RGB888(r, g, b) ((((~r & 0xFF) >> 3) << 11) | (((~g & 0xFF) >> 2) << 5) | ((~b & 0xFF) >> 3))
-    #else
-        #define RGB888(r, g, b) ((((r) >> 3) << 11) | (((g) >> 2) << 5) | ((b) >> 3))
-    #endif
-#endif
+#define RGB888(r, g, b) ((((r) >> 3) << 11) | (((g) >> 2) << 5) | ((b) >> 3))
 
 static const uint16_t textmode_palette_tft[17] = {
     //R, G, B
@@ -215,6 +177,28 @@ void graphics_init() {
 
     gpio_put(TFT_CS_PIN, 1);
     gpio_put(TFT_RST_PIN, 1);
+
+    const uint8_t init_seq[] = {
+        1, 20, 0x01, // Software reset
+        1, 10, 0x11, // Exit sleep mode
+        2, 2, 0x3a, 0x55, // Set colour mode to 16 bit
+    #ifdef ILI9341
+        // ILI9341
+        2, 0, 0x36, TFT_FLAGS, // Set MADCTL
+    #else
+        // ST7789
+        2, 0, 0x36, MADCTL_COLUMN_ADDRESS_ORDER_SWAP | TFT_FLAGS, // Set MADCTL
+    #endif
+        5, 0, 0x2a, 0x00, 0x00, SCREEN_WIDTH >> 8, SCREEN_WIDTH & 0xff, // CASET: column addresses
+        5, 0, 0x2b, 0x00, 0x00, SCREEN_HEIGHT >> 8, SCREEN_HEIGHT & 0xff, // RASET: row addresses
+        1, 2, 0x20 | TFT_INVERSION, // Inversion OFF
+        1, 2, 0x13, // Normal display on, then 10 ms delay
+        1, 2, 0x29, // Main screen turn on, then wait 500 ms
+        0 // Terminate list
+    };
+    // Format: cmd length (including cmd byte), post delay in units of 5 ms, then cmd payload
+    // Note the delays have been shortened a little
+    
     lcd_init(init_seq);
     gpio_put(TFT_LED_PIN, 1);
 

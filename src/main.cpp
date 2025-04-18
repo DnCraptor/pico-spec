@@ -990,9 +990,6 @@ int main() {
 #if USE_NESPAD
     nespad_begin(clock_get_hz(clk_sys) / 1000, NES_GPIO_CLK, NES_GPIO_DATA, NES_GPIO_LAT);
 #endif
-    sem_init(&vga_start_semaphore, 0, 1);
-    multicore_launch_core1(render_core);
-    sem_release(&vga_start_semaphore);
 
     init_sound();
     pcm_setup(SOUND_FREQUENCY, SOUND_FREQUENCY);
@@ -1007,6 +1004,9 @@ int main() {
 #endif
 
     ESPectrum::setup();
+    sem_init(&vga_start_semaphore, 0, 1);
+    multicore_launch_core1(render_core);
+    sem_release(&vga_start_semaphore);
     ESPectrum::loop();
     __unreachable();
 }

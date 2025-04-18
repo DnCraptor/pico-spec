@@ -34,7 +34,6 @@ set (PORT_VERSION "1.2.A")
 ##set(TV ON)
 #set(SOFTTV ON)
 set(TFT ON)
-set(TFT_INV 1)
 set(ILI9341 ON)
 #set(HDMI ON)
 
@@ -120,17 +119,9 @@ IF(TFT)
     target_compile_definitions(${PROJECT_NAME} PRIVATE TFT)
     IF(ILI9341)
         target_compile_definitions(${PROJECT_NAME} PRIVATE ILI9341)
-        IF(TFT_INV)
-            SET(BUILD_NAME "${BUILD_NAME}-ILI9341V-${PORT_VERSION}")
-        ELSE()
-            SET(BUILD_NAME "${BUILD_NAME}-ILI9341-${PORT_VERSION}")
-        ENDIF()
+        SET(BUILD_NAME "${BUILD_NAME}-ILI9341-${PORT_VERSION}")
     ELSE()
-        IF(TFT_INV)
-            SET(BUILD_NAME "${BUILD_NAME}-ST7789V-${PORT_VERSION}")
-        ELSE()
-            SET(BUILD_NAME "${BUILD_NAME}-ST7789-${PORT_VERSION}")
-        ENDIF()
+        SET(BUILD_NAME "${BUILD_NAME}-ST7789-${PORT_VERSION}")
     ENDIF()
 ELSEIF(HDMI)
     target_link_libraries(${PROJECT_NAME} PRIVATE hdmi)
@@ -302,7 +293,6 @@ ELSEIF(MONSTR)
         TFT_DC_PIN=10
         TFT_DATA_PIN=12
         TFT_CLK_PIN=13
-        TFT_INV=${TFT_INV}
 
         PICO_FLASH_SIZE_BYTES=${FLASH_SIZE}*1024
         DEFAULT_THROTTLING=0
@@ -363,7 +353,6 @@ ELSE()
         TFT_DC_PIN=10
         TFT_DATA_PIN=12
         TFT_CLK_PIN=13
-        TFT_INV=${TFT_INV}
 
 	    PICO_FLASH_SIZE_BYTES=${FLASH_SIZE}*1024
         DEFAULT_THROTTLING=0
