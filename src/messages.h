@@ -501,7 +501,8 @@ static const char *MENU_TFT[2] = { MENU_TFT_EN, MENU_TFT_EN };
     "TFT FLAGS\n"\
     "RFB/BGR\n"\
     "Flip X\n"\
-    "Flip Y\n"
+    "Flip Y\n"\
+    "Flip XY\n"
 static const char *MENU_TFT2[2] = { MENU_TFT2_EN, MENU_TFT2_EN };
 
 #define MENU_PERSIST_SAVE_EN \

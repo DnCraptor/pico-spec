@@ -16,7 +16,7 @@ endif()
 set(PICO_BOARD pico CACHE STRING "Board type")
 include(pico_sdk_import.cmake)
 
-project(m1p1-spec C CXX ASM)
+project(p1-spec C CXX ASM)
 
 option(I2S "Enable I2S sound" OFF)
 option(I2S_CS4334 "Enable I2S CS4334 sound" OFF)
@@ -26,6 +26,8 @@ option(ILI9341 "Enable TFT ILI9341 display" OFF)
 option(HDMI "Enable HDMI display" OFF)
 option(TV "Enable TV composite output" OFF)
 option(SOFTTV "Enable TV soft composite output" OFF)
+option(MURM20 "Murmulator 2.0" OFF)
+option(ZERO "RP2040-PiZero" OFF)
 
 set (PORT_VERSION "1.2.A")
 
@@ -36,6 +38,7 @@ set (PORT_VERSION "1.2.A")
 set(TFT ON)
 set(ILI9341 ON)
 #set(HDMI ON)
+#set(ZERO ON)
 
 #set (MURM2 ON)
 #set (MONSTR ON)
@@ -46,12 +49,14 @@ set(FLASH_SIZE 2048)
 set(FLASH_SIZE_GREEN ON)
 #set(CPU_MHZ 408)
 set(CPU_MHZ 378)
-
+#set(CPU_MHZ 252)
 
 IF(MURM2)
-    SET(BUILD_NAME "m2-${PROJECT_NAME}-${FLASH_SIZE}-${CPU_MHZ}")
+    SET(BUILD_NAME "m2${PROJECT_NAME}-${FLASH_SIZE}-${CPU_MHZ}")
+ELSEIF(ZERO)
+    SET(BUILD_NAME "z0${PROJECT_NAME}-${FLASH_SIZE}-${CPU_MHZ}")
 ELSE()
-    SET(BUILD_NAME "${PROJECT_NAME}-${FLASH_SIZE}-${CPU_MHZ}")
+    SET(BUILD_NAME "m1${PROJECT_NAME}-${FLASH_SIZE}-${CPU_MHZ}")
 ENDIF()
 
 set(CMAKE_C_STANDARD 11)
@@ -95,8 +100,8 @@ pico_define_boot_stage2(slower_boot2 ${PICO_DEFAULT_BOOT_STAGE2_FILE})
 target_compile_definitions(slower_boot2 PRIVATE PICO_FLASH_SPI_CLKDIV=4)
 pico_set_boot_stage2(${PROJECT_NAME} slower_boot2)
 
-pico_set_program_name(m1p1-spec "ESpectrum port for Murmulator - ZX Spectrum emulator by DnCraptor")
-pico_set_program_version(m1p1-spec "test")
+pico_set_program_name(p1-spec "ESpectrum port for Murmulator - ZX Spectrum emulator by DnCraptor")
+pico_set_program_version(p1-spec "test")
 
 target_include_directories(${PROJECT_NAME} PRIVATE
         src
@@ -105,7 +110,11 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 
 IF(NOT I2S)
     SET(BUILD_NAME "${BUILD_NAME}-PWM")
-    target_compile_definitions(${PROJECT_NAME} PRIVATE AUDIO_PWM_PIN=26)
+    if(ZERO)
+        target_compile_definitions(${PROJECT_NAME} PRIVATE AUDIO_PWM_PIN=11)
+    else()
+        target_compile_definitions(${PROJECT_NAME} PRIVATE AUDIO_PWM_PIN=26)
+    endif()
 ELSEIF(I2S_CS4334)
     target_compile_definitions(${PROJECT_NAME} PRIVATE I2S_CS4334)
     SET(BUILD_NAME "${BUILD_NAME}-CS4334")
@@ -239,6 +248,63 @@ IF(MURM2)
         TFT_DC_PIN=16
         TFT_DATA_PIN=18
         TFT_CLK_PIN=19
+        
+        PICO_FLASH_SIZE_BYTES=${FLASH_SIZE}*1024
+        DEFAULT_THROTTLING=0
+    )
+ELSEIF(ZERO)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
+        PORT_VERSION="${PORT_VERSION}"
+        CPU_MHZ=${CPU_MHZ}
+        ZERO=1
+
+        KBD_CLOCK_PIN=0
+        KBD_DATA_PIN=1
+
+        LOAD_WAV_PIO=17
+
+        BEEPER_PIN=11
+        PWM_PIN0=12
+        PWM_PIN1=13
+        SOUND_FREQUENCY=30600
+        I2S_FREQUENCY=30600
+
+        # SDCARD
+        SDCARD_PIN_SPI0_SCK=18
+        SDCARD_PIN_SPI0_MOSI=19
+        SDCARD_PIN_SPI0_MISO=20
+        SDCARD_PIN_SPI0_CS=21
+
+     #   PSRAM
+        # PSRAM_MUTEX=1
+        PSRAM_SPINLOCK=1
+        PSRAM_ASYNC=1
+
+        PSRAM_PIN_CS=2
+        PSRAM_PIN_SCK=3
+        PSRAM_PIN_MOSI=4
+        PSRAM_PIN_MISO=5
+
+        # NES Gamepad
+        USE_NESPAD
+        NES_GPIO_CLK=7
+        NES_GPIO_LAT=8
+        NES_GPIO_DATA=9
+        NES_GPIO_DATA2=10
+
+        # VGA 8 pins starts from pin:
+        VGA_BASE_PIN=22
+
+        # HDMI 8 pins starts from pin:
+        HDMI_BASE_PIN=22
+
+        # TFT
+        TFT_CS_PIN=22
+        TFT_RST_PIN=24
+        TFT_LED_PIN=25
+        TFT_DC_PIN=26
+        TFT_DATA_PIN=28
+        TFT_CLK_PIN=29
         
         PICO_FLASH_SIZE_BYTES=${FLASH_SIZE}*1024
         DEFAULT_THROTTLING=0
