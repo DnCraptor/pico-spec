@@ -1169,7 +1169,7 @@ void SaveRectT::save(int16_t x, int16_t y, int16_t w, int16_t h) {
         *(int16_t*)(PSRAM_DATA + off) = h; off += 2;
         for (size_t line = y; line < y + h; ++line) {
             uint8_t *backbuffer = VIDEO::vga.frameBuffer[line];
-            memcpy((void*)PSRAM_DATA + off, backbuffer, w);
+            memcpy((void*)(PSRAM_DATA + off), backbuffer, w);
             for (int i = 0; i < w; ++i) {
                 PSRAM_DATA[off + i] = VIDEO::vga.frameBuffer[line][x + i];
             }
