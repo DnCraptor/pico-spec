@@ -28,6 +28,7 @@ option(TV "Enable TV composite output" OFF)
 option(SOFTTV "Enable TV soft composite output" OFF)
 option(MURM20 "Murmulator 2.0" OFF)
 option(ZERO "RP2040-PiZero" OFF)
+option(PICO_PC "RP2040-PICO-PC" OFF)
 
 set (PORT_VERSION "1.2.A")
 
@@ -35,13 +36,14 @@ set (PORT_VERSION "1.2.A")
 
 ##set(TV ON)
 #set(SOFTTV ON)
-set(TFT ON)
-set(ILI9341 ON)
-#set(HDMI ON)
-#set(ZERO ON)
+#set(TFT ON)
+#set(ILI9341 ON)
+set(HDMI ON)
 
-#set (MURM2 ON)
-#set (MONSTR ON)
+#set(ZERO ON)
+set(PICO_PC ON)
+#set(MURM2 ON)
+#set(MONSTR ON)
 set(KBDUSB ON)
 
 #set(FLASH_SIZE 4096)
@@ -55,6 +57,8 @@ IF(MURM2)
     SET(BUILD_NAME "m2${PROJECT_NAME}-${FLASH_SIZE}-${CPU_MHZ}")
 ELSEIF(ZERO)
     SET(BUILD_NAME "z0${PROJECT_NAME}-${FLASH_SIZE}-${CPU_MHZ}")
+ELSEIF(PICO_PC)
+    SET(BUILD_NAME "PC${PROJECT_NAME}-${FLASH_SIZE}-${CPU_MHZ}")
 ELSE()
     SET(BUILD_NAME "m1${PROJECT_NAME}-${FLASH_SIZE}-${CPU_MHZ}")
 ENDIF()
@@ -305,6 +309,68 @@ ELSEIF(ZERO)
         TFT_DC_PIN=26
         TFT_DATA_PIN=28
         TFT_CLK_PIN=29
+        
+        PICO_FLASH_SIZE_BYTES=${FLASH_SIZE}*1024
+        DEFAULT_THROTTLING=0
+    )
+ELSEIF(PICO_PC)
+    set(DVI_DEFAULT_SERIAL_CONFIG "rp240_pico_pc_cfg" CACHE STRING
+        "Select a default pin configuration from common_dvi_pin_configs.h")
+
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
+        PORT_VERSION="${PORT_VERSION}"
+        DVI_DEFAULT_SERIAL_CONFIG=${DVI_DEFAULT_SERIAL_CONFIG}
+        CPU_MHZ=${CPU_MHZ}
+
+        PICO_PC=1
+
+        # GP-5  UXT1-10
+        # GP-8  UXT1-6
+        # GP-9  UXT1-5
+        # GP-21 UXT1-4
+        # GP-20 UXT1-3
+
+        # QWST1 3/4 - GP2/3
+
+        # DBG1 1/2
+        KBD_CLOCK_PIN=0
+        KBD_DATA_PIN=1
+
+        LOAD_WAV_PIO=5 # UXT1-10
+
+        BEEPER_PIN=26 # not implemented
+        PWM_PIN0=27 # R
+        PWM_PIN1=28 # L
+        SOUND_FREQUENCY=30600
+        I2S_FREQUENCY=30600
+
+        # SDCARD
+        SDCARD_PIN_SPI0_MISO=4
+        SDCARD_PIN_SPI0_SCK=6
+        SDCARD_PIN_SPI0_MOSI=7
+        SDCARD_PIN_SPI0_CS=22
+
+        #PSRAM           # not implemented
+        PSRAM_SPINLOCK=1 # not implemented
+        PSRAM_ASYNC=1    # not implemented
+
+        PSRAM_PIN_CS=3   # not implemented
+        PSRAM_PIN_SCK=3  # not implemented
+        PSRAM_PIN_MOSI=3 # not implemented
+        PSRAM_PIN_MISO=3 # not implemented
+
+        # NES Gamepad
+        USE_NESPAD
+        NES_GPIO_CLK=8    # UXT1-6
+        NES_GPIO_LAT=9    # UXT1-5
+        NES_GPIO_DATA=20  # UXT1-3
+        NES_GPIO_DATA2=21 # UXT1-4
+
+        # VGA 8 pins starts from pin:
+        VGA_BASE_PIN=12
+
+        # HDMI 8 pins starts from pin:
+        HDMI_BASE_PIN=12
         
         PICO_FLASH_SIZE_BYTES=${FLASH_SIZE}*1024
         DEFAULT_THROTTLING=0

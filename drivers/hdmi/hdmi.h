@@ -25,8 +25,8 @@ extern "C" {
 #else
 	#define HDMI_PIN_RGB_notBGR (1)
 	#define HDMI_PIN_invert_diffpairs (1)
-	#define beginHDMI_PIN_data (HDMI_BASE_PIN+2)
 	#define beginHDMI_PIN_clk (HDMI_BASE_PIN)
+	#define beginHDMI_PIN_data (HDMI_BASE_PIN+2)
 #endif
 
 #define TEXTMODE_COLS 53

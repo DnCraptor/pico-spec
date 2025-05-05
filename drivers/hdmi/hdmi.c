@@ -99,8 +99,13 @@ static uint64_t get_ser_diff_data(const uint16_t dataR, const uint16_t dataG, co
     for (int i = 0; i < 10; i++) {
         out64 <<= 6;
         if (i == 5) out64 <<= 2;
+#ifdef PICO_PC
+        uint8_t bG = (dataR >> (9 - i)) & 1;
+        uint8_t bR = (dataG >> (9 - i)) & 1;
+#else
         uint8_t bR = (dataR >> (9 - i)) & 1;
         uint8_t bG = (dataG >> (9 - i)) & 1;
+#endif
         uint8_t bB = (dataB >> (9 - i)) & 1;
 
         bR |= (bR ^ 1) << 1;
