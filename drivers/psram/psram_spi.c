@@ -33,9 +33,11 @@ uint32_t psram_size() {
 
 uint32_t init_psram() {
     psram_spi = psram_spi_init_clkdiv(pio0, -1, 2.0, false);
+#ifndef PSRAM_NO_FUGE
     if ( !_psram_size() ) {
         psram_spi = psram_spi_init_clkdiv(pio0, -1, 2.0, true);
     }
+#endif
     return psram_size();
 }
 
