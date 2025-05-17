@@ -88,9 +88,11 @@ void close_all(void) {
         memset((void*)PSRAM_DATA, 0, butter_psram_size());
     }
 #if !PICO_RP2040
+#if BUTTER_PSRAM_GPIO
     gpio_init(BUTTER_PSRAM_GPIO);
     gpio_set_dir(BUTTER_PSRAM_GPIO, GPIO_OUT);
     gpio_put(BUTTER_PSRAM_GPIO, true);
+#endif
 #endif
 }
 

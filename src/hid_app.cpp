@@ -109,11 +109,26 @@ void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance)
 
 static hid_keyboard_report_t prev_report = { 0 , 0 , {0}};
 
+#include "ff.h"
+
 // Invoked when received report from device via interrupt endpoint
 void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* report, uint16_t len)
 {
   uint8_t const itf_protocol = tuh_hid_interface_protocol(dev_addr, instance);
-
+/*
+  FIL f;
+  f_open(&f, "1.log", FA_OPEN_APPEND | FA_WRITE);
+  char tmp[64];
+  snprintf(tmp, 64, "USB report itf_protocol %d; len: %d mod: %02Xh kc0: %02Xh\n",
+      itf_protocol,
+      len,
+      ((hid_keyboard_report_t const*)report)->modifier,
+      ((hid_keyboard_report_t const*)report)->keycode[0]
+  );
+  UINT bw;
+  f_write(&f, tmp, strlen(tmp), &bw); 
+  f_close(&f);
+*/
   switch (itf_protocol)
   {
     case HID_ITF_PROTOCOL_KEYBOARD:
