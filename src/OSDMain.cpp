@@ -844,16 +844,17 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                     menu_saverect = true;
                                     string mFile = fileDialog(FileUtils::DSK_Path, MENU_DSK_TITLE[Config::lang], DISK_DSKFILE, 26, 15);
                                     if (mFile != "") {
-                                        Config::save();
                                         mFile.erase(0, 1);
                                         string fname = FileUtils::DSK_Path + "/" + mFile;
                                         ESPectrum::Betadisk.EjectDisk(dsk_num - 1);
                                         ESPectrum::Betadisk.InsertDisk(dsk_num - 1, fname);
+                                        Config::save();
                                         return;
                                     }
                                 } else 
                                 if (opt2 == 2) {
                                     ESPectrum::Betadisk.EjectDisk(dsk_num - 1);
+                                    Config::save();
                                     return;
                                 }
                             } else {

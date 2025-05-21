@@ -112,6 +112,7 @@ There's also no need to sort files using external utilities: the emulator create
 - ALT+F12 Update Firmware
 - Pause Pause
 - PrntScr BMP screen capture (Folder /spec/.c at SDCard)
+- WASD/KL - Kempstron joystik parallel-emulation
 
 ## How to flash custom ROMs
 

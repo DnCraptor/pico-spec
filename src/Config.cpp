@@ -229,7 +229,7 @@ void Config::load2() {
     fclose2(handle);
 
     for (size_t i = 0; i < 4; ++i) {
-        const string s = "drive" + to_string(i);
+        s = "drive" + to_string(i);
         std::string fn;
         nvs_get_str((s + ".file").c_str(), fn, sts);
         if (!fn.empty()) {
