@@ -30,7 +30,7 @@ option(MURM20 "Murmulator 2.0" OFF)
 option(ZERO "RP2040-PiZero" OFF)
 option(PICO_PC "RP2040-PICO-PC" OFF)
 
-set (PORT_VERSION "1.2.A")
+set (PORT_VERSION "1.2.C")
 
 #set(I2S ON)
 
@@ -38,10 +38,10 @@ set (PORT_VERSION "1.2.A")
 #set(SOFTTV ON)
 #set(TFT ON)
 #set(ILI9341 ON)
-set(HDMI ON)
+#set(HDMI ON)
 
 #set(ZERO ON)
-set(PICO_PC ON)
+#set(PICO_PC ON)
 #set(MURM2 ON)
 #set(MONSTR ON)
 set(KBDUSB ON)
@@ -451,6 +451,7 @@ ELSE()
         SDCARD_PIN_SPI0_MISO=4
         
         PSRAM
+        PSRAM_NO_FUGE
         # PSRAM_MUTEX=1
         PSRAM_SPINLOCK=1
         PSRAM_ASYNC=1

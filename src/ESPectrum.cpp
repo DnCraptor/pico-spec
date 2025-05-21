@@ -585,8 +585,8 @@ if (butter_psram_size() >= (0x04000 * (64+2 - 23))) {
 
     if (ext_ram_exist) { // TODO: specific no ext RAM for RP2350
 #if !PICO_RP2040
-        for (size_t i = 8; i < 23; ++i) MemESP::ram[i].assign_ram(new unsigned char[0x4000], i, false);
-        for (size_t i = 23; i < 64+2; ++i) MemESP::ram[i].assign_vram(i);
+        for (size_t i = 8; i < 22; ++i) MemESP::ram[i].assign_ram(new unsigned char[0x4000], i, false);
+        for (size_t i = 22; i < 64+2; ++i) MemESP::ram[i].assign_vram(i);
 #else
         for (size_t i = 8; i < 64+2; ++i) MemESP::ram[i].assign_vram(i);
 #endif

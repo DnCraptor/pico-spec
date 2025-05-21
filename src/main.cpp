@@ -601,9 +601,10 @@ fabgl::VirtualKey map_key(uint8_t kc) {
         case HID_KEY_ARROW_LEFT: return fabgl::VirtualKey::VK_LEFT;
         case HID_KEY_ARROW_RIGHT: return fabgl::VirtualKey::VK_RIGHT;
  // TODO:
-        case HID_KEY_GUI_LEFT: return fabgl::VirtualKey::VK_F1;
-        case HID_KEY_GUI_RIGHT: return fabgl::VirtualKey::VK_F1;
-        default: debug_number = kc;
+//        case HID_KEY_GUI_LEFT: return fabgl::VirtualKey::VK_F1;
+//        case HID_KEY_GUI_RIGHT: return fabgl::VirtualKey::VK_F1;
+        default: break;
+        //debug_number = kc;
     }
     return fabgl::VirtualKey::VK_NONE;
 }
@@ -657,10 +658,12 @@ void kbdExtraMapping(fabgl::VirtualKey virtualKey, bool pressed) {
             kbdPushData(Config::rightSpace ? fabgl::VirtualKey::VK_SPACE : fabgl::VirtualKey::VK_RETURN, pressed);
             return;
         }
+        case fabgl::VirtualKey::VK_L:
         case fabgl::VirtualKey::VK_P: {
             if (Config::wasd) kbdPushData(fabgl::VirtualKey::VK_DPAD_FIRE, pressed);
             break;
         }
+        case fabgl::VirtualKey::VK_K:
         case fabgl::VirtualKey::VK_O: {
             if (Config::wasd) kbdPushData(fabgl::VirtualKey::VK_DPAD_ALTFIRE, pressed);
             break;
