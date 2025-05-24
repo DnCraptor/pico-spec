@@ -1025,7 +1025,9 @@ int main() {
     pcm_setup(SOUND_FREQUENCY, SOUND_FREQUENCY);
 #ifdef PSRAM
     #ifndef MURM2
-    init_psram();
+    if (BUTTER_PSRAM_GPIO > 31) {
+        init_psram();
+    }
     #endif
 #endif
     // send kbd reset only after initial process passed
