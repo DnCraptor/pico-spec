@@ -169,6 +169,7 @@ uint32_t ESPectrum::faudbufcnt = 0;
 uint32_t ESPectrum::audbufcntAY = 0;
 uint32_t ESPectrum::faudbufcntAY = 0;
 int ESPectrum::lastaudioBit = 0;
+int ESPectrum::lastCovoxVal = 0;
 int ESPectrum::faudioBit = 0;
 int ESPectrum::samplesPerFrame;
 bool ESPectrum::AY_emu = false;
@@ -766,7 +767,7 @@ void ESPectrum::reset()
     memset(audioBuffer_R, 0, sizeof(audioBuffer_R));
     memset(chip0.SamplebufAY_L, 0, sizeof(chip0.SamplebufAY_L));
     memset(chip1.SamplebufAY_R, 0, sizeof(chip1.SamplebufAY_R));
-    lastaudioBit=0;
+    lastCovoxVal = lastaudioBit = 0;
 
     // Set samples per frame and AY_emu flag depending on arch
     prevAudio_freq = Audio_freq;
@@ -1041,7 +1042,7 @@ IRAM_ATTR void ESPectrum::BeeperGetSample() {
     uint32_t audbufpos = Z80Ops::is128 ? CPU::tstates / 19 : CPU::tstates >> 4;
     if (multiplicator) audbufpos >>= multiplicator;
     for (;audbufcnt < audbufpos; audbufcnt++) {
-        audioBitBuf += lastaudioBit;
+        audioBitBuf += lastaudioBit + lastCovoxVal;
         if(++audioBitbufCount == audioSampleDivider) {
             overSamplebuf[audbufcntover++] = audioBitBuf;
             audioBitBuf = 0;

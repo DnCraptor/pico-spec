@@ -2242,6 +2242,41 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                         }
                                     }
                                 }
+                                else if (options_num == 10) {
+                                    menu_level = 3;
+                                    menu_curopt = 1;                    
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string menu = MENU_COVOX[Config::lang];
+                                        uint8_t prev = Config::covox;
+                                        if (prev == 0) {
+                                            menu.replace(menu.find("[N",0),2,"[*");
+                                            menu.replace(menu.find("[F",0),2,"[ ");
+                                            menu.replace(menu.find("[D",0),2,"[ ");
+                                        } else if (prev == 1) {
+                                            menu.replace(menu.find("[N",0),2,"[ ");
+                                            menu.replace(menu.find("[F",0),2,"[*");
+                                            menu.replace(menu.find("[D",0),2,"[ ");
+                                        } else {
+                                            menu.replace(menu.find("[N",0),2,"[ ");
+                                            menu.replace(menu.find("[F",0),2,"[ ");
+                                            menu.replace(menu.find("[D",0),2,"[*");
+                                        }
+                                        uint8_t opt2 = menuRun(menu);
+                                        if (opt2) {
+                                            Config::covox = opt2 - 1;
+                                            if (Config::covox != prev) {
+                                                Config::save();
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = 10;
+                                            menu_level = 2;                                       
+                                            break;
+                                        }
+                                    }
+                                }
                             } else {
                                 menu_curopt = 7;
                                 break;

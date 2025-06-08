@@ -303,7 +303,10 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
             VIDEO::borderColor = data & 0x07;
             VIDEO::brd = VIDEO::border32[VIDEO::borderColor];
         }
-///        if (ESPectrum::ESP_delay) { // Disable beeper on turbo mode
+        if (address == Config::covox) { // TODO:
+            ESPectrum::lastCovoxVal = data;
+            ESPectrum::BeeperGetSample();
+        } else { // TODO:
             if (Config::tape_player)
                 Audiobit = Tape::tapeEarBit ? 255 : 0; // For tape player mode
             else
@@ -313,7 +316,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
                 ESPectrum::BeeperGetSample();
                 ESPectrum::lastaudioBit = Audiobit;
             }
-///        }
+        }
 
         // AY ========================================================================
         if ((ESPectrum::AY_emu) && ((address & 0x8002) == 0x8000)) {

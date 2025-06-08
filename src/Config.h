@@ -100,6 +100,7 @@ public:
     static uint8_t  AluTiming;
     static uint8_t  ayConfig;
     static uint8_t  turbosound;
+    static uint8_t  covox;
     static uint8_t  joy2cursor;
     static uint8_t  secondJoy;
     static uint8_t  kempstonPort;

@@ -108,6 +108,7 @@ public:
     static uint32_t faudbufcnt;
     static uint32_t faudbufcntAY;
     static int lastaudioBit;
+    static int lastCovoxVal;
     static int faudioBit;
     static int samplesPerFrame;
     static bool AY_emu;

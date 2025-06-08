@@ -30,7 +30,7 @@ option(MURM20 "Murmulator 2.0" OFF)
 option(ZERO "RP2040-PiZero" OFF)
 option(PICO_PC "RP2040-PICO-PC" OFF)
 
-set (PORT_VERSION "1.2.C")
+set (PORT_VERSION "1.2.D")
 
 #set(I2S ON)
 
@@ -49,8 +49,8 @@ set(KBDUSB ON)
 #set(FLASH_SIZE 4096)
 set(FLASH_SIZE 2048)
 set(FLASH_SIZE_GREEN ON)
-set(CPU_MHZ 408)
-#set(CPU_MHZ 378)
+#set(CPU_MHZ 408)
+set(CPU_MHZ 378)
 #set(CPU_MHZ 252)
 
 IF(MURM2)
@@ -267,9 +267,9 @@ ELSEIF(ZERO)
 
         LOAD_WAV_PIO=17
 
-        BEEPER_PIN=11
-        PWM_PIN0=12
-        PWM_PIN1=13
+        PWM_PIN0=11
+        PWM_PIN1=12
+        BEEPER_PIN=13
         SOUND_FREQUENCY=30600
         I2S_FREQUENCY=30600
 

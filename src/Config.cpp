@@ -67,6 +67,7 @@ uint8_t  Config::turbosound = 3; // BOTH
 #else
 uint8_t  Config::turbosound = 0; // OFF
 #endif
+uint8_t  Config::covox = 0; // NONE
 uint8_t  Config::joy2cursor = true;
 uint8_t  Config::secondJoy = 2; // NPAD#2
 uint8_t  Config::kempstonPort = 0x37;
@@ -323,6 +324,7 @@ void Config::load() {
         nvs_get_u8("kempstonPort", Config::kempstonPort, sts);
         nvs_get_u8("ayConfig", Config::ayConfig, sts);
         nvs_get_u8("turbosound", Config::turbosound, sts);
+        nvs_get_u8("covox", Config::covox, sts);
 #if !PICO_RP2040
         nvs_get_u8("throtling2", Config::throtling, sts);
 #else
@@ -403,6 +405,7 @@ void Config::save() {
         nvs_set_str(handle,"AY48", AY48 ? "true" : "false");
         nvs_set_u8(handle,"ayConfig", Config::ayConfig);
         nvs_set_u8(handle,"turbosound", Config::turbosound);
+        nvs_set_u8(handle,"covox", Config::covox);
         nvs_set_str(handle,"Issue2", Issue2 ? "true" : "false");
         nvs_set_str(handle,"flashload", flashload ? "true" : "false");
         nvs_set_str(handle,"tape_player", tape_player ? "true" : "false");
