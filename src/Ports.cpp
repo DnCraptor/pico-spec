@@ -303,21 +303,15 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
             VIDEO::borderColor = data & 0x07;
             VIDEO::brd = VIDEO::border32[VIDEO::borderColor];
         }
-        if (address == Config::covox) { // TODO:
-            ESPectrum::lastCovoxVal = data;
+        if (Config::tape_player)
+            Audiobit = Tape::tapeEarBit ? 255 : 0; // For tape player mode
+        else
+            // Beeper Audio
+            Audiobit = speaker_values[((data >> 2) & 0x04 ) | (Tape::tapeEarBit << 1) | ((data >> 3) & 0x01)];
+        if (Audiobit != ESPectrum::lastaudioBit) {
             ESPectrum::BeeperGetSample();
-        } else { // TODO:
-            if (Config::tape_player)
-                Audiobit = Tape::tapeEarBit ? 255 : 0; // For tape player mode
-            else
-                // Beeper Audio
-                Audiobit = speaker_values[((data >> 2) & 0x04 ) | (Tape::tapeEarBit << 1) | ((data >> 3) & 0x01)];
-            if (Audiobit != ESPectrum::lastaudioBit) {
-                ESPectrum::BeeperGetSample();
-                ESPectrum::lastaudioBit = Audiobit;
-            }
+            ESPectrum::lastaudioBit = Audiobit;
         }
-
         // AY ========================================================================
         if ((ESPectrum::AY_emu) && ((address & 0x8002) == 0x8000)) {
             if ((address & 0x4000) != 0) {
@@ -331,6 +325,11 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         }
         VIDEO::Draw(3, !Z80Ops::isPentagon);   // I/O Contention (Late)
     } else {
+        int covox = Config::covox;
+        if ((covox == 1 && address == 0xFB) || (covox == 2 && address == 0xDD)) {
+            ESPectrum::lastCovoxVal = data;
+            ESPectrum::CovoxGetSample();
+        }
         // AY ========================================================================
         if ((ESPectrum::AY_emu) && (Config::turbosound == 1 || Config::turbosound == 3) && address == 0xFFFD) { // NedoPC way
             if (data == 0xFF) {

@@ -96,17 +96,21 @@ public:
 
     // Audio
     static void BeeperGetSample();
+    static void CovoxGetSample();
     static void AYGetSample();
     static uint8_t audioBuffer_L[ESP_AUDIO_SAMPLES_PENTAGON];
     static uint8_t audioBuffer_R[ESP_AUDIO_SAMPLES_PENTAGON];
+    static uint8_t audioBufferCovox[ESP_AUDIO_SAMPLES_PENTAGON];
     static uint32_t overSamplebuf[ESP_AUDIO_SAMPLES_PENTAGON];
     static unsigned char audioSampleDivider;
     static signed char aud_volume;
     static uint32_t audbufcnt;
     static uint32_t audbufcntover;    
     static uint32_t audbufcntAY;
+    static uint32_t audbufcntCovox;
     static uint32_t faudbufcnt;
     static uint32_t faudbufcntAY;
+    static uint32_t faudbufcntCovox;
     static int lastaudioBit;
     static int lastCovoxVal;
     static int faudioBit;

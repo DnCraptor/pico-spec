@@ -159,6 +159,7 @@ void repeat_handler(void) {
 //=======================================================================================
 uint8_t ESPectrum::audioBuffer_L[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
 uint8_t ESPectrum::audioBuffer_R[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
+uint8_t ESPectrum::audioBufferCovox[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
 uint32_t ESPectrum::overSamplebuf[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
 signed char ESPectrum::aud_volume = ESP_VOLUME_DEFAULT;
 // signed char ESPectrum::aud_volume = ESP_VOLUME_MAX; // For .tap player test
@@ -168,6 +169,8 @@ uint32_t ESPectrum::audbufcntover = 0;
 uint32_t ESPectrum::faudbufcnt = 0;
 uint32_t ESPectrum::audbufcntAY = 0;
 uint32_t ESPectrum::faudbufcntAY = 0;
+uint32_t ESPectrum::audbufcntCovox = 0;
+uint32_t ESPectrum::faudbufcntCovox = 0;
 int ESPectrum::lastaudioBit = 0;
 int ESPectrum::lastCovoxVal = 0;
 int ESPectrum::faudioBit = 0;
@@ -765,6 +768,7 @@ void ESPectrum::reset()
     memset(overSamplebuf, 0, sizeof(overSamplebuf));
     memset(audioBuffer_L, 0, sizeof(audioBuffer_L));
     memset(audioBuffer_R, 0, sizeof(audioBuffer_R));
+    memset(audioBufferCovox, 0, sizeof(audioBufferCovox));
     memset(chip0.SamplebufAY_L, 0, sizeof(chip0.SamplebufAY_L));
     memset(chip1.SamplebufAY_R, 0, sizeof(chip1.SamplebufAY_R));
     lastCovoxVal = lastaudioBit = 0;
@@ -1042,12 +1046,26 @@ IRAM_ATTR void ESPectrum::BeeperGetSample() {
     uint32_t audbufpos = Z80Ops::is128 ? CPU::tstates / 19 : CPU::tstates >> 4;
     if (multiplicator) audbufpos >>= multiplicator;
     for (;audbufcnt < audbufpos; audbufcnt++) {
-        audioBitBuf += lastaudioBit + lastCovoxVal;
+        audioBitBuf += lastaudioBit;
         if(++audioBitbufCount == audioSampleDivider) {
             overSamplebuf[audbufcntover++] = audioBitBuf;
             audioBitBuf = 0;
             audioBitbufCount = 0;
         }
+    }
+}
+
+IRAM_ATTR void ESPectrum::CovoxGetSample() {
+    // Covox audiobuffer generation (oversample)
+    uint32_t audbufpos = CPU::tstates / (Z80Ops::is128 ? 114 : 112);
+    if (multiplicator) audbufpos >>= multiplicator;
+    if (audbufpos > audbufcntCovox) {
+        uint8_t *sound_buf = audioBufferCovox + audbufcntCovox;
+        int sound_bufsize = audbufpos - audbufcntCovox;
+        while (sound_bufsize-- > 0) {
+            *sound_buf++ = lastCovoxVal;
+        }
+        audbufcntCovox = audbufpos;
     }
 }
 
@@ -1082,6 +1100,7 @@ void ESPectrum::loop() {
     audbufcnt = 0;
     audbufcntover = 0;
     audbufcntAY = 0;
+    audbufcntCovox = 0;
 
     CPU::loop();
 
@@ -1089,6 +1108,7 @@ void ESPectrum::loop() {
     faudbufcnt = audbufcnt;
     faudioBit = lastaudioBit;
     faudbufcntAY = audbufcntAY;
+    faudbufcntCovox = audbufcntCovox;
     if (!CPU::paused) {
     #if LOAD_WAV_PIO
         if (Config::real_player) {
@@ -1117,14 +1137,21 @@ void ESPectrum::loop() {
                 audioBitbufCount = 0; 
             }
         }
+        if (Config::covox && faudbufcntCovox < samplesPerFrame) {
+            uint8_t *sound_buf = audioBufferCovox + faudbufcntCovox;
+            int sound_bufsize = samplesPerFrame - faudbufcntCovox;
+            while (sound_bufsize-- > 0) {
+                *sound_buf++ = lastCovoxVal;
+            }
+        }
         if (AY_emu) {
             if (faudbufcntAY < samplesPerFrame) {
                 if(Config::turbosound != 0 || AySound::selected_chip == 0) chip0.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
                 if(Config::turbosound != 0 || AySound::selected_chip == 1) chip1.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
             }
             for (int i = 0; i < samplesPerFrame; i++) {
-                int beeper_L = overSamplebuf[i] / audioSampleDivider;
-                int beeper_R = overSamplebuf[i] / audioSampleDivider;
+                int beeper_L = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i];
+                int beeper_R = beeper_L;
                 if(Config::turbosound != 0 || AySound::selected_chip == 0) {
                     beeper_L += chip0.SamplebufAY_L[i];
                     beeper_R += chip0.SamplebufAY_R[i];
@@ -1138,7 +1165,7 @@ void ESPectrum::loop() {
             }
         } else {
             for (int i = 0; i < samplesPerFrame; i++) {
-                auto v = overSamplebuf[i] / audioSampleDivider;
+                auto v = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i];
                 audioBuffer_L[i] = v;
                 audioBuffer_R[i] = v;
             }
