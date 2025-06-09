@@ -268,11 +268,12 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     uint8_t rambank = address >> 14;
 
     VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
+    uint8_t a8 = (address & 0xFF);
 
     bool ia = Z80Ops::isALF;
 #ifndef NO_ALF
     if (ia) {
-        if ((address & 0xFF) == 0xFE) {
+        if (a8 == 0xFE) {
             newAlfBit = (data >> 3) & 1;
         }
         if (bitRead(address, 7) == 0 && (address & 1) == 1) { // ALF ROM selector A7=0, A0=1
@@ -326,7 +327,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         VIDEO::Draw(3, !Z80Ops::isPentagon);   // I/O Contention (Late)
     } else {
         int covox = Config::covox;
-        if ((covox == 1 && address == 0xFB) || (covox == 2 && address == 0xDD)) {
+        if ((covox == 1 && a8 == 0xFB) || (covox == 2 && a8 == 0xDD)) {
             ESPectrum::lastCovoxVal = data;
             ESPectrum::CovoxGetSample();
         }
@@ -340,10 +341,10 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
             }
         }
         if ((ESPectrum::AY_emu) && ((address & 0x8002) == 0x8000)) {
-            if ((address & 0xFF) == 0xFF) { // Old TS way
+            if (a8 == 0xFF) { // Old TS way
                 AySound::selected_chip = 0;
             }
-            else if ((address & 0xFF) == 0xFE && Config::turbosound > 1) {
+            else if (a8 == 0xFE && Config::turbosound > 1) {
                 AySound::selected_chip = 1;
             }
             else if ((address & 0x4000) != 0) {
@@ -357,7 +358,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         }
         // Check if TRDOS Rom is mapped.
         if (ESPectrum::trdos) {
-            switch (address & 0xFF) {
+            switch (a8) {
                 case 0xFF:
                     // printf("WD1793 Write Control Register: %d\n",data);
                     ESPectrum::Betadisk.WriteSystemReg(data);
