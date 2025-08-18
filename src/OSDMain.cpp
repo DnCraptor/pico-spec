@@ -3980,33 +3980,36 @@ void OSD::HWInfo() {
     );
     VIDEO::vga.print(buf);
 
+    #if !BUTTER_PSRAM_GPIO || BUTTER_PSRAM_GPIO == 47
     uint32_t psram32 = psram_size();
     if (psram32) {
         uint8_t rx8[8];
         psram_id(rx8);
-        if (psram32) {
-            snprintf(buf, 128,
-                     " PSRAM size     : %d MB\n"\
-                     " PSRAM MF ID    : %02X\n"\
-                     " PSRAM KGD      : %02X\n"\
-                     " PSRAM EID      : %02X%02X-%02X%02X-%02X%02X\n",
-                     psram32 >> 20, rx8[0], rx8[1], rx8[2], rx8[3], rx8[4], rx8[5], rx8[6], rx8[7]
-            );
-        }
+        snprintf(buf, 128,
+                    " PSRAM size     : %d MB\n"\
+                    " PSRAM MF ID    : %02X\n"\
+                    " PSRAM KGD      : %02X\n"\
+                    " PSRAM EID      : %02X%02X-%02X%02X-%02X%02X\n",
+                    psram32 >> 20, rx8[0], rx8[1], rx8[2], rx8[3], rx8[4], rx8[5], rx8[6], rx8[7]
+        );
         VIDEO::vga.print(buf);
     }
+    #endif
 #if !PICO_RP2040
     #if BUTTER_PSRAM_GPIO
-    if (butter_psram_size()) {
+    {
+    uint32_t psram32 = butter_psram_size();
+    if (psram32) {
         snprintf(buf, 128,
                      "+PSRAM on GP%02d  : QSPI\n"\
                      "+PSRAM size     : %d MB\n",
-                     BUTTER_PSRAM_GPIO, butter_psram_size() >> 20
+                     BUTTER_PSRAM_GPIO, psram32 >> 20
         );
     } else {
         snprintf(buf, 128, " PSRAM on GP%02d  : Not found\n", BUTTER_PSRAM_GPIO);
     }
     VIDEO::vga.print(buf);
+    }
     #endif
 #endif
     // Wait for key
