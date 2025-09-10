@@ -318,7 +318,12 @@ static inline bool hdmi_init() {
 
     //выключение SM основной и конвертора
 
-    //pio_sm_restart(PIO_VIDEO, SM_video);
+#if ZERO2
+    pio_set_gpio_base(PIO_VIDEO, 16);
+    pio_set_gpio_base(PIO_VIDEO_ADDR, 16);
+#endif
+
+    // pio_sm_restart(PIO_VIDEO, SM_video);
     pio_sm_set_enabled(PIO_VIDEO, SM_video, false);
 
     //pio_sm_restart(PIO_VIDEO_ADDR, SM_conv);
@@ -383,9 +388,16 @@ static inline bool hdmi_init() {
         gpio_set_slew_rate(beginHDMI_PIN_clk + i, GPIO_SLEW_RATE_FAST);
     }
 
+#if ZERO2
+    uint64_t mask64 = (uint64_t)(3u << beginHDMI_PIN_clk);
+    pio_sm_set_pins_with_mask64(PIO_VIDEO, SM_video, mask64, mask64);
+    pio_sm_set_pindirs_with_mask64(PIO_VIDEO, SM_video, mask64, mask64);
+    // пины
+#else
     pio_sm_set_pins_with_mask(PIO_VIDEO, SM_video, 3u << beginHDMI_PIN_clk, 3u << beginHDMI_PIN_clk);
     pio_sm_set_pindirs_with_mask(PIO_VIDEO, SM_video, 3u << beginHDMI_PIN_clk, 3u << beginHDMI_PIN_clk);
-    //пины
+    // пины
+#endif
 
     for (int i = 0; i < 6; i++) {
         gpio_set_slew_rate(beginHDMI_PIN_data + i, GPIO_SLEW_RATE_FAST);

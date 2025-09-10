@@ -55,8 +55,15 @@ static inline void pio_spi_init(PIO pio, uint sm, uint prog_offs, uint n_bits,
     sm_config_set_clkdiv(&c, clkdiv);
 
     // MOSI, SCK output are low, MISO is input
-    pio_sm_set_pins_with_mask(pio, sm, 0, (1u << pin_sck) | (1u << pin_mosi));
-    pio_sm_set_pindirs_with_mask(pio, sm, (1u << pin_sck) | (1u << pin_mosi), (1u << pin_sck) | (1u << pin_mosi) | (1u << pin_miso));
+#if ZERO2
+    uint64_t mask64 = (uint64_t)((1u << pin_sck) | (1u << pin_mosi));
+    uint64_t pindirs_mask64 = (uint64_t)((1u << pin_sck) | (1u << pin_mosi) | (1u << pin_miso));
+    pio_sm_set_pins_with_mask64(pio, sm, 0, mask64);
+    pio_sm_set_pindirs_with_mask64(pio, sm, mask64, pindirs_mask64);
+#else
+    pio_sm_set_pins_with_mask(pio, sm, 0, 1u << pin_sck) | (1u << pin_mosi));
+    pio_sm_set_pindirs_with_mask(pio, sm, 1u << pin_sck) | (1u << pin_mosi), (1u << pin_sck) | (1u << pin_mosi) | (1u << pin_miso));
+#endif
     pio_gpio_init(pio, pin_mosi);
     pio_gpio_init(pio, pin_miso);
     pio_gpio_init(pio, pin_sck);

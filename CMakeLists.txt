@@ -49,8 +49,8 @@ set(CPU_MHZ 252)
 #set(CPU_MHZ 133)
 set (PORT_VERSION "1.2.D")
 
-set(ZERO ON)
-#set(ZERO2 ON)
+#set(ZERO ON)
+set(ZERO2 ON)
 #set (PICO_PC ON)
 #set (MURM ON)
 #set (MURM2 ON)
@@ -67,7 +67,7 @@ set(PICO_BOARD waveshare_rp2040_pizero CACHE STRING "Board type")
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
-SET(PROJECT_NAME p1-spec)
+SET(PROJECT_NAME p2-spec)
 set(FLASH_SIZE 4096)
 
 # Pimoroni Pico Plus 2
@@ -141,11 +141,11 @@ target_link_libraries(p2-spec PRIVATE
     audio
     graphics
     picomp3lib
-    
+
     nespad
     sdcard
     fatfs
-    
+
     pico_runtime
     pico_stdlib
     pico_multicore
@@ -159,7 +159,7 @@ target_link_libraries(p2-spec PRIVATE
     hardware_flash
     hardware_exception
     stdc++
-    
+
     tinyusb_host tinyusb_board
 )
 
@@ -430,6 +430,9 @@ ELSEIF(ZERO2)
         PICO_DEFAULT_LED_PIN=15
 
         DEFAULT_THROTTLING=0
+
+        PICO_RP2350A=0
+        PICO_PIO_USE_GPIO_BASE=1
     )
 ELSE()
     target_compile_definitions(${PROJECT_NAME} PRIVATE
