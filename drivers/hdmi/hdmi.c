@@ -389,6 +389,10 @@ static inline bool hdmi_init() {
     }
 
 #if ZERO2
+    // Настройка направлений пинов для state machines
+    pio_sm_set_consecutive_pindirs(PIO_VIDEO, SM_video, HDMI_BASE_PIN, 8, true);
+    pio_sm_set_consecutive_pindirs(PIO_VIDEO_ADDR, SM_conv, HDMI_BASE_PIN, 8, true);
+
     uint64_t mask64 = (uint64_t)(3u << beginHDMI_PIN_clk);
     pio_sm_set_pins_with_mask64(PIO_VIDEO, SM_video, mask64, mask64);
     pio_sm_set_pindirs_with_mask64(PIO_VIDEO, SM_video, mask64, mask64);

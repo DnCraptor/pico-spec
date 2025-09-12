@@ -343,7 +343,7 @@ extern "C" bool handleScancode(const uint32_t ps2scancode) {
 
 static void nespad_tick1(void) {
     nespad_read();
-    
+
     { // secondJoy == 1 - first joy is in use by other (as second)
 
         if ((nespad_state & DPAD_SELECT) && !gamepad1_bits.select) {
@@ -472,7 +472,7 @@ void back2joy2(fabgl::VirtualKey virtualKey, bool down) {
             case fabgl::VirtualKey::VK_DPAD_START   : gamepad2_bits.start = down; break;
             case fabgl::VirtualKey::VK_DPAD_SELECT  : gamepad2_bits.select = down; break;
     }
-} 
+}
 
 #ifdef KBDUSB
 inline static bool isInReport(hid_keyboard_report_t const *report, const unsigned char keycode) {
@@ -527,7 +527,7 @@ fabgl::VirtualKey map_key(uint8_t kc) {
         case HID_KEY_7: return fabgl::VirtualKey::VK_7;
         case HID_KEY_8: return fabgl::VirtualKey::VK_8;
         case HID_KEY_9: return fabgl::VirtualKey::VK_9;
-        
+
         case HID_KEY_KEYPAD_0: return fabgl::VirtualKey::VK_KP_0;
         case HID_KEY_KEYPAD_1: return fabgl::VirtualKey::VK_KP_1;
         case HID_KEY_KEYPAD_2: return fabgl::VirtualKey::VK_KP_2;
@@ -545,7 +545,7 @@ fabgl::VirtualKey map_key(uint8_t kc) {
         case HID_KEY_KEYPAD_ADD: return fabgl::VirtualKey::VK_KP_PLUS;
         case HID_KEY_KEYPAD_ENTER: return fabgl::VirtualKey::VK_KP_ENTER;
         case HID_KEY_KEYPAD_DECIMAL: return fabgl::VirtualKey::VK_KP_PERIOD;
-        
+
         case HID_KEY_PRINT_SCREEN: return fabgl::VirtualKey::VK_PRINTSCREEN;
         case HID_KEY_SCROLL_LOCK: return fabgl::VirtualKey::VK_SCROLLLOCK;
         case HID_KEY_PAUSE: return fabgl::VirtualKey::VK_PAUSE;
@@ -846,7 +846,7 @@ bool toggle_color() {
 }
 #endif
 
-#if !PICO_RP2040
+#if !defined(PICO_RP2040)
 #ifdef BUTTER_PSRAM_GPIO
 
 #include <hardware/exception.h>
@@ -983,18 +983,19 @@ void __attribute__((naked, noreturn)) __printflike(1, 0) dummy_panic(__unused co
 }
 
 int main() {
-#if !PICO_RP2040
-    volatile uint32_t *qmi_m0_timing=(uint32_t *)0x400d000c;
+
+#ifdef PICO_RP2040
+    hw_set_bits(&vreg_and_chip_reset_hw->vreg, VREG_AND_CHIP_RESET_VREG_VSEL_BITS);
+    sleep_ms(10);
+    set_sys_clock_khz(CPU_MHZ * KHZ, true);
+#else
+    volatile uint32_t *qmi_m0_timing = (uint32_t *)0x400d000c;
     vreg_disable_voltage_limit();
     vreg_set_voltage(VREG_VOLTAGE_1_60);
     sleep_ms(33);
     *qmi_m0_timing = 0x60007204;
-    set_sys_clock_khz(CPU_MHZ * KHZ, 0);
-    *qmi_m0_timing = 0x60007303;
-#else
-    hw_set_bits(&vreg_and_chip_reset_hw->vreg, VREG_AND_CHIP_RESET_VREG_VSEL_BITS);
-    sleep_ms(10);
     set_sys_clock_khz(CPU_MHZ * KHZ, true);
+    *qmi_m0_timing = 0x60007507;
 #endif
 
 #if PICO_RP2350

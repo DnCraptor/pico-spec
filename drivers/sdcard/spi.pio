@@ -9,7 +9,7 @@
 ; achieved using the hardware GPIO inversion available in the IO controls.
 ;
 ; Transmit-only SPI can go twice as fast -- see the ST7789 example!
-
+.pio_version 0 // only requires PIO version 0
 
 .program spi_cpha0
 .side_set 1
@@ -55,15 +55,8 @@ static inline void pio_spi_init(PIO pio, uint sm, uint prog_offs, uint n_bits,
     sm_config_set_clkdiv(&c, clkdiv);
 
     // MOSI, SCK output are low, MISO is input
-#if ZERO2
-    uint64_t mask64 = (uint64_t)((1u << pin_sck) | (1u << pin_mosi));
-    uint64_t pindirs_mask64 = (uint64_t)((1u << pin_sck) | (1u << pin_mosi) | (1u << pin_miso));
-    pio_sm_set_pins_with_mask64(pio, sm, 0, mask64);
-    pio_sm_set_pindirs_with_mask64(pio, sm, mask64, pindirs_mask64);
-#else
-    pio_sm_set_pins_with_mask(pio, sm, 0, 1u << pin_sck) | (1u << pin_mosi));
-    pio_sm_set_pindirs_with_mask(pio, sm, 1u << pin_sck) | (1u << pin_mosi), (1u << pin_sck) | (1u << pin_mosi) | (1u << pin_miso));
-#endif
+    pio_sm_set_pins_with_mask(pio, sm, 0, (1u << pin_sck) | (1u << pin_mosi));
+    pio_sm_set_pindirs_with_mask(pio, sm, (1u << pin_sck) | (1u << pin_mosi), (1u << pin_sck) | (1u << pin_mosi) | (1u << pin_miso));
     pio_gpio_init(pio, pin_mosi);
     pio_gpio_init(pio, pin_miso);
     pio_gpio_init(pio, pin_sck);

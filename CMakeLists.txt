@@ -39,15 +39,15 @@ set(I2S ON)
 #set(ILI9341 ON)
 set(HDMI ON)
 
-#set(CPU_MHZ 352)
+#set(CPU_MHZ 346.5)
+#set(CPU_MHZ 336)
+#set(CPU_MHZ 315)
 #set(CPU_MHZ 378)
-#set(CPU_MHZ 372)
-#set(CPU_MHZ 378)
-#set(CPU_MHZ 444)
+#set(CPU_MHZ 409.5)
 #set(CPU_MHZ 460)
 set(CPU_MHZ 252)
 #set(CPU_MHZ 133)
-set (PORT_VERSION "1.2.D")
+set (PORT_VERSION "1.2.E")
 
 #set(ZERO ON)
 set(ZERO2 ON)
@@ -61,14 +61,15 @@ set(CMAKE_C_STANDARD 11)
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-set(PICO_BOARD waveshare_rp2040_pizero CACHE STRING "Board type")
+set(PICO_BOARD pico2 CACHE STRING "Board type")
 #set(PICO_PLATFORM rp2350-arm-s)
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
 include(pico_sdk_import.cmake)
 
-SET(PROJECT_NAME p2-spec)
+SET(PROJECT_NAME p1-spec)
 set(FLASH_SIZE 4096)
+set(FLASH_SIZE_GREEN ON)
 
 # Pimoroni Pico Plus 2
 #set (BUTTER_PSRAM_GPIO 47)
@@ -81,11 +82,11 @@ ELSEIF(PICO_PC)
     SET(BUILD_NAME "PC${PROJECT_NAME}")
     set (PWM_PIN0 27)
 ELSEIF(ZERO)
-    SET(BUILD_NAME "z0${PROJECT_NAME}-")
+    SET(BUILD_NAME "z1${PROJECT_NAME}")
     #set (PWM_PIN0 11)
 ELSEIF(ZERO2)
-    SET(BUILD_NAME "z2${PROJECT_NAME}-")
-    set (PWM_PIN0 11)
+    SET(BUILD_NAME "z2${PROJECT_NAME}")
+    #set (PWM_PIN0 11)
     #set (BUTTER_PSRAM_GPIO 47)
 ELSE()
     SET(BUILD_NAME "m1${PROJECT_NAME}")
@@ -97,7 +98,7 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${OUTPUT_DIR}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${OUTPUT_DIR}")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${OUTPUT_DIR}")
 
-project(p2-spec C CXX ASM)
+project(${PROJECT_NAME} C CXX ASM)
 
 # Initialise the Raspberry Pi Pico SDK
 pico_sdk_init()
@@ -136,7 +137,7 @@ message(STATUS "")
 add_executable(${PROJECT_NAME} ${SRC})
 
 # pull in common dependencies
-target_link_libraries(p2-spec PRIVATE
+target_link_libraries(${PROJECT_NAME} PRIVATE
     psram
     audio
     graphics
@@ -169,7 +170,7 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 )
 
 if (PICO_CYW43_SUPPORTED)
-    target_link_libraries(p2-spec pico_cyw43_arch_none)
+    target_link_libraries(${PROJECT_NAME} pico_cyw43_arch_none)
 endif()
 
 ##pico_enable_stdio_uart(${PROJECT_NAME} 0)
@@ -203,6 +204,16 @@ target_compile_options(${PROJECT_NAME} PUBLIC
         -w
 )
 endif ()
+
+IF(FLASH_SIZE_GREEN)
+target_compile_definitions(${PROJECT_NAME} PRIVATE
+        NO_SPAIN_ROM_48k=1
+        NO_SPAIN_ROM_128k=1
+        CARTRIDGE_AS_CUSTOM=1
+        NO_SEPARATE_48K_CUSTOM=1
+        NO_ALF=1
+)
+ENDIF()
 
 IF(KBDUSB)
     add_subdirectory(drivers/ps2kbd)
@@ -343,9 +354,9 @@ ELSEIF(ZERO)
 
         LOAD_WAV_PIO=17
 
-        BEEPER_PIN=11
-        PWM_PIN0=12
-        PWM_PIN1=13
+        BEEPER_PIN=12
+        PWM_PIN0=10
+        PWM_PIN1=11
         SOUND_FREQUENCY=30600
         I2S_FREQUENCY=30600
 
@@ -379,6 +390,7 @@ ELSEIF(ZERO)
         HDMI_BASE_PIN=22
 
         DEFAULT_THROTTLING=0
+        PICO_RP2040=1
         PICO_DEFAULT_LED_PIN=25
     )
 ELSEIF(ZERO2)
@@ -392,13 +404,14 @@ ELSEIF(ZERO2)
 
         LOAD_WAV_PIO=17
 
-        BEEPER_PIN=11
-        PWM_PIN0=12
-        PWM_PIN1=13
+        BEEPER_PIN=12
+        PWM_PIN0=10
+        PWM_PIN1=11
         SOUND_FREQUENCY=30600
         I2S_FREQUENCY=30600
 
         # SDCARD
+        SDCARD_SPI_BUS=spi1
         SDCARD_PIN_SPI0_SCK=30
         SDCARD_PIN_SPI0_MOSI=31
         SDCARD_PIN_SPI0_MISO=40
@@ -406,7 +419,7 @@ ELSEIF(ZERO2)
 
      #   PSRAM
         # PSRAM_MUTEX=1
-        PSRAM_SPINLOCK=1
+        PSRAM_SPINLOCK=0
         PSRAM_ASYNC=1
 
         PSRAM_PIN_CS=2
@@ -431,7 +444,7 @@ ELSEIF(ZERO2)
 
         DEFAULT_THROTTLING=0
 
-        PICO_RP2350A=0
+        PICO_RP2350=1
         PICO_PIO_USE_GPIO_BASE=1
     )
 ELSE()
