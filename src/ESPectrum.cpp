@@ -28,7 +28,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-To Contact the dev team you can write to zxespectrum@gmail.com or 
+To Contact the dev team you can write to zxespectrum@gmail.com or
 visit https://zxespectrum.speccy.org/contacto
 
 */
@@ -87,7 +87,7 @@ void close_all(void) {
     if (butter_psram_size()) {
         memset((void*)PSRAM_DATA, 0, butter_psram_size());
     }
-#if !PICO_RP2040
+#if !defined(PICO_RP2040)
 #if BUTTER_PSRAM_GPIO
     gpio_init(BUTTER_PSRAM_GPIO);
     gpio_set_dir(BUTTER_PSRAM_GPIO, GPIO_OUT);
@@ -259,14 +259,14 @@ int ESPectrum::ESPtestvar1 = 0;
 int ESPectrum::ESPtestvar2 = 0;
 
 void ShowStartMsg() {
-    
+
     fabgl::VirtualKeyItem Nextkey;
 
     VIDEO::vga.clear(zxColor(7,0));
 
     OSD::drawOSD(false);
 
-    VIDEO::vga.fillRect(Config::aspect_16_9 ? 60 : 40,Config::aspect_16_9 ? 12 : 32,240,50,zxColor(0, 0));            
+    VIDEO::vga.fillRect(Config::aspect_16_9 ? 60 : 40,Config::aspect_16_9 ? 12 : 32,240,50,zxColor(0, 0));
 
     // Decode Logo in EBF8 format
     uint8_t *logo = (uint8_t *)ESPectrum_logo;
@@ -284,21 +284,21 @@ void ShowStartMsg() {
     VIDEO::vga.print(Config::lang ? StartMsg[0] : StartMsg[1]);
 
     VIDEO::vga.setTextColor(zxColor(16,0), zxColor(1, 0));
-    OSD::osdAt(7, Config::lang ? 28 : 25);          
+    OSD::osdAt(7, Config::lang ? 28 : 25);
     VIDEO::vga.print("ESP");
-    OSD::osdAt(9, 1);          
+    OSD::osdAt(9, 1);
     VIDEO::vga.print("ESP");
-    OSD::osdAt(13, 13);          
+    OSD::osdAt(13, 13);
     VIDEO::vga.print("ESP");
 
-    OSD::osdAt(17, 4);          
+    OSD::osdAt(17, 4);
     VIDEO::vga.setTextColor(zxColor(3, 1), zxColor(1, 0));
     VIDEO::vga.print("https://patreon.com/ESPectrum");
 
     char msg[38];
-    
+
     for (int i=20; i >= 0; i--) {
-        OSD::osdAt(19, 1);          
+        OSD::osdAt(19, 1);
         sprintf(msg,Config::lang ? "Este mensaje se cerrar" "\xA0" " en %02d segundos" : "This message will close in %02d seconds",i);
         VIDEO::vga.setTextColor(zxColor(7, 0), zxColor(1, 0));
         VIDEO::vga.print(msg);
@@ -334,22 +334,22 @@ printf("========================================================================
 // heap_caps_print_heap_info(MALLOC_CAP_INTERNAL);
 
 // printf("=========================================================================\n");
-// heap_caps_print_heap_info(MALLOC_CAP_8BIT);            
+// heap_caps_print_heap_info(MALLOC_CAP_8BIT);
 
 // printf("=========================================================================\n");
-// heap_caps_print_heap_info(MALLOC_CAP_32BIT);                        
+// heap_caps_print_heap_info(MALLOC_CAP_32BIT);
 
 // printf("=========================================================================\n");
 // heap_caps_print_heap_info(MALLOC_CAP_DEFAULT);
 
 // printf("=========================================================================\n");
-// heap_caps_print_heap_info(MALLOC_CAP_DMA);            
+// heap_caps_print_heap_info(MALLOC_CAP_DMA);
 
 // printf("=========================================================================\n");
-// heap_caps_print_heap_info(MALLOC_CAP_EXEC);            
+// heap_caps_print_heap_info(MALLOC_CAP_EXEC);
 
 // printf("=========================================================================\n");
-// heap_caps_print_heap_info(MALLOC_CAP_IRAM_8BIT);            
+// heap_caps_print_heap_info(MALLOC_CAP_IRAM_8BIT);
 
 // printf("=========================================================================\n");
 // heap_caps_dump_all();
@@ -386,7 +386,7 @@ void ESPectrum::bootKeyboard() {
 
             // Process physical keyboard
             ZXKeyb::process();
-            
+
             // Detect and process physical kbd menu key combinations
             if (!bitRead(ZXKeyb::ZXcols[3], 0)) { // 1
                 s[0]='1';
@@ -400,7 +400,7 @@ void ESPectrum::bootKeyboard() {
 
             if (!bitRead(ZXKeyb::ZXcols[2], 0)) { // Q
                 s[1]='Q';
-            } else 
+            } else
             if (!bitRead(ZXKeyb::ZXcols[2], 1)) { // W
                 s[1]='W';
             }
@@ -425,11 +425,11 @@ void ESPectrum::bootKeyboard() {
                         s[0] = '3';
                         break;
                     case fabgl::VK_Q:
-                    case fabgl::VK_q:    
+                    case fabgl::VK_q:
                         s[1] = 'Q';
                         break;
                     case fabgl::VK_W:
-                    case fabgl::VK_w:    
+                    case fabgl::VK_w:
                         s[1] = 'W';
                         break;
                 }
@@ -460,7 +460,7 @@ void ESPectrum::bootKeyboard() {
 // SETUP
 //=======================================================================================
 
-void ESPectrum::setup() 
+void ESPectrum::setup()
 {
     //=======================================================================================
     // INIT FILESYSTEM
@@ -474,7 +474,7 @@ void ESPectrum::setup()
     //=======================================================================================
     if (FileUtils::fsMount) Config::load();
     bool ext_ram_exist = butter_psram_size() >= (16 << 10) || psram_size() >= (16 << 10) || FileUtils::fsMount;
-    
+
     // Set arch if there's no snapshot to load
     if (Config::ram_file == NO_RAM_FILE) {
         if (Config::pref_arch.substr(Config::pref_arch.length()-1) == "R") {
@@ -484,10 +484,10 @@ void ESPectrum::setup()
             if (Config::pref_arch != "Last") Config::arch = Config::pref_arch;
 
             if (Config::arch == "48K") {
-                if (Config::pref_romSet_48 != "Last") 
+                if (Config::pref_romSet_48 != "Last")
                     Config::romSet = Config::pref_romSet_48;
                 else
-                    Config::romSet = Config::romSet48;            
+                    Config::romSet = Config::romSet48;
             }
 #if !NO_ALF
             else if (Config::arch == "ALF") {
@@ -568,7 +568,7 @@ if (butter_psram_size() >= (0x04000 * (64+2 - 23))) {
     MemESP::ram[1].assign_ram(MemESP_ram1, 1, true);
     MemESP::ram[3].assign_ram(MemESP_ram1 + 0x4000, 3, true); /// why?
 
-#if PICO_RP2040
+#if !defined(PICO_RP2040)
     if (ext_ram_exist) {
         MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
         MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);
@@ -588,7 +588,7 @@ if (butter_psram_size() >= (0x04000 * (64+2 - 23))) {
 #endif
 
     if (ext_ram_exist) { // TODO: specific no ext RAM for RP2350
-#if !PICO_RP2040
+#if !defined(PICO_RP2040)
         for (size_t i = 8; i < 22; ++i) MemESP::ram[i].assign_ram(new unsigned char[0x4000], i, false);
         for (size_t i = 22; i < 64+2; ++i) MemESP::ram[i].assign_vram(i);
 #else
@@ -628,7 +628,7 @@ if (butter_psram_size() >= (0x04000 * (64+2 - 23))) {
 
     VIDEO::Init();
     VIDEO::Reset();
-    
+
 ///    if (Config::slog_on) showMemInfo("VGA started");
 
     if (Config::StartMsg) ShowStartMsg(); // Show welcome message
@@ -638,19 +638,19 @@ if (butter_psram_size() >= (0x04000 * (64+2 - 23))) {
     //=======================================================================================
     // Set samples per frame and AY_emu flag depending on arch
     if (Config::arch == "48K") {
-        samplesPerFrame = ESP_AUDIO_SAMPLES_48; 
+        samplesPerFrame = ESP_AUDIO_SAMPLES_48;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;
         AY_emu = Config::AY48;
         Audio_freq = ESP_AUDIO_FREQ_48;
     } else if (Config::arch == "128K" || Config::arch == "ALF") {
         samplesPerFrame=ESP_AUDIO_SAMPLES_128;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
-        AY_emu = Config::AY48;        
+        AY_emu = Config::AY48;
         Audio_freq = ESP_AUDIO_FREQ_128;
     } else { /// if (Config::arch == "P512" || Config::arch == "Pentagon") {
         samplesPerFrame = ESP_AUDIO_SAMPLES_PENTAGON;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_PENTAGON;
-        AY_emu = Config::AY48;        
+        AY_emu = Config::AY48;
         Audio_freq = ESP_AUDIO_FREQ_PENTAGON;
     }
 
@@ -776,26 +776,26 @@ void ESPectrum::reset()
     // Set samples per frame and AY_emu flag depending on arch
     prevAudio_freq = Audio_freq;
     if (Config::arch == "48K") {
-        samplesPerFrame=ESP_AUDIO_SAMPLES_48; 
+        samplesPerFrame=ESP_AUDIO_SAMPLES_48;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;
         AY_emu = Config::AY48;
         Audio_freq = ESP_AUDIO_FREQ_48;
     } else if (Config::arch == "128K" || Config::arch == "ALF") {
         samplesPerFrame=ESP_AUDIO_SAMPLES_128;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
-        AY_emu = Config::AY48;        
+        AY_emu = Config::AY48;
         Audio_freq = ESP_AUDIO_FREQ_128;
     } else { /// if (Config::arch == "Pentagon") {
         samplesPerFrame = ESP_AUDIO_SAMPLES_PENTAGON;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_PENTAGON;
-        AY_emu = Config::AY48;        
+        AY_emu = Config::AY48;
         Audio_freq = ESP_AUDIO_FREQ_PENTAGON;
     }
 
     if (Config::tape_player) AY_emu = false; // Disable AY emulation if tape player mode is set
 
     ESPoffset = 0;
-    
+
     // Reset AY emulation
     chip0.init();
     chip0.set_sound_format(Audio_freq,1,8);
@@ -813,7 +813,7 @@ void ESPectrum::reset()
 // KEYBOARD / KEMPSTON
 //=======================================================================================
 IRAM_ATTR bool ESPectrum::readKbd(fabgl::VirtualKeyItem *Nextkey) {
-    
+
     bool r = PS2Controller.keyboard()->getNextVirtualKey(Nextkey);
     // Global keys
     if (Nextkey->down) {
@@ -838,7 +838,7 @@ fabgl::VirtualKey ESPectrum::VK_ESPECTRUM_TAB = fabgl::VK_TAB;
 fabgl::VirtualKey ESPectrum::VK_ESPECTRUM_GRAVEACCENT = fabgl::VK_GRAVEACCENT;
 
 IRAM_ATTR void ESPectrum::processKeyboard() {
-    static uint8_t PS2cols[8] = { 0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf };    
+    static uint8_t PS2cols[8] = { 0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf };
     static int zxDelay = 0;
     auto Kbd = PS2Controller.keyboard();
     fabgl::VirtualKeyItem NextKey;
@@ -947,7 +947,7 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                 j[5] = jShift;
             }
             if (Kbd->isVKDown(fabgl::VK_DOWN)) {
-                jShift = false;                
+                jShift = false;
                 j[6] = jShift;
             }
             if (Kbd->isVKDown(fabgl::VK_UP)) {
@@ -955,19 +955,19 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                 j[7] = jShift;
             }
             // Check keyboard status and map it to Spectrum Ports
-            bitWrite(PS2cols[0], 0, (jShift) 
+            bitWrite(PS2cols[0], 0, (jShift)
                 & (!Kbd->isVKDown(fabgl::VK_BACKSPACE))
-                & (!Kbd->isVKDown(fabgl::VK_CAPSLOCK)) // Caps lock   
+                & (!Kbd->isVKDown(fabgl::VK_CAPSLOCK)) // Caps lock
                 &   (!Kbd->isVKDown(VK_ESPECTRUM_GRAVEACCENT)) // Edit
-                &   (!Kbd->isVKDown(VK_ESPECTRUM_TAB)) // Extended mode                                      
-                &   (!Kbd->isVKDown(fabgl::VK_ESCAPE)) // Break                             
+                &   (!Kbd->isVKDown(VK_ESPECTRUM_TAB)) // Extended mode
+                &   (!Kbd->isVKDown(fabgl::VK_ESCAPE)) // Break
                 ); // CAPS SHIFT
             bitWrite(PS2cols[0], 1, (!Kbd->isVKDown(fabgl::VK_Z)) & (!Kbd->isVKDown(fabgl::VK_z)));
             bitWrite(PS2cols[0], 2, (!Kbd->isVKDown(fabgl::VK_X)) & (!Kbd->isVKDown(fabgl::VK_x)));
             bitWrite(PS2cols[0], 3, (!Kbd->isVKDown(fabgl::VK_C)) & (!Kbd->isVKDown(fabgl::VK_c)));
             bitWrite(PS2cols[0], 4, (!Kbd->isVKDown(fabgl::VK_V)) & (!Kbd->isVKDown(fabgl::VK_v)));
 
-            bitWrite(PS2cols[1], 0, (!Kbd->isVKDown(fabgl::VK_A)) & (!Kbd->isVKDown(fabgl::VK_a)));    
+            bitWrite(PS2cols[1], 0, (!Kbd->isVKDown(fabgl::VK_A)) & (!Kbd->isVKDown(fabgl::VK_a)));
             bitWrite(PS2cols[1], 1, (!Kbd->isVKDown(fabgl::VK_S)) & (!Kbd->isVKDown(fabgl::VK_s)));
             bitWrite(PS2cols[1], 2, (!Kbd->isVKDown(fabgl::VK_D)) & (!Kbd->isVKDown(fabgl::VK_d)));
             bitWrite(PS2cols[1], 3, (!Kbd->isVKDown(fabgl::VK_F)) & (!Kbd->isVKDown(fabgl::VK_f)));
@@ -979,12 +979,12 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
             bitWrite(PS2cols[2], 3, (!Kbd->isVKDown(fabgl::VK_R)) & (!Kbd->isVKDown(fabgl::VK_r)));
             bitWrite(PS2cols[2], 4, (!Kbd->isVKDown(fabgl::VK_T)) & (!Kbd->isVKDown(fabgl::VK_t)));
 
-            bitWrite(PS2cols[3], 0, (!Kbd->isVKDown(fabgl::VK_1)) & (!Kbd->isVKDown(fabgl::VK_EXCLAIM)) 
+            bitWrite(PS2cols[3], 0, (!Kbd->isVKDown(fabgl::VK_1)) & (!Kbd->isVKDown(fabgl::VK_EXCLAIM))
                                 &   (!Kbd->isVKDown(VK_ESPECTRUM_GRAVEACCENT)) // Edit
                                 & (j[1]));
-            bitWrite(PS2cols[3], 1, (!Kbd->isVKDown(fabgl::VK_2)) & (!Kbd->isVKDown(fabgl::VK_AT)) 
-                                &   (!Kbd->isVKDown(fabgl::VK_CAPSLOCK)) // Caps lock            
-                                & (j[2])                                
+            bitWrite(PS2cols[3], 1, (!Kbd->isVKDown(fabgl::VK_2)) & (!Kbd->isVKDown(fabgl::VK_AT))
+                                &   (!Kbd->isVKDown(fabgl::VK_CAPSLOCK)) // Caps lock
+                                & (j[2])
                                 );
             bitWrite(PS2cols[3], 2, (!Kbd->isVKDown(fabgl::VK_3)) & (!Kbd->isVKDown(fabgl::VK_HASH)) & (j[3]));
             bitWrite(PS2cols[3], 3, (!Kbd->isVKDown(fabgl::VK_4)) & (!Kbd->isVKDown(fabgl::VK_DOLLAR)) & (j[4]));
@@ -997,7 +997,7 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
             bitWrite(PS2cols[4], 4, (!Kbd->isVKDown(fabgl::VK_6)) & (!Kbd->isVKDown(fabgl::VK_CARET)) & (j[6]));
 
             bitWrite(PS2cols[5], 0, (!Kbd->isVKDown(fabgl::VK_P)) & (!Kbd->isVKDown(fabgl::VK_p))
-                                &   (!Kbd->isVKDown(fabgl::VK_QUOTE)) // Double quote            
+                                &   (!Kbd->isVKDown(fabgl::VK_QUOTE)) // Double quote
                                 );
             bitWrite(PS2cols[5], 1, (!Kbd->isVKDown(fabgl::VK_O)) & (!Kbd->isVKDown(fabgl::VK_o))
                                 &   (!Kbd->isVKDown(fabgl::VK_SEMICOLON)) // Semicolon
@@ -1013,7 +1013,7 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
             bitWrite(PS2cols[6], 4, (!Kbd->isVKDown(fabgl::VK_H)) & (!Kbd->isVKDown(fabgl::VK_h)));
 
             bitWrite(PS2cols[7], 0, !Kbd->isVKDown(fabgl::VK_SPACE)
-                            &   (!Kbd->isVKDown(fabgl::VK_ESCAPE)) // Break                             
+                            &   (!Kbd->isVKDown(fabgl::VK_ESCAPE)) // Break
             );
             bitWrite(PS2cols[7], 1, (!Kbd->isVKDown(fabgl::VK_LCTRL)) // SYMBOL SHIFT
                                 &   (!Kbd->isVKDown(fabgl::VK_RCTRL))
@@ -1021,7 +1021,7 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
                                 &   (!Kbd->isVKDown(fabgl::VK_PERIOD)) // Period
                                 &   (!Kbd->isVKDown(fabgl::VK_SEMICOLON)) // Semicolon
                                 &   (!Kbd->isVKDown(fabgl::VK_QUOTE)) // Double quote
-                                &   (!Kbd->isVKDown(VK_ESPECTRUM_TAB)) // Extended mode                                                                      
+                                &   (!Kbd->isVKDown(VK_ESPECTRUM_TAB)) // Extended mode
                                 ); // SYMBOL SHIFT
             bitWrite(PS2cols[7], 2, (!Kbd->isVKDown(fabgl::VK_M)) & (!Kbd->isVKDown(fabgl::VK_m))
                                 &   (!Kbd->isVKDown(fabgl::VK_PERIOD)) // Period
@@ -1086,7 +1086,7 @@ uint8_t debug_number = 0;
 //=======================================================================================
 // MAIN LOOP
 //=======================================================================================
-void ESPectrum::loop() {    
+void ESPectrum::loop() {
   for(;;) {
     if (debug_number != 0) {
         char msg[16];
@@ -1134,7 +1134,7 @@ void ESPectrum::loop() {
             if(++audioBitbufCount == audioSampleDivider) {
                 overSamplebuf[audbufcntover++] = audioBitBuf;
                 audioBitBuf = 0;
-                audioBitbufCount = 0; 
+                audioBitbufCount = 0;
             }
         }
         if (Config::covox && faudbufcntCovox < samplesPerFrame) {
@@ -1181,7 +1181,7 @@ void ESPectrum::loop() {
             if (VIDEO::framecnt >= 100) {
                 VIDEO::OSD &= 0xfb;
                 if (VIDEO::OSD == 0) {
-                    if (Config::aspect_16_9) 
+                    if (Config::aspect_16_9)
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen;
                     else
                         VIDEO::Draw_OSD43 = Z80Ops::isPentagon ? VIDEO::BottomBorder_Pentagon :  VIDEO::BottomBorder;
@@ -1227,7 +1227,7 @@ void ESPectrum::loop() {
     if (++sync_cnt & 0x10) {
 ///     ESPoffset = 128 - pwm_audio_rbstats();
         sync_cnt = 0;
-    } 
+    }
     totalseconds += time_us_64() - ts_start;
  }
 }

@@ -28,7 +28,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-To Contact the dev team you can write to zxespectrum@gmail.com or 
+To Contact the dev team you can write to zxespectrum@gmail.com or
 visit https://zxespectrum.speccy.org/contacto
 
 */
@@ -54,7 +54,7 @@ visit https://zxespectrum.speccy.org/contacto
 #define ERR_DIR_OPEN "Cannot open directory!"
 
 // OSD
-#if !PICO_RP2040
+#if !defined(PICO_RP2040)
 #define OSD_TITLE  " ESPectrum v.1.2 (RP2350 port v." PORT_VERSION ")  "
 #else
 #define OSD_TITLE  " ESPectrum v.1.2 (RP2040 port v." PORT_VERSION ")  "
@@ -434,7 +434,7 @@ static const char *MENU_ASPECT[2] = { MENU_ASPECT_EN, MENU_ASPECT_ES };
 
 static const char *MENU_SCANLINES[2] = { "Scanlines\n", "Scanlines\n" };
 
-#if !PICO_RP2040
+#if !defined(PICO_RP2040)
 #define MENU_RESET_EN \
     "Reset Menu\n"\
     "Soft reset\n"\
@@ -519,10 +519,10 @@ static const char *MENU_PERSIST_LOAD[2] = { MENU_PERSIST_LOAD_EN, MENU_PERSIST_L
 
 #define MENU_STORAGE_EN "Storage\n"\
     "Fast tape load\t>\n"\
-    "R.G. ROM timings\t>\n"	
+    "R.G. ROM timings\t>\n"
 #define MENU_STORAGE_ES "Almacenamiento\n"\
     "Carga rapida cinta\t>\n"\
-    "Timings ROM R.G.\t>\n"	
+    "Timings ROM R.G.\t>\n"
 static const char *MENU_STORAGE[2] = { MENU_STORAGE_EN, MENU_STORAGE_ES };
 
 #define MENU_YESNO_EN "Yes\t[Y]\n"\
@@ -768,7 +768,7 @@ static const char *MENU_ROM_PREF_48[2] = { MENU_ROMS48_PREF_EN, MENU_ROMS48_PREF
 #define MENU_ROMS128_PREF_EN "Select ROM\n"\
 	"128K\t[128K  ]\n"\
     "Custom\t[128Kcs]\n"\
-	"Last used\t[Last  ]\n"	
+	"Last used\t[Last  ]\n"
 #define MENU_ROMS128_PREF_ES "Elija ROM\n"\
 	"128K\t[128K  ]\n"\
     "Custom\t[128Kcs]\n"\
@@ -781,7 +781,7 @@ static const char *MENU_ROM_PREF_48[2] = { MENU_ROMS48_PREF_EN, MENU_ROMS48_PREF
     "+2 Spanish\t[+2es  ]\n"\
     "ZX81+\t[ZX81+ ]\n"\
     "Custom\t[128Kcs]\n"\
-	"Last used\t[Last  ]\n"	
+	"Last used\t[Last  ]\n"
 #define MENU_ROMS128_PREF_ES "Elija ROM\n"\
 	"128K\t[128K  ]\n"\
     "128K Espa" "\xA4" "ol\t[128Kes]\n"\
@@ -960,7 +960,7 @@ static const char *AboutMsg[2][9] = {
 	"\nC1Antonio Villena \nF1Hardware support\r"\
 	"\nD1ZjoyKiLer       \nF1Testing & ideas\r"\
 	"\r"\
-	"\r"		
+	"\r"
 	,
 	"\nF1Big thanks to our Patreons:\r"\
 	PATREONS
@@ -1031,7 +1031,7 @@ static const char *AboutMsg[2][9] = {
 	"\nC1Antonio Villena \nF1Soporte hardware\r"\
 	"\nD1ZjoyKiLer       \nF1Testing e ideas\r"\
 	"\r"\
-	"\r"		
+	"\r"
 	,
 	"\nF1Muchas gracias a nuestros Patreons:\r"\
 	PATREONS
@@ -1077,7 +1077,7 @@ static const char *AboutMsg[2][9] = {
 	}
 };
 
-#if !PICO_RP2040
+#if !defined(PICO_RP2040)
 #define OSD_HELP_EN \
     " [F1]         Main menu\n"\
     " [F2]         Load (SNA,Z80,P)\n"\

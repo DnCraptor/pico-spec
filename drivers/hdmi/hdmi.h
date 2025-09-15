@@ -17,11 +17,11 @@ extern "C" {
 #define HDMI_BASE_PIN (6)
 #endif
 
-#if ZERO
+#if defined(ZERO) || defined(ZERO2)
 	#define HDMI_PIN_RGB_notBGR (0)
 	#define HDMI_PIN_invert_diffpairs (0)
 	#define beginHDMI_PIN_data (HDMI_BASE_PIN)
-	#define beginHDMI_PIN_clk (HDMI_BASE_PIN+6)
+	#define beginHDMI_PIN_clk (HDMI_BASE_PIN + 6)
 #else
 	#define HDMI_PIN_RGB_notBGR (1)
 	#define HDMI_PIN_invert_diffpairs (1)
