@@ -28,7 +28,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-To Contact the dev team you can write to zxespectrum@gmail.com or 
+To Contact the dev team you can write to zxespectrum@gmail.com or
 visit https://zxespectrum.speccy.org/contacto
 
 */
@@ -41,7 +41,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "ff.h"
 
 #ifdef BUTTER_PSRAM_GPIO
-#if !PICO_RP2040
+#if !defined(PICO_RP2040) && !defined(PICO_RP2350)
 extern volatile uint8_t* PSRAM_DATA;
 uint32_t butter_psram_size();
 #else
@@ -144,7 +144,7 @@ public:
 
     static bool newSRAM;
 
-    static uint8_t* ramCurrent[4];    
+    static uint8_t* ramCurrent[4];
     static bool ramContended[4];
 
     static uint8_t notMore128;
