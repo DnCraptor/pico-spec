@@ -62,7 +62,7 @@ uint16_t Config::joydef[12] = {
 
 uint8_t  Config::AluTiming = 0;
 uint8_t  Config::ayConfig = 0;
-#if !PICO_RP2040
+#if !defined(PICO_RP2040) && !defined(PICO_RP2350)
 uint8_t  Config::turbosound = 3; // BOTH
 #else
 uint8_t  Config::turbosound = 0; // OFF
@@ -325,7 +325,7 @@ void Config::load() {
         nvs_get_u8("ayConfig", Config::ayConfig, sts);
         nvs_get_u8("turbosound", Config::turbosound, sts);
         nvs_get_u8("covox", Config::covox, sts);
-#if !PICO_RP2040
+#if !defined(PICO_RP2040) && !defined(PICO_RP2350)
         nvs_get_u8("throtling2", Config::throtling, sts);
 #else
         nvs_get_u8("throtling1", Config::throtling, sts);
@@ -397,7 +397,7 @@ void Config::save() {
         nvs_set_str(handle,"pref_romSetPent",pref_romSetPent.c_str());
         nvs_set_str(handle,"pref_romSetP512",pref_romSetP512.c_str());
         nvs_set_str(handle,"pref_romSetP1M",pref_romSetP1M.c_str());
-        nvs_set_str(handle,"ram",ram_file.c_str());   
+        nvs_set_str(handle,"ram",ram_file.c_str());
         nvs_set_str(handle,"slog",slog_on ? "true" : "false");
 ///        nvs_set_str(handle,"sdstorage", FileUtils::MountPoint);
 ///        nvs_set_str(handle,"asp169",aspect_16_9 ? "true" : "false");
@@ -430,7 +430,7 @@ void Config::save() {
         nvs_set_u8(handle,"joy2cursor",Config::joy2cursor);
         nvs_set_u8(handle,"secondJoy",Config::secondJoy);
         nvs_set_u8(handle,"kempstonPort",Config::kempstonPort);
-#if !PICO_RP2040
+#if !defined(PICO_RP2040) && !defined(PICO_RP2350)
         nvs_set_u8(handle,"throtling2",Config::throtling);
 #else
         nvs_set_u8(handle,"throtling1",Config::throtling);
