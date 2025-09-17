@@ -3995,7 +3995,7 @@ void OSD::HWInfo() {
         VIDEO::vga.print(buf);
     }
     #endif
-#if !defined(PICO_RP2040) && !defined(PICO_RP2350)
+#if !defined(PICO_RP2040)
 #if BUTTER_PSRAM_GPIO
     {
     uint32_t psram32 = butter_psram_size();

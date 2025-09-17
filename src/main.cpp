@@ -851,7 +851,7 @@ bool toggle_color() {
 }
 #endif
 
-#if !defined(PICO_RP2040) && !defined(PICO_RP2350)
+#if !defined(PICO_RP2040)
 #ifdef BUTTER_PSRAM_GPIO
 
 #include <hardware/exception.h>
