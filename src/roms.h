@@ -46,6 +46,9 @@ visit https://zxespectrum.speccy.org/contacto
 #include "roms/rom128Kcustom.h"
 #include "roms/S128_ZX81+_ROM.h"
 
+#include "romByte48k.h"
+#include "romGluk.h"
+
 #ifndef NO_ALF
 extern "C" unsigned char gb_rom_Alf_cart[];
 extern "C" unsigned char gb_rom_Alf[];

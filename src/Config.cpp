@@ -62,7 +62,7 @@ uint16_t Config::joydef[12] = {
 
 uint8_t  Config::AluTiming = 0;
 uint8_t  Config::ayConfig = 0;
-#if !defined(PICO_RP2040) && !defined(PICO_RP2350)
+#if !defined(PICO_RP2040)
 uint8_t  Config::turbosound = 3; // BOTH
 #else
 uint8_t  Config::turbosound = 0; // OFF
@@ -102,6 +102,9 @@ void Config::requestMachine(string newArch, string newRomSet)
             MemESP::rom[0].assign_rom(gb_rom_0_48k_es);
         else
 #endif
+        if (romSet48 == "48Kby")
+            MemESP::rom[0].assign_rom(gb_rom_0_byte_48k);
+        else
             MemESP::rom[0].assign_rom(gb_rom_0_sinclair_48k);
     }
 #if !NO_ALF
@@ -156,6 +159,9 @@ void Config::requestMachine(string newArch, string newRomSet)
         } else {
             MemESP::rom[0].assign_rom(gb_rom_pentagon_128k);
             MemESP::rom[1].assign_rom(gb_rom_pentagon_128k + (16 << 10));
+            if (romSetPent == "128Kpg") {
+                MemESP::rom[0].assign_rom(gb_rom_gluk);
+            }
         }
     }
     MemESP::rom[4].assign_rom(gb_rom_4_trdos_503);
@@ -325,7 +331,7 @@ void Config::load() {
         nvs_get_u8("ayConfig", Config::ayConfig, sts);
         nvs_get_u8("turbosound", Config::turbosound, sts);
         nvs_get_u8("covox", Config::covox, sts);
-#if !defined(PICO_RP2040) && !defined(PICO_RP2350)
+#if !defined(PICO_RP2040)
         nvs_get_u8("throtling2", Config::throtling, sts);
 #else
         nvs_get_u8("throtling1", Config::throtling, sts);
@@ -430,7 +436,7 @@ void Config::save() {
         nvs_set_u8(handle,"joy2cursor",Config::joy2cursor);
         nvs_set_u8(handle,"secondJoy",Config::secondJoy);
         nvs_set_u8(handle,"kempstonPort",Config::kempstonPort);
-#if !defined(PICO_RP2040) && !defined(PICO_RP2350)
+#if !defined(PICO_RP2040)
         nvs_set_u8(handle,"throtling2",Config::throtling);
 #else
         nvs_set_u8(handle,"throtling1",Config::throtling);
