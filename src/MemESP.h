@@ -41,7 +41,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "ff.h"
 
 #ifdef BUTTER_PSRAM_GPIO
-#if !defined(PICO_RP2040) && !defined(PICO_RP2350)
+#if !defined(PICO_RP2040)
 extern volatile uint8_t* PSRAM_DATA;
 uint32_t butter_psram_size();
 #else

@@ -24,6 +24,7 @@ option(TV "Enable TV composite output" OFF)
 option(SOFTTV "Enable TV soft composite output" OFF)
 option(MURM2 "Murmulator 2.0" OFF)
 option(PICO_PC "RP2040-PICO-PC" OFF)
+option(PICO_DV "RP2350-PICO-DV" OFF)
 option(ZERO "RP2040-PiZero" OFF)
 option(ZERO2 "RP2350-PiZero" OFF)
 
@@ -42,15 +43,16 @@ set(HDMI ON)
 #set(CPU_MHZ 327.3)
 #set(CPU_MHZ 336)
 #set(CPU_MHZ 315)
-#set(CPU_MHZ 378)
+set(CPU_MHZ 378)
 #set(CPU_MHZ 460)
-set(CPU_MHZ 252)
+#set(CPU_MHZ 252)
 #set(CPU_MHZ 133)
 set (PORT_VERSION "1.2.E")
 
 #set(ZERO ON)
-set(ZERO2 ON)
+#set(ZERO2 ON)
 #set (PICO_PC ON)
+set (PICO_DV ON)
 #set (MURM ON)
 #set (MURM2 ON)
 
@@ -76,7 +78,7 @@ set(FLASH_SIZE 4096)
 set(FLASH_SIZE_GREEN ON)
 
 # Pimoroni Pico Plus 2
-#set (BUTTER_PSRAM_GPIO 47)
+set (BUTTER_PSRAM_GPIO 47)
 
 IF(MURM2)
     SET(BUILD_NAME "m2${PROJECT_NAME}")
@@ -85,6 +87,8 @@ IF(MURM2)
 ELSEIF(PICO_PC)
     SET(BUILD_NAME "PC${PROJECT_NAME}")
     set (PWM_PIN0 27)
+ELSEIF(PICO_DV)
+    SET(BUILD_NAME "DV${PROJECT_NAME}")
 ELSEIF(ZERO)
     SET(BUILD_NAME "z0${PROJECT_NAME}")
     #set (PWM_PIN0 11)
@@ -347,6 +351,66 @@ ELSEIF(PICO_PC)
 
         DEFAULT_THROTTLING=0
     )
+ELSEIF(PICO_DV)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE
+        PORT_VERSION="${PORT_VERSION}"
+        CPU_MHZ=${CPU_MHZ}
+
+        PICO_DV=1
+
+        # GP-5  UXT1-10
+        # GP-8  UXT1-6
+        # GP-9  UXT1-5
+        # GP-21 UXT1-4
+        # GP-20 UXT1-3
+
+        # QWST1 3/4 - GP2/3
+
+        # DBG1 1/2
+        KBD_CLOCK_PIN=0
+        KBD_DATA_PIN=1
+
+        LOAD_WAV_PIO=5 # UXT1-10
+
+        BEEPER_PIN=26 # not implemented
+        PWM_PIN0=26 # R
+        PWM_PIN1=27 # L
+        SOUND_FREQUENCY=30600
+        I2S_FREQUENCY=30600
+
+        # SDCARD
+        SDCARD_SPI_BUS=spi1
+        SDCARD_PIN_SPI0_MISO=19
+        SDCARD_PIN_SPI0_SCK=5
+        SDCARD_PIN_SPI0_MOSI=18
+        SDCARD_PIN_SPI0_CS=22
+
+        SDCARD_PIO=pio1
+        SDCARD_PIO_SM=0
+
+        #PSRAM           # not implemented
+        PSRAM_SPINLOCK=1 # not implemented
+        PSRAM_ASYNC=1    # not implemented
+
+        PSRAM_PIN_CS=3   # not implemented
+        PSRAM_PIN_SCK=3  # not implemented
+        PSRAM_PIN_MOSI=3 # not implemented
+        PSRAM_PIN_MISO=3 # not implemented
+
+        # NES Gamepad
+        NES_GPIO_CLK=8    # UXT1-6
+        NES_GPIO_LAT=9    # UXT1-5
+        NES_GPIO_DATA=20  # UXT1-3
+        NES_GPIO_DATA2=21 # UXT1-4
+
+        # VGA 8 pins starts from pin:
+        VGA_BASE_PIN=6
+
+        # HDMI 8 pins starts from pin:
+        HDMI_BASE_PIN=6
+
+        DEFAULT_THROTTLING=0
+)
 ELSEIF(ZERO)
     target_compile_definitions(${PROJECT_NAME} PRIVATE
         PORT_VERSION="${PORT_VERSION}"
