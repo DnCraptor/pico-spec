@@ -892,15 +892,18 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                 if (opt2 == 1) {
                                     romset = "48K";
                                 } else
-#if NO_SPAIN_ROM_48k
                                 if (opt2 == 2) {
+                                    romset = "48Kby";
+                                } else
+#if NO_SPAIN_ROM_48k
+                                if (opt2 == 3) {
                                     romset = "48Kcs";
                                 }
 #else
-                                if (opt2 == 2) {
+                                if (opt2 == 3) {
                                     romset = "48Kes";
                                 } else
-                                if (opt2 == 3) {
+                                if (opt2 == 4) {
                                     romset = "48Kcs";
                                 }
 #endif
@@ -958,6 +961,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                     romset = "128Kp";
                                 } else
                                 if (opt2 == 2) {
+                                    romset = "128Kpg";
+                                } else
+                                if (opt2 == 3) {
                                     romset = "128Kcs";
                                 }
                                 menu_curopt = opt2;
@@ -977,6 +983,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                     romset = "128Kp";
                                 } else
                                 if (opt2 == 2) {
+                                    romset = "128Kpg";
+                                } else
+                                if (opt2 == 3) {
                                     romset = "128Kcs";
                                 }
                                 menu_curopt = opt2;
@@ -996,6 +1005,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                     romset = "128Kp";
                                 } else
                                 if (opt2 == 2) {
+                                    romset = "128Kpg";
+                                } else
+                                if (opt2 == 3) {
                                     romset = "128Kcs";
                                 }
                                 menu_curopt = opt2;
@@ -1331,9 +1343,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                             else
 #if NO_SPAIN_ROM_48k
                                             if (opt2 == 2)
-                                                Config::pref_romSet_48 = "48Kcs";
+                                                Config::pref_romSet_48 = "48Kby";
                                             else
                                             if (opt2 == 3)
+                                                Config::pref_romSet_48 = "48Kcs";
+                                            else
+                                            if (opt2 == 4)
                                                 Config::pref_romSet_48 = "Last";
 #else
                                             if (opt2 == 2)
@@ -3922,8 +3937,14 @@ string OSD::rowGet(string menu, unsigned short row) {
 
 #include <hardware/flash.h>
 #include <pico/multicore.h>
+#include <hardware/clocks.h>
 
 static void get_cpu_flash_jedec_id(uint8_t _rx[4]) {
+
+    volatile uint32_t *qmi_m0_timing = (uint32_t *)0x400d000c;
+    *qmi_m0_timing = 0x60007204;
+    set_sys_clock_khz(252 * KHZ, true);
+
     static uint8_t rx[4] = {0};
     if (rx[0] == 0) {
         uint8_t tx[4] = {0x9f};
@@ -3934,13 +3955,16 @@ static void get_cpu_flash_jedec_id(uint8_t _rx[4]) {
         multicore_lockout_end_blocking();
     }
     *(unsigned*)_rx = *(unsigned*)rx;
+
+    *qmi_m0_timing = 0x60007507;
+    set_sys_clock_khz(CPU_MHZ * KHZ, true);
 }
 
-inline static uint32_t get_cpu_flash_size(void) {
-    uint8_t rx[4] = {0};
-    get_cpu_flash_jedec_id(rx);
-    return 1u << rx[3];
-}
+// inline static uint32_t get_cpu_flash_size(void) {
+//     uint8_t rx[4] = {0};
+//     get_cpu_flash_jedec_id(rx);
+//     return 1u << rx[3];
+// }
 
 void OSD::HWInfo() {
     fabgl::VirtualKeyItem Nextkey;
@@ -3955,8 +3979,11 @@ void OSD::HWInfo() {
     VIDEO::vga.print(" --------------------------------------\n");
 
 #if !defined(PICO_RP2040)
+
+   uint32_t cpu_hz = clock_get_hz(clk_sys) / MHZ;
+
     string textout =
-        " Chip model     : RP2350 " + to_string(CPU_MHZ) + " MHz\n"
+        " Chip model     : RP2350 " + to_string(cpu_hz) + " MHz\n"
         " Chip cores     : 2\n"
         " Chip RAM       : 520 KB\n"
     ;

@@ -657,9 +657,11 @@ static const char *MENU_ARCH_NO_SD[2] = { MENU_ARCH_EN MENU_ARCHS_NO_SD, MENU_AR
 #if NO_SPAIN_ROM_48k
 #define MENU_ROMS48_EN "Select ROM\n"\
 	"48K\n"\
+	"Byte 48K\n"\
     "Custom\n"
 #define MENU_ROMS48_ES "Elija ROM\n"\
 	"48K\n"\
+	"Byte 48K\n"\
     "Custom\n"
 #else
 #define MENU_ROMS48_EN "Select ROM\n"\
@@ -702,10 +704,12 @@ static const char *MENU_ROMS128[2] = { MENU_ROMS128_EN, MENU_ROMS128_ES };
 #define MENU_ROMS_PENT_EN \
   "Select ROM\n"\
 	"128Kp\n"\
+	"128Kpg\n"\
     "Custom\n"
 #define MENU_ROMS_PENT_ES \
   "Elija ROM\n"\
 	"128Kp\n"\
+	"128Kpg\n"\
     "Custom\n"
 static const char *MENU_ROMS_PENT[2] = { MENU_ROMS_PENT_EN, MENU_ROMS_PENT_ES };
 
@@ -744,10 +748,12 @@ static const char *MENU_ROM_PREF[2] = {
 #if NO_SPAIN_ROM_48k
 #define MENU_ROMS48_PREF_EN "Select ROM\n"\
 	"48K\t[48K  ]\n"\
+	"Byte 48K\t[48Kby]\n"\
     "Custom\t[48Kcs]\n"\
 	"Last used\t[Last ]\n"
 #define MENU_ROMS48_PREF_ES "Elija ROM\n"\
 	"48K\t[48K  ]\n"\
+	"Byte 48K\t[48Kby]\n"\
     "Custom\t[48Kcs]\n"\
 	"Ultima usada\t[Last ]\n"
 #else
