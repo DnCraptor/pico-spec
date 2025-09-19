@@ -28,7 +28,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-To Contact the dev team you can write to zxespectrum@gmail.com or 
+To Contact the dev team you can write to zxespectrum@gmail.com or
 visit https://zxespectrum.speccy.org/contacto
 
 */
@@ -51,7 +51,7 @@ using namespace std;
 #define ESP_AUDIO_SAMPLES_DIV_48  7
 
 #define ESP_AUDIO_OVERSAMPLES_128 3732
-#define ESP_AUDIO_FREQ_128 31112 // ESP_AUDIO_SAMPLES_128 * 50,020008 fps = 31112,445 Hz. 
+#define ESP_AUDIO_FREQ_128 31112 // ESP_AUDIO_SAMPLES_128 * 50,020008 fps = 31112,445 Hz.
 #define ESP_AUDIO_SAMPLES_128 622
 #define ESP_AUDIO_SAMPLES_DIV_128  6
 
@@ -105,7 +105,7 @@ public:
     static unsigned char audioSampleDivider;
     static signed char aud_volume;
     static uint32_t audbufcnt;
-    static uint32_t audbufcntover;    
+    static uint32_t audbufcntover;
     static uint32_t audbufcntAY;
     static uint32_t audbufcntCovox;
     static uint32_t faudbufcnt;
@@ -119,7 +119,7 @@ public:
     static int Audio_freq;
 
     static uint8_t multiplicator;
-    static int sync_cnt;    
+    static int sync_cnt;
 
     static int TapeNameScroller;
 
@@ -133,12 +133,12 @@ public:
 
     static int ESPtestvar;
     static int ESPtestvar1;
-    static int ESPtestvar2;        
+    static int ESPtestvar2;
 
     static volatile bool vsync;
 
     static bool trdos;
-    static WD1793 Betadisk;
+    static rvmWD1793 fdd;
 
     static int32_t mouseX;
     static int32_t mouseY;

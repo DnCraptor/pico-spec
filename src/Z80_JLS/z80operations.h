@@ -19,6 +19,9 @@
 class Z80Ops
 {
 public:
+
+    static uint8_t fetchOpcode();
+
     /* Read/Write byte from/to RAM */
     static uint8_t peek8(uint16_t address);
     static void poke8(uint16_t address, uint8_t value);

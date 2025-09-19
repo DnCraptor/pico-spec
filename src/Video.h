@@ -134,9 +134,10 @@ public:
 
   static void TopBorder_Blank_Pentagon();
   static void TopBorder_Pentagon();
+  static void TopBorder_OSD_Pentagon();
   static void MiddleBorder_Pentagon();
   static void BottomBorder_Pentagon();
-  static void BottomBorder_OSD_Pentagon();  
+  static void BottomBorder_OSD_Pentagon();
   
   static void (*Draw)(unsigned int, bool);
   static void (*Draw_Opcode)(bool);

@@ -66,6 +66,9 @@ class FileUtils
 {
 public:
     static bool fsMount;
+
+    static string getLCaseExt(const string& filename);
+
     static void initFileSystem();
     static bool mountSDCard();
     static void unmountSDCard();
