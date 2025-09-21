@@ -1,4 +1,3 @@
-
 #include <cstdio>
 #include <cstring>
 #include <cstdarg>
@@ -10,6 +9,9 @@
 #include <hardware/vreg.h>
 #include <hardware/sync.h>
 #include <hardware/flash.h>
+
+#include <hardware/regs/qmi.h>
+#include <hardware/structs/qmi.h>
 
 #include "ESPectrum.h"
 #include "Config.h"
@@ -26,10 +28,6 @@
     #include "ps2kbd_mrmltr.h"
 #else
     #include "ps2.h"
-#endif
-
-#ifdef ZERO2
-    #include "boards/waveshare_rp2350_pizero.h"
 #endif
 
 #if USE_NESPAD
@@ -987,20 +985,69 @@ void __attribute__((naked, noreturn)) __printflike(1, 0) dummy_panic(__unused co
         printf(fmt);
 }
 
-int main() {
+#ifndef PICO_RP2040
+
+int flash_mhz = 88;
+
+void __not_in_flash() flash_timings() {
+        const int max_flash_freq = flash_mhz * MHZ;
+        const int clock_hz = CPU_MHZ * MHZ;
+        int divisor = (clock_hz + max_flash_freq - 1) / max_flash_freq;
+        if (divisor == 1 && clock_hz > 100000000) {
+            divisor = 2;
+        }
+        int rxdelay = divisor;
+        if (clock_hz / divisor > 100000000) {
+            rxdelay += 1;
+        }
+        qmi_hw->m[0].timing = 0x60007000 |
+                            rxdelay << QMI_M0_TIMING_RXDELAY_LSB |
+                            divisor << QMI_M0_TIMING_CLKDIV_LSB;
+}
+#endif
+
+int __not_in_flash() main() {
 
 #ifdef PICO_RP2040
     hw_set_bits(&vreg_and_chip_reset_hw->vreg, VREG_AND_CHIP_RESET_VREG_VSEL_BITS);
     sleep_ms(10);
     set_sys_clock_khz(CPU_MHZ * KHZ, true);
+#elif ZERO2
+    vreg_set_voltage(VREG_VOLTAGE_1_10); // Set voltage  //
+    delay(100);
+    set_sys_clock_khz(CPU_MHZ * KHZ, true);
+
+    // #define QMI_COOLDOWN 30     // 0xc0000000 [31:30] COOLDOWN     (0x1) Chip select cooldown period
+    // #define QMI_PAGEBREAK 28    // 0x30000000 [29:28] PAGEBREAK    (0x0) When page break is enabled, chip select will...
+    // #define QMI_SELECT_SETUP 25 // 0x02000000 [25]    SELECT_SETUP (0) Add up to one additional system clock cycle of setup...
+    // #define QMI_SELECT_HOLD 23  // 0x01800000 [24:23] SELECT_HOLD  (0x0) Add up to three additional system clock cycles of active...
+    // #define QMI_MAX_SELECT 17   // 0x007e0000 [22:17] MAX_SELECT   (0x00) Enforce a maximum assertion duration for this window's...
+    // #define QMI_MIN_DESELECT 12 // 0x0001f000 [16:12] MIN_DESELECT (0x00) After this window's chip select is deasserted, it...
+    // #define QMI_RXDELAY 8       // 0x00000700 [10:8]  RXDELAY      (0x0) Delay the read data sample timing, in units of one half...
+    // #define QMI_CLKDIV 0        // 0x000000ff [7:0]   CLKDIV       (0x04) Clock divisor
+    // qmi_hw->m[1].timing = (1 << QMI_COOLDOWN) | (2 << QMI_PAGEBREAK) | (3 << QMI_SELECT_HOLD) | (18 << QMI_MAX_SELECT) | (4 << QMI_MIN_DESELECT) | (6 << QMI_RXDELAY) | (6 << QMI_CLKDIV);
+
+    // uint clkdiv = 4;
+    // uint rxdelay = 4;
+    // hw_write_masked(
+    // &qmi_hw->m[0].timing,
+    //         ((clkdiv << QMI_M0_TIMING_CLKDIV_LSB) & QMI_M0_TIMING_CLKDIV_BITS) |
+    //         ((rxdelay << QMI_M0_TIMING_RXDELAY_LSB) & QMI_M0_TIMING_RXDELAY_BITS),
+    //         QMI_M0_TIMING_CLKDIV_BITS | QMI_M0_TIMING_RXDELAY_BITS
+    // );
+    // busy_wait_us(1000);
+    // set_sys_clock_khz(CPU_MHZ * KHZ, true);
+
 #else
-    volatile uint32_t *qmi_m0_timing = (uint32_t *)0x400d000c;
     vreg_disable_voltage_limit();
     vreg_set_voltage(VREG_VOLTAGE_1_60);
-    sleep_ms(33);
-    *qmi_m0_timing = 0x60007204;
-    set_sys_clock_khz(CPU_MHZ * KHZ, 0);
-    *qmi_m0_timing = 0x60007303;
+    flash_timings();
+    sleep_ms(100);
+
+    if (!set_sys_clock_khz(CPU_MHZ * KHZ, 0)) {
+        #define CPU_MHZ 252
+        set_sys_clock_khz(CPU_MHZ * KHZ, 1); // fallback to failsafe clocks
+    }
 #endif
 
 #if PICO_RP2350

@@ -62,7 +62,7 @@ uint16_t Config::joydef[12] = {
 
 uint8_t  Config::AluTiming = 0;
 uint8_t  Config::ayConfig = 0;
-#if !defined(PICO_RP2040) && !defined(PICO_RP2350)
+#if !defined(PICO_RP2040)
 uint8_t  Config::turbosound = 3; // BOTH
 #else
 uint8_t  Config::turbosound = 0; // OFF
@@ -73,6 +73,8 @@ uint8_t  Config::secondJoy = 2; // NPAD#2
 uint8_t  Config::kempstonPort = 0x37;
 uint8_t  Config::throtling = DEFAULT_THROTTLING;
 bool     Config::CursorAsJoy = true;
+bool     Config::trdosFastMode = false;
+bool     Config::trdosWriteProtect = false;
 
 uint8_t Config::scanlines = 0;
 uint8_t Config::render = 0;
@@ -102,6 +104,9 @@ void Config::requestMachine(string newArch, string newRomSet)
             MemESP::rom[0].assign_rom(gb_rom_0_48k_es);
         else
 #endif
+        if (romSet48 == "48Kby")
+            MemESP::rom[0].assign_rom(gb_rom_0_byte_48k);
+        else
             MemESP::rom[0].assign_rom(gb_rom_0_sinclair_48k);
     }
 #if !NO_ALF
@@ -156,9 +161,12 @@ void Config::requestMachine(string newArch, string newRomSet)
         } else {
             MemESP::rom[0].assign_rom(gb_rom_pentagon_128k);
             MemESP::rom[1].assign_rom(gb_rom_pentagon_128k + (16 << 10));
+            if (romSetPent == "128Kpg") {
+                MemESP::rom[0].assign_rom(gb_rom_gluk);
+            }
         }
     }
-    MemESP::rom[4].assign_rom(gb_rom_4_trdos_503);
+    MemESP::rom[4].assign_rom(gb_rom_4_trdos_505d);
 }
 
 static bool nvs_get_str(const char* key, string& v, const vector<string>& sts) {
@@ -234,8 +242,7 @@ void Config::load2() {
         std::string fn;
         nvs_get_str((s + ".file").c_str(), fn, sts);
         if (!fn.empty()) {
-            ESPectrum::Betadisk.EjectDisk(i);
-            ESPectrum::Betadisk.InsertDisk(i, fn);
+            rvmWD1793InsertDisk(&ESPectrum::fdd, i, fn);
         }
     }
 }
@@ -325,12 +332,14 @@ void Config::load() {
         nvs_get_u8("ayConfig", Config::ayConfig, sts);
         nvs_get_u8("turbosound", Config::turbosound, sts);
         nvs_get_u8("covox", Config::covox, sts);
-#if !defined(PICO_RP2040) && !defined(PICO_RP2350)
+#if !defined(PICO_RP2040)
         nvs_get_u8("throtling2", Config::throtling, sts);
 #else
         nvs_get_u8("throtling1", Config::throtling, sts);
 #endif
         nvs_get_b("CursorAsJoy", CursorAsJoy, sts);
+        nvs_get_b("trdosFastMode", trdosFastMode, sts);
+        nvs_get_b("trdosWriteProtect", trdosWriteProtect, sts);
         nvs_get_str("SNA_Path", FileUtils::SNA_Path, sts);
         nvs_get_str("TAP_Path", FileUtils::TAP_Path, sts);
         nvs_get_str("DSK_Path", FileUtils::DSK_Path, sts);
@@ -430,12 +439,14 @@ void Config::save() {
         nvs_set_u8(handle,"joy2cursor",Config::joy2cursor);
         nvs_set_u8(handle,"secondJoy",Config::secondJoy);
         nvs_set_u8(handle,"kempstonPort",Config::kempstonPort);
-#if !defined(PICO_RP2040) && !defined(PICO_RP2350)
+#if !defined(PICO_RP2040)
         nvs_set_u8(handle,"throtling2",Config::throtling);
 #else
         nvs_set_u8(handle,"throtling1",Config::throtling);
 #endif
         nvs_set_str(handle,"CursorAsJoy", CursorAsJoy ? "true" : "false");
+        nvs_set_str(handle,"trdosFastMode", trdosFastMode ? "true" : "false");
+        nvs_set_str(handle,"trdosWriteProtect", trdosWriteProtect ? "true" : "false");
         nvs_set_str(handle,"SNA_Path",FileUtils::SNA_Path.c_str());
         nvs_set_str(handle,"TAP_Path",FileUtils::TAP_Path.c_str());
         nvs_set_str(handle,"DSK_Path",FileUtils::DSK_Path.c_str());
@@ -448,7 +459,7 @@ void Config::save() {
             nvs_set_u8(handle, (s + ".fdMode").c_str(), ft.fdMode);
             nvs_set_str(handle, (s + ".fileSearch").c_str(), ft.fileSearch.c_str());
             s = "drive" + to_string(i);
-            nvs_set_str(handle, (s + ".file").c_str(), ESPectrum::Betadisk.Drive[i].Available ? ESPectrum::Betadisk.Drive[i].FName.c_str() : "");
+            nvs_set_str(handle, (s + ".file").c_str(), ESPectrum::fdd.disk[i] ? ESPectrum::fdd.disk[i]->fname.c_str() : "");
         }
         nvs_set_u8(handle,"scanlines",Config::scanlines);
         nvs_set_u8(handle,"render",Config::render);

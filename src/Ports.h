@@ -28,7 +28,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-To Contact the dev team you can write to zxespectrum@gmail.com or 
+To Contact the dev team you can write to zxespectrum@gmail.com or
 visit https://zxespectrum.speccy.org/contacto
 
 */
@@ -49,9 +49,11 @@ public:
 
     static uint8_t (*getFloatBusData)();
     static uint8_t getFloatBusData48();
-    static uint8_t getFloatBusData128();    
+    static uint8_t getFloatBusData128();
 
-private:
+    static void FDDStep(bool force);
+
+private :
 
     static void ioContentionLate(bool contend);
     static uint8_t port254;

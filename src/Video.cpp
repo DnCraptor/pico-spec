@@ -1040,7 +1040,7 @@ IRAM_ATTR void VIDEO::TopBorder_Blank_Pentagon() {
 
     if (CPU::tstates >= tStatesBorder) {
         brdcol_cnt = is169 ? 10 : 0;
-        brdcol_end = is169 ? 170 : 160;        
+        brdcol_end = is169 ? 170 : 160;
         brdcol_end1 = is169 ? 26 : 16;
         brdlin_cnt = 0;
         brdptr16 = (uint16_t *)(vga.frameBuffer[brdlin_cnt]);
@@ -1051,15 +1051,10 @@ IRAM_ATTR void VIDEO::TopBorder_Blank_Pentagon() {
 }    
 
 IRAM_ATTR void VIDEO::TopBorder_Pentagon() {
-
     while (lastBrdTstate <= CPU::tstates) {
-
         brdptr16[brdcol_cnt ^ 1] = (uint16_t) brd;
-
         lastBrdTstate++;
-
         brdcol_cnt++;
-
         if (brdcol_cnt == brdcol_end) {
             brdlin_cnt++;
             brdptr16 = (uint16_t *)(vga.frameBuffer[brdlin_cnt]);
@@ -1071,10 +1066,8 @@ IRAM_ATTR void VIDEO::TopBorder_Pentagon() {
                 return;
             }
         }
-
     }
-
-}    
+}
 
 IRAM_ATTR void VIDEO::MiddleBorder_Pentagon() {
 
@@ -1108,13 +1101,9 @@ IRAM_ATTR void VIDEO::MiddleBorder_Pentagon() {
 IRAM_ATTR void VIDEO::BottomBorder_Pentagon() {
 
     while (lastBrdTstate <= CPU::tstates) {
-
         brdptr16[brdcol_cnt ^ 1] = (uint16_t) brd;
-
         lastBrdTstate++;
-
         brdcol_cnt++;
-
         if (brdcol_cnt == brdcol_end) {
             brdlin_cnt++;
             brdptr16 = (uint16_t *)(vga.frameBuffer[brdlin_cnt]);
@@ -1134,7 +1123,7 @@ IRAM_ATTR void VIDEO::BottomBorder_OSD_Pentagon() {
     while (lastBrdTstate <= CPU::tstates) {
         if (brdlin_cnt < 220 || brdlin_cnt > 235)
             brdptr16[brdcol_cnt ^ 1] = (uint16_t) brd;
-        else if (brdcol_cnt < 84 || brdcol_cnt > 155)
+        else if (brdcol_cnt < 0 || brdcol_cnt > 155)
             brdptr16[brdcol_cnt ^ 1] = (uint16_t) brd;
         lastBrdTstate++;
         brdcol_cnt++;

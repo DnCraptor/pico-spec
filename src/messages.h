@@ -256,14 +256,21 @@ static const char *MENU_TAPEPLAYER2[2] = { "Real input\n", "Entrada real\n" };
     "Drive A\t>\n"\
     "Drive B\t>\n"\
     "Drive C\t>\n"\
-    "Drive D\t>\n"
+    "Drive D\t>\n"\
+	"Fast Mode\t>\n"\
+	"Write Protect\t>\n"
 #define MENU_BETADISK_ES \
     "Unidades\n"\
     "Unidad A\t>\n"\
     "Unidad B\t>\n"\
     "Unidad C\t>\n"\
-    "Unidad D\t>\n"
+    "Unidad D\t>\n"\
+	"Modo rápido\t>\n"\
+	"Protección contra escritura\t>\n"
 static const char *MENU_BETADISK[2] = { MENU_BETADISK_EN,MENU_BETADISK_ES };
+
+static const char *MENU_FASTMODE[2] = { "Fast Mode\n", "Modo rápido\n" };
+static const char *MENU_WRITEPROTECT[2] = { "Write Protect\n", "MProtección contra escritura\n" };
 
 #define MENU_BETADRIVE_EN \
     "Drive#\n"\
@@ -657,9 +664,11 @@ static const char *MENU_ARCH_NO_SD[2] = { MENU_ARCH_EN MENU_ARCHS_NO_SD, MENU_AR
 #if NO_SPAIN_ROM_48k
 #define MENU_ROMS48_EN "Select ROM\n"\
 	"48K\n"\
+	"Byte 48K\n"\
     "Custom\n"
 #define MENU_ROMS48_ES "Elija ROM\n"\
 	"48K\n"\
+	"Byte 48K\n"\
     "Custom\n"
 #else
 #define MENU_ROMS48_EN "Select ROM\n"\
@@ -702,10 +711,12 @@ static const char *MENU_ROMS128[2] = { MENU_ROMS128_EN, MENU_ROMS128_ES };
 #define MENU_ROMS_PENT_EN \
   "Select ROM\n"\
 	"128Kp\n"\
+	"128Kpg\n"\
     "Custom\n"
 #define MENU_ROMS_PENT_ES \
   "Elija ROM\n"\
 	"128Kp\n"\
+	"128Kpg\n"\
     "Custom\n"
 static const char *MENU_ROMS_PENT[2] = { MENU_ROMS_PENT_EN, MENU_ROMS_PENT_ES };
 
@@ -744,10 +755,12 @@ static const char *MENU_ROM_PREF[2] = {
 #if NO_SPAIN_ROM_48k
 #define MENU_ROMS48_PREF_EN "Select ROM\n"\
 	"48K\t[48K  ]\n"\
+	"Byte 48K\t[48Kby]\n"\
     "Custom\t[48Kcs]\n"\
 	"Last used\t[Last ]\n"
 #define MENU_ROMS48_PREF_ES "Elija ROM\n"\
 	"48K\t[48K  ]\n"\
+	"Byte 48K\t[48Kby]\n"\
     "Custom\t[48Kcs]\n"\
 	"Ultima usada\t[Last ]\n"
 #else

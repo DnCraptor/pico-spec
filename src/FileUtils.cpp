@@ -66,6 +66,23 @@ DISK_FTYPE FileUtils::fileTypes[4] = {
     {".rom,.ROM,.bin,.BIN",2,2,0,""}
 };
 
+string toLower(const std::string& str) {
+    std::string lowerStr = str;
+    std::transform(lowerStr.begin(), lowerStr.end(), lowerStr.begin(), ::tolower);
+    return lowerStr;
+}
+
+// get extension in lowercase
+string FileUtils::getLCaseExt(const string& filename) {
+    size_t dotPos = filename.rfind('.'); // find the last dot position
+    if (dotPos == string::npos) {
+        return ""; // dot position don't found
+    }
+    // get the substring after dot
+    string extension = filename.substr(dotPos + 1);
+    return toLower( extension );
+}
+
 size_t fwrite(const void* v, size_t sz1, size_t sz2, FIL* f);
 void fputs(const char* b, FIL& f) {
     size_t sz = strlen(b);
