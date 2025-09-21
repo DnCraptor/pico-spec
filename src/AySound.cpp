@@ -37,7 +37,6 @@ visit https://zxespectrum.speccy.org/contacto
 #include <math.h>
 
 #include "AySound.h"
-#include "hardconfig.h"
 #include "ESPectrum.h"
 #include "Config.h"
 
