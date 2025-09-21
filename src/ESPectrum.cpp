@@ -196,7 +196,7 @@ int ESPectrum::TapeNameScroller = 0;
 //=======================================================================================
 
 bool ESPectrum::trdos = false;
-WD1793 ESPectrum::Betadisk;
+rvmWD1793 ESPectrum::fdd;
 
 /// @brief  Mouse support
 int32_t ESPectrum::mouseX = 0;
@@ -631,7 +631,7 @@ if (butter_psram_size() >= (0x04000 * (64+2 - 23))) {
 
 ///    if (Config::slog_on) showMemInfo("VGA started");
 
-    if (Config::StartMsg) ShowStartMsg(); // Show welcome message
+    //if (Config::StartMsg) ShowStartMsg(); // Show welcome message
 
     //=======================================================================================
     // AUDIO
@@ -695,7 +695,7 @@ if (butter_psram_size() >= (0x04000 * (64+2 - 23))) {
     if (Config::joystick == JOY_FULLER) Ports::port[0x7f] = 0xff; // Fuller
 
     // Init disk controller
-    Betadisk.Init();
+    rvmWD1793Reset(&fdd);
 
     // Reset cpu
     CPU::reset();
@@ -750,10 +750,8 @@ void ESPectrum::reset()
 
     VIDEO::Reset();
 
-    // Reinit disk controller
-    // Betadisk.ShutDown();
-    // Betadisk.Init();
-    Betadisk.EnterIdle();
+    // Init disk controller
+    rvmWD1793Reset(&fdd);
 
     Tape::tapeFileName = "none";
     if (Tape::tape.obj.fs != NULL) {
@@ -1175,7 +1173,7 @@ void ESPectrum::loop() {
     }
     processKeyboard();
     // Update stats every 50 frames
-    if (VIDEO::OSD && VIDEO::framecnt >= 50) {
+    if (VIDEO::OSD && VIDEO::framecnt >= 10) {
         if (VIDEO::OSD & 0x04) {
             // printf("Vol. OSD out -> Framecnt: %d\n", VIDEO::framecnt);
             if (VIDEO::framecnt >= 100) {
@@ -1197,8 +1195,41 @@ void ESPectrum::loop() {
                 if ((++ESPectrum::TapeNameScroller + 12) > Tape::tapeFileName.length()) ESPectrum::TapeNameScroller = 0;
                 OSD::drawStats();
             } else if (VIDEO::OSD == 2) {
+                std::string st;
+                switch(ESPectrum::fdd.stepState)
+                {
+                    case kRVMWD177XStepIdle:
+                        st = "IDLE";
+                        break;
+                    case kRVMWD177XStepWaiting:
+                        st = "WAIT";
+                        break;
+                    case kRVMWD177XStepWaitingMark:
+                        st = "MARK";
+                        break;
+                    case kRVMWD177XStepReadByte:
+                        st = "RDBT";
+                        break;
+                    case kRVMWD177XStepWriteByte:
+                        st = "WRBT";
+                        break;
+                    case kRVMWD177XStepLastWriteByte:
+                        st = "WRBT";
+                        break;
+                    case kRVMWD177XStepWaitIndex:
+                        st = "WIND";
+                        break;
+                    case kRVMWD177XStepWriteRaw:
+                        st = "WRAW";
+                        break;
+                    default:
+                        st = "NONE";
+                        break;
+                }
                 snprintf(OSD::stats_lin1, sizeof(OSD::stats_lin1), "CPU: %05d / IDL: %05d ", (int)(ESPectrum::elapsed), (int)(ESPectrum::idle));
                 snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2), "FPS:%6.2f / FND:%6.2f ", VIDEO::framecnt / (ESPectrum::totalseconds / 1000000), VIDEO::framecnt / (ESPectrum::totalsecondsnodelay / 1000000));
+                snprintf(OSD::stats_lin3, sizeof(OSD::stats_lin3), "ST:%s TR:%02X / SEC:%02X", st.c_str(), ESPectrum::fdd.track, ESPectrum::fdd.sector);
+                //snprintf(OSD::stats_lin4, sizeof(OSD::stats_lin4), "CPU: X*%d ", (ESPectrum::multiplicator+1));
                 OSD::drawStats();
             }
             totalseconds = 0;
@@ -1208,6 +1239,14 @@ void ESPectrum::loop() {
     }
     // Flashing flag change
     if (!(VIDEO::flash_ctr++ & 0x0f)) VIDEO::flashing ^= 0x80;
+
+    // // Draw fdd led if CPU OSD active
+    // if (VIDEO::OSD == 2 && (VIDEO::framecnt & 1)) {
+    //     if (ESPectrum::fdd.led)
+    //         VIDEO::vga.fillRect(168 + 137 , 220 + 2, 5, 4, zxColor( ESPectrum::fdd.led == 1 ? 4 : 2, 1));
+    //     else
+    //         VIDEO::vga.fillRect(168 + 137 , 220 + 2, 5, 4, zxColor( 7, 0));
+    // }
 
     elapsed = time_us_64() - ts_start;
     idle = target - elapsed - ESPoffset;
@@ -1231,3 +1270,4 @@ void ESPectrum::loop() {
     totalseconds += time_us_64() - ts_start;
  }
 }
+

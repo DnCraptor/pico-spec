@@ -28,7 +28,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-To Contact the dev team you can write to zxespectrum@gmail.com or 
+To Contact the dev team you can write to zxespectrum@gmail.com or
 visit https://zxespectrum.speccy.org/contacto
 
 */
@@ -42,10 +42,15 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Video.h"
 #include "Z80_JLS/z80.h"
 #include "psram_spi.h"
+#include "Debug.h"
 
 // #pragma GCC optimize("O3")
 
 uint32_t CPU::tstates = 0;
+
+int32_t CPU::prev_tstates = 0;
+uint32_t CPU::tstates_diff = 0;
+
 uint64_t CPU::global_tstates = 0;
 uint32_t CPU::statesInFrame = 0;
 uint8_t CPU::latetiming = 0;
@@ -99,7 +104,7 @@ void CPU::updateStatesInFrame() {
 void CPU::reset() {
 
     Z80::reset();
-    
+
     CPU::latetiming = Config::AluTiming;
 
 #if !NO_ALF
@@ -153,6 +158,8 @@ void CPU::reset() {
     tstates = 0;
     global_tstates = 0;
 
+    prev_tstates = 0;
+    tstates_diff = 0;
 }
 
 IRAM_ATTR void CPU::step() {
@@ -170,6 +177,7 @@ IRAM_ATTR void CPU::loop() {
     }
     bool bpe = Config::enableBreakPoint;
     uint16_t bp = Config::breakPoint;
+
     BREAKPOINTS
     // Check NMI
     if (Z80::isNMI()) {
@@ -194,13 +202,24 @@ IRAM_ATTR void CPU::loop() {
         BREAKPOINTS
     }
     VIDEO::EndFrame();
+
+    CPU::tstates_diff += CPU::tstates - CPU::prev_tstates;
+
+    if ((ESPectrum::fdd.control & (kRVMWD177XHLD | kRVMWD177XHLT)) != 0)
+    {
+        rvmWD1793Step(&ESPectrum::fdd, CPU::tstates_diff / WD177XSTEPSTATES); // FDD
+    }
+    CPU::tstates_diff = CPU::tstates_diff % WD177XSTEPSTATES;
+
     global_tstates += statesInFrame; // increase global Tstates
     tstates -= statesInFrame;
+
+    CPU::prev_tstates = tstates;
 }
 
 IRAM_ATTR void CPU::FlushOnHalt() {
-        
-    uint32_t stEnd = statesInFrame - IntEnd;    
+
+    uint32_t stEnd = statesInFrame - IntEnd;
 
     uint8_t page = Z80::getRegPC() >> 14;
     if (MemESP::ramContended[page]) {
@@ -248,6 +267,13 @@ IRAM_ATTR uint8_t Z80Ops::peek8(uint16_t address) {
     return MemESP::ramCurrent[page][address & 0x3fff];
 }
 
+// Fetch opcode from RAM (NON +2A/3 version)
+IRAM_ATTR uint8_t Z80Ops::fetchOpcode() {
+    uint8_t pg = Z80::getRegPC() >> 14;
+    VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
+    return MemESP::ramCurrent[pg][Z80::getRegPC() & 0x3fff];
+}
+
 // // Write byte to RAM
 // IRAM_ATTR void Z80Ops::poke8(uint16_t address, uint8_t value) {
 
@@ -292,7 +318,7 @@ IRAM_ATTR uint8_t Z80Ops::peek8(uint16_t address) {
 //     uint16_t vid_line = address & 0x3fff;
 
 //     if (vid_line < 6144) {
-    
+
 //         uint8_t result =  (vid_line >> 5) & 0b11000000;
 //         result |=  (vid_line >> 2) & 0b00111000;
 //         result |=  (vid_line >> 8) & 0b00000111;
@@ -335,7 +361,7 @@ IRAM_ATTR uint16_t Z80Ops::peek16(uint16_t address) {
 
         if (MemESP::ramContended[page]) {
             VIDEO::Draw(3, true);
-            VIDEO::Draw(3, true);            
+            VIDEO::Draw(3, true);
         } else
             VIDEO::Draw(6, false);
         uint8_t* sp = MemESP::ramCurrent[page];
@@ -357,7 +383,7 @@ IRAM_ATTR void Z80Ops::poke16(uint16_t address, RegisterPair word) {
     uint8_t page = address >> 14;
     uint16_t page_addr = address & 0x3fff;
 
-    if (page_addr < 0x3fff) {    // Check if address is between two different pages    
+    if (page_addr < 0x3fff) {    // Check if address is between two different pages
         uint8_t* p = MemESP::ramCurrent[page];
         if ( p < (uint8_t*)0x11000000 || (page == 0 && !MemESP::page0ram) ) {
             VIDEO::Draw(6, false);
@@ -366,7 +392,7 @@ IRAM_ATTR void Z80Ops::poke16(uint16_t address, RegisterPair word) {
 
         if (MemESP::ramContended[page]) {
             VIDEO::Draw(3, true);
-            VIDEO::Draw(3, true);            
+            VIDEO::Draw(3, true);
         } else
             VIDEO::Draw(6, false);
 
@@ -386,7 +412,7 @@ IRAM_ATTR void Z80Ops::poke16(uint16_t address, RegisterPair word) {
 //     uint8_t page = address >> 14;
 //     uint16_t vid_line = address & 0x3fff;
 
-//     if (vid_line < 0x3fff) {    // Check if address is between two different pages    
+//     if (vid_line < 0x3fff) {    // Check if address is between two different pages
 
 //         if (page == 0) {
 //             VIDEO::Draw(6, false);
@@ -397,7 +423,7 @@ IRAM_ATTR void Z80Ops::poke16(uint16_t address, RegisterPair word) {
 
 //         if (MemESP::ramContended[page]) {
 //             VIDEO::Draw(3, true);
-//             VIDEO::Draw(3, true);            
+//             VIDEO::Draw(3, true);
 //         } else
 //             VIDEO::Draw(6, false);
 
@@ -415,7 +441,7 @@ IRAM_ATTR void Z80Ops::poke16(uint16_t address, RegisterPair word) {
 
 //         if (MemESP::ramContended[page]) {
 //             VIDEO::Draw(3, true);
-//             VIDEO::Draw(3, true);            
+//             VIDEO::Draw(3, true);
 //         } else
 //             VIDEO::Draw(6, false);
 
@@ -432,7 +458,7 @@ IRAM_ATTR void Z80Ops::poke16(uint16_t address, RegisterPair word) {
 //                 return;
 //             }
 //         } else if (MemESP::videoLatch) {
-//             // Page == 1 == videoLatch            
+//             // Page == 1 == videoLatch
 //             MemESP::ramCurrent[1][vid_line] = word.byte8.lo;
 //             MemESP::ramCurrent[1][vid_line + 1] = word.byte8.hi;
 //             return;
@@ -442,7 +468,7 @@ IRAM_ATTR void Z80Ops::poke16(uint16_t address, RegisterPair word) {
 //         MemESP::ramCurrent[page][vid_line + 1] = word.byte8.hi;
 
 //         if (vid_line < 6144) {
-        
+
 //             uint8_t result =  (vid_line >> 5) & 0b11000000;
 //             result |=  (vid_line >> 2) & 0b00111000;
 //             result |=  (vid_line >> 8) & 0b00000111;
@@ -461,7 +487,7 @@ IRAM_ATTR void Z80Ops::poke16(uint16_t address, RegisterPair word) {
 //         vid_line++;
 
 //         if (vid_line < 6144) {
-        
+
 //             uint8_t result =  (vid_line >> 5) & 0b11000000;
 //             result |=  (vid_line >> 2) & 0b00111000;
 //             result |=  (vid_line >> 8) & 0b00000111;

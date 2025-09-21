@@ -63,13 +63,12 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
-IF(ZERO2)
-    set(PICO_BOARD_HEADER_DIRS ${CMAKE_SOURCE_DIR}/src/boards)
-    set(PICO_BOARD waveshare_rp2350_pizero CACHE STRING "Board type")
-    set(PICO_PLATFORM rp2350-arm-s)
-ELSE()
-    set(PICO_BOARD pico2 CACHE STRING "Board type")
-ENDIF()
+# For Board RP2350 PiZero
+# set(PICO_BOARD_HEADER_DIRS ${CMAKE_SOURCE_DIR}/src/boards)
+# set(PICO_BOARD waveshare_rp2350_pizero CACHE STRING "Board type")
+# set(PICO_PLATFORM rp2350-arm-s)
+
+set(PICO_BOARD pico2 CACHE STRING "Board type")
 
 include(pico_sdk_import.cmake)
 
@@ -410,6 +409,8 @@ ELSEIF(PICO_DV)
         HDMI_BASE_PIN=6
 
         DEFAULT_THROTTLING=0
+
+        DEBUG=0
 )
 ELSEIF(ZERO)
     target_compile_definitions(${PROJECT_NAME} PRIVATE

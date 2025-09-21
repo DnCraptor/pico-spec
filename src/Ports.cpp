@@ -28,7 +28,8 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-To Contact the dev team you can write to zxespectrum@gmail.com or 
+To Contact the dev team you can write to zxespectrum@gmail.com or
+To Contact the dev team you can write to zxespectrum@gmail.com or
 visit https://zxespectrum.speccy.org/contacto
 
 */
@@ -45,6 +46,10 @@ visit https://zxespectrum.speccy.org/contacto
 #include "wd1793.h"
 #include "pwm_audio.h"
 #include "roms.h"
+
+#include "OSDMain.h"
+
+#include "Debug.h"
 
 // #pragma GCC optimize("O3")
 
@@ -76,7 +81,8 @@ uint8_t Ports::getFloatBusData48() {
 	if ((halfpix >= 125) || (halfpix & 0x04)) return 0xFF;
 
     int hpoffset = (halfpix >> 2) + ((halfpix >> 1) & 0x01);;
-    
+
+
     if (halfpix & 0x01) return(VIDEO::grmem[VIDEO::offAtt[line] + hpoffset]);
 
     return(VIDEO::grmem[VIDEO::offBmp[line] + hpoffset]);
@@ -94,14 +100,28 @@ uint8_t Ports::getFloatBusData128() {
 	if ((halfpix >= 128) || (halfpix & 0x04)) return 0xFF;
 
     int hpoffset = (halfpix >> 2) + ((halfpix >> 1) & 0x01);;
-    
+
+
     if (halfpix & 0x01) return(VIDEO::grmem[VIDEO::offAtt[line] + hpoffset]);
 
     return(VIDEO::grmem[VIDEO::offBmp[line] + hpoffset]);
 
 }
 
-#include "OSDMain.h"
+static uint32_t p_states;
+
+IRAM_ATTR void Ports::FDDStep(bool force)
+{
+
+    CPU::tstates_diff += p_states - CPU::prev_tstates;
+
+    if (force || ((ESPectrum::fdd.control & (kRVMWD177XHLD | kRVMWD177XHLT)) != 0))
+        rvmWD1793Step(&ESPectrum::fdd, CPU::tstates_diff / WD177XSTEPSTATES); // FDD
+
+    CPU::tstates_diff = CPU::tstates_diff % WD177XSTEPSTATES;
+
+    CPU::prev_tstates = p_states;
+}
 
 uint8_t nes_pad2_for_alf(void);
 static uint8_t newAlfBit = 0;
@@ -110,9 +130,11 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     uint8_t data;
     if (address == Config::portReadBP && Config::enablePortReadBP) CPU::portBasedBP = true;
     uint8_t rambank = address >> 14;
+    p_states = CPU::tstates;
 
     VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
-    
+
+
     bool ia = Z80Ops::isALF;
     uint8_t p8 = address & 0xFF;
         if (p8 == 0xFB) { // Hidden RAM on
@@ -173,30 +195,29 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
         }
         // The default port value is 0xFF.
         data = 0xff;
-        // Check if TRDOS Rom is mapped.
         if (ESPectrum::trdos) {
-            switch (p8) {
-                case 0xFF:
-                    data = ESPectrum::Betadisk.ReadSystemReg();
-                    // printf("WD1793 Read Control Register: %d\n",(int)data);
-                    return data;
-                case 0x1F:
-                    data = ESPectrum::Betadisk.ReadStatusReg();
-                    // printf("WD1793 Read Status Register: %d\n",(int)data);
-                    return data;
-                case 0x3F:
-                    data = ESPectrum::Betadisk.ReadTrackReg();
-                    // printf("WD1793 Read Track Register: %d\n",(int)data);
-                    return data;
-                case 0x5F:
-                    data = ESPectrum::Betadisk.ReadSectorReg();
-                    // printf("WD1793 Read Sector Register: %d\n",(int)data);
-                    return data;
-                case 0x7F:
-                    data = ESPectrum::Betadisk.ReadDataReg();                    
-                    // printf("WD1793 Read Data Register: %d\n",(int)data);                    
-                    return data;                    
+
+            uint8_t dat;
+
+            switch( address & 0xe3) {
+                case 0x03:
+                case 0x23:
+                case 0x43:
+                case 0x63:
+                    FDDStep(false);
+
+                    return rvmWD1793Read(&ESPectrum::fdd,((address >> 5) & 0x3));
+
+                case 0xe3: {
+                    FDDStep(true);
+
+                    uint8_t v=0;
+                    if(ESPectrum::fdd.control & kRVMWD177XDRQ) v|=0x40;
+                    if(ESPectrum::fdd.control & (kRVMWD177XINTRQ | kRVMWD177XFINTRQ)) v|=0x80;
+                    return v;
+                }
             }
+
         }
 
         ///if (ESPectrum::ps2mouse && Config::mouse == 1)
@@ -262,14 +283,15 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     return data;
 }
 
-IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {    
+IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     int Audiobit;
     if (address == Config::portWriteBP && Config::enablePortWriteBP) CPU::portBasedBP = true;
     uint8_t rambank = address >> 14;
 
     VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
     uint8_t a8 = (address & 0xFF);
-
+    p_states = CPU::tstates;
+    
     bool ia = Z80Ops::isALF;
 #ifndef NO_ALF
     if (ia) {
@@ -292,7 +314,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
             }
         }
     }
-#endif    
+#endif
     // ULA =======================================================================
     if ((address & 0x0001) == 0) {
         port254 = data;
@@ -358,27 +380,47 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         }
         // Check if TRDOS Rom is mapped.
         if (ESPectrum::trdos) {
-            switch (a8) {
-                case 0xFF:
-                    // printf("WD1793 Write Control Register: %d\n",data);
-                    ESPectrum::Betadisk.WriteSystemReg(data);
+
+            switch (address & 0xe3) {
+
+                case 0x03:
+                case 0x23:
+                case 0x43:
+                case 0x63:
+                    FDDStep(false);
+                    rvmWD1793Write(&ESPectrum::fdd,((address >> 5) & 0x3),data);
                     break;
-                case 0x1F:
-                    // printf("WD1793 Write Command Register: %d\n",data);
-                    ESPectrum::Betadisk.WriteCommandReg(data);
+                case 0xe3:
+
+                    FDDStep(true);
+
+                    // Change active disk unit
+                    if (ESPectrum::fdd.diskS != (data & 0x3)) {
+                        ESPectrum::fdd.diskS = data & 0x3;
+                        if (ESPectrum::fdd.disk[ESPectrum::fdd.diskS] != NULL && ESPectrum::fdd.side && ESPectrum::fdd.disk[ESPectrum::fdd.diskS]->sides == 1) ESPectrum::fdd.side = 0;
+                        ESPectrum::fdd.sclConverted = false;
+                    }
+
+                    if(!(data & 0x4)) {
+                        rvmWD1793Reset(&ESPectrum::fdd);
+                    }
+
+                    if(data & 0x8) ESPectrum::fdd.control|=kRVMWD177XTest;
+                    else ESPectrum::fdd.control&=~kRVMWD177XTest;
+
+                    if(data & 0x10) ESPectrum::fdd.side=0;
+                    else {
+                        if (ESPectrum::fdd.disk[ESPectrum::fdd.diskS] != NULL)
+                            ESPectrum::fdd.side = ESPectrum::fdd.disk[ESPectrum::fdd.diskS]->sides == 1 ? 0 : 1;
+                        else
+                            ESPectrum::fdd.side = 1;
+                    }
+
+                    if(data & 0x40) ESPectrum::fdd.control|=kRVMWD177XDDEN;
+                    else ESPectrum::fdd.control&=~kRVMWD177XDDEN;
+
                     break;
-                case 0x3F:
-                    // printf("WD1793 Write Track Register: %d\n",data);                    
-                    ESPectrum::Betadisk.WriteTrackReg(data);
-                    break;
-                case 0x5F:
-                    // printf("WD1793 Write Sector Register: %d\n",data);                    
-                    ESPectrum::Betadisk.WriteSectorReg(data);
-                    break;
-                case 0x7F:
-                    // printf("WD1793 Write Data Register: %d\n",data);
-                    ESPectrum::Betadisk.WriteDataReg(data);
-                    break;
+
             }
 
         }
@@ -392,7 +434,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
             MemESP::page0ram = bitRead(data, 3);
             if (MemESP::page0ram != prev) {
                 uint8_t* r0 = MemESP::newSRAM ?
-                          MemESP::ram[64 + MemESP::sramLatch].sync() : 
+                          MemESP::ram[64 + MemESP::sramLatch].sync() :
                           (MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct());
                 if (MemESP::ramCurrent[0] != r0) {
                     MemESP::ramCurrent[0] = r0;
@@ -447,7 +489,7 @@ IRAM_ATTR void Ports::ioContentionLate(bool contend) {
     if (contend) {
         VIDEO::Draw(1, true);
         VIDEO::Draw(1, true);
-        VIDEO::Draw(1, true);        
+        VIDEO::Draw(1, true);
     } else {
         VIDEO::Draw(3, false);
     }

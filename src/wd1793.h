@@ -1,171 +1,313 @@
 /*
 
-ESPectrum, a Sinclair ZX Spectrum emulator for Espressif ESP32 SoC
+WD1793 Floppy Disk controller emulation
 
-WD1793 EMULATION, adapted from Mark Woodmass SpecEmu's implementation
+Copyright ©2017 Juan Carlos González Amestoy
 
-Copyright (c) 2023, 2024 Víctor Iborra [Eremus] and 2023 David Crespo [dcrespo3d]
-https://github.com/EremusOne/ZX-ESPectrum-IDF
+(Adaptation to ESPectrum / Betadisk (C) 2025 Víctor Iborra [Eremus])
 
-Based on ZX-ESPectrum-Wiimote
-Copyright (c) 2020, 2022 David Crespo [dcrespo3d]
-https://github.com/dcrespo3d/ZX-ESPectrum-Wiimote
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-Based on previous work by Ramón Martinez and Jorge Fuertes
-https://github.com/rampa069/ZX-ESPectrum
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
-Original project by Pete Todd
-https://github.com/retrogubbins/paseVGA
-
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <https://www.gnu.org/licenses/>.
-
-To Contact the dev team you can write to zxespectrum@gmail.com or 
-visit https://zxespectrum.speccy.org/contacto
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 
 */
 
-#pragma once
+#ifndef __rvmWD1793
+#define __rvmWD1793
 
 #include <stdio.h>
 #include <inttypes.h>
+#include <fcntl.h>
 #include <string>
 #include <cstring>
 #include "ff.h"
 
-using namespace std;
+#define kRVMwdDiskControlRead 0x000
+#define kRVMwdDiskControlSeekUp 0x100
+#define kRVMwdDiskControlSeekDown 0x300
+#define kRVMwdDiskControlWrite 0x400
 
-#define MAX_TRACKS 83
+#define kRVMwdDiskOutStepping 0x40
+#define kRVMwdDiskOutTrack0 0x80
+#define kRVMwdDiskOutIndex 0x20
 
-#define LOW_RAM // Define if you need a smaller, less RAM consuming and a little bit slower Databuffer
+#define TRACKHEADER 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                    0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                    0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                    0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                    0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,                         \
+                    0xc2, 0xc2, 0xc2, 0xfc,                                                                         \
+                    0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                    0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                    0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                    0x4e, 0x4e
+#define SECTORHEADER_PRE 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xa1, 0xa1, 0xa1, 0xfe, 0x00, 0x00
+#define SECTORHEADER_POST 0x01, 0x00, 0x00, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                          0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e
+#define SECTORDATA_PRE 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xa1, 0xa1, 0xa1, 0xfb
+#define SECTORDATA 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+                   0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, \
+                   0x00, 0x00 // Sector Data CRC
+#define SECTORDATA_POST 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                        0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                        0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                        0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                        0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e
 
-// status register values
-const unsigned char STATUS_BUSY = 1;
-const unsigned char STATUS_DRQ = 2;
-const unsigned char STATUS_INDEX = 2; // all Type 1 commands
-const unsigned char STATUS_TRACK0 = 4;
-const unsigned char STATUS_LOSTDATA = 4; // all Type 2+3 commands
-const unsigned char STATUS_WRITEPROTECT = 64;
+#define TRACK_POST 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                   0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                   0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                   0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                   0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                   0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                   0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                   0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                   0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                   0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                   0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                   0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                   0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                   0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                   0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e, \
+                   0x4e, 0x4e, 0x4e, 0x4e, 0x4e, 0x4e
 
-// system register values
-const unsigned char SYSTEM_INTRQ = 128;
-const unsigned char SYSTEM_DRQ = 64;
+const uint8_t System34_track[] = {
+    // Track 0, Side 0
+    TRACKHEADER,
+    // Sector 1
+    SECTORHEADER_PRE, 0x01, SECTORHEADER_POST, SECTORDATA_PRE, SECTORDATA, SECTORDATA_POST,
+    // Sector 2
+    SECTORHEADER_PRE, 0x02, SECTORHEADER_POST, SECTORDATA_PRE, SECTORDATA, SECTORDATA_POST,
+    // Sector 3
+    SECTORHEADER_PRE, 0x03, SECTORHEADER_POST, SECTORDATA_PRE, SECTORDATA, SECTORDATA_POST,
+    // Sector 4
+    SECTORHEADER_PRE, 0x04, SECTORHEADER_POST, SECTORDATA_PRE, SECTORDATA, SECTORDATA_POST,
+    // Sector 5
+    SECTORHEADER_PRE, 0x05, SECTORHEADER_POST, SECTORDATA_PRE, SECTORDATA, SECTORDATA_POST,
+    // Sector 6
+    SECTORHEADER_PRE, 0x06, SECTORHEADER_POST, SECTORDATA_PRE, SECTORDATA, SECTORDATA_POST,
+    // Sector 7
+    SECTORHEADER_PRE, 0x07, SECTORHEADER_POST, SECTORDATA_PRE, SECTORDATA, SECTORDATA_POST,
+    // Sector 8
+    SECTORHEADER_PRE, 0x08, SECTORHEADER_POST, SECTORDATA_PRE, SECTORDATA, SECTORDATA_POST,
+    // Sector 9
+    SECTORHEADER_PRE, 0x09, SECTORHEADER_POST, SECTORDATA_PRE, SECTORDATA, SECTORDATA_POST,
+    // Sector 10
+    SECTORHEADER_PRE, 0x0a, SECTORHEADER_POST, SECTORDATA_PRE, SECTORDATA, SECTORDATA_POST,
+    // Sector 11
+    SECTORHEADER_PRE, 0x0b, SECTORHEADER_POST, SECTORDATA_PRE, SECTORDATA, SECTORDATA_POST,
+    // Sector 12
+    SECTORHEADER_PRE, 0x0c, SECTORHEADER_POST, SECTORDATA_PRE, SECTORDATA, SECTORDATA_POST,
+    // Sector 13
+    SECTORHEADER_PRE, 0x0d, SECTORHEADER_POST, SECTORDATA_PRE, SECTORDATA, SECTORDATA_POST,
+    // Sector 14
+    SECTORHEADER_PRE, 0x0e, SECTORHEADER_POST, SECTORDATA_PRE, SECTORDATA, SECTORDATA_POST,
+    // Sector 15
+    SECTORHEADER_PRE, 0x0f, SECTORHEADER_POST, SECTORDATA_PRE, SECTORDATA, SECTORDATA_POST,
+    // Sector 16
+    SECTORHEADER_PRE, 0x10, SECTORHEADER_POST, SECTORDATA_PRE, SECTORDATA, SECTORDATA_POST,
+    TRACK_POST};
 
-enum class WDCommandType { 
-    WD_IDLE,
-    WD_RESTORE,
-    WD_SEEK,
-    WD_READSECTOR,
-    WD_READTRACK,
-    WD_READADDRESS,
-    WD_WRITESECTOR,
-    WD_WRITETRACK,
-    WD_FORCEINTERRUPT
-};
+typedef struct
+{
+    uint16_t tracks;
+    uint8_t sides;
+    uint8_t a, s;
+    uint32_t t;            // trackIndex
+    uint32_t indx;         // index
+    uint32_t indexDelay;   // index delay
+    uint32_t writeprotect; // Write Protect
+    uint8_t cursectbuf[0x100];
+    uint16_t cursectbufpos;
+    FIL *Diskfile;
+    BYTE *Filedata;
+    std::string fname;
+    bool IsSCLFile;
+    int sclDataOffset;
+    int t0s1_info;
+} rvmwdDisk;
 
-enum class WDStatusType {
-    TYPE_1,
-    TYPE_2,
-    TYPE_3,
-    TYPE_4
-};
+#define kRVMWD177XCLK 0x1  // 0- 1 mhz, 1- 2mhz
+#define kRVMWD177XDDEN 0x2 // 0- FM, 1- MFM
+#define kRVMWD177XTest 0x4
 
-class WDDrive {
+#define kRVMWD177XRateSelect kRVMWD177XCLK | kRVMWD177XDDEN | kRVMWD177XTest
 
-    public:
+#define kRVMWD177XHLD 0x8  // HEAD LOAD -> Signal HLD commands the drive to load the read/write heads
+#define kRVMWD177XHLT 0x10 // HEAD LOAD TIMING -> Signal HLT informs the controller chip that the head has been properly loaded and to commence read or write operations.
+#define kRVMWD177XINTRQ 0x20
+#define kRVMWD177XDire 0x40
+#define kRVMWD177XWriting 0x80
+#define kRVMWD177XDRQ 0x100
+#define kRVMWD177XCommandType 0x200
+#define kRVMWD177XFINTRQ 0x400
+#define kRVMWD177XONE 0x800
+#define kRVMWD177XPower0 0x1000
+#define kRVMWD177XPower1 0x2000
+#define kRVMWD177XPower2 0x4000
+#define kRVMWD177XPower3 0x8000
+#define kRVMWD177XNotToReady 0x10000
+#define kRVMWD177XReadyToNot 0x20000
+#define kRVMWD177XIndexPulse 0x40000
+#define kRVMWD177XInmediate 0x80000
 
-        bool Available;
-        unsigned char Cyls;
-        unsigned char Heads;
-        unsigned char Sectors;
-        unsigned short SectorSize;
-        FIL DiskFile;
-        bool IsSCLFile;
-        int sclDataOffset;
-        string FName;
+// States (Step)
+#define kRVMWD177XStepIdle 0x0
+#define kRVMWD177XStepWaiting 0x1
+#define kRVMWD177XStepWaitingMark 0x2
+#define kRVMWD177XStepReadByte 0x3
+#define kRVMWD177XStepWriteByte 0x4
+#define kRVMWD177XStepLastWriteByte 0x5
+#define kRVMWD177XStepWaitIndex 0x6
+#define kRVMWD177XStepWriteRaw 0x7
 
-};
+// States
+#define kRVMWD177XNone 0x0
+#define kRVMWD177XSettingHeader 0x1
+#define kRVMWD177XSettingEnd 0x2
+#define kRVMWD177XTypeI0 0x3
+#define kRVMWD177XTypeI1 0x4
+#define kRVMWD177XTypeICheck 0x5
+#define kRVMWD177XTypeIUpdate 0x6
+#define kRVMWD177XTypeISeek 0x7
+#define kRVMWD177XTypeIEnd 0x8
+#define kRVMWD177XReadHeader 0x9
+#define kRVMWD177XTypeIHeaderReaded 0xA
+#define kRVMWD177XReadHeaderBytes 0xB
+#define kRVMWD177XReadCRC 0xC
+#define kRVMWD177XTypeIHeadSet 0xD
+#define kRVMWD177XTypeIISetHead 0xE
+#define kRVMWD177XTypeIICommand 0xF
+#define kRVMWD177XReadDataFlag 0x10
+#define kRVMWD177XReadDataFlag2 0x11
+#define kRVMWD177XReadData 0x12
+#define kRVMWD177XReadSectorHeader 0x13
+#define kRVMWD177XReadAddressWait 0x14
+#define kRVMWD177XReadAddressBytes 0x15
+#define kRVMWD177XWriteDataFlag 0x16
+#define kRVMWD177XWriteData 0x17
+#define kRVMWD177XWriteCRC1 0x18
+#define kRVMWD177XWriteCRC2 0x19
+#define kRVMWD177XWriteEnd 0x1A
+#define kRVMWD177XWriteLast 0x1B
+#define kRVMWD177XReadAddressDataFlag 0x1C
+#define kRVMWD177XWriteTrack 0x1D
+#define kRVMWD177XWriteTrackCRC 0x1E
+#define kRVMWD177XWriteTrackStart 0x1F
+#define kRVMWD177XReadTrackStart 0x20
+#define kRVMWD177XReadTrackData 0x21
 
-class WD1793 {
+#define kRVMWD177XSettingHeaderTime 3750
 
-    public:
+// Status Codes
 
-        // 4 drive units
-        WDDrive Drive[4];
+#define kRVMWD177XStatusBusy 0x1
+#define kRVMWD177XStatusIndex 0x2
+#define kRVMWD177XStatusTrack0 0x4
+#define kRVMWD177XStatusCRC 0x8
+#define kRVMWD177XStatusSeek 0x10
+#define kRVMWD177XStatusHeadLoaded 0x20
+#define kRVMWD177XStatusProtected 0x40
+#define kRVMWD177XStatusNotReady 0x80
 
-        unsigned char TrackReg;
-        unsigned char SectorReg;
-        unsigned char CommandReg;
-        unsigned char StatusReg;
-        unsigned char DataReg;
-        unsigned char SystemReg;
+#define kRVMWD177XStatusDataRequest 0x2
+#define kRVMWD177XStatusLostData 0x4
+#define kRVMWD177XStatusRecordNotFound 0x10
+#define kRVMWD177XStatusRecordType 0x20
+#define kRVMWD177XStatusWriteFault 0x20
 
-        bool DriveReady;
-        bool HeadLoaded;
-        unsigned char CurrentUnit;
-        unsigned char CurrentHead;
-        unsigned char CurrentSector;    // current sector the head is over
-        WDCommandType CurrentCmd;
-        WDStatusType StatusType;
+#define kRVMWD177XStatusSetWP 0x100
+#define kRVMWD177XStatusSetTrack0 0x200
+#define kRVMWD177XStatusSetIndex 0x400
+#define kRVMWD177XStatusSetHead 0x800
 
-        #ifdef LOW_RAM
-            unsigned char DataBuffer[256];
-        #else
-            unsigned char DataBuffer[4096];
-        #endif
+// Command bits
+#define kRVMWD177XHeadBit 0x8
+#define kRVMWD177XUpdateBit 0x10
+#define kRVMWD177XVerifyBit 0x4
+#define kRVMWD177XStepInOut 0x40
+#define kRVMWD177XTypeI 0x80
 
-        unsigned short DataPosn;
-        unsigned short DataCount;
-        unsigned short SectorCount;    // number of sectors being read/written by current FDC command
-        bool OverRunTest;
-        unsigned char OverRunCount;
+#define WD177XSTEPSTATES 112 // 112 states -> 14 states per bit
 
-        unsigned char lastCmd;
-        unsigned char statusReadCount = 0;
+typedef struct
+{
+    uint32_t state, stepState, next;
+    uint32_t control;
+    uint32_t c;
 
-        bool sclConverted;
-        unsigned char Track0[2304]; // Store SCL translated track0
+    uint8_t command;
+    uint8_t track;
+    uint8_t sector;
+    uint8_t data, dsr;
+    uint16_t status;
 
-        void Init();
-        void ShutDown();
-        void EnterIdle();
-        void EjectDisks();
-        void EjectDisk(unsigned char UnitNum);
-        bool InsertDisk(unsigned char UnitNum,  string Filename); 
-        void SCLtoTRD(unsigned char* track0, unsigned char UnitNum);
-        bool DiskInserted(unsigned char UnitNum);
-        void SetDRQ();
-        void ClearDRQ();
-        void SetINTRQ();
-        void ExecuteCommand(unsigned char wdCmd);
-        
-        #ifdef LOW_RAM
-        void ReadRawOneSectorData(unsigned char UnitNum,  unsigned char C,  unsigned char H,  unsigned char S);
-        void WriteRawOneSectorData(unsigned char UnitNum,  unsigned char C,  unsigned char H,  unsigned char S);        
-        #else
-        void ReadRawSectorData(unsigned char UnitNum,  unsigned char C,  unsigned char H,  unsigned char S,  unsigned char Count);
-        void WriteRawSectorData(unsigned char UnitNum,  unsigned char C,  unsigned char H,  unsigned char S,  unsigned char Count);
-        #endif
+    uint8_t header[7];
+    uint8_t headerI;
 
-        unsigned char ReadSystemReg(); 
-        unsigned char ReadStatusReg(); 
-        unsigned char ReadTrackReg(); 
-        unsigned char ReadSectorReg(); 
-        unsigned char ReadDataReg(); 
-        void WriteSystemReg(unsigned char newData);
-        void WriteCommandReg(unsigned char wdCmd);
-        void WriteTrackReg(unsigned char newTrack); 
-        void WriteSectorReg(unsigned char newSector); 
-        void WriteDataReg(unsigned char newData); 
+    uint8_t diskS; // Disk selected
+    uint8_t diskP; // Disk previous
 
-};
+    uint8_t retry;
+
+    uint64_t marka;
+    uint8_t a, e, wb;
+
+    uint16_t crc, aa;
+    uint8_t side;
+
+    rvmwdDisk *disk[4];
+
+    bool fastmode;
+
+    bool sclConverted;
+    unsigned char Track0[2304]; // Store SCL translated track0
+
+    int wtrackmark, wtracksector;
+
+    uint8_t led;
+
+} rvmWD1793;
+
+void _do(rvmWD1793 *wd);
+void rvmWD1793Write(rvmWD1793 *wd, uint8_t a, uint8_t v);
+uint8_t rvmWD1793Read(rvmWD1793 *wd, uint8_t a);
+void rvmWD1793Step(rvmWD1793 *wd, uint32_t steps);
+void rvmWD1793Reset(rvmWD1793 *wd);
+bool rvmWD1793InsertDisk(rvmWD1793 *wd, unsigned char UnitNum, std::string Filename);
+uint8_t rvmwdDiskStep(rvmWD1793 *wd, uint32_t control);
+void wdDiskEject(rvmWD1793 *wd, unsigned char UnitNum);
+void SCLtoTRD(rvmwdDisk *d, unsigned char *track0);
+
+BYTE* load_file_into_ram(FIL* fp, UINT* filesize_out);
+
+#endif

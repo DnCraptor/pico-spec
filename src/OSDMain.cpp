@@ -42,6 +42,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "ESPectrum.h"
 #include "messages.h"
 #include "Config.h"
+#include "Debug.h"
 #include "Snapshot.h"
 #include "MemESP.h"
 #include "Tape.h"
@@ -112,6 +113,8 @@ unsigned short OSD::scrH = 240;
 
 char OSD::stats_lin1[25]; // "CPU: 00000 / IDL: 00000 ";
 char OSD::stats_lin2[25]; // "FPS:000.00 / FND:000.00 ";
+char OSD::stats_lin3[25]; // TODO
+char OSD::stats_lin4[25]; // TODO
 
 // // X origin to center an element with pixel_width
 unsigned short OSD::scrAlignCenterX(unsigned short pixel_width) { return (scrW / 2) - (pixel_width / 2); }
@@ -217,7 +220,10 @@ void OSD::drawStats() {
     VIDEO::vga.print(stats_lin1);
     VIDEO::vga.setCursor(x,y+8);
     VIDEO::vga.print(stats_lin2);
-
+    // VIDEO::vga.setCursor(2,1);
+    // VIDEO::vga.print(stats_lin4);
+    VIDEO::vga.setCursor(2,y+8);
+    VIDEO::vga.print(stats_lin3);
 }
 
 static bool persistSave(uint8_t slotnumber)
@@ -367,15 +373,82 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
             Z80::triggerNMI();
         }
         else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F6) {
-            menu_level = 0;
-            menu_saverect = false;
-            string mFile = fileDialog(FileUtils::DSK_Path, MENU_DSK_TITLE[Config::lang], DISK_DSKFILE, 51, 22);
-            if (mFile != "") {
-                mFile.erase(0, 1);
-                string fname = FileUtils::DSK_Path + "/" + mFile;
-                ESPectrum::Betadisk.EjectDisk(0);
-                ESPectrum::Betadisk.InsertDisk(0, fname);
-                Config::save();
+            while (1) {
+                menu_level = 0;
+                menu_saverect = false;
+                string mFile = fileDialog(FileUtils::DSK_Path, MENU_DSK_TITLE[Config::lang], DISK_DSKFILE, 51, 22);
+                if (mFile != "") {
+                    string fname = FileUtils::DSK_Path + mFile.substr(1);
+                    string fprefix = mFile.substr(0,1);
+                    if ( fprefix == "1" || fprefix == "2" || fprefix == "3" || fprefix == "4") {
+
+                        // Create empty trd
+                        Debug::log("Create empty trd. Prefix: %s\n",fprefix.c_str());
+                        // FIL *fd = fopen2(fname.c_str(), FA_WRITE);
+                        // if (!fd) {
+                        //     Debug::led_blink();
+                        //     break;
+                        // }
+
+                        // // TRD info for 40 tracks 2 sides -> Offset 2274, positions 1 - 4 contains disk type + number of files (0) + number of free sectors
+                        // unsigned char trdheader[] = { 0x01, 0x17, 0x00, 0xf0, 0x04, 0x10, 0x00, 0x00, 0x20, 0x20, 0x20, 0x20, 0x20, 0x20,
+                        // 0x20, 0x20, 0x20, 0x00, 0x00, 0x42, 0x4c, 0x41, 0x4e, 0x4b }; //, 0x20, 0x20, 0x20 };
+
+                        // char buffer[1024] = {0}; // Bloque de 1 KB lleno de ceros
+
+                        // size_t to_write = 655360; // 640 KB
+
+                        // if (fprefix == "1") {
+                        //     // 80/2
+                        //     trdheader[1] = 0x16;
+                        //     trdheader[4] = 0x09;
+                        // } else if (fprefix == "2") {
+                        //     // 40/2
+                        //     to_write >>= 1; // 320 KB
+                        // } else if (fprefix == "3") {
+                        //     // 80/1
+                        //     to_write >>= 1; // 320 KB
+                        //     trdheader[1] = 0x18;
+                        // } else if (fprefix == "4") {
+                        //     // 40/1
+                        //     to_write >>= 2; // 160 KB
+                        //     trdheader[1] = 0x19;
+                        //     trdheader[3] = 0x70;
+                        //     trdheader[4] = 0x02;
+                        // }
+
+                        // while (to_write > 0) {
+                        //     size_t chunk = (to_write < sizeof(buffer)) ? to_write : sizeof(buffer);
+                        //     fwrite(buffer, 1, chunk, fd);
+                        //     to_write -= chunk;
+                        // }
+
+                        // // Write TRD header
+                        // f_lseek(fd, 2274);
+                        // fwrite(trdheader, 1, sizeof(trdheader), fd);
+
+                        //  f_close(fd);
+
+                        // continue;
+
+                    }
+
+                    string ext = FileUtils::getLCaseExt(fname);
+                    if (ext == "trd" || ext == "scl") {
+                        printf("Insert TRD/SCL disk %s\n",fname.c_str());
+                        Debug::log("Insert TRD/SCL disk %s\n",fname.c_str());
+                        rvmWD1793InsertDisk(&ESPectrum::fdd, 0, fname);
+                    }
+                    else
+                    {
+                        Debug::led_blink();
+                    }
+
+                    // string fname = FileUtils::DSK_Path + "/" + mFile;
+                    // rvmWD1793InsertDisk(&ESPectrum::fdd, 0, fname);
+                    Config::save();
+                    break;
+                }
             }
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
         }
@@ -831,7 +904,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                     // Betadisk menu
                     menu_level = 1;
                     uint8_t dsk_num = menuRun(MENU_BETADISK[Config::lang]);
-                    if (dsk_num > 0) {
+                    if (dsk_num > 0 && dsk_num < 5) {
                         string drvmenu = MENU_BETADRIVE[Config::lang];
                         drvmenu.replace(drvmenu.find("#",0),1,(string)" " + char(64 + dsk_num));
                         menu_saverect = true;
@@ -846,14 +919,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                     if (mFile != "") {
                                         mFile.erase(0, 1);
                                         string fname = FileUtils::DSK_Path + "/" + mFile;
-                                        ESPectrum::Betadisk.EjectDisk(dsk_num - 1);
-                                        ESPectrum::Betadisk.InsertDisk(dsk_num - 1, fname);
+                                        rvmWD1793InsertDisk(&ESPectrum::fdd, dsk_num - 1, fname);
                                         Config::save();
                                         return;
                                     }
                                 } else
                                 if (opt2 == 2) {
-                                    ESPectrum::Betadisk.EjectDisk(dsk_num - 1);
+                                    wdDiskEject(&ESPectrum::fdd, dsk_num - 1);
                                     Config::save();
                                     return;
                                 }
@@ -862,7 +934,78 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                 break;
                             }
                         }
-                    } else {
+                    }
+                    else if (dsk_num == 5) {
+                        menu_level = 2;
+                        menu_curopt = 1;
+                        menu_saverect = true;
+                        while (1) {
+                            string menu = MENU_FASTMODE[Config::lang];
+                            menu += MENU_YESNO[Config::lang];
+                            uint8_t prev = Config::trdosFastMode;
+                            if (prev) {
+                                menu.replace(menu.find("[Y",0),2,"[*");
+                                menu.replace(menu.find("[N",0),2,"[ ");
+                            } else {
+                                menu.replace(menu.find("[Y",0),2,"[ ");
+                                menu.replace(menu.find("[N",0),2,"[*");
+                            }
+                            uint8_t opt2 = menuRun(menu);
+                            if (opt2) {
+                                if (opt2 == 1)
+                                    Config::trdosFastMode = true;
+                                else
+                                    Config::trdosFastMode = false;
+
+                                if (Config::trdosFastMode != prev) {
+                                    Config::save();
+                                    ESPectrum::reset();
+                                }
+                                menu_curopt = opt2;
+                                menu_saverect = false;
+                            } else {
+                                menu_curopt = 5;
+                                menu_level = 2;
+                                break;
+                            }
+                        }
+                    }
+                    else if (dsk_num == 6) {
+                        menu_level = 2;
+                        menu_curopt = 1;
+                        menu_saverect = true;
+                        while (1) {
+                            string menu = MENU_WRITEPROTECT[Config::lang];
+                            menu += MENU_YESNO[Config::lang];
+                            uint8_t prev = Config::trdosWriteProtect;
+                            if (prev) {
+                                menu.replace(menu.find("[Y",0),2,"[*");
+                                menu.replace(menu.find("[N",0),2,"[ ");
+                            } else {
+                                menu.replace(menu.find("[Y",0),2,"[ ");
+                                menu.replace(menu.find("[N",0),2,"[*");
+                            }
+                            uint8_t opt2 = menuRun(menu);
+                            if (opt2) {
+                                if (opt2 == 1)
+                                    Config::trdosWriteProtect = true;
+                                else
+                                    Config::trdosWriteProtect = false;
+
+                                if (Config::trdosWriteProtect != prev) {
+                                    Config::save();
+                                    ESPectrum::reset();
+                                }
+                                menu_curopt = opt2;
+                                menu_saverect = false;
+                            } else {
+                                menu_curopt = 6;
+                                menu_level = 2;
+                                break;
+                            }
+                        }
+                    }
+                    else {
                         menu_curopt = 4;
                         break;
                     }
@@ -893,7 +1036,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                     romset = "48K";
                                 } else
                                 if (opt2 == 2) {
-                                    romset = "48Kby";
+                                    romset = "48Kbyte";
                                 } else
 #if NO_SPAIN_ROM_48k
                                 if (opt2 == 3) {
@@ -983,9 +1126,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                     romset = "128Kp";
                                 } else
                                 if (opt2 == 2) {
-                                    romset = "128Kpg";
-                                } else
-                                if (opt2 == 3) {
                                     romset = "128Kcs";
                                 }
                                 menu_curopt = opt2;
@@ -1005,9 +1145,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                     romset = "128Kp";
                                 } else
                                 if (opt2 == 2) {
-                                    romset = "128Kpg";
-                                } else
-                                if (opt2 == 3) {
                                     romset = "128Kcs";
                                 }
                                 menu_curopt = opt2;
@@ -1343,7 +1480,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                             else
 #if NO_SPAIN_ROM_48k
                                             if (opt2 == 2)
-                                                Config::pref_romSet_48 = "48Kby";
+                                                Config::pref_romSet_48 = "48Kbyte";
                                             else
                                             if (opt2 == 3)
                                                 Config::pref_romSet_48 = "48Kcs";
@@ -4219,7 +4356,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
             fclose2(f);
             return false;
         }
-        rom = gb_rom_4_trdos_503;
+        rom = gb_rom_4_trdos_505d;
         max_rom_size = 16ul << 10;
         dlgTitle += " TRDOS ";
         Config::arch = "Pentagon";

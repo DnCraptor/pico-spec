@@ -1,3 +1,4 @@
+///////////////////////////////////////////////////////////////////////////////
 //
 // z80cpp - Z80 emulator core
 //
@@ -31,6 +32,9 @@
 #include "OSDMain.h"
 #include "messages.h"
 
+
+// #include "Snapshot.h"
+
 // #pragma GCC optimize("O3")
 
 uint8_t page;
@@ -43,7 +47,7 @@ uint8_t page;
 // miembros estáticos
 
 uint8_t Z80::opCode;
-uint8_t Z80::prefixOpcode = { 0x00 };
+uint8_t Z80::prefixOpcode = 0;
 bool Z80::execDone;
 uint8_t Z80::regA;
 uint8_t Z80::sz5h3pnFlags;
@@ -71,6 +75,8 @@ uint8_t Z80::sz53n_addTable[256];
 uint8_t Z80::sz53pn_addTable[256];
 uint8_t Z80::sz53n_subTable[256];
 uint8_t Z80::sz53pn_subTable[256];
+
+///////////////////////////////////////////////////////////////////////////////
 
 // Constructor de la clase
 void Z80::create() {
@@ -207,7 +213,7 @@ void Z80::reset(void) {
         pinReset = false;
     } else {
         regA = 0xff;
-        
+
         setFlags(0xfd); // The only one flag reset at cold start is the add/sub flag
 
         REG_AFx = 0xffff;
@@ -658,8 +664,8 @@ void Z80::push(uint16_t word) {
 // LDI
 IRAM_ATTR void Z80::ldi(void) {
 
-    // uint8_t work8 = Z80Ops::peek8(REG_HL);
-    PEEK8(uint8_t work8,REG_HL);
+    uint8_t work8 = Z80Ops::peek8(REG_HL);
+    // PEEK8(uint8_t work8,REG_HL);
 
     Z80Ops::poke8(REG_DE, work8);
     Z80Ops::addressOnBus(REG_DE, 2);
@@ -682,8 +688,9 @@ IRAM_ATTR void Z80::ldi(void) {
 
 // LDD
 IRAM_ATTR void Z80::ldd(void) {
-    // uint8_t work8 = Z80Ops::peek8(REG_HL);
-    PEEK8(uint8_t work8,REG_HL);
+
+    uint8_t work8 = Z80Ops::peek8(REG_HL);
+    // PEEK8(uint8_t work8,REG_HL);
 
     Z80Ops::poke8(REG_DE, work8);
     Z80Ops::addressOnBus(REG_DE, 2);
@@ -706,8 +713,9 @@ IRAM_ATTR void Z80::ldd(void) {
 
 // CPI
 IRAM_ATTR void Z80::cpi(void) {
-    // uint8_t memHL = Z80Ops::peek8(REG_HL);
-    PEEK8(uint8_t memHL,REG_HL);
+
+    uint8_t memHL = Z80Ops::peek8(REG_HL);
+    // PEEK8(uint8_t memHL,REG_HL);
 
     bool carry = carryFlag; // lo guardo porque cp lo toca
     cp(memHL);
@@ -732,8 +740,9 @@ IRAM_ATTR void Z80::cpi(void) {
 
 // CPD
 IRAM_ATTR void Z80::cpd(void) {
-    // uint8_t memHL = Z80Ops::peek8(REG_HL);
-    PEEK8(uint8_t memHL,REG_HL);
+
+    uint8_t memHL = Z80Ops::peek8(REG_HL);
+    // PEEK8(uint8_t memHL,REG_HL);
 
     bool carry = carryFlag; // lo guardo porque cp lo toca
     cp(memHL);
@@ -826,8 +835,8 @@ IRAM_ATTR void Z80::outi(void) {
     REG_B--;
     REG_WZ = REG_BC;
 
-    // uint8_t work8 = Z80Ops::peek8(REG_HL);
-    PEEK8(uint8_t work8,REG_HL);
+    uint8_t work8 = Z80Ops::peek8(REG_HL);
+    // PEEK8(uint8_t work8,REG_HL);
 
     Ports::output(REG_WZ++, work8);
 
@@ -860,8 +869,8 @@ IRAM_ATTR void Z80::outd(void) {
     REG_B--;
     REG_WZ = REG_BC;
 
-    // uint8_t work8 = Z80Ops::peek8(REG_HL);
-    PEEK8(uint8_t work8,REG_HL);
+    uint8_t work8 = Z80Ops::peek8(REG_HL);
+    // PEEK8(uint8_t work8,REG_HL);
 
     Ports::output(REG_WZ--, work8);
 
@@ -914,56 +923,70 @@ void Z80::bitTest(uint8_t mask, uint8_t reg) {
 }
 
 IRAM_ATTR void Z80::check_trdos() {
-    if (!ESPectrum::trdos && !Z80Ops::isALF) {
-        if (REG_PCh == 0x3D) {
-            // TR-DOS Rom can be accessed from 48K machines and from Spectrum 128/+2 and Pentagon if the currently mapped ROM is bank 1.
-            if ((Z80Ops::is48) && (MemESP::romInUse == 0) || ((!Z80Ops::is48) && MemESP::romInUse == 1)) {
-                ESPectrum::trdos = true;
-                MemESP::romInUse = 4;
-                uint8_t* r0 = MemESP::newSRAM ? MemESP::ram[64 + MemESP::sramLatch].sync() :
-                             (MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct());
-                if (MemESP::ramCurrent[0] != r0) {
-                    MemESP::ramCurrent[0] = r0;
+
+    if (ESPectrum::trdos == true || Z80Ops::isPentagon) {
+
+        if (!ESPectrum::trdos) {
+
+            if (REG_PCh == 0x3D) {
+
+                // TR-DOS Rom can be accessed from 48K machines and from Spectrum 128/+2 and Pentagon if the currently mapped ROM is bank 1.
+                if ((Z80Ops::is48) && (MemESP::romInUse == 0) || ((!Z80Ops::is48) && MemESP::romInUse == 1)) {
+                    MemESP::romInUse = 4;
+                    MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse].direct();
+                    ESPectrum::trdos = true;
                 }
+
             }
+
+        } else {
+
+            if (REG_PCh >= 0x40) {
+
+                if (Z80Ops::is48)
+                    MemESP::romInUse = 0;
+                else
+                    MemESP::romInUse = MemESP::romLatch;
+
+                MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse].direct();
+                ESPectrum::trdos = false;
+
+            }
+
         }
+
     }
+
 }
 
-IRAM_ATTR void Z80::check_trdos_unpage() {
-    if (ESPectrum::trdos) {
-        if (REG_PCh >= 0x40) {
-            ESPectrum::trdos = false;
-            if (Z80Ops::is48) {
-                MemESP::romInUse = 0;
-                uint8_t* r0 = MemESP::rom[MemESP::romInUse].sync();
-                if (MemESP::ramCurrent[0] != r0) {
-                    MemESP::ramCurrent[0] = r0;
-                }
-            } else {
-                MemESP::romInUse = MemESP::romLatch;
-                uint8_t* r0 = MemESP::newSRAM ? MemESP::ram[64 + MemESP::sramLatch].sync() :
-                                        (MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct());
-                if (MemESP::ramCurrent[0] != r0) {
-                    MemESP::ramCurrent[0] = r0;
-                }
-            }
-        }
-    } else if (REG_PCh == 0x3D && !Z80Ops::isALF) {
-            // TR-DOS Rom can be accessed from 48K machines and from Spectrum 128/+2 and Pentagon if the currently mapped ROM is bank 1.
-            if ( ((Z80Ops::is48) && (MemESP::romInUse == 0))
-                  || ((!Z80Ops::is48) && MemESP::romInUse == 1)
-            ) {
-                MemESP::romInUse = 4;
-                ESPectrum::trdos = true;
-                uint8_t* r0 = MemESP::newSRAM ? MemESP::ram[64 + MemESP::sramLatch].sync() :
-                                        (MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct());
-                if (MemESP::ramCurrent[0] != r0) {
-                    MemESP::ramCurrent[0] = r0;
-                }
-            }
-    }
-}
+// IRAM_ATTR void Z80::check_trdos_unpage() {
+
+//     if (ESPectrum::trdos) {
+
+//         if (REG_PCh >= 0x40) {
+
+//             if (Z80Ops::is48)
+//                 MemESP::romInUse = 0;
+//             else
+//                 MemESP::romInUse = MemESP::romLatch;
+
+//             MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
+//             ESPectrum::trdos = false;
+
+//         }
+
+//     } else if (REG_PCh == 0x3D) {
+
+//             // TR-DOS Rom can be accessed from 48K machines and from Spectrum 128/+2 and Pentagon if the currently mapped ROM is bank 1.
+//             if ((Z80Ops::is48) && (MemESP::romInUse == 0) || ((!Z80Ops::is48) && MemESP::romInUse == 1)) {
+//                 MemESP::romInUse = 4;
+//                 MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse];
+//                 ESPectrum::trdos = true;
+//             }
+
+//     }
+
+// }
 
 //Interrupción
 /* Desglose de la interrupción, según el modo:
@@ -983,7 +1006,7 @@ IRAM_ATTR void Z80::check_trdos_unpage() {
  *      M5: 3 T-Estados -> leer byte alto y saltar a la rutina de INT
  */
 void Z80::interrupt(void) {
-    
+
     halted = false;
 
     // Z80Ops::interruptHandlingTime(7);
@@ -994,11 +1017,11 @@ void Z80::interrupt(void) {
     ffIFF1 = ffIFF2 = false;
     push(REG_PC); // el push añadirá 6 t-estados (+contended si toca)
     if (modeINT == IntMode::IM2) {
-        
+
         REG_PC = Z80Ops::peek16((regI << 8) | 0xff); // +6 t-estados
 
-        check_trdos_unpage();
-
+        check_trdos();
+        // check_trdos_unpage();
 
     } else {
         REG_PC = 0x0038;
@@ -1014,17 +1037,15 @@ void Z80::interrupt(void) {
  * M3: 3 T-Estados -> escribe byte bajo de PC y PC=0x0066
  */
 void Z80::nmi(void) {
-    
+
     halted = false;
 
     // Esta lectura consigue dos cosas:
     //      1.- La lectura del opcode del M1 que se descarta
     //      2.- Si estaba en un HALT esperando una INT, lo saca de la espera
-    // Z80Ops::fetchOpcode(REG_PC);
-    uint8_t pg = REG_PC >> 14;
-    VIDEO::Draw(4,MemESP::ramContended[pg]);
-    // Z80Ops::interruptHandlingTime(1);
-    VIDEO::Draw(1, false);    
+    Z80Ops::fetchOpcode();
+
+    VIDEO::Draw(1, false);
 
     regR++;
     ffIFF1 = false;
@@ -1058,11 +1079,42 @@ IRAM_ATTR void Z80::incRegR(uint8_t inc) {
 
 }
 
-
 IRAM_ATTR void Z80::execute() {
-    uint8_t pg = REG_PC >> 14;
-    VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
-    opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+
+    // CPU::tstates_diff += (CPU::tstates - CPU::prev_tstates);
+    // if (CPU::tstates_diff >= 14) {
+    //     while (1) {
+    //         // printf("CPU::tstates_diff: %d\n",CPU::tstates_diff);
+    //         rvmWD1793Step(&ESPectrum::fdd); // FDD
+    //         CPU::tstates_diff -= 14;
+    //         if (CPU::tstates_diff < 14) break;
+    //     }
+    // }
+    // CPU::prev_tstates = CPU::tstates;
+
+    // // if (!(CPU::tstates & 0xf)) {
+    //     if (Tape::tapeStatus == TAPE_LOADING) {
+    //     // if (Tape::tapePhase == TAPE_PHASE_DATA) {
+    //         Tape::Read();
+    //     }
+    // // }
+
+    // uint8_t pg = REG_PC >> 14;
+    // VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
+    // opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+
+    // uint8_t pg = REG_PC >> 14;
+    // opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+    // if (MemESP::ramContended[pg]) {
+    //     MemESP::lastContendedMemReadWrite = opCode;
+    //     VIDEO::Draw_Opcode(true);
+    // } else {
+    //     VIDEO::Draw_Opcode(false);
+    // };
+
+    // Ports::FDDStep();
+
+    opCode = Z80Ops::fetchOpcode();
 
     regR++;
 
@@ -1099,9 +1151,10 @@ IRAM_ATTR void Z80::exec_nocheck() {
 
     while (CPU::tstates < CPU::stFrame) {
 
-        uint8_t pg = REG_PC >> 14;
+        uint8_t pg = REG_PCh >> 6;
         VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
         opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+
         regR++;
         REG_PC++;
 
@@ -1110,7 +1163,7 @@ IRAM_ATTR void Z80::exec_nocheck() {
             dcOpcode[opCode]();
             lastFlagQ = flagQ;
             continue;
-        } 
+        }
 
         if (prefixOpcode == 0xDD) {
             prefixOpcode = 0;
@@ -1126,7 +1179,7 @@ IRAM_ATTR void Z80::exec_nocheck() {
         if (prefixOpcode == 0) lastFlagQ = flagQ;
 
     }
-   
+
 }
 
 void Z80::decodeOpcode00()
@@ -1165,8 +1218,8 @@ void Z80::decodeOpcode05()
 
 void Z80::decodeOpcode06()
 { /* LD B,n */
-    // REG_B = Z80Ops::peek8(REG_PC);
-    PEEK8(REG_B,REG_PC);
+    REG_B = Z80Ops::peek8(REG_PC);
+    // PEEK8(REG_B,REG_PC);
     REG_PC++;
 }
 
@@ -1200,8 +1253,8 @@ void Z80::decodeOpcode09()
 
 void Z80::decodeOpcode0a()
 { /* LD A,(BC) */
-    // regA = Z80Ops::peek8(REG_BC);
-    PEEK8(regA,REG_BC);
+    regA = Z80Ops::peek8(REG_BC);
+    // PEEK8(regA,REG_BC);
     REG_WZ = REG_BC + 1;
 }
 
@@ -1224,8 +1277,8 @@ void Z80::decodeOpcode0d()
 
 void Z80::decodeOpcode0e()
 { /* LD C,n */
-    // REG_C = Z80Ops::peek8(REG_PC);
-    PEEK8(REG_C,REG_PC);            
+    REG_C = Z80Ops::peek8(REG_PC);
+    // PEEK8(REG_C,REG_PC);
     REG_PC++;
 }
 
@@ -1244,8 +1297,8 @@ void Z80::decodeOpcode10()
 //         case 0x10:
 { /* DJNZ e */
     Z80Ops::addressOnBus(getPairIR().word, 1);
-    // int8_t offset = Z80Ops::peek8(REG_PC);
-    PEEK8(int8_t offset,REG_PC);            
+    int8_t offset = Z80Ops::peek8(REG_PC);
+    // PEEK8(int8_t offset,REG_PC);
     if (--REG_B != 0) {
         Z80Ops::addressOnBus(REG_PC, 5);
         REG_PC = REG_WZ = REG_PC + offset + 1;
@@ -1292,8 +1345,8 @@ void Z80::decodeOpcode15()
 void Z80::decodeOpcode16()
 //         case 0x16:
 { /* LD D,n */
-    // REG_D = Z80Ops::peek8(REG_PC);
-    PEEK8(REG_D,REG_PC);                        
+    REG_D = Z80Ops::peek8(REG_PC);
+    // PEEK8(REG_D,REG_PC);
     REG_PC++;
 }
 
@@ -1313,8 +1366,8 @@ void Z80::decodeOpcode17()
 void Z80::decodeOpcode18()
 //         case 0x18:
 { /* JR e */
-    // int8_t offset = Z80Ops::peek8(REG_PC);
-    PEEK8(int8_t offset,REG_PC);                                    
+    int8_t offset = Z80Ops::peek8(REG_PC);
+    // PEEK8(int8_t offset,REG_PC);
     Z80Ops::addressOnBus(REG_PC, 5);
     REG_PC = REG_WZ = REG_PC + offset + 1;
 
@@ -1330,8 +1383,8 @@ void Z80::decodeOpcode19()
 void Z80::decodeOpcode1a()
 //         case 0x1A:
 { /* LD A,(DE) */
-    // regA = Z80Ops::peek8(REG_DE);
-    PEEK8(regA,REG_DE);
+    regA = Z80Ops::peek8(REG_DE);
+    // PEEK8(regA,REG_DE);
     REG_WZ = REG_DE + 1;
 }
 
@@ -1357,8 +1410,8 @@ void Z80::decodeOpcode1d()
 void Z80::decodeOpcode1e()
 //         case 0x1E:
 { /* LD E,n */
-    // REG_E = Z80Ops::peek8(REG_PC);
-    PEEK8(REG_E,REG_PC);            
+    REG_E = Z80Ops::peek8(REG_PC);
+    // PEEK8(REG_E,REG_PC);
     REG_PC++;
 }
 
@@ -1377,8 +1430,8 @@ void Z80::decodeOpcode1f()
 
 void Z80::decodeOpcode20()
 { /* JR NZ,e */
-    // int8_t offset = Z80Ops::peek8(REG_PC);
-    PEEK8(int8_t offset,REG_PC);
+    int8_t offset = Z80Ops::peek8(REG_PC);
+    // PEEK8(int8_t offset,REG_PC);
     if ((sz5h3pnFlags & ZERO_MASK) == 0) {
         Z80Ops::addressOnBus(REG_PC, 5);
         REG_PC += offset;
@@ -1419,8 +1472,8 @@ void Z80::decodeOpcode25()
 
 void Z80::decodeOpcode26()
 { /* LD H,n */
-    // REG_H = Z80Ops::peek8(REG_PC);
-    PEEK8(REG_H, REG_PC);
+    REG_H = Z80Ops::peek8(REG_PC);
+    // PEEK8(REG_H, REG_PC);
     REG_PC++;
 }
 
@@ -1431,8 +1484,8 @@ void Z80::decodeOpcode27()
 
 void Z80::decodeOpcode28()
 { /* JR Z,e */
-    // int8_t offset = Z80Ops::peek8(REG_PC);
-    PEEK8(int8_t offset, REG_PC);
+    int8_t offset = Z80Ops::peek8(REG_PC);
+    // PEEK8(int8_t offset, REG_PC);
     if ((sz5h3pnFlags & ZERO_MASK) != 0) {
         Z80Ops::addressOnBus(REG_PC, 5);
         REG_PC += offset;
@@ -1473,8 +1526,8 @@ void Z80::decodeOpcode2d()
 
 void Z80::decodeOpcode2e()
 { /* LD L,n */
-    // REG_L = Z80Ops::peek8(REG_PC);
-    PEEK8(REG_L, REG_PC);
+    REG_L = Z80Ops::peek8(REG_PC);
+    // PEEK8(REG_L, REG_PC);
     REG_PC++;
 }
 
@@ -1488,8 +1541,8 @@ void Z80::decodeOpcode2f()
 
 void Z80::decodeOpcode30()
 { /* JR NC,e */
-    // int8_t offset = Z80Ops::peek8(REG_PC);
-    PEEK8(int8_t offset, REG_PC);            
+    int8_t offset = Z80Ops::peek8(REG_PC);
+    // PEEK8(int8_t offset, REG_PC);
     if (!carryFlag) {
         Z80Ops::addressOnBus(REG_PC, 5);
         REG_PC += offset;
@@ -1520,8 +1573,8 @@ void Z80::decodeOpcode33()
 
 void Z80::decodeOpcode34()
 { /* INC (HL) */
-    // uint8_t work8 = Z80Ops::peek8(REG_HL);
-    PEEK8(uint8_t work8, REG_HL);
+    uint8_t work8 = Z80Ops::peek8(REG_HL);
+    // PEEK8(uint8_t work8, REG_HL);
     inc8(work8);
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
@@ -1529,8 +1582,8 @@ void Z80::decodeOpcode34()
 
 void Z80::decodeOpcode35()
 { /* DEC (HL) */
-    // uint8_t work8 = Z80Ops::peek8(REG_HL);
-    PEEK8(uint8_t work8, REG_HL);
+    uint8_t work8 = Z80Ops::peek8(REG_HL);
+    // PEEK8(uint8_t work8, REG_HL);
     dec8(work8);
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
@@ -1538,9 +1591,9 @@ void Z80::decodeOpcode35()
 
 void Z80::decodeOpcode36()
 { /* LD (HL),n */
-    PEEK8(uint8_t value, REG_PC);
-    Z80Ops::poke8(REG_HL, value);
-    // Z80Ops::poke8(REG_HL, Z80Ops::peek8(REG_PC));
+    // PEEK8(uint8_t value, REG_PC);
+    // Z80Ops::poke8(REG_HL, value);
+    Z80Ops::poke8(REG_HL, Z80Ops::peek8(REG_PC));
     REG_PC++;
 }
 
@@ -1554,8 +1607,8 @@ void Z80::decodeOpcode37()
 
 void Z80::decodeOpcode38()
 { /* JR C,e */
-    // int8_t offset = Z80Ops::peek8(REG_PC);
-    PEEK8(int8_t offset, REG_PC);                        
+    int8_t offset = Z80Ops::peek8(REG_PC);
+    // PEEK8(int8_t offset, REG_PC);
     if (carryFlag) {
         Z80Ops::addressOnBus(REG_PC, 5);
         REG_PC += offset;
@@ -1573,8 +1626,8 @@ void Z80::decodeOpcode39()
 void Z80::decodeOpcode3a()
 { /* LD A,(nn) */
     REG_WZ = Z80Ops::peek16(REG_PC);
-    // regA = Z80Ops::peek8(REG_WZ);
-    PEEK8( regA, REG_WZ);
+    regA = Z80Ops::peek8(REG_WZ);
+    // PEEK8( regA, REG_WZ);
     REG_WZ++;
     REG_PC = REG_PC + 2;
 }
@@ -1597,8 +1650,8 @@ void Z80::decodeOpcode3d()
 
 void Z80::decodeOpcode3e()
 { /* LD A,n */
-    // regA = Z80Ops::peek8(REG_PC);
-    PEEK8(regA, REG_PC);
+    regA = Z80Ops::peek8(REG_PC);
+    // PEEK8(regA, REG_PC);
     REG_PC++;
 }
 
@@ -1645,8 +1698,8 @@ void Z80::decodeOpcode45()
 
 void Z80::decodeOpcode46()
 { /* LD B,(HL) */
-    // REG_B = Z80Ops::peek8(REG_HL);
-    PEEK8(REG_B, REG_HL);
+    REG_B = Z80Ops::peek8(REG_HL);
+    // PEEK8(REG_B, REG_HL);
 }
 
 void Z80::decodeOpcode47()
@@ -1685,8 +1738,8 @@ void Z80::decodeOpcode4d()
 
 void Z80::decodeOpcode4e()
 { /* LD C,(HL) */
-    // REG_C = Z80Ops::peek8(REG_HL);
-    PEEK8(REG_C, REG_HL);    
+    REG_C = Z80Ops::peek8(REG_HL);
+    // PEEK8(REG_C, REG_HL);
 }
 
 void Z80::decodeOpcode4f()
@@ -1728,8 +1781,8 @@ void Z80::decodeOpcode55()
 
 void Z80::decodeOpcode56()
 { /* LD D,(HL) */
-    // REG_D = Z80Ops::peek8(REG_HL);
-    PEEK8(REG_D, REG_HL);    
+    REG_D = Z80Ops::peek8(REG_HL);
+    // PEEK8(REG_D, REG_HL);
 }
 
 
@@ -1769,8 +1822,8 @@ void Z80::decodeOpcode5d()
 
 void Z80::decodeOpcode5e()
 { /* LD E,(HL) */
-    // REG_E = Z80Ops::peek8(REG_HL);
-    PEEK8(REG_E, REG_HL);    
+    REG_E = Z80Ops::peek8(REG_HL);
+    // PEEK8(REG_E, REG_HL);
 }
 
 void Z80::decodeOpcode5f()
@@ -1809,8 +1862,8 @@ void Z80::decodeOpcode65()
 
 void Z80::decodeOpcode66()
 { /* LD H,(HL) */
-    // REG_H = Z80Ops::peek8(REG_HL);
-    PEEK8(REG_H, REG_HL);    
+    REG_H = Z80Ops::peek8(REG_HL);
+    // PEEK8(REG_H, REG_HL);
 }
 
 void Z80::decodeOpcode67()
@@ -1849,8 +1902,8 @@ void Z80::decodeOpcode6d()
 
 void Z80::decodeOpcode6e()
 { /* LD L,(HL) */
-    // REG_L = Z80Ops::peek8(REG_HL);
-    PEEK8(REG_L, REG_HL);        
+    REG_L = Z80Ops::peek8(REG_HL);
+    // PEEK8(REG_L, REG_HL);
 }
 
 void Z80::decodeOpcode6f()
@@ -1935,8 +1988,8 @@ void Z80::decodeOpcode7d()
 
 void Z80::decodeOpcode7e()
 { /* LD A,(HL) */
-    // regA = Z80Ops::peek8(REG_HL);
-    PEEK8(regA, REG_HL);        
+    regA = Z80Ops::peek8(REG_HL);
+    // PEEK8(regA, REG_HL);
 }
 
 void Z80::decodeOpcode7f()
@@ -1954,169 +2007,169 @@ void Z80::decodeOpcode81()
 void Z80::decodeOpcode82()
 { /* ADD A,D */
     add(REG_D);
-    
+
 }
 void Z80::decodeOpcode83()
 { /* ADD A,E */
     add(REG_E);
-    
+
 }
 void Z80::decodeOpcode84()
 { /* ADD A,H */
     add(REG_H);
-    
+
 }
 void Z80::decodeOpcode85()
 { /* ADD A,L */
     add(REG_L);
-    
+
 }
 void Z80::decodeOpcode86()
 { /* ADD A,(HL) */
 
-    PEEK8(uint8_t value,REG_HL);
-    add(value);
+    // PEEK8(uint8_t value,REG_HL);
+    // add(value);
 
-    // add(Z80Ops::peek8(REG_HL));
+    add(Z80Ops::peek8(REG_HL));
 
 }
 void Z80::decodeOpcode87()
 { /* ADD A,A */
     add(regA);
-    
+
 }
 void Z80::decodeOpcode88()
 { /* ADC A,B */
     adc(REG_B);
-    
+
 }
 void Z80::decodeOpcode89()
 { /* ADC A,C */
     adc(REG_C);
-    
+
 }
 void Z80::decodeOpcode8a()
 { /* ADC A,D */
     adc(REG_D);
-    
+
 }
 void Z80::decodeOpcode8b()
 { /* ADC A,E */
     adc(REG_E);
-    
+
 }
 void Z80::decodeOpcode8c()
 { /* ADC A,H */
     adc(REG_H);
-    
+
 }
 void Z80::decodeOpcode8d()
 { /* ADC A,L */
     adc(REG_L);
-    
+
 }
 void Z80::decodeOpcode8e()
 { /* ADC A,(HL) */
 
-    PEEK8(uint8_t value,REG_HL);
-    adc(value);
+    // PEEK8(uint8_t value,REG_HL);
+    // adc(value);
 
-    // adc(Z80Ops::peek8(REG_HL));
-    
+    adc(Z80Ops::peek8(REG_HL));
+
 }
 void Z80::decodeOpcode8f()
 { /* ADC A,A */
     adc(regA);
-    
+
 }
 
 void Z80::decodeOpcode90()
 { /* SUB B */
     sub(REG_B);
-    
+
 }
 void Z80::decodeOpcode91()
 { /* SUB C */
     sub(REG_C);
-    
+
 }
 void Z80::decodeOpcode92()
 { /* SUB D */
     sub(REG_D);
-    
+
 }
 void Z80::decodeOpcode93()
 { /* SUB E */
     sub(REG_E);
-    
+
 }
 void Z80::decodeOpcode94()
 { /* SUB H */
     sub(REG_H);
-    
+
 }
 void Z80::decodeOpcode95()
 { /* SUB L */
     sub(REG_L);
-    
+
 }
 void Z80::decodeOpcode96()
 { /* SUB (HL) */
 
-    PEEK8(uint8_t value,REG_HL);
-    sub(value);
+    // PEEK8(uint8_t value,REG_HL);
+    // sub(value);
 
-    // sub(Z80Ops::peek8(REG_HL));
-    
+    sub(Z80Ops::peek8(REG_HL));
+
 }
 void Z80::decodeOpcode97()
 { /* SUB A */
     sub(regA);
-    
+
 }
 void Z80::decodeOpcode98()
 { /* SBC A,B */
     sbc(REG_B);
-    
+
 }
 void Z80::decodeOpcode99()
 { /* SBC A,C */
     sbc(REG_C);
-    
+
 }
 void Z80::decodeOpcode9a()
 { /* SBC A,D */
     sbc(REG_D);
-    
+
 }
 void Z80::decodeOpcode9b()
 { /* SBC A,E */
     sbc(REG_E);
-    
+
 }
 void Z80::decodeOpcode9c()
 { /* SBC A,H */
     sbc(REG_H);
-    
+
 }
 void Z80::decodeOpcode9d()
 { /* SBC A,L */
     sbc(REG_L);
-    
+
 }
 void Z80::decodeOpcode9e()
 { /* SBC A,(HL) */
 
-    PEEK8(uint8_t value,REG_HL);
-    sbc(value);
+    // PEEK8(uint8_t value,REG_HL);
+    // sbc(value);
 
-    // sbc(Z80Ops::peek8(REG_HL));
-    
+    sbc(Z80Ops::peek8(REG_HL));
+
 }
 void Z80::decodeOpcode9f()
 { /* SBC A,A */
     sbc(regA);
-    
+
 }
 
 void Z80::decodeOpcodea0()
@@ -2127,27 +2180,27 @@ void Z80::decodeOpcodea0()
 void Z80::decodeOpcodea1()
 { /* AND C */
     and_(REG_C);
-    
+
 }
 void Z80::decodeOpcodea2()
 { /* AND D */
     and_(REG_D);
-    
+
 }
 void Z80::decodeOpcodea3()
 { /* AND E */
     and_(REG_E);
-    
+
 }
 
 void Z80::decodeOpcodea4() { /* AND H */ and_(REG_H); }
 
 void Z80::decodeOpcodea5() { /* AND L */ and_(REG_L); }
 
-void Z80::decodeOpcodea6() { 
-    PEEK8(uint8_t value,REG_HL);
-    and_(value);
-    // /* AND (HL) */ and_(Z80Ops::peek8(REG_HL));
+void Z80::decodeOpcodea6() {
+    // PEEK8(uint8_t value,REG_HL);
+    // and_(value);
+    /* AND (HL) */ and_(Z80Ops::peek8(REG_HL));
 }
 
 void Z80::decodeOpcodea7() { /* AND A */ and_(regA); }
@@ -2159,152 +2212,205 @@ void Z80::decodeOpcodea9() { /* XOR C */ xor_(REG_C); }
 void Z80::decodeOpcodeaa()
 { /* XOR D */
     xor_(REG_D);
-    
+
 }
 
 void Z80::decodeOpcodeab()
 { /* XOR E */
     xor_(REG_E);
-    
+
 }
 
 void Z80::decodeOpcodeac()
 { /* XOR H */
     xor_(REG_H);
-    
+
 }
 
 void Z80::decodeOpcodead()
 { /* XOR L */
     xor_(REG_L);
-    
+
 }
 
 void Z80::decodeOpcodeae()
 { /* XOR (HL) */
 
-    PEEK8(uint8_t value,REG_HL);
-    xor_(value);
+    // PEEK8(uint8_t value,REG_HL);
+    // xor_(value);
 
-    // xor_(Z80Ops::peek8(REG_HL));
-    
+    xor_(Z80Ops::peek8(REG_HL));
+
 }
 
 void Z80::decodeOpcodeaf()
 { /* XOR A */
     xor_(regA);
-    
+
 }
 
 void Z80::decodeOpcodeb0()
 { /* OR B */
     or_(REG_B);
-    
+
 }
 
 void Z80::decodeOpcodeb1()
 { /* OR C */
     or_(REG_C);
-    
+
 }
 
 void Z80::decodeOpcodeb2()
 { /* OR D */
     or_(REG_D);
-    
+
 }
 
 void Z80::decodeOpcodeb3()
 { /* OR E */
     or_(REG_E);
-    
+
 }
 
 void Z80::decodeOpcodeb4()
 { /* OR H */
     or_(REG_H);
-    
+
 }
 
 void Z80::decodeOpcodeb5()
 { /* OR L */
     or_(REG_L);
-    
+
 }
 
 void Z80::decodeOpcodeb6()
 { /* OR (HL) */
-    PEEK8(uint8_t value,REG_HL);
-    or_(value);
 
-    // or_(Z80Ops::peek8(REG_HL));
-    
+    // PEEK8(uint8_t value,REG_HL);
+    // or_(value);
+
+    or_(Z80Ops::peek8(REG_HL));
+
 }
 
 void Z80::decodeOpcodeb7()
 { /* OR A */
     or_(regA);
-    
+
 }
 
 void Z80::decodeOpcodeb8()
 { /* CP B */
     cp(REG_B);
-    
+
 }
 
 void Z80::decodeOpcodeb9()
 { /* CP C */
     cp(REG_C);
-    
+
 }
 
 void Z80::decodeOpcodeba()
 { /* CP D */
     cp(REG_D);
-    
+
 }
 
 void Z80::decodeOpcodebb()
 { /* CP E */
     cp(REG_E);
-    
+
 }
 
 void Z80::decodeOpcodebc()
 { /* CP H */
     cp(REG_H);
-    
+
 }
 
 void Z80::decodeOpcodebd()
 { /* CP L */
     cp(REG_L);
-    
+
 }
 
 void Z80::decodeOpcodebe()
 { /* CP (HL) */
 
-    PEEK8(uint8_t value,REG_HL);
-    cp(value);
+    // PEEK8(uint8_t value,REG_HL);
+    // cp(value);
 
-    // cp(Z80Ops::peek8(REG_HL));
-    
+    cp(Z80Ops::peek8(REG_HL));
+
 }
 
-IRAM_ATTR void Z80::decodeOpcodebf()
+/*IRAM_ATTR*/ void Z80::decodeOpcodebf()
 { /* CP A */
 
     cp(regA);
-    
+
     if (REG_PC == 0x56b) { // LOAD trap
 
-        // printf("Trap Load!\n");
+        if ((Tape::tapeFileType == TAPE_FTYPE_TAP) && (Tape::tapeFileName != "none")) {
 
-        if ((Config::flashload) && (Tape::tapeFileType == TAPE_FTYPE_TAP) && (Tape::tapeFileName != "none") && (Tape::tapeStatus != TAPE_LOADING)) {
-            // printf("Loading tape %s\n",Tape::tapeFileName.c_str());
-            if (Tape::FlashLoad()) REG_PC = 0x5e2;
+              if ((Config::flashload) && (Tape::tapeStatus != TAPE_LOADING)) {
+
+                // // Get required block loading info
+                // string name = "";
+                // uint8_t isHeader = REG_Ax;
+                // uint16_t header_data = REG_IX - 0x11;
+                // uint8_t type_ix = MemESP::ramCurrent[header_data >> 14][header_data & 0x3fff];
+                // header_data = REG_IX - 0x10;
+                // uint8_t valid_name = MemESP::ramCurrent[header_data >> 14][header_data & 0x3fff];
+                // if (isHeader == 0 && type_ix == 00 && valid_name != 0xff) {
+
+                //     // Searching for program header: let's speed up things ;)
+                //     for (int i=0; i < 10; i++) {
+                //         name += MemESP::ramCurrent[(header_data + i) >> 14][(header_data + i) & 0x3fff];
+                //     }
+                //     rtrim(name);
+
+                //     // printf("Inicio lectura tapinfo. Buscando: %s\n",name.c_str());
+
+                //     string tapinfo = FileUtils::MountPoint + "/.tmp/tapinfo";
+
+                //     FILE* outputFile = fopen(tapinfo.c_str(), "r");
+                //     if (!outputFile) {
+
+                //         printf("Error al abrir el archivo tapinfo\n");
+
+                //     } else {
+
+                //         char stringLeido[10];
+                //         int intLeido1, intLeido2;
+
+                //         const char *stringABuscar = name.c_str();
+
+                //         while (fscanf(outputFile, "%s %d %d", stringLeido, &intLeido1, &intLeido2) == 3) {
+                //             // printf("String '%s' leido. Datos asociados: %d y %d\n", stringLeido, intLeido1, intLeido2);
+                //             if (strcmp(stringLeido, stringABuscar) == 0) {
+                //                 // printf("Coincidencia!!\n");
+                //                 Tape::tapeCurBlock = intLeido1;
+                //                 fseek(Tape::tape,intLeido2,SEEK_SET);
+                //                 break;
+                //             }
+                //         }
+
+                //         // printf("Final lectura tapinfo!\n");
+
+                //         fclose(outputFile);
+
+                //     }
+
+                // }
+
+                if (Tape::FlashLoad()) REG_PC = 0x5e2;
+
+            }
+
         }
 
     }
@@ -2317,16 +2423,17 @@ void Z80::decodeOpcodec0()
     if ((sz5h3pnFlags & ZERO_MASK) == 0) {
         REG_PC = REG_WZ = pop();
 
-        check_trdos_unpage();
+        check_trdos();
+        // check_trdos_unpage();
 
     }
-    
+
 }
 
 void Z80::decodeOpcodec1()
 { /* POP BC */
     REG_BC = pop();
-    
+
 }
 
 void Z80::decodeOpcodec2()
@@ -2373,10 +2480,11 @@ void Z80::decodeOpcodec5()
 
 void Z80::decodeOpcodec6()
 { /* ADD A,n */
-    PEEK8(uint8_t value,REG_PC);
-    add(value);
 
-    // add(Z80Ops::peek8(REG_PC));
+    // PEEK8(uint8_t value,REG_PC);
+    // add(value);
+
+    add(Z80Ops::peek8(REG_PC));
 
     REG_PC++;
 
@@ -2395,7 +2503,8 @@ void Z80::decodeOpcodec8()
     if ((sz5h3pnFlags & ZERO_MASK) != 0) {
         REG_PC = REG_WZ = pop();
 
-        check_trdos_unpage();
+        check_trdos();
+        // check_trdos_unpage();
 
     }
 
@@ -2405,7 +2514,8 @@ void Z80::decodeOpcodec9()
 { /* RET */
     REG_PC = REG_WZ = pop();
 
-    check_trdos_unpage();
+    check_trdos();
+    // check_trdos_unpage();
 
 }
 
@@ -2424,14 +2534,31 @@ void Z80::decodeOpcodeca()
 
 void Z80::decodeOpcodecb()
 { /* Subconjunto de instrucciones */
-    uint8_t pg = REG_PC >> 14;
-    VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
-    opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+
+
+    // uint8_t pg = REG_PC >> 14;
+    // VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
+    // opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+    // // FETCH_OPCODE(opCode, REG_PC);
+
+    // uint8_t pg = REG_PC >> 14;
+    // opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+    // if (MemESP::ramContended[pg]) {
+    //     MemESP::lastContendedMemReadWrite = opCode;
+    //     VIDEO::Draw_Opcode(true);
+    // } else {
+    //     VIDEO::Draw_Opcode(false);
+    // };
+
+    opCode = Z80Ops::fetchOpcode();
 
     REG_PC++;
     regR++;
 
+    // decodeCB();
+
     dcCB[opCode]();
+
 }
 
 void Z80::decodeOpcodecc()
@@ -2462,10 +2589,11 @@ void Z80::decodeOpcodecd()
 
 void Z80::decodeOpcodece()
 { /* ADC A,n */
-    PEEK8(uint8_t value,REG_PC);
-    adc(value);
 
-    // adc(Z80Ops::peek8(REG_PC));
+    // PEEK8(uint8_t value,REG_PC);
+    // adc(value);
+
+    adc(Z80Ops::peek8(REG_PC));
     REG_PC++;
 }
 
@@ -2507,8 +2635,8 @@ void Z80::decodeOpcoded2()
 
 void Z80::decodeOpcoded3()
 { /* OUT (n),A */
-    // uint8_t work8 = Z80Ops::peek8(REG_PC);
-    PEEK8(uint8_t work8,REG_PC);
+    uint8_t work8 = Z80Ops::peek8(REG_PC);
+    // PEEK8(uint8_t work8,REG_PC);
     REG_PC++;
     REG_WZ = regA << 8;
     Ports::output(REG_WZ | work8, regA);
@@ -2522,9 +2650,9 @@ void Z80::decodeOpcoded4()
         Z80Ops::addressOnBus(REG_PC + 1, 1);
         push(REG_PC + 2);
         REG_PC = REG_WZ;
-        
+
         check_trdos();
-        
+
         return;
     }
     REG_PC = REG_PC + 2;
@@ -2538,10 +2666,10 @@ void Z80::decodeOpcoded5()
 
 void Z80::decodeOpcoded6()
 { /* SUB n */
-    PEEK8(uint8_t value,REG_PC);
-    sub(value);
+    // PEEK8(uint8_t value,REG_PC);
+    // sub(value);
 
-    // sub(Z80Ops::peek8(REG_PC));
+    sub(Z80Ops::peek8(REG_PC));
     REG_PC++;
 }
 
@@ -2595,10 +2723,11 @@ void Z80::decodeOpcodeda()
 void Z80::decodeOpcodedb()
 { /* IN A,(n) */
     REG_W = regA;
-    // REG_Z = Z80Ops::peek8(REG_PC);
-    PEEK8(REG_Z,REG_PC);
+    REG_Z = Z80Ops::peek8(REG_PC);
+    // PEEK8(REG_Z,REG_PC);
     //REG_WZ = (regA << 8) | Z80Ops::peek8(REG_PC);
     REG_PC++;
+    // if (REG_PC == 0x60BC) printf("IN A,(n). Adress -> %04x\n", REG_WZ);
     regA = Ports::input(REG_WZ);
     REG_WZ++;
 }
@@ -2620,9 +2749,22 @@ void Z80::decodeOpcodedc()
 
 void Z80::decodeOpcodedd()
 { /* Subconjunto de instrucciones */
-    uint8_t pg = REG_PC >> 14;
-    VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
-    opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+    // // opCode = Z80Ops::fetchOpcode(REG_PC++);
+    // uint8_t pg = REG_PC >> 14;
+    // VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
+    // opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+    // // FETCH_OPCODE(opCode,REG_PC);
+
+    // uint8_t pg = REG_PC >> 14;
+    // opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+    // if (MemESP::ramContended[pg]) {
+    //     MemESP::lastContendedMemReadWrite = opCode;
+    //     VIDEO::Draw_Opcode(true);
+    // } else {
+    //     VIDEO::Draw_Opcode(false);
+    // };
+
+    opCode = Z80Ops::fetchOpcode();
 
     REG_PC++;
     regR++;
@@ -2631,10 +2773,11 @@ void Z80::decodeOpcodedd()
 
 void Z80::decodeOpcodede()
 { /* SBC A,n */
-    PEEK8(uint8_t value,REG_PC);
-    sbc(value);
 
-    // sbc(Z80Ops::peek8(REG_PC));
+    // PEEK8(uint8_t value,REG_PC);
+    // sbc(value);
+
+    sbc(Z80Ops::peek8(REG_PC));
     REG_PC++;
 }
 
@@ -2646,22 +2789,22 @@ void Z80::decodeOpcodedf()
 }
 
 void Z80::decodeOpcodee0() /* RET PO */
-{ 
+{
     Z80Ops::addressOnBus(getPairIR().word, 1);
     if ((sz5h3pnFlags & PARITY_MASK) == 0) {
         REG_PC = REG_WZ = pop();
 
-        check_trdos();        
+        check_trdos();
     }
 }
 
 void Z80::decodeOpcodee1() /* POP HL */
-{ 
+{
     REG_HL = pop();
 }
 
 void Z80::decodeOpcodee2() /* JP PO,nn */
-{ 
+{
     REG_WZ = Z80Ops::peek16(REG_PC);
     if ((sz5h3pnFlags & PARITY_MASK) == 0) {
         REG_PC = REG_WZ;
@@ -2687,7 +2830,7 @@ void Z80::decodeOpcodee3()
 }
 
 void Z80::decodeOpcodee4() /* CALL PO,nn */
-{ 
+{
     REG_WZ = Z80Ops::peek16(REG_PC);
     if ((sz5h3pnFlags & PARITY_MASK) == 0) {
         Z80Ops::addressOnBus(REG_PC + 1, 1);
@@ -2709,23 +2852,23 @@ void Z80::decodeOpcodee5() /* PUSH HL */
 }
 
 void Z80::decodeOpcodee6() /* AND n */
-{ 
-    PEEK8(uint8_t value,REG_PC);
-    and_(value);
+{
+    // PEEK8(uint8_t value,REG_PC);
+    // and_(value);
 
-    // and_(Z80Ops::peek8(REG_PC));
+    and_(Z80Ops::peek8(REG_PC));
     REG_PC++;
 }
 
 void Z80::decodeOpcodee7() /* RST 20H */
-{ 
+{
     Z80Ops::addressOnBus(getPairIR().word, 1);
     push(REG_PC);
     REG_PC = REG_WZ = 0x20;
 }
 
 void Z80::decodeOpcodee8() /* RET PE */
-{ 
+{
     Z80Ops::addressOnBus(getPairIR().word, 1);
     if ((sz5h3pnFlags & PARITY_MASK) != 0) {
         REG_PC = REG_WZ = pop();
@@ -2735,7 +2878,7 @@ void Z80::decodeOpcodee8() /* RET PE */
 }
 
 void Z80::decodeOpcodee9() /* JP (HL) */
-{ 
+{
     REG_PC = REG_HL;
 
     check_trdos();
@@ -2743,7 +2886,7 @@ void Z80::decodeOpcodee9() /* JP (HL) */
 }
 
 void Z80::decodeOpcodeea() /* JP PE,nn */
-{ 
+{
     REG_WZ = Z80Ops::peek16(REG_PC);
     if ((sz5h3pnFlags & PARITY_MASK) != 0) {
         REG_PC = REG_WZ;
@@ -2764,7 +2907,7 @@ void Z80::decodeOpcodeeb()
 }
 
 void Z80::decodeOpcodeec() /* CALL PE,nn */
-{ 
+{
     REG_WZ = Z80Ops::peek16(REG_PC);
     if ((sz5h3pnFlags & PARITY_MASK) != 0) {
         Z80Ops::addressOnBus(REG_PC + 1, 1);
@@ -2779,49 +2922,64 @@ void Z80::decodeOpcodeec() /* CALL PE,nn */
 }
 
 void Z80::decodeOpcodeed() /*Subconjunto de instrucciones*/
-{ 
-    uint8_t pg = REG_PC >> 14;
-    VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
-    opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+{
+    // // opCode = Z80Ops::fetchOpcode(REG_PC++);
+    // uint8_t pg = REG_PC >> 14;
+    // VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
+    // opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+    // // FETCH_OPCODE(opCode,REG_PC);
+
+    // uint8_t pg = REG_PC >> 14;
+    // opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+    // if (MemESP::ramContended[pg]) {
+    //     MemESP::lastContendedMemReadWrite = opCode;
+    //     VIDEO::Draw_Opcode(true);
+    // } else {
+    //     VIDEO::Draw_Opcode(false);
+    // };
+
+    opCode = Z80Ops::fetchOpcode();
+
     REG_PC++;
     regR++;
     decodeED();
 }
 
 void Z80::decodeOpcodeee() /* XOR n */
-{     
-    PEEK8(uint8_t value,REG_PC);
-    xor_(value);
+{
 
-    // xor_(Z80Ops::peek8(REG_PC));
+    // PEEK8(uint8_t value,REG_PC);
+    // xor_(value);
+
+    xor_(Z80Ops::peek8(REG_PC));
     REG_PC++;
 }
 
 void Z80::decodeOpcodeef() /* RST 28H */
-{     
+{
     Z80Ops::addressOnBus(getPairIR().word, 1);
     push(REG_PC);
     REG_PC = REG_WZ = 0x28;
 }
 
 void Z80::decodeOpcodef0() /* RET P */
-{ 
+{
     Z80Ops::addressOnBus(getPairIR().word, 1);
     if (sz5h3pnFlags < SIGN_MASK) {
         REG_PC = REG_WZ = pop();
-        
+
         check_trdos();
 
     }
 }
 
 void Z80::decodeOpcodef1() /* POP AF */
-{ 
+{
     setRegAF(pop());
 }
 
 void Z80::decodeOpcodef2() /* JP P,nn */
-{ 
+{
     REG_WZ = Z80Ops::peek16(REG_PC);
     if (sz5h3pnFlags < SIGN_MASK) {
         REG_PC = REG_WZ;
@@ -2834,12 +2992,12 @@ void Z80::decodeOpcodef2() /* JP P,nn */
 }
 
 void Z80::decodeOpcodef3() /* DI */
-{ 
+{
     ffIFF1 = ffIFF2 = false;
 }
 
 void Z80::decodeOpcodef4() /* CALL P,nn */
-{     
+{
     REG_WZ = Z80Ops::peek16(REG_PC);
     if (sz5h3pnFlags < SIGN_MASK) {
         Z80Ops::addressOnBus(REG_PC + 1, 1);
@@ -2854,29 +3012,30 @@ void Z80::decodeOpcodef4() /* CALL P,nn */
 }
 
 void Z80::decodeOpcodef5() /* PUSH AF */
-{ 
+{
     Z80Ops::addressOnBus(getPairIR().word, 1);
     push(getRegAF());
 }
 
 void Z80::decodeOpcodef6() /* OR n */
-{     
-    PEEK8(uint8_t value,REG_PC);
-    or_(value);
+{
 
-    // or_(Z80Ops::peek8(REG_PC));
+    // PEEK8(uint8_t value,REG_PC);
+    // or_(value);
+
+    or_(Z80Ops::peek8(REG_PC));
     REG_PC++;
 }
 
 void Z80::decodeOpcodef7() /* RST 30H */
-{ 
+{
     Z80Ops::addressOnBus(getPairIR().word, 1);
     push(REG_PC);
     REG_PC = REG_WZ = 0x30;
 }
 
 void Z80::decodeOpcodef8() /* RET M */
-{ 
+{
     Z80Ops::addressOnBus(getPairIR().word, 1);
     if (sz5h3pnFlags > 0x7f) {
         REG_PC = REG_WZ = pop();
@@ -2887,13 +3046,13 @@ void Z80::decodeOpcodef8() /* RET M */
 }
 
 void Z80::decodeOpcodef9() /* LD SP,HL */
-{ 
+{
     Z80Ops::addressOnBus(getPairIR().word, 2);
     REG_SP = REG_HL;
 }
 
 void Z80::decodeOpcodefa() /* JP M,nn */
-{     
+{
     REG_WZ = Z80Ops::peek16(REG_PC);
     if (sz5h3pnFlags > 0x7f) {
         REG_PC = REG_WZ;
@@ -2906,13 +3065,13 @@ void Z80::decodeOpcodefa() /* JP M,nn */
 }
 
 void Z80::decodeOpcodefb() /* EI */
-{ 
+{
     ffIFF1 = ffIFF2 = true;
     pendingEI = true;
 }
 
 void Z80::decodeOpcodefc() /* CALL M,nn */
-{     
+{
     REG_WZ = Z80Ops::peek16(REG_PC);
     if (sz5h3pnFlags > 0x7f) {
         Z80Ops::addressOnBus(REG_PC + 1, 1);
@@ -2927,24 +3086,42 @@ void Z80::decodeOpcodefc() /* CALL M,nn */
 }
 
 void Z80::decodeOpcodefd() /* Subconjunto de instrucciones */
-{     
-    uint8_t pg = REG_PC >> 14;
-    VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
-    opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+{
+    // // opCode = Z80Ops::fetchOpcode(REG_PC++);
+    // uint8_t pg = REG_PC >> 14;
+    // VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
+    // opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+    // // FETCH_OPCODE(opCode,REG_PC);
+
+    // uint8_t pg = REG_PC >> 14;
+    // opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+    // if (MemESP::ramContended[pg]) {
+    //     MemESP::lastContendedMemReadWrite = opCode;
+    //     VIDEO::Draw_Opcode(true);
+    // } else {
+    //     VIDEO::Draw_Opcode(false);
+    // };
+
+    opCode = Z80Ops::fetchOpcode();
+
     REG_PC++;
     regR++;
     decodeDDFD(regIY);
 }
 
 void Z80::decodeOpcodefe() /* CP n */
-{ 
-    PEEK8(uint8_t value,REG_PC);
-    cp(value);
+{
+
+    // PEEK8(uint8_t value,REG_PC);
+    // cp(value);
+
+    cp(Z80Ops::peek8(REG_PC));
+
     REG_PC++;
 }
 
 void Z80::decodeOpcodeff() /* RST 38H */
-{ 
+{
     Z80Ops::addressOnBus(getPairIR().word, 1);
     push(REG_PC);
     REG_PC = REG_WZ = 0x38;
@@ -2961,19 +3138,19 @@ void (*Z80::dcOpcode[256])() = {
     &decodeOpcode18, &decodeOpcode19, &decodeOpcode1a, &decodeOpcode1b,
     &decodeOpcode1c, &decodeOpcode1d, &decodeOpcode1e, &decodeOpcode1f,
 
-    &decodeOpcode20, &decodeOpcode21, &decodeOpcode22, &decodeOpcode23, 
-    &decodeOpcode24, &decodeOpcode25, &decodeOpcode26, &decodeOpcode27, 
-    &decodeOpcode28, &decodeOpcode29, &decodeOpcode2a, &decodeOpcode2b, 
-    &decodeOpcode2c, &decodeOpcode2d, &decodeOpcode2e, &decodeOpcode2f,            
+    &decodeOpcode20, &decodeOpcode21, &decodeOpcode22, &decodeOpcode23,
+    &decodeOpcode24, &decodeOpcode25, &decodeOpcode26, &decodeOpcode27,
+    &decodeOpcode28, &decodeOpcode29, &decodeOpcode2a, &decodeOpcode2b,
+    &decodeOpcode2c, &decodeOpcode2d, &decodeOpcode2e, &decodeOpcode2f,
 
-    &decodeOpcode30, &decodeOpcode31, &decodeOpcode32, &decodeOpcode33, 
-    &decodeOpcode34, &decodeOpcode35, &decodeOpcode36, &decodeOpcode37, 
-    &decodeOpcode38, &decodeOpcode39, &decodeOpcode3a, &decodeOpcode3b, 
+    &decodeOpcode30, &decodeOpcode31, &decodeOpcode32, &decodeOpcode33,
+    &decodeOpcode34, &decodeOpcode35, &decodeOpcode36, &decodeOpcode37,
+    &decodeOpcode38, &decodeOpcode39, &decodeOpcode3a, &decodeOpcode3b,
     &decodeOpcode3c, &decodeOpcode3d, &decodeOpcode3e, &decodeOpcode3f,
 
-    &decodeOpcode40, &decodeOpcode41, &decodeOpcode42, &decodeOpcode43, 
-    &decodeOpcode44, &decodeOpcode45, &decodeOpcode46, &decodeOpcode47, 
-    &decodeOpcode48, &decodeOpcode49, &decodeOpcode4a, &decodeOpcode4b, 
+    &decodeOpcode40, &decodeOpcode41, &decodeOpcode42, &decodeOpcode43,
+    &decodeOpcode44, &decodeOpcode45, &decodeOpcode46, &decodeOpcode47,
+    &decodeOpcode48, &decodeOpcode49, &decodeOpcode4a, &decodeOpcode4b,
     &decodeOpcode4c, &decodeOpcode4d, &decodeOpcode4e, &decodeOpcode4f,
 
     &decodeOpcode50, &decodeOpcode51, &decodeOpcode52, &decodeOpcode53,
@@ -3038,32 +3215,32 @@ void (*Z80::dcOpcode[256])() = {
 void Z80::dcCB00()
 { /* RLC B */
     rlc(REG_B);
-    
+
 }
 void Z80::dcCB01()
 { /* RLC C */
     rlc(REG_C);
-    
+
 }
 void Z80::dcCB02()
 { /* RLC D */
     rlc(REG_D);
-    
+
 }
 void Z80::dcCB03()
 { /* RLC E */
     rlc(REG_E);
-    
+
 }
 void Z80::dcCB04()
 { /* RLC H */
     rlc(REG_H);
-    
+
 }
 void Z80::dcCB05()
 { /* RLC L */
     rlc(REG_L);
-    
+
 }
 void Z80::dcCB06()
 { /* RLC (HL) */
@@ -3071,22 +3248,22 @@ void Z80::dcCB06()
     rlc(work8);
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCB07()
 { /* RLC A */
     rlc(regA);
-    
+
 }
 void Z80::dcCB08()
 { /* RRC B */
     rrc(REG_B);
-    
+
 }
 void Z80::dcCB09()
 { /* RRC C */
     rrc(REG_C);
-    
+
 }
 void Z80::dcCB0A()
 { /* RRC D */
@@ -3095,17 +3272,17 @@ void Z80::dcCB0A()
 void Z80::dcCB0B()
 { /* RRC E */
     rrc(REG_E);
-    
+
 }
 void Z80::dcCB0C()
 { /* RRC H */
     rrc(REG_H);
-    
+
 }
 void Z80::dcCB0D()
 { /* RRC L */
     rrc(REG_L);
-    
+
 }
 void Z80::dcCB0E()
 { /* RRC (HL) */
@@ -3113,42 +3290,42 @@ void Z80::dcCB0E()
     rrc(work8);
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCB0F()
 { /* RRC A */
     rrc(regA);
-    
+
 }
 void Z80::dcCB10()
 { /* RL B */
     rl(REG_B);
-    
+
 }
 void Z80::dcCB11()
 { /* RL C */
     rl(REG_C);
-    
+
 }
 void Z80::dcCB12()
 { /* RL D */
     rl(REG_D);
-    
+
 }
 void Z80::dcCB13()
 { /* RL E */
     rl(REG_E);
-    
+
 }
 void Z80::dcCB14()
 { /* RL H */
     rl(REG_H);
-    
+
 }
 void Z80::dcCB15()
 { /* RL L */
     rl(REG_L);
-    
+
 }
 void Z80::dcCB16()
 { /* RL (HL) */
@@ -3156,42 +3333,42 @@ void Z80::dcCB16()
     rl(work8);
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCB17()
 { /* RL A */
     rl(regA);
-    
+
 }
 void Z80::dcCB18()
 { /* RR B */
     rr(REG_B);
-    
+
 }
 void Z80::dcCB19()
 { /* RR C */
     rr(REG_C);
-    
+
 }
 void Z80::dcCB1A()
 { /* RR D */
     rr(REG_D);
-    
+
 }
 void Z80::dcCB1B()
 { /* RR E */
     rr(REG_E);
-    
+
 }
 void Z80::dcCB1C()
 { /*RR H*/
     rr(REG_H);
-    
+
 }
 void Z80::dcCB1D()
 { /* RR L */
     rr(REG_L);
-    
+
 }
 void Z80::dcCB1E()
 { /* RR (HL) */
@@ -3199,42 +3376,42 @@ void Z80::dcCB1E()
     rr(work8);
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCB1F()
 { /* RR A */
     rr(regA);
-    
+
 }
 void Z80::dcCB20()
 { /* SLA B */
     sla(REG_B);
-    
+
 }
 void Z80::dcCB21()
 { /* SLA C */
     sla(REG_C);
-    
+
 }
 void Z80::dcCB22()
 { /* SLA D */
     sla(REG_D);
-    
+
 }
 void Z80::dcCB23()
 { /* SLA E */
     sla(REG_E);
-    
+
 }
 void Z80::dcCB24()
 { /* SLA H */
     sla(REG_H);
-    
+
 }
 void Z80::dcCB25()
 { /* SLA L */
     sla(REG_L);
-    
+
 }
 void Z80::dcCB26()
 { /* SLA (HL) */
@@ -3242,42 +3419,42 @@ void Z80::dcCB26()
     sla(work8);
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCB27()
 { /* SLA A */
     sla(regA);
-    
+
 }
 void Z80::dcCB28()
 { /* SRA B */
     sra(REG_B);
-    
+
 }
 void Z80::dcCB29()
 { /* SRA C */
     sra(REG_C);
-    
+
 }
 void Z80::dcCB2A()
 { /* SRA D */
     sra(REG_D);
-    
+
 }
 void Z80::dcCB2B()
 { /* SRA E */
     sra(REG_E);
-    
+
 }
 void Z80::dcCB2C()
 { /* SRA H */
     sra(REG_H);
-    
+
 }
 void Z80::dcCB2D()
 { /* SRA L */
     sra(REG_L);
-    
+
 }
 void Z80::dcCB2E()
 { /* SRA (HL) */
@@ -3285,42 +3462,42 @@ void Z80::dcCB2E()
     sra(work8);
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCB2F()
 { /* SRA A */
     sra(regA);
-    
+
 }
 void Z80::dcCB30()
 { /* SLL B */
     sll(REG_B);
-    
+
 }
 void Z80::dcCB31()
 { /* SLL C */
     sll(REG_C);
-    
+
 }
 void Z80::dcCB32()
 { /* SLL D */
     sll(REG_D);
-    
+
 }
 void Z80::dcCB33()
 { /* SLL E */
     sll(REG_E);
-    
+
 }
 void Z80::dcCB34()
 { /* SLL H */
     sll(REG_H);
-    
+
 }
 void Z80::dcCB35()
 { /* SLL L */
     sll(REG_L);
-    
+
 }
 void Z80::dcCB36()
 { /* SLL (HL) */
@@ -3328,42 +3505,42 @@ void Z80::dcCB36()
     sll(work8);
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCB37()
 { /* SLL A */
     sll(regA);
-    
+
 }
 void Z80::dcCB38()
 { /* SRL B */
     srl(REG_B);
-    
+
 }
 void Z80::dcCB39()
 { /* SRL C */
     srl(REG_C);
-    
+
 }
 void Z80::dcCB3A()
 { /* SRL D */
     srl(REG_D);
-    
+
 }
 void Z80::dcCB3B()
 { /* SRL E */
     srl(REG_E);
-    
+
 }
 void Z80::dcCB3C()
 { /* SRL H */
     srl(REG_H);
-    
+
 }
 void Z80::dcCB3D()
 { /* SRL L */
     srl(REG_L);
-    
+
 }
 void Z80::dcCB3E()
 { /* SRL (HL) */
@@ -3371,1020 +3548,1020 @@ void Z80::dcCB3E()
     srl(work8);
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCB3F()
 { /* SRL A */
     srl(regA);
-    
+
 }
 void Z80::dcCB40()
 { /* BIT 0,B */
     bitTest(0x01, REG_B);
-    
+
 }
 void Z80::dcCB41()
 { /* BIT 0,C */
     bitTest(0x01, REG_C);
-    
+
 }
 void Z80::dcCB42()
 { /* BIT 0,D */
     bitTest(0x01, REG_D);
-    
+
 }
 void Z80::dcCB43()
 { /* BIT 0,E */
     bitTest(0x01, REG_E);
-    
+
 }
 void Z80::dcCB44()
 { /* BIT 0,H */
     bitTest(0x01, REG_H);
-    
+
 }
 void Z80::dcCB45()
 { /* BIT 0,L */
     bitTest(0x01, REG_L);
-    
+
 }
 void Z80::dcCB46()
 { /* BIT 0,(HL) */
     bitTest(0x01, Z80Ops::peek8(REG_HL));
     sz5h3pnFlags = (sz5h3pnFlags & FLAG_SZHP_MASK) | (REG_W & FLAG_53_MASK);
     Z80Ops::addressOnBus(REG_HL, 1);
-    
+
 }
 void Z80::dcCB47()
 { /* BIT 0,A */
     bitTest(0x01, regA);
-    
+
 }
 void Z80::dcCB48()
 { /* BIT 1,B */
     bitTest(0x02, REG_B);
-    
+
 }
 void Z80::dcCB49()
 { /* BIT 1,C */
     bitTest(0x02, REG_C);
-    
+
 }
 void Z80::dcCB4A()
 { /* BIT 1,D */
     bitTest(0x02, REG_D);
-    
+
 }
 void Z80::dcCB4B()
 { /* BIT 1,E */
     bitTest(0x02, REG_E);
-    
+
 }
 void Z80::dcCB4C()
 { /* BIT 1,H */
     bitTest(0x02, REG_H);
-    
+
 }
 void Z80::dcCB4D()
 { /* BIT 1,L */
     bitTest(0x02, REG_L);
-    
+
 }
 void Z80::dcCB4E()
 { /* BIT 1,(HL) */
     bitTest(0x02, Z80Ops::peek8(REG_HL));
     sz5h3pnFlags = (sz5h3pnFlags & FLAG_SZHP_MASK) | (REG_W & FLAG_53_MASK);
     Z80Ops::addressOnBus(REG_HL, 1);
-    
+
 }
 void Z80::dcCB4F()
 { /* BIT 1,A */
     bitTest(0x02, regA);
-    
+
 }
 void Z80::dcCB50()
 { /* BIT 2,B */
     bitTest(0x04, REG_B);
-    
+
 }
 void Z80::dcCB51()
 { /* BIT 2,C */
     bitTest(0x04, REG_C);
-    
+
 }
 void Z80::dcCB52()
 { /* BIT 2,D */
     bitTest(0x04, REG_D);
-    
+
 }
 void Z80::dcCB53()
 { /* BIT 2,E */
     bitTest(0x04, REG_E);
-    
+
 }
 void Z80::dcCB54()
 { /* BIT 2,H */
     bitTest(0x04, REG_H);
-    
+
 }
 void Z80::dcCB55()
 { /* BIT 2,L */
     bitTest(0x04, REG_L);
-    
+
 }
 void Z80::dcCB56()
 { /* BIT 2,(HL) */
     bitTest(0x04, Z80Ops::peek8(REG_HL));
     sz5h3pnFlags = (sz5h3pnFlags & FLAG_SZHP_MASK) | (REG_W & FLAG_53_MASK);
     Z80Ops::addressOnBus(REG_HL, 1);
-    
+
 }
 void Z80::dcCB57()
 { /* BIT 2,A */
     bitTest(0x04, regA);
-    
+
 }
 void Z80::dcCB58()
 { /* BIT 3,B */
     bitTest(0x08, REG_B);
-    
+
 }
 void Z80::dcCB59()
 { /* BIT 3,C */
     bitTest(0x08, REG_C);
-    
+
 }
 void Z80::dcCB5A()
 { /* BIT 3,D */
     bitTest(0x08, REG_D);
-    
+
 }
 void Z80::dcCB5B()
 { /* BIT 3,E */
     bitTest(0x08, REG_E);
-    
+
 }
 void Z80::dcCB5C()
 { /* BIT 3,H */
     bitTest(0x08, REG_H);
-    
+
 }
 void Z80::dcCB5D()
 { /* BIT 3,L */
     bitTest(0x08, REG_L);
-    
+
 }
 void Z80::dcCB5E()
 { /* BIT 3,(HL) */
     bitTest(0x08, Z80Ops::peek8(REG_HL));
     sz5h3pnFlags = (sz5h3pnFlags & FLAG_SZHP_MASK) | (REG_W & FLAG_53_MASK);
     Z80Ops::addressOnBus(REG_HL, 1);
-    
+
 }
 void Z80::dcCB5F()
 { /* BIT 3,A */
     bitTest(0x08, regA);
-    
+
 }
 void Z80::dcCB60()
 { /* BIT 4,B */
     bitTest(0x10, REG_B);
-    
+
 }
 void Z80::dcCB61()
 { /* BIT 4,C */
     bitTest(0x10, REG_C);
-    
+
 }
 void Z80::dcCB62()
 { /* BIT 4,D */
     bitTest(0x10, REG_D);
-    
+
 }
 void Z80::dcCB63()
 { /* BIT 4,E */
     bitTest(0x10, REG_E);
-    
+
 }
 void Z80::dcCB64()
 { /* BIT 4,H */
     bitTest(0x10, REG_H);
-    
+
 }
 void Z80::dcCB65()
 { /* BIT 4,L */
     bitTest(0x10, REG_L);
-    
+
 }
 void Z80::dcCB66()
 { /* BIT 4,(HL) */
     bitTest(0x10, Z80Ops::peek8(REG_HL));
     sz5h3pnFlags = (sz5h3pnFlags & FLAG_SZHP_MASK) | (REG_W & FLAG_53_MASK);
     Z80Ops::addressOnBus(REG_HL, 1);
-    
+
 }
 void Z80::dcCB67()
 { /* BIT 4,A */
     bitTest(0x10, regA);
-    
+
 }
 void Z80::dcCB68()
 { /* BIT 5,B */
     bitTest(0x20, REG_B);
-    
+
 }
 void Z80::dcCB69()
 { /* BIT 5,C */
     bitTest(0x20, REG_C);
-    
+
 }
 void Z80::dcCB6A()
 { /* BIT 5,D */
     bitTest(0x20, REG_D);
-    
+
 }
 void Z80::dcCB6B()
 { /* BIT 5,E */
     bitTest(0x20, REG_E);
-    
+
 }
 void Z80::dcCB6C()
 { /* BIT 5,H */
     bitTest(0x20, REG_H);
-    
+
 }
 void Z80::dcCB6D()
 { /* BIT 5,L */
     bitTest(0x20, REG_L);
-    
+
 }
 void Z80::dcCB6E()
 { /* BIT 5,(HL) */
     bitTest(0x20, Z80Ops::peek8(REG_HL));
     sz5h3pnFlags = (sz5h3pnFlags & FLAG_SZHP_MASK) | (REG_W & FLAG_53_MASK);
     Z80Ops::addressOnBus(REG_HL, 1);
-    
+
 }
 void Z80::dcCB6F()
 { /* BIT 5,A */
     bitTest(0x20, regA);
-    
+
 }
 void Z80::dcCB70()
 { /* BIT 6,B */
     bitTest(0x40, REG_B);
-    
+
 }
 void Z80::dcCB71()
 { /* BIT 6,C */
     bitTest(0x40, REG_C);
-    
+
 }
 void Z80::dcCB72()
 { /* BIT 6,D */
     bitTest(0x40, REG_D);
-    
+
 }
 void Z80::dcCB73()
 { /* BIT 6,E */
     bitTest(0x40, REG_E);
-    
+
 }
 void Z80::dcCB74()
 { /* BIT 6,H */
     bitTest(0x40, REG_H);
-    
+
 }
 void Z80::dcCB75()
 { /* BIT 6,L */
     bitTest(0x40, REG_L);
-    
+
 }
 void Z80::dcCB76()
 { /* BIT 6,(HL) */
     bitTest(0x40, Z80Ops::peek8(REG_HL));
     sz5h3pnFlags = (sz5h3pnFlags & FLAG_SZHP_MASK) | (REG_W & FLAG_53_MASK);
     Z80Ops::addressOnBus(REG_HL, 1);
-    
+
 }
 void Z80::dcCB77()
 { /* BIT 6,A */
     bitTest(0x40, regA);
-    
+
 }
 void Z80::dcCB78()
 { /* BIT 7,B */
     bitTest(0x80, REG_B);
-    
+
 }
 void Z80::dcCB79()
 { /* BIT 7,C */
     bitTest(0x80, REG_C);
-    
+
 }
 void Z80::dcCB7A()
 { /* BIT 7,D */
     bitTest(0x80, REG_D);
-    
+
 }
 void Z80::dcCB7B()
 { /* BIT 7,E */
     bitTest(0x80, REG_E);
-    
+
 }
 void Z80::dcCB7C()
 { /* BIT 7,H */
     bitTest(0x80, REG_H);
-    
+
 }
 void Z80::dcCB7D()
 { /* BIT 7,L */
     bitTest(0x80, REG_L);
-    
+
 }
 void Z80::dcCB7E()
 { /* BIT 7,(HL) */
     bitTest(0x80, Z80Ops::peek8(REG_HL));
     sz5h3pnFlags = (sz5h3pnFlags & FLAG_SZHP_MASK) | (REG_W & FLAG_53_MASK);
     Z80Ops::addressOnBus(REG_HL, 1);
-    
+
 }
 void Z80::dcCB7F()
 { /* BIT 7,A */
     bitTest(0x80, regA);
-    
+
 }
 void Z80::dcCB80()
 { /* RES 0,B */
     REG_B &= 0xFE;
-    
+
 }
 void Z80::dcCB81()
 { /* RES 0,C */
     REG_C &= 0xFE;
-    
+
 }
 void Z80::dcCB82()
 { /* RES 0,D */
     REG_D &= 0xFE;
-    
+
 }
 void Z80::dcCB83()
 { /* RES 0,E */
     REG_E &= 0xFE;
-    
+
 }
 void Z80::dcCB84()
 { /* RES 0,H */
     REG_H &= 0xFE;
-    
+
 }
 void Z80::dcCB85()
 { /* RES 0,L */
     REG_L &= 0xFE;
-    
+
 }
 void Z80::dcCB86()
 { /* RES 0,(HL) */
     uint8_t work8 = Z80Ops::peek8(REG_HL) & 0xFE;
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCB87()
 { /* RES 0,A */
     regA &= 0xFE;
-    
+
 }
 void Z80::dcCB88()
 { /* RES 1,B */
     REG_B &= 0xFD;
-    
+
 }
 void Z80::dcCB89()
 { /* RES 1,C */
     REG_C &= 0xFD;
-    
+
 }
 void Z80::dcCB8A()
 { /* RES 1,D */
     REG_D &= 0xFD;
-    
+
 }
 void Z80::dcCB8B()
 { /* RES 1,E */
     REG_E &= 0xFD;
-    
+
 }
 void Z80::dcCB8C()
 { /* RES 1,H */
     REG_H &= 0xFD;
-    
+
 }
 void Z80::dcCB8D()
 { /* RES 1,L */
     REG_L &= 0xFD;
-    
+
 }
 void Z80::dcCB8E()
 { /* RES 1,(HL) */
     uint8_t work8 = Z80Ops::peek8(REG_HL) & 0xFD;
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCB8F()
 { /* RES 1,A */
     regA &= 0xFD;
-    
+
 }
 void Z80::dcCB90()
 { /* RES 2,B */
     REG_B &= 0xFB;
-    
+
 }
 void Z80::dcCB91()
 { /* RES 2,C */
     REG_C &= 0xFB;
-    
+
 }
 void Z80::dcCB92()
 { /* RES 2,D */
     REG_D &= 0xFB;
-    
+
 }
 void Z80::dcCB93()
 { /* RES 2,E */
     REG_E &= 0xFB;
-    
+
 }
 void Z80::dcCB94()
 { /* RES 2,H */
     REG_H &= 0xFB;
-    
+
 }
 void Z80::dcCB95()
 { /* RES 2,L */
     REG_L &= 0xFB;
-    
+
 }
 void Z80::dcCB96()
 { /* RES 2,(HL) */
     uint8_t work8 = Z80Ops::peek8(REG_HL) & 0xFB;
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCB97()
 { /* RES 2,A */
     regA &= 0xFB;
-    
+
 }
 void Z80::dcCB98()
 { /* RES 3,B */
     REG_B &= 0xF7;
-    
+
 }
 void Z80::dcCB99()
 { /* RES 3,C */
     REG_C &= 0xF7;
-    
+
 }
 void Z80::dcCB9A()
 { /* RES 3,D */
     REG_D &= 0xF7;
-    
+
 }
 void Z80::dcCB9B()
 { /* RES 3,E */
     REG_E &= 0xF7;
-    
+
 }
 void Z80::dcCB9C()
 { /* RES 3,H */
     REG_H &= 0xF7;
-    
+
 }
 void Z80::dcCB9D()
 { /* RES 3,L */
     REG_L &= 0xF7;
-    
+
 }
 void Z80::dcCB9E()
 { /* RES 3,(HL) */
     uint8_t work8 = Z80Ops::peek8(REG_HL) & 0xF7;
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCB9F()
 { /* RES 3,A */
     regA &= 0xF7;
-    
+
 }
 void Z80::dcCBA0()
 { /* RES 4,B */
     REG_B &= 0xEF;
-    
+
 }
 void Z80::dcCBA1()
 { /* RES 4,C */
     REG_C &= 0xEF;
-    
+
 }
 void Z80::dcCBA2()
 { /* RES 4,D */
     REG_D &= 0xEF;
-    
+
 }
 void Z80::dcCBA3()
 { /* RES 4,E */
     REG_E &= 0xEF;
-    
+
 }
 void Z80::dcCBA4()
 { /* RES 4,H */
     REG_H &= 0xEF;
-    
+
 }
 void Z80::dcCBA5()
 { /* RES 4,L */
     REG_L &= 0xEF;
-    
+
 }
 void Z80::dcCBA6()
 { /* RES 4,(HL) */
     uint8_t work8 = Z80Ops::peek8(REG_HL) & 0xEF;
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCBA7()
 { /* RES 4,A */
     regA &= 0xEF;
-    
+
 }
 void Z80::dcCBA8()
 { /* RES 5,B */
     REG_B &= 0xDF;
-    
+
 }
 void Z80::dcCBA9()
 { /* RES 5,C */
     REG_C &= 0xDF;
-    
+
 }
 void Z80::dcCBAA()
 { /* RES 5,D */
     REG_D &= 0xDF;
-    
+
 }
 void Z80::dcCBAB()
 { /* RES 5,E */
     REG_E &= 0xDF;
-    
+
 }
 void Z80::dcCBAC()
 { /* RES 5,H */
     REG_H &= 0xDF;
-    
+
 }
 void Z80::dcCBAD()
 { /* RES 5,L */
     REG_L &= 0xDF;
-    
+
 }
 void Z80::dcCBAE()
 { /* RES 5,(HL) */
     uint8_t work8 = Z80Ops::peek8(REG_HL) & 0xDF;
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCBAF()
 { /* RES 5,A */
     regA &= 0xDF;
-    
+
 }
 void Z80::dcCBB0()
 { /* RES 6,B */
     REG_B &= 0xBF;
-    
+
 }
 void Z80::dcCBB1()
 { /* RES 6,C */
     REG_C &= 0xBF;
-    
+
 }
 void Z80::dcCBB2()
 { /* RES 6,D */
     REG_D &= 0xBF;
-    
+
 }
 void Z80::dcCBB3()
 { /* RES 6,E */
     REG_E &= 0xBF;
-    
+
 }
 void Z80::dcCBB4()
 { /* RES 6,H */
     REG_H &= 0xBF;
-    
+
 }
 void Z80::dcCBB5()
 { /* RES 6,L */
     REG_L &= 0xBF;
-    
+
 }
 void Z80::dcCBB6()
 { /* RES 6,(HL) */
     uint8_t work8 = Z80Ops::peek8(REG_HL) & 0xBF;
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCBB7()
 { /* RES 6,A */
     regA &= 0xBF;
-    
+
 }
 void Z80::dcCBB8()
 { /* RES 7,B */
     REG_B &= 0x7F;
-    
+
 }
 void Z80::dcCBB9()
 { /* RES 7,C */
     REG_C &= 0x7F;
-    
+
 }
 void Z80::dcCBBA()
 { /* RES 7,D */
     REG_D &= 0x7F;
-    
+
 }
 void Z80::dcCBBB()
 { /* RES 7,E */
     REG_E &= 0x7F;
-    
+
 }
 void Z80::dcCBBC()
 { /* RES 7,H */
     REG_H &= 0x7F;
-    
+
 }
 void Z80::dcCBBD()
 { /* RES 7,L */
     REG_L &= 0x7F;
-    
+
 }
 void Z80::dcCBBE()
 { /* RES 7,(HL) */
     uint8_t work8 = Z80Ops::peek8(REG_HL) & 0x7F;
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCBBF()
 { /* RES 7,A */
     regA &= 0x7F;
-    
+
 }
 void Z80::dcCBC0()
 { /* SET 0,B */
     REG_B |= 0x01;
-    
+
 }
 void Z80::dcCBC1()
 { /* SET 0,C */
     REG_C |= 0x01;
-    
+
 }
 void Z80::dcCBC2()
 { /* SET 0,D */
     REG_D |= 0x01;
-    
+
 }
 void Z80::dcCBC3()
 { /* SET 0,E */
     REG_E |= 0x01;
-    
+
 }
 void Z80::dcCBC4()
 { /* SET 0,H */
     REG_H |= 0x01;
-    
+
 }
 void Z80::dcCBC5()
 { /* SET 0,L */
     REG_L |= 0x01;
-    
+
 }
 void Z80::dcCBC6()
 { /* SET 0,(HL) */
     uint8_t work8 = Z80Ops::peek8(REG_HL) | 0x01;
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCBC7()
 { /* SET 0,A */
     regA |= 0x01;
-    
+
 }
 void Z80::dcCBC8()
 { /* SET 1,B */
     REG_B |= 0x02;
-    
+
 }
 void Z80::dcCBC9()
 { /* SET 1,C */
     REG_C |= 0x02;
-    
+
 }
 void Z80::dcCBCA()
 { /* SET 1,D */
     REG_D |= 0x02;
-    
+
 }
 void Z80::dcCBCB()
 { /* SET 1,E */
     REG_E |= 0x02;
-    
+
 }
 void Z80::dcCBCC()
 { /* SET 1,H */
     REG_H |= 0x02;
-    
+
 }
 void Z80::dcCBCD()
 { /* SET 1,L */
     REG_L |= 0x02;
-    
+
 }
 void Z80::dcCBCE()
 { /* SET 1,(HL) */
     uint8_t work8 = Z80Ops::peek8(REG_HL) | 0x02;
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCBCF()
 { /* SET 1,A */
     regA |= 0x02;
-    
+
 }
 void Z80::dcCBD0()
 { /* SET 2,B */
     REG_B |= 0x04;
-    
+
 }
 void Z80::dcCBD1()
 { /* SET 2,C */
     REG_C |= 0x04;
-    
+
 }
 void Z80::dcCBD2()
 { /* SET 2,D */
     REG_D |= 0x04;
-    
+
 }
 void Z80::dcCBD3()
 { /* SET 2,E */
     REG_E |= 0x04;
-    
+
 }
 void Z80::dcCBD4()
 { /* SET 2,H */
     REG_H |= 0x04;
-    
+
 }
 void Z80::dcCBD5()
 { /* SET 2,L */
     REG_L |= 0x04;
-    
+
 }
 void Z80::dcCBD6()
 { /* SET 2,(HL) */
     uint8_t work8 = Z80Ops::peek8(REG_HL) | 0x04;
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCBD7()
 { /* SET 2,A */
     regA |= 0x04;
-    
+
 }
 void Z80::dcCBD8()
 { /* SET 3,B */
     REG_B |= 0x08;
-    
+
 }
 void Z80::dcCBD9()
 { /* SET 3,C */
     REG_C |= 0x08;
-    
+
 }
 void Z80::dcCBDA()
 { /* SET 3,D */
     REG_D |= 0x08;
-    
+
 }
 void Z80::dcCBDB()
 { /* SET 3,E */
     REG_E |= 0x08;
-    
+
 }
 void Z80::dcCBDC()
 { /* SET 3,H */
     REG_H |= 0x08;
-    
+
 }
 void Z80::dcCBDD()
 { /* SET 3,L */
     REG_L |= 0x08;
-    
+
 }
 void Z80::dcCBDE()
 { /* SET 3,(HL) */
     uint8_t work8 = Z80Ops::peek8(REG_HL) | 0x08;
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCBDF()
 { /* SET 3,A */
     regA |= 0x08;
-    
+
 }
 void Z80::dcCBE0()
 { /* SET 4,B */
     REG_B |= 0x10;
-    
+
 }
 void Z80::dcCBE1()
 { /* SET 4,C */
     REG_C |= 0x10;
-    
+
 }
 void Z80::dcCBE2()
 { /* SET 4,D */
     REG_D |= 0x10;
-    
+
 }
 void Z80::dcCBE3()
 { /* SET 4,E */
     REG_E |= 0x10;
-    
+
 }
 void Z80::dcCBE4()
 { /* SET 4,H */
     REG_H |= 0x10;
-    
+
 }
 void Z80::dcCBE5()
 { /* SET 4,L */
     REG_L |= 0x10;
-    
+
 }
 void Z80::dcCBE6()
 { /* SET 4,(HL) */
     uint8_t work8 = Z80Ops::peek8(REG_HL) | 0x10;
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCBE7()
 { /* SET 4,A */
     regA |= 0x10;
-    
+
 }
 void Z80::dcCBE8()
 { /* SET 5,B */
     REG_B |= 0x20;
-    
+
 }
 void Z80::dcCBE9()
 { /* SET 5,C */
     REG_C |= 0x20;
-    
+
 }
 void Z80::dcCBEA()
 { /* SET 5,D */
     REG_D |= 0x20;
-    
+
 }
 void Z80::dcCBEB()
 { /* SET 5,E */
     REG_E |= 0x20;
-    
+
 }
 void Z80::dcCBEC()
 { /* SET 5,H */
     REG_H |= 0x20;
-    
+
 }
 void Z80::dcCBED()
 { /* SET 5,L */
     REG_L |= 0x20;
-    
+
 }
 void Z80::dcCBEE()
 { /* SET 5,(HL) */
     uint8_t work8 = Z80Ops::peek8(REG_HL) | 0x20;
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCBEF()
 { /* SET 5,A */
     regA |= 0x20;
-    
+
 }
 void Z80::dcCBF0()
 { /* SET 6,B */
     REG_B |= 0x40;
-    
+
 }
 void Z80::dcCBF1()
 { /* SET 6,C */
     REG_C |= 0x40;
-    
+
 }
 void Z80::dcCBF2()
 { /* SET 6,D */
     REG_D |= 0x40;
-    
+
 }
 void Z80::dcCBF3()
 { /* SET 6,E */
     REG_E |= 0x40;
-    
+
 }
 void Z80::dcCBF4()
 { /* SET 6,H */
     REG_H |= 0x40;
-    
+
 }
 void Z80::dcCBF5()
 { /* SET 6,L */
     REG_L |= 0x40;
-    
+
 }
 void Z80::dcCBF6()
 { /* SET 6,(HL) */
     uint8_t work8 = Z80Ops::peek8(REG_HL) | 0x40;
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCBF7()
 { /* SET 6,A */
     regA |= 0x40;
-    
+
 }
 void Z80::dcCBF8()
 { /* SET 7,B */
     REG_B |= 0x80;
-    
+
 }
 void Z80::dcCBF9()
 { /* SET 7,C */
     REG_C |= 0x80;
-    
+
 }
 void Z80::dcCBFA()
 { /* SET 7,D */
     REG_D |= 0x80;
-    
+
 }
 void Z80::dcCBFB()
 { /* SET 7,E */
     REG_E |= 0x80;
-    
+
 }
 void Z80::dcCBFC()
 { /* SET 7,H */
     REG_H |= 0x80;
-    
+
 }
 void Z80::dcCBFD()
 { /* SET 7,L */
     REG_L |= 0x80;
-    
+
 }
 void Z80::dcCBFE()
 { /* SET 7,(HL) */
     uint8_t work8 = Z80Ops::peek8(REG_HL) | 0x80;
     Z80Ops::addressOnBus(REG_HL, 1);
     Z80Ops::poke8(REG_HL, work8);
-    
+
 }
 void Z80::dcCBFF()
 { /* SET 7,A */
     regA |= 0x80;
-    
+
 }
 
 void (*Z80::dcCB[256])() = {
@@ -4398,19 +4575,19 @@ void (*Z80::dcCB[256])() = {
     &dcCB18, &dcCB19, &dcCB1A, &dcCB1B,
     &dcCB1C, &dcCB1D, &dcCB1E, &dcCB1F,
 
-    &dcCB20, &dcCB21, &dcCB22, &dcCB23, 
-    &dcCB24, &dcCB25, &dcCB26, &dcCB27, 
-    &dcCB28, &dcCB29, &dcCB2A, &dcCB2B, 
-    &dcCB2C, &dcCB2D, &dcCB2E, &dcCB2F,            
+    &dcCB20, &dcCB21, &dcCB22, &dcCB23,
+    &dcCB24, &dcCB25, &dcCB26, &dcCB27,
+    &dcCB28, &dcCB29, &dcCB2A, &dcCB2B,
+    &dcCB2C, &dcCB2D, &dcCB2E, &dcCB2F,
 
-    &dcCB30, &dcCB31, &dcCB32, &dcCB33, 
-    &dcCB34, &dcCB35, &dcCB36, &dcCB37, 
-    &dcCB38, &dcCB39, &dcCB3A, &dcCB3B, 
+    &dcCB30, &dcCB31, &dcCB32, &dcCB33,
+    &dcCB34, &dcCB35, &dcCB36, &dcCB37,
+    &dcCB38, &dcCB39, &dcCB3A, &dcCB3B,
     &dcCB3C, &dcCB3D, &dcCB3E, &dcCB3F,
 
-    &dcCB40, &dcCB41, &dcCB42, &dcCB43, 
-    &dcCB44, &dcCB45, &dcCB46, &dcCB47, 
-    &dcCB48, &dcCB49, &dcCB4A, &dcCB4B, 
+    &dcCB40, &dcCB41, &dcCB42, &dcCB43,
+    &dcCB44, &dcCB45, &dcCB46, &dcCB47,
+    &dcCB48, &dcCB49, &dcCB4A, &dcCB4B,
     &dcCB4C, &dcCB4D, &dcCB4E, &dcCB4F,
 
     &dcCB50, &dcCB51, &dcCB52, &dcCB53,
@@ -4557,44 +4734,83 @@ void Z80::decodeDDFD(RegisterPair& regIXY) {
         { /* DEC IX */
             Z80Ops::addressOnBus(getPairIR().word, 2);
             regIXY.word--;
+
             if (REG_PC == 0x04d4) { // Save trap
-                static uint8_t SaveRes;
+
+                static bool SaveFileExists;
+
                 if (REG_HL == 0x1F80) {
-                    regIXY.word++;
-                    // remove .tap output file if exists
-                    string name;
-                    uint16_t header_data = REG_IX;
-                    for (int i=0; i < 10; i++)
-                        name += MemESP::ramCurrent[header_data++ >> 14][header_data & 0x3fff];
-                    rtrim(name);
-                    Tape::tapeSaveName = FileUtils::TAP_Path + name + ".tap";
-                    SaveRes = DLG_NO;
-                    if ( FileUtils::fsMount ) {
-                        FILINFO stat_buf;
-                        if ( f_stat(Tape::tapeSaveName.c_str(), &stat_buf) == FR_OK ) {
-                            string title = OSD_TAPE_SAVE[Config::lang];
-                            string msg = OSD_TAPE_SAVE_EXIST[Config::lang];
-                            SaveRes = OSD::msgDialog(title, msg);
-                        } else {
-                            SaveRes = DLG_YES;
-                        }
-                    }
-                    if (SaveRes == DLG_YES) {
-                        REG_DE--;
-                        regA = 0x00;
-                        if (FileUtils::fsMount) Tape::Save();
-                        REG_PC = 0x555;
-                    }
-                } else {
-                    if (SaveRes == DLG_YES) {
-                        REG_DE--;
-                        regIXY.word++;
-                        regA = 0xFF;
-                        if (FileUtils::fsMount) Tape::Save();
-                        REG_PC = 0x555;
-                    }
+                    SaveFileExists = (Tape::tapeFileType == TAPE_FTYPE_TAP);
+                    if (!SaveFileExists)
+                        OSD::osdCenteredMsg(OSD_TAPE_SELECT_ERR[Config::lang], LEVEL_WARN);
                 }
+
+                if (SaveFileExists) {
+                    regA = REG_HL == 0x1F80 ? 0x00 : 0xFF;
+                    regIXY.word++;
+                    REG_DE--;
+                    Tape::Save();
+                    REG_PC = 0x555;
+                }
+
+                // static uint8_t SaveRes;
+
+                // if (REG_HL == 0x1F80) {
+
+                //     // printf("Saving header!\n");
+
+                //     regIXY.word++;
+
+                //     // remove .tap output file if exists
+
+                //     // Get save name
+                //     string name;
+                //     uint16_t header_data = REG_IX;
+                //     for (int i=0; i < 10; i++)
+                //         name += MemESP::ramCurrent[header_data++ >> 14][header_data & 0x3fff];
+                //     rtrim(name);
+
+                //     SaveRes = DLG_YES;
+
+                //     struct stat stat_buf;
+
+                //     printf("Tapesavename: %s\n",Tape::tapeSaveName.c_str());
+                //     if ( Tape::tapeSaveName == "" || Tape::tapeSaveName == "none" || !FileUtils::hasTAPextension(Tape::tapeSaveName) || stat(Tape::tapeSaveName.c_str(), &stat_buf) ) {
+                //         OSD::osdCenteredMsg(OSD_TAPE_SELECT_ERR[Config::lang], LEVEL_WARN);
+                //         SaveRes = DLG_NO;
+                //     } else {
+                //         REG_DE--;
+                //         regA = 0x00;
+
+                //         Tape::Save();
+
+                //         REG_PC = 0x555;
+                //     }
+
+                // } else {
+
+                //     // printf("Saving data!\n");
+
+                //     // Call Save function
+
+                //     // printf("Saving %s block.\n",Tape::tapeSaveName.c_str());
+
+                //     if (SaveRes == DLG_YES) {
+
+                //         REG_DE--;
+                //         regIXY.word++;
+                //         regA = 0xFF;
+
+                //         Tape::Save();
+
+                //         REG_PC = 0x555;
+
+                //     }
+
+                // }
+
             }
+
             break;
         }
         case 0x2C:
@@ -5944,7 +6160,9 @@ void Z80::decodeED(void) {
             // REG_WZ = REG_BC;
             // Ports::output(REG_WZ++, 0x00);
 
-            Ports::output(REG_BC, 0x00);
+            Ports::output(REG_BC, 0x00); // NMOS Z80 returns 0x00
+            // Ports::output(REG_BC, 0xFF); // CMOS Z80 returns 0xFF
+
             REG_WZ = REG_BC + 1;
 
             return;
@@ -6173,7 +6391,7 @@ IRAM_ATTR void Z80::copyToRegister(uint8_t value)
 }
 
 void Z80::SetAbortedINxR_OTxRFlags() {
-        
+
     sz5h3pnFlags &= ~FLAG_53_MASK;
     sz5h3pnFlags |= (REG_PCh & FLAG_53_MASK);
 

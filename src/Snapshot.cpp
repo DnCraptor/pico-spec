@@ -468,7 +468,7 @@ bool FileZ80::load(string z80_fn) {
         // printf("z80_arch: %s mch: %d pref_romset48: %s pref_romset128: %s z80_romset: %s\n",z80_arch.c_str(),mch,Config::pref_romSet_48.c_str(),Config::pref_romSet_128.c_str(),z80_romset.c_str());
 
         if (z80_arch == "48K") {
-            if (Config::pref_romSet_48 == "48K" || Config::pref_romSet_48 == "48Kes")
+            if (Config::pref_romSet_48 == "48K" || Config::pref_romSet_48 == "48Kes" || Config::pref_romSet_48 == "48Kby")
                 z80_romset = Config::pref_romSet_48;
         } else
         if (z80_arch == "128K") {
