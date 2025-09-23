@@ -81,6 +81,7 @@ uint8_t Config::render = 0;
 
 bool     Config::TABasfire1 = false;
 bool     Config::StartMsg = true;
+signed char Config::aud_volume = 0;
 
 void Config::requestMachine(string newArch, string newRomSet)
 {
@@ -162,7 +163,7 @@ void Config::requestMachine(string newArch, string newRomSet)
             MemESP::rom[0].assign_rom(gb_rom_pentagon_128k);
             MemESP::rom[1].assign_rom(gb_rom_pentagon_128k + (16 << 10));
             if (romSetPent == "128Kpg") {
-                MemESP::rom[0].assign_rom(gb_rom_gluk);
+                MemESP::rom[3].assign_rom(gb_rom_gluk);
             }
         }
     }
@@ -207,6 +208,12 @@ static void nvs_get_u8(const char* key, uint8_t& v, const vector<string>& sts) {
     }
 }
 static void nvs_get_u16(const char* key, uint16_t& v, const vector<string>& sts) {
+    string t;
+    if (nvs_get_str(key, t, sts)) {
+        v = atoi(t.c_str());
+    }
+}
+static void nvs_get_sc(const char* key, signed char& v, const vector<string>& sts) {
     string t;
     if (nvs_get_str(key, t, sts)) {
         v = atoi(t.c_str());
@@ -356,6 +363,7 @@ void Config::load() {
         nvs_get_u8("render", Config::render, sts);
         nvs_get_b("TABasfire1", Config::TABasfire1, sts);
         nvs_get_b("StartMsg", Config::StartMsg, sts);
+        nvs_get_sc("AudVolume", Config::aud_volume, sts);
     }
 }
 
@@ -379,6 +387,10 @@ static void nvs_set_u8(FIL* handle, const char* name, uint8_t val) {
     nvs_set_str(handle, name, v.c_str());
 }
 static void nvs_set_u16(FIL* handle, const char* name, uint16_t val) {
+    string v = to_string(val);
+    nvs_set_str(handle, name, v.c_str());
+}
+static void nvs_set_sc(FIL* handle, const char* name, signed char val) {
     string v = to_string(val);
     nvs_set_str(handle, name, v.c_str());
 }
@@ -465,6 +477,7 @@ void Config::save() {
         nvs_set_u8(handle,"render",Config::render);
         nvs_set_str(handle,"TABasfire1", TABasfire1 ? "true" : "false");
         nvs_set_str(handle,"StartMsg", StartMsg ? "true" : "false");
+        nvs_set_sc(handle,"AudVolume", ESPectrum::aud_volume);
         fclose2(handle);
     }
     // printf("Config saved OK\n");

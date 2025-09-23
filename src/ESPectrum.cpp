@@ -204,6 +204,8 @@ int32_t ESPectrum::mouseY = 0;
 bool ESPectrum::mouseButtonL = 0;
 bool ESPectrum::mouseButtonR = 0;
 
+bool ESPectrum::maxSpeed = false;
+
 //=======================================================================================
 // ARDUINO FUNCTIONS
 //=======================================================================================
@@ -658,7 +660,7 @@ if (butter_psram_size() >= (0x04000 * (64+2 - 23))) {
         AY_emu = false; // Disable AY emulation if tape player mode is set
         ESPectrum::aud_volume = ESP_VOLUME_MAX;
     } else
-        ESPectrum::aud_volume = ESP_VOLUME_DEFAULT;
+        ESPectrum::aud_volume = Config::aud_volume;
 
     ESPoffset = 0;
 
@@ -722,6 +724,11 @@ if (butter_psram_size() >= (0x04000 * (64+2 - 23))) {
 //=======================================================================================
 void ESPectrum::reset()
 {
+    ESPectrum::reset(0);
+}
+
+void ESPectrum::reset(uint8_t romInUse)
+{
     // Ports
     for (int i = 0; i < 128; i++) Ports::port[i] = 0xBF;
     if (Config::joystick == JOY_KEMPSTON) Ports::port[Config::kempstonPort] = 0; // Kempston
@@ -729,7 +736,7 @@ void ESPectrum::reset()
 
     // Memory
     MemESP::page0ram = 0;
-    MemESP::romInUse = 0;
+    MemESP::romInUse = romInUse;
     MemESP::bankLatch = 0;
     MemESP::videoLatch = 0;
     MemESP::romLatch = 0;
@@ -860,7 +867,7 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
         if (r) {
             KeytoESP = NextKey.vk;
             Kdown = NextKey.down;
-            if ((Kdown) && ((KeytoESP >= fabgl::VK_F1 && KeytoESP <= fabgl::VK_F12) || KeytoESP == fabgl::VK_PAUSE ||
+            if ((Kdown) && ((KeytoESP >= fabgl::VK_F1 && KeytoESP <= fabgl::VK_F12) || KeytoESP == fabgl::VK_PAUSE || KeytoESP == fabgl::VK_NUMLOCK || KeytoESP == fabgl::VK_TILDE ||
                 KeytoESP == fabgl::VK_VOLUMEUP || KeytoESP == fabgl::VK_VOLUMEDOWN || KeytoESP == fabgl::VK_VOLUMEMUTE)
             ) {
                 int64_t osd_start = esp_timer_get_time();
@@ -1258,12 +1265,12 @@ void ESPectrum::loop() {
 ///        continue;
 ///    }
 
-    if (idle > 0) {
+    if (idle > 0 && !maxSpeed) {
         delayMicroseconds(idle);
     }
 
     // Audio sync
-    if (++sync_cnt & 0x10) {
+    if (++sync_cnt & 0x20) {
 ///     ESPoffset = 128 - pwm_audio_rbstats();
         sync_cnt = 0;
     }

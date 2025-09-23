@@ -115,7 +115,8 @@ public:
 
     static bool trdosFastMode;
     static bool trdosWriteProtect;
-
+    
+    static signed char aud_volume;
 };
 
 #endif // Config.h
