@@ -1108,8 +1108,10 @@ static const char *AboutMsg[2][9] = {
     " [ALT+F6]     Insert disk\n"\
     " [ALT+F9]     Input poke\n"\
     " [ALT+F10]    NMI\n"\
+	" [ALT+F11]    Reset to Gluk rom\n"\
     " [Pause]      Pause\n"\
-    " [PrtScr]     BMP capture (/spec/.c)\n"
+    " [PrtScr]     BMP capture (/spec/.c)\n"\
+	" [NumLk],[~]  Max Speed\n"
 
 #define OSD_HELP_ES \
     " [F1]         Menu principal\n"\
@@ -1128,8 +1130,10 @@ static const char *AboutMsg[2][9] = {
     " [ALT+F6]     Insertar disco\n"\
     " [ALT+F9]     Introducir poke\n"\
     " [ALT+F10]    NMI\n"\
+	" [ALT+F11]    Restablecer a la ROM Gluk\n"\
     " [Pause]      Pausa\n"\
-    " [ImpPant]    Captura BMP (/spec/.c)\n"
+    " [ImpPant]    Captura BMP (/spec/.c)\n"\
+	" [NumLk],[~]  Velocidad máxima\n"
 #else
 #define OSD_HELP_EN \
     " [F1]         Main menu\n"\
@@ -1148,8 +1152,10 @@ static const char *AboutMsg[2][9] = {
     " [ALT+F6]     Insert disk\n"\
     " [ALT+F9]     Input poke\n"\
     " [ALT+F10]    NMI\n"\
+	" [ALT+F11]    Reset to Gluk rom\n"\
     " [Pause]      Pause\n"\
-    " [PrtScr]     BMP capture (/spec/.c)\n"
+    " [PrtScr]     BMP capture (/spec/.c)\n"\
+	" [NumLk],[~]  Max Speed\n"
 
 #define OSD_HELP_ES \
     " [F1]         Menu principal\n"\
@@ -1168,8 +1174,10 @@ static const char *AboutMsg[2][9] = {
     " [ALT+F6]     Insertar disco\n"\
     " [ALT+F9]     Introducir poke\n"\
     " [ALT+F10]    NMI\n"\
+	" [ALT+F11]    Restablecer a la ROM Gluk\n"\
     " [Pause]      Pausa\n"\
-    " [ImpPant]    Captura BMP (/spec/.c)\n"
+    " [ImpPant]    Captura BMP (/spec/.c)\n"\
+	" [NumLk],[~]  Velocidad máxima\n"
 #endif
 
 #define OSD_DBG_HELP_EN \

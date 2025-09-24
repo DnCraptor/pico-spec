@@ -581,7 +581,16 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
       return;
     }
 
-    case kRVMWD177XWriteData: {
+case kRVMWD177XWriteData: {
+
+      // Verificar underrun ANTES de procesar el byte
+      if(wd->control & kRVMWD177XDRQ) {
+        //printf("Lost data in write - aborting command\n");
+        wd->status|=kRVMWD177XStatusLostData;
+        wd->control&=~kRVMWD177XWriting;
+        _end(wd);
+        return;
+      }
 
       wd->led = 2;
 
@@ -589,10 +598,6 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
       // wd->crc=crc(wd->crc,wd->a);
       //printf("Write %d data: %02x CRC: %04x\n",wd->c,wd->a,wd->crc);
       wd->data=0;
-      if(wd->control & kRVMWD177XDRQ) {
-        //printf("Lost data in write\n");
-        wd->status|=kRVMWD177XStatusLostData;
-      }
 
       if(--wd->c) {
         wd->control|=kRVMWD177XDRQ;
@@ -752,6 +757,7 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
       if(wd->control & kRVMWD177XDRQ) {
         wd->status|=kRVMWD177XStatusLostData;
         _end(wd);
+        return; // Missing return
       }
       wd->control|=kRVMWD177XWriting;
       wd->state=kRVMWD177XWriteTrack;
@@ -761,47 +767,29 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
       wd->disk[wd->diskS]->indexDelay = 0;
 
       _do(wd);
-      return;
-
     }
 
-    case kRVMWD177XWriteTrack: {
+case kRVMWD177XWriteTrack: {
 
       if(!wd->retry) {
         _end(wd);
         return;
       }
 
-      wd->led = 2;
-
-      // wd->e=8;
+      // Verificar underrun ANTES de procesar
       if(wd->control & kRVMWD177XDRQ) {
-
-        wd->a = 0;
-        // wd->crc=crc(wd->crc,wd->a);
-        wd->stepState=kRVMWD177XStepWriteByte;
+        printf("Lost data in write track - aborting command\n");
         wd->status|=kRVMWD177XStatusLostData;
-        wd->control|=kRVMWD177XDRQ;
+        wd->control&=~kRVMWD177XWriting;
+        _end(wd);
+        return;
+      }
 
-        // printf("kRVMWD177XWriteTrack kRVMWD177XStatusLostData -> !! ->");
-
-      } else {
-
-        // if (wd->disk[wd->diskS]->indx >0 && wd->disk[wd->diskS]->indx < 32) {
-        //   printf("Format byte: %02x, ",wd->a);
-        //   printf("Disk index %d\n",wd->disk[wd->diskS]->indx);
-        //   // printf("Disk index delay: %d\n",wd->disk[wd->diskS]->indexDelay);
-        //   delay(125);
-        // }
+      wd->led = 2;
 
         switch(wd->data) {
 
           case 0xf5: {
-            // wd->aa=sectorMark;
-            // // wd->e=16;
-            // wd->stepState=kRVMWD177XStepWriteRaw;
-            // wd->control|=kRVMWD177XDRQ;
-            // // wd->crc=0xcdb4;
             wd->wtrackmark++;
 
             wd->a=sectorMark;
@@ -811,24 +799,6 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
             break;
             // return;
           }
-
-          // case 0xf6: {
-
-          //   wd->wtrackmark=0;
-
-          //   // wd->aa=indexMark;
-          //   // // wd->e=16;
-          //   // wd->stepState=kRVMWD177XStepWriteRaw;
-          //   // wd->control|=kRVMWD177XDRQ;
-
-          //   wd->a=indexMark;
-          //   wd->stepState=kRVMWD177XStepWriteByte;
-          //   wd->control|=kRVMWD177XDRQ;
-
-          //   // printf("kRVMWD177XWriteTrack -> Index Mark!! ->");
-          //   break;
-          //   // return;
-          // }
 
           case 0xf7: {
 
@@ -844,7 +814,6 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
           }
 
           default: {
-
             if (wd->wtrackmark == 3 && wd->data == 0xfe) {
               // printf("Write Sector Header, track %d, side %d\n",wd->track,wd->side);
               wd->wtrackmark = 0b100000000;
@@ -859,24 +828,10 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
                 // printf("Write track to track0 side1 sector header!\n");
                 if (wd->track == 0 && wd->side == 1) wd->disk[wd->diskS]->t0s1_info = wd->data;
               } else
-              // if (wd->wtrackmark == 0b100000011) {
-              //   // wd->side = wd->data;
-              // }
               if (wd->wtrackmark == 0b100000011) {
                 wd->wtracksector = wd->data;
                 wd->wtrackmark = 0;
               }
-            /*} else if (wd->wtrackmark & 0b1000000000) {
-              // int seekptr = (wd->track << (11 + wd->disk[wd->diskS]->sides)) + (wd->side ? 4096 : 0) + ((wd->wtracksector - 1) << 8);
-              // fseek(wd->disk[wd->diskS]->Diskfile,seekptr,SEEK_SET);
-              wd->wtrackmark=0b10000000000;
-            } else if (wd->wtrackmark & 0b10000000000) {
-              // int seekptr = (wd->track << (11 + wd->disk[wd->diskS]->sides)) + (wd->side ? 4096 : 0) + ((wd->wtracksector - 1) << 8);
-              // fseek(wd->disk[wd->diskS]->Diskfile,seekptr,SEEK_SET);
-              // wd->wtrackmark=0;
-              // fwrite(&wd->data,1,1, wd->disk[wd->diskS]->Diskfile);
-              wd->wtrackmark++;
-              if (wd->wtrackmark & 0b100000000) wd->wtrackmark = 0;*/
             } else {
               wd->wtrackmark=0;
             }
@@ -890,10 +845,6 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
             // return;
           }
         }
-
-      }
-
-      // printf("Format byte: %02x\n",wd->a);
 
       return;
 
@@ -1095,16 +1046,16 @@ IRAM_ATTR void rvmWD1793Write(rvmWD1793 *wd,uint8_t a,uint8_t value) {
   switch(a & 0x3) {
 
     case 0: //Command
-      // --- WD1793 TR-DOS bug workaround ---
-      // If the command is in the write range (0xB8-0xBF, 0xF8-0xFF) and not in TR-DOS write mode, ignore!
-      if ((value & 0xF8) == 0xB8 || (value & 0xF8) == 0xF8) {
-        // This is a garbage "write" command (write sector/track)
-        // Do NOT perform any write operations, do not damage the disk!
-        wd->status &= ~kRVMWD177XStatusBusy;
-        wd->control |= kRVMWD177XINTRQ;
-        return;
-      }
-      // --- end of patch ---
+      // // --- WD1793 TR-DOS bug workaround ---
+      // // If the command is in the write range (0xB8-0xBF, 0xF8-0xFF) and not in TR-DOS write mode, ignore!
+      // if ((value & 0xF8) == 0xB8 || (value & 0xF8) == 0xF8) {
+      //   // This is a garbage "write" command (write sector/track)
+      //   // Do NOT perform any write operations, do not damage the disk!
+      //   wd->status &= ~kRVMWD177XStatusBusy;
+      //   wd->control |= kRVMWD177XINTRQ;
+      //   return;
+      // }
+      // // --- end of patch ---
 
       if ((value & 0xf0) == 0xd0) {
 
@@ -1351,9 +1302,6 @@ bool rvmWD1793InsertDisk(rvmWD1793 *wd, unsigned char UnitNum, std::string Filen
         f_read(wd->disk[UnitNum]->Diskfile, &diskType, 1, &br);
     }
 
-    //rewind(wd->disk[UnitNum]->Diskfile);
-    f_rewind(wd->disk[UnitNum]->Diskfile);
-
     switch(diskType) {
         case 0x16:
             wd->disk[UnitNum]->tracks = 79;
@@ -1376,6 +1324,25 @@ bool rvmWD1793InsertDisk(rvmWD1793 *wd, unsigned char UnitNum, std::string Filen
             Debug::led_blink();
             return false;
     }
+
+    // Check if we have more tracks than on a standard disk
+    if (!wd->disk[UnitNum]->IsSCLFile) {
+      // Get file size
+      f_lseek(wd->disk[UnitNum]->Diskfile, 0);
+      long diskbytes = f_size(wd->disk[UnitNum]->Diskfile);
+      if( diskbytes > wd->disk[UnitNum]->sides * wd->disk[UnitNum]->tracks * 16 * 256 ) {
+        int i;
+        for( int i = wd->disk[UnitNum]->tracks + 1; i < 83; i++ ) {
+          if( wd->disk[UnitNum]->sides * i * 16 * 256 >= diskbytes ) {
+            wd->disk[UnitNum]->tracks = i;
+            break;
+          }
+        }
+      }
+    }
+
+    //rewind(wd->disk[UnitNum]->Diskfile);
+    f_rewind(wd->disk[UnitNum]->Diskfile);
 
     wd->disk[UnitNum]->t0s1_info = 0;
     wd->disk[UnitNum]->cursectbufpos = 0xff; // 0xffff;

@@ -75,6 +75,9 @@ void CPU::updateStatesInFrame() {
         statesInFrame = TSTATES_PER_FRAME_48;
         IntStart = INT_START48;
         IntEnd = INT_END48 + CPU::latetiming;
+        if (Config::romSet48 == "48Kby") {
+            IntEnd = INT_END_BYTE48 + CPU::latetiming;
+        }
     } else if (Config::arch == "128K" || Z80Ops::isALF) {
         statesInFrame = TSTATES_PER_FRAME_128;
         IntStart = INT_START128;
