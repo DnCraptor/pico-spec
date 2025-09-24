@@ -83,6 +83,7 @@ public:
     static void setup();
     static void loop();
     static void reset();
+    static void reset(uint8_t romInUse);
 
     // Kbd
     static void processKeyboard();
@@ -144,6 +145,8 @@ public:
     static int32_t mouseY;
     static bool mouseButtonL;
     static bool mouseButtonR;
+
+    static bool maxSpeed;
 };
 
 #define bitRead(value, bit) (((value) >> (bit)) & 0x01)

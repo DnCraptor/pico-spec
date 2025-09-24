@@ -83,7 +83,7 @@ using namespace std;
 #define OSD_NORMAL false
 
 #define OSD_W 248
-#define OSD_H 184
+#define OSD_H 200
 #define OSD_MARGIN 4
 
 extern Font Font6x8;
@@ -181,7 +181,7 @@ void OSD::drawOSD(bool bottom_info) {
     VIDEO::vga.setFont(Font6x8);
     osdHome();
     VIDEO::vga.print(OSD_TITLE);
-    osdAt(21, 0);
+    osdAt(23, 0);
     if (bottom_info) {
         string bottom_line;
 #ifdef VGA_DRV
@@ -372,6 +372,17 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
         if (KeytoESP == fabgl::VK_F10) { // NMI
             Z80::triggerNMI();
         }
+        else
+        if (KeytoESP == fabgl::VK_F11) { // Reset to Gluk ROM
+            if (Config::ram_file != NO_RAM_FILE) {
+                Config::ram_file = NO_RAM_FILE;
+            }
+            Config::last_ram_file = NO_RAM_FILE;
+            uint8_t romInUse = 0;
+            if (Config::romSet == "128Kpg")
+                romInUse = 3; // Gluk
+            ESPectrum::reset(romInUse);
+        }
         else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F6) {
             while (1) {
                 menu_level = 0;
@@ -447,8 +458,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                     // string fname = FileUtils::DSK_Path + "/" + mFile;
                     // rvmWD1793InsertDisk(&ESPectrum::fdd, 0, fname);
                     Config::save();
-                    break;
                 }
+                break;
             }
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
         }
@@ -459,7 +470,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
             while(1);
         }
     } else {
-        if (KeytoESP == fabgl::VK_PAUSE) {
+        if (KeytoESP == fabgl::VK_TILDE || KeytoESP == fabgl::VK_NUMLOCK) {
+            ESPectrum::maxSpeed = !ESPectrum::maxSpeed;
+            click();
+        }else if (KeytoESP == fabgl::VK_PAUSE) {
             CPU::paused = !CPU::paused;
             click();
         }
@@ -959,7 +973,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
 
                                 if (Config::trdosFastMode != prev) {
                                     Config::save();
-                                    ESPectrum::reset();
+                                    esp_hard_reset();
                                 }
                                 menu_curopt = opt2;
                                 menu_saverect = false;
@@ -994,7 +1008,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
 
                                 if (Config::trdosWriteProtect != prev) {
                                     Config::save();
-                                    ESPectrum::reset();
+                                    esp_hard_reset();
                                 }
                                 menu_curopt = opt2;
                                 menu_saverect = false;
@@ -1036,7 +1050,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                     romset = "48K";
                                 } else
                                 if (opt2 == 2) {
-                                    romset = "48Kbyte";
+                                    romset = "48Kby";
                                 } else
 #if NO_SPAIN_ROM_48k
                                 if (opt2 == 3) {
@@ -1126,6 +1140,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                     romset = "128Kp";
                                 } else
                                 if (opt2 == 2) {
+                                    romset = "128Kpg";
+                                } else
+                                if (opt2 == 3) {
                                     romset = "128Kcs";
                                 }
                                 menu_curopt = opt2;
@@ -1145,6 +1162,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                     romset = "128Kp";
                                 } else
                                 if (opt2 == 2) {
+                                    romset = "128Kpg";
+                                } else
+                                if (opt2 == 3) {
                                     romset = "128Kcs";
                                 }
                                 menu_curopt = opt2;
@@ -1480,7 +1500,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                             else
 #if NO_SPAIN_ROM_48k
                                             if (opt2 == 2)
-                                                Config::pref_romSet_48 = "48Kbyte";
+                                                Config::pref_romSet_48 = "48Kby";
                                             else
                                             if (opt2 == 3)
                                                 Config::pref_romSet_48 = "48Kcs";

@@ -53,6 +53,8 @@ using namespace std;
 
 #include "ff.h"
 
+#include "Debug.h"
+
 inline static size_t crc(const std::string& s) {
     size_t res = 0;
     for (size_t j = 0; j < s.size(); ++j) {
@@ -590,7 +592,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             if (menu_saverect) {
                                 // Restore backbuffer data
                                 VIDEO::SaveRect.restore_last();
-                                menu_saverect = false;                                
+                                menu_saverect = false;
                             }
                             rtrim(filedir);
                             click();
@@ -613,8 +615,8 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                                 fdir.pop_back();
                                 fdir = fdir.substr(0,fdir.find_last_of("/") + 1);
                                 FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
-                            }       
-                        }                  
+                            }
+                        }
                         click();
                         filenames.close();
                         return "";
