@@ -188,7 +188,8 @@ void OSD::drawOSD(bool bottom_info) {
         bottom_line = " Video mode: VGA 60 Hz      ";
 #else
 #ifdef HDMI
-        bottom_line = " Video mode: HDMI 60 Hz     ";
+        string hz = (ESPectrum::hdmi_video_mode == 0 ? "60" : "50");
+        bottom_line = " Video mode: HDMI " + hz + " Hz     ";
 #endif
 #ifdef TV
         bottom_line = " Video mode: TV RGBI PAL    ";
@@ -334,12 +335,35 @@ extern "C" uint8_t TFT_FLAGS;
 extern "C" uint8_t TFT_INVERSION;
 
 // OSD Main Loop
-void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
+void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
 
     static uint8_t last_sna_row = 0;
     fabgl::VirtualKeyItem Nextkey;
 
-    if (ALT) {
+    if (CTRL) {
+        if (ALT) { // CTRL + ALT + [key]
+            if (KeytoESP == fabgl::VK_HOME) { // HDMI 60Hz
+                if (ESPectrum::hdmi_video_mode == 0) return;
+                Config::hdmi_video_mode=0;
+                Config::save();
+                esp_hard_reset();
+            } else
+            if (KeytoESP == fabgl::VK_END) { // HDMI 50Hz
+                if (ESPectrum::hdmi_video_mode == 1) return;
+                Config::hdmi_video_mode=1;
+                Config::save();
+                esp_hard_reset();
+            }
+            // if (KeytoESP == fabgl::VK_INSERT) { // HDMI H_Total Lines
+            //     ESPectrum::H_TOTAL--;
+            // } else
+            // if (KeytoESP == fabgl::VK_DELETE) { // HDMI H_Total Lines
+            //     ESPectrum::H_TOTAL++;
+            // }
+        }
+    }
+    else
+    if (ALT) { // ALT + [key]
         if (KeytoESP == fabgl::VK_F1) { // Show mem info
             OSD::HWInfo();
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
@@ -598,6 +622,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
             if (ESPectrum::aud_volume>ESP_VOLUME_MIN) {
                 ESPectrum::aud_volume--;
                 pwm_audio_set_volume(ESPectrum::aud_volume);
+                Config::aud_volume = ESPectrum::aud_volume;
+                Config::save();
             }
             unsigned short x, y;
             if (Config::aspect_16_9) {
@@ -631,6 +657,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
             if (ESPectrum::aud_volume<ESP_VOLUME_MAX) {
                 ESPectrum::aud_volume++;
                 pwm_audio_set_volume(ESPectrum::aud_volume);
+                Config::aud_volume = ESPectrum::aud_volume;
+                Config::save();
             }
             unsigned short x, y;
             if (Config::aspect_16_9) {
@@ -1841,6 +1869,41 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT) {
                                             menu_saverect = false;
                                         } else {
                                             menu_curopt = 3;
+                                            menu_level = 2;
+                                            break;
+                                        }
+                                    }
+                                }
+                                else if (options_num == 4) {
+                                    menu_level = 3;
+                                    menu_curopt = 1;
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string opt_menu = MENU_VSYNC[Config::lang];
+                                        opt_menu += MENU_YESNO[Config::lang];
+                                        bool prev_opt = Config::v_sync_enabled;
+                                        if (prev_opt) {
+                                            opt_menu.replace(opt_menu.find("[Y",0),2,"[*");
+                                            opt_menu.replace(opt_menu.find("[N",0),2,"[ ");
+                                        } else {
+                                            opt_menu.replace(opt_menu.find("[Y",0),2,"[ ");
+                                            opt_menu.replace(opt_menu.find("[N",0),2,"[*");
+                                        }
+                                        uint8_t opt2 = menuRun(opt_menu);
+                                        if (opt2) {
+                                            if (opt2 == 1)
+                                                Config::v_sync_enabled = true;
+                                            else
+                                                Config::v_sync_enabled = false;
+
+                                            if (Config::v_sync_enabled != prev_opt) {
+                                                Config::save();
+                                                ESPectrum::v_sync_enabled=Config::v_sync_enabled;
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = 4;
                                             menu_level = 2;
                                             break;
                                         }
@@ -3952,14 +4015,16 @@ c:
                 jumpToDialog();
                 goto c;
             } else
-            if (Nextkey.vk == fabgl::VK_F9) {
-                pokeDialog();
-                goto c;
-            } else
-            if (Nextkey.vk == fabgl::VK_F10) {
-                Z80::triggerNMI();
-                goto c;
-            } else
+            // if (Nextkey.vk == fabgl::VK_F9) {
+            //     //pokeDialog();
+            //     ESPectrum::H_TOTAL++;
+            //     goto c;
+            // } else
+            // if (Nextkey.vk == fabgl::VK_F10) {
+            //     //Z80::triggerNMI();
+            //     ESPectrum::H_TOTAL--;
+            //     goto c;
+            // } else
             if (FileUtils::fsMount && Nextkey.vk == fabgl::VK_F11) {
                 // Persist Load
                 string menuload = MENU_PERSIST_LOAD[Config::lang];

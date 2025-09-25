@@ -136,7 +136,8 @@ public:
     static int ESPtestvar1;
     static int ESPtestvar2;
 
-    static volatile bool vsync;
+    static volatile bool v_sync;
+    static bool v_sync_enabled;
 
     static bool trdos;
     static rvmWD1793 fdd;
@@ -147,6 +148,8 @@ public:
     static bool mouseButtonR;
 
     static bool maxSpeed;
+
+    static volatile int hdmi_video_mode;
 };
 
 #define bitRead(value, bit) (((value) >> (bit)) & 0x01)
