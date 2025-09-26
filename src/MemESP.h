@@ -40,18 +40,10 @@ visit https://zxespectrum.speccy.org/contacto
 #include <list>
 #include "ff.h"
 
-#ifdef BUTTER_PSRAM_GPIO
-#if !defined(PICO_RP2040)
-extern volatile uint8_t* PSRAM_DATA;
+extern uint8_t* PSRAM_DATA;
+extern uint8_t psram_pin;
+extern bool rp2350a;
 uint32_t butter_psram_size();
-#else
-static uint8_t* PSRAM_DATA = (uint8_t*)0;
-inline static uint32_t butter_psram_size() { return 0; }
-#endif
-#else
-static uint8_t* PSRAM_DATA = (uint8_t*)0;
-inline static uint32_t butter_psram_size() { return 0; }
-#endif
 
 class mem_desc_t {
     static std::list<mem_desc_t> pages; // a pool of assigned pages

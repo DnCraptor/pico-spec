@@ -3,7 +3,7 @@
 static psram_spi_inst_t psram_spi;
 
 #define ITE_PSRAM (1ul << 20)
-#define MAX_PSRAM (512ul << 20)
+#define MAX_PSRAM (16ul << 20)
 
 static uint32_t _psram_size() {
 #ifdef PSRAM    
@@ -32,11 +32,13 @@ uint32_t psram_size() {
 }
 
 uint32_t init_psram() {
+#ifdef PSRAM
     psram_spi = psram_spi_init_clkdiv(pio0, -1, 2.0, false);
 #ifndef PSRAM_NO_FUGE
     if ( !_psram_size() ) {
         psram_spi = psram_spi_init_clkdiv(pio0, -1, 2.0, true);
     }
+#endif
 #endif
     return psram_size();
 }

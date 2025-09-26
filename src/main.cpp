@@ -40,7 +40,7 @@
 
 #define HOME_DIR (char*)"\\SPEC"
 
-
+bool rp2350a = true;
 bool cursor_blink_state = false;
 uint8_t CURSOR_X, CURSOR_Y = 0;
 
@@ -851,52 +851,38 @@ bool toggle_color() {
 }
 #endif
 
-#if !defined(PICO_RP2040)
-#ifdef BUTTER_PSRAM_GPIO
-
+#if PICO_RP2350
 #include <hardware/exception.h>
 #include <hardware/structs/qmi.h>
 #include <hardware/structs/xip.h>
+#include <hardware/regs/sysinfo.h>
+
 #ifdef BUTTER_PSRAM_GPIO
 #define MB16 (16ul << 20)
 #define MB8 (8ul << 20)
 #define MB4 (4ul << 20)
 #define MB1 (1ul << 20)
-volatile uint8_t* PSRAM_DATA = (uint8_t*)0x11000000;
+uint8_t* PSRAM_DATA = (uint8_t*)0x11000000;
+uint8_t psram_pin;
+static int BUTTER_PSRAM_SIZE = -1;
 uint32_t __not_in_flash_func(butter_psram_size)() {
-    static int BUTTER_PSRAM_SIZE = -1;
     if (BUTTER_PSRAM_SIZE != -1) return BUTTER_PSRAM_SIZE;
-
-    for(register int i = MB16 - MB1; i < MB16; ++i)
-        PSRAM_DATA[i] = i & 0xFF;
-    register uint32_t res = 0;
-    for(register int i = MB4 - MB1; i < MB4; ++i) {
-        if (PSRAM_DATA[i] != (i & 0xFF)) {
-            for(register int i = MB8 - MB1; i < MB8; ++i) {
-                if (PSRAM_DATA[i] != (i & 0xFF)) {
-                    for(register int i = MB16 - MB1; i < MB16; ++i) {
-                        if (PSRAM_DATA[i] != (i & 0xFF)) {
-                            goto e0;
-                        }
-                    }
-                    res = MB16;
-                    goto e0;
-                }
-            }
-            res = MB8;
-            goto e0;
-        }
+    for(register int i = MB8; i < MB16; ++i)
+        PSRAM_DATA[i] = 16;
+    for(register int i = MB4; i < MB8; ++i)
+        PSRAM_DATA[i] = 8;
+    for(register int i = MB1; i < MB4; ++i)
+        PSRAM_DATA[i] = 4;
+    for(register int i = 0; i < MB1; ++i)
+        PSRAM_DATA[i] = 1;
+    register uint32_t res = PSRAM_DATA[MB16 - 1];
+    for (register int i = MB16 - MB1; i < MB16; ++i) {
+        if (res != PSRAM_DATA[i])
+            return 0;
     }
-    res = MB4;
-e0:
-    BUTTER_PSRAM_SIZE = res;
-    return res;
+    BUTTER_PSRAM_SIZE = res << 20;
+    return BUTTER_PSRAM_SIZE;
 }
-#else
-static uint8_t* PSRAM_DATA = (uint8_t*)0;
-#endif
-#endif
-#if BUTTER_PSRAM_GPIO
 void __no_inline_not_in_flash_func(psram_init)(uint cs_pin) {
     gpio_set_function(cs_pin, GPIO_FUNC_XIP_CS1);
 
@@ -974,6 +960,9 @@ void __no_inline_not_in_flash_func(psram_init)(uint cs_pin) {
     // init size
     butter_psram_size();
 }
+#else
+uint8_t* PSRAM_DATA = (uint8_t*)0;
+uint32_t __not_in_flash_func(butter_psram_size)() { return 0; }
 #endif
 #endif
 
@@ -988,11 +977,8 @@ void __attribute__((naked, noreturn)) __printflike(1, 0) dummy_panic(__unused co
 }
 
 #ifndef PICO_RP2040
-
-int flash_mhz = 88;
-
 void __not_in_flash() flash_timings() {
-        const int max_flash_freq = flash_mhz * MHZ;
+        const int max_flash_freq = 88 * MHZ;
         const int clock_hz = CPU_MHZ * MHZ;
         int divisor = (clock_hz + max_flash_freq - 1) / max_flash_freq;
         if (divisor == 1 && clock_hz > 100000000) {
@@ -1053,13 +1039,6 @@ int __not_in_flash() main() {
     #endif
 #endif
 
-#if PICO_RP2350
-    #ifdef BUTTER_PSRAM_GPIO
-    psram_init(BUTTER_PSRAM_GPIO);
-    exception_set_exclusive_handler(HARDFAULT_EXCEPTION, sigbus);
-    #endif
-#endif
-
 #ifdef KBDUSB
     tuh_init(BOARD_TUH_RHPORT);
     ps2kbd.init_gpio();
@@ -1070,11 +1049,40 @@ int __not_in_flash() main() {
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
     for (int i = 0; i < 6; i++) {
-        sleep_ms(33);
+        for (int j = 0; j < 33; j++) {
+#ifdef KBDUSB
+            ps2kbd.tick();
+            tuh_task();
+#endif
+            sleep_ms(1);
+        }
         gpio_put(PICO_DEFAULT_LED_PIN, true);
-        sleep_ms(33);
+        for (int j = 0; j < 33; j++) {
+#ifdef KBDUSB
+            ps2kbd.tick();
+            tuh_task();
+#endif
+            sleep_ms(1);
+        }
         gpio_put(PICO_DEFAULT_LED_PIN, false);
     }
+
+#if PICO_RP2350
+    exception_set_exclusive_handler(HARDFAULT_EXCEPTION, sigbus);
+    rp2350a = (*((io_ro_32*)(SYSINFO_BASE + SYSINFO_PACKAGE_SEL_OFFSET)) & 1);
+    #ifdef BUTTER_PSRAM_GPIO
+        psram_pin = rp2350a ? BUTTER_PSRAM_GPIO : 47;
+        psram_init(psram_pin);
+        butter_psram_size();
+        for (int i = 0; i < 6; i++) {
+            sleep_ms(33);
+            gpio_put(PICO_DEFAULT_LED_PIN, true);
+            sleep_ms(33);
+            gpio_put(PICO_DEFAULT_LED_PIN, false);
+        }
+    #endif
+#endif
+
 
 #if USE_NESPAD
     nespad_begin(clock_get_hz(clk_sys) / 1000, NES_GPIO_CLK, NES_GPIO_DATA, NES_GPIO_LAT);
@@ -1082,23 +1090,22 @@ int __not_in_flash() main() {
 
     init_sound();
     pcm_setup(SOUND_FREQUENCY, SOUND_FREQUENCY);
-#ifdef PSRAM
     #ifndef MURM2
-    #ifndef BUTTER_PSRAM_GPIO
-        init_psram();
-    #else
-    if (BUTTER_PSRAM_GPIO > 31) {
-        init_psram();
-    }
+        if (!butter_psram_size()) init_psram();
     #endif
-    #endif
-#endif
     // send kbd reset only after initial process passed
 #ifndef KBDUSB
     keyboard_send(0xFF);
 #endif
 
     ESPectrum::setup();
+    for (int i = 0; i < 6; i++) {
+        sleep_ms(33);
+        gpio_put(PICO_DEFAULT_LED_PIN, true);
+        sleep_ms(33);
+        gpio_put(PICO_DEFAULT_LED_PIN, false);
+    }
+
     sem_init(&vga_start_semaphore, 0, 1);
     multicore_launch_core1(render_core);
     sem_release(&vga_start_semaphore);

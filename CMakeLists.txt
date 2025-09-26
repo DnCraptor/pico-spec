@@ -29,16 +29,16 @@ option(ZERO "RP2040-PiZero" OFF)
 option(ZERO2 "RP2350-PiZero" OFF)
 
 #set(m1p2 ON)
-set(I2S ON)
+#set(I2S ON)
 #set(HWAY ON)
 
-#set(VGA_DRV ON)
+set(VGA_DRV ON)
 #set(SOFTTV ON)
 #set(TFT ON)
 #set(TFT_INV 0)
 #set(TFT_INV 1)
 #set(ILI9341 ON)
-set(HDMI ON)
+#set(HDMI ON)
 
 #set(CPU_MHZ 327.3)
 #set(CPU_MHZ 336)
@@ -52,8 +52,8 @@ set (PORT_VERSION "1.2.E")
 #set(ZERO ON)
 #set(ZERO2 ON)
 #set (PICO_PC ON)
-set (PICO_DV ON)
-#set (MURM ON)
+#set (PICO_DV ON)
+set (MURM ON)
 #set (MURM2 ON)
 
 set(KBDUSB ON)
@@ -76,9 +76,6 @@ SET(PROJECT_NAME p2-spec)
 set(FLASH_SIZE 4096)
 set(FLASH_SIZE_GREEN ON)
 
-# Pimoroni Pico Plus 2
-set (BUTTER_PSRAM_GPIO 47)
-
 IF(MURM2)
     SET(BUILD_NAME "m2${PROJECT_NAME}")
     set (PWM_PIN0 10)
@@ -86,18 +83,18 @@ IF(MURM2)
 ELSEIF(PICO_PC)
     SET(BUILD_NAME "PC${PROJECT_NAME}")
     set (PWM_PIN0 27)
+    set (BUTTER_PSRAM_GPIO 8)
 ELSEIF(PICO_DV)
     SET(BUILD_NAME "DV${PROJECT_NAME}")
+    set (BUTTER_PSRAM_GPIO 47)
 ELSEIF(ZERO)
     SET(BUILD_NAME "z0${PROJECT_NAME}")
-    #set (PWM_PIN0 11)
 ELSEIF(ZERO2)
     SET(BUILD_NAME "z0${PROJECT_NAME}")
-    #set (PWM_PIN0 11)
-    #set (BUTTER_PSRAM_GPIO 47)
 ELSE()
     SET(BUILD_NAME "m1${PROJECT_NAME}")
     set (PWM_PIN0 26)
+    set (BUTTER_PSRAM_GPIO 19)
 ENDIF()
 
 set(OUTPUT_DIR "${CMAKE_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}")
@@ -337,7 +334,7 @@ ELSEIF(PICO_PC)
 
         # NES Gamepad
         USE_NESPAD
-        NES_GPIO_CLK=8    # UXT1-6
+        NES_GPIO_CLK=5    # UXT1-10
         NES_GPIO_LAT=9    # UXT1-5
         NES_GPIO_DATA=20  # UXT1-3
         NES_GPIO_DATA2=21 # UXT1-4
@@ -613,10 +610,6 @@ ELSE()
 ENDIF()
 
 SET(BUILD_NAME "${BUILD_NAME}-${CPU_MHZ}MHz-${PORT_VERSION}")
-
-if (BUTTER_PSRAM_GPIO)
-    SET(BUILD_NAME "${BUILD_NAME}-GP${BUTTER_PSRAM_GPIO}")
-endif()
 
 IF(m1p2)
     SET(BUILD_NAME "${BUILD_NAME}.m1p2")
