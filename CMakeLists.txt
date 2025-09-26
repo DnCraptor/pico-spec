@@ -29,7 +29,7 @@ option(ZERO "RP2040-PiZero" OFF)
 option(ZERO2 "RP2350-PiZero" OFF)
 
 #set(m1p2 ON)
-#set(I2S ON)
+set(I2S ON)
 #set(HWAY ON)
 
 set(VGA_HDMI ON)
@@ -46,14 +46,14 @@ set(CPU_MHZ 378)
 #set(CPU_MHZ 460)
 #set(CPU_MHZ 252)
 #set(CPU_MHZ 133)
-set (PORT_VERSION "1.2.E")
+set (PORT_VERSION "1.2.F")
 
 #set(ZERO ON)
 #set(ZERO2 ON)
 #set (PICO_PC ON)
-#set (PICO_DV ON)
+set (PICO_DV ON)
 #set (MURM ON)
-set (MURM2 ON)
+#set (MURM2 ON)
 
 set(KBDUSB ON)
 
