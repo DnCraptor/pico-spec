@@ -9,11 +9,9 @@ extern "C" {
 #ifdef TFT
 #include "st7789.h"
 #endif
-#ifdef HDMI
-#include "hdmi.h"
-#endif
-#ifdef VGA_DRV
+#ifdef VGA_HDMI
 #include "vga.h"
+#include "hdmi.h"
 #endif
 #ifdef TV
 #include "tv.h"
@@ -37,7 +35,7 @@ void graphics_set_buffer(uint8_t* buffer, uint16_t width, uint16_t height);
 
 void graphics_set_offset(int x, int y);
 
-void graphics_set_palette(uint8_t i, uint32_t color);
+static void graphics_set_palette(uint8_t i, uint32_t color);
 
 void graphics_set_textbuffer(uint8_t* buffer);
 

@@ -32,8 +32,10 @@ visit https://zxespectrum.speccy.org/contacto
 
 */
 #include <hardware/watchdog.h>
-#include <hardware/sync.h>
+#include <hardware/clocks.h>
+#include <hardware/flash.h>
 #include <pico/bootrom.h>
+#include <pico/multicore.h>
 
 #include "OSDMain.h"
 #include "FileUtils.h"
@@ -87,6 +89,7 @@ using namespace std;
 #define OSD_MARGIN 4
 
 extern Font Font6x8;
+extern bool SELECT_VGA;
 
 uint8_t OSD::cols;                     // Maximum columns
 uint8_t OSD::mf_rows;                  // File menu maximum rows
@@ -184,13 +187,14 @@ void OSD::drawOSD(bool bottom_info) {
     osdAt(23, 0);
     if (bottom_info) {
         string bottom_line;
-#ifdef VGA_DRV
-        bottom_line = " Video mode: VGA 60 Hz      ";
+#ifdef VGA_HDMI
+        if (SELECT_VGA) {
+            bottom_line = " Video mode: VGA 60 Hz      ";
+        } else {
+            string hz = (ESPectrum::hdmi_video_mode == 0 ? "60" : "50");
+            bottom_line = " Video mode: HDMI " + hz + " Hz     ";
+        }
 #else
-#ifdef HDMI
-        string hz = (ESPectrum::hdmi_video_mode == 0 ? "60" : "50");
-        bottom_line = " Video mode: HDMI " + hz + " Hz     ";
-#endif
 #ifdef TV
         bottom_line = " Video mode: TV RGBI PAL    ";
 #endif
@@ -4156,32 +4160,6 @@ string OSD::rowGet(string menu, unsigned short row) {
     }
     return "<Unknown menu row>";
 }
-
-#include <hardware/flash.h>
-#include <pico/multicore.h>
-#include <hardware/clocks.h>
-
-static void get_cpu_flash_jedec_id(uint8_t _rx[4]) {
-
-    volatile uint32_t *qmi_m0_timing = (uint32_t *)0x400d000c;
-    *qmi_m0_timing = 0x60007204;
-    set_sys_clock_khz(252 * KHZ, true);
-
-    static uint8_t rx[4] = {0};
-    if (rx[0] == 0) {
-        uint8_t tx[4] = {0x9f};
-        multicore_lockout_start_blocking();
-        const uint32_t ints = save_and_disable_interrupts();
-        flash_do_cmd(tx, rx, 4);
-        restore_interrupts(ints);
-        multicore_lockout_end_blocking();
-    }
-    *(unsigned*)_rx = *(unsigned*)rx;
-
-    *qmi_m0_timing = 0x60007507;
-    set_sys_clock_khz(CPU_MHZ * KHZ, true);
-}
-
 // inline static uint32_t get_cpu_flash_size(void) {
 //     uint8_t rx[4] = {0};
 //     get_cpu_flash_jedec_id(rx);
@@ -4219,8 +4197,6 @@ void OSD::HWInfo() {
     VIDEO::vga.print(textout.c_str());
 
     char buf[128] = { 0 };
-    uint8_t rx[4];
-    get_cpu_flash_jedec_id(rx);
     uint32_t flash_size = (1 << rx[3]);
     snprintf(buf, 128,
              " Flash size     : %d MB\n"

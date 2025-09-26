@@ -33,7 +33,7 @@ static struct video_mode_t hdmi_video_mode[2] = {
 };
 
 //активный видеорежим
-static enum graphics_mode_t graphics_mode = GRAPHICSMODE_DEFAULT;
+extern enum graphics_mode_t graphics_mode;
 
 //буфер  палитры 256 цветов в формате R8G8B8
 static uint32_t palette[256];
@@ -46,10 +46,7 @@ static uint32_t palette[256];
 // #define HDMI_HEIGHT 644 //524 Default
 // #define HDMI_HZ 52 //60 Default
 
-static int graphics_buffer_width = 0;
-static int graphics_buffer_height = 0;
-static int graphics_buffer_shift_x = 0;
-static int graphics_buffer_shift_y = 0;
+extern int graphics_buffer_width, graphics_buffer_height, graphics_buffer_shift_x, graphics_buffer_shift_y;
 
 //DMA каналы
 //каналы работы с первичным графическим буфером
@@ -549,11 +546,6 @@ static inline bool hdmi_init() {
 
     return true;
 };
-//выбор видеорежима
-void graphics_set_mode(enum graphics_mode_t mode) {
-    graphics_mode = mode;
-    clrScr(0);
-};
 
 void graphics_set_palette(uint8_t i, uint32_t color888) {
     palette[i] = color888 & 0x00ffffff;
@@ -569,15 +561,10 @@ void graphics_set_palette(uint8_t i, uint32_t color888) {
     conv_color64[i * 2 + 1] = conv_color64[i * 2] ^ 0x0003ffffffffffffl;
 };
 
-void graphics_set_buffer(uint8_t* buffer, uint16_t width, uint16_t height) {
-    graphics_buffer_width = width;
-    graphics_buffer_height = height;
-};
-
 #define RGB888(r, g, b) ((r<<16) | (g << 8 ) | b )
 
 //выделение и настройка общих ресурсов - 4 DMA канала, PIO программ и 2 SM
-void graphics_init() {
+void graphics_init_hdmi() {
     //настройка PIO
     SM_video = pio_claim_unused_sm(PIO_VIDEO, true);
     SM_conv = pio_claim_unused_sm(PIO_VIDEO_ADDR, true);
@@ -675,12 +662,7 @@ void graphics_init() {
     hdmi_init();
 }
 
-void graphics_set_bgcolor(uint32_t color888) //определяем зарезервированный цвет в палитре
+void graphics_set_bgcolor_hdmi(uint32_t color888) //определяем зарезервированный цвет в палитре
 {
     graphics_set_palette(255, color888);
-};
-
-void graphics_set_offset(int x, int y) {
-    graphics_buffer_shift_x = x;
-    graphics_buffer_shift_y = y;
 };

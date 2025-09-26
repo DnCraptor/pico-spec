@@ -13,6 +13,7 @@
 #include "stdlib.h"
 
 /// TODO: .h
+bool SELECT_VGA;
 uint8_t* getLineBuffer(int line);
 void ESPectrum_vsync();
 
@@ -47,10 +48,10 @@ static int dma_chan_ctrl;
 static int dma_chan;
 
 /// TODO:
-static uint graphics_buffer_width = 0;
-static uint graphics_buffer_height = 0;
-static int graphics_buffer_shift_x = 0;
-static int graphics_buffer_shift_y = 0;
+int graphics_buffer_width = 0;
+int graphics_buffer_height = 0;
+int graphics_buffer_shift_x = 0;
+int graphics_buffer_shift_y = 0;
 
 static bool is_flash_line = false;
 static bool is_flash_frame = false;
@@ -67,8 +68,7 @@ static uint16_t txt_palette[16];
 static uint16_t* txt_palette_fast = NULL;
 //static uint16_t txt_palette_fast[256*4];
 
-enum graphics_mode_t graphics_mode;
-
+enum graphics_mode_t graphics_mode = GRAPHICSMODE_DEFAULT;
 
 void __time_critical_func() dma_handler_VGA() {
     dma_hw->ints0 = 1u << dma_chan_ctrl;
@@ -247,6 +247,10 @@ if (!text_buffer) return;
 }
 
 void graphics_set_mode(enum graphics_mode_t mode) {
+    if (!SELECT_VGA) {
+        graphics_mode = mode;
+        return;
+    }
     text_buffer_width = 80;
     text_buffer_height = 30;
 ///    memset(graphics_buffer, 0, graphics_buffer_height * graphics_buffer_width);
@@ -353,7 +357,6 @@ void graphics_set_mode(enum graphics_mode_t mode) {
 }
 
 void graphics_set_buffer(uint8_t* buffer, const uint16_t width, const uint16_t height) {
-///    graphics_buffer = buffer;
     graphics_buffer_width = width;
     graphics_buffer_height = height;
 }
@@ -369,7 +372,12 @@ void graphics_set_flashmode(const bool flash_line, const bool flash_frame) {
     is_flash_line = flash_line;
 }
 
+void graphics_set_bgcolor_hdmi(uint32_t color888);
 void graphics_set_bgcolor(const uint32_t color888) {
+    if (!SELECT_VGA) {
+        graphics_set_bgcolor_hdmi(color888);
+        return;
+    }
     const uint8_t conv0[] = { 0b00, 0b00, 0b01, 0b10, 0b10, 0b10, 0b11, 0b11 };
     const uint8_t conv1[] = { 0b00, 0b01, 0b01, 0b01, 0b10, 0b11, 0b11, 0b11 };
 
@@ -403,8 +411,187 @@ void graphics_set_palette(const uint8_t i, const uint32_t color888) {
     palette[1][i] = (c_lo << 8 | c_hi) & 0x3f3f | palette16_mask;
     */
 }
+// connection is possible 00->00 (external pull down)
+static int test_0000_case(uint32_t pin0, uint32_t pin1, int res) {
+    gpio_init(pin0);
+    gpio_set_dir(pin0, GPIO_OUT);
+    sleep_ms(33);
+    gpio_put(pin0, 1);
 
+    gpio_init(pin1);
+    gpio_set_dir(pin1, GPIO_IN);
+    gpio_pull_down(pin1); /// external pulled down (so, just to ensure)
+    sleep_ms(33);
+    if ( gpio_get(pin1) ) { // 1 -> 1, looks really connected
+        res |= (1 << 5) | 1;
+    }
+    gpio_deinit(pin0);
+    gpio_deinit(pin1);
+    return res;
+}
+
+// connection is possible 01->01 (no external pull up/down)
+static int test_0101_case(uint32_t pin0, uint32_t pin1, int res) {
+    gpio_init(pin0);
+    gpio_set_dir(pin0, GPIO_OUT);
+    sleep_ms(33);
+    gpio_put(pin0, 1);
+
+    gpio_init(pin1);
+    gpio_set_dir(pin1, GPIO_IN);
+    gpio_pull_down(pin1);
+    sleep_ms(33);
+    if ( gpio_get(pin1) ) { // 1 -> 1, looks really connected
+        res |= (1 << 5) | 1;
+    }
+    gpio_deinit(pin0);
+    gpio_deinit(pin1);
+    return res;
+}
+
+// connection is possible 11->11 (externally pulled up)
+static int test_1111_case(uint32_t pin0, uint32_t pin1, int res) {
+    gpio_init(pin0);
+    gpio_set_dir(pin0, GPIO_OUT);
+    sleep_ms(33);
+    gpio_put(pin0, 0);
+
+    gpio_init(pin1);
+    gpio_set_dir(pin1, GPIO_IN);
+    gpio_pull_up(pin1); /// external pulled up (so, just to ensure)
+    sleep_ms(33);
+    if ( !gpio_get(pin1) ) { // 0 -> 0, looks really connected
+        res |= 1;
+    }
+    gpio_deinit(pin0);
+    gpio_deinit(pin1);
+    return res;
+}
+
+static int testPins(uint32_t pin0, uint32_t pin1) {
+    int res = 0b000000;
+    /// do not try to test butter psram this way
+#ifdef BUTTER_PSRAM_GPIO
+    if (pin0 == BUTTER_PSRAM_GPIO || pin1 == BUTTER_PSRAM_GPIO) return res;
+#endif
+    if (pin0 == PICO_DEFAULT_LED_PIN || pin1 == PICO_DEFAULT_LED_PIN) return res; // LED
+    if (pin0 == 23 || pin1 == 23) return res; // SMPS Power
+    if (pin0 == 24 || pin1 == 24) return res; // VBus sense
+    // try pull down case (passive)
+    gpio_init(pin0);
+    gpio_set_dir(pin0, GPIO_IN);
+    gpio_pull_down(pin0);
+    gpio_init(pin1);
+    gpio_set_dir(pin1, GPIO_IN);
+    gpio_pull_down(pin1);
+    sleep_ms(33);
+    int pin0vPD = gpio_get(pin0);
+    int pin1vPD = gpio_get(pin1);
+    gpio_deinit(pin0);
+    gpio_deinit(pin1);
+    /// try pull up case (passive)
+    gpio_init(pin0);
+    gpio_set_dir(pin0, GPIO_IN);
+    gpio_pull_up(pin0);
+    gpio_init(pin1);
+    gpio_set_dir(pin1, GPIO_IN);
+    gpio_pull_up(pin1);
+    sleep_ms(33);
+    int pin0vPU = gpio_get(pin0);
+    int pin1vPU = gpio_get(pin1);
+    gpio_deinit(pin0);
+    gpio_deinit(pin1);
+
+    res = (pin0vPD << 4) | (pin0vPU << 3) | (pin1vPD << 2) | (pin1vPU << 1);
+
+    if (pin0vPD == 1) {
+        if (pin0vPU == 1) { // pin0vPD == 1 && pin0vPU == 1
+            if (pin1vPD == 1) { // pin0vPD == 1 && pin0vPU == 1 && pin1vPD == 1
+                if (pin1vPU == 1) { // pin0vPD == 1 && pin0vPU == 1 && pin1vPD == 1 && pin1vPU == 1
+                    // connection is possible 11->11 (externally pulled up)
+                    return test_1111_case(pin0, pin1, res);
+                } else { // pin0vPD == 1 && pin0vPU == 1 && pin1vPD == 1 && pin1vPU == 0
+                    // connection is impossible
+                    return res;
+                }
+            } else { // pin0vPD == 1 && pin0vPU == 1 && pin1vPD == 0
+                if (pin1vPU == 1) { // pin0vPD == 1 && pin0vPU == 1 && pin1vPD == 0 && pin1vPU == 1
+                    // connection is impossible
+                    return res;
+                } else { // pin0vPD == 1 && pin0vPU == 1 && pin1vPD == 0 && pin1vPU == 0
+                    // connection is impossible
+                    return res;
+                }
+            }
+        } else {  // pin0vPD == 1 && pin0vPU == 0
+            if (pin1vPD == 1) { // pin0vPD == 1 && pin0vPU == 0 && pin1vPD == 1
+                if (pin1vPU == 1) { // pin0vPD == 1 && pin0vPU == 0 && pin1vPD == 1 && pin1vPU == 1
+                    // connection is impossible
+                    return res;
+                } else { // pin0vPD == 1 && pin0vPU == 0 && pin1vPD == 1 && pin1vPU == 0
+                    // connection is possible 10->10 (pulled up on down, and pulled down on up?)
+                    return res |= (1 << 5) | 1; /// NOT SURE IT IS POSSIBLE TO TEST SUCH CASE (TODO: think about real cases)
+                }
+            } else { // pin0vPD == 1 && pin0vPU == 0 && pin1vPD == 0
+                if (pin1vPU == 1) { // pin0vPD == 1 && pin0vPU == 0 && pin1vPD == 0 && pin1vPU == 1
+                    // connection is impossible
+                    return res;
+                } else { // pin0vPD == 1 && pin0vPU == 0 && pin1vPD == 0 && pin1vPU == 0
+                    // connection is impossible
+                    return res;
+                }
+            }
+        }
+    } else { // pin0vPD == 0
+        if (pin0vPU == 1) { // pin0vPD == 0 && pin0vPU == 1
+            if (pin1vPD == 1) { // pin0vPD == 0 && pin0vPU == 1 && pin1vPD == 1
+                if (pin1vPU == 1) { // pin0vPD == 0 && pin0vPU == 1 && pin1vPD == 1 && pin1vPU == 1
+                    // connection is impossible
+                    return res;
+                } else { // pin0vPD == 0 && pin0vPU == 1 && pin1vPD == 1 && pin1vPU == 0
+                    // connection is impossible
+                    return res;
+                }
+            } else { // pin0vPD == 0 && pin0vPU == 1 && pin1vPD == 0
+                if (pin1vPU == 1) { // pin0vPD == 0 && pin0vPU == 1 && pin1vPD == 0 && pin1vPU == 1
+                    // connection is possible 01->01 (no external pull up/down)
+                    return test_0101_case(pin0, pin1, res);
+                } else { // pin0vPD == 0 && pin0vPU == 1 && pin1vPD == 0 && pin1vPU == 0
+                    // connection is impossible
+                    return res;
+                }
+            }
+        } else {  // pin0vPD == 0 && pin0vPU == 0
+            if (pin1vPD == 1) { // pin0vPD == 0 && pin0vPU == 0 && pin1vPD == 1
+                if (pin1vPU == 1) { // pin0vPD == 0 && pin0vPU == 0 && pin1vPD == 1 && pin1vPU == 1
+                    // connection is impossible
+                    return res;
+                } else { // pin0vPD == 0 && pin0vPU == 0 && pin1vPD == 1 && pin1vPU == 0
+                    // connection is impossible
+                    return res;
+                }
+            } else { // pin0vPD == 0 && pin0vPU == 0 && pin1vPD == 0
+                if (pin1vPU == 1) { // pin0vPD == 0 && pin0vPU == 0 && pin1vPD == 0 && pin1vPU == 1
+                    // connection is impossible
+                    return res;
+                } else { // pin0vPD == 0 && pin0vPU == 0 && pin1vPD == 0 && pin1vPU == 0
+                    // connection is possible 00->00 (externally pulled down)
+                    return test_0000_case(pin0, pin1, res);
+                }
+            }
+        }
+    }
+    return res;
+}
+
+void graphics_init_hdmi();
 void graphics_init() {
+    uint8_t link = testPins(VGA_BASE_PIN, VGA_BASE_PIN + 1);
+    SELECT_VGA = (link == 0) || (link == 0x1F);
+    if (!SELECT_VGA) {
+        graphics_init_hdmi();
+        return;
+    }
     //инициализация палитры по умолчанию
     //текстовая палитра
     for (int i = 0; i < 16; i++) {

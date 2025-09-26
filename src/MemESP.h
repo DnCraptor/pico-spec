@@ -44,6 +44,7 @@ extern uint8_t* PSRAM_DATA;
 extern uint8_t psram_pin;
 extern bool rp2350a;
 uint32_t butter_psram_size();
+extern uint8_t rx[4];
 
 class mem_desc_t {
     static std::list<mem_desc_t> pages; // a pool of assigned pages

@@ -9,6 +9,7 @@
 #include <hardware/vreg.h>
 #include <hardware/sync.h>
 #include <hardware/flash.h>
+#include <hardware/clocks.h>
 
 #ifdef PICO_RP2350
 #include <hardware/regs/qmi.h>
@@ -43,6 +44,7 @@
 bool rp2350a = true;
 bool cursor_blink_state = false;
 uint8_t CURSOR_X, CURSOR_Y = 0;
+uint8_t rx[4] = { 0 };
 
 struct semaphore vga_start_semaphore;
 #include "Video.h"
@@ -867,16 +869,16 @@ uint8_t psram_pin;
 static int BUTTER_PSRAM_SIZE = -1;
 uint32_t __not_in_flash_func(butter_psram_size)() {
     if (BUTTER_PSRAM_SIZE != -1) return BUTTER_PSRAM_SIZE;
-    for(register int i = MB8; i < MB16; ++i)
+    for(register int i = MB8; i < MB16; i += 4096)
         PSRAM_DATA[i] = 16;
-    for(register int i = MB4; i < MB8; ++i)
+    for(register int i = MB4; i < MB8; i += 4096)
         PSRAM_DATA[i] = 8;
-    for(register int i = MB1; i < MB4; ++i)
+    for(register int i = MB1; i < MB4; i += 4096)
         PSRAM_DATA[i] = 4;
-    for(register int i = 0; i < MB1; ++i)
+    for(register int i = 0; i < MB1; i += 4096)
         PSRAM_DATA[i] = 1;
-    register uint32_t res = PSRAM_DATA[MB16 - 1];
-    for (register int i = MB16 - MB1; i < MB16; ++i) {
+    register uint32_t res = PSRAM_DATA[MB16 - 4096];
+    for (register int i = MB16 - MB1; i < MB16; i += 4096) {
         if (res != PSRAM_DATA[i])
             return 0;
     }
@@ -994,8 +996,15 @@ void __not_in_flash() flash_timings() {
 }
 #endif
 
-int __not_in_flash() main() {
+static void __not_in_flash_func(flash_info)() {
+    if (rx[0] == 0) {
+        uint8_t tx[4] = {0x9f};
+        flash_do_cmd(tx, rx, 4);
+    }
+}
 
+int main() {
+    flash_info();
 #ifdef PICO_RP2040
     hw_set_bits(&vreg_and_chip_reset_hw->vreg, VREG_AND_CHIP_RESET_VREG_VSEL_BITS);
     sleep_ms(10);
@@ -1062,12 +1071,6 @@ int __not_in_flash() main() {
         psram_pin = rp2350a ? BUTTER_PSRAM_GPIO : 47;
         psram_init(psram_pin);
         butter_psram_size();
-        for (int i = 0; i < 6; i++) {
-            sleep_ms(33);
-            gpio_put(PICO_DEFAULT_LED_PIN, true);
-            sleep_ms(33);
-            gpio_put(PICO_DEFAULT_LED_PIN, false);
-        }
     #endif
 #endif
 
