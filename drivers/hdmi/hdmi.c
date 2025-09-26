@@ -17,6 +17,21 @@ static uint offs_prg1 = 0;
 static int SM_video = -1;
 static int SM_conv = -1;
 
+static int cur_hdmi_video_mode = 0;
+
+static struct video_mode_t hdmi_video_mode[2] = {
+    { // 640x480 60Hz
+        .h_total = 524,
+        .h_width = 480,
+        .freq = 60
+    },
+    { // 640x480 50Hz
+        .h_total = 645,
+        .h_width = 480,
+        .freq = 52
+    }
+};
+
 //активный видеорежим
 static enum graphics_mode_t graphics_mode = GRAPHICSMODE_DEFAULT;
 
@@ -26,6 +41,11 @@ static uint32_t palette[256];
 
 #define SCREEN_WIDTH (320)
 #define SCREEN_HEIGHT (240)
+
+// #define HDMI_WIDTH 480 //480 Default
+// #define HDMI_HEIGHT 644 //524 Default
+// #define HDMI_HZ 52 //60 Default
+
 static int graphics_buffer_width = 0;
 static int graphics_buffer_height = 0;
 static int graphics_buffer_shift_x = 0;
@@ -163,32 +183,30 @@ static void pio_set_x(PIO pio, const int sm, uint32_t v) {
 
 uint8_t* getLineBuffer(int line);
 void ESPectrum_vsync();
+int get_hdmi_video_mode();
 
 static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
     static uint32_t inx_buf_dma;
     static uint line = 0;
+    struct video_mode_t mode = hdmi_video_mode[get_hdmi_video_mode()];
     irq_inx++;
 
     dma_hw->ints0 = 1u << dma_chan_ctrl;
     dma_channel_set_read_addr(dma_chan_ctrl, &DMA_BUF_ADDR[inx_buf_dma & 1], false);
 
-    if ( line >= 524 ) {
+    if (line >= mode.h_total ) {
         line = 0;
+        ESPectrum_vsync();
     } else {
         ++line;
     }
 
     if ((line & 1) == 0) return;
-
-    if (line == 480) {
-        ESPectrum_vsync();
-    }
-
     inx_buf_dma++;
 
     uint8_t* activ_buf = (uint8_t *)dma_lines[inx_buf_dma & 1];
 
-    if (line < 480 ) {
+    if (line < mode.h_width ) {
         uint8_t* output_buffer = activ_buf + 72; //для выравнивания синхры;
         int y = line >> 1;
         //область изображения
@@ -417,7 +435,8 @@ static inline bool hdmi_init() {
     sm_config_set_out_shift(&c_c, true, true, 30);
     sm_config_set_fifo_join(&c_c, PIO_FIFO_JOIN_TX);
 
-    sm_config_set_clkdiv(&c_c, clock_get_hz(clk_sys) / 252000000.0f);
+    int hdmi_hz = hdmi_video_mode[get_hdmi_video_mode()].freq;
+    sm_config_set_clkdiv(&c_c, (clock_get_hz(clk_sys) / 252000000.0f) * (60 / hdmi_hz));
     pio_sm_init(PIO_VIDEO, SM_video, offs_prg0, &c_c);
     pio_sm_set_enabled(PIO_VIDEO, SM_video, true);
 
