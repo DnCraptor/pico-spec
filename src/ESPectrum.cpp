@@ -84,6 +84,7 @@ fabgl::VirtualKey get_last_key_pressed(void) {
 
 void close_all(void) {
     f_unlink(MOS_FILE);
+#ifdef BUTTER_PSRAM_GPIO
     if (butter_psram_size()) {
         memset((void*)PSRAM_DATA, 0, butter_psram_size());
     }
@@ -92,6 +93,7 @@ void close_all(void) {
         gpio_set_dir(psram_pin, GPIO_OUT);
         gpio_put(psram_pin, true);
     }
+#endif
 }
 
 void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {

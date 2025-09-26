@@ -4204,7 +4204,6 @@ void OSD::HWInfo() {
              flash_size >> 20, rx[0], rx[1], rx[2], rx[3]
     );
     VIDEO::vga.print(buf);
-
     #ifndef MURM2
     if (!butter_psram_size()) {
         uint32_t psram32 = psram_size();
@@ -4224,6 +4223,7 @@ void OSD::HWInfo() {
         VIDEO::vga.print(buf);
     }
     #endif
+    #ifdef BUTTER_PSRAM_GPIO
     if (butter_psram_size()) {
         uint32_t psram32 = butter_psram_size();
         if (psram32) {
@@ -4237,6 +4237,7 @@ void OSD::HWInfo() {
         }
         VIDEO::vga.print(buf);
     }
+    #endif
     // Wait for key
     while (1) {
         if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
