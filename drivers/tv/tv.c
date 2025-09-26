@@ -129,9 +129,8 @@ static void pio_set_x(PIO pio, const int sm, const uint32_t v) {
     pio_sm_exec(pio, sm, instr_mov);
 }
 
-
 //определение палитры
-void graphics_set_palette(uint8_t i, uint32_t color888) {
+static void graphics_set_palette(uint8_t i, uint32_t color888) {
     if (i >= 240) return;
     uint8_t conv0[] = { 0b00, 0b00, 0b01, 0b10, 0b10, 0b10, 0b11, 0b11 };
     uint8_t conv1[] = { 0b00, 0b01, 0b01, 0b01, 0b10, 0b11, 0b11, 0b11 };

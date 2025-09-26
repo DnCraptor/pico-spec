@@ -814,7 +814,6 @@ void __scratch_x("render") render_core() {
 
     graphics_set_buffer(NULL, DISP_WIDTH, DISP_HEIGHT); /// TODO:
     graphics_set_bgcolor(0x000000);
-    graphics_set_flashmode(false, false);
     sem_acquire_blocking(&vga_start_semaphore);
     while (true) {
         pcm_call();

@@ -34,9 +34,6 @@
 inline static void graphics_set_bgcolor(uint32_t color888) {
     // dummy
 }
-inline static void graphics_set_flashmode(bool flash_line, bool flash_frame) {
-    // dummy
-}
 extern uint8_t TFT_FLAGS;
 extern uint8_t TFT_INVERSION;
 void refresh_lcd();
