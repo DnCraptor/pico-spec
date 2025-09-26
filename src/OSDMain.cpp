@@ -4200,12 +4200,12 @@ void OSD::HWInfo() {
     VIDEO::vga.print(" Hardware info\n");
     VIDEO::vga.print(" --------------------------------------\n");
 
-#if !defined(PICO_RP2040)
-
-   uint32_t cpu_hz = clock_get_hz(clk_sys) / MHZ;
+#if PICO_RP2350
+    uint32_t cpu_hz = clock_get_hz(clk_sys) / MHZ;
 
     string textout =
-        " Chip model     : RP2350 " + to_string(cpu_hz) + " MHz\n"
+        " Chip model     : RP2350";
+    textout += (rp2350a ? "A " : "B ") +  to_string(cpu_hz) + " MHz\n"
         " Chip cores     : 2\n"
         " Chip RAM       : 520 KB\n"
     ;
@@ -4229,38 +4229,38 @@ void OSD::HWInfo() {
     );
     VIDEO::vga.print(buf);
 
-    #if !BUTTER_PSRAM_GPIO || BUTTER_PSRAM_GPIO == 47
-    uint32_t psram32 = psram_size();
-    if (psram32) {
-        uint8_t rx8[8];
-        psram_id(rx8);
-        snprintf(buf, 128,
-                    " PSRAM size     : %d MB\n"\
-                    " PSRAM MF ID    : %02X\n"\
-                    " PSRAM KGD      : %02X\n"\
-                    " PSRAM EID      : %02X%02X-%02X%02X-%02X%02X\n",
-                    psram32 >> 20, rx8[0], rx8[1], rx8[2], rx8[3], rx8[4], rx8[5], rx8[6], rx8[7]
-        );
+    #ifndef MURM2
+    if (!butter_psram_size()) {
+        uint32_t psram32 = psram_size();
+        if (psram32) {
+            uint8_t rx8[8];
+            psram_id(rx8);
+            snprintf(buf, 128,
+                        " PSRAM size     : %d MB\n"\
+                        " PSRAM MF ID    : %02X\n"\
+                        " PSRAM KGD      : %02X\n"\
+                        " PSRAM EID      : %02X%02X-%02X%02X-%02X%02X\n",
+                        psram32 >> 20, rx8[0], rx8[1], rx8[2], rx8[3], rx8[4], rx8[5], rx8[6], rx8[7]
+            );
+        } else {
+            snprintf(buf, 128, " Murmulator PSRAM : Not found\n");
+        }
         VIDEO::vga.print(buf);
     }
     #endif
-#if !defined(PICO_RP2040)
-#if BUTTER_PSRAM_GPIO
-    {
-    uint32_t psram32 = butter_psram_size();
-    if (psram32) {
-        snprintf(buf, 128,
-                     "+PSRAM on GP%02d  : QSPI\n"\
-                     "+PSRAM size     : %d MB\n",
-                     BUTTER_PSRAM_GPIO, psram32 >> 20
-        );
-    } else {
-        snprintf(buf, 128, " PSRAM on GP%02d  : Not found\n", BUTTER_PSRAM_GPIO);
+    if (butter_psram_size()) {
+        uint32_t psram32 = butter_psram_size();
+        if (psram32) {
+            snprintf(buf, 128,
+                        "+PSRAM on GP%02d  : QSPI\n"\
+                        "+PSRAM size     : %d MB\n",
+                        psram_pin, psram32 >> 20
+            );
+        } else {
+            snprintf(buf, 128, " PSRAM on GP%02d  : Not found\n", psram_pin);
+        }
+        VIDEO::vga.print(buf);
     }
-    VIDEO::vga.print(buf);
-    }
-#endif
-#endif
     // Wait for key
     while (1) {
         if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
