@@ -10,8 +10,10 @@
 #include <hardware/sync.h>
 #include <hardware/flash.h>
 
+#ifdef PICO_RP2350
 #include <hardware/regs/qmi.h>
 #include <hardware/structs/qmi.h>
+#endif
 
 #include "ESPectrum.h"
 #include "Config.h"
@@ -998,11 +1000,6 @@ int __not_in_flash() main() {
     hw_set_bits(&vreg_and_chip_reset_hw->vreg, VREG_AND_CHIP_RESET_VREG_VSEL_BITS);
     sleep_ms(10);
     set_sys_clock_khz(CPU_MHZ * KHZ, true);
-#elif ZERO2
-    vreg_set_voltage(VREG_VOLTAGE_1_10); // Set voltage  //
-    delay(100);
-    set_sys_clock_khz(CPU_MHZ * KHZ, true);
-
     // #define QMI_COOLDOWN 30     // 0xc0000000 [31:30] COOLDOWN     (0x1) Chip select cooldown period
     // #define QMI_PAGEBREAK 28    // 0x30000000 [29:28] PAGEBREAK    (0x0) When page break is enabled, chip select will...
     // #define QMI_SELECT_SETUP 25 // 0x02000000 [25]    SELECT_SETUP (0) Add up to one additional system clock cycle of setup...
@@ -1025,15 +1022,21 @@ int __not_in_flash() main() {
     // set_sys_clock_khz(CPU_MHZ * KHZ, true);
 
 #else
-    vreg_disable_voltage_limit();
-    flash_timings();
-    vreg_set_voltage(VREG_VOLTAGE_1_60);
-    sleep_ms(100);
+    #ifdef ZERO2
+        vreg_set_voltage(VREG_VOLTAGE_1_10); // Set voltage  //
+        delay(100);
+        set_sys_clock_khz(CPU_MHZ * KHZ, true);
+    #else
+        vreg_disable_voltage_limit();
+        vreg_set_voltage(VREG_VOLTAGE_1_60);
+        flash_timings();
+        sleep_ms(100);
 
-    if (!set_sys_clock_khz(CPU_MHZ * KHZ, 0)) {
-        #define CPU_MHZ 252
-        set_sys_clock_khz(CPU_MHZ * KHZ, 1); // fallback to failsafe clocks
-    }
+        if (!set_sys_clock_khz(CPU_MHZ * KHZ, 0)) {
+            #define CPU_MHZ 252
+            set_sys_clock_khz(CPU_MHZ * KHZ, 1); // fallback to failsafe clocks
+        }
+    #endif
 #endif
 
 #ifdef KBDUSB
@@ -1046,21 +1049,9 @@ int __not_in_flash() main() {
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
     for (int i = 0; i < 6; i++) {
-        for (int j = 0; j < 33; j++) {
-#ifdef KBDUSB
-            ps2kbd.tick();
-            tuh_task();
-#endif
-            sleep_ms(1);
-        }
+        sleep_ms(33);
         gpio_put(PICO_DEFAULT_LED_PIN, true);
-        for (int j = 0; j < 33; j++) {
-#ifdef KBDUSB
-            ps2kbd.tick();
-            tuh_task();
-#endif
-            sleep_ms(1);
-        }
+        sleep_ms(33);
         gpio_put(PICO_DEFAULT_LED_PIN, false);
     }
 

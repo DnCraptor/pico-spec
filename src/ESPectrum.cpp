@@ -243,12 +243,14 @@ double ESPectrum::totalseconds = 0;
 double ESPectrum::totalsecondsnodelay = 0;
 int64_t ESPectrum::target;
 int ESPectrum::sync_cnt = 0;
-volatile bool ESPectrum::vsync = false;
+volatile bool ESPectrum::v_sync = false;
+bool ESPectrum::v_sync_enabled = false;
 int64_t ESPectrum::ts_start;
 int64_t ESPectrum::elapsed;
 int64_t ESPectrum::idle;
 uint8_t ESPectrum::multiplicator = 0;
 int ESPectrum::ESPoffset = 0;
+volatile int ESPectrum::hdmi_video_mode = 0;
 
 //=======================================================================================
 // LOGGING / TESTING
@@ -625,6 +627,8 @@ if (butter_psram_size() >= (0x04000 * (64+2 - 23))) {
     //=======================================================================================
     // VIDEO
     //=======================================================================================
+    hdmi_video_mode = Config::hdmi_video_mode;
+    v_sync_enabled=Config::v_sync_enabled;
 
     VIDEO::Init();
     VIDEO::Reset();
@@ -865,11 +869,18 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
         if (r) {
             KeytoESP = NextKey.vk;
             Kdown = NextKey.down;
-            if ((Kdown) && ((KeytoESP >= fabgl::VK_F1 && KeytoESP <= fabgl::VK_F12) || KeytoESP == fabgl::VK_PAUSE || KeytoESP == fabgl::VK_NUMLOCK || KeytoESP == fabgl::VK_TILDE ||
+            if ((Kdown) && ((KeytoESP >= fabgl::VK_F1 && KeytoESP <= fabgl::VK_F12) || KeytoESP == fabgl::VK_PAUSE ||
+                KeytoESP == fabgl::VK_NUMLOCK || KeytoESP == fabgl::VK_TILDE ||
+                KeytoESP == fabgl::VK_HOME || KeytoESP == fabgl::VK_END ||
+                KeytoESP == fabgl::VK_INSERT || KeytoESP == fabgl::VK_DELETE ||
+                KeytoESP == fabgl::VK_PAGEUP || KeytoESP == fabgl::VK_PAGEDOWN ||
                 KeytoESP == fabgl::VK_VOLUMEUP || KeytoESP == fabgl::VK_VOLUMEDOWN || KeytoESP == fabgl::VK_VOLUMEMUTE)
             ) {
                 int64_t osd_start = esp_timer_get_time();
-                OSD::do_OSD(KeytoESP, Kbd->isVKDown(fabgl::VK_LALT) || Kbd->isVKDown(fabgl::VK_RALT));
+                OSD::do_OSD(KeytoESP,
+                    Kbd->isVKDown(fabgl::VK_LALT) || Kbd->isVKDown(fabgl::VK_RALT),
+                    Kbd->isVKDown(fabgl::VK_LCTRL) || Kbd->isVKDown(fabgl::VK_RCTRL)
+                );
                 Kbd->emptyVirtualKeyQueue();
                 // Set all zx keys as not pressed
                 zxDelay = 15;
@@ -1178,7 +1189,7 @@ void ESPectrum::loop() {
     }
     processKeyboard();
     // Update stats every 50 frames
-    if (VIDEO::OSD && VIDEO::framecnt >= 10) {
+    if (VIDEO::OSD && VIDEO::framecnt >= 50) {
         if (VIDEO::OSD & 0x04) {
             // printf("Vol. OSD out -> Framecnt: %d\n", VIDEO::framecnt);
             if (VIDEO::framecnt >= 100) {
@@ -1258,14 +1269,27 @@ void ESPectrum::loop() {
 
     totalsecondsnodelay += elapsed;
 
+    if (!maxSpeed)
+    {
+        if (v_sync_enabled)
+        {
+        for (;;)
+            if (v_sync) {
+                v_sync = false;
+                break;
+            }
+        }
+        else
+        {
+            if (idle > 0) {
+                delayMicroseconds(idle);
+            }
+        }
+    }
 ///    if (ESP_delay == false) {
 ///        totalseconds += elapsed;
 ///        continue;
 ///    }
-
-    if (idle > 0 && !maxSpeed) {
-        delayMicroseconds(idle);
-    }
 
     // Audio sync
     if (++sync_cnt & 0x20) {

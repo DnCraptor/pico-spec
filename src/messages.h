@@ -411,12 +411,14 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
     "Video\n"\
     "Render type\t>\n"\
     "Aspect Ratio\t>\n"\
-    "Scanlines\t>\n"
+    "Scanlines\t>\n"\
+	"V-Sync\t>\n"
 #define MENU_VIDEO_ES \
     "Video\n"\
     "Tipo render\t>\n"\
 	"Relaci" "\xA2" "n de aspecto\t>\n"\
-    "Scanlines\t>\n"
+    "Scanlines\t>\n"\
+	"V-Sync\t>\n"
 static const char *MENU_VIDEO[2] = { MENU_VIDEO_EN, MENU_VIDEO_ES };
 
 #define MENU_RENDER_EN \
@@ -440,6 +442,8 @@ static const char *MENU_RENDER[2] = { MENU_RENDER_EN, MENU_RENDER_ES };
 static const char *MENU_ASPECT[2] = { MENU_ASPECT_EN, MENU_ASPECT_ES };
 
 static const char *MENU_SCANLINES[2] = { "Scanlines\n", "Scanlines\n" };
+
+static const char *MENU_VSYNC[2] = { "V-Sync\n", "V-Sync\n" };
 
 #if !defined(PICO_RP2040)
 #define MENU_RESET_EN \

@@ -56,8 +56,16 @@ extern "C" uint8_t* getLineBuffer(int line) {
 }
 
 extern "C" void ESPectrum_vsync() {
-    ESPectrum::vsync = true;
+    ESPectrum::v_sync = true;
 }
+
+extern "C" int get_hdmi_video_mode() {
+    return ESPectrum::hdmi_video_mode;
+}
+
+// extern "C" video_mode_t ESPectrum_VideoMode() {
+//     return VIDEO::video_mode[0];
+// }
 
 uint16_t VIDEO::spectrum_colors[NUM_SPECTRUM_COLORS] = {
     BLACK,     BLUE,     RED,     MAGENTA,     GREEN,     CYAN,     YELLOW,     WHITE,
@@ -131,7 +139,7 @@ IRAM_ATTR void VGA6Bit::interrupt(void *arg) {
     static int cntvsync = 0;
 
     if (Config::tape_player /* || Config::real_player */ ) {
-        ESPectrum::vsync = true;
+        ESPectrum::v_sync = true;
         return;
     }
 
@@ -143,7 +151,7 @@ IRAM_ATTR void VGA6Bit::interrupt(void *arg) {
 
         if (elapsedmicros >= ESPectrum::target) {
 
-            ESPectrum::vsync = true;
+            ESPectrum::v_sync = true;
 
             // This code is needed to "finetune" the sync. Without it, vsync and emu video gets slowly desynced.
             if (VIDEO::VsyncFinetune[0]) {
@@ -155,12 +163,12 @@ IRAM_ATTR void VGA6Bit::interrupt(void *arg) {
 
             elapsedmicros -= ESPectrum::target;
 
-        } else ESPectrum::vsync = false;
+        } else ESPectrum::v_sync = false;
     
     } else {
 
         elapsedmicros = 0;
-        ESPectrum::vsync = false;
+        ESPectrum::v_sync = false;
 
     }
 

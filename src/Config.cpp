@@ -82,6 +82,8 @@ uint8_t Config::render = 0;
 bool     Config::TABasfire1 = false;
 bool     Config::StartMsg = true;
 signed char Config::aud_volume = 0;
+int     Config::hdmi_video_mode = 0;
+bool     Config::v_sync_enabled = false;
 
 void Config::requestMachine(string newArch, string newRomSet)
 {
@@ -364,6 +366,8 @@ void Config::load() {
         nvs_get_b("TABasfire1", Config::TABasfire1, sts);
         nvs_get_b("StartMsg", Config::StartMsg, sts);
         nvs_get_sc("AudVolume", Config::aud_volume, sts);
+        nvs_get_i("hdmi_video_mode", Config::hdmi_video_mode, sts);
+        nvs_get_b("v_sync_enabled", v_sync_enabled, sts);
     }
 }
 
@@ -478,6 +482,8 @@ void Config::save() {
         nvs_set_str(handle,"TABasfire1", TABasfire1 ? "true" : "false");
         nvs_set_str(handle,"StartMsg", StartMsg ? "true" : "false");
         nvs_set_sc(handle,"AudVolume", ESPectrum::aud_volume);
+        nvs_set_i(handle,"hdmi_video_mode",Config::hdmi_video_mode);
+        nvs_set_str(handle,"v_sync_enabled", Config::v_sync_enabled ? "true" : "false");
         fclose2(handle);
     }
     // printf("Config saved OK\n");

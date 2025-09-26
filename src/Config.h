@@ -117,6 +117,9 @@ public:
     static bool trdosWriteProtect;
     
     static signed char aud_volume;
+
+    static int hdmi_video_mode;
+    static bool v_sync_enabled;
 };
 
 #endif // Config.h
