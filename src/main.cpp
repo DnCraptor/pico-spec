@@ -1049,21 +1049,9 @@ int __not_in_flash() main() {
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
     for (int i = 0; i < 6; i++) {
-        for (int j = 0; j < 33; j++) {
-#ifdef KBDUSB
-            ps2kbd.tick();
-            tuh_task();
-#endif
-            sleep_ms(1);
-        }
+        sleep_ms(33);
         gpio_put(PICO_DEFAULT_LED_PIN, true);
-        for (int j = 0; j < 33; j++) {
-#ifdef KBDUSB
-            ps2kbd.tick();
-            tuh_task();
-#endif
-            sleep_ms(1);
-        }
+        sleep_ms(33);
         gpio_put(PICO_DEFAULT_LED_PIN, false);
     }
 
