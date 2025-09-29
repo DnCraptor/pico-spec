@@ -8,9 +8,12 @@
 #include "Config.h"
 #include "LoadWavStream.h"
 
+extern "C" int testPins(uint32_t pin0, uint32_t pin1);
+
 #define VOLUME_0DB          (16)
 
 static volatile uint8_t vol = VOLUME_0DB;
+bool is_i2s_enabled = false;
 
 esp_err_t pwm_audio_set_volume(int8_t volume) {
     if (volume < -VOLUME_0DB) {
@@ -56,17 +59,12 @@ esp_err_t pwm_audio_write(
 }
 
 //------------------------------------------------------------
-#ifdef I2S_SOUND
 static i2s_config_t i2s_config = {
 		.sample_freq = SOUND_FREQUENCY, 
 		.channel_count = 2,
-#ifdef MURM2
-		.data_pin = BEEPER_PIN,
-		.clock_pin_base = PWM_PIN0,
-#else
-        .data_pin = PWM_PIN0,
-        .clock_pin_base = PWM_PIN1,
-#endif
+        .data_pin = I2S_DATA_PIO,
+        .bck_pin = I2S_BCK_PIO,
+        .lck_pin = I2S_LCK_PIO,
 		.pio = pio1,
 		.sm = 0,
         .dma_channel = 0,
@@ -75,7 +73,7 @@ static i2s_config_t i2s_config = {
         .volume = 0,
         .program_offset = 0
 	};
-#else
+
 static void PWM_init_pin(uint8_t pinN, uint16_t max_lvl) {
     pwm_config config = pwm_get_default_config();
     gpio_set_function(pinN, GPIO_FUNC_PWM);
@@ -83,7 +81,6 @@ static void PWM_init_pin(uint8_t pinN, uint16_t max_lvl) {
     pwm_config_set_wrap(&config, max_lvl); // MAX PWM value
     pwm_init(pwm_gpio_to_slice_num(pinN), &config, true);
 }
-#endif
 
 #ifdef LOAD_WAV_PIO
 inline static void inInit(uint gpio) {
@@ -100,13 +97,14 @@ static bool hw_get_bit_LOAD() {
 #endif
 
 void init_sound() {
-#ifdef I2S_SOUND
-    i2s_volume(&i2s_config, 0);
-#else
-    PWM_init_pin(PWM_PIN0, (1 << 8) - 1);
-    PWM_init_pin(PWM_PIN1, (1 << 8) - 1);
-   /// PWM_init_pin(BEEPER_PIN, (1 << 8) - 1);
-#endif
+    is_i2s_enabled = testPins(I2S_DATA_PIO, I2S_BCK_PIO);
+    if (is_i2s_enabled) {
+        i2s_volume(&i2s_config, 0);
+    } else {
+        PWM_init_pin(PWM_PIN0, (1 << 8) - 1);
+        PWM_init_pin(PWM_PIN1, (1 << 8) - 1);
+        /// PWM_init_pin(BEEPER_PIN, (1 << 8) - 1);
+    }
 #ifdef LOAD_WAV_PIO
     //пин ввода звука
     inInit(LOAD_WAV_PIO);
@@ -145,32 +143,32 @@ void pcm_call() {
         return;
     }
     m_let_process_it = false;
-#ifdef I2S_SOUND
-    static int16_t v32[2];
-    if (m_off < m_size) {
-        v32[0] = *(buff_R + m_off);
-        v32[1] = *(buff_L + m_off);
-        ++m_off;
-    }
-    i2s_write(&i2s_config, v32, 1);
-//    i2s_dma_write(&i2s_config, v32);
-#else
-    uint16_t outL = 0;
-    uint16_t outR = 0;
-    if (m_off < m_size) {
-        int16_t* b_L = buff_L + m_off;
-        int16_t* b_R = buff_R + m_off;
-        uint32_t x = ((int32_t)*b_L) + 0x8000;
-        outL = x >> 8; // 4
-        ++m_off;
-        x = ((int32_t)*b_R) + 0x8000;
-        outR = x >> 8;///4;
+    if (is_i2s_enabled) {
+        static int16_t v32[2];
+        if (m_off < m_size) {
+            v32[0] = *(buff_R + m_off);
+            v32[1] = *(buff_L + m_off);
+            ++m_off;
+        }
+        i2s_write(&i2s_config, v32, 1);
+    //    i2s_dma_write(&i2s_config, v32);
     } else {
-        return;
+        uint16_t outL = 0;
+        uint16_t outR = 0;
+        if (m_off < m_size) {
+            int16_t* b_L = buff_L + m_off;
+            int16_t* b_R = buff_R + m_off;
+            uint32_t x = ((int32_t)*b_L) + 0x8000;
+            outL = x >> 8; // 4
+            ++m_off;
+            x = ((int32_t)*b_R) + 0x8000;
+            outR = x >> 8;///4;
+        } else {
+            return;
+        }
+        pwm_set_gpio_level(PWM_PIN0, outR); // Право
+        pwm_set_gpio_level(PWM_PIN1, outL); // Лево
     }
-    pwm_set_gpio_level(PWM_PIN0, outR); // Право
-    pwm_set_gpio_level(PWM_PIN1, outL); // Лево
-#endif
     return;
 }
 
@@ -178,32 +176,32 @@ void pcm_cleanup(void) {
     m_let_process_it = false;
     cancel_repeating_timer(&m_timer);
     m_timer.delay_us = 0;
-#ifdef I2S_SOUND
-    i2s_volume(&i2s_config, 16);
-    i2s_deinit(&i2s_config);
-#else
-    uint16_t o = 0;
-    pwm_set_gpio_level(PWM_PIN0, o); // Право
-    pwm_set_gpio_level(PWM_PIN1, o); // Лево
-///    pwm_set_gpio_level(BEEPER_PIN, o); // Beeper
-#endif
+    if (is_i2s_enabled) {
+        i2s_volume(&i2s_config, 16);
+        i2s_deinit(&i2s_config);
+    } else {
+        uint16_t o = 0;
+        pwm_set_gpio_level(PWM_PIN0, o); // Право
+        pwm_set_gpio_level(PWM_PIN1, o); // Лево
+    ///    pwm_set_gpio_level(BEEPER_PIN, o); // Beeper
+    }
 }
 
 /// size - bytes
 void pcm_setup(int hz, size_t size) {
-#ifdef I2S_SOUND
-    if (i2s_config.dma_buf) {
-        pcm_cleanup();
+    if (is_i2s_enabled) {
+        if (i2s_config.dma_buf) {
+            pcm_cleanup();
+        }
+        i2s_config.sample_freq = hz;
+        i2s_config.channel_count = 2;
+        i2s_config.dma_trans_count = 1; // TODO: ensure
+        i2s_init(&i2s_config);
+    } else {
+        if (m_timer.delay_us) {
+            pcm_cleanup();
+        }
     }
-    i2s_config.sample_freq = hz;
-    i2s_config.channel_count = 2;
-    i2s_config.dma_trans_count = 1; // TODO: ensure
-    i2s_init(&i2s_config);
-#else
-    if (m_timer.delay_us) {
-        pcm_cleanup();
-    }
-#endif
     m_let_process_it = false;
     //hz; // 44100;	//44000 //44100 //96000 //22050
 	// negative timeout means exact delay (rather than delay between callbacks)

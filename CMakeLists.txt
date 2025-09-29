@@ -15,11 +15,9 @@ endif()
 cmake_minimum_required(VERSION 3.13)
 
 option(HWAY "Enable Hardware AY-3-8910 sound" OFF)
-option(I2S "Enable I2S sound" OFF)
-option(VGA "Enable VGA" OFF)
+option(VGA_HDMI "Enable VGA/HDMI driver" OFF)
 option(TFT "Enable TFT display" OFF)
 option(ILI9341 "Enable TFT ILI9341 display" OFF)
-option(HDMI "Enable HDMI display" OFF)
 option(TV "Enable TV composite output" OFF)
 option(SOFTTV "Enable TV soft composite output" OFF)
 option(MURM2 "Murmulator 2.0" OFF)
@@ -29,7 +27,6 @@ option(ZERO "RP2040-PiZero" OFF)
 option(ZERO2 "RP2350-PiZero" OFF)
 
 #set(m1p2 ON)
-set(I2S ON)
 #set(HWAY ON)
 
 set(VGA_HDMI ON)
@@ -46,13 +43,13 @@ set(CPU_MHZ 378)
 #set(CPU_MHZ 460)
 #set(CPU_MHZ 252)
 #set(CPU_MHZ 133)
-set (PORT_VERSION "1.2.F")
+set (PORT_VERSION "1.2.G")
 
 #set(ZERO ON)
 #set(ZERO2 ON)
 #set (PICO_PC ON)
-set (PICO_DV ON)
-#set (MURM ON)
+#set (PICO_DV ON)
+set (MURM ON)
 #set (MURM2 ON)
 
 set(KBDUSB ON)
@@ -243,11 +240,14 @@ IF(MURM2)
 
         LOAD_WAV_PIO=22
 
-        BEEPER_PIN=9
-        PWM_PIN0=10
+        I2S_DATA_PIO=9 #
+        I2S_BCK_PIO=10 #
+        I2S_LCK_PIO=11
+
+        BEEPER_PIN=9 #
+        PWM_PIN0=10 #
         PWM_PIN1=11
         SOUND_FREQUENCY=30600
-        I2S_FREQUENCY=30600
 
         # SDCARD
         SDCARD_PIN_SPI0_CS=5
@@ -310,11 +310,14 @@ ELSEIF(PICO_PC)
 
         LOAD_WAV_PIO=5 # UXT1-10
 
+        I2S_DATA_PIO=26 # not implemented
+        I2S_BCK_PIO=27 #
+        I2S_LCK_PIO=28
+
         BEEPER_PIN=26 # not implemented
         PWM_PIN0=27 # R
         PWM_PIN1=28 # L
         SOUND_FREQUENCY=30600
-        I2S_FREQUENCY=30600
 
         # SDCARD
         SDCARD_PIN_SPI0_MISO=4
@@ -367,11 +370,14 @@ ELSEIF(PICO_DV)
 
         LOAD_WAV_PIO=5 # UXT1-10
 
-        BEEPER_PIN=26 # not implemented
+        I2S_DATA_PIO=26 #
+        I2S_BCK_PIO=27 #
+        I2S_LCK_PIO=28
+
         PWM_PIN0=26 # R
         PWM_PIN1=27 # L
+        BEEPER_PIN=28 # not implemented
         SOUND_FREQUENCY=30600
-        I2S_FREQUENCY=30600
 
         # SDCARD
         SDCARD_SPI_BUS=spi1
@@ -419,11 +425,14 @@ ELSEIF(ZERO)
 
         LOAD_WAV_PIO=17
 
-        BEEPER_PIN=12
+        I2S_DATA_PIO=10 #
+        I2S_BCK_PIO=11 #
+        I2S_LCK_PIO=12
+
         PWM_PIN0=10
         PWM_PIN1=11
+        BEEPER_PIN=12
         SOUND_FREQUENCY=30600
-        I2S_FREQUENCY=30600
 
         # SDCARD
         SDCARD_PIN_SPI0_SCK=18
@@ -469,11 +478,14 @@ ELSEIF(ZERO2)
 
         LOAD_WAV_PIO=17
 
-        BEEPER_PIN=12
+        I2S_DATA_PIO=10 #
+        I2S_BCK_PIO=11 #
+        I2S_LCK_PIO=12
+
         PWM_PIN0=10
         PWM_PIN1=11
+        BEEPER_PIN=12
         SOUND_FREQUENCY=30600
-        I2S_FREQUENCY=30600
 
         # SDCARD
         SDCARD_SPI_BUS=spi1
@@ -518,11 +530,15 @@ ELSE()
         KBD_DATA_PIN=1
 
         LOAD_WAV_PIO=22
-        PWM_PIN0=26
-        PWM_PIN1=27
+
+        I2S_DATA_PIO=26 #
+        I2S_BCK_PIO=27 #
+        I2S_LCK_PIO=28
+
+        PWM_PIN0=26 #
+        PWM_PIN1=27 #
         BEEPER_PIN=28
         SOUND_FREQUENCY=30600
-        I2S_FREQUENCY=30600
 
         # SDCARD
         SDCARD_PIN_SPI0_CS=5
@@ -566,15 +582,9 @@ ELSE()
 ENDIF()
 
 
-IF(I2S)
-    SET(BUILD_NAME "${BUILD_NAME}-I2S")
-    target_compile_definitions(${PROJECT_NAME} PRIVATE I2S_SOUND=1)
-ELSEIF(HWAY)
+IF(HWAY)
     target_compile_definitions(${PROJECT_NAME} PRIVATE HWAY)
     SET(BUILD_NAME "${BUILD_NAME}-HWAY")
-ELSE()
-    SET(BUILD_NAME "${BUILD_NAME}-PWM")
-    target_compile_definitions(${PROJECT_NAME} PRIVATE AUDIO_PWM_PIN=${PWM_PIN0})
 ENDIF()
 
 IF(TFT)

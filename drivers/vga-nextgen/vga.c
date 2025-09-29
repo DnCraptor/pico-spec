@@ -468,7 +468,7 @@ static int test_1111_case(uint32_t pin0, uint32_t pin1, int res) {
     return res;
 }
 
-static int testPins(uint32_t pin0, uint32_t pin1) {
+int testPins(uint32_t pin0, uint32_t pin1) {
     int res = 0b000000;
     /// do not try to test butter psram this way
 #ifdef BUTTER_PSRAM_GPIO

@@ -1,3 +1,5 @@
+#pragma GCC optimize("Ofast")
+
 #include <cstdio>
 #include <cstring>
 #include <cstdarg>
@@ -36,8 +38,6 @@
 #if USE_NESPAD
 #include "nespad.h"
 #endif
-
-#pragma GCC optimize("Ofast")
 
 #define HOME_DIR (char*)"\\SPEC"
 
