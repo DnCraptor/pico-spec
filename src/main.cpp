@@ -1033,13 +1033,11 @@ int main() {
     // set_sys_clock_khz(CPU_MHZ * KHZ, true);
 
 #else
-/*
     #ifdef ZERO2
         vreg_set_voltage(VREG_VOLTAGE_1_10); // Set voltage  //
         delay(100);
         set_sys_clock_khz(CPU_MHZ * KHZ, true);
     #else
-    */
         vreg_disable_voltage_limit();
         vreg_set_voltage(VREG_VOLTAGE_1_60);
         flash_timings();
@@ -1049,7 +1047,7 @@ int main() {
             #define CPU_MHZ 252
             set_sys_clock_khz(CPU_MHZ * KHZ, 1); // fallback to failsafe clocks
         }
-//    #endif
+    #endif
 #endif
 
 #ifdef KBDUSB
