@@ -59,21 +59,23 @@ set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 # Pull in Raspberry Pi Pico SDK (must be before project)
-# For Board RP2350 PiZero
-# set(PICO_BOARD_HEADER_DIRS ${CMAKE_SOURCE_DIR}/src/boards)
-# set(PICO_BOARD waveshare_rp2350_pizero CACHE STRING "Board type")
-# set(PICO_PLATFORM rp2350-arm-s)
-
-set(PICO_BOARD pico2 CACHE STRING "Board type")
+IF(ZERO2)
+    # For Board RP2350-PiZero
+    set(PICO_BOARD_HEADER_DIRS ${CMAKE_SOURCE_DIR}/src/boards)
+    set(PICO_BOARD waveshare_rp2350_pizero CACHE STRING "Board type")
+    set(PICO_PLATFORM rp2350-arm-s)
+else()
+    set(PICO_BOARD pico2 CACHE STRING "Board type")
+endif()
 
 include(pico_sdk_import.cmake)
 
-if (PICO_BOARD MATCHES "pico2")
-    SET(PROJECT_NAME p2-spec)
-    set(FLASH_SIZE 4096)
-else ()
+if (PICO_BOARD MATCHES "pico")
     SET(PROJECT_NAME p1-spec)
     set(FLASH_SIZE 2048)
+else ()
+    SET(PROJECT_NAME p2-spec)
+    set(FLASH_SIZE 4096)
 endif()
 
 # light .uf2 (reduced number of ROMs)
