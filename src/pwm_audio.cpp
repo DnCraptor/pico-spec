@@ -13,6 +13,7 @@ extern "C" int testPins(uint32_t pin0, uint32_t pin1);
 #define VOLUME_0DB          (16)
 
 static volatile uint8_t vol = VOLUME_0DB;
+uint8_t link_i2s_code = 0;
 bool is_i2s_enabled = false;
 
 esp_err_t pwm_audio_set_volume(int8_t volume) {
@@ -98,7 +99,8 @@ static bool hw_get_bit_LOAD() {
 
 void init_sound() {
     if (I2S_BCK_PIO != I2S_LCK_PIO && I2S_LCK_PIO != I2S_DATA_PIO && I2S_BCK_PIO != I2S_DATA_PIO) {
-        is_i2s_enabled = testPins(I2S_DATA_PIO, I2S_BCK_PIO);
+        link_i2s_code = testPins(I2S_DATA_PIO, I2S_BCK_PIO);
+        is_i2s_enabled = link_i2s_code; // TODO: ensure
     }
     if (is_i2s_enabled) {
         i2s_volume(&i2s_config, 0);

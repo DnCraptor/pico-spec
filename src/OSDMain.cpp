@@ -4166,7 +4166,8 @@ string OSD::rowGet(string menu, unsigned short row) {
 //     get_cpu_flash_jedec_id(rx);
 //     return 1u << rx[3];
 // }
-
+extern "C" uint8_t linkVGA01;
+extern "C" uint8_t link_i2s_code;
 void OSD::HWInfo() {
     fabgl::VirtualKeyItem Nextkey;
     click();
@@ -4239,7 +4240,10 @@ void OSD::HWInfo() {
         VIDEO::vga.print(buf);
     }
     #endif
-    snprintf(buf, 128, " Audio mode     : %s\n", (is_i2s_enabled ? "i2s" : "PWM"));
+    snprintf(buf, 128, " Audio mode     : %s [%02Xh]\n", (is_i2s_enabled ? "i2s" : "PWM"), link_i2s_code);
+    VIDEO::vga.print(buf);
+    
+    snprintf(buf, 128, " VGA/HDMI detect: %02Xh\n", linkVGA01);
     VIDEO::vga.print(buf);
     // Wait for key
     while (1) {

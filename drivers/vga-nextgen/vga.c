@@ -13,7 +13,7 @@
 #include "stdlib.h"
 
 /// TODO: .h
-bool SELECT_VGA;
+bool SELECT_VGA = false;
 uint8_t* getLineBuffer(int line);
 void ESPectrum_vsync();
 
@@ -584,10 +584,15 @@ int testPins(uint32_t pin0, uint32_t pin1) {
     return res;
 }
 
+uint8_t linkVGA01;
 void graphics_init_hdmi();
 void graphics_init() {
-    uint8_t link = testPins(VGA_BASE_PIN, VGA_BASE_PIN + 1);
-    SELECT_VGA = (link == 0) || (link == 0x1F);
+    linkVGA01 = testPins(VGA_BASE_PIN, VGA_BASE_PIN + 1);
+#if defined(ZERO) || defined(ZERO2)
+    SELECT_VGA = linkVGA01 == 0x1F;
+#else
+    SELECT_VGA = (linkVGA01 == 0) || (linkVGA01 == 0x1F);
+#endif
     if (!SELECT_VGA) {
         graphics_init_hdmi();
         return;

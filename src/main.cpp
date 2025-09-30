@@ -815,7 +815,6 @@ void repeat_me_for_input() {
 void __scratch_x("render") render_core() {
     multicore_lockout_victim_init();
     graphics_init();
-
     graphics_set_buffer(NULL, DISP_WIDTH, DISP_HEIGHT); /// TODO:
     graphics_set_bgcolor(0x000000);
     graphics_set_flashmode(false, false);
