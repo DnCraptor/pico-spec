@@ -853,6 +853,7 @@ bool toggle_color() {
 }
 #endif
 
+uint8_t psram_pin;
 #if PICO_RP2350
 #include <hardware/exception.h>
 #include <hardware/structs/qmi.h>
@@ -865,7 +866,6 @@ bool toggle_color() {
 #define MB4 (4ul << 20)
 #define MB1 (1ul << 20)
 uint8_t* PSRAM_DATA = (uint8_t*)0x11000000;
-uint8_t psram_pin;
 static int BUTTER_PSRAM_SIZE = -1;
 uint32_t __not_in_flash_func(butter_psram_size)() {
     if (BUTTER_PSRAM_SIZE != -1) return BUTTER_PSRAM_SIZE;
@@ -966,6 +966,9 @@ void __no_inline_not_in_flash_func(psram_init)(uint cs_pin) {
 uint8_t* PSRAM_DATA = (uint8_t*)0;
 uint32_t __not_in_flash_func(butter_psram_size)() { return 0; }
 #endif
+#else
+uint8_t* PSRAM_DATA = (uint8_t*)0;
+uint32_t __not_in_flash_func(butter_psram_size)() { return 0; }
 #endif
 
 void sigbus(void) {
@@ -1031,11 +1034,13 @@ int main() {
     // set_sys_clock_khz(CPU_MHZ * KHZ, true);
 
 #else
+/*
     #ifdef ZERO2
         vreg_set_voltage(VREG_VOLTAGE_1_10); // Set voltage  //
         delay(100);
         set_sys_clock_khz(CPU_MHZ * KHZ, true);
     #else
+    */
         vreg_disable_voltage_limit();
         vreg_set_voltage(VREG_VOLTAGE_1_60);
         flash_timings();
@@ -1045,7 +1050,7 @@ int main() {
             #define CPU_MHZ 252
             set_sys_clock_khz(CPU_MHZ * KHZ, 1); // fallback to failsafe clocks
         }
-    #endif
+//    #endif
 #endif
 
 #ifdef KBDUSB

@@ -47,9 +47,9 @@ set (PORT_VERSION "1.2.G")
 
 #set(ZERO ON)
 #set(ZERO2 ON)
-set (PICO_PC ON)
+#set (PICO_PC ON)
 #set (PICO_DV ON)
-#set (MURM ON)
+set (MURM ON)
 #set (MURM2 ON)
 
 set(KBDUSB ON)
@@ -64,12 +64,19 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # set(PICO_BOARD waveshare_rp2350_pizero CACHE STRING "Board type")
 # set(PICO_PLATFORM rp2350-arm-s)
 
-set(PICO_BOARD pico2 CACHE STRING "Board type")
+set(PICO_BOARD pico CACHE STRING "Board type")
 
 include(pico_sdk_import.cmake)
 
-SET(PROJECT_NAME p2-spec)
-set(FLASH_SIZE 4096)
+if (PICO_BOARD MATCHES "pico2")
+    SET(PROJECT_NAME p2-spec)
+    set(FLASH_SIZE 4096)
+else ()
+    SET(PROJECT_NAME p1-spec)
+    set(FLASH_SIZE 2048)
+endif()
+
+# light .uf2 (reduced number of ROMs)
 set(FLASH_SIZE_GREEN ON)
 
 IF(MURM2)
@@ -132,6 +139,12 @@ endforeach ()
 message(STATUS "")
 
 add_executable(${PROJECT_NAME} ${SRC})
+
+if (PICO_BOARD MATCHES "pico")
+    pico_define_boot_stage2(slower_boot2 ${PICO_DEFAULT_BOOT_STAGE2_FILE})
+    target_compile_definitions(slower_boot2 PRIVATE PICO_FLASH_SPI_CLKDIV=4)
+    pico_set_boot_stage2(${PROJECT_NAME} slower_boot2)
+endif()
 
 # pull in common dependencies
 target_link_libraries(${PROJECT_NAME} PRIVATE
