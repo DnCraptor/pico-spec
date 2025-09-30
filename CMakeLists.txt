@@ -47,10 +47,10 @@ set (PORT_VERSION "1.2.G")
 
 #set(ZERO ON)
 #set(ZERO2 ON)
-#set (PICO_PC ON)
+set (PICO_PC ON)
 #set (PICO_DV ON)
 #set (MURM ON)
-set (MURM2 ON)
+#set (MURM2 ON)
 
 set(KBDUSB ON)
 
@@ -308,8 +308,8 @@ ELSEIF(PICO_PC)
         LOAD_WAV_PIO=5 # UXT1-10
 
         I2S_DATA_PIO=26 # not implemented
-        I2S_BCK_PIO=27 #
-        I2S_LCK_PIO=28
+        I2S_BCK_PIO=26  # I2S_BCK_PIO == I2S_LCK_PIO == I2S_DATA_PIO - unsupported mark
+        I2S_LCK_PIO=26
 
         BEEPER_PIN=26 # not implemented
         PWM_PIN0=27 # R

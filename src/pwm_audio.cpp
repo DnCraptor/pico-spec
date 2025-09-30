@@ -97,7 +97,9 @@ static bool hw_get_bit_LOAD() {
 #endif
 
 void init_sound() {
-    is_i2s_enabled = testPins(I2S_DATA_PIO, I2S_BCK_PIO);
+    if (I2S_BCK_PIO != I2S_LCK_PIO && I2S_LCK_PIO != I2S_DATA_PIO && I2S_BCK_PIO != I2S_DATA_PIO) {
+        is_i2s_enabled = testPins(I2S_DATA_PIO, I2S_BCK_PIO);
+    }
     if (is_i2s_enabled) {
         i2s_volume(&i2s_config, 0);
     } else {

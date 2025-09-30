@@ -54,6 +54,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "ff.h"
 #include "psram_spi.h"
 #include "Ports.h"
+#include "audio.h"
 
 /**
 #ifndef ESP32_SDL2_WRAPPER
@@ -4238,6 +4239,8 @@ void OSD::HWInfo() {
         VIDEO::vga.print(buf);
     }
     #endif
+    snprintf(buf, 128, " Audio mode     : %s\n", (is_i2s_enabled ? "i2s" : "PWM"));
+    VIDEO::vga.print(buf);
     // Wait for key
     while (1) {
         if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
