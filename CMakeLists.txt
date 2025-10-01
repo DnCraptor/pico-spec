@@ -37,17 +37,17 @@ set(VGA_HDMI ON)
 #set(CPU_MHZ 327.3)
 #set(CPU_MHZ 336)
 #set(CPU_MHZ 315)
-set(CPU_MHZ 378)
+#set(CPU_MHZ 378)
 #set(CPU_MHZ 460)
-#set(CPU_MHZ 252)
+set(CPU_MHZ 252)
 #set(CPU_MHZ 133)
 set (PORT_VERSION "1.2.G")
 
 #set(ZERO ON)
-#set(ZERO2 ON)
+set(ZERO2 ON)
 #set (PICO_PC ON)
 #set (PICO_DV ON)
-set (MURM ON)
+#set (MURM ON)
 #set (MURM2 ON)
 
 set(KBDUSB ON)
@@ -329,6 +329,12 @@ ELSEIF(PICO_PC)
 
         LOAD_WAV_PIO=5 # UXT1-10
 
+        CLK_AY_PIN1=21 # not in use
+        LATCH_595_PIN=26
+        CLK_595_PIN=27
+        DATA_595_PIN=28
+        CLK_AY_PIN2=29
+
         I2S_DATA_PIO=26 # not implemented
         I2S_BCK_PIO=26  # I2S_BCK_PIO == I2S_LCK_PIO == I2S_DATA_PIO - unsupported mark
         I2S_LCK_PIO=26
@@ -389,6 +395,12 @@ ELSEIF(PICO_DV)
 
         LOAD_WAV_PIO=5 # UXT1-10
 
+        CLK_AY_PIN1=21 # not in use
+        LATCH_595_PIN=26
+        CLK_595_PIN=27
+        DATA_595_PIN=28
+        CLK_AY_PIN2=29
+
         I2S_DATA_PIO=26 #
         I2S_BCK_PIO=27 #
         I2S_LCK_PIO=28
@@ -444,6 +456,12 @@ ELSEIF(ZERO)
 
         LOAD_WAV_PIO=17
 
+        CLK_AY_PIN1=8 # not in use
+        LATCH_595_PIN=10
+        CLK_595_PIN=11
+        DATA_595_PIN=12
+        CLK_AY_PIN2=7
+
         I2S_DATA_PIO=10 #
         I2S_BCK_PIO=11 #
         I2S_LCK_PIO=12
@@ -496,6 +514,12 @@ ELSEIF(ZERO2)
         KBD_DATA_PIN=1
 
         LOAD_WAV_PIO=17
+
+        CLK_AY_PIN1=8 # not in use
+        LATCH_595_PIN=10
+        CLK_595_PIN=11
+        DATA_595_PIN=12
+        CLK_AY_PIN2=7
 
         I2S_DATA_PIO=10 #
         I2S_BCK_PIO=11 #
