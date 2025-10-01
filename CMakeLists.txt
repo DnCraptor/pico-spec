@@ -14,7 +14,6 @@ endif()
 # ====================================================================================
 cmake_minimum_required(VERSION 3.13)
 
-option(HWAY "Enable Hardware AY-3-8910 sound" OFF)
 option(VGA_HDMI "Enable VGA/HDMI driver" OFF)
 option(TFT "Enable TFT display" OFF)
 option(ILI9341 "Enable TFT ILI9341 display" OFF)
@@ -27,7 +26,6 @@ option(ZERO "RP2040-PiZero" OFF)
 option(ZERO2 "RP2350-PiZero" OFF)
 
 #set(m1p2 ON)
-set(HWAY ON)
 
 set(VGA_HDMI ON)
 #set(SOFTTV ON)
@@ -49,8 +47,8 @@ set (PORT_VERSION "1.2.G")
 #set(ZERO2 ON)
 #set (PICO_PC ON)
 #set (PICO_DV ON)
-#set (MURM ON)
-set (MURM2 ON)
+set (MURM ON)
+#set (MURM2 ON)
 
 set(KBDUSB ON)
 
@@ -607,12 +605,6 @@ ELSE()
         DEFAULT_THROTTLING=0
         PICO_DEFAULT_LED_PIN=25
     )
-ENDIF()
-
-
-IF(HWAY)
-    target_compile_definitions(${PROJECT_NAME} PRIVATE HWAY)
-    SET(BUILD_NAME "${BUILD_NAME}-HWAY")
 ENDIF()
 
 IF(TFT)

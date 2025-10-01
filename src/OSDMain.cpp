@@ -55,6 +55,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "psram_spi.h"
 #include "Ports.h"
 #include "audio.h"
+#include "AySound.h"
 
 /**
 #ifndef ESP32_SDL2_WRAPPER
@@ -696,6 +697,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             esp_hard_reset();
         }
         else if (KeytoESP == fabgl::VK_F1) {
+        if (Config::audio_driver == 3) {
+            chip0.reset();
+            chip1.reset();
+        }
         menu_curopt = 1;
         while(1) {
             // Main menu
@@ -2528,14 +2533,22 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             menu.replace(menu.find("[A",0),2,"[*");
                                             menu.replace(menu.find("[P",0),2,"[ ");
                                             menu.replace(menu.find("[I",0),2,"[ ");
+                                            menu.replace(menu.find("[Y",0),2,"[ ");
                                         } else if (prev == 1) {
                                             menu.replace(menu.find("[A",0),2,"[ ");
                                             menu.replace(menu.find("[P",0),2,"[*");
                                             menu.replace(menu.find("[I",0),2,"[ ");
-                                        } else {
+                                            menu.replace(menu.find("[Y",0),2,"[ ");
+                                        } else if (prev == 2) {
                                             menu.replace(menu.find("[A",0),2,"[ ");
                                             menu.replace(menu.find("[P",0),2,"[ ");
                                             menu.replace(menu.find("[I",0),2,"[*");
+                                            menu.replace(menu.find("[Y",0),2,"[ ");
+                                        } else {
+                                            menu.replace(menu.find("[A",0),2,"[ ");
+                                            menu.replace(menu.find("[P",0),2,"[ ");
+                                            menu.replace(menu.find("[I",0),2,"[ ");
+                                            menu.replace(menu.find("[Y",0),2,"[*");
                                         }
                                         uint8_t opt2 = menuRun(menu);
                                         if (opt2) {
@@ -4273,15 +4286,15 @@ void OSD::HWInfo() {
         VIDEO::vga.print(buf);
     }
     #endif
-    #ifdef HWAY
-    snprintf(buf, 128, " Audio mode     : AY-3-8910\n");
-    #else
-    snprintf(buf, 128, " Audio mode     : %s [%02Xh] %s\n",
-        (is_i2s_enabled ? "i2s" : "PWM"),
-        link_i2s_code,
-        (Config::audio_driver == 0 ? " (auto)" : "(overriden)")
-    );
-    #endif
+    if (Config::audio_driver == 3) {
+        snprintf(buf, 128, " Audio mode     : AY-3-8910\n");
+    } else {
+        snprintf(buf, 128, " Audio mode     : %s [%02Xh] %s\n",
+            (is_i2s_enabled ? "i2s" : "PWM"),
+            link_i2s_code,
+            (Config::audio_driver == 0 ? " (auto)" : "(overriden)")
+        );
+    }
     VIDEO::vga.print(buf);
     
     snprintf(buf, 128, " VGA/HDMI detect: %02Xh\n", linkVGA01);

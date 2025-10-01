@@ -1081,8 +1081,6 @@ int main() {
     nespad_begin(clock_get_hz(clk_sys) / 1000, NES_GPIO_CLK, NES_GPIO_DATA, NES_GPIO_LAT);
 #endif
 
-    init_sound();
-    pcm_setup(SOUND_FREQUENCY, SOUND_FREQUENCY);
     #ifndef MURM2
         if (!butter_psram_size()) init_psram();
     #endif
@@ -1092,6 +1090,8 @@ int main() {
 #endif
 
     ESPectrum::setup();
+    init_sound();
+    pcm_setup(SOUND_FREQUENCY, SOUND_FREQUENCY);
     for (int i = 0; i < 6; i++) {
         sleep_ms(33);
         gpio_put(PICO_DEFAULT_LED_PIN, true);

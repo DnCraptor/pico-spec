@@ -373,6 +373,7 @@ void Config::load() {
         nvs_get_str("audio_driver", v, sts);
         if (v == "pwm") Config::audio_driver = 1;
         else if (v == "i2s") Config::audio_driver = 2;
+        else if (v == "ay") Config::audio_driver = 3;
     }
 }
 
@@ -489,7 +490,9 @@ void Config::save() {
         nvs_set_sc(handle,"AudVolume", ESPectrum::aud_volume);
         nvs_set_i(handle,"hdmi_video_mode",Config::hdmi_video_mode);
         nvs_set_str(handle,"v_sync_enabled", Config::v_sync_enabled ? "true" : "false");
-        nvs_set_str(handle,"audio_driver", Config::audio_driver == 0 ? "auto" : (Config::audio_driver == 1) ? "pwm" : "i2s");
+        nvs_set_str(handle,"audio_driver", Config::audio_driver == 0 ? "auto" :
+            (Config::audio_driver == 1) ? "pwm" : ((Config::audio_driver == 2) ? "i2s" : "ay")
+        );
         fclose2(handle);
     }
     // printf("Config saved OK\n");

@@ -1,4 +1,7 @@
 #pragma once
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 #include "hardware/pio.h"
 
@@ -33,3 +36,7 @@ extern uint16_t control_bits;
 #define LOW(x) (control_bits &= ~(x))
 #define HIGH(x) (control_bits |= (x))
 void AY_to595Beep(bool Beep);
+
+#ifdef __cplusplus
+}
+#endif

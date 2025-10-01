@@ -546,30 +546,6 @@ static const char *MENU_FLASHLOAD[2] = { "Fast load\n" , "Carga rapida\n"};
 
 static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
 
-#ifdef HWAY
-#define MENU_OTHER_EN "Other\n"\
-    "AY-3-8912 ON/OFF\t>\n"\
-    "ALU Timing\t>\n"\
-    "48K Issue 2\t>\n"\
-    "Map joystick to cursor\t>\n"\
-    "Second joystick\t>\n"\
-    "Kempston joystick port\t>\n"\
-    "Throttling\t>\n"\
-	"AY-3-8912 Stereo\t>\n"\
-    "TurboSound\t>\n"\
-    "Covox\t>\n"
-#define MENU_OTHER_ES "Otros\n"\
-    "AY-3-8912 ON/OFF\t>\n"\
-    "Timing ULA\t>\n"\
-    "48K Issue 2\t>\n"\
-    "Joystick al cursor\t>\n"\
-    "Segunda joystick\t>\n"\
-    "Kempston joystick port\t>\n"\
-	"Aceleraci" "\xA2" "n\t>\n"\
-	"AY-3-8912 Stereo\t>\n" \
-    "TurboSound\t>\n"\
-    "Covox\t>\n"
-#else
 #define MENU_OTHER_EN "Other\n"\
     "AY-3-8912 ON/OFF\t>\n"\
     "ALU Timing\t>\n"\
@@ -581,20 +557,19 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
 	"AY-3-8912 Stereo\t>\n"\
     "TurboSound\t>\n"\
     "Covox\t>\n"\
-    "i2s\t>\n"
+    "Audio Driver\t>\n"
 #define MENU_OTHER_ES "Otros\n"\
     "AY-3-8912 ON/OFF\t>\n"\
-    "Timing ULA\t>\n"\
+    "Temporizaci" "\xA2" "n ULA\t>\n"\
     "48K Issue 2\t>\n"\
     "Joystick al cursor\t>\n"\
-    "Segunda joystick\t>\n"\
-    "Kempston joystick port\t>\n"\
-	"Aceleraci" "\xA2" "n\t>\n"\
-	"AY-3-8912 Stereo\t>\n" \
+    "Segundo joystick\t>\n"\
+    "Puerto Kempston joystick\t>\n"\
+    "Aceleraci" "\xA2" "n\t>\n"\
+    "AY-3-8912 Est" "\x82" "reo\t>\n" \
     "TurboSound\t>\n"\
     "Covox\t>\n"\
-    "i2s\t>\n"
-#endif
+    "Controlador de audio\t>\n"
 static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
 
 static const char *MENU_AY48[2] = { "Turned on?\n" , "Turned on?\n"};
@@ -627,10 +602,16 @@ static const char *MENU_TS[2] = { MENU_TS_EN, MENU_TS_EN };
 static const char *MENU_COVOX[2] = { MENU_COVOX_EN, MENU_COVOX_EN };
 
 #define MENU_I2S_EN "Audio Driver\n"\
-    "Auto   \t[A]\n"\
-    "PWM    \t[P]\n"\
-    "i2s    \t[I]\n"
-static const char *MENU_I2S[2] = { MENU_I2S_EN, MENU_I2S_EN };
+    "Auto     \t[A]\n"\
+    "PWM      \t[P]\n"\
+    "i2s      \t[I]\n"\
+    "AY-3-8910\t[Y]\n"
+#define MENU_I2S_ES "Controlador de audio\n"\
+    "Auto     \t[A]\n"\
+    "PWM      \t[P]\n"\
+    "i2s      \t[I]\n"\
+    "AY-3-8910\t[Y]\n"
+static const char *MENU_I2S[2] = { MENU_I2S_EN, MENU_I2S_ES };
 
 #define MENU_ALF_JOY_EN "Source\n"\
     "DPAD #1\t[1]\n"\
