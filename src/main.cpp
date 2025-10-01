@@ -1033,7 +1033,7 @@ int main() {
     // set_sys_clock_khz(CPU_MHZ * KHZ, true);
 
 #else
-    #ifdef ZERO2
+    #if 0
         vreg_set_voltage(VREG_VOLTAGE_1_10); // Set voltage  //
         delay(100);
         set_sys_clock_khz(CPU_MHZ * KHZ, true);
