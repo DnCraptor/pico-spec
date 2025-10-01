@@ -27,7 +27,7 @@ option(ZERO "RP2040-PiZero" OFF)
 option(ZERO2 "RP2350-PiZero" OFF)
 
 #set(m1p2 ON)
-#set(HWAY ON)
+set(HWAY ON)
 
 set(VGA_HDMI ON)
 #set(SOFTTV ON)
@@ -68,9 +68,11 @@ else()
     set(PICO_BOARD pico2 CACHE STRING "Board type")
 endif()
 
+message(STATUS "PICO_BOARD: ${PICO_BOARD}")
+
 include(pico_sdk_import.cmake)
 
-if (PICO_BOARD MATCHES "pico")
+if (PICO_BOARD STREQUAL "pico")
     SET(PROJECT_NAME p1-spec)
     set(FLASH_SIZE 2048)
 else ()
@@ -143,7 +145,7 @@ message(STATUS "")
 
 add_executable(${PROJECT_NAME} ${SRC})
 
-if (PICO_BOARD MATCHES "pico")
+if (PICO_BOARD STREQUAL "pico")
     pico_define_boot_stage2(slower_boot2 ${PICO_DEFAULT_BOOT_STAGE2_FILE})
     target_compile_definitions(slower_boot2 PRIVATE PICO_FLASH_SPI_CLKDIV=4)
     pico_set_boot_stage2(${PROJECT_NAME} slower_boot2)
@@ -634,5 +636,7 @@ SET(BUILD_NAME "${BUILD_NAME}-${CPU_MHZ}MHz-${PORT_VERSION}")
 IF(m1p2)
     SET(BUILD_NAME "${BUILD_NAME}.m1p2")
 ENDIF()
+
+message(STATUS "BUILD_NAME: ${BUILD_NAME}")
 
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "${BUILD_NAME}")

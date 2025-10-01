@@ -546,6 +546,30 @@ static const char *MENU_FLASHLOAD[2] = { "Fast load\n" , "Carga rapida\n"};
 
 static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
 
+#ifdef HWAY
+#define MENU_OTHER_EN "Other\n"\
+    "AY-3-8912 ON/OFF\t>\n"\
+    "ALU Timing\t>\n"\
+    "48K Issue 2\t>\n"\
+    "Map joystick to cursor\t>\n"\
+    "Second joystick\t>\n"\
+    "Kempston joystick port\t>\n"\
+    "Throttling\t>\n"\
+	"AY-3-8912 Stereo\t>\n"\
+    "TurboSound\t>\n"\
+    "Covox\t>\n"
+#define MENU_OTHER_ES "Otros\n"\
+    "AY-3-8912 ON/OFF\t>\n"\
+    "Timing ULA\t>\n"\
+    "48K Issue 2\t>\n"\
+    "Joystick al cursor\t>\n"\
+    "Segunda joystick\t>\n"\
+    "Kempston joystick port\t>\n"\
+	"Aceleraci" "\xA2" "n\t>\n"\
+	"AY-3-8912 Stereo\t>\n" \
+    "TurboSound\t>\n"\
+    "Covox\t>\n"
+#else
 #define MENU_OTHER_EN "Other\n"\
     "AY-3-8912 ON/OFF\t>\n"\
     "ALU Timing\t>\n"\
@@ -570,6 +594,7 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
     "TurboSound\t>\n"\
     "Covox\t>\n"\
     "i2s\t>\n"
+#endif
 static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
 
 static const char *MENU_AY48[2] = { "Turned on?\n" , "Turned on?\n"};

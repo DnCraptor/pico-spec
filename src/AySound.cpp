@@ -50,8 +50,8 @@ visit https://zxespectrum.speccy.org/contacto
 
 int AySound::selected_chip = 0;
 
-AySound chip0;
-AySound chip1;
+AySound chip0(0);
+AySound chip1(1);
 AySound* chips[2] = { &chip0, &chip1 };
 
 /* sound chip volume envelops (will calculated by gen_env()) */
@@ -532,14 +532,42 @@ uint8_t AySound::getRegisterData()
 
 }
 
+#ifdef HWAY
+extern "C" {
+    #include "PinSerialData_595.h"
+}
+#endif
+
 void AySound::selectRegister(uint8_t registerNumber)
 {
+#ifdef HWAY
+    if (selected_chip == 0) {
+        HIGH(CS_AY0);
+        LOW(CS_AY1);
+    } else {
+        HIGH(CS_AY1);
+        LOW(CS_AY0);
+    }
+    send_to_595(HIGH(BDIR | BC1) | registerNumber);
+    send_to_595(LOW (BDIR | BC1) | registerNumber);
+#endif
     selectedRegister = registerNumber;
 }
 
 void AySound::setRegisterData(uint8_t data)
 {
-
+#ifdef HWAY
+    if (selected_chip == 0) {
+        HIGH(CS_AY0);
+        LOW(CS_AY1);
+    } else {
+        HIGH(CS_AY1);
+        LOW(CS_AY0);
+    }
+    send_to_595(LOW (BDIR) | data);
+    send_to_595(HIGH(BDIR) | data);
+    send_to_595(LOW (BDIR) | data);
+#endif
     if (selectedRegister < 16) {
         regs[selectedRegister] = data;
         switch (selectedRegister) {
@@ -566,6 +594,11 @@ void AySound::setRegisterData(uint8_t data)
 
 void AySound::reset()
 {
+    #ifdef HWAY
+		send_to_595(LOW(AY_Enable));
+		//  busy_wait_us(500);
+		send_to_595(HIGH(AY_Enable | CS_SAA1099 | CS_AY0 | Beeper | CS_AY1 | BDIR | BC1 | (SAVE)));																						   
+    #endif
 
     cnt_a = cnt_b = cnt_c = cnt_n = cnt_e = 0;
     bit_a = bit_b = bit_c = bit_n = 0;

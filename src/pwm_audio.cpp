@@ -7,6 +7,11 @@
 #include "pwm_audio.h"
 #include "Config.h"
 #include "LoadWavStream.h"
+#ifdef HWAY
+extern "C" {
+    #include "PinSerialData_595.h"
+}
+#endif
 
 extern "C" int testPins(uint32_t pin0, uint32_t pin1);
 
@@ -98,6 +103,9 @@ static bool hw_get_bit_LOAD() {
 #endif
 
 void init_sound() {
+#ifdef HWAY
+    Init_PWM_175(TSPIN_MODE_GP29);
+#else
     if (I2S_BCK_PIO != I2S_LCK_PIO && I2S_LCK_PIO != I2S_DATA_PIO && I2S_BCK_PIO != I2S_DATA_PIO) {
         link_i2s_code = testPins(I2S_DATA_PIO, I2S_BCK_PIO);
         is_i2s_enabled = link_i2s_code; // TODO: ensure
@@ -112,6 +120,7 @@ void init_sound() {
         PWM_init_pin(PWM_PIN1, (1 << 8) - 1);
         /// PWM_init_pin(BEEPER_PIN, (1 << 8) - 1);
     }
+#endif
 #ifdef LOAD_WAV_PIO
     //пин ввода звука
     inInit(LOAD_WAV_PIO);
@@ -150,6 +159,9 @@ void pcm_call() {
         return;
     }
     m_let_process_it = false;
+#ifdef HWAY
+
+#else
     if (is_i2s_enabled) {
         static int16_t v32[2];
         if (m_off < m_size) {
@@ -176,6 +188,7 @@ void pcm_call() {
         pwm_set_gpio_level(PWM_PIN0, outR); // Право
         pwm_set_gpio_level(PWM_PIN1, outL); // Лево
     }
+#endif
     return;
 }
 
@@ -183,6 +196,9 @@ void pcm_cleanup(void) {
     m_let_process_it = false;
     cancel_repeating_timer(&m_timer);
     m_timer.delay_us = 0;
+#ifdef HWAY
+
+#else
     if (is_i2s_enabled) {
         i2s_volume(&i2s_config, 16);
         i2s_deinit(&i2s_config);
@@ -192,10 +208,14 @@ void pcm_cleanup(void) {
         pwm_set_gpio_level(PWM_PIN1, o); // Лево
     ///    pwm_set_gpio_level(BEEPER_PIN, o); // Beeper
     }
+#endif
 }
 
 /// size - bytes
 void pcm_setup(int hz, size_t size) {
+#ifdef HWAY
+
+#else
     if (is_i2s_enabled) {
         if (i2s_config.dma_buf) {
             pcm_cleanup();
@@ -209,6 +229,7 @@ void pcm_setup(int hz, size_t size) {
             pcm_cleanup();
         }
     }
+#endif
     m_let_process_it = false;
     //hz; // 44100;	//44000 //44100 //96000 //22050
 	// negative timeout means exact delay (rather than delay between callbacks)

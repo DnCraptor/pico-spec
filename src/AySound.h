@@ -130,8 +130,10 @@ ayemu_sndfmt_t;
 
 class AySound
 {
+    uint8_t my_num;
 public:
     static int selected_chip;
+    AySound(uint8_t my_num): my_num(my_num) {}
     void updToneA();
     void updToneB();
     void updToneC();
