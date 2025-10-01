@@ -49,8 +49,8 @@ set (PORT_VERSION "1.2.G")
 #set(ZERO2 ON)
 #set (PICO_PC ON)
 #set (PICO_DV ON)
-set (MURM ON)
-#set (MURM2 ON)
+#set (MURM ON)
+set (MURM2 ON)
 
 set(KBDUSB ON)
 
@@ -254,6 +254,12 @@ IF(MURM2)
         KBD_DATA_PIN=3
 
         LOAD_WAV_PIO=22
+
+        CLK_AY_PIN1=21 # not in use
+        LATCH_595_PIN=9
+        CLK_595_PIN=10
+        DATA_595_PIN=11
+        CLK_AY_PIN2=29
 
         I2S_DATA_PIO=9 #
         I2S_BCK_PIO=10 #
@@ -549,6 +555,12 @@ ELSE()
         I2S_DATA_PIO=26 #
         I2S_BCK_PIO=27 #
         I2S_LCK_PIO=28
+
+        CLK_AY_PIN1=21 # not in use
+        LATCH_595_PIN=26
+        CLK_595_PIN=27
+        DATA_595_PIN=28
+        CLK_AY_PIN2=29
 
         PWM_PIN0=26 #
         PWM_PIN1=27 #

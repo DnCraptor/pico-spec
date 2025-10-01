@@ -2,12 +2,13 @@
 
 #include "hardware/pio.h"
 
-
+#ifndef LATCH_595_PIN
 #define LATCH_595_PIN (26)
 #define CLK_595_PIN (27)
 #define DATA_595_PIN (28)
 #define CLK_AY_PIN1 (21)
 #define CLK_AY_PIN2 (29)
+#endif
 
 #define TSPIN_MODE_OFF  (0)
 #define TSPIN_MODE_GP21 (1)
