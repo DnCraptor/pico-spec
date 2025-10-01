@@ -120,6 +120,7 @@ public:
 
     static int hdmi_video_mode;
     static bool v_sync_enabled;
+    static uint8_t audio_driver;
 };
 
 #endif // Config.h

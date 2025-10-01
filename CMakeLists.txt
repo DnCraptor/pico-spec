@@ -46,10 +46,10 @@ set(CPU_MHZ 378)
 set (PORT_VERSION "1.2.G")
 
 #set(ZERO ON)
-set(ZERO2 ON)
+#set(ZERO2 ON)
 #set (PICO_PC ON)
 #set (PICO_DV ON)
-#set (MURM ON)
+set (MURM ON)
 #set (MURM2 ON)
 
 set(KBDUSB ON)
@@ -591,6 +591,7 @@ ELSE()
         TFT_INV=${TFT_INV}
 
         DEFAULT_THROTTLING=0
+        PICO_DEFAULT_LED_PIN=25
     )
 ENDIF()
 

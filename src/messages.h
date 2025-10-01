@@ -556,7 +556,8 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
     "Throttling\t>\n"\
 	"AY-3-8912 Stereo\t>\n"\
     "TurboSound\t>\n"\
-    "Covox\t>\n"
+    "Covox\t>\n"\
+    "i2s\t>\n"
 #define MENU_OTHER_ES "Otros\n"\
     "AY-3-8912 ON/OFF\t>\n"\
     "Timing ULA\t>\n"\
@@ -567,7 +568,8 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
 	"Aceleraci" "\xA2" "n\t>\n"\
 	"AY-3-8912 Stereo\t>\n" \
     "TurboSound\t>\n"\
-    "Covox\t>\n"
+    "Covox\t>\n"\
+    "i2s\t>\n"
 static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
 
 static const char *MENU_AY48[2] = { "Turned on?\n" , "Turned on?\n"};
@@ -598,6 +600,12 @@ static const char *MENU_TS[2] = { MENU_TS_EN, MENU_TS_EN };
     "#FB    \t[F]\n"\
     "#DD    \t[D]\n"
 static const char *MENU_COVOX[2] = { MENU_COVOX_EN, MENU_COVOX_EN };
+
+#define MENU_I2S_EN "Audio Driver\n"\
+    "Auto   \t[A]\n"\
+    "PWM    \t[P]\n"\
+    "i2s    \t[I]\n"
+static const char *MENU_I2S[2] = { MENU_I2S_EN, MENU_I2S_EN };
 
 #define MENU_ALF_JOY_EN "Source\n"\
     "DPAD #1\t[1]\n"\

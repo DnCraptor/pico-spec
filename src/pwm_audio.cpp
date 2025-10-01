@@ -102,6 +102,9 @@ void init_sound() {
         link_i2s_code = testPins(I2S_DATA_PIO, I2S_BCK_PIO);
         is_i2s_enabled = link_i2s_code; // TODO: ensure
     }
+    if (Config::audio_driver != 0) {
+        is_i2s_enabled = Config::audio_driver == 2;
+    }
     if (is_i2s_enabled) {
         i2s_volume(&i2s_config, 0);
     } else {

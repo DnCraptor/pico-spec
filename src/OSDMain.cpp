@@ -2517,6 +2517,41 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         }
                                     }
                                 }
+                                else if (options_num == 11) {
+                                    menu_level = 3;
+                                    menu_curopt = 1;
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string menu = MENU_I2S[Config::lang];
+                                        uint8_t prev = Config::audio_driver;
+                                        if (prev == 0) {
+                                            menu.replace(menu.find("[A",0),2,"[*");
+                                            menu.replace(menu.find("[P",0),2,"[ ");
+                                            menu.replace(menu.find("[I",0),2,"[ ");
+                                        } else if (prev == 1) {
+                                            menu.replace(menu.find("[A",0),2,"[ ");
+                                            menu.replace(menu.find("[P",0),2,"[*");
+                                            menu.replace(menu.find("[I",0),2,"[ ");
+                                        } else {
+                                            menu.replace(menu.find("[A",0),2,"[ ");
+                                            menu.replace(menu.find("[P",0),2,"[ ");
+                                            menu.replace(menu.find("[I",0),2,"[*");
+                                        }
+                                        uint8_t opt2 = menuRun(menu);
+                                        if (opt2) {
+                                            Config::audio_driver = opt2 - 1;
+                                            if (Config::audio_driver != prev) {
+                                                Config::save();
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = 11;
+                                            menu_level = 2;
+                                            break;
+                                        }
+                                    }
+                                }
                             } else {
                                 menu_curopt = 7;
                                 break;
@@ -4219,10 +4254,8 @@ void OSD::HWInfo() {
                         " PSRAM EID      : %02X%02X-%02X%02X-%02X%02X\n",
                         psram32 >> 20, rx8[0], rx8[1], rx8[2], rx8[3], rx8[4], rx8[5], rx8[6], rx8[7]
             );
-        } else {
-            snprintf(buf, 128, " Murmulator PSRAM : Not found\n");
+            VIDEO::vga.print(buf);
         }
-        VIDEO::vga.print(buf);
     }
     #endif
     #ifdef BUTTER_PSRAM_GPIO
@@ -4240,7 +4273,11 @@ void OSD::HWInfo() {
         VIDEO::vga.print(buf);
     }
     #endif
-    snprintf(buf, 128, " Audio mode     : %s [%02Xh]\n", (is_i2s_enabled ? "i2s" : "PWM"), link_i2s_code);
+    snprintf(buf, 128, " Audio mode     : %s [%02Xh] %s\n",
+        (is_i2s_enabled ? "i2s" : "PWM"),
+        link_i2s_code,
+        (Config::audio_driver == 0 ? " (auto)" : "(overriden)")
+    );
     VIDEO::vga.print(buf);
     
     snprintf(buf, 128, " VGA/HDMI detect: %02Xh\n", linkVGA01);

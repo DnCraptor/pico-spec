@@ -82,8 +82,9 @@ uint8_t Config::render = 0;
 bool     Config::TABasfire1 = false;
 bool     Config::StartMsg = true;
 signed char Config::aud_volume = 0;
-int     Config::hdmi_video_mode = 0;
+int      Config::hdmi_video_mode = 0;
 bool     Config::v_sync_enabled = false;
+uint8_t  Config::audio_driver = 0;
 
 void Config::requestMachine(string newArch, string newRomSet)
 {
@@ -368,6 +369,10 @@ void Config::load() {
         nvs_get_sc("AudVolume", Config::aud_volume, sts);
         nvs_get_i("hdmi_video_mode", Config::hdmi_video_mode, sts);
         nvs_get_b("v_sync_enabled", v_sync_enabled, sts);
+        std::string v;
+        nvs_get_str("audio_driver", v, sts);
+        if (v == "pwm") Config::audio_driver = 1;
+        else if (v == "i2s") Config::audio_driver = 2;
     }
 }
 
@@ -484,6 +489,7 @@ void Config::save() {
         nvs_set_sc(handle,"AudVolume", ESPectrum::aud_volume);
         nvs_set_i(handle,"hdmi_video_mode",Config::hdmi_video_mode);
         nvs_set_str(handle,"v_sync_enabled", Config::v_sync_enabled ? "true" : "false");
+        nvs_set_str(handle,"audio_driver", Config::audio_driver == 0 ? "auto" : (Config::audio_driver == 1) ? "pwm" : "i2s");
         fclose2(handle);
     }
     // printf("Config saved OK\n");
