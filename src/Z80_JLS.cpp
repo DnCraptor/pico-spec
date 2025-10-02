@@ -938,6 +938,12 @@ IRAM_ATTR void Z80::check_trdos() {
                 }
 
             }
+            // Случай 2: NMI → переход на 0x0066
+            else if (REG_PC == 0x0066) {
+                MemESP::romInUse = 4; // TR-DOS ROM
+                MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse].direct();
+                ESPectrum::trdos = true;
+            }
 
         } else {
 
@@ -951,6 +957,12 @@ IRAM_ATTR void Z80::check_trdos() {
                 MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse].direct();
                 ESPectrum::trdos = false;
 
+            }
+            // Случай 2: NMI → переход на 0x0066
+            else if (REG_PC == 0x0066) {
+                MemESP::romInUse = 4; // TR-DOS ROM
+                MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse].direct();
+                ESPectrum::trdos = true;
             }
 
         }
@@ -1045,9 +1057,10 @@ void Z80::nmi(void) {
     //      2.- Si estaba en un HALT esperando una INT, lo saca de la espera
     Z80Ops::fetchOpcode();
 
-    VIDEO::Draw(1, false);
+    VIDEO::Draw(5, false);
 
     regR++;
+    ffIFF2 = ffIFF1;
     ffIFF1 = false;
     push(REG_PC); // 3+3 t-estados + contended si procede
     REG_PC = REG_WZ = 0x0066;
@@ -1059,6 +1072,7 @@ void Z80::doNMI(void) {
     activeNMI = false;
     lastFlagQ = false;
     nmi();
+    check_trdos();
     // printf("NMI!\n");
 
 }
@@ -1113,6 +1127,12 @@ IRAM_ATTR void Z80::execute() {
     // };
 
     // Ports::FDDStep();
+
+    // Если пришёл NMI — обработаем его прямо сейчас, до выборки опкода
+    if (activeNMI) {
+        doNMI();
+        return;
+    }
 
     opCode = Z80Ops::fetchOpcode();
 

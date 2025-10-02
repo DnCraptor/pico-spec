@@ -859,6 +859,8 @@ uint8_t psram_pin;
 #include <hardware/structs/xip.h>
 #include <hardware/regs/sysinfo.h>
 
+uint8_t psram_pin;
+
 #ifdef BUTTER_PSRAM_GPIO
 #define MB16 (16ul << 20)
 #define MB8 (8ul << 20)
