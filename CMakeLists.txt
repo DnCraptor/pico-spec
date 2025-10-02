@@ -407,7 +407,7 @@ ELSEIF(PICO_DV)
 
         DEFAULT_THROTTLING=0
 
-        DEBUG=0
+        DEBUG=1
 )
 ELSEIF(ZERO)
     target_compile_definitions(${PROJECT_NAME} PRIVATE

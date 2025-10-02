@@ -132,8 +132,19 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     uint8_t rambank = address >> 14;
     p_states = CPU::tstates;
 
-    VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
-
+    if (Z80Ops::isByte)
+    {
+        // вместо VIDEO::Draw(1, MemESP::ramContended[rambank]);
+        // добавляем задержку через таблицу MemESP
+        int delay = MemESP::getContention(address);
+        for (int i = 0; i < delay; i++) {
+            VIDEO::Draw(1, true);
+        }
+    }
+    else
+    {
+        VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
+    }
 
     bool ia = Z80Ops::isALF;
     uint8_t p8 = address & 0xFF;
@@ -288,7 +299,20 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     if (address == Config::portWriteBP && Config::enablePortWriteBP) CPU::portBasedBP = true;
     uint8_t rambank = address >> 14;
 
-    VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
+    if (Z80Ops::isByte)
+    {
+        // вместо VIDEO::Draw(1, MemESP::ramContended[rambank]);
+        // добавляем задержку через таблицу MemESP
+        int delay = MemESP::getContention(address);
+        for (int i = 0; i < delay; i++) {
+            VIDEO::Draw(1, true);
+        }
+    }
+    else
+    {
+        VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
+    }
+
     uint8_t a8 = (address & 0xFF);
     p_states = CPU::tstates;
     

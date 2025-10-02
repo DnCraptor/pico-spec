@@ -857,13 +857,14 @@ bool toggle_color() {
 #include <hardware/structs/xip.h>
 #include <hardware/regs/sysinfo.h>
 
+uint8_t psram_pin;
+
 #ifdef BUTTER_PSRAM_GPIO
 #define MB16 (16ul << 20)
 #define MB8 (8ul << 20)
 #define MB4 (4ul << 20)
 #define MB1 (1ul << 20)
 uint8_t* PSRAM_DATA = (uint8_t*)0x11000000;
-uint8_t psram_pin;
 static int BUTTER_PSRAM_SIZE = -1;
 uint32_t __not_in_flash_func(butter_psram_size)() {
     if (BUTTER_PSRAM_SIZE != -1) return BUTTER_PSRAM_SIZE;
