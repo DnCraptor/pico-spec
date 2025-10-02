@@ -12,7 +12,7 @@ if (EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
-set(PICO_BOARD pico CACHE STRING "Board type")
+set(PICO_BOARD pico2 CACHE STRING "Board type")
 cmake_minimum_required(VERSION 3.13)
 
 option(VGA_HDMI "Enable VGA/HDMI driver" OFF)
@@ -26,7 +26,7 @@ option(PICO_DV "RP2350-PICO-DV" OFF)
 option(ZERO "RP2040-PiZero" OFF)
 option(ZERO2 "RP2350-PiZero" OFF)
 
-#set(m1p2 ON)
+#set(m1p2launcher ON)
 
 set(VGA_HDMI ON)
 #set(SOFTTV ON)
@@ -38,9 +38,9 @@ set(VGA_HDMI ON)
 set(CPU_MHZ 378)
 set (PORT_VERSION "1.2.G")
 
-#set (MURM ON)
+set (MURM ON)
 #set (MURM2 ON)
-set (PICO_PC ON)
+#set (PICO_PC ON)
 #set (PICO_DV ON)
 #set (ZERO ON)
 #set (ZERO2 ON)
@@ -190,7 +190,7 @@ pico_add_extra_outputs(${PROJECT_NAME})
 
 # add url via pico_set_program_url
 
-if (m1p2)
+if (m1p2launcher)
     pico_set_linker_script(${PROJECT_NAME} "${CMAKE_SOURCE_DIR}/memmap.ld")
 endif ()
 
@@ -657,10 +657,18 @@ ENDIF()
 
 SET(BUILD_NAME "${BUILD_NAME}-${CPU_MHZ}MHz-${PORT_VERSION}")
 
-IF(m1p2)
+IF(m1p2launcher)
     SET(BUILD_NAME "${BUILD_NAME}.m1p2")
 ENDIF()
 
 message(STATUS "BUILD_NAME: ${BUILD_NAME}")
 
 set_target_properties(${PROJECT_NAME} PROPERTIES OUTPUT_NAME "${BUILD_NAME}")
+
+if (m1p2launcher)
+    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E rename
+        "${OUTPUT_DIR}/${BUILD_NAME}.uf2"
+        "${OUTPUT_DIR}/${BUILD_NAME}"
+    )
+endif ()
