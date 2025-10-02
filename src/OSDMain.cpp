@@ -203,6 +203,21 @@ void OSD::drawOSD(bool bottom_info) {
 #ifdef TVSOFT
         bottom_line = " Video mode: TV-composite   ";
 #endif
+#ifdef TFT
+#ifdef ILI9341
+    #if TFT_INV
+        bottom_line = " Video mode: ILI9341I       ";
+    #else 
+        bottom_line = " Video mode: ILI9341        ";
+    #endif
+#else 
+    #if TFT_INV
+        bottom_line = " Video mode: ST7789I        ";
+    #else 
+        bottom_line = " Video mode: ST7789         ";
+    #endif
+#endif
+#endif
 #endif
         VIDEO::vga.print(bottom_line.append(EMU_VERSION).c_str());
     } else VIDEO::vga.print(OSD_BOTTOM);
@@ -1536,23 +1551,23 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             if (opt2 == 1)
                                                 Config::pref_romSet_48 = "48K";
                                             else
-#if NO_SPAIN_ROM_48k
                                             if (opt2 == 2)
                                                 Config::pref_romSet_48 = "48Kby";
                                             else
+#if NO_SPAIN_ROM_48k
                                             if (opt2 == 3)
                                                 Config::pref_romSet_48 = "48Kcs";
                                             else
                                             if (opt2 == 4)
                                                 Config::pref_romSet_48 = "Last";
 #else
-                                            if (opt2 == 2)
+                                            if (opt2 == 3)
                                                 Config::pref_romSet_48 = "48Kes";
                                             else
-                                            if (opt2 == 3)
+                                            if (opt2 == 4)
                                                 Config::pref_romSet_48 = "48Kcs";
                                             else
-                                            if (opt2 == 4)
+                                            if (opt2 == 5)
                                                 Config::pref_romSet_48 = "Last";
 #endif
                                             if (Config::pref_romSet_48 != prev_rpref48) {
@@ -4296,9 +4311,10 @@ void OSD::HWInfo() {
         );
     }
     VIDEO::vga.print(buf);
-    
+#ifdef VGA_HDMI    
     snprintf(buf, 128, " VGA/HDMI detect: %02Xh\n", linkVGA01);
     VIDEO::vga.print(buf);
+#endif
     // Wait for key
     while (1) {
         if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {

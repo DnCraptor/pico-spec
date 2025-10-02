@@ -691,10 +691,12 @@ static const char *MENU_ARCH_NO_SD[2] = { MENU_ARCH_EN MENU_ARCHS_NO_SD, MENU_AR
 #else
 #define MENU_ROMS48_EN "Select ROM\n"\
 	"48K\n"\
+	"Byte 48K\n"\
     "48K Spanish\n"\
     "Custom\n"
 #define MENU_ROMS48_ES "Elija ROM\n"\
 	"48K\n"\
+	"Byte 48K\n"\
     "48K Espa" "\xA4" "ol\n"\
     "Custom\n"
 #endif
@@ -784,11 +786,13 @@ static const char *MENU_ROM_PREF[2] = {
 #else
 #define MENU_ROMS48_PREF_EN "Select ROM\n"\
 	"48K\t[48K  ]\n"\
+	"Byte 48K\t[48Kby]\n"\
     "48K Spanish\t[48Kes]\n"\
     "Custom\t[48Kcs]\n"\
 	"Last used\t[Last ]\n"
 #define MENU_ROMS48_PREF_ES "Elija ROM\n"\
 	"48K\t[48K  ]\n"\
+	"Byte 48K\t[48Kby]\n"\
     "48K Espa" "\xA4" "ol\t[48Kes]\n"\
     "Custom\t[48Kcs]\n"\
 	"Ultima usada\t[Last ]\n"

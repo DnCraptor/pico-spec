@@ -12,6 +12,7 @@ if (EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
+set(PICO_BOARD pico CACHE STRING "Board type")
 cmake_minimum_required(VERSION 3.13)
 
 option(VGA_HDMI "Enable VGA/HDMI driver" OFF)
@@ -34,21 +35,15 @@ set(VGA_HDMI ON)
 #set(TFT_INV 1)
 #set(ILI9341 ON)
 
-#set(CPU_MHZ 327.3)
-#set(CPU_MHZ 336)
-#set(CPU_MHZ 315)
-#set(CPU_MHZ 378)
-#set(CPU_MHZ 460)
-set(CPU_MHZ 252)
-#set(CPU_MHZ 133)
+set(CPU_MHZ 378)
 set (PORT_VERSION "1.2.G")
 
-#set(ZERO ON)
-set(ZERO2 ON)
-#set (PICO_PC ON)
-#set (PICO_DV ON)
 #set (MURM ON)
 #set (MURM2 ON)
+set (PICO_PC ON)
+#set (PICO_DV ON)
+#set (ZERO ON)
+#set (ZERO2 ON)
 
 set(KBDUSB ON)
 
@@ -62,8 +57,10 @@ IF(ZERO2)
     set(PICO_BOARD_HEADER_DIRS ${CMAKE_SOURCE_DIR}/src/boards)
     set(PICO_BOARD waveshare_rp2350_pizero CACHE STRING "Board type")
     set(PICO_PLATFORM rp2350-arm-s)
-else()
-    set(PICO_BOARD pico2 CACHE STRING "Board type")
+    set(CPU_MHZ 252)
+elseif(ZERO)
+    set(PICO_BOARD pico CACHE STRING "Board type")
+    set(CPU_MHZ 252)
 endif()
 
 message(STATUS "PICO_BOARD: ${PICO_BOARD}")
@@ -73,13 +70,12 @@ include(pico_sdk_import.cmake)
 if (PICO_BOARD STREQUAL "pico")
     SET(PROJECT_NAME p1-spec)
     set(FLASH_SIZE 2048)
+    # light .uf2 (reduced number of ROMs)
+    set(FLASH_SIZE_GREEN ON)
 else ()
     SET(PROJECT_NAME p2-spec)
     set(FLASH_SIZE 4096)
 endif()
-
-# light .uf2 (reduced number of ROMs)
-set(FLASH_SIZE_GREEN ON)
 
 IF(MURM2)
     SET(BUILD_NAME "m2${PROJECT_NAME}")
@@ -220,10 +216,10 @@ endif ()
 
 IF(FLASH_SIZE_GREEN)
 target_compile_definitions(${PROJECT_NAME} PRIVATE
-        NO_SPAIN_ROM_48k=1
-        NO_SPAIN_ROM_128k=1
+#        NO_SEPARATE_48K_CUSTOM=1
+#        NO_SPAIN_ROM_48k=1
+#        NO_SPAIN_ROM_128k=1
         CARTRIDGE_AS_CUSTOM=1
-        NO_SEPARATE_48K_CUSTOM=1
         NO_ALF=1
 )
 ENDIF()
