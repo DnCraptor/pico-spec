@@ -12,7 +12,7 @@ if (EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
-set(PICO_BOARD pico2 CACHE STRING "Board type")
+set(PICO_BOARD pico2)
 cmake_minimum_required(VERSION 3.13)
 
 option(VGA_HDMI "Enable VGA/HDMI driver" OFF)
@@ -38,12 +38,12 @@ set(VGA_HDMI ON)
 set(CPU_MHZ 378)
 set (PORT_VERSION "1.2.G")
 
-set (MURM ON)
+#set (MURM ON)
 #set (MURM2 ON)
 #set (PICO_PC ON)
 #set (PICO_DV ON)
 #set (ZERO ON)
-#set (ZERO2 ON)
+set (ZERO2 ON)
 
 set(KBDUSB ON)
 
@@ -55,11 +55,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 IF(ZERO2)
     # For Board RP2350-PiZero
     set(PICO_BOARD_HEADER_DIRS ${CMAKE_SOURCE_DIR}/src/boards)
-    set(PICO_BOARD waveshare_rp2350_pizero CACHE STRING "Board type")
+    set(PICO_BOARD waveshare_rp2350_pizero)
     set(PICO_PLATFORM rp2350-arm-s)
     set(CPU_MHZ 252)
 elseif(ZERO)
-    set(PICO_BOARD pico CACHE STRING "Board type")
+    set(PICO_BOARD pico)
     set(CPU_MHZ 252)
 endif()
 
