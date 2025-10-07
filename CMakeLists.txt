@@ -41,9 +41,9 @@ set (PORT_VERSION "1.2.G")
 #set (MURM ON)
 #set (MURM2 ON)
 #set (PICO_PC ON)
-#set (PICO_DV ON)
+set (PICO_DV ON)
 #set (ZERO ON)
-set (ZERO2 ON)
+#set (ZERO2 ON)
 
 set(KBDUSB ON)
 
@@ -377,19 +377,11 @@ ELSEIF(PICO_DV)
 
         PICO_DV=1
 
-        # GP-5  UXT1-10
-        # GP-8  UXT1-6
-        # GP-9  UXT1-5
-        # GP-21 UXT1-4
-        # GP-20 UXT1-3
-
-        # QWST1 3/4 - GP2/3
-
         # DBG1 1/2
         KBD_CLOCK_PIN=0
         KBD_DATA_PIN=1
 
-        LOAD_WAV_PIO=5 # UXT1-10
+        LOAD_WAV_PIO=14 # Same place as button A on the board (replacement)
 
         CLK_AY_PIN1=21 # not in use
         LATCH_595_PIN=26
