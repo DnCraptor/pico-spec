@@ -128,6 +128,10 @@ void CPU::reset() {
         // Set emulation loop sync target
         ESPectrum::target = MICROS_PER_FRAME_48;
     } else if (Config::arch == "128K" || Z80Ops::isALF) {
+        if (Config::romSet128 == "128Kby" || Config::romSet128 == "128Kbg")
+        {
+            Z80Ops::isByte = true;
+        }
         Ports::getFloatBusData = &Ports::getFloatBusData128;
         Z80Ops::is48 = false;
         Z80Ops::is128 = true;

@@ -51,26 +51,6 @@ void mem_desc_t::reset(void) {
         f_close(&f);
         f_open(&f, PAGEFILE, FA_READ | FA_WRITE);
     }
-
-    // Создаем таблицу задержек при инициализации
-    CreateContentionTable();
-}
-
-void mem_desc_t::CreateContentionTable() {
-    static int table[0x10000]; // 64K
-    for (uint32_t addr = 0; addr < 0x10000; ++addr) {
-        if (addr >= 0xC000) { // верхние 16К для ROM
-            uint16_t offset = addr - 0xC000;
-            uint8_t val = (offset < 512) ? romDd10[offset] : romDd11[offset - 512];
-            if (val == 0xEE) table[addr] = 4;
-            else if (val == 0xFE) table[addr] = 3;
-            else if (val == 0xBE) table[addr] = 2;
-            else table[addr] = 1;
-        } else {
-            table[addr] = 0; // RAM без задержки
-        }
-    }
-    contentionTable = table;
 }
 
 uint8_t* mem_desc_t::to_vram(void) {
@@ -244,8 +224,4 @@ uint8_t MemESP::sramLatch = 0;
 uint8_t MemESP::pagingLock = 0;
 uint8_t MemESP::romInUse = 0;
 
-// ==== Функция получения задержки для адреса ====
-int MemESP::getContention(uint16_t addr) {
-    if (!contentionTable) return 0;
-    return contentionTable[addr];
-}
+uint8_t MemESP::byteMemMode = 0;

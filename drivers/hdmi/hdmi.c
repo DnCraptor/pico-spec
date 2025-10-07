@@ -26,9 +26,9 @@ static struct video_mode_t hdmi_video_mode[2] = {
         .freq = 60
     },
     { // 640x480 50Hz
-        .h_total = 645,
+        .h_total = 644,
         .h_width = 480,
-        .freq = 52
+        .freq = 50
     }
 };
 
