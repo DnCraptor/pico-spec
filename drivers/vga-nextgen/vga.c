@@ -417,11 +417,15 @@ uint8_t linkVGA01;
 void graphics_init_hdmi();
 void graphics_init() {
     linkVGA01 = testPins(VGA_BASE_PIN, VGA_BASE_PIN + 1);
-#if defined(ZERO) || defined(ZERO2) || defined(PICO_DV)
-    SELECT_VGA = linkVGA01 == 0x1F;
-#else
-    SELECT_VGA = (linkVGA01 == 0) || (linkVGA01 == 0x1F);
-#endif
+    if (video_driver == 0) {
+        #if defined(ZERO) || defined(ZERO2) || defined(PICO_DV)
+            SELECT_VGA = linkVGA01 == 0x1F;
+        #else
+            SELECT_VGA = (linkVGA01 == 0) || (linkVGA01 == 0x1F);
+        #endif
+    } else {
+        SELECT_VGA = video_driver == 1;
+    }
     if (!SELECT_VGA) {
         graphics_init_hdmi();
         return;

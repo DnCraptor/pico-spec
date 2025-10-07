@@ -36,7 +36,7 @@ set(VGA_HDMI ON)
 #set(ILI9341 ON)
 
 set(CPU_MHZ 378)
-set (PORT_VERSION "1.2.G")
+set (PORT_VERSION "1.2.H")
 
 #set (MURM ON)
 #set (MURM2 ON)

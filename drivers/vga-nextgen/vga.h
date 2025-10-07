@@ -10,3 +10,4 @@
 #define TEXTMODE_COLS 80
 #define TEXTMODE_ROWS 30
 
+extern uint8_t video_driver;
