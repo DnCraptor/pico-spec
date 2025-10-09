@@ -731,12 +731,12 @@ static const char *MENU_ROMS128[2] = { MENU_ROMS128_EN, MENU_ROMS128_ES };
 #define MENU_ROMS_PENT_EN \
   "Select ROM\n"\
 	"128Kp\n"\
-	"128Kpg\n"\
+	"128Kp + Mr. Gluk Reboot Svc\n"\
     "Custom\n"
 #define MENU_ROMS_PENT_ES \
   "Elija ROM\n"\
 	"128Kp\n"\
-	"128Kpg\n"\
+	"128Kp + Mr. Gluk Reboot Svc\n"\
     "Custom\n"
 static const char *MENU_ROMS_PENT[2] = { MENU_ROMS_PENT_EN, MENU_ROMS_PENT_ES };
 
