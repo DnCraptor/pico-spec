@@ -924,14 +924,14 @@ void Z80::bitTest(uint8_t mask, uint8_t reg) {
 
 IRAM_ATTR void Z80::check_trdos() {
 
-    if (ESPectrum::trdos == true || Z80Ops::isPentagon) {
+    if (ESPectrum::trdos == true || Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) {
 
         if (!ESPectrum::trdos) {
 
             if (REG_PCh == 0x3D) {
 
                 // TR-DOS Rom can be accessed from 48K machines and from Spectrum 128/+2 and Pentagon if the currently mapped ROM is bank 1.
-                if ((Z80Ops::is48) && (MemESP::romInUse == 0) || ((!Z80Ops::is48) && MemESP::romInUse == 1)) {
+                if ((Z80Ops::is48 && MemESP::romInUse == 0) || (!Z80Ops::is48 && MemESP::romInUse == 1)) {
                     MemESP::romInUse = 4;
                     MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse].direct();
                     ESPectrum::trdos = true;
@@ -2355,66 +2355,11 @@ void Z80::decodeOpcodebe()
     if (REG_PC == 0x56b) { // LOAD trap
 
         if ((Tape::tapeFileType == TAPE_FTYPE_TAP) && (Tape::tapeFileName != "none")) {
-
               if ((Config::flashload) && (Tape::tapeStatus != TAPE_LOADING)) {
-
-                // // Get required block loading info
-                // string name = "";
-                // uint8_t isHeader = REG_Ax;
-                // uint16_t header_data = REG_IX - 0x11;
-                // uint8_t type_ix = MemESP::ramCurrent[header_data >> 14][header_data & 0x3fff];
-                // header_data = REG_IX - 0x10;
-                // uint8_t valid_name = MemESP::ramCurrent[header_data >> 14][header_data & 0x3fff];
-                // if (isHeader == 0 && type_ix == 00 && valid_name != 0xff) {
-
-                //     // Searching for program header: let's speed up things ;)
-                //     for (int i=0; i < 10; i++) {
-                //         name += MemESP::ramCurrent[(header_data + i) >> 14][(header_data + i) & 0x3fff];
-                //     }
-                //     rtrim(name);
-
-                //     // printf("Inicio lectura tapinfo. Buscando: %s\n",name.c_str());
-
-                //     string tapinfo = FileUtils::MountPoint + "/.tmp/tapinfo";
-
-                //     FILE* outputFile = fopen(tapinfo.c_str(), "r");
-                //     if (!outputFile) {
-
-                //         printf("Error al abrir el archivo tapinfo\n");
-
-                //     } else {
-
-                //         char stringLeido[10];
-                //         int intLeido1, intLeido2;
-
-                //         const char *stringABuscar = name.c_str();
-
-                //         while (fscanf(outputFile, "%s %d %d", stringLeido, &intLeido1, &intLeido2) == 3) {
-                //             // printf("String '%s' leido. Datos asociados: %d y %d\n", stringLeido, intLeido1, intLeido2);
-                //             if (strcmp(stringLeido, stringABuscar) == 0) {
-                //                 // printf("Coincidencia!!\n");
-                //                 Tape::tapeCurBlock = intLeido1;
-                //                 fseek(Tape::tape,intLeido2,SEEK_SET);
-                //                 break;
-                //             }
-                //         }
-
-                //         // printf("Final lectura tapinfo!\n");
-
-                //         fclose(outputFile);
-
-                //     }
-
-                // }
-
                 if (Tape::FlashLoad()) REG_PC = 0x5e2;
-
             }
-
         }
-
     }
-
 }
 
 void Z80::decodeOpcodec0()

@@ -85,6 +85,7 @@ signed char Config::aud_volume = 0;
 int      Config::hdmi_video_mode = 0;
 bool     Config::v_sync_enabled = false;
 uint8_t  Config::audio_driver = 0;
+bool     Config::byte_cobmect_mode = false;
 
 void Config::requestMachine(string newArch, string newRomSet)
 {
@@ -109,7 +110,7 @@ void Config::requestMachine(string newArch, string newRomSet)
         else
 #endif
         if (romSet48 == "48Kby")
-            MemESP::rom[0].assign_rom(gb_rom_0_byte_48k);
+            MemESP::rom[0].assign_rom(Config::byte_cobmect_mode ? gb_rom_0_byte_sovmest_48k : gb_rom_0_byte_48k);
         else
             MemESP::rom[0].assign_rom(gb_rom_0_sinclair_48k);
     }
@@ -147,7 +148,14 @@ void Config::requestMachine(string newArch, string newRomSet)
             MemESP::rom[0].assign_rom(gb_rom_0_s128_zx81);
             MemESP::rom[1].assign_rom(gb_rom_1_sinclair_128k);
 #endif
-        } else {
+        } else if (romSet128 == "128Kby" || romSet128 == "128Kbg") {
+            MemESP::rom[0].assign_rom(gb_rom_0_sinclair_128k);
+            MemESP::rom[1].assign_rom(Config::byte_cobmect_mode ? gb_rom_0_byte_sovmest_48k : gb_rom_0_byte_48k);
+            if (romSet128 == "128Kbg") {
+                MemESP::rom[3].assign_rom(gb_rom_gluk);
+            }
+        }
+        else {
             MemESP::rom[0].assign_rom(gb_rom_0_sinclair_128k);
             MemESP::rom[1].assign_rom(gb_rom_1_sinclair_128k);
         }
@@ -374,6 +382,7 @@ void Config::load() {
         if (v == "pwm") Config::audio_driver = 1;
         else if (v == "i2s") Config::audio_driver = 2;
         else if (v == "ay") Config::audio_driver = 3;
+        nvs_get_b("byte_cobmect_mode", byte_cobmect_mode, sts);
     }
 }
 
@@ -493,6 +502,7 @@ void Config::save() {
         nvs_set_str(handle,"audio_driver", Config::audio_driver == 0 ? "auto" :
             (Config::audio_driver == 1) ? "pwm" : ((Config::audio_driver == 2) ? "i2s" : "ay")
         );
+        nvs_set_str(handle,"byte_cobmect_mode", Config::byte_cobmect_mode ? "true" : "false");
         fclose2(handle);
     }
     // printf("Config saved OK\n");

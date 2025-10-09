@@ -859,6 +859,7 @@ uint8_t psram_pin;
 #include <hardware/structs/xip.h>
 #include <hardware/regs/sysinfo.h>
 
+
 #ifdef BUTTER_PSRAM_GPIO
 #define MB16 (16ul << 20)
 #define MB8 (8ul << 20)
@@ -1067,13 +1068,13 @@ int main() {
     }
 
 #if PICO_RP2350
-    exception_set_exclusive_handler(HARDFAULT_EXCEPTION, sigbus);
     rp2350a = (*((io_ro_32*)(SYSINFO_BASE + SYSINFO_PACKAGE_SEL_OFFSET)) & 1);
     #ifdef BUTTER_PSRAM_GPIO
         psram_pin = rp2350a ? BUTTER_PSRAM_GPIO : 47;
         psram_init(psram_pin);
         butter_psram_size();
     #endif
+    exception_set_exclusive_handler(HARDFAULT_EXCEPTION, sigbus);
 #endif
 
 

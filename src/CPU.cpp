@@ -61,6 +61,7 @@ bool CPU::portBasedBP = false;
 bool CPU::paused = false;
 
 bool Z80Ops::is48;
+bool Z80Ops::isByte = false;
 bool Z80Ops::isALF = false;
 bool Z80Ops::is128;
 bool Z80Ops::isPentagon;
@@ -114,6 +115,10 @@ void CPU::reset() {
     Z80Ops::isALF = (Config::arch == "ALF");
 #endif
     if (Config::arch == "48K") {
+        if (Config::romSet48 == "48Kby")
+        {
+            Z80Ops::isByte = true;
+        }
         Ports::getFloatBusData = &Ports::getFloatBusData48;
         Z80Ops::is48 = true;
         Z80Ops::is128 = false;
@@ -123,6 +128,10 @@ void CPU::reset() {
         // Set emulation loop sync target
         ESPectrum::target = MICROS_PER_FRAME_48;
     } else if (Config::arch == "128K" || Z80Ops::isALF) {
+        if (Config::romSet128 == "128Kby" || Config::romSet128 == "128Kbg")
+        {
+            Z80Ops::isByte = true;
+        }
         Ports::getFloatBusData = &Ports::getFloatBusData128;
         Z80Ops::is48 = false;
         Z80Ops::is128 = true;

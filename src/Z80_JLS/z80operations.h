@@ -37,6 +37,7 @@ public:
     static bool isActiveINT(void);
 
     static bool is48;
+    static bool isByte;
     static bool isALF;
     static bool is128;
     static bool isPentagon;

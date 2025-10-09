@@ -36,12 +36,12 @@ set(VGA_HDMI ON)
 #set(ILI9341 ON)
 
 set(CPU_MHZ 378)
-set (PORT_VERSION "1.2.G")
+set(PORT_VERSION "1.2.G")
 
-set (MURM ON)
+#set (MURM ON)
 #set (MURM2 ON)
 #set (PICO_PC ON)
-#set (PICO_DV ON)
+set (PICO_DV ON)
 #set (ZERO ON)
 #set (ZERO2 ON)
 
@@ -389,7 +389,7 @@ ELSEIF(PICO_DV)
         KBD_CLOCK_PIN=0
         KBD_DATA_PIN=1
 
-        LOAD_WAV_PIO=5 # UXT1-10
+        LOAD_WAV_PIO=14 # UXT1-10
 
         CLK_AY_PIN1=21 # not in use
         LATCH_595_PIN=26

@@ -43,7 +43,7 @@ void Debug::log(string data)
     std::strftime(timeStr, sizeof(timeStr), "[%Y-%m-%d %H:%M:%S] ", std::localtime(&t));
 
     // Объединяем timestamp и данные
-    std::string logEntry = std::string(timeStr) + data;
+    std::string logEntry = std::string(timeStr) + data + "\n";
 
     // Открываем файл
     FIL* handle = fopen2(nvs.c_str(), FA_WRITE | FA_OPEN_APPEND);

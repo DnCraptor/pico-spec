@@ -328,9 +328,17 @@ void VIDEO::Reset() {
     OSD = 0;
 
     if (Config::arch == "48K") {
-        tStatesPerLine = TSTATES_PER_LINE;
-        tStatesScreen = TS_SCREEN_48;
-        tStatesBorder = is169 ? TS_BORDER_360x200 : TS_BORDER_320x240;        
+        if (Config::romSet48 == "48Kby") {
+            tStatesPerLine = TSTATES_PER_LINE_BYTE;
+            tStatesScreen = TS_SCREEN_BYTE;
+            tStatesBorder = is169 ? TS_BORDER_360x200_BYTE : TS_BORDER_320x240_BYTE;
+        }
+        else
+        {
+            tStatesPerLine = TSTATES_PER_LINE;
+            tStatesScreen = TS_SCREEN_48;
+            tStatesBorder = is169 ? TS_BORDER_360x200 : TS_BORDER_320x240;
+        }
         VsyncFinetune[0] = is169 ? 0 : 0;
         VsyncFinetune[1] = is169 ? 0 : 0;
 
@@ -338,9 +346,17 @@ void VIDEO::Reset() {
         Draw_OSD43 = BottomBorder;
         DrawBorder = TopBorder_Blank;
     } else if (Config::arch == "128K" || Config::arch == "ALF") {
-        tStatesPerLine = TSTATES_PER_LINE_128;
-        tStatesScreen = TS_SCREEN_128;
-        tStatesBorder = is169 ? TS_BORDER_360x200_128 : TS_BORDER_320x240_128;
+        if (Config::romSet128 == "128Kby" || Config::romSet128 == "128Kbg") {
+            tStatesPerLine = TSTATES_PER_LINE_BYTE;
+            tStatesScreen = TS_SCREEN_BYTE;
+            tStatesBorder = is169 ? TS_BORDER_360x200_BYTE : TS_BORDER_320x240_BYTE;
+        }
+        else
+        {
+            tStatesPerLine = TSTATES_PER_LINE_128;
+            tStatesScreen = TS_SCREEN_128;
+            tStatesBorder = is169 ? TS_BORDER_360x200_128 : TS_BORDER_320x240_128;
+        }
         VsyncFinetune[0] = is169 ? 0 : 0;
         VsyncFinetune[1] = is169 ? 0 : 0;
 
@@ -350,14 +366,14 @@ void VIDEO::Reset() {
     } else if (Config::arch == "Pentagon" || Config::arch == "P512" || Config::arch == "P1024") {
         tStatesPerLine = TSTATES_PER_LINE_PENTAGON;
         tStatesScreen = TS_SCREEN_PENTAGON;
-        tStatesBorder = is169 ? TS_BORDER_360x200_PENTAGON : TS_BORDER_320x240_PENTAGON;        
+        tStatesBorder = is169 ? TS_BORDER_360x200_PENTAGON : TS_BORDER_320x240_PENTAGON;
         // TODO: ADJUST THESE VALUES FOR PENTAGON
         VsyncFinetune[0] = is169 ? 0 : 0;
         VsyncFinetune[1] = is169 ? 0 : 0;
 
         Draw_OSD169 = MainScreen;
         Draw_OSD43 = BottomBorder_Pentagon;
-        DrawBorder = TopBorder_Blank_Pentagon;        
+        DrawBorder = TopBorder_Blank_Pentagon;
     }
 
     if (is169) {

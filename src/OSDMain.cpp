@@ -57,6 +57,8 @@ visit https://zxespectrum.speccy.org/contacto
 #include "audio.h"
 #include "AySound.h"
 
+#include <malloc.h>
+
 /**
 #ifndef ESP32_SDL2_WRAPPER
 #include "esp_system.h"
@@ -374,6 +376,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 Config::hdmi_video_mode=1;
                 Config::save();
                 esp_hard_reset();
+            // } else
+            // if (KeytoESP == fabgl::VK_PAGEUP) {
+            //     VIDEO::tStatesScreen++;
+            // } else
+            // if (KeytoESP == fabgl::VK_PAGEDOWN) {
+            //     VIDEO::tStatesScreen--;
             }
             // if (KeytoESP == fabgl::VK_INSERT) { // HDMI H_Total Lines
             //     ESPectrum::H_TOTAL--;
@@ -424,7 +432,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             }
             Config::last_ram_file = NO_RAM_FILE;
             uint8_t romInUse = 0;
-            if (Config::romSet == "128Kpg")
+            if (Config::romSet == "128Kpg" || Config::romSet == "128Kbg")
                 romInUse = 3; // Gluk
             ESPectrum::reset(romInUse);
         }
@@ -439,7 +447,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     if ( fprefix == "1" || fprefix == "2" || fprefix == "3" || fprefix == "4") {
 
                         // Create empty trd
-                        Debug::log("Create empty trd. Prefix: %s\n",fprefix.c_str());
+                        //Debug::log("Create empty trd. Prefix: %s\n",fprefix.c_str());
                         // FIL *fd = fopen2(fname.c_str(), FA_WRITE);
                         // if (!fd) {
                         //     Debug::led_blink();
@@ -492,7 +500,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     string ext = FileUtils::getLCaseExt(fname);
                     if (ext == "trd" || ext == "scl") {
                         printf("Insert TRD/SCL disk %s\n",fname.c_str());
-                        Debug::log("Insert TRD/SCL disk %s\n",fname.c_str());
+                        //Debug::log("Insert TRD/SCL disk %s\n",fname.c_str());
                         rvmWD1793InsertDisk(&ESPectrum::fdd, 0, fname);
                     }
                     else
@@ -1102,18 +1110,15 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 if (opt2 == 1) {
                                     romset = "48K";
                                 } else
-                                if (opt2 == 2) {
-                                    romset = "48Kby";
-                                } else
 #if NO_SPAIN_ROM_48k
-                                if (opt2 == 3) {
+                                if (opt2 == 2) {
                                     romset = "48Kcs";
                                 }
 #else
-                                if (opt2 == 3) {
+                                if (opt2 == 2) {
                                     romset = "48Kes";
                                 } else
-                                if (opt2 == 4) {
+                                if (opt2 == 3) {
                                     romset = "48Kcs";
                                 }
 #endif
@@ -1226,9 +1231,74 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 menu_curopt = 1;
                                 menu_level = 2;
                             }
+                        } else if (ext_ram && arch_num == 6) { // BYTE
+                            menu_level = 2;
+                            menu_curopt = 1;
+                            menu_saverect = true;
+                            while (1) {
+                                opt2 = menuRun(MENU_ROMSBYTE[Config::lang]);
+                                if (opt2) {
+                                    if (opt2 == 1) {
+                                        arch = "48K";
+                                        romset = "48Kby";
+                                        break;
+                                    } else
+                                    if (opt2 == 2) {
+                                        arch = "128K";
+                                        romset = "128Kby";
+                                        break;
+                                    } else
+                                    if (opt2 == 3) {
+                                        arch = "128K";
+                                        romset = "128Kbg";
+                                        break;
+                                    } else
+                                    if (opt2 == 4) {
+                                        menu_level = 3;
+                                        menu_curopt = 1;
+                                        menu_saverect = true;
+                                        while (1) {
+                                            string opt_menu = MENU_BYTE_COBMECT_MODE[Config::lang];
+                                            opt_menu += MENU_YESNO[Config::lang];
+                                            bool prev_opt = Config::byte_cobmect_mode;
+                                            if (prev_opt) {
+                                                opt_menu.replace(opt_menu.find("[Y",0),2,"[*");
+                                                opt_menu.replace(opt_menu.find("[N",0),2,"[ ");
+                                            } else {
+                                                opt_menu.replace(opt_menu.find("[Y",0),2,"[ ");
+                                                opt_menu.replace(opt_menu.find("[N",0),2,"[*");
+                                            }
+                                            uint8_t opt2 = menuRun(opt_menu);
+                                            if (opt2) {
+                                                if (opt2 == 1)
+                                                    Config::byte_cobmect_mode = true;
+                                                else
+                                                    Config::byte_cobmect_mode = false;
+
+                                                if (Config::byte_cobmect_mode != prev_opt) {
+                                                    Config::save();
+                                                    Config::requestMachine(arch, romset);
+                                                    ESPectrum::reset();
+                                                    return;
+                                                }
+                                                menu_curopt = opt2;
+                                                menu_saverect = false;
+                                            } else {
+                                                menu_curopt = 4;
+                                                menu_level = 2;
+                                                break;
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    menu_curopt = 1;
+                                    menu_level = 2;
+                                    break;
+                                }
+                            }
                         }
 #if !NO_ALF
-                        else if (arch_num == 6 || !ext_ram) { // ALF TV GAME
+                        else if (arch_num == 7 || !ext_ram) { // ALF TV GAME
                             arch = "ALF";
                             romset = "ALF1";
                             menu_curopt = opt2;
@@ -1284,6 +1354,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 Config::save();
                                 Config::requestMachine(arch, romset);
                             }
+
+                            Debug::led_blink();
                             ESPectrum::reset();
                             return;
                         }
@@ -1551,23 +1623,20 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             if (opt2 == 1)
                                                 Config::pref_romSet_48 = "48K";
                                             else
-                                            if (opt2 == 2)
-                                                Config::pref_romSet_48 = "48Kby";
-                                            else
 #if NO_SPAIN_ROM_48k
-                                            if (opt2 == 3)
+                                            if (opt2 == 2)
                                                 Config::pref_romSet_48 = "48Kcs";
                                             else
-                                            if (opt2 == 4)
+                                            if (opt2 == 3)
                                                 Config::pref_romSet_48 = "Last";
 #else
-                                            if (opt2 == 3)
+                                            if (opt2 == 2)
                                                 Config::pref_romSet_48 = "48Kes";
                                             else
-                                            if (opt2 == 4)
+                                            if (opt2 == 3)
                                                 Config::pref_romSet_48 = "48Kcs";
                                             else
-                                            if (opt2 == 5)
+                                            if (opt2 == 4)
                                                 Config::pref_romSet_48 = "Last";
 #endif
                                             if (Config::pref_romSet_48 != prev_rpref48) {
@@ -4231,6 +4300,20 @@ string OSD::rowGet(string menu, unsigned short row) {
 // }
 extern "C" uint8_t linkVGA01;
 extern "C" uint8_t link_i2s_code;
+
+
+uint32_t getTotalHeap(void) {
+   extern char __StackLimit, __bss_end__;
+   
+   return &__StackLimit  - &__bss_end__;
+}
+
+uint32_t getFreeHeap(void) {
+   struct mallinfo m = mallinfo();
+
+   return getTotalHeap() - m.uordblks;
+}
+
 void OSD::HWInfo() {
     fabgl::VirtualKeyItem Nextkey;
     click();
@@ -4246,11 +4329,22 @@ void OSD::HWInfo() {
 #if PICO_RP2350
     uint32_t cpu_hz = clock_get_hz(clk_sys) / MHZ;
 
+    uint32_t free_heap =  getFreeHeap();
+
+    struct mallinfo info = mallinfo();
+
+    // printf("Total allocated: %d bytes\n", info.uordblks);
+    // printf("Total free: %d bytes\n", info.fordblks);
+    // printf("Total heap size: %d bytes\n", info.arena);
+    // printf("Largest free block: %d bytes\n", info.ordblks);
+
     string textout =
         " Chip model     : RP2350";
     textout += (rp2350a ? "A " : "B ") +  to_string(cpu_hz) + " MHz\n"
         " Chip cores     : 2\n"
         " Chip RAM       : 520 KB\n"
+        " Free RAM (Exp) : ";
+    textout += to_string(info.fordblks/1024) + " KB\n"
     ;
 #else
     string textout =
