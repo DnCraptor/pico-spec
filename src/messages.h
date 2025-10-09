@@ -743,12 +743,12 @@ static const char *MENU_ROMS_PENT[2] = { MENU_ROMS_PENT_EN, MENU_ROMS_PENT_ES };
 #define MENU_ROMSBYTE_EN "Select ROM\n"\
 	"48K\n"\
 	"128K\n"\
-	"128K + Gluk\n"\
+	"128K + Mr Gluk Reset Srvs\n"\
 	"COBMECT. Mode\n"
 #define MENU_ROMSBYTE_ES "Elija ROM\n"\
 	"48K\n"\
 	"128K\n"\
-	"128K + Gluk\n"\
+	"128K + Mr Gluk Reset Srvs\n"\
 	"COBMECT. Mode\n"
 static const char *MENU_ROMSBYTE[2] = { MENU_ROMSBYTE_EN, MENU_ROMSBYTE_ES };
 
