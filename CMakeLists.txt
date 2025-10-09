@@ -12,7 +12,7 @@ if (EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
-set(PICO_BOARD pico2 CACHE STRING "Board type")
+set(PICO_BOARD pico2)
 cmake_minimum_required(VERSION 3.13)
 
 option(VGA_HDMI "Enable VGA/HDMI driver" OFF)
@@ -35,8 +35,9 @@ set(VGA_HDMI ON)
 #set(TFT_INV 1)
 #set(ILI9341 ON)
 
+#set(CPU_MHZ 252)
 set(CPU_MHZ 378)
-set(PORT_VERSION "1.2.G")
+set (PORT_VERSION "1.2.H")
 
 #set (MURM ON)
 #set (MURM2 ON)
@@ -55,11 +56,11 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 IF(ZERO2)
     # For Board RP2350-PiZero
     set(PICO_BOARD_HEADER_DIRS ${CMAKE_SOURCE_DIR}/src/boards)
-    set(PICO_BOARD waveshare_rp2350_pizero CACHE STRING "Board type")
+    set(PICO_BOARD waveshare_rp2350_pizero)
     set(PICO_PLATFORM rp2350-arm-s)
     set(CPU_MHZ 252)
 elseif(ZERO)
-    set(PICO_BOARD pico CACHE STRING "Board type")
+    set(PICO_BOARD pico)
     set(CPU_MHZ 252)
 endif()
 
@@ -377,19 +378,11 @@ ELSEIF(PICO_DV)
 
         PICO_DV=1
 
-        # GP-5  UXT1-10
-        # GP-8  UXT1-6
-        # GP-9  UXT1-5
-        # GP-21 UXT1-4
-        # GP-20 UXT1-3
-
-        # QWST1 3/4 - GP2/3
-
         # DBG1 1/2
         KBD_CLOCK_PIN=0
         KBD_DATA_PIN=1
 
-        LOAD_WAV_PIO=14 # UXT1-10
+        LOAD_WAV_PIO=14 # Same place as button A on the board (replacement)
 
         CLK_AY_PIN1=21 # not in use
         LATCH_595_PIN=26
