@@ -224,3 +224,4 @@ uint8_t MemESP::sramLatch = 0;
 uint8_t MemESP::pagingLock = 0;
 uint8_t MemESP::romInUse = 0;
 
+uint8_t MemESP::byteMemMode = 0;

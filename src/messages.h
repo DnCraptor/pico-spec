@@ -653,7 +653,8 @@ static const char *MENU_ISSUE2[2] = { "48K Issue 2\n", "48K Issue 2\n"};
     "Spectrum 128K\t>\n"\
 	"Pentagon 128K\t>\n"\
 	"Pentagon 512K\t>\n"\
-	"Pentagon 1024K\t>\n"
+	"Pentagon 1024K\t>\n"\
+	"Byte\t>\n"
 #else
 #define MENU_ARCHS \
     "Spectrum 48K\t>\n"\
@@ -661,6 +662,7 @@ static const char *MENU_ISSUE2[2] = { "48K Issue 2\n", "48K Issue 2\n"};
 	"Pentagon 128K\t>\n"\
 	"Pentagon 512K\t>\n"\
 	"Pentagon 1024K\t>\n"\
+	"Byte\t>\n"\
 	"ALF TV GAME\n"
 #endif
 static const char *MENU_ARCH[2] = { MENU_ARCH_EN MENU_ARCHS, MENU_ARCH_ES MENU_ARCHS };
@@ -691,12 +693,10 @@ static const char *MENU_ARCH_NO_SD[2] = { MENU_ARCH_EN MENU_ARCHS_NO_SD, MENU_AR
 #else
 #define MENU_ROMS48_EN "Select ROM\n"\
 	"48K\n"\
-	"Byte 48K\n"\
     "48K Spanish\n"\
     "Custom\n"
 #define MENU_ROMS48_ES "Elija ROM\n"\
 	"48K\n"\
-	"Byte 48K\n"\
     "48K Espa" "\xA4" "ol\n"\
     "Custom\n"
 #endif
@@ -740,6 +740,20 @@ static const char *MENU_ROMS128[2] = { MENU_ROMS128_EN, MENU_ROMS128_ES };
     "Custom\n"
 static const char *MENU_ROMS_PENT[2] = { MENU_ROMS_PENT_EN, MENU_ROMS_PENT_ES };
 
+#define MENU_ROMSBYTE_EN "Select ROM\n"\
+	"48K\n"\
+	"128K\n"\
+	"128K + Mr Gluk Reset Srvs\n"\
+	"COBMECT. Mode\n"
+#define MENU_ROMSBYTE_ES "Elija ROM\n"\
+	"48K\n"\
+	"128K\n"\
+	"128K + Mr Gluk Reset Srvs\n"\
+	"COBMECT. Mode\n"
+static const char *MENU_ROMSBYTE[2] = { MENU_ROMSBYTE_EN, MENU_ROMSBYTE_ES };
+
+static const char *MENU_BYTE_COBMECT_MODE[2] = { "COBMECT. Mode\n", "COBMECT. Mode\n" };
+
 #define MENU_ROMS_SCORP_EN \
   "Select ROM\n"\
 	"Mix\n"\
@@ -775,24 +789,20 @@ static const char *MENU_ROM_PREF[2] = {
 #if NO_SPAIN_ROM_48k
 #define MENU_ROMS48_PREF_EN "Select ROM\n"\
 	"48K\t[48K  ]\n"\
-	"Byte 48K\t[48Kby]\n"\
     "Custom\t[48Kcs]\n"\
 	"Last used\t[Last ]\n"
 #define MENU_ROMS48_PREF_ES "Elija ROM\n"\
 	"48K\t[48K  ]\n"\
-	"Byte 48K\t[48Kby]\n"\
     "Custom\t[48Kcs]\n"\
 	"Ultima usada\t[Last ]\n"
 #else
 #define MENU_ROMS48_PREF_EN "Select ROM\n"\
 	"48K\t[48K  ]\n"\
-	"Byte 48K\t[48Kby]\n"\
     "48K Spanish\t[48Kes]\n"\
     "Custom\t[48Kcs]\n"\
 	"Last used\t[Last ]\n"
 #define MENU_ROMS48_PREF_ES "Elija ROM\n"\
 	"48K\t[48K  ]\n"\
-	"Byte 48K\t[48Kby]\n"\
     "48K Espa" "\xA4" "ol\t[48Kes]\n"\
     "Custom\t[48Kcs]\n"\
 	"Ultima usada\t[Last ]\n"

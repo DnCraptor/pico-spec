@@ -86,6 +86,7 @@ int      Config::hdmi_video_mode = 0;
 bool     Config::v_sync_enabled = false;
 uint8_t  Config::audio_driver = 0;
 extern "C" uint8_t  video_driver = 0;
+bool     Config::byte_cobmect_mode = false;
 
 void Config::requestMachine(string newArch, string newRomSet)
 {
@@ -110,7 +111,7 @@ void Config::requestMachine(string newArch, string newRomSet)
         else
 #endif
         if (romSet48 == "48Kby")
-            MemESP::rom[0].assign_rom(gb_rom_0_byte_48k);
+            MemESP::rom[0].assign_rom(Config::byte_cobmect_mode ? gb_rom_0_byte_sovmest_48k : gb_rom_0_byte_48k);
         else
             MemESP::rom[0].assign_rom(gb_rom_0_sinclair_48k);
     }
@@ -148,7 +149,14 @@ void Config::requestMachine(string newArch, string newRomSet)
             MemESP::rom[0].assign_rom(gb_rom_0_s128_zx81);
             MemESP::rom[1].assign_rom(gb_rom_1_sinclair_128k);
 #endif
-        } else {
+        } else if (romSet128 == "128Kby" || romSet128 == "128Kbg") {
+            MemESP::rom[0].assign_rom(gb_rom_0_sinclair_128k);
+            MemESP::rom[1].assign_rom(Config::byte_cobmect_mode ? gb_rom_0_byte_sovmest_48k : gb_rom_0_byte_48k);
+            if (romSet128 == "128Kbg") {
+                MemESP::rom[3].assign_rom(gb_rom_gluk);
+            }
+        }
+        else {
             MemESP::rom[0].assign_rom(gb_rom_0_sinclair_128k);
             MemESP::rom[1].assign_rom(gb_rom_1_sinclair_128k);
         }
@@ -378,6 +386,7 @@ void Config::load() {
         nvs_get_str("video_driver", v, sts);
         if (v == "VGA" || v == "vga") video_driver = 1;
         else if (v == "HDMI" || v == "hdmi" || v == "DVI" || v == "dvi") video_driver = 2;
+        nvs_get_b("byte_cobmect_mode", byte_cobmect_mode, sts);
     }
 }
 
@@ -498,6 +507,7 @@ void Config::save() {
             (Config::audio_driver == 1) ? "pwm" : ((Config::audio_driver == 2) ? "i2s" : "ay")
         );
         nvs_set_str(handle,"video_driver", video_driver == 0 ? "auto" : (video_driver == 1) ? "vga" : "hdmi");
+        nvs_set_str(handle,"byte_cobmect_mode", Config::byte_cobmect_mode ? "true" : "false");
         fclose2(handle);
     }
     // printf("Config saved OK\n");

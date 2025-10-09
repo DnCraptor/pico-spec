@@ -1191,7 +1191,7 @@ void ESPectrum::loop() {
     }
     processKeyboard();
     // Update stats every 50 frames
-    if (VIDEO::OSD && VIDEO::framecnt >= 50) {
+    if (VIDEO::OSD && VIDEO::framecnt >= 10) {
         if (VIDEO::OSD & 0x04) {
             // printf("Vol. OSD out -> Framecnt: %d\n", VIDEO::framecnt);
             if (VIDEO::framecnt >= 100) {

@@ -39,6 +39,8 @@ visit https://zxespectrum.speccy.org/contacto
 #include <inttypes.h>
 #include <list>
 #include "ff.h"
+#include "roms.h"
+#include "Debug.h"
 
 extern uint8_t* PSRAM_DATA;
 extern uint8_t psram_pin;
@@ -150,13 +152,54 @@ public:
 
     static uint8_t romInUse;
 
+    static uint8_t byteMemMode;
+
     static uint8_t readbyte(uint16_t addr);
     static uint16_t readword(uint16_t addr);
     static void writebyte(uint16_t addr, uint8_t data);
     static void writeword(uint16_t addr, uint16_t data);
+
+    static int getByteContention(uint16_t addr);
+    //static void UpdateByteMem0000(int ramIndex, int SovmestMode);
 };
 
 // Inline memory access functions
+
+// ==== Функция получения задержки для адреса ====
+inline int MemESP::getByteContention(uint16_t addr) {
+    if (addr < 0xC000) return 0;
+
+    int res = 0;
+    uint16_t offset = addr - 0xC000;
+    uint8_t val = (offset < 512) ? romDd10[offset] : romDd11[offset - 512];
+    if (val == 0xEE) res = 4;
+    else if (val == 0xFE) res = 3;
+    else if (val == 0xBE) res = 2;
+    else res = 1;
+
+    return res;
+}
+
+// For Byte
+// inline void MemESP::UpdateByteMem0000(int ramIndex, int SovmestMode) {
+//     if (byteMemMode == 0)
+//         return;
+
+//     Debug::led_blink();
+
+//     for(int addr=0; addr<0x4000; addr++)
+//     {
+//         //SovmestMode = 1; // BYTE COBMECT="OFF"
+//         int adr66 = ((addr >> 7) & 0xFF) | ((SovmestMode << 8) & 0x100);
+//         int dat66 = romDd66[adr66];
+
+//         // если бит 0x10 не установлен — берём байт из DD71
+//         if ((dat66 & 0x10) == 0) {
+//             int adr71 = ((dat66 & 0x0F) << 7) | (addr & 0x7F);
+//             ramCurrent[ramIndex][addr] = romDd71[adr71];
+//         }
+//     }
+// }
 
 inline uint8_t MemESP::readbyte(uint16_t addr) {
     uint8_t page = addr >> 14;
