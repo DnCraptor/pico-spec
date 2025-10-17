@@ -49,16 +49,22 @@ using namespace std;
 #define ESP_AUDIO_FREQ_48 31250 // In 48K calcs are perfect :) -> ESP_AUDIO_SAMPLES_48 * 50,0801282 frames per second = 31250 Hz
 #define ESP_AUDIO_SAMPLES_48  624
 #define ESP_AUDIO_SAMPLES_DIV_48  7
+#define ESP_AUDIO_AY_DIV_48  112
+#define ESP_AUDIO_OVERSAMPLES_DIV_48  16
 
 #define ESP_AUDIO_OVERSAMPLES_128 3732
 #define ESP_AUDIO_FREQ_128 31112 // ESP_AUDIO_SAMPLES_128 * 50,020008 fps = 31112,445 Hz.
 #define ESP_AUDIO_SAMPLES_128 622
 #define ESP_AUDIO_SAMPLES_DIV_128  6
+#define ESP_AUDIO_AY_DIV_128  114
+#define ESP_AUDIO_OVERSAMPLES_DIV_128 19
 
 #define ESP_AUDIO_OVERSAMPLES_PENTAGON 4480
 #define ESP_AUDIO_FREQ_PENTAGON 31250 // ESP_AUDIO_SAMPLES_PENTAGON * 48,828125 frames per second = 31250 Hz
 #define ESP_AUDIO_SAMPLES_PENTAGON  640
 #define ESP_AUDIO_SAMPLES_DIV_PENTAGON  7
+#define ESP_AUDIO_AY_DIV_PENTAGON  112
+#define ESP_AUDIO_OVERSAMPLES_DIV_PENTAGON 16
 
 #define ESP_VOLUME_DEFAULT -8
 #define ESP_VOLUME_MAX 0
@@ -99,11 +105,15 @@ public:
     static void BeeperGetSample();
     static void CovoxGetSample();
     static void AYGetSample();
+    static bool __not_in_flash_func(AY_timer_callback)(repeating_timer_t *rt);
     static uint8_t audioBuffer_L[ESP_AUDIO_SAMPLES_PENTAGON];
     static uint8_t audioBuffer_R[ESP_AUDIO_SAMPLES_PENTAGON];
     static uint8_t audioBufferCovox[ESP_AUDIO_SAMPLES_PENTAGON];
     static uint32_t overSamplebuf[ESP_AUDIO_SAMPLES_PENTAGON];
     static unsigned char audioSampleDivider;
+    static unsigned char audioAYDivider;
+    static unsigned char audioCOVOXDivider;
+    static unsigned char audioOverSampleDivider;
     static signed char aud_volume;
     static uint32_t audbufcnt;
     static uint32_t audbufcntover;
@@ -130,7 +140,6 @@ public:
     static double totalsecondsnodelay;
     static int64_t elapsed;
     static int64_t idle;
-    static int ESPoffset;
 
     static int ESPtestvar;
     static int ESPtestvar1;

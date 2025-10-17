@@ -66,6 +66,14 @@ visit https://zxespectrum.speccy.org/contacto
 #define OSD_PAUSE_ES "--=[EN PAUSA]=--"
 static const char *OSD_PAUSE[2] = { OSD_PAUSE_EN,OSD_PAUSE_ES };
 
+#define OSD_MAXSPEED_ON_EN "--=[ MAX SPEED ON ]=--"
+#define OSD_MAXSPEED_ON_ES "--=[VELOCIDAD MÁXIMA ENCENDIDA]=--"
+static const char *OSD_MAXSPEED_ON[2] = { OSD_MAXSPEED_ON_EN,OSD_MAXSPEED_ON_ES };
+
+#define OSD_MAXSPEED_OFF_EN "--=[ MAX SPEED OFF ]=--"
+#define OSD_MAXSPEED_OFF_ES "--=[VELOCIDAD MÁXIMA APAGADA]=--"
+static const char *OSD_MAXSPEED_OFF[2] = { OSD_MAXSPEED_OFF_EN,OSD_MAXSPEED_OFF_ES };
+
 #define OSD_PSNA_NOT_AVAIL "No Persist Snapshot Available"
 #define OSD_PSNA_LOADING "Loading Persist Snapshot"
 #define OSD_PSNA_SAVING  "Saving Persist Snapshot"

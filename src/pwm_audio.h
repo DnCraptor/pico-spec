@@ -1,7 +1,7 @@
 #pragma once
 
 void init_sound();
-void pcm_setup(int hz, size_t size);
+void pcm_setup(int hz);
 void pcm_cleanup(void);
 typedef volatile int16_t* (*pcm_end_callback_t)(volatile size_t* size);
 // internal call on core#1

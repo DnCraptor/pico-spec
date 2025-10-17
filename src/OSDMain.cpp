@@ -155,7 +155,7 @@ IRAM_ATTR void OSD::click() {
     else
         pwm_audio_write((uint8_t*) click128, (uint8_t*) click128, 116, 0, 0);
     pwm_audio_set_volume(ESPectrum::aud_volume);
-    if (CPU::paused) osdCenteredMsg(OSD_PAUSE[Config::lang], LEVEL_INFO, 500);
+    if (CPU::paused) osdCenteredMsg(OSD_PAUSE[Config::lang], LEVEL_INFO, 0);
 }
 void close_all(void);
 void OSD::esp_hard_reset() {
@@ -238,7 +238,7 @@ void OSD::drawStats() {
         y = 220;
     }
 
-    VIDEO::vga.setTextColor(zxColor(7, 0), zxColor( ESPectrum::multiplicator + 1, 0));
+    VIDEO::vga.setTextColor(zxColor(7, 0), zxColor( ESPectrum::maxSpeed ? 5 : ESPectrum::multiplicator + 1, 0));
     VIDEO::vga.setFont(Font6x8);
     VIDEO::vga.setCursor(x,y);
     VIDEO::vga.print(stats_lin1);
@@ -525,6 +525,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
     } else {
         if (KeytoESP == fabgl::VK_TILDE || KeytoESP == fabgl::VK_NUMLOCK) {
             ESPectrum::maxSpeed = !ESPectrum::maxSpeed;
+            std::string menu = ESPectrum::maxSpeed ? OSD_MAXSPEED_ON[Config::lang] : OSD_MAXSPEED_OFF[Config::lang];
+            osdCenteredMsg(menu, LEVEL_INFO, 1000);
             click();
         }else if (KeytoESP == fabgl::VK_PAUSE) {
             CPU::paused = !CPU::paused;
