@@ -1091,8 +1091,6 @@ int main() {
 #endif
 
     ESPectrum::setup();
-    init_sound();
-    pcm_setup(SOUND_FREQUENCY, SOUND_FREQUENCY);
     for (int i = 0; i < 6; i++) {
         sleep_ms(33);
         gpio_put(PICO_DEFAULT_LED_PIN, true);

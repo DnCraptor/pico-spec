@@ -157,6 +157,7 @@ void AySound::init()
     cnt_a = cnt_b = cnt_c = cnt_n = cnt_e = 0;
     bit_a = bit_b = bit_c = bit_n = 0;
     env_pos = EnvNum = 0;
+    SamplebufAY[0] = SamplebufAY[1] = 0;
 
     /* GenNoise (c) Hacker KAY & Sergey Bulba */
     Cur_Seed = 0xffff;
@@ -434,6 +435,88 @@ IRAM_ATTR void AySound::gen_sound(int sound_bufsize, int bufpos)
 
     }
 
+}
+
+IRAM_ATTR uint8_t* AySound::gen_sound()
+{
+    // sound_bufsize всегда 1, bufpos всегда 0
+    int mix_l = 0;
+    int mix_r = 0;
+
+    for (int m = 0; m < ChipTacts_per_outcount; m++) {
+        if (++cnt_a >= ayregs.tone_a) {
+            cnt_a = 0;
+            bit_a = !bit_a;
+        }
+        if (++cnt_b >= ayregs.tone_b) {
+            cnt_b = 0;
+            bit_b = !bit_b;
+        }
+        if (++cnt_c >= ayregs.tone_c) {
+            cnt_c = 0;
+            bit_c = !bit_c;
+        }
+        // Noise
+        if (++cnt_n >= (ayregs.noise * 2)) {
+            cnt_n = 0;
+            Cur_Seed = (Cur_Seed * 2 + 1) ^ (((Cur_Seed >> 16) ^ (Cur_Seed >> 13)) & 1);
+            bit_n = ((Cur_Seed >> 16) & 1);
+        }
+        // Envelope
+        if (++cnt_e >= ayregs.env_freq) {
+            cnt_e = 0;
+            if (++env_pos > 127)
+                env_pos = 64;
+        }
+
+        #define ENVVOL Envelope[ayregs.env_style][env_pos]
+
+        // Channel A
+        if ((bit_a | !ayregs.R7_tone_a) & (bit_n | !ayregs.R7_noise_a)) {
+            int tmpvol = (ayregs.env_a) ? ENVVOL : Rampa_AY_table[ayregs.vol_a];
+            if (Config::ayConfig == 2) { // mono
+                int v = table[tmpvol];
+                mix_l += v;
+                mix_r += v;
+            } else {
+                mix_l += table[tmpvol];
+            }
+        }
+        // Channel B
+        if ((bit_b | !ayregs.R7_tone_b) & (bit_n | !ayregs.R7_noise_b)) {
+            int tmpvol = (ayregs.env_b) ? ENVVOL : Rampa_AY_table[ayregs.vol_b];
+            if (Config::ayConfig == 0) {
+                int v = table[tmpvol] >> 1;
+                mix_l += v;
+                mix_r += v;
+            } else if (Config::ayConfig == 2) { // mono
+                int v = table[tmpvol];
+                mix_l += v;
+                mix_r += v;
+            } else {
+                mix_r += table[tmpvol];
+            }
+        }
+        // Channel C
+        if ((bit_c | !ayregs.R7_tone_c) & (bit_n | !ayregs.R7_noise_c)) {
+            int tmpvol = (ayregs.env_c) ? ENVVOL : Rampa_AY_table[ayregs.vol_c];
+            if (Config::ayConfig == 0) {
+                mix_r += table[tmpvol];
+            } else if (Config::ayConfig == 2) { // mono
+                int v = table[tmpvol];
+                mix_l += v;
+                mix_r += v;
+            } else {
+                int v = table[tmpvol] >> 1;
+                mix_l += v;
+                mix_r += v;
+            }
+        }
+    }
+
+    SamplebufAY[0] = mix_l / Amp_Global;
+    SamplebufAY[1] = mix_r / Amp_Global;
+    return SamplebufAY;
 }
 
 void AySound::updToneA() {
