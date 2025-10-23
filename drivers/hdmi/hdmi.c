@@ -17,21 +17,6 @@ static uint offs_prg1 = 0;
 static int SM_video = -1;
 static int SM_conv = -1;
 
-static int cur_hdmi_video_mode = 0;
-
-static struct video_mode_t hdmi_video_mode[2] = {
-    { // 640x480 60Hz
-        .h_total = 524,
-        .h_width = 480,
-        .freq = 60
-    },
-    { // 640x480 50Hz
-        .h_total = 644,
-        .h_width = 480,
-        .freq = 50
-    }
-};
-
 //активный видеорежим
 extern enum graphics_mode_t graphics_mode;
 
@@ -180,12 +165,12 @@ static void pio_set_x(PIO pio, const int sm, uint32_t v) {
 
 uint8_t* getLineBuffer(int line);
 void ESPectrum_vsync();
-int get_hdmi_video_mode();
+int get_video_mode();
 
 static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
     static uint32_t inx_buf_dma;
     static uint line = 0;
-    struct video_mode_t mode = hdmi_video_mode[get_hdmi_video_mode()];
+    struct video_mode_t mode = graphics_get_video_mode(get_video_mode());
     irq_inx++;
 
     dma_hw->ints0 = 1u << dma_chan_ctrl;
@@ -432,7 +417,7 @@ static inline bool hdmi_init() {
     sm_config_set_out_shift(&c_c, true, true, 30);
     sm_config_set_fifo_join(&c_c, PIO_FIFO_JOIN_TX);
 
-    int hdmi_hz = hdmi_video_mode[get_hdmi_video_mode()].freq;
+    int hdmi_hz = graphics_get_video_mode(get_video_mode()).freq;
     sm_config_set_clkdiv(&c_c, (clock_get_hz(clk_sys) / 252000000.0f) * (60 / hdmi_hz));
     pio_sm_init(PIO_VIDEO, SM_video, offs_prg0, &c_c);
     pio_sm_set_enabled(PIO_VIDEO, SM_video, true);

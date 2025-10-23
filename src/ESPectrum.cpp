@@ -248,12 +248,10 @@ double ESPectrum::totalsecondsnodelay = 0;
 int64_t ESPectrum::target;
 int ESPectrum::sync_cnt = 0;
 volatile bool ESPectrum::v_sync = false;
-bool ESPectrum::v_sync_enabled = false;
 int64_t ESPectrum::ts_start;
 int64_t ESPectrum::elapsed;
 int64_t ESPectrum::idle;
 uint8_t ESPectrum::multiplicator = 0;
-volatile int ESPectrum::hdmi_video_mode = 0;
 
 //=======================================================================================
 // LOGGING / TESTING
@@ -630,9 +628,6 @@ if (butter_psram_size() >= (0x04000 * (64+2 - 23))) {
     //=======================================================================================
     // VIDEO
     //=======================================================================================
-    hdmi_video_mode = Config::hdmi_video_mode;
-    v_sync_enabled=Config::v_sync_enabled;
-
     VIDEO::Init();
     VIDEO::Reset();
 
@@ -1308,7 +1303,7 @@ void ESPectrum::loop() {
 
     if (!maxSpeed)
     {
-        if (v_sync_enabled)
+        if (Config::v_sync_enabled)
         {
         for (;;)
             if (v_sync) {

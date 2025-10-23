@@ -59,13 +59,15 @@ extern "C" void ESPectrum_vsync() {
     ESPectrum::v_sync = true;
 }
 
-extern "C" int get_hdmi_video_mode() {
-    return ESPectrum::hdmi_video_mode;
+extern "C" int get_video_mode() {
+    return VIDEO::video_mode;
 }
 
 // extern "C" video_mode_t ESPectrum_VideoMode() {
 //     return VIDEO::video_mode[0];
 // }
+
+extern bool SELECT_VGA;
 
 uint16_t VIDEO::spectrum_colors[NUM_SPECTRUM_COLORS] = {
     BLACK,     BLUE,     RED,     MAGENTA,     GREEN,     CYAN,     YELLOW,     WHITE,
@@ -132,6 +134,8 @@ static const uint8_t wait_st[128] = {
     6, 5, 4, 3, 2, 1, 0, 0, 6, 5, 4, 3, 2, 1, 0, 0,
     6, 5, 4, 3, 2, 1, 0, 0, 6, 5, 4, 3, 2, 1, 0, 0,
 }; // sequence of wait states
+
+int VIDEO::video_mode = 0;
 
 IRAM_ATTR void VGA6Bit::interrupt(void *arg) {
     static int64_t prevmicros = 0;
@@ -405,6 +409,33 @@ void VIDEO::Reset() {
     lastBrdTstate = tStatesBorder;
     brdChange = false;
     brdnextframe = true;
+
+    if (SELECT_VGA)
+    {
+        if (Config::vga_video_mode > 0)
+        {
+            if (Config::arch == "48K")
+                Config::vga_video_mode=2;
+            else if (Config::arch == "128K")
+                Config::vga_video_mode=3;
+            else
+                Config::vga_video_mode=1;
+        }
+        video_mode = Config::vga_video_mode;
+    }
+    else
+    {
+        if (Config::hdmi_video_mode > 0)
+        {
+            if (Config::arch == "48K")
+                Config::hdmi_video_mode=2;
+            else if (Config::arch == "128K")
+                Config::hdmi_video_mode=3;
+            else
+                Config::hdmi_video_mode=1;
+        }
+        video_mode = Config::hdmi_video_mode;
+    }
 }
 
 //  VIDEO DRAW FUNCTIONS

@@ -22,6 +22,14 @@ extern "C" {
 #include "font6x8.h"
 #include "font8x8.h"
 #include "font8x16.h"
+
+typedef struct video_mode_t{
+  int h_total;
+  int h_width;
+  int freq;
+  int vgaPxClk;
+};
+
 enum graphics_mode_t {
     TEXTMODE_DEFAULT,
     GRAPHICSMODE_DEFAULT,
@@ -47,6 +55,8 @@ void draw_text(const char string[TEXTMODE_COLS + 1], uint32_t x, uint32_t y, uin
 void draw_window(const char title[TEXTMODE_COLS + 1], uint32_t x, uint32_t y, uint32_t width, uint32_t height);
 
 void clrScr(uint8_t color);
+
+struct video_mode_t graphics_get_video_mode(int mode);
 
 #ifdef __cplusplus
 }

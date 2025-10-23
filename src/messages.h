@@ -417,17 +417,31 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 
 #define MENU_VIDEO_EN \
     "Video\n"\
+	"Mode\t>\n"\
     "Render type\t>\n"\
     "Aspect Ratio\t>\n"\
     "Scanlines\t>\n"\
 	"V-Sync\t>\n"
 #define MENU_VIDEO_ES \
     "Video\n"\
+	"Modo\t>\n"\
     "Tipo render\t>\n"\
 	"Relaci" "\xA2" "n de aspecto\t>\n"\
     "Scanlines\t>\n"\
 	"V-Sync\t>\n"
 static const char *MENU_VIDEO[2] = { MENU_VIDEO_EN, MENU_VIDEO_ES };
+
+#define MENU_VIDEO_MODE_EN \
+    "Mode\n"\
+    "640x480@60\t[6]\n"\
+    "640x480@50\t[5]\n"
+
+#define MENU_VIDEO_MODE_ES \
+    "Modo\n"\
+    "640x480@60\t[6]\n"\
+    "640x480@50\t[5]\n"
+
+static const char *MENU_VIDEO_MODE[2] = { MENU_VIDEO_MODE_EN, MENU_VIDEO_MODE_ES };
 
 #define MENU_RENDER_EN \
     "Render type\n"\
@@ -739,12 +753,12 @@ static const char *MENU_ROMS128[2] = { MENU_ROMS128_EN, MENU_ROMS128_ES };
 #define MENU_ROMS_PENT_EN \
   "Select ROM\n"\
 	"128Kp\n"\
-	"128Kp + Mr. Gluk Reboot Svc\n"\
+	"128Kp + Mr Gluk Reset Srvs\n"\
     "Custom\n"
 #define MENU_ROMS_PENT_ES \
   "Elija ROM\n"\
 	"128Kp\n"\
-	"128Kp + Mr. Gluk Reboot Svc\n"\
+	"128Kp + Mr Gluk Reset Srvs\n"\
     "Custom\n"
 static const char *MENU_ROMS_PENT[2] = { MENU_ROMS_PENT_EN, MENU_ROMS_PENT_ES };
 

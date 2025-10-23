@@ -16,6 +16,7 @@
 bool SELECT_VGA = false;
 uint8_t* getLineBuffer(int line);
 void ESPectrum_vsync();
+int get_video_mode();
 
 uint16_t pio_program_VGA_instructions[] = {
     //     .wrap_target
@@ -35,8 +36,8 @@ static uint32_t* lines_pattern_data = NULL;
 static int _SM_VGA = -1;
 
 
-static int N_lines_total = 525;
-static int N_lines_visible = 480;
+//static int N_lines_total = 525;
+//static int N_lines_visible = 480;
 static int line_VS_begin = 490;
 static int line_VS_end = 491;
 static int shift_picture = 0;
@@ -77,16 +78,18 @@ void __time_critical_func() dma_handler_VGA() {
     static uint8_t* input_buffer = NULL;
     screen_line++;
 
-    if (screen_line == N_lines_total) {
+    struct video_mode_t mode = graphics_get_video_mode(get_video_mode());
+
+    if (screen_line == mode.h_total) {
         ESPectrum_vsync();
         screen_line = 0;
         frame_number++;
         input_buffer = getLineBuffer(screen_line);
     }
 
-    if (screen_line >= N_lines_visible) {
+    if (screen_line >= mode.h_width) {
         //заполнение цветом фона
-        if (screen_line == N_lines_visible | screen_line == N_lines_visible + 3) {
+        if (screen_line == mode.h_width | screen_line == mode.h_width + 3) {
             uint32_t* output_buffer_32bit = lines_pattern[2 + (screen_line & 1)];
             output_buffer_32bit += shift_picture / 4;
             uint32_t p_i = (screen_line & is_flash_line) + (frame_number & is_flash_frame) & 1;
@@ -299,11 +302,12 @@ void graphics_set_mode(enum graphics_mode_t mode) {
             shift_picture = line_size - HS_SHIFT;
             palette16_mask = 0xc0c0;
             visible_line_size = 320;
-            N_lines_total = 525;
-            N_lines_visible = 480;
+            // N_lines_total = 525;
+            // N_lines_visible = 480;
             line_VS_begin = 490;
             line_VS_end = 491;
-            fdiv = clock_get_hz(clk_sys) / 25175000.0; //частота пиксельклока
+            struct video_mode_t vMode = graphics_get_video_mode(get_video_mode());            
+            fdiv = clock_get_hz(clk_sys) / vMode.vgaPxClk; //частота пиксельклока
             break;
         default:
             return;
