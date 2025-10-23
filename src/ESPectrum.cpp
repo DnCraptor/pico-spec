@@ -177,8 +177,10 @@ int ESPectrum::faudioBit = 0;
 int ESPectrum::samplesPerFrame;
 bool ESPectrum::AY_emu = false;
 int ESPectrum::Audio_freq = 44000;
-static int prevAudio_freq = 44000;
 unsigned char ESPectrum::audioSampleDivider;
+unsigned char ESPectrum::audioAYDivider;
+unsigned char ESPectrum::audioCOVOXDivider;
+unsigned char ESPectrum::audioOverSampleDivider;
 static int audioBitBuf = 0;
 static unsigned char audioBitbufCount = 0;
 ///QueueHandle_t audioTaskQueue;
@@ -251,7 +253,6 @@ int64_t ESPectrum::ts_start;
 int64_t ESPectrum::elapsed;
 int64_t ESPectrum::idle;
 uint8_t ESPectrum::multiplicator = 0;
-int ESPectrum::ESPoffset = 0;
 volatile int ESPectrum::hdmi_video_mode = 0;
 
 //=======================================================================================
@@ -645,20 +646,29 @@ if (butter_psram_size() >= (0x04000 * (64+2 - 23))) {
     // Set samples per frame and AY_emu flag depending on arch
     if (Config::arch == "48K") {
         samplesPerFrame = ESP_AUDIO_SAMPLES_48;
-        audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;
+        audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_48;
+        audioAYDivider = ESP_AUDIO_AY_DIV_48;
+        audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;        
         AY_emu = Config::AY48;
         Audio_freq = ESP_AUDIO_FREQ_48;
     } else if (Config::arch == "128K" || Config::arch == "ALF") {
         samplesPerFrame=ESP_AUDIO_SAMPLES_128;
+        audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_128;
+        audioAYDivider = ESP_AUDIO_AY_DIV_128;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
         AY_emu = Config::AY48;
         Audio_freq = ESP_AUDIO_FREQ_128;
     } else { /// if (Config::arch == "P512" || Config::arch == "Pentagon") {
         samplesPerFrame = ESP_AUDIO_SAMPLES_PENTAGON;
+        audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_PENTAGON;
+        audioAYDivider = ESP_AUDIO_AY_DIV_PENTAGON;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_PENTAGON;
         AY_emu = Config::AY48;
         Audio_freq = ESP_AUDIO_FREQ_PENTAGON;
     }
+
+    init_sound();
+    pcm_setup(Audio_freq);
 
     if (Config::tape_player) {
         AY_emu = false; // Disable AY emulation if tape player mode is set
@@ -666,14 +676,7 @@ if (butter_psram_size() >= (0x04000 * (64+2 - 23))) {
     } else
         ESPectrum::aud_volume = Config::aud_volume;
 
-    ESPoffset = 0;
-
-    // Create Audio task
-///    audioTaskQueue = xQueueCreate(1, sizeof(uint8_t *));
-    // Latest parameter = Core. In ESPIF, main task runs on core 0 by default. In Arduino, loop() runs on core 1.
-///    xTaskCreatePinnedToCore(&ESPectrum::audioTask, "audioTask", 1024 /*1536*/, NULL, configMAX_PRIORITIES - 1, &audioTaskHandle, 1);
     pwm_audio_set_volume(aud_volume);
-    prevAudio_freq = Audio_freq;
 
     // AY Sound
     chip0.init();
@@ -783,27 +786,33 @@ void ESPectrum::reset(uint8_t romInUse)
     lastCovoxVal = lastaudioBit = 0;
 
     // Set samples per frame and AY_emu flag depending on arch
-    prevAudio_freq = Audio_freq;
     if (Config::arch == "48K") {
-        samplesPerFrame=ESP_AUDIO_SAMPLES_48;
-        audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;
+        samplesPerFrame = ESP_AUDIO_SAMPLES_48;
+        audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_48;
+        audioAYDivider = ESP_AUDIO_AY_DIV_48;
+        audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;        
         AY_emu = Config::AY48;
         Audio_freq = ESP_AUDIO_FREQ_48;
     } else if (Config::arch == "128K" || Config::arch == "ALF") {
         samplesPerFrame=ESP_AUDIO_SAMPLES_128;
+        audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_128;
+        audioAYDivider = ESP_AUDIO_AY_DIV_128;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
         AY_emu = Config::AY48;
         Audio_freq = ESP_AUDIO_FREQ_128;
-    } else { /// if (Config::arch == "Pentagon") {
+    } else { /// if (Config::arch == "P512" || Config::arch == "Pentagon") {
         samplesPerFrame = ESP_AUDIO_SAMPLES_PENTAGON;
+        audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_PENTAGON;
+        audioAYDivider = ESP_AUDIO_AY_DIV_PENTAGON;
         audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_PENTAGON;
         AY_emu = Config::AY48;
         Audio_freq = ESP_AUDIO_FREQ_PENTAGON;
     }
 
-    if (Config::tape_player) AY_emu = false; // Disable AY emulation if tape player mode is set
+    init_sound();
+    pcm_setup(Audio_freq);
 
-    ESPoffset = 0;
+    if (Config::tape_player) AY_emu = false; // Disable AY emulation if tape player mode is set
 
     // Reset AY emulation
     chip0.init();
@@ -1058,8 +1067,7 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
 }
 
 IRAM_ATTR void ESPectrum::BeeperGetSample() {
-    // Beeper audiobuffer generation (oversample)
-    uint32_t audbufpos = Z80Ops::is128 ? CPU::tstates / 19 : CPU::tstates >> 4;
+    uint32_t audbufpos = CPU::tstates / audioOverSampleDivider;
     if (multiplicator) audbufpos >>= multiplicator;
     for (;audbufcnt < audbufpos; audbufcnt++) {
         audioBitBuf += lastaudioBit;
@@ -1072,8 +1080,7 @@ IRAM_ATTR void ESPectrum::BeeperGetSample() {
 }
 
 IRAM_ATTR void ESPectrum::CovoxGetSample() {
-    // Covox audiobuffer generation (oversample)
-    uint32_t audbufpos = CPU::tstates / (Z80Ops::is128 ? 114 : 112);
+    uint32_t audbufpos = CPU::tstates / audioCOVOXDivider;
     if (multiplicator) audbufpos >>= multiplicator;
     if (audbufpos > audbufcntCovox) {
         uint8_t *sound_buf = audioBufferCovox + audbufcntCovox;
@@ -1086,8 +1093,7 @@ IRAM_ATTR void ESPectrum::CovoxGetSample() {
 }
 
 IRAM_ATTR void ESPectrum::AYGetSample() {
-    // AY audiobuffer generation (oversample)
-    uint32_t audbufpos = CPU::tstates / (Z80Ops::is128 ? 114 : 112);
+    uint32_t audbufpos = CPU::tstates / audioAYDivider;
     if (multiplicator) audbufpos >>= multiplicator;
     if (audbufpos > audbufcntAY) {
         chip0.gen_sound(audbufpos - audbufcntAY, audbufcntAY);
@@ -1097,12 +1103,69 @@ IRAM_ATTR void ESPectrum::AYGetSample() {
     }
 }
 
-uint8_t debug_number = 0;
+// === Таймер ===
+bool __not_in_flash_func(ESPectrum::AY_timer_callback)(repeating_timer_t *rt)
+{
+    // uint32_t audbufpos = audbufcntAY++;
+    // if (multiplicator) audbufpos >>= multiplicator;
+    // if (audbufpos > audbufcntAY) {
+    //     chip0.gen_sound(audbufpos - audbufcntAY, audbufcntAY);
+    //     if (Config::turbosound)
+    //         chip1.gen_sound(audbufpos - audbufcntAY, audbufcntAY);
+    //     audbufcntAY = audbufpos;
+    // }
+    // uint8_t chip0Sample[2] = {0,0};
+    // uint8_t chip1Sample[2] = {0,0};
 
+    // if (AY_emu) {
+    //     if (Config::turbosound != 0 || AySound::selected_chip == 0) {
+    //         uint8_t *p0 = chip0.gen_sound();
+    //         if (p0) { chip0Sample[0] = p0[0]; chip0Sample[1] = p0[1]; }
+    //     }
+    //     if (Config::turbosound != 0 || AySound::selected_chip == 1) {
+    //         uint8_t *p1 = chip1.gen_sound();
+    //         if (p1) { chip1Sample[0] = p1[0]; chip1Sample[1] = p1[1]; }
+    //     }
+    // }
+
+    // // 4. Смешивание
+    // int32_t mix_L = 0;
+    // int32_t mix_R = mix_L;
+
+    // if (AY_emu) {
+    //     if (Config::turbosound != 0 || AySound::selected_chip == 0) {
+    //         mix_L += chip0Sample[0];
+    //         mix_R += chip0Sample[1];
+    //     }
+    //     if (Config::turbosound != 0 || AySound::selected_chip == 1) {
+    //         mix_L += chip1Sample[0];
+    //         mix_R += chip1Sample[1];
+    //     }
+    // }
+
+    // // 5. Ограничение значений (для 8-бит)
+    // uint8_t out_L = mix_L > 255 ? 255 : (mix_L < 0 ? 0 : mix_L);
+    // uint8_t out_R = mix_R > 255 ? 255 : (mix_R < 0 ? 0 : mix_R);
+
+    // pwm_audio_write(&out_L, &out_R, 1, nullptr, 0);
+
+    return true;
+}
+
+uint8_t debug_number = 0;
 //=======================================================================================
 // MAIN LOOP
 //=======================================================================================
 void ESPectrum::loop() {
+  
+    // if (AY_emu) {
+    //     int hz = 44100;
+    //     repeating_timer_t timer_audio;
+    //     if (!add_repeating_timer_us(-(1000000/hz), AY_timer_callback, NULL, &timer_audio))
+    //     {
+    //     }
+    // }
+
   for(;;) {
     if (debug_number != 0) {
         char msg[16];
@@ -1111,6 +1174,9 @@ void ESPectrum::loop() {
         debug_number = 0;
     }
     ts_start = time_us_64();
+
+    if (!CPU::paused)
+        pwm_audio_write((uint8_t*)audioBuffer_L, (uint8_t*)audioBuffer_R, maxSpeed ? 1 : samplesPerFrame, 0, 0);
 
     // Send audioBuffer to pwmaudio
     audbufcnt = 0;
@@ -1186,7 +1252,6 @@ void ESPectrum::loop() {
                 audioBuffer_R[i] = v;
             }
         }
-        pwm_audio_write((uint8_t*)audioBuffer_L, (uint8_t*)audioBuffer_R, samplesPerFrame, 0, 0);
       }
     }
     processKeyboard();
@@ -1213,40 +1278,10 @@ void ESPectrum::loop() {
                 if ((++ESPectrum::TapeNameScroller + 12) > Tape::tapeFileName.length()) ESPectrum::TapeNameScroller = 0;
                 OSD::drawStats();
             } else if (VIDEO::OSD == 2) {
-                std::string st;
-                switch(ESPectrum::fdd.stepState)
-                {
-                    case kRVMWD177XStepIdle:
-                        st = "IDLE";
-                        break;
-                    case kRVMWD177XStepWaiting:
-                        st = "WAIT";
-                        break;
-                    case kRVMWD177XStepWaitingMark:
-                        st = "MARK";
-                        break;
-                    case kRVMWD177XStepReadByte:
-                        st = "RDBT";
-                        break;
-                    case kRVMWD177XStepWriteByte:
-                        st = "WRBT";
-                        break;
-                    case kRVMWD177XStepLastWriteByte:
-                        st = "WRBT";
-                        break;
-                    case kRVMWD177XStepWaitIndex:
-                        st = "WIND";
-                        break;
-                    case kRVMWD177XStepWriteRaw:
-                        st = "WRAW";
-                        break;
-                    default:
-                        st = "NONE";
-                        break;
-                }
+
                 snprintf(OSD::stats_lin1, sizeof(OSD::stats_lin1), "CPU: %05d / IDL: %05d ", (int)(ESPectrum::elapsed), (int)(ESPectrum::idle));
                 snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2), "FPS:%6.2f / FND:%6.2f ", VIDEO::framecnt / (ESPectrum::totalseconds / 1000000), VIDEO::framecnt / (ESPectrum::totalsecondsnodelay / 1000000));
-                snprintf(OSD::stats_lin3, sizeof(OSD::stats_lin3), "ST:%s TR:%02X / SEC:%02X", st.c_str(), ESPectrum::fdd.track, ESPectrum::fdd.sector);
+                snprintf(OSD::stats_lin3, sizeof(OSD::stats_lin3), "ST:%s TR:%02X / SEC:%02X", rvmWD1793StepStateName(&ESPectrum::fdd).c_str(), ESPectrum::fdd.track, ESPectrum::fdd.sector);
                 //snprintf(OSD::stats_lin4, sizeof(OSD::stats_lin4), "CPU: X*%d ", (ESPectrum::multiplicator+1));
                 OSD::drawStats();
             }
@@ -1267,7 +1302,7 @@ void ESPectrum::loop() {
     // }
 
     elapsed = time_us_64() - ts_start;
-    idle = target - elapsed - ESPoffset;
+    idle = target - elapsed;
 
     totalsecondsnodelay += elapsed;
 
@@ -1287,16 +1322,6 @@ void ESPectrum::loop() {
                 delayMicroseconds(idle);
             }
         }
-    }
-///    if (ESP_delay == false) {
-///        totalseconds += elapsed;
-///        continue;
-///    }
-
-    // Audio sync
-    if (++sync_cnt & 0x20) {
-///     ESPoffset = 128 - pwm_audio_rbstats();
-        sync_cnt = 0;
     }
     totalseconds += time_us_64() - ts_start;
  }

@@ -310,4 +310,40 @@ void SCLtoTRD(rvmwdDisk *d, unsigned char *track0);
 
 BYTE* load_file_into_ram(FIL* fp, UINT* filesize_out);
 
+inline std::string rvmWD1793StepStateName(rvmWD1793 *wd)
+{
+    std::string st;
+    switch(wd->stepState)
+    {
+        case kRVMWD177XStepIdle:
+            st = "IDLE";
+            break;
+        case kRVMWD177XStepWaiting:
+            st = "WAIT";
+            break;
+        case kRVMWD177XStepWaitingMark:
+            st = "MARK";
+            break;
+        case kRVMWD177XStepReadByte:
+            st = "RDBT";
+            break;
+        case kRVMWD177XStepWriteByte:
+            st = "WRBT";
+            break;
+        case kRVMWD177XStepLastWriteByte:
+            st = "WRBT";
+            break;
+        case kRVMWD177XStepWaitIndex:
+            st = "WIND";
+            break;
+        case kRVMWD177XStepWriteRaw:
+            st = "WRAW";
+            break;
+        default:
+            st = "NONE";
+            break;
+    }
+    return st;
+}
+
 #endif

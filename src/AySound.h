@@ -159,9 +159,11 @@ public:
     int set_sound_format(int freq, int chans, int bits);
     void prepare_generation();
     void gen_sound(int bufsize, int bufpos);
+    uint8_t* gen_sound();
 
     uint8_t SamplebufAY_L[ESP_AUDIO_SAMPLES_PENTAGON];
     uint8_t SamplebufAY_R[ESP_AUDIO_SAMPLES_PENTAGON];
+    uint8_t SamplebufAY[2];
 
 private:
 
