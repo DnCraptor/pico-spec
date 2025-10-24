@@ -205,6 +205,7 @@ public:
 
   static uint32_t framecnt; // Frames elapsed
 
+  static int video_mode;
 };
 
 #define zxColor(color,bright) VIDEO::spectrum_colors[bright ? color + 8 : color]
