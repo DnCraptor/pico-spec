@@ -4463,6 +4463,14 @@ void OSD::HWInfo() {
     snprintf(buf, 128, " VGA/HDMI detect: %02Xh\n", linkVGA01);
     VIDEO::vga.print(buf);
 #endif
+    snprintf(buf, 128, "\n" \
+                       " %s\n" \
+                       " %s %s\n" \
+                       " Branch: %s\n" \
+                       " Commit: %s\n",
+            PICO_BUILD_NAME, __DATE__, __TIME__, PICO_GIT_BRANCH, PICO_GIT_COMMIT);
+    VIDEO::vga.print(buf);
+
     // Wait for key
     while (1) {
         if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
