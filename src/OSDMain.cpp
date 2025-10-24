@@ -192,8 +192,9 @@ void OSD::drawOSD(bool bottom_info) {
     if (bottom_info) {
         string bottom_line;
 #ifdef VGA_HDMI
-    string hz = (VIDEO::video_mode == 0 ? "60" : "50");
-    bottom_line = " Video mode: HDMI " + hz + " Hz     ";
+    string hz = VIDEO::video_mode == 0 ? "60" : "50";
+    string videoDrv = SELECT_VGA ? "VGA " : "HDMI";
+    bottom_line = " Video mode: " + videoDrv + " " + hz + " Hz     ";
 #else
 #ifdef TV
         bottom_line = " Video mode: TV RGBI PAL    ";
@@ -362,22 +363,24 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
     if (CTRL) {
         if (ALT) { // CTRL + ALT + [key]
             if (KeytoESP == fabgl::VK_HOME) { // HDMI 60Hz
+                if (VIDEO::video_mode == 0) return;
                 if (SELECT_VGA)
-                {
-                    //TODO
-                }
+                    Config::vga_video_mode=0;
                 else
-                {
-                    if (VIDEO::video_mode == 0) return;
                     Config::hdmi_video_mode=0;
-                }
                 Config::save();
                 esp_hard_reset();
             } else
             if (KeytoESP == fabgl::VK_END) { // HDMI 50Hz
                 if (SELECT_VGA)
                 {
-                    //TODO
+                    if (Z80Ops::is48)
+                        Config::vga_video_mode=2;
+                    else if (Z80Ops::is128)
+                        Config::vga_video_mode=3;
+                    else
+                        Config::vga_video_mode=1;
+                    if (VIDEO::video_mode == Config::vga_video_mode) return;
                 }
                 else
                 {
