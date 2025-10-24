@@ -32,11 +32,6 @@ extern "C" {
 #define TEXTMODE_COLS 53
 #define TEXTMODE_ROWS 30
 
-typedef struct video_mode_t{
-  int h_total;
-  int h_width;
-  int freq;
-};
 
 // TODO: Сделать настраиваемо
 static const uint8_t textmode_palette[16] = {

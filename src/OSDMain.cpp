@@ -192,12 +192,8 @@ void OSD::drawOSD(bool bottom_info) {
     if (bottom_info) {
         string bottom_line;
 #ifdef VGA_HDMI
-        if (SELECT_VGA) {
-            bottom_line = " Video mode: VGA 60 Hz      ";
-        } else {
-            string hz = (ESPectrum::hdmi_video_mode == 0 ? "60" : "50");
-            bottom_line = " Video mode: HDMI " + hz + " Hz     ";
-        }
+    string hz = (VIDEO::video_mode == 0 ? "60" : "50");
+    bottom_line = " Video mode: HDMI " + hz + " Hz     ";
 #else
 #ifdef TV
         bottom_line = " Video mode: TV RGBI PAL    ";
@@ -366,14 +362,33 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
     if (CTRL) {
         if (ALT) { // CTRL + ALT + [key]
             if (KeytoESP == fabgl::VK_HOME) { // HDMI 60Hz
-                if (ESPectrum::hdmi_video_mode == 0) return;
-                Config::hdmi_video_mode=0;
+                if (SELECT_VGA)
+                {
+                    //TODO
+                }
+                else
+                {
+                    if (VIDEO::video_mode == 0) return;
+                    Config::hdmi_video_mode=0;
+                }
                 Config::save();
                 esp_hard_reset();
             } else
             if (KeytoESP == fabgl::VK_END) { // HDMI 50Hz
-                if (ESPectrum::hdmi_video_mode == 1) return;
-                Config::hdmi_video_mode=1;
+                if (SELECT_VGA)
+                {
+                    //TODO
+                }
+                else
+                {
+                    if (Z80Ops::is48)
+                        Config::hdmi_video_mode=2;
+                    else if (Z80Ops::is128)
+                        Config::hdmi_video_mode=3;
+                    else
+                        Config::hdmi_video_mode=1;
+                    if (VIDEO::video_mode == Config::hdmi_video_mode) return;
+                }
                 Config::save();
                 esp_hard_reset();
             // } else
@@ -526,7 +541,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
         if (KeytoESP == fabgl::VK_TILDE || KeytoESP == fabgl::VK_NUMLOCK) {
             ESPectrum::maxSpeed = !ESPectrum::maxSpeed;
             std::string menu = ESPectrum::maxSpeed ? OSD_MAXSPEED_ON[Config::lang] : OSD_MAXSPEED_OFF[Config::lang];
-            osdCenteredMsg(menu, LEVEL_INFO, 1000);
+            osdCenteredMsg(menu, LEVEL_INFO, 500);
             click();
         }else if (KeytoESP == fabgl::VK_PAUSE) {
             CPU::paused = !CPU::paused;
@@ -1846,7 +1861,42 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                             // Video
                             uint8_t options_num = menuRun(MENU_VIDEO[Config::lang]);
                             if (options_num > 0) {
-                                if (options_num == 1) {
+                                if (options_num == 1) { // VIDEO MODE
+                                    menu_level = 3;
+                                    menu_curopt = 1;
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string opt_menu = MENU_VIDEO_MODE[Config::lang];
+                                        int* curVideoMode = SELECT_VGA ? &Config::vga_video_mode : &Config::hdmi_video_mode;
+                                        uint8_t prev_opt = *curVideoMode;
+                                        if (prev_opt>0) {
+                                            opt_menu.replace(opt_menu.find("[6",0),2,"[ ");
+                                            opt_menu.replace(opt_menu.find("[5",0),2,"[*");
+                                        } else {
+                                            opt_menu.replace(opt_menu.find("[6",0),2,"[*");
+                                            opt_menu.replace(opt_menu.find("[5",0),2,"[ ");
+                                        }
+                                        uint8_t opt2 = menuRun(opt_menu);
+                                        if (opt2) {
+                                            if (opt2 == 1)
+                                                *curVideoMode = 0;
+                                            else
+                                                *curVideoMode = 1;
+
+                                            if (*curVideoMode != prev_opt) {
+                                                Config::save();
+                                                esp_hard_reset();
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = 1;
+                                            menu_level = 2;
+                                            break;
+                                        }
+                                    }
+                                }
+                                else if (options_num == 2) {
                                     menu_level = 3;
                                     menu_curopt = 1;
                                     menu_saverect = true;
@@ -1886,13 +1936,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             menu_curopt = opt2;
                                             menu_saverect = false;
                                         } else {
-                                            menu_curopt = 1;
+                                            menu_curopt = 2;
                                             menu_level = 2;
                                             break;
                                         }
                                     }
                                 }
-                                else if (options_num == 2) {
+                                else if (options_num == 3) {
                                     menu_level = 3;
                                     menu_curopt = 1;
                                     menu_saverect = true;
@@ -1926,13 +1976,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             menu_saverect = false;
 
                                         } else {
-                                            menu_curopt = 2;
+                                            menu_curopt = 3;
                                             menu_level = 2;
                                             break;
                                         }
                                     }
                                 }
-                                else if (options_num == 3) {
+                                else if (options_num == 4) {
                                     menu_level = 3;
                                     menu_curopt = 1;
                                     menu_saverect = true;
@@ -1964,13 +2014,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             menu_curopt = opt2;
                                             menu_saverect = false;
                                         } else {
-                                            menu_curopt = 3;
+                                            menu_curopt = 4;
                                             menu_level = 2;
                                             break;
                                         }
                                     }
                                 }
-                                else if (options_num == 4) {
+                                else if (options_num == 5) {
                                     menu_level = 3;
                                     menu_curopt = 1;
                                     menu_saverect = true;
@@ -1994,12 +2044,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
 
                                             if (Config::v_sync_enabled != prev_opt) {
                                                 Config::save();
-                                                ESPectrum::v_sync_enabled=Config::v_sync_enabled;
                                             }
                                             menu_curopt = opt2;
                                             menu_saverect = false;
                                         } else {
-                                            menu_curopt = 4;
+                                            menu_curopt = 5;
                                             menu_level = 2;
                                             break;
                                         }
