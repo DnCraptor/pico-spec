@@ -26,6 +26,7 @@ option(PICO_DV "RP2350-PICO-DV" OFF)
 option(ZERO "RP2040-PiZero" OFF)
 option(ZERO2 "RP2350-PiZero" OFF)
 
+set(FLASH_SIZE_GREEN ON)
 #set(m1p2launcher ON)
 
 set(VGA_HDMI ON)
@@ -37,7 +38,7 @@ set(VGA_HDMI ON)
 
 #set(CPU_MHZ 252)
 set(CPU_MHZ 378)
-set (PORT_VERSION "1.2.I")
+set (PORT_VERSION "1.2.J")
 
 set (MURM ON)
 #set (MURM2 ON)

@@ -389,6 +389,10 @@ void Config::load() {
         if (v == "VGA" || v == "vga") video_driver = 1;
         else if (v == "HDMI" || v == "hdmi" || v == "DVI" || v == "dvi") video_driver = 2;
         nvs_get_b("byte_cobmect_mode", byte_cobmect_mode, sts);
+        int mem_pg_cnt = 0;
+        nvs_get_i("MEM_PG_CNT", mem_pg_cnt, sts);
+        if (mem_pg_cnt < 8 || mem_pg_cnt > 2048) MEM_PG_CNT = 64;
+        else MEM_PG_CNT = mem_pg_cnt;
     }
 }
 
@@ -511,6 +515,7 @@ void Config::save() {
         );
         nvs_set_str(handle,"video_driver", video_driver == 0 ? "auto" : (video_driver == 1) ? "vga" : "hdmi");
         nvs_set_str(handle,"byte_cobmect_mode", Config::byte_cobmect_mode ? "true" : "false");
+        nvs_set_i(handle,"MEM_PG_CNT", MEM_PG_CNT);
         fclose2(handle);
     }
     // printf("Config saved OK\n");

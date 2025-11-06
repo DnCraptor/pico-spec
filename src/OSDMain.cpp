@@ -357,6 +357,14 @@ static bool persistLoad(uint8_t slotnumber)
 extern "C" uint8_t TFT_FLAGS;
 extern "C" uint8_t TFT_INVERSION;
 
+string getMenuPrefix() {
+    if (MEM_PG_CNT <= 64) return "ESPectrum ";
+    if (MEM_PG_CNT <= 256) return "Murmuzavr 4M/";
+    if (MEM_PG_CNT <= 512) return "Murmuzavr 8M/";
+    if (MEM_PG_CNT <= 1024) return "Murmuzavr 16M/";
+    return "Murmuzavr 32M/";
+}
+
 // OSD Main Loop
 void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
 
@@ -754,7 +762,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             // Main menu
             menu_saverect = false;
             menu_level = 0;
-            uint8_t opt = menuRun("ESPectrum " + Config::arch + "\n" +
+            uint8_t opt = menuRun(getMenuPrefix() + Config::arch + "\n" +
                 (!FileUtils::fsMount ? MENU_MAIN_NO_SD[Config::lang] : MENU_MAIN[Config::lang])
             );
             if (opt == 1) { // Volume
@@ -1321,9 +1329,68 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     break;
                                 }
                             }
+                        } else if (ext_ram && arch_num == 7) { // Murmuzavr
+                            menu_level = 2;
+                            menu_curopt = 1;
+                            menu_saverect = true;
+                            while (1) {
+                                string opt_menu = MENU_MURMUZAVR[Config::lang];
+                                uint32_t new_opt = MEM_PG_CNT, prev_opt = MEM_PG_CNT;
+                                if (prev_opt <= 64) {
+                                    opt_menu.replace(opt_menu.find("[N",0),2,"[*");
+                                    opt_menu.replace(opt_menu.find("[4",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[8",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[1",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[3",0),2,"[ ");
+                                } else if (prev_opt <= 256) {
+                                    opt_menu.replace(opt_menu.find("[N",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[4",0),2,"[*");
+                                    opt_menu.replace(opt_menu.find("[8",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[1",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[3",0),2,"[ ");
+                                } else if (prev_opt <= 512) {
+                                    opt_menu.replace(opt_menu.find("[N",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[4",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[8",0),2,"[*");
+                                    opt_menu.replace(opt_menu.find("[1",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[3",0),2,"[ ");
+                                } else if (prev_opt <= 1024) {
+                                    opt_menu.replace(opt_menu.find("[N",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[4",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[8",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[1",0),2,"[*");
+                                    opt_menu.replace(opt_menu.find("[3",0),2,"[ ");
+                                } else {
+                                    opt_menu.replace(opt_menu.find("[N",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[4",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[8",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[1",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[3",0),2,"[*");
+                                }
+                                uint8_t opt2 = menuRun(opt_menu);
+                                if (opt2) {
+                                    if (opt2 == 1) new_opt = 64;
+                                    else if (opt2 == 2) new_opt = 256;
+                                    else if (opt2 == 3) new_opt = 512;
+                                    else if (opt2 == 4) new_opt = 1024;
+                                    else if (opt2 == 5) new_opt = 2048;
+                                    if (prev_opt != new_opt) {
+                                        MEM_PG_CNT = new_opt;
+                                        Config::save();
+                                        OSD::esp_hard_reset();
+                                        return;
+                                    }
+                                    menu_curopt = opt2;
+                                    menu_saverect = false;
+                                } else {
+                                    menu_curopt = 1;
+                                    menu_level = 2;
+                                    break;
+                                }
+                            }
                         }
 #if !NO_ALF
-                        else if (arch_num == 7 || !ext_ram) { // ALF TV GAME
+                        else if (arch_num == 8 || !ext_ram) { // ALF TV GAME
                             arch = "ALF";
                             romset = "ALF1";
                             menu_curopt = opt2;
@@ -4464,7 +4531,7 @@ void OSD::HWInfo() {
     snprintf(buf, 128, " VGA/HDMI detect: %02Xh\n", linkVGA01);
     VIDEO::vga.print(buf);
 #endif
-    snprintf(buf, 128, " 16K RAM pages  : %d [s%d:b%d:p%d:v%d]\n",
+    snprintf(buf, 128, " 16K RAM pages: %d [s%d:b%d:p%d:v%d]\n",
          ram_pages+ butter_pages+ psram_pages+ swap_pages,
          ram_pages, butter_pages, psram_pages, swap_pages
     );

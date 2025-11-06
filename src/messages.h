@@ -676,7 +676,8 @@ static const char *MENU_ISSUE2[2] = { "48K Issue 2\n", "48K Issue 2\n"};
 	"Pentagon 128K\t>\n"\
 	"Pentagon 512K\t>\n"\
 	"Pentagon 1024K\t>\n"\
-	"Byte\t>\n"
+	"Byte\t>\n"\
+	"Murmuzavr mode\t>\n"
 #else
 #define MENU_ARCHS \
     "Spectrum 48K\t>\n"\
@@ -685,6 +686,7 @@ static const char *MENU_ISSUE2[2] = { "48K Issue 2\n", "48K Issue 2\n"};
 	"Pentagon 512K\t>\n"\
 	"Pentagon 1024K\t>\n"\
 	"Byte\t>\n"\
+	"Murmuzavr mode\t>\n"\
 	"ALF TV GAME\n"
 #endif
 static const char *MENU_ARCH[2] = { MENU_ARCH_EN MENU_ARCHS, MENU_ARCH_ES MENU_ARCHS };
@@ -761,6 +763,15 @@ static const char *MENU_ROMS128[2] = { MENU_ROMS128_EN, MENU_ROMS128_ES };
 	"128Kp + Mr Gluk Reset Srvs\n"\
     "Custom\n"
 static const char *MENU_ROMS_PENT[2] = { MENU_ROMS_PENT_EN, MENU_ROMS_PENT_ES };
+
+#define MENU_MURMUZAVR_EN "Murmuzavr mode\n"\
+	"None\t[N]\n"\
+	" 4 MB\t[4]\n"\
+	" 8 MB\t[8]\n"\
+	"16 MB\t[1]\n"\
+	"32 MB\t[3]\n"
+static const char *MENU_MURMUZAVR[2] = { MENU_MURMUZAVR_EN, MENU_MURMUZAVR_EN };
+
 
 #define MENU_ROMSBYTE_EN "Select ROM\n"\
 	"48K\n"\

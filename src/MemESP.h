@@ -44,8 +44,8 @@ visit https://zxespectrum.speccy.org/contacto
 
 #define MEM_PG_SZ 0x4000
 #define MEM_REMAIN ((64+32)*1024)
-#define MEM_PG_CNT 512
 
+extern uint32_t MEM_PG_CNT;
 extern uint8_t* PSRAM_DATA;
 extern uint8_t psram_pin;
 extern bool rp2350a;

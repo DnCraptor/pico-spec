@@ -131,7 +131,7 @@ extern int ram_pages, butter_pages, psram_pages, swap_pages;
 inline static size_t extendedZxRamPages() {
     if (Z80Ops::is1024) return 64;
     if (Z80Ops::is512) return 32;
-    if (Z80Ops::is128) return 8;
+    if (Z80Ops::is128 || Z80Ops::isPentagon) return 8;
     return 4;
 }
 

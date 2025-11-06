@@ -39,6 +39,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "ff.h"
 
 std::list<mem_desc_t> mem_desc_t::pages;
+uint32_t MEM_PG_CNT = 64;
 
 static FIL f;
 static const char PAGEFILE[] = "/tmp/pico-spec.swap";
