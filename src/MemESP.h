@@ -42,6 +42,10 @@ visit https://zxespectrum.speccy.org/contacto
 #include "roms.h"
 #include "Debug.h"
 
+#define MEM_PG_SZ 0x4000
+#define MEM_REMAIN (128*1024)
+#define MEM_PG_CNT 64
+
 extern uint8_t* PSRAM_DATA;
 extern uint8_t psram_pin;
 extern bool rp2350a;
@@ -67,6 +71,10 @@ public:
     static void reset(void);
     mem_desc_t() : _int( new mem_desc_int_t() ) {}
     mem_desc_t(const mem_desc_t& s) : _int( s._int ) {}
+    mem_desc_t(uint8_t* p, uint32_t page) : _int( new mem_desc_int_t() ) {
+        this->_int->p = p;
+        this->_int->vram_off = page * MEM_PG_SZ;
+    }
     void operator=(const mem_desc_t& s) {
         _int = s._int;
     }
@@ -93,7 +101,7 @@ public:
     }
     inline void assign_vram(uint32_t page) { // virtual RAM - PSRAM or swap
         this->_int->p = 0;
-        this->_int->vram_off = page * 0x4000;
+        this->_int->vram_off = page * MEM_PG_SZ;
         this->_int->outside = true;
     }
     static inline uint8_t* revoke_1_ram_page() {
@@ -109,7 +117,7 @@ public:
     }
     inline void assign_ram(uint8_t* p, uint32_t page, bool locked) {
         this->_int->p = p;
-        this->_int->vram_off = page * 0x4000;
+        this->_int->vram_off = page * MEM_PG_SZ;
         this->_int->outside = false;
         if (!locked) {
             pages.push_back(*this);
@@ -130,12 +138,11 @@ public:
     void cleanup();
 };
 
-#define MEM_PG_SZ 0x4000
 class MemESP
 {
 public:
     static mem_desc_t rom[64];
-    static mem_desc_t ram[64 + 2];
+    static mem_desc_t* ram;
 
     static bool newSRAM;
 
@@ -187,7 +194,7 @@ inline int MemESP::getByteContention(uint16_t addr) {
 
 //     Debug::led_blink();
 
-//     for(int addr=0; addr<0x4000; addr++)
+//     for(int addr=0; addr<MEM_PG_SZ; addr++)
 //     {
 //         //SovmestMode = 1; // BYTE COBMECT="OFF"
 //         int adr66 = ((addr >> 7) & 0xFF) | ((SovmestMode << 8) & 0x100);
@@ -211,7 +218,7 @@ inline uint8_t MemESP::readbyte(uint16_t addr) {
     case 3:
         return ram[bankLatch].read(addr - 0xC000);
     default:
-        return newSRAM ? ram[64 + MemESP::sramLatch].read(addr) : (page0ram ? ram[0].read(addr) : rom[romInUse].direct()[addr]);
+        return newSRAM ? ram[MEM_PG_CNT + MemESP::sramLatch].read(addr) : (page0ram ? ram[0].read(addr) : rom[romInUse].direct()[addr]);
     }
 }
 
@@ -224,7 +231,7 @@ inline void MemESP::writebyte(uint16_t addr, uint8_t data)
     uint8_t page = addr >> 14;
     switch (page) {
     case 0:
-        if (newSRAM) ram[64 + MemESP::sramLatch].write(addr, data);
+        if (newSRAM) ram[MEM_PG_CNT + MemESP::sramLatch].write(addr, data);
         else if (page0ram && !ram[0].is_rom()) ram[0].write(addr, data);
         break;
     case 1:

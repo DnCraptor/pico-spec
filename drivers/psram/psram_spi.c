@@ -5,6 +5,7 @@ static psram_spi_inst_t psram_spi;
 #define ITE_PSRAM (1ul << 20)
 #define MAX_PSRAM (16ul << 20)
 
+static uint32_t __psram_sz = 0;
 static uint32_t _psram_size() {
 #ifdef PSRAM    
     int32_t res = 0;
@@ -22,13 +23,7 @@ static uint32_t _psram_size() {
 }
 
 uint32_t psram_size() {
-    static int32_t _res = -1;
-    int32_t res = 0;
-    if (_res != -1) {
-        return _res;
-    }
-    _res = _psram_size();
-    return _res;
+    return __psram_sz;
 }
 
 uint32_t init_psram() {
@@ -40,7 +35,8 @@ uint32_t init_psram() {
     }
 #endif
 #endif
-    return psram_size();
+    __psram_sz = _psram_size();
+    return __psram_sz;
 }
 
 void psram_cleanup() {

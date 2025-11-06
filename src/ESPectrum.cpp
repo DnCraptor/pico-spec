@@ -63,6 +63,8 @@ visit https://zxespectrum.speccy.org/contacto
 
 using namespace std;
 
+extern size_t getFreeHeap(void);
+
 //=======================================================================================
 // KEYBOARD
 //=======================================================================================
@@ -462,6 +464,7 @@ void ESPectrum::bootKeyboard() {
 //=======================================================================================
 // SETUP
 //=======================================================================================
+int ram_pages = 5, butter_pages = 0, psram_pages = 0, swap_pages = 0;
 
 void ESPectrum::setup()
 {
@@ -552,53 +555,68 @@ void ESPectrum::setup()
     //=======================================================================================
     // MEMORY SETUP
     //=======================================================================================
-if (butter_psram_size() >= (0x04000 * (64+2 - 23))) {
-    MemESP::ram[0].assign_ram(new unsigned char[0x4000], 0, false);
-    MemESP::ram[2].assign_ram(new unsigned char[0x4000], 2, true);
-    unsigned char *MemESP_ram1 = new unsigned char[0x8000];
-    MemESP::ram[1].assign_ram(MemESP_ram1, 1, true);
-    MemESP::ram[3].assign_ram(MemESP_ram1 + 0x4000, 3, true); /// why?
-    MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
-    MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);
-    MemESP::ram[6].assign_ram(new unsigned char[0x4000], 6, false);
-    MemESP::ram[7].assign_ram(new unsigned char[0x4000], 7, true);
-    for (size_t i = 8; i < 23; ++i) MemESP::ram[i].assign_ram(new unsigned char[0x4000], i, false);
-    for (size_t i = 23; i < 64+2; ++i) MemESP::ram[i].assign_ram((uint8_t*)PSRAM_DATA + (i - 23) * 0x4000, i, false);
-} else {
-    MemESP::ram[0].assign_ram(new unsigned char[0x4000], 0, false);
-    MemESP::ram[2].assign_ram(new unsigned char[0x4000], 2, true);
-    unsigned char *MemESP_ram1 = new unsigned char[0x8000];
-    MemESP::ram[1].assign_ram(MemESP_ram1, 1, true);
-    MemESP::ram[3].assign_ram(MemESP_ram1 + 0x4000, 3, true); /// why?
-
-#if PICO_RP2040
     if (ext_ram_exist) {
-        MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
-        MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);
-        MemESP::ram[6].assign_vram(6);
-        MemESP::ram[7].assign_ram(new unsigned char[0x4000], 7, true);
+        mem_desc_t* temp = MemESP::ram;
+        MemESP::ram = (mem_desc_t*)calloc(MEM_PG_CNT+2, sizeof(mem_desc_t));
+        memcpy(MemESP::ram, temp, sizeof(mem_desc_t) * 8);
+        MemESP::ram[0].assign_ram(new unsigned char[MEM_PG_SZ], 0, false);
+        MemESP::ram[4].assign_ram(new unsigned char[MEM_PG_SZ], 4, false);
+        ram_pages += 2;
+        // page 6 may be added to some other pool
     } else {
-        MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
-        MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);
-        MemESP::ram[6].assign_ram(new unsigned char[0x4000], 6, false);
-        MemESP::ram[7].assign_ram(new unsigned char[0x4000], 7, true);
+        #if PICO_RP2350
+        // TODO: real number of supported pages: +256/16=16? or just +8 and support Pentagon 256? or 512-128...
+        MemESP::ram[0].assign_ram(new unsigned char[MEM_PG_SZ], 0, false);
+        ++ram_pages;
+        #else
+        // page 0 is not supported without virtual memory on RP2040
+        #endif
+        MemESP::ram[4].assign_ram(new unsigned char[MEM_PG_SZ], 4, false);
+        MemESP::ram[6].assign_ram(new unsigned char[MEM_PG_SZ], 6, false);
+        ram_pages += 2;
     }
-#else
-    MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
-    MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);
-    MemESP::ram[6].assign_ram(new unsigned char[0x4000], 6, false);
-    MemESP::ram[7].assign_ram(new unsigned char[0x4000], 7, true);
-#endif
-
-    if (ext_ram_exist) { // TODO: specific no ext RAM for RP2350
-#if !PICO_RP2040
-        for (size_t i = 8; i < 22; ++i) MemESP::ram[i].assign_ram(new unsigned char[0x4000], i, false);
-        for (size_t i = 22; i < 64+2; ++i) MemESP::ram[i].assign_vram(i);
-#else
-        for (size_t i = 8; i < 64+2; ++i) MemESP::ram[i].assign_vram(i);
-#endif
+    // for virtual ram
+    if (ext_ram_exist) {
+        size_t butter_remains = butter_psram_size();
+        size_t butter_idx = 0;
+        size_t psram_remains = psram_size();
+        if (getFreeHeap() >= MEM_PG_SZ + MEM_REMAIN) {
+            MemESP::ram[6].assign_ram(new unsigned char[MEM_PG_SZ], 6, false);
+            ++ram_pages;
+        } else {
+            if (butter_remains >= MEM_PG_SZ) {
+                MemESP::ram[6].assign_ram((uint8_t*)PSRAM_DATA + (butter_idx++) * MEM_PG_SZ, 6, false);
+                butter_remains -= MEM_PG_SZ;
+                ++butter_pages;
+            } else if (psram_remains >= MEM_PG_SZ) {
+                MemESP::ram[6].assign_vram(6); /// TODO: marks as psram located
+                psram_remains -= MEM_PG_SZ;
+                ++psram_pages;
+            } else {
+                MemESP::ram[6].assign_vram(6);
+                ++swap_pages;
+            }
+        }
+        for (size_t i = 8; i < (MEM_PG_CNT+2); ++i) {
+            if (getFreeHeap() >= MEM_PG_SZ + MEM_REMAIN) {
+                MemESP::ram[i].assign_ram(new unsigned char[MEM_PG_SZ], i, false);
+                ++ram_pages;
+            } else {
+                if (butter_remains >= MEM_PG_SZ) {
+                    MemESP::ram[i].assign_ram((uint8_t*)PSRAM_DATA + (butter_idx++) * MEM_PG_SZ, i, false);
+                    butter_remains -= MEM_PG_SZ;
+                    ++butter_pages;
+                } else if (psram_remains >= MEM_PG_SZ) {
+                    MemESP::ram[i].assign_vram(i); /// TODO: marks as psram located
+                    psram_remains -= MEM_PG_SZ;
+                    ++psram_pages;
+                } else {
+                    MemESP::ram[i].assign_vram(i);
+                    ++swap_pages;
+                }
+            }
+        }
     }
-}
     // Load romset
     Config::requestMachine(Config::arch, Config::romSet);
 

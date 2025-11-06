@@ -93,8 +93,11 @@ using namespace std;
 #define OSD_MARGIN 4
 
 extern Font Font6x8;
+#ifdef VGA_HDMI
 extern bool SELECT_VGA;
+#endif
 
+extern int ram_pages, butter_pages, psram_pages, swap_pages;
 uint8_t OSD::cols;                     // Maximum columns
 uint8_t OSD::mf_rows;                  // File menu maximum rows
 unsigned short OSD::real_rows;      // Real row count
@@ -360,6 +363,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
     static uint8_t last_sna_row = 0;
     fabgl::VirtualKeyItem Nextkey;
 
+#ifdef VGA_HDMI
     if (CTRL) {
         if (ALT) { // CTRL + ALT + [key]
             if (KeytoESP == fabgl::VK_HOME) { // HDMI 60Hz
@@ -410,6 +414,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
         }
     }
     else
+#endif
     if (ALT) { // ALT + [key]
         if (KeytoESP == fabgl::VK_F1) { // Show mem info
             OSD::HWInfo();
@@ -1870,7 +1875,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_saverect = true;
                                     while (1) {
                                         string opt_menu = MENU_VIDEO_MODE[Config::lang];
-                                        int* curVideoMode = SELECT_VGA ? &Config::vga_video_mode : &Config::hdmi_video_mode;
+                                        int* curVideoMode = 
+#ifdef VGA_HDMI
+                                            SELECT_VGA ? &Config::vga_video_mode : &Config::hdmi_video_mode;
+#else
+                                            0;
+#endif
                                         uint8_t prev_opt = *curVideoMode;
                                         if (prev_opt>0) {
                                             opt_menu.replace(opt_menu.find("[6",0),2,"[ ");
@@ -4355,17 +4365,13 @@ string OSD::rowGet(string menu, unsigned short row) {
 extern "C" uint8_t linkVGA01;
 extern "C" uint8_t link_i2s_code;
 
+extern char __HeapLimit;
 
-uint32_t getTotalHeap(void) {
-   extern char __StackLimit, __bss_end__;
-   
-   return &__StackLimit  - &__bss_end__;
-}
-
-uint32_t getFreeHeap(void) {
-   struct mallinfo m = mallinfo();
-
-   return getTotalHeap() - m.uordblks;
+size_t getFreeHeap(void) {
+    char* current = (char*)malloc(1024);
+    size_t res = (size_t)(&__HeapLimit - current);
+    free(current);
+    return res;
 }
 
 void OSD::HWInfo() {
@@ -4380,12 +4386,10 @@ void OSD::HWInfo() {
     VIDEO::vga.print(" Hardware info\n");
     VIDEO::vga.print(" --------------------------------------\n");
 
-#if PICO_RP2350
     uint32_t cpu_hz = clock_get_hz(clk_sys) / MHZ;
-
-    uint32_t free_heap =  getFreeHeap();
-
-    struct mallinfo info = mallinfo();
+    uint32_t free_heap = getFreeHeap();
+#if PICO_RP2350
+  //  struct mallinfo info = mallinfo();
 
     // printf("Total allocated: %d bytes\n", info.uordblks);
     // printf("Total free: %d bytes\n", info.fordblks);
@@ -4398,15 +4402,14 @@ void OSD::HWInfo() {
         " Chip cores     : 2\n"
         " Chip RAM       : 520 KB\n"
         " Free RAM (Exp) : ";
-    textout += to_string(info.fordblks/1024) + " KB\n"
-    ;
 #else
     string textout =
-        " Chip model     : RP2040 " + to_string(CPU_MHZ) + " MHz\n"
+        " Chip model     : RP2040 " + to_string(cpu_hz) + " MHz\n"
         " Chip cores     : 2\n"
         " Chip RAM       : 264 KB\n"
-    ;
+        " Free RAM (Exp) : ";
 #endif
+    textout += to_string(free_heap/1024) + " KB\n";
     VIDEO::vga.print(textout.c_str());
 
     char buf[128] = { 0 };
@@ -4418,15 +4421,14 @@ void OSD::HWInfo() {
     );
     VIDEO::vga.print(buf);
     #ifndef MURM2
-    if (!butter_psram_size()) {
+    {
         uint32_t psram32 = psram_size();
         if (psram32) {
             uint8_t rx8[8];
             psram_id(rx8);
             snprintf(buf, 128,
                         " PSRAM size     : %d MB\n"\
-                        " PSRAM MF ID    : %02X\n"\
-                        " PSRAM KGD      : %02X\n"\
+                        " PSRAM MF ID/KGD: %02X/%02X\n"\
                         " PSRAM EID      : %02X%02X-%02X%02X-%02X%02X\n",
                         psram32 >> 20, rx8[0], rx8[1], rx8[2], rx8[3], rx8[4], rx8[5], rx8[6], rx8[7]
             );
@@ -4439,8 +4441,7 @@ void OSD::HWInfo() {
         uint32_t psram32 = butter_psram_size();
         if (psram32) {
             snprintf(buf, 128,
-                        "+PSRAM on GP%02d  : QSPI\n"\
-                        "+PSRAM size     : %d MB\n",
+                        "+PSRAM on GP%02d  : %d MB (QSPI)\n",
                         psram_pin, psram32 >> 20
             );
         } else {
@@ -4463,12 +4464,22 @@ void OSD::HWInfo() {
     snprintf(buf, 128, " VGA/HDMI detect: %02Xh\n", linkVGA01);
     VIDEO::vga.print(buf);
 #endif
+    snprintf(buf, 128, " 16K RAM pages  : %d [s%d:b%d:p%d:v%d]\n",
+         ram_pages+ butter_pages+ psram_pages+ swap_pages,
+         ram_pages, butter_pages, psram_pages, swap_pages
+    );
+    VIDEO::vga.print(buf);
+
     snprintf(buf, 128, "\n" \
-                       " %s\n" \
-                       " %s %s\n" \
-                       " Branch: %s\n" \
-                       " Commit: %s\n",
-            PICO_BUILD_NAME, __DATE__, __TIME__, PICO_GIT_BRANCH, PICO_GIT_COMMIT);
+                       " Built at %s %s\n" \
+                       " branch '%s'\n" \
+                       " commit [%s]\n" \
+                       " %s\n",
+            __DATE__, __TIME__,
+            PICO_GIT_BRANCH,
+            PICO_GIT_COMMIT,
+            PICO_BUILD_NAME
+        );
     VIDEO::vga.print(buf);
 
     // Wait for key

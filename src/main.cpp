@@ -1082,8 +1082,11 @@ int main() {
     nespad_begin(clock_get_hz(clk_sys) / 1000, NES_GPIO_CLK, NES_GPIO_DATA, NES_GPIO_LAT);
 #endif
 
+#if PICO_RP2350
+    if (psram_pin != PSRAM_PIN_CS)
+#endif
     #ifndef MURM2
-        if (!butter_psram_size()) init_psram();
+        init_psram();
     #endif
     // send kbd reset only after initial process passed
 #ifndef KBDUSB
