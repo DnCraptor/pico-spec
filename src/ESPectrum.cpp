@@ -552,53 +552,55 @@ void ESPectrum::setup()
     //=======================================================================================
     // MEMORY SETUP
     //=======================================================================================
-if (butter_psram_size() >= (0x04000 * (64+2 - 23))) {
-    MemESP::ram[0].assign_ram(new unsigned char[0x4000], 0, false);
-    MemESP::ram[2].assign_ram(new unsigned char[0x4000], 2, true);
-    unsigned char *MemESP_ram1 = new unsigned char[0x8000];
-    MemESP::ram[1].assign_ram(MemESP_ram1, 1, true);
-    MemESP::ram[3].assign_ram(MemESP_ram1 + 0x4000, 3, true); /// why?
-    MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
-    MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);
-    MemESP::ram[6].assign_ram(new unsigned char[0x4000], 6, false);
-    MemESP::ram[7].assign_ram(new unsigned char[0x4000], 7, true);
-    for (size_t i = 8; i < 23; ++i) MemESP::ram[i].assign_ram(new unsigned char[0x4000], i, false);
-    for (size_t i = 23; i < 64+2; ++i) MemESP::ram[i].assign_ram((uint8_t*)PSRAM_DATA + (i - 23) * 0x4000, i, false);
-} else {
-    MemESP::ram[0].assign_ram(new unsigned char[0x4000], 0, false);
-    MemESP::ram[2].assign_ram(new unsigned char[0x4000], 2, true);
-    unsigned char *MemESP_ram1 = new unsigned char[0x8000];
-    MemESP::ram[1].assign_ram(MemESP_ram1, 1, true);
-    MemESP::ram[3].assign_ram(MemESP_ram1 + 0x4000, 3, true); /// why?
+    uint8_t nPagesToRam = Config::gigascreen_enabled ? 8 : 23;
 
-#if PICO_RP2040
-    if (ext_ram_exist) {
-        MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
-        MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);
-        MemESP::ram[6].assign_vram(6);
-        MemESP::ram[7].assign_ram(new unsigned char[0x4000], 7, true);
-    } else {
+    if (butter_psram_size() >= (0x04000 * (64+2 - nPagesToRam))) {
+        MemESP::ram[0].assign_ram(new unsigned char[0x4000], 0, false);
+        MemESP::ram[2].assign_ram(new unsigned char[0x4000], 2, true);
+        unsigned char *MemESP_ram1 = new unsigned char[0x8000];
+        MemESP::ram[1].assign_ram(MemESP_ram1, 1, true);
+        MemESP::ram[3].assign_ram(MemESP_ram1 + 0x4000, 3, true); /// why?
         MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
         MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);
         MemESP::ram[6].assign_ram(new unsigned char[0x4000], 6, false);
         MemESP::ram[7].assign_ram(new unsigned char[0x4000], 7, true);
-    }
-#else
-    MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
-    MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);
-    MemESP::ram[6].assign_ram(new unsigned char[0x4000], 6, false);
-    MemESP::ram[7].assign_ram(new unsigned char[0x4000], 7, true);
-#endif
+        for (size_t i = 8; i < nPagesToRam; ++i) MemESP::ram[i].assign_ram(new unsigned char[0x4000], i, false);
+        for (size_t i = nPagesToRam; i < 64+2; ++i) MemESP::ram[i].assign_ram((uint8_t*)PSRAM_DATA + (i - nPagesToRam) * 0x4000, i, false);
+    } else {
+        MemESP::ram[0].assign_ram(new unsigned char[0x4000], 0, false);
+        MemESP::ram[2].assign_ram(new unsigned char[0x4000], 2, true);
+        unsigned char *MemESP_ram1 = new unsigned char[0x8000];
+        MemESP::ram[1].assign_ram(MemESP_ram1, 1, true);
+        MemESP::ram[3].assign_ram(MemESP_ram1 + 0x4000, 3, true); /// why?
 
-    if (ext_ram_exist) { // TODO: specific no ext RAM for RP2350
-#if !PICO_RP2040
-        for (size_t i = 8; i < 22; ++i) MemESP::ram[i].assign_ram(new unsigned char[0x4000], i, false);
-        for (size_t i = 22; i < 64+2; ++i) MemESP::ram[i].assign_vram(i);
-#else
-        for (size_t i = 8; i < 64+2; ++i) MemESP::ram[i].assign_vram(i);
-#endif
+    #if PICO_RP2040
+        if (ext_ram_exist) {
+            MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
+            MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);
+            MemESP::ram[6].assign_vram(6);
+            MemESP::ram[7].assign_ram(new unsigned char[0x4000], 7, true);
+        } else {
+            MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
+            MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);
+            MemESP::ram[6].assign_ram(new unsigned char[0x4000], 6, false);
+            MemESP::ram[7].assign_ram(new unsigned char[0x4000], 7, true);
+        }
+    #else
+        MemESP::ram[4].assign_ram(new unsigned char[0x4000], 4, false);
+        MemESP::ram[5].assign_ram(new unsigned char[0x4000], 5, true);
+        MemESP::ram[6].assign_ram(new unsigned char[0x4000], 6, false);
+        MemESP::ram[7].assign_ram(new unsigned char[0x4000], 7, true);
+    #endif
+
+        if (ext_ram_exist) { // TODO: specific no ext RAM for RP2350
+    #if !PICO_RP2040
+            for (size_t i = 8; i < nPagesToRam; ++i) MemESP::ram[i].assign_ram(new unsigned char[0x4000], i, false);
+            for (size_t i = nPagesToRam; i < 64+2; ++i) MemESP::ram[i].assign_vram(i);
+    #else
+            for (size_t i = 8; i < 64+2; ++i) MemESP::ram[i].assign_vram(i);
+    #endif
+        }
     }
-}
     // Load romset
     Config::requestMachine(Config::arch, Config::romSet);
 
