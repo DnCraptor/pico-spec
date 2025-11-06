@@ -1334,9 +1334,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                             menu_curopt = 1;
                             menu_saverect = true;
                             while (1) {
-                                string opt_menu = MENU_MURMUZAVR[Config::lang];
+                                string opt_menu = (FileUtils::fsMount ? MENU_MURMUZAVR : MENU_MURMUZAVR_NONE)[Config::lang];
                                 uint32_t new_opt = MEM_PG_CNT, prev_opt = MEM_PG_CNT;
-                                if (prev_opt <= 64) {
+                                if (!FileUtils::fsMount) {
+                                    opt_menu.replace(opt_menu.find("[N",0),2,"[*");
+#if PICO_RP2350
+                                } else if (prev_opt <= 64) {
                                     opt_menu.replace(opt_menu.find("[N",0),2,"[*");
                                     opt_menu.replace(opt_menu.find("[4",0),2,"[ ");
                                     opt_menu.replace(opt_menu.find("[8",0),2,"[ ");
@@ -1367,6 +1370,21 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     opt_menu.replace(opt_menu.find("[1",0),2,"[ ");
                                     opt_menu.replace(opt_menu.find("[3",0),2,"[*");
                                 }
+#else
+                                } else if (prev_opt <= 64) {
+                                    opt_menu.replace(opt_menu.find("[N",0),2,"[*");
+                                    opt_menu.replace(opt_menu.find("[4",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[8",0),2,"[ ");
+                                } else if (prev_opt <= 256) {
+                                    opt_menu.replace(opt_menu.find("[N",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[4",0),2,"[*");
+                                    opt_menu.replace(opt_menu.find("[8",0),2,"[ ");
+                                } else if (prev_opt <= 512) {
+                                    opt_menu.replace(opt_menu.find("[N",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[4",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[8",0),2,"[*");
+                                }
+#endif
                                 uint8_t opt2 = menuRun(opt_menu);
                                 if (opt2) {
                                     if (opt2 == 1) new_opt = 64;

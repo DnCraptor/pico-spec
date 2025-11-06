@@ -392,6 +392,9 @@ void Config::load() {
         int mem_pg_cnt = 0;
         nvs_get_i("MEM_PG_CNT", mem_pg_cnt, sts);
         if (mem_pg_cnt < 8 || mem_pg_cnt > 2048) MEM_PG_CNT = 64;
+        #if PICO_RP2040
+        else if (mem_pg_cnt > 512) MEM_PG_CNT = 512;
+        #endif
         else MEM_PG_CNT = mem_pg_cnt;
     }
 }

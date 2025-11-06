@@ -764,13 +764,24 @@ static const char *MENU_ROMS128[2] = { MENU_ROMS128_EN, MENU_ROMS128_ES };
     "Custom\n"
 static const char *MENU_ROMS_PENT[2] = { MENU_ROMS_PENT_EN, MENU_ROMS_PENT_ES };
 
+#if PICO_RP2350
 #define MENU_MURMUZAVR_EN "Murmuzavr mode\n"\
 	"None\t[N]\n"\
 	" 4 MB\t[4]\n"\
 	" 8 MB\t[8]\n"\
 	"16 MB\t[1]\n"\
 	"32 MB\t[3]\n"
+#else
+#define MENU_MURMUZAVR_EN "Murmuzavr mode\n"\
+	"None\t[N]\n"\
+	"4 MB\t[4]\n"\
+	"8 MB\t[8]\n"
+#endif
 static const char *MENU_MURMUZAVR[2] = { MENU_MURMUZAVR_EN, MENU_MURMUZAVR_EN };
+
+#define MENU_MURMUZAVR_NONE_EN "Murmuzavr mode\n"\
+	"None\t[N]\n"
+static const char *MENU_MURMUZAVR_NONE[2] = { MENU_MURMUZAVR_NONE_EN, MENU_MURMUZAVR_NONE_EN };
 
 
 #define MENU_ROMSBYTE_EN "Select ROM\n"\
