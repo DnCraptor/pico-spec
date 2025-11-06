@@ -43,7 +43,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Debug.h"
 
 #define MEM_PG_SZ 0x4000
-#define MEM_REMAIN ((128+64)*1024)
+#define MEM_REMAIN ((64+32)*1024)
 #define MEM_PG_CNT 512
 
 extern uint8_t* PSRAM_DATA;
