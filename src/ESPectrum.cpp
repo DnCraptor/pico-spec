@@ -159,9 +159,9 @@ void repeat_handler(void) {
 //=======================================================================================
 // AUDIO
 //=======================================================================================
-uint8_t ESPectrum::audioBuffer_L[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
-uint8_t ESPectrum::audioBuffer_R[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
-uint8_t ESPectrum::audioBufferCovox[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
+uint8_t __scratch_y("audioBuffer_L") ESPectrum::audioBuffer_L[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
+uint8_t __scratch_y("audioBuffer_R") ESPectrum::audioBuffer_R[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
+uint8_t __scratch_y("audioBufferCovox") ESPectrum::audioBufferCovox[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
 uint32_t ESPectrum::overSamplebuf[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
 signed char ESPectrum::aud_volume = ESP_VOLUME_DEFAULT;
 // signed char ESPectrum::aud_volume = ESP_VOLUME_MAX; // For .tap player test
@@ -560,8 +560,7 @@ void ESPectrum::setup()
         MemESP::ram = new mem_desc_t[MEM_PG_CNT+2];
         memcpy(MemESP::ram, temp, sizeof(mem_desc_t) * 8);
         MemESP::ram[0].assign_ram(new unsigned char[MEM_PG_SZ], 0, false);
-        MemESP::ram[4].assign_ram(new unsigned char[MEM_PG_SZ], 4, false);
-        ram_pages += 2;
+        ++ram_pages;
         // page 6 may be added to some other pool
     } else {
         #if PICO_RP2350
@@ -579,7 +578,23 @@ void ESPectrum::setup()
     if (ext_ram_exist) {
         size_t butter_remains = butter_psram_size();
         size_t butter_idx = 0;
-        size_t psram_remains = psram_size();
+        size_t psram_sz = psram_size(); // TODO: optimize it
+        if (getFreeHeap() >= MEM_PG_SZ + MEM_REMAIN) {
+            MemESP::ram[4].assign_ram(new unsigned char[MEM_PG_SZ], 4, false);
+            ++ram_pages;
+        } else {
+            if (butter_remains >= MEM_PG_SZ) {
+                MemESP::ram[4].assign_ram((uint8_t*)PSRAM_DATA + (butter_idx++) * MEM_PG_SZ, 4, false);
+                butter_remains -= MEM_PG_SZ;
+                ++butter_pages;
+            } else if (psram_sz >= (MEM_PG_SZ * 5)) {
+                MemESP::ram[4].assign_vram(4, mem_type_t::PSRAM_SPI);
+                ++psram_pages;
+            } else {
+                MemESP::ram[6].assign_vram(4, mem_type_t::SWAP);
+                ++swap_pages;
+            }
+        }
         if (getFreeHeap() >= MEM_PG_SZ + MEM_REMAIN) {
             MemESP::ram[6].assign_ram(new unsigned char[MEM_PG_SZ], 6, false);
             ++ram_pages;
@@ -588,12 +603,11 @@ void ESPectrum::setup()
                 MemESP::ram[6].assign_ram((uint8_t*)PSRAM_DATA + (butter_idx++) * MEM_PG_SZ, 6, false);
                 butter_remains -= MEM_PG_SZ;
                 ++butter_pages;
-            } else if (psram_remains >= MEM_PG_SZ) {
-                MemESP::ram[6].assign_vram(6); /// TODO: marks as psram located
-                psram_remains -= MEM_PG_SZ;
+            } else if (psram_sz >= (MEM_PG_SZ * 7)) {
+                MemESP::ram[6].assign_vram(6, mem_type_t::PSRAM_SPI);
                 ++psram_pages;
             } else {
-                MemESP::ram[6].assign_vram(6);
+                MemESP::ram[6].assign_vram(6, mem_type_t::SWAP);
                 ++swap_pages;
             }
         }
@@ -606,12 +620,11 @@ void ESPectrum::setup()
                     MemESP::ram[i].assign_ram((uint8_t*)PSRAM_DATA + (butter_idx++) * MEM_PG_SZ, i, false);
                     butter_remains -= MEM_PG_SZ;
                     ++butter_pages;
-                } else if (psram_remains >= MEM_PG_SZ) {
-                    MemESP::ram[i].assign_vram(i); /// TODO: marks as psram located
-                    psram_remains -= MEM_PG_SZ;
+                } else if (psram_sz >= (MEM_PG_SZ * (i+1))) {
+                    MemESP::ram[i].assign_vram(i, mem_type_t::PSRAM_SPI);
                     ++psram_pages;
                 } else {
-                    MemESP::ram[i].assign_vram(i);
+                    MemESP::ram[i].assign_vram(i, mem_type_t::SWAP);
                     ++swap_pages;
                 }
             }

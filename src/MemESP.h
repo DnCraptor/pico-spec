@@ -43,8 +43,8 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Debug.h"
 
 #define MEM_PG_SZ 0x4000
-#define MEM_REMAIN (128*1024)
-#define MEM_PG_CNT 128
+#define MEM_REMAIN ((128+64)*1024)
+#define MEM_PG_CNT 512
 
 extern uint8_t* PSRAM_DATA;
 extern uint8_t psram_pin;
@@ -52,14 +52,20 @@ extern bool rp2350a;
 uint32_t butter_psram_size();
 extern uint8_t rx[4];
 
+enum mem_type_t {
+    POINTER = 0,
+    PSRAM_SPI,
+    SWAP
+};
+
 class mem_desc_t {
     static std::list<mem_desc_t> pages; // a pool of assigned pages
     struct mem_desc_int_t {
         uint8_t* p;
         uint32_t vram_off;
-        bool outside;
+        mem_type_t mem_type;
         bool is_rom;
-        mem_desc_int_t() : p(0), vram_off(0), outside(false), is_rom(false) {}
+        mem_desc_int_t() : p(0), vram_off(0), mem_type(POINTER), is_rom(false) {}
     };
     mem_desc_int_t* _int;
     uint8_t* to_vram(void);
@@ -82,34 +88,35 @@ public:
         return _int->p;
     }
     inline uint8_t* sync(void) {
-        if (_int->outside) {
+        if (_int->mem_type != POINTER) {
             _sync();
         }
         return _int->p;
     }
     inline uint8_t read(uint16_t addr) {
-        if (_int->outside) {
+        if (_int->mem_type != POINTER) {
             return _read(addr);
         }
         return _int->p[addr];
     }
     inline void write(uint16_t addr, uint8_t v) {
-        if (_int->outside) {
+        if (_int->mem_type != POINTER) {
             return _write(addr, v);
         }
         _int->p[addr] = v;
     }
-    inline void assign_vram(uint32_t page) { // virtual RAM - PSRAM or swap
+     // virtual RAM - PSRAM or swap
+    inline void assign_vram(uint32_t page, mem_type_t mem_type) {
         this->_int->p = 0;
         this->_int->vram_off = page * MEM_PG_SZ;
-        this->_int->outside = true;
+        this->_int->mem_type = mem_type;
     }
     static inline uint8_t* revoke_1_ram_page() {
         auto it = pages.begin();
         if (it == pages.end()) return 0;
         it->sync(); // TODO: optimize it
         uint8_t* p = it->_int->p;
-        if (!it->_int->outside) {
+        if (!it->_int->mem_type != POINTER) {
             it->to_vram();
         }
         pages.erase(it);
@@ -118,7 +125,7 @@ public:
     inline void assign_ram(uint8_t* p, uint32_t page, bool locked) {
         this->_int->p = p;
         this->_int->vram_off = page * MEM_PG_SZ;
-        this->_int->outside = false;
+        this->_int->mem_type = POINTER;
         if (!locked) {
             pages.push_back(*this);
         }
@@ -126,7 +133,7 @@ public:
     inline void assign_rom(const uint8_t* p) { // TODO: prev?
         this->_int->p = (uint8_t*)p;
         this->_int->vram_off = 0;
-        this->_int->outside = false;
+        this->_int->mem_type = POINTER;
         this->_int->is_rom = true;
     }
     inline bool is_rom(void) {
@@ -150,11 +157,11 @@ public:
     static bool ramContended[4];
 
     static uint8_t notMore128;
-    static uint8_t page0ram;
-    static uint8_t bankLatch;
+    static uint32_t page0ram;
+    static uint32_t bankLatch;
     static uint8_t videoLatch;
     static uint8_t romLatch;
-    static uint8_t sramLatch;
+    static uint32_t sramLatch;
     static uint8_t pagingLock;
 
     static uint8_t romInUse;

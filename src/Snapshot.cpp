@@ -342,6 +342,7 @@ bool FileSNA::save(string sna_file, bool blockMode) {
         int pages = 8; // 128k = 8 * 16K
         if (Z80Ops::is512) pages = 32;
         if (Z80Ops::is1024) pages = 64;
+        // TODO: Murmozavr
         for (int page = 0; page < pages; ++page) {
             if (page != MemESP::bankLatch && page != 2 && page != 5) {
                 if (!writeMemPage(page, file, blockMode)) {
