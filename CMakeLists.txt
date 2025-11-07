@@ -12,7 +12,7 @@ if (EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
-set(PICO_BOARD pico CACHE STRING "Board type")
+set(PICO_BOARD pico2 CACHE STRING "Board type")
 cmake_minimum_required(VERSION 3.13)
 
 option(VGA_HDMI "Enable VGA/HDMI driver" OFF)
@@ -37,12 +37,12 @@ set(VGA_HDMI ON)
 
 #set(CPU_MHZ 252)
 set(CPU_MHZ 378)
-set (PORT_VERSION "1.2.I")
+set (PORT_VERSION "1.2.J")
 
-set (MURM ON)
+#set (MURM ON)
 #set (MURM2 ON)
 #set (PICO_PC ON)
-#set (PICO_DV ON)
+set (PICO_DV ON)
 #set (ZERO ON)
 #set (ZERO2 ON)
 

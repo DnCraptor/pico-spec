@@ -128,7 +128,9 @@ public:
   static void MainScreen_Snow_Opcode(bool contended);
   
   // static void DrawBorderFast();
+  static void InitPrevBuffer();
 
+  static void Update_Border();
   static void TopBorder_Blank();
   static void TopBorder();
   static void MiddleBorder();
@@ -136,6 +138,7 @@ public:
   static void BottomBorder_OSD();
   static void Border_Blank();
 
+  static void Update_Border_Pentagon();
   static void TopBorder_Blank_Pentagon();
   static void TopBorder_Pentagon();
   static void TopBorder_OSD_Pentagon();
@@ -166,6 +169,7 @@ public:
   static uint32_t brd;
   static bool brdChange;
   static bool brdnextframe;
+  static bool brdGigascreenChange;
   static uint32_t lastBrdTstate;
 
   static uint8_t tStatesPerLine;
@@ -206,6 +210,8 @@ public:
   static uint32_t framecnt; // Frames elapsed
 
   static int video_mode;
+
+  static bool gigascreen_enabled;
 };
 
 #define zxColor(color,bright) VIDEO::spectrum_colors[bright ? color + 8 : color]
