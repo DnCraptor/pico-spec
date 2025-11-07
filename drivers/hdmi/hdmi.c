@@ -547,102 +547,127 @@ void graphics_set_palette(uint8_t i, uint32_t color888) {
 
 #define RGB888(r, g, b) ((r<<16) | (g << 8 ) | b )
 
-//выделение и настройка общих ресурсов - 4 DMA канала, PIO программ и 2 SM
 void graphics_init_hdmi() {
-    //настройка PIO
+    // PIO и DMA
     SM_video = pio_claim_unused_sm(PIO_VIDEO, true);
     SM_conv = pio_claim_unused_sm(PIO_VIDEO_ADDR, true);
-    //выделение и преднастройка DMA каналов
     dma_chan_ctrl = dma_claim_unused_channel(true);
     dma_chan = dma_claim_unused_channel(true);
     dma_chan_pal_conv_ctrl = dma_claim_unused_channel(true);
     dma_chan_pal_conv = dma_claim_unused_channel(true);
 
-    for (uint8_t c = 0; c <= 0b00111111; ++c) {
-        switch (c)
-        {
-        case 0b000000: map64colors[c] = 200; break; // black
+    // массив индексов палитры для всех 64 комбинаций BGR
+    for (uint8_t c = 0; c < 64; ++c) {
+        uint8_t b = (c >> 4) & 0b11;
+        uint8_t g = (c >> 2) & 0b11;
+        uint8_t r = c & 0b11;
 
-        case 0b000001: map64colors[c] = 204; break; // red
-        case 0b000010: map64colors[c] = 204; break;
-
-        case 0b000011: map64colors[c] = 212; break; // light red
-        case 0b010011: map64colors[c] = 212; break;
-
-        case 0b000100: map64colors[c] = 202; break; // green
-        case 0b001000: map64colors[c] = 202; break;
-        case 0b001001: map64colors[c] = 202; break;
-
-        case 0b001100: map64colors[c] = 210; break; // light green
-
-        case 0b010000: map64colors[c] = 201; break; // blue
-        case 0b100000: map64colors[c] = 201; break;
-
-        case 0b110000: map64colors[c] = 209; break; // light blue
-
-        case 0b000101: map64colors[c] = 208; break; // yellow
-        case 0b000110: map64colors[c] = 208; break;
-        case 0b001010: map64colors[c] = 208; break;
-        case 0b001011: map64colors[c] = 208; break;
-        case 0b001110: map64colors[c] = 208; break;
-
-        case 0b001111: map64colors[c] = 214; break; // light tellow
-
-        case 0b010001: map64colors[c] = 205; break; // magenta
-        case 0b010010: map64colors[c] = 205; break;
-        case 0b100001: map64colors[c] = 205; break;
-        case 0b100010: map64colors[c] = 205; break;
-        case 0b110010: map64colors[c] = 205; break;
-        case 0b100011: map64colors[c] = 205; break;
-
-        case 0b110011: map64colors[c] = 213; break; // light magenta
-
-        case 0b010100: map64colors[c] = 203; break; // cyan
-        case 0b100100: map64colors[c] = 203; break;
-        case 0b011000: map64colors[c] = 203; break;
-        case 0b101000: map64colors[c] = 203; break;
-        case 0b111000: map64colors[c] = 203; break;
-        case 0b101100: map64colors[c] = 203; break;
-
-        case 0b111100: map64colors[c] = 211; break; // light cyan
-
-        case 0b010101: map64colors[c] = 207; break; // gray
-        case 0b010110: map64colors[c] = 207; break;
-        case 0b100101: map64colors[c] = 207; break;
-        case 0b100110: map64colors[c] = 207; break;
-        case 0b010111: map64colors[c] = 207; break;
-        case 0b011001: map64colors[c] = 207; break;
-        case 0b011111: map64colors[c] = 207; break;
-        case 0b111001: map64colors[c] = 207; break;
-        case 0b111010: map64colors[c] = 207; break;
-        case 0b101001: map64colors[c] = 207; break;
-        case 0b101010: map64colors[c] = 207; break;
-
-        case 0b111111: map64colors[c] = 215; break; // white
-
-        case 0b000111: map64colors[c] = 216; break; // orange
-
-        default: map64colors[c] = 215; break;
+        // базовые 16 цветов
+        if (r == 0 && g == 0 && b == 0) map64colors[c] = 0;   // black
+        else if (r == 3 && g == 0 && b == 0) map64colors[c] = 1; // red
+        else if (r == 0 && g == 3 && b == 0) map64colors[c] = 2; // green
+        else if (r == 0 && g == 0 && b == 3) map64colors[c] = 3; // blue
+        else if (r == 3 && g == 3 && b == 0) map64colors[c] = 4; // yellow
+        else if (r == 3 && g == 0 && b == 3) map64colors[c] = 5; // magenta
+        else if (r == 0 && g == 3 && b == 3) map64colors[c] = 6; // cyan
+        else if (r == 3 && g == 3 && b == 3) map64colors[c] = 7; // white
+        else {
+            // промежуточные оттенки для остальных комбинаций
+            // индекс палитры: 8..63
+            map64colors[c] = 8 + c;
         }
     }
-    graphics_set_palette(200, RGB888(0x00, 0x00, 0x00)); //black
-    graphics_set_palette(201, RGB888(0x00, 0x00, 0xC4)); //blue
-    graphics_set_palette(202, RGB888(0x00, 0xC4, 0x00)); //green
-    graphics_set_palette(203, RGB888(0x00, 0xC4, 0xC4)); //cyan
-    graphics_set_palette(204, RGB888(0xC4, 0x00, 0x00)); //red
-    graphics_set_palette(205, RGB888(0xC4, 0x00, 0xC4)); //magenta
-    graphics_set_palette(206, RGB888(0xC4, 0x7E, 0x00)); //brown
-    graphics_set_palette(207, RGB888(0xC4, 0xC4, 0xC4)); //light gray
-//    graphics_set_palette(208, RGB888(0x4E, 0x4E, 0x4E)); //dark gray
-    graphics_set_palette(208, RGB888(0xC4, 0xC4, 0x00)); //yellow
-    graphics_set_palette(209, RGB888(0x4E, 0x4E, 0xDC)); //light blue
-    graphics_set_palette(210, RGB888(0x4E, 0xDC, 0x4E)); //light green
-    graphics_set_palette(211, RGB888(0x4E, 0xF3, 0xF3)); //light cyan
-    graphics_set_palette(212, RGB888(0xDC, 0x4E, 0x4E)); //light red
-    graphics_set_palette(213, RGB888(0xF3, 0x4E, 0xF3)); //light magenta
-    graphics_set_palette(214, RGB888(0xF3, 0xF3, 0x4E)); //light yellow
-    graphics_set_palette(215, RGB888(0xFF, 0xFF, 0xFF)); //white
-    graphics_set_palette(216, RGB888(0xFF, 0x7E, 0x00)); //orange
+
+    // Таблица уровней Pulsar RGB
+    const uint8_t pulsar_levels[4] = {0x00, 0x55, 0xAA, 0xFF};
+
+    // Настройка 64 цветов палитры
+    for (uint8_t b = 0; b < 4; ++b) {
+        for (uint8_t g = 0; g < 4; ++g) {
+            for (uint8_t r = 0; r < 4; ++r) {
+                uint8_t idx = (b << 4) | (g << 2) | r;
+                uint8_t palette_idx = map64colors[idx];
+
+                uint8_t R = pulsar_levels[r];
+                uint8_t G = pulsar_levels[g];
+                uint8_t B = pulsar_levels[b];
+
+                graphics_set_palette(palette_idx, RGB888(R, G, B));
+            }
+        }
+    }
+
+    // for (uint8_t c = 0; c <= 0b111111; ++c) {
+    //     map64colors[c] = c;
+    //     switch (c)
+    //     {
+    //         case 0b000000: graphics_set_palette(c, RGB888(0x00, 0x00, 0x00)); break; // Black
+    //         case 0b000001: graphics_set_palette(c, RGB888(0xCD, 0x00, 0x00)); break; // Red
+    //         case 0b000010: graphics_set_palette(c, RGB888(0xAA, 0x00, 0x00)); break; // 
+    //         case 0b000011: graphics_set_palette(c, RGB888(0xFF, 0x00, 0x00)); break; // Bright Red
+    //         case 0b000100: graphics_set_palette(c, RGB888(0x00, 0xCD, 0x00)); break; // Green
+    //         case 0b000101: graphics_set_palette(c, RGB888(0xCD, 0xCD, 0x00)); break; // Yellow
+    //         case 0b000110: graphics_set_palette(c, RGB888(0xAA, 0xCD, 0x00)); break; // 
+    //         case 0b000111: graphics_set_palette(c, RGB888(0xFF, 0xCD, 0x00)); break; // 
+    //         case 0b001000: graphics_set_palette(c, RGB888(0x00, 0xAA, 0x00)); break; // 
+    //         case 0b001001: graphics_set_palette(c, RGB888(0xCD, 0xAA, 0x00)); break; //
+    //         case 0b001010: graphics_set_palette(c, RGB888(0xAA, 0xAA, 0x00)); break; //
+    //         case 0b001011: graphics_set_palette(c, RGB888(0xFF, 0xAA, 0x00)); break; //
+    //         case 0b001100: graphics_set_palette(c, RGB888(0x00, 0xFF, 0x00)); break; // Bright Green
+    //         case 0b001101: graphics_set_palette(c, RGB888(0xCD, 0xFF, 0x00)); break; //
+    //         case 0b001110: graphics_set_palette(c, RGB888(0xAA, 0xFF, 0x00)); break; //
+    //         case 0b001111: graphics_set_palette(c, RGB888(0xFF, 0xFF, 0x00)); break; // Bright Yellow
+    //         case 0b010000: graphics_set_palette(c, RGB888(0x00, 0x00, 0xCD)); break; // Blue 
+    //         case 0b010001: graphics_set_palette(c, RGB888(0xCD, 0x00, 0xCD)); break; // Magenta
+    //         case 0b010010: graphics_set_palette(c, RGB888(0xAA, 0x00, 0xCD)); break; //
+    //         case 0b010011: graphics_set_palette(c, RGB888(0xFF, 0x00, 0xCD)); break; //
+    //         case 0b010100: graphics_set_palette(c, RGB888(0x00, 0xCD, 0xCD)); break; // Cyan
+    //         case 0b010101: graphics_set_palette(c, RGB888(0xCD, 0xCD, 0xCD)); break; // White (light gray)
+    //         case 0b010110: graphics_set_palette(c, RGB888(0xAA, 0xCD, 0xCD)); break; //
+    //         case 0b010111: graphics_set_palette(c, RGB888(0xFF, 0xCD, 0xCD)); break; //
+    //         case 0b011000: graphics_set_palette(c, RGB888(0x00, 0xAA, 0xCD)); break; //
+    //         case 0b011001: graphics_set_palette(c, RGB888(0xCD, 0xAA, 0xCD)); break; //
+    //         case 0b011010: graphics_set_palette(c, RGB888(0xAA, 0xAA, 0xCD)); break; //
+    //         case 0b011011: graphics_set_palette(c, RGB888(0xFF, 0xAA, 0xCD)); break; //
+    //         case 0b011100: graphics_set_palette(c, RGB888(0x00, 0xFF, 0xCD)); break; //
+    //         case 0b011101: graphics_set_palette(c, RGB888(0xCD, 0xFF, 0xCD)); break; //
+    //         case 0b011110: graphics_set_palette(c, RGB888(0xAA, 0xFF, 0xCD)); break; //
+    //         case 0b011111: graphics_set_palette(c, RGB888(0xFF, 0xFF, 0xCD)); break; //
+    //         case 0b100000: graphics_set_palette(c, RGB888(0x00, 0x00, 0xAA)); break; //
+    //         case 0b100001: graphics_set_palette(c, RGB888(0xCD, 0x00, 0xAA)); break; //
+    //         case 0b100010: graphics_set_palette(c, RGB888(0xAA, 0x00, 0xAA)); break; //
+    //         case 0b100011: graphics_set_palette(c, RGB888(0xFF, 0x00, 0xAA)); break; //
+    //         case 0b100100: graphics_set_palette(c, RGB888(0x00, 0xCD, 0xAA)); break; //
+    //         case 0b100101: graphics_set_palette(c, RGB888(0xCD, 0xCD, 0xAA)); break; //
+    //         case 0b100110: graphics_set_palette(c, RGB888(0xAA, 0xCD, 0xAA)); break; //
+    //         case 0b100111: graphics_set_palette(c, RGB888(0xFF, 0xCD, 0xAA)); break; //
+    //         case 0b101000: graphics_set_palette(c, RGB888(0x00, 0xAA, 0xAA)); break; //
+    //         case 0b101001: graphics_set_palette(c, RGB888(0xCD, 0xAA, 0xAA)); break; //
+    //         case 0b101010: graphics_set_palette(c, RGB888(0xAA, 0xAA, 0xAA)); break; //
+    //         case 0b101011: graphics_set_palette(c, RGB888(0xFF, 0xAA, 0xAA)); break; //
+    //         case 0b101100: graphics_set_palette(c, RGB888(0x00, 0xFF, 0xAA)); break; //
+    //         case 0b101101: graphics_set_palette(c, RGB888(0xCD, 0xFF, 0xAA)); break; //
+    //         case 0b101110: graphics_set_palette(c, RGB888(0xAA, 0xFF, 0xAA)); break; //
+    //         case 0b101111: graphics_set_palette(c, RGB888(0xFF, 0xFF, 0xAA)); break; //
+    //         case 0b110000: graphics_set_palette(c, RGB888(0x00, 0x00, 0xFF)); break; // Bright Blue
+    //         case 0b110001: graphics_set_palette(c, RGB888(0xCD, 0x00, 0xFF)); break; //
+    //         case 0b110010: graphics_set_palette(c, RGB888(0xAA, 0x00, 0xFF)); break; //
+    //         case 0b110011: graphics_set_palette(c, RGB888(0xFF, 0x00, 0xFF)); break; // Bright Magenta
+    //         case 0b110100: graphics_set_palette(c, RGB888(0x00, 0xCD, 0xFF)); break; //
+    //         case 0b110101: graphics_set_palette(c, RGB888(0xCD, 0xCD, 0xFF)); break; //
+    //         case 0b110110: graphics_set_palette(c, RGB888(0xAA, 0xCD, 0xFF)); break; //
+    //         case 0b110111: graphics_set_palette(c, RGB888(0xFF, 0xCD, 0xFF)); break; //
+    //         case 0b111000: graphics_set_palette(c, RGB888(0x00, 0xAA, 0xFF)); break; //
+    //         case 0b111001: graphics_set_palette(c, RGB888(0xCD, 0xAA, 0xFF)); break; //
+    //         case 0b111010: graphics_set_palette(c, RGB888(0xAA, 0xAA, 0xFF)); break; //
+    //         case 0b111011: graphics_set_palette(c, RGB888(0xFF, 0xAA, 0xFF)); break; //
+    //         case 0b111100: graphics_set_palette(c, RGB888(0x00, 0xFF, 0xFF)); break; // Bright Cyan
+    //         case 0b111101: graphics_set_palette(c, RGB888(0xCD, 0xFF, 0xFF)); break; //
+    //         case 0b111110: graphics_set_palette(c, RGB888(0xAA, 0xFF, 0xFF)); break; //
+    //         case 0b111111: graphics_set_palette(c, RGB888(0xFF, 0xFF, 0xFF)); break; // Bright White
+    //     }
+    // }
+
     hdmi_init();
 }
 
