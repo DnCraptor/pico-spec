@@ -39,6 +39,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "ff.h"
 
 std::list<mem_desc_t> mem_desc_t::pages;
+uint8_t* mem_desc_t::plugged_in[4] = { 0, 0, 0, 0 };
 uint32_t MEM_PG_CNT = 64;
 
 static FIL f;
@@ -112,15 +113,21 @@ void mem_desc_t::_write(uint16_t addr, uint8_t v) {
     f_write(&f, &v, 1, &br);
     gpio_put(PICO_DEFAULT_LED_PIN, false);
 }
-void mem_desc_t::_sync(void) {
+void mem_desc_t::_sync(uint8_t bank) {
     for (auto it = pages.begin(); it != pages.end(); ++it) {
         mem_desc_t& page = *it;
         if (page._int->mem_type == POINTER) {
+            for (uint8_t i = 0; i < 4; ++i) {
+                if (i != bank) {
+                    if (page._int->p == plugged_in[i]) goto skip;
+                }
+            }
             from_vram( page.to_vram() );
             pages.erase(it);
             pages.push_back(*this);
             break;
         }
+        skip:
     }
 }
 /// TODO: packet mode
@@ -210,14 +217,12 @@ void mem_desc_t::cleanup() {
 }
 
 mem_desc_t MemESP::rom[64];
-static uint8_t pages13[MEM_PG_SZ * 2] = { 0 };
-static uint8_t page2[MEM_PG_SZ] = { 0 };
 static uint8_t pages57[MEM_PG_SZ * 2] = { 0 };
 static mem_desc_t temp[8] = {
     { 0, 0 },
-    { pages13, 1},
-    { page2, 2 },
-    { pages13 + MEM_PG_SZ, 3},
+    { 0, 1},
+    { 0, 2 },
+    { 0, 3},
     { 0, 4 },
     { pages57, 5},
     { 0, 6 },
@@ -225,6 +230,7 @@ static mem_desc_t temp[8] = {
 };
 mem_desc_t* MemESP::ram = temp;
 bool MemESP::newSRAM = false;
+int ram_pages = 2, butter_pages = 0, psram_pages = 0, swap_pages = 0;
 
 uint8_t* MemESP::ramCurrent[4];
 bool MemESP::ramContended[4];
@@ -234,7 +240,6 @@ uint32_t MemESP::page0ram = 0;
 uint32_t MemESP::bankLatch = 0;
 uint8_t MemESP::videoLatch = 0;
 uint8_t MemESP::romLatch = 0;
-uint32_t MemESP::sramLatch = 0;
 uint8_t MemESP::pagingLock = 0;
 uint8_t MemESP::romInUse = 0;
 

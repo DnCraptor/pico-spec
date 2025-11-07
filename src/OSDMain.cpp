@@ -4163,10 +4163,10 @@ c:
     i = 0;
     xi = x + 22 * OSD_FONT_W;
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    if (MemESP::newSRAM)
-        snprintf(buf, 32, "PAGE0 -> SRAM#%d", MemESP::sramLatch);
-    else if (MemESP::ramCurrent[0] < (uint8_t*)0x11000000)
+    if (MemESP::ramCurrent[0] < (uint8_t*)0x11000000)
         snprintf(buf, 32, "PAGE0 -> ROM#%d", MemESP::romInUse);
+    else if (MemESP::newSRAM)
+        snprintf(buf, 32, "PAGE0 -> SRAM#%d", MemESP::romLatch);
     else
         snprintf(buf, 32, "PAGE0 -> RAM#0");
     VIDEO::vga.print(buf);
@@ -4549,10 +4549,27 @@ void OSD::HWInfo() {
     snprintf(buf, 128, " VGA/HDMI detect: %02Xh\n", linkVGA01);
     VIDEO::vga.print(buf);
 #endif
-    snprintf(buf, 128, " 16K RAM pages: %d [s%d:b%d:p%d:v%d]\n",
-         ram_pages+ butter_pages+ psram_pages+ swap_pages,
-         ram_pages, butter_pages, psram_pages, swap_pages
-    );
+    if (!psram_pages) {
+        snprintf(buf, 128, " 16K RAM pages  : %d[s%d:b%d:v%d]\n",
+            ram_pages+ butter_pages+ swap_pages,
+            ram_pages, butter_pages, swap_pages
+        );
+    } else if (!butter_pages) {
+        snprintf(buf, 128, " 16K RAM pages  : %d[s%d:p%d:v%d]\n",
+            ram_pages+ psram_pages+ swap_pages,
+            ram_pages, psram_pages, swap_pages
+        );
+    } else if (!swap_pages) {
+        snprintf(buf, 128, " 16K RAM pages  : %d[s%d:b%d:p%d]\n",
+            ram_pages+ butter_pages+ psram_pages,
+            ram_pages, butter_pages, psram_pages
+        );
+    } else {
+        snprintf(buf, 128, " 16K RAM pages  : %d[s%d:b%d:p%d:v%d]\n",
+            ram_pages+ butter_pages+ psram_pages+ swap_pages,
+            ram_pages, butter_pages, psram_pages, swap_pages
+        );
+    }
     VIDEO::vga.print(buf);
 
     snprintf(buf, 128, "\n" \

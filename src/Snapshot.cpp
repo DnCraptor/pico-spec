@@ -217,8 +217,8 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
             ESPectrum::trdos = false;
         }
 
-        MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct();
-        MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync();
+        MemESP::recoverPage0();
+        MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync(3);
         MemESP::ramContended[3] = Z80Ops::isPentagon ? false : (MemESP::bankLatch & 0x01 ? true: false);
 
         VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct() : MemESP::ram[5].direct();
@@ -742,7 +742,7 @@ bool FileZ80::load(string z80_fn) {
                     // printf("Loading uncompressed data\n");
                     compDataLen = MEM_PG_SZ;
                     if ((hdr2 > 2) && (hdr2 < 11)) {
-                        uint8_t* sp = pages[hdr2]->sync();
+                        uint8_t* sp = pages[hdr2]->sync(4);
                         for (int i = 0; i < compDataLen; i++) {
                             sp[i] = readByteFile(file);
                         }
@@ -750,14 +750,14 @@ bool FileZ80::load(string z80_fn) {
                 } else {
                     // Block is compressed
                     if ((hdr2 > 2) && (hdr2 < 11)) {
-                        loadCompressedMemPage(file, compDataLen, pages[hdr2]->sync(), MEM_PG_SZ);
+                        loadCompressedMemPage(file, compDataLen, pages[hdr2]->sync(4), MEM_PG_SZ);
                     }
                 }
                 dataOffset += compDataLen;
             }
 
-            MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct();
-            MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync();
+            MemESP::recoverPage0();
+            MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync(3);
             MemESP::ramContended[3] = Z80Ops::isPentagon ? false : (MemESP::bankLatch & 0x01 ? true: false);
 
             VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct() : MemESP::ram[5].direct();
@@ -952,8 +952,8 @@ void FileZ80::loader48() {
 
     MemESP::ram[2].cleanup();
 
-    MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct();
-    MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync();
+    MemESP::recoverPage0();
+    MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync(3);
     MemESP::ramContended[3] = false;
 
     VIDEO::grmem = MemESP::ram[5].direct();
@@ -1051,7 +1051,7 @@ void FileZ80::loader128() {
         uint8_t hdr2 = z80_array[2]; dataOffset ++;
         z80_array += 3;
         uint16_t compDataLen = mkword(hdr0, hdr1);
-        uint8_t* sp = pages[hdr2]->sync();
+        uint8_t* sp = pages[hdr2]->sync(4);
         {
             uint16_t dataOff = 0;
             uint8_t ed_cnt = 0;
@@ -1102,8 +1102,8 @@ void FileZ80::loader128() {
     MemESP::ram[4].cleanup();
     MemESP::ram[6].cleanup();
     
-    MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct();
-    MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync();
+    MemESP::recoverPage0();
+    MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync(3);
     MemESP::ramContended[3] = Z80Ops::isPentagon ? false : (MemESP::bankLatch & 0x01 ? true: false);
 
     VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct() : MemESP::ram[5].direct();

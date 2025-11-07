@@ -60,6 +60,7 @@ enum mem_type_t {
 
 class mem_desc_t {
     static std::list<mem_desc_t> pages; // a pool of assigned pages
+    static uint8_t* plugged_in[4]; // pointers are plugged to 64k space (do not revoke 'em)
     struct mem_desc_int_t {
         uint8_t* p;
         uint32_t vram_off;
@@ -70,7 +71,7 @@ class mem_desc_t {
     mem_desc_int_t* _int;
     uint8_t* to_vram(void);
     void from_vram(uint8_t* p);
-    void _sync(void);
+    void _sync(uint8_t bank);
     uint8_t _read(uint16_t addr);
     void _write(uint16_t addr, uint8_t v);
 public:
@@ -87,11 +88,13 @@ public:
     inline uint8_t* direct(void) {
         return _int->p;
     }
-    inline uint8_t* sync(void) {
+    inline uint8_t* sync(uint8_t bank) {
         if (_int->mem_type != POINTER) {
-            _sync();
+            _sync(bank);
         }
-        return _int->p;
+        uint8_t* res = _int->p;
+        if (bank < 4) plugged_in[bank] = res;
+        return res;
     }
     inline uint8_t read(uint16_t addr) {
         if (_int->mem_type != POINTER) {
@@ -114,7 +117,7 @@ public:
     static inline uint8_t* revoke_1_ram_page() {
         auto it = pages.begin();
         if (it == pages.end()) return 0;
-        it->sync(); // TODO: optimize it
+        it->sync(5); // TODO: optimize it
         uint8_t* p = it->_int->p;
         if (!it->_int->mem_type != POINTER) {
             it->to_vram();
@@ -161,7 +164,6 @@ public:
     static uint32_t bankLatch;
     static uint8_t videoLatch;
     static uint8_t romLatch;
-    static uint32_t sramLatch;
     static uint8_t pagingLock;
 
     static uint8_t romInUse;
@@ -175,6 +177,11 @@ public:
 
     static int getByteContention(uint16_t addr);
     //static void UpdateByteMem0000(int ramIndex, int SovmestMode);
+
+    inline static void recoverPage0() {
+        MemESP::ramCurrent[0] = MemESP::newSRAM ? MemESP::ram[MEM_PG_CNT + MemESP::romLatch].sync(0) :
+                               (MemESP::page0ram ? MemESP::ram[0].sync(0) : MemESP::rom[MemESP::romInUse].direct());
+    }
 };
 
 // Inline memory access functions
@@ -194,39 +201,10 @@ inline int MemESP::getByteContention(uint16_t addr) {
     return res;
 }
 
-// For Byte
-// inline void MemESP::UpdateByteMem0000(int ramIndex, int SovmestMode) {
-//     if (byteMemMode == 0)
-//         return;
-
-//     Debug::led_blink();
-
-//     for(int addr=0; addr<MEM_PG_SZ; addr++)
-//     {
-//         //SovmestMode = 1; // BYTE COBMECT="OFF"
-//         int adr66 = ((addr >> 7) & 0xFF) | ((SovmestMode << 8) & 0x100);
-//         int dat66 = romDd66[adr66];
-
-//         // если бит 0x10 не установлен — берём байт из DD71
-//         if ((dat66 & 0x10) == 0) {
-//             int adr71 = ((dat66 & 0x0F) << 7) | (addr & 0x7F);
-//             ramCurrent[ramIndex][addr] = romDd71[adr71];
-//         }
-//     }
-// }
-
 inline uint8_t MemESP::readbyte(uint16_t addr) {
     uint8_t page = addr >> 14;
-    switch (page) {
-    case 1:
-        return ram[5].direct()[addr - 0x4000];
-    case 2:
-        return ram[2].direct()[addr - 0x8000];
-    case 3:
-        return ram[bankLatch].read(addr - 0xC000);
-    default:
-        return newSRAM ? ram[MEM_PG_CNT + MemESP::sramLatch].read(addr) : (page0ram ? ram[0].read(addr) : rom[romInUse].direct()[addr]);
-    }
+    uint8_t* p = ramCurrent[page];
+    return p[addr & 0x3fff];
 }
 
 inline uint16_t MemESP::readword(uint16_t addr) {
@@ -236,22 +214,9 @@ inline uint16_t MemESP::readword(uint16_t addr) {
 inline void MemESP::writebyte(uint16_t addr, uint8_t data)
 {
     uint8_t page = addr >> 14;
-    switch (page) {
-    case 0:
-        if (newSRAM) ram[MEM_PG_CNT + MemESP::sramLatch].write(addr, data);
-        else if (page0ram && !ram[0].is_rom()) ram[0].write(addr, data);
-        break;
-    case 1:
-        ram[5].direct()[addr - 0x4000] = data;
-        break;
-    case 2:
-        ram[2].direct()[addr - 0x8000] = data;
-        break;
-    case 3:
-        ram[bankLatch].write(addr - 0xC000, data);
-        break;
-    }
-    return;
+    uint8_t* p = ramCurrent[page];
+    if (p < (uint8_t*)0x11000000) return;
+    p[addr & 0x3fff] = data;
 }
 
 inline void MemESP::writeword(uint16_t addr, uint16_t data) {

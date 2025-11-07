@@ -464,7 +464,7 @@ void ESPectrum::bootKeyboard() {
 //=======================================================================================
 // SETUP
 //=======================================================================================
-int ram_pages = 5, butter_pages = 0, psram_pages = 0, swap_pages = 0;
+extern int ram_pages, butter_pages, psram_pages, swap_pages;
 
 void ESPectrum::setup()
 {
@@ -474,7 +474,7 @@ void ESPectrum::setup()
     FileUtils::initFileSystem();
 
     mem_desc_t::reset();
-
+    Ports::portAFF7 = 0;
     //=======================================================================================
     // LOAD CONFIG
     //=======================================================================================
@@ -560,8 +560,12 @@ void ESPectrum::setup()
         MemESP::ram = new mem_desc_t[MEM_PG_CNT+2];
         memcpy(MemESP::ram, temp, sizeof(mem_desc_t) * 8);
         MemESP::ram[0].assign_ram(new unsigned char[MEM_PG_SZ], 0, false);
-        ++ram_pages;
-        // page 6 may be added to some other pool
+        MemESP::ram[1].assign_ram(new unsigned char[MEM_PG_SZ], 1, false);
+        MemESP::ram[2].assign_ram(new unsigned char[MEM_PG_SZ], 2, false);
+        MemESP::ram[3].assign_ram(new unsigned char[MEM_PG_SZ], 3, false);
+        // pages 4 and 6 may be added to some other pool
+        // 5 and 7 - static (video RAM)
+        ram_pages += 4;
     } else {
         #if PICO_RP2350
         // TODO: real number of supported pages: +256/16=16? or just +8 and support Pentagon 256? or 512-128...
@@ -570,9 +574,14 @@ void ESPectrum::setup()
         #else
         // page 0 is not supported without virtual memory on RP2040
         #endif
+        MemESP::ram[1].assign_ram(new unsigned char[MEM_PG_SZ], 1, false);
+        MemESP::ram[2].assign_ram(new unsigned char[MEM_PG_SZ], 2, false);
+        MemESP::ram[3].assign_ram(new unsigned char[MEM_PG_SZ], 3, false);
         MemESP::ram[4].assign_ram(new unsigned char[MEM_PG_SZ], 4, false);
+        // 5 - static (video RAM)
         MemESP::ram[6].assign_ram(new unsigned char[MEM_PG_SZ], 6, false);
-        ram_pages += 2;
+        // 7 - static (video RAM)
+        ram_pages += 5;
     }
     // for virtual ram
     if (ext_ram_exist) {
@@ -638,12 +647,11 @@ void ESPectrum::setup()
     MemESP::bankLatch = 0;
     MemESP::videoLatch = 0;
     MemESP::romLatch = 0;
-    MemESP::sramLatch = 0;
 
-    MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse].direct();
+    MemESP::ramCurrent[0] = MemESP::rom[0].direct();
     MemESP::ramCurrent[1] = MemESP::ram[5].direct();
-    MemESP::ramCurrent[2] = MemESP::ram[2].direct();
-    MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync();
+    MemESP::ramCurrent[2] = MemESP::ram[2].sync(2);
+    MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync(3);
     MemESP::newSRAM = false;
 
     MemESP::ramContended[0] = false;
@@ -766,6 +774,7 @@ void ESPectrum::reset(uint8_t romInUse)
     for (int i = 0; i < 128; i++) Ports::port[i] = 0xBF;
     if (Config::joystick == JOY_KEMPSTON) Ports::port[Config::kempstonPort] = 0; // Kempston
     else if (Config::joystick == JOY_FULLER) Ports::port[0x7f] = 0xff; // Fuller
+    Ports::portAFF7 = 0;
 
     // Memory
     MemESP::page0ram = 0;
@@ -773,12 +782,11 @@ void ESPectrum::reset(uint8_t romInUse)
     MemESP::bankLatch = 0;
     MemESP::videoLatch = 0;
     MemESP::romLatch = 0;
-    MemESP::sramLatch = 0;
 
-    MemESP::ramCurrent[0] = MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct();
+    MemESP::ramCurrent[0] = MemESP::rom[romInUse].direct();
     MemESP::ramCurrent[1] = MemESP::ram[5].direct();
-    MemESP::ramCurrent[2] = MemESP::ram[2].direct();
-    MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync();
+    MemESP::ramCurrent[2] = MemESP::ram[2].sync(2);
+    MemESP::ramCurrent[3] = MemESP::ram[0].sync(3);
     MemESP::newSRAM = false;
 
     MemESP::ramContended[0] = false;
