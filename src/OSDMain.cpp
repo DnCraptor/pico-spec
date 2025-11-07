@@ -2062,6 +2062,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         }
                                     }
                                 }
+                                #if !PICO_RP2040
                                 else if (options_num == 6) {
                                     menu_level = 3;
                                     menu_curopt = 1;
@@ -2098,6 +2099,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         }
                                     }
                                 }
+                                #endif
                             } else {
                                 menu_curopt = 6;
                                 break;
