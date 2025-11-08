@@ -103,6 +103,15 @@ It is important to note that for custom ROMs, fast loading of taps can be used, 
 
 Finally, keep in mind that when updating the firmware, you will need to re-flash the custom ROMs afterward, so I recommend leaving the files "48custom.rom" and "128custom.rom" on the card for the custom ROMs you wish to use.
 
+## Own build way (Win 10+)
+ - Install VSCode [pico-setup-windows-x64-standalone.exe](https://github.com/raspberrypi/pico-setup-windows/releases) it will tune up environment and install default SDK 1.5.1;
+ - In VSCode install [Rapberri Pi Pico](https://t.me/ZX_MURMULATOR/42804/194110) plugin, to make other SDK versions available and auto-load;
+ - Import this project, and agree on all requests from the plugin (it may be required to wait some times on these steps);
+ - Tune up build to be [Pico/Release](https://t.me/ZX_MURMULATOR/42804/214274)
+ - Set required variables in your local copy of [CMakeLists.txt](https://github.com/DnCraptor/pico-spec/blob/main/CMakeLists.txt)
+ - [Clean/Reconfigure](https://t.me/ZX_MURMULATOR/42804/214276)
+ - Build.
+
 ## Thanks to
 
 - [Original repo](https://github.com/EremusOne/ESPectrum)
