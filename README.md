@@ -14,8 +14,8 @@ Board supported:
  - "Murmulator 1.x" + Raspberry "Pi Pico" / "Pi Pico 2" or compartible;
  - "Murmulator 2.0" + Raspberry "Pi Pico" / "Pi Pico 2" or compartible;
  - Waveshare "RP2040-PiZero" / "RP2350-PiZero" + use PCM510x for best sound;
- - Pimoroni Pico DV Demo Base + Raspberry Pi Pico / Pico 2 or compartible;
- - Olimex 2040-PICO-PC board + Raspberry Pi Pico / Pico 2 or compartible.
+ - Pimoroni "Pico DV Demo Base" + Raspberry "Pi Pico" / "Pi Pico 2" or compartible;
+ - Olimex "RP2040-PICO-PC" board + Raspberry "Pi Pico" / "Pi Pico 2" or compartible.
 
 Best performance for case Pimoroni "Pico Plus 2" is used.
 
@@ -34,6 +34,7 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - Floating bus effect emulated (Arkanoid, Sidewize).
 - Snow effect accurate emulation (as [described](https://spectrumcomputing.co.uk/forums/viewtopic.php?t=8240) by Weiv and MartianGirl).
 - Gigascreen support.
+- Murmuzavr (up to 32 MB) support.
 - Contended memory and contended I/O emulation.
 - AY-3-8912 / TurboSound emulation.
 - Beeper & Mic emulation (Cobra’s Arc).
