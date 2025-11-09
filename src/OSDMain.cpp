@@ -758,10 +758,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             esp_hard_reset();
         }
         else if (KeytoESP == fabgl::VK_F1) {
-        if (Config::audio_driver == 3) {
-            chip0.reset();
-            chip1.reset();
-        }
         menu_curopt = 1;
         while(1) {
             // Main menu
