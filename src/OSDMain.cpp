@@ -2110,7 +2110,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             if (Config::scanlines != prev_opt) {
                                                 Config::ram_file = "none";
                                                 Config::save();
-                                                Config::save();
                                                 // Reset to apply if mode != CRT
                                                 esp_hard_reset();
                                             }
@@ -2831,6 +2830,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             Config::audio_driver = opt2 - 1;
                                             if (Config::audio_driver != prev) {
                                                 Config::save();
+                                                esp_hard_reset();
                                             }
                                             menu_curopt = opt2;
                                             menu_saverect = false;
