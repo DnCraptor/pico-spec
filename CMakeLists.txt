@@ -27,7 +27,7 @@ option(ZERO "RP2040-PiZero" OFF)
 option(ZERO2 "RP2350-PiZero" OFF)
 
 set(FLASH_SIZE_GREEN ON)
-#set(m1p2launcher ON)
+set(m1p2launcher ON)
 
 set(VGA_HDMI ON)
 #set(SOFTTV ON)
@@ -40,12 +40,12 @@ set(VGA_HDMI ON)
 set(CPU_MHZ 378)
 set (PORT_VERSION "1.2.K")
 
-set (MURM ON)
+#set (MURM ON)
 #set (MURM2 ON)
 #set (PICO_PC ON)
 #set (PICO_DV ON)
 #set (ZERO ON)
-#set (ZERO2 ON)
+set (ZERO2 ON)
 
 set(KBDUSB ON)
 
@@ -499,8 +499,9 @@ ELSEIF(ZERO2)
         CPU_MHZ=${CPU_MHZ}
         ZERO2=1
 
-        KBD_CLOCK_PIN=0
-        KBD_DATA_PIN=1
+        # PS2 keyboard
+        KBD_CLOCK_PIN=2
+        KBD_DATA_PIN=3
 
         LOAD_WAV_PIO=17
 
