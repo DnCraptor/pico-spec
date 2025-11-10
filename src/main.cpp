@@ -859,7 +859,6 @@ uint8_t psram_pin;
 #include <hardware/structs/xip.h>
 #include <hardware/regs/sysinfo.h>
 
-
 #ifdef BUTTER_PSRAM_GPIO
 #define MB16 (16ul << 20)
 #define MB8 (8ul << 20)
@@ -1058,6 +1057,7 @@ int main() {
     keyboard_init();
 #endif
 
+    #ifdef PICO_DEFAULT_LED_PIN
     gpio_init(PICO_DEFAULT_LED_PIN);
     gpio_set_dir(PICO_DEFAULT_LED_PIN, GPIO_OUT);
     for (int i = 0; i < 6; i++) {
@@ -1066,6 +1066,7 @@ int main() {
         sleep_ms(33);
         gpio_put(PICO_DEFAULT_LED_PIN, false);
     }
+    #endif
 
 #if PICO_RP2350
     rp2350a = (*((io_ro_32*)(SYSINFO_BASE + SYSINFO_PACKAGE_SEL_OFFSET)) & 1);
@@ -1083,7 +1084,7 @@ int main() {
 #endif
 
 #if PICO_RP2350
-    if (psram_pin != PSRAM_PIN_CS)
+    if (psram_pin != PSRAM_PIN_SCK)
 #endif
     #ifndef MURM2
         init_psram();
@@ -1094,13 +1095,14 @@ int main() {
 #endif
 
     ESPectrum::setup();
+    #ifdef PICO_DEFAULT_LED_PIN
     for (int i = 0; i < 6; i++) {
         sleep_ms(33);
         gpio_put(PICO_DEFAULT_LED_PIN, true);
         sleep_ms(33);
         gpio_put(PICO_DEFAULT_LED_PIN, false);
     }
-
+    #endif
     sem_init(&vga_start_semaphore, 0, 1);
     multicore_launch_core1(render_core);
     sem_release(&vga_start_semaphore);

@@ -758,10 +758,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             esp_hard_reset();
         }
         else if (KeytoESP == fabgl::VK_F1) {
-        if (Config::audio_driver == 3) {
-            chip0.reset();
-            chip1.reset();
-        }
         menu_curopt = 1;
         while(1) {
             // Main menu
@@ -2110,7 +2106,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             if (Config::scanlines != prev_opt) {
                                                 Config::ram_file = "none";
                                                 Config::save();
-                                                Config::save();
                                                 // Reset to apply if mode != CRT
                                                 esp_hard_reset();
                                             }
@@ -2829,6 +2824,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             Config::audio_driver = opt2 - 1;
                                             if (Config::audio_driver != prev) {
                                                 Config::save();
+                                                esp_hard_reset();
                                             }
                                             menu_curopt = opt2;
                                             menu_saverect = false;
@@ -4648,7 +4644,9 @@ static void __not_in_flash_func(flash_block)(const uint8_t* buffer, size_t flash
     }
     return;
 flash_it:
+    #ifdef PICO_DEFAULT_LED_PIN
     gpio_put(PICO_DEFAULT_LED_PIN, flash_target_offset % (FLASH_SECTOR_SIZE << 2) == 0);
+    #endif
     multicore_lockout_start_blocking();
     const uint32_t ints = save_and_disable_interrupts();
     if (flash_target_offset % FLASH_SECTOR_SIZE == 0) { // cleanup_block
@@ -4657,7 +4655,9 @@ flash_it:
     flash_range_program(flash_target_offset, buffer, 512);
     restore_interrupts(ints);
     multicore_lockout_end_blocking();
+    #ifdef PICO_DEFAULT_LED_PIN
     gpio_put(PICO_DEFAULT_LED_PIN, false);
+    #endif
 }
 
 bool OSD::updateROM(const string& fname, uint8_t arch) {

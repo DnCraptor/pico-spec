@@ -49,7 +49,7 @@ static uint32_t* __scratch_x("hdmi_ptr_4") DMA_BUF_ADDR[2];
 //ДМА палитра для конвертации
 //в хвосте этой памяти выделяется dma_data
 static alignas(4096) uint32_t conv_color[1224];
-static uint8_t __scratch_y("hdmi_ptr_5") map64colors[64] = { 0 };
+static uint8_t __scratch_x("hdmi_ptr_5") map64colors[64] = { 0 };
 
 //индекс, проверяющий зависание
 static uint32_t irq_inx = 0;

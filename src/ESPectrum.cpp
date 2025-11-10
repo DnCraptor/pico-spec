@@ -159,9 +159,9 @@ void repeat_handler(void) {
 //=======================================================================================
 // AUDIO
 //=======================================================================================
-uint8_t __scratch_y("audioBuffer_L") ESPectrum::audioBuffer_L[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
-uint8_t __scratch_y("audioBuffer_R") ESPectrum::audioBuffer_R[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
-uint8_t __scratch_y("audioBufferCovox") ESPectrum::audioBufferCovox[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
+uint8_t ESPectrum::audioBuffer_L[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
+uint8_t ESPectrum::audioBuffer_R[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
+uint8_t ESPectrum::audioBufferCovox[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
 uint32_t ESPectrum::overSamplebuf[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
 signed char ESPectrum::aud_volume = ESP_VOLUME_DEFAULT;
 // signed char ESPectrum::aud_volume = ESP_VOLUME_MAX; // For .tap player test
@@ -466,6 +466,27 @@ void ESPectrum::bootKeyboard() {
 //=======================================================================================
 extern int ram_pages, butter_pages, psram_pages, swap_pages;
 
+static void assign_ram(int i) {
+    static size_t butter_remains = butter_psram_size();
+    static size_t butter_idx = 0;
+    if (getFreeHeap() >= MEM_PG_SZ + MEM_REMAIN) {
+        MemESP::ram[i].assign_ram(new unsigned char[MEM_PG_SZ], i, false);
+        ++ram_pages;
+    } else {
+        if (butter_remains >= MEM_PG_SZ) {
+            MemESP::ram[i].assign_ram((uint8_t*)PSRAM_DATA + (butter_idx++) * MEM_PG_SZ, i, false);
+            butter_remains -= MEM_PG_SZ;
+            ++butter_pages;
+        } else if (psram_size() >= (MEM_PG_SZ * (i+1))) {
+            MemESP::ram[i].assign_vram(i, mem_type_t::PSRAM_SPI);
+            ++psram_pages;
+        } else {
+            MemESP::ram[i].assign_vram(i, mem_type_t::SWAP);
+            ++swap_pages;
+        }
+    }
+}
+
 void ESPectrum::setup()
 {
     //=======================================================================================
@@ -566,6 +587,12 @@ void ESPectrum::setup()
         // pages 4 and 6 may be added to some other pool
         // 5 and 7 - static (video RAM)
         ram_pages += 4;
+        // for virtual ram
+        assign_ram(4);
+        assign_ram(6);
+        for (size_t i = 8; i < (MEM_PG_CNT+2); ++i) {
+            assign_ram(i);
+        }
     } else {
         #if PICO_RP2350
         // TODO: real number of supported pages: +256/16=16? or just +8 and support Pentagon 256? or 512-128...
@@ -583,62 +610,6 @@ void ESPectrum::setup()
         // 7 - static (video RAM)
         ram_pages += 5;
     }
-    // for virtual ram
-    if (ext_ram_exist) {
-        size_t butter_remains = butter_psram_size();
-        size_t butter_idx = 0;
-        size_t psram_sz = psram_size(); // TODO: optimize it
-        if (getFreeHeap() >= MEM_PG_SZ + MEM_REMAIN) {
-            MemESP::ram[4].assign_ram(new unsigned char[MEM_PG_SZ], 4, false);
-            ++ram_pages;
-        } else {
-            if (butter_remains >= MEM_PG_SZ) {
-                MemESP::ram[4].assign_ram((uint8_t*)PSRAM_DATA + (butter_idx++) * MEM_PG_SZ, 4, false);
-                butter_remains -= MEM_PG_SZ;
-                ++butter_pages;
-            } else if (psram_sz >= (MEM_PG_SZ * 5)) {
-                MemESP::ram[4].assign_vram(4, mem_type_t::PSRAM_SPI);
-                ++psram_pages;
-            } else {
-                MemESP::ram[6].assign_vram(4, mem_type_t::SWAP);
-                ++swap_pages;
-            }
-        }
-        if (getFreeHeap() >= MEM_PG_SZ + MEM_REMAIN) {
-            MemESP::ram[6].assign_ram(new unsigned char[MEM_PG_SZ], 6, false);
-            ++ram_pages;
-        } else {
-            if (butter_remains >= MEM_PG_SZ) {
-                MemESP::ram[6].assign_ram((uint8_t*)PSRAM_DATA + (butter_idx++) * MEM_PG_SZ, 6, false);
-                butter_remains -= MEM_PG_SZ;
-                ++butter_pages;
-            } else if (psram_sz >= (MEM_PG_SZ * 7)) {
-                MemESP::ram[6].assign_vram(6, mem_type_t::PSRAM_SPI);
-                ++psram_pages;
-            } else {
-                MemESP::ram[6].assign_vram(6, mem_type_t::SWAP);
-                ++swap_pages;
-            }
-        }
-        for (size_t i = 8; i < (MEM_PG_CNT+2); ++i) {
-            if (getFreeHeap() >= MEM_PG_SZ + MEM_REMAIN) {
-                MemESP::ram[i].assign_ram(new unsigned char[MEM_PG_SZ], i, false);
-                ++ram_pages;
-            } else {
-                if (butter_remains >= MEM_PG_SZ) {
-                    MemESP::ram[i].assign_ram((uint8_t*)PSRAM_DATA + (butter_idx++) * MEM_PG_SZ, i, false);
-                    butter_remains -= MEM_PG_SZ;
-                    ++butter_pages;
-                } else if (psram_sz >= (MEM_PG_SZ * (i+1))) {
-                    MemESP::ram[i].assign_vram(i, mem_type_t::PSRAM_SPI);
-                    ++psram_pages;
-                } else {
-                    MemESP::ram[i].assign_vram(i, mem_type_t::SWAP);
-                    ++swap_pages;
-                }
-            }
-        }
-    }
     // Load romset
     Config::requestMachine(Config::arch, Config::romSet);
 
@@ -647,12 +618,12 @@ void ESPectrum::setup()
     MemESP::bankLatch = 0;
     MemESP::videoLatch = 0;
     MemESP::romLatch = 0;
+    MemESP::newSRAM = false;
 
     MemESP::ramCurrent[0] = MemESP::rom[0].direct();
     MemESP::ramCurrent[1] = MemESP::ram[5].direct();
     MemESP::ramCurrent[2] = MemESP::ram[2].sync(2);
     MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync(3);
-    MemESP::newSRAM = false;
 
     MemESP::ramContended[0] = false;
     MemESP::ramContended[1] = Config::arch == "P1024" || Config::arch == "P512" || Config::arch == "Pentagon" ? false : true;
@@ -782,12 +753,12 @@ void ESPectrum::reset(uint8_t romInUse)
     MemESP::bankLatch = 0;
     MemESP::videoLatch = 0;
     MemESP::romLatch = 0;
+    MemESP::newSRAM = false;
 
     MemESP::ramCurrent[0] = MemESP::rom[romInUse].direct();
     MemESP::ramCurrent[1] = MemESP::ram[5].direct();
     MemESP::ramCurrent[2] = MemESP::ram[2].sync(2);
     MemESP::ramCurrent[3] = MemESP::ram[0].sync(3);
-    MemESP::newSRAM = false;
 
     MemESP::ramContended[0] = false;
     MemESP::ramContended[1] = Config::arch == "P1024" || Config::arch == "P512" || Config::arch == "Pentagon" ? false : true;

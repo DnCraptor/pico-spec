@@ -38,7 +38,7 @@ set(VGA_HDMI ON)
 
 #set(CPU_MHZ 252)
 set(CPU_MHZ 378)
-set (PORT_VERSION "1.2.I")
+set (PORT_VERSION "1.2.K")
 
 set (MURM ON)
 #set (MURM2 ON)
@@ -304,6 +304,7 @@ IF(MURM2)
         TFT_INV=${TFT_INV}
 
         DEFAULT_THROTTLING=0
+        PICO_DEFAULT_LED_PIN=25
     )
 ELSEIF(PICO_PC)
     target_compile_definitions(${PROJECT_NAME} PRIVATE
@@ -369,6 +370,7 @@ ELSEIF(PICO_PC)
         HDMI_BASE_PIN=12
 
         DEFAULT_THROTTLING=0
+        PICO_DEFAULT_LED_PIN=25
     )
 ELSEIF(PICO_DV)
     target_compile_definitions(${PROJECT_NAME} PRIVATE
@@ -429,6 +431,7 @@ ELSEIF(PICO_DV)
         HDMI_BASE_PIN=6
 
         DEFAULT_THROTTLING=0
+        PICO_DEFAULT_LED_PIN=25
 
         DEBUG=0
 )
@@ -545,8 +548,7 @@ ELSEIF(ZERO2)
         # HDMI 8 pins starts from pin:
         HDMI_BASE_PIN=32
 
-        PICO_DEFAULT_LED_PIN=25
-
+#        PICO_DEFAULT_LED_PIN=25
         DEFAULT_THROTTLING=0
     )
 ELSE()

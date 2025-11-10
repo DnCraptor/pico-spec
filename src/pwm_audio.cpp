@@ -72,7 +72,9 @@ extern "C" int testPins(uint32_t pin0, uint32_t pin1) {
 #ifdef BUTTER_PSRAM_GPIO
     if (pin0 == BUTTER_PSRAM_GPIO || pin1 == BUTTER_PSRAM_GPIO) return res;
 #endif
+    #ifdef PICO_DEFAULT_LED_PIN
     if (pin0 == PICO_DEFAULT_LED_PIN || pin1 == PICO_DEFAULT_LED_PIN) return res; // LED
+    #endif
     if (pin0 == 23 || pin1 == 23) return res; // SMPS Power
     if (pin0 == 24 || pin1 == 24) return res; // VBus sense
     // try pull down case (passive)
@@ -327,55 +329,7 @@ void pcm_call() {
     }
     m_let_process_it = false;
     if (Config::audio_driver == 3) {
-        if (!Config::AY48) {
-            uint16_t outL = 0;
-            uint16_t outR = 0;
-            if (m_off < m_size) {
-                int16_t* b_L = buff_L + m_off;
-                int16_t* b_R = buff_R + m_off;
-                uint32_t x = ((int32_t)*b_L) + 0x8000;
-                outL = x >> 8; // 4
-                ++m_off;
-                x = ((int32_t)*b_R) + 0x8000;
-                outR = x >> 8;///4;
-            } else {
-                return;
-            }
-            // выбор первого чипа
-            HIGH(CS_AY0);
-            LOW(CS_AY1);
-            // выбор регистра разрешений
-            send_to_595(HIGH (BDIR | BC1) | 7); 
-            send_to_595( LOW (BDIR | BC1) | 7);
-            // разрешение записи в регистр portB
-            send_to_595(LOW (BDIR) | 0x80);
-            send_to_595(HIGH(BDIR) | 0x80);
-            send_to_595(LOW (BDIR) | 0x80);
-            // выбор IO регистра port B 
-            send_to_595(HIGH (BDIR | BC1) | 0x0F); 
-            send_to_595( LOW (BDIR | BC1) | 0x0F);
-            // запись значения в регистр port B первого чипа
-            send_to_595(LOW (BDIR) | outR);
-            send_to_595(HIGH(BDIR) | outR);
-            send_to_595(LOW (BDIR) | outR);
-            // выбор второго чипа
-            HIGH(CS_AY1);
-            LOW(CS_AY0);
-            // выбор регистра разрешений
-            send_to_595(HIGH (BDIR | BC1) | 7); 
-            send_to_595( LOW (BDIR | BC1) | 7);
-            // разрешение записи в регистр portB
-            send_to_595(LOW (BDIR) | 0x80);
-            send_to_595(HIGH(BDIR) | 0x80);
-            send_to_595(LOW (BDIR) | 0x80);
-            // выбор IO регистра port B 
-            send_to_595(HIGH (BDIR | BC1) | 0x0F); 
-            send_to_595( LOW (BDIR | BC1) | 0x0F);
-            // запись значения в регистр port B второго чипа
-            send_to_595(LOW (BDIR) | outL);
-            send_to_595(HIGH(BDIR) | outL);
-            send_to_595(LOW (BDIR) | outL);
-        }
+/// TODO:
     }
     else if (is_i2s_enabled) {
         static int16_t v32[2];
@@ -441,7 +395,7 @@ void pcm_setup(int hz) {
         }
     }
     m_let_process_it = false;
-        //hz; // 44100;	//44000 //44100 //96000 //22050
-        // negative timeout means exact delay (rather than delay between callbacks)
-        add_repeating_timer_us(-1000000 / hz, timer_callback, NULL, &m_timer);
+    //hz; // 44100;	//44000 //44100 //96000 //22050
+    // negative timeout means exact delay (rather than delay between callbacks)
+    add_repeating_timer_us(-1000000 / hz, timer_callback, NULL, &m_timer);
 }

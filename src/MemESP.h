@@ -47,7 +47,7 @@ visit https://zxespectrum.speccy.org/contacto
 // with gigascreen
 #define MEM_REMAIN (11*16*1024)
 #else
-#define MEM_REMAIN (6*16**1024)
+#define MEM_REMAIN (6*16*1024)
 #endif
 
 extern uint32_t MEM_PG_CNT;
