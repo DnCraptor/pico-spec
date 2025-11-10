@@ -162,6 +162,7 @@ IRAM_ATTR void OSD::click() {
 }
 void close_all(void);
 void OSD::esp_hard_reset() {
+    chip0.reset();
     close_all();
     watchdog_enable(1, true);
     while (true);
@@ -749,6 +750,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 Config::ram_file = NO_RAM_FILE;
             }
             Config::last_ram_file = NO_RAM_FILE;
+            chip0.reset();
             ESPectrum::reset();
         }
         else if (KeytoESP == fabgl::VK_F12) { // ESP32 reset
