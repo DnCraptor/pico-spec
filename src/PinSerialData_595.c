@@ -1,8 +1,10 @@
 #include <stdio.h>
-#include "hardware/clocks.h"
-#include "hardware/pwm.h"
-#include "hardware/timer.h"
-#include "pico/platform.h"
+#include <pico.h>
+#include <pico/platform.h>
+#include <hardware/clocks.h>
+#include <hardware/pwm.h>
+#include <hardware/timer.h>
+#include <hardware/structs/systick.h>
 #include "PinSerialData_595.h"
 
 static bool ts_595_enabled = false;
@@ -69,49 +71,34 @@ void Deinit_PWM_175() {
 	}
 }
 
+#define _30MHZ 30000000
+
+inline static void wait_to_adjust(uint32_t freq) {
+    freq = clock_get_hz(clk_sys) / (freq << 4);
+	for (int i = 0; i < freq; ++i) {
+		__asm volatile("nop");
+	}
+}
+
 void __not_in_flash_func(send_to_595)(uint16_t data) {
-	for(int i=0;i<16;i++){ 
-		//busy_wait_us(1);
-		gpio_put(CLK_595_PIN,0);
-		gpio_put(CLK_595_PIN,0);
-		gpio_put(CLK_595_PIN,0);
-		gpio_put(DATA_595_PIN,(0x8000&data));
+	gpio_put(CLK_595_PIN, 0);
+	wait_to_adjust(_30MHZ);
+	for(int i = 0; i < 16; ++i) { 
+		gpio_put(DATA_595_PIN, (0x8000 & data));
 		data <<= 1;
-		//busy_wait_us(1);
-		gpio_put(CLK_595_PIN,1);
-		gpio_put(CLK_595_PIN,1);
-		gpio_put(CLK_595_PIN,1);
+	    gpio_put(CLK_595_PIN, 1);
+		wait_to_adjust(_30MHZ);
+	    gpio_put(CLK_595_PIN, 0);
+		wait_to_adjust(_30MHZ);
 	}
-	gpio_put(LATCH_595_PIN,1);
-    gpio_put(LATCH_595_PIN,1);
-    gpio_put(LATCH_595_PIN,1);
-	busy_wait_us(1);
-    gpio_put(CLK_595_PIN,0);
-	gpio_put(CLK_595_PIN,0);
-    gpio_put(LATCH_595_PIN,0);
-	gpio_put(LATCH_595_PIN,0);
-
-
-	/*for(int i=0;i<16;i++){ 
-		//d_sleep_us(1);
-        gpio_put(CLK_595_PIN,0); 
-        gpio_put(CLK_595_PIN,0); 
-		gpio_put(DATA_595_PIN,(0x8000&data));
-        data <<= 1;
-		//d_sleep_us(1);
-        gpio_put(CLK_595_PIN,1);
-        gpio_put(CLK_595_PIN,1);
-	}
-    gpio_put(LATCH_595_PIN,1);
-    gpio_put(LATCH_595_PIN,1);
-	//d_sleep_us(1);
-    gpio_put(CLK_595_PIN,0);  
-    gpio_put(LATCH_595_PIN,0);
-	*/
+    gpio_put(LATCH_595_PIN, 1);
+	wait_to_adjust(_30MHZ);
+	gpio_put(LATCH_595_PIN, 0);
 }
 
 uint16_t control_bits = 0;
 
 void __not_in_flash_func(AY_to595Beep)(bool Beep){ 
-	if (Beep) {send_to_595( HIGH(Beeper)) ;} else {send_to_595( LOW(Beeper));};
+	if (Beep) send_to_595( HIGH(Beeper));
+	else send_to_595( LOW(Beeper));
 };
