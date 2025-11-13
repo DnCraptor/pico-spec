@@ -672,6 +672,7 @@ void AySound::setRegisterData(uint8_t data)
 
 void AySound::reset()
 {
+/*
     if (Config::audio_driver == 3) {
         if (this->my_num == 0) {
 		    send_to_595(HIGH(AY_RES)); // reset
@@ -680,7 +681,7 @@ void AySound::reset()
 		    send_to_595(HIGH(AY_Enable | CS_SAA1099 | CS_AY0 | Beeper | CS_AY1 | BDIR | BC1 | (SAVE)));
         }
     }
-
+*/
     cnt_a = cnt_b = cnt_c = cnt_n = cnt_e = 0;
     bit_a = bit_b = bit_c = bit_n = 0;
     env_pos = EnvNum = 0;

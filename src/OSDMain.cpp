@@ -59,23 +59,8 @@ visit https://zxespectrum.speccy.org/contacto
 
 #include <malloc.h>
 
-/**
-#ifndef ESP32_SDL2_WRAPPER
-#include "esp_system.h"
-#include "esp_ota_ops.h"
-#include "esp_efuse.h"
-#include "soc/efuse_reg.h"
+#include "PinSerialData_595.h"
 
-#include "fabgl.h"
-
-#include "soc/rtc_wdt.h"
-#include "esp_int_wdt.h"
-#include "esp_task_wdt.h"
-
-#include "freertos/FreeRTOS.h"
-#include "freertos/task.h"
-#endif
-*/
 #include <string>
 #include <cstdio>
 
@@ -162,7 +147,7 @@ IRAM_ATTR void OSD::click() {
 }
 void close_all(void);
 void OSD::esp_hard_reset() {
-    chip0.reset();
+    if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
     close_all();
     watchdog_enable(1, true);
     while (true);
@@ -423,8 +408,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
 #endif
     if (ALT) { // ALT + [key]
         if (KeytoESP == fabgl::VK_F1) { // Show mem info
+            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             OSD::HWInfo();
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
+            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         } else
         if (KeytoESP == fabgl::VK_F2) { // Turbo mode
             ESPectrum::multiplicator += 1;
@@ -434,22 +421,34 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             CPU::updateStatesInFrame();
         } else
         if (KeytoESP == fabgl::VK_F3) {
+            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             portReadBPDialog();
+            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         } else
         if (KeytoESP == fabgl::VK_F4) {
+            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             portWriteBPDialog();
+            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         }
         else if (KeytoESP == fabgl::VK_F5) {
+            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             osdDebug();
+            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         }
         else if (KeytoESP == fabgl::VK_F7) {
+            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             BPDialog();
+            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         } else
         if (KeytoESP == fabgl::VK_F8) {
+            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             jumpToDialog();
+            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         } else
         if (KeytoESP == fabgl::VK_F9) { // Input Poke
+            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             pokeDialog();
+            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         } else
         if (KeytoESP == fabgl::VK_F10) { // NMI
             Z80::triggerNMI();
@@ -548,6 +547,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
         else if (KeytoESP == fabgl::VK_F12) {
             /// TODO: close all files
             //close_all()
+            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             reset_usb_boot(0, 0);
             while(1);
         }
@@ -593,15 +593,18 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             for(int i = 1; i <= 40; ++i) {
                 menuload += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
             }
+            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             uint8_t opt2 = menuRun(menuload);
             if (opt2) {
                 persistLoad(opt2);
             }
+            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         }
         else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F4) {
             // Persist Save
             menu_level = 0;
             menu_curopt = 1;
+            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             while (1) {
                 string menusave = MENU_PERSIST_SAVE[Config::lang];
                 for(int i = 1; i <= 40; ++i) {
@@ -609,31 +612,43 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 }
                 uint8_t opt2 = menuRun(menusave);
                 if (opt2) {
-                    if (persistSave(opt2)) return;
+                    if (persistSave(opt2)) {
+                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                        return;
+                    }
                     menu_curopt = opt2;
-                } else break;
+                } else {
+                    break;
+                }
             }
+            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         }
         else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F5) {
             menu_level = 0;
             menu_saverect = false;
             string mFile = fileDialog(FileUtils::TAP_Path, MENU_TAP_TITLE[Config::lang],DISK_TAPFILE,51,22);
             if (mFile != "") {
+                if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
                 Config::save();
                 Tape::LoadTape(mFile);
+                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
             }
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
         }
         else if (KeytoESP == fabgl::VK_F6) {
             // Start / Stop .tap reproduction
-            if (Tape::tapeStatus == TAPE_STOPPED)
+            if (Tape::tapeStatus == TAPE_STOPPED) {
+                if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
                 Tape::Play();
-            else
+            } else {
                 Tape::Stop();
+                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+            }
             click();
         }
         else if (KeytoESP == fabgl::VK_F7) {
             // Tape Browser
+            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             if (Tape::tapeFileName=="none") {
                 OSD::osdCenteredMsg(OSD_TAPE_SELECT_ERR[Config::lang], LEVEL_WARN);
             } else {
@@ -646,6 +661,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     Tape::Stop();
                 }
             }
+            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         }
         else if (KeytoESP == fabgl::VK_F8) {
             // Show / hide OnScreen Stats
@@ -750,18 +766,20 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 Config::ram_file = NO_RAM_FILE;
             }
             Config::last_ram_file = NO_RAM_FILE;
-            chip0.reset();
+            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             ESPectrum::reset();
         }
         else if (KeytoESP == fabgl::VK_F12) { // ESP32 reset
             // ESP host reset
+            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             Config::ram_file = NO_RAM_FILE;
             Config::save();
             esp_hard_reset();
         }
         else if (KeytoESP == fabgl::VK_F1) {
-        menu_curopt = 1;
-        while(1) {
+          if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
+          menu_curopt = 1;
+          while(1) {
             // Main menu
             menu_saverect = false;
             menu_level = 0;
@@ -769,6 +787,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 (!FileUtils::fsMount ? MENU_MAIN_NO_SD[Config::lang] : MENU_MAIN[Config::lang])
             );
             if (opt == 1) { // Volume
+                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                 if (VIDEO::OSD == 0) {
                     if (Config::aspect_16_9)
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
@@ -796,7 +815,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 for (int i = 0; i < ESPectrum::aud_volume + 16; i++) {
                     VIDEO::vga.fillRect(x + 26 + (i * 7) , y + 1, 6, 7, zxColor( 7, 0));
                 }
-                    click();
+                click();
                 return;
             }
             else if (FileUtils::fsMount && opt == 2) { // Snapshots
@@ -838,7 +857,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 }
                                 uint8_t opt2 = menuRun(menuload);
                                 if (opt2) {
-                                    if (persistLoad(opt2)) return;
+                                    if (persistLoad(opt2)) {
+                                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                                        return;
+                                    }
                                     menu_saverect = false;
                                     menu_curopt = opt2;
                                 } else break;
@@ -855,7 +877,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 }
                                 uint8_t opt2 = menuRun(menusave);
                                 if (opt2) {
-                                    if (persistSave(opt2)) return;
+                                    if (persistSave(opt2)) {
+                                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                                        return;
+                                    }
                                     menu_saverect = false;
                                     menu_curopt = opt2;
                                 } else break;
@@ -889,19 +914,22 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                             if (mFile != "") {
                                 Config::save();
                                 Tape::LoadTape(mFile);
+                                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                 return;
                             }
                         }
                         else if (tap_num == 2) {
                             // Start / Stop .tap reproduction
-                            if (Tape::tapeStatus == TAPE_STOPPED)
+                            if (Tape::tapeStatus == TAPE_STOPPED) {
+                                if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
                                 Tape::Play();
-                            else
+                            } else {
                                 Tape::Stop();
+                                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                            }
                             return;
                         }
                         else if (tap_num == 3) {
-
                             // Tape Browser
                             if (Tape::tapeFileName=="none") {
                                 OSD::osdCenteredMsg(OSD_TAPE_SELECT_ERR[Config::lang], LEVEL_WARN);
@@ -917,6 +945,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     Tape::tapeCurBlock = tBlock;
                                     Tape::Stop();
                                 }
+                                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                 return;
                             }
                         }
@@ -1038,6 +1067,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 if (opt2 == 2) {
                                     wdDiskEject(&ESPectrum::fdd, dsk_num - 1);
                                     Config::save();
+                                    if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                     return;
                                 }
                             } else {
@@ -2224,6 +2254,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                             } else if (optjoy == 6) {
                                 joyDialog();
                                 if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
+                                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                 return;
                             } else {
                                 menu_curopt = 4;
@@ -2412,6 +2443,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 if (Config::lang != (opt2 - 1)) {
                                     Config::lang = opt2 - 1;
                                     Config::save();
+                                    if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                     return;
                                 }
                                 menu_curopt = opt2;
@@ -2862,10 +2894,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 } else {
                                     string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang], DISK_ROMFILE, 26, 15);
                                     if (mFile != "") {
+                                        if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
                                         mFile.erase(0, 1);
                                         string fname = FileUtils::ROM_Path + mFile;
                                         bool res = updateROM(fname, opt2 - 1);
-                                        if (res) return;
+                                        if (res) {
+                                            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                                            return;
+                                        }
                                     }
                                     menu_curopt = 1;
                                     menu_level = 2;
@@ -2892,26 +2928,33 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     uint8_t opt2 = menuRun(MENU_DEBUG_EN);
                     if (opt2 == 1) {
                         portReadBPDialog();
+                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
                     }
                     else if (opt2 == 2) {
                         portWriteBPDialog();
+                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
                     }
                     else if (opt2 == 3) {
                         OSD::osdDebug();
+                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
                     } else if (opt2 == 4) {
                         BPDialog();
+                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
                     } else if (opt2 == 5) {
                         jumpToDialog();
+                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
                     } else if (opt2 == 6) {
                         pokeDialog();
+                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
                     } else if (opt2 == 7) {
                         Z80::triggerNMI();
+                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
                     } else {
                         menu_curopt = FileUtils::fsMount ? 8 : 6;
@@ -2936,6 +2979,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 }
                 click();
                 if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
+                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                 return;
             }
             else if (FileUtils::fsMount && opt == 10 || opt == 8) { // About
@@ -3031,6 +3075,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 }
                 click();
                 if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
+                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                 return;
             }
 #if TFT
@@ -3092,7 +3137,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             }
 #endif
             else break;
-        }
+          }
+          if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         }
     }
 }
