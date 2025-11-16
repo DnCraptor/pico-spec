@@ -26,7 +26,7 @@ option(PICO_DV "RP2350-PICO-DV" OFF)
 option(ZERO "RP2040-PiZero" OFF)
 option(ZERO2 "RP2350-PiZero" OFF)
 
-set(FLASH_SIZE_GREEN ON)
+#set(FLASH_SIZE_GREEN ON)
 #set(m1p2launcher ON)
 
 set(VGA_HDMI ON)
@@ -40,12 +40,12 @@ set(VGA_HDMI ON)
 set(CPU_MHZ 378)
 set (PORT_VERSION "1.2.K")
 
-set (MURM ON)
+#set (MURM ON)
 #set (MURM2 ON)
 #set (PICO_PC ON)
 #set (PICO_DV ON)
 #set (ZERO ON)
-#set (ZERO2 ON)
+set (ZERO2 ON)
 
 set(KBDUSB ON)
 
@@ -537,11 +537,11 @@ ELSEIF(ZERO2)
         PSRAM_PIN_MISO=5
 
         # NES Gamepad
-        #USE_NESPAD
-        NES_GPIO_CLK=7
-        NES_GPIO_LAT=8
-        NES_GPIO_DATA=9
-        NES_GPIO_DATA2=10
+        USE_NESPAD
+        NES_GPIO_CLK=4
+        NES_GPIO_LAT=5
+        NES_GPIO_DATA=7
+        NES_GPIO_DATA2=8
 
         # VGA 8 pins starts from pin:
         VGA_BASE_PIN=32
