@@ -40,12 +40,12 @@ set(VGA_HDMI ON)
 set(CPU_MHZ 378)
 set (PORT_VERSION "1.2.K")
 
-#set (MURM ON)
+set (MURM ON)
 #set (MURM2 ON)
 #set (PICO_PC ON)
 #set (PICO_DV ON)
 #set (ZERO ON)
-set (ZERO2 ON)
+#set (ZERO2 ON)
 
 set(KBDUSB ON)
 
