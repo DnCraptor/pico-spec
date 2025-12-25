@@ -1005,7 +1005,9 @@ static void __not_in_flash_func(flash_info)() {
     }
 }
 
+#ifdef VGA_HDMI
 extern "C" uint8_t linkVGA01;
+#endif
 extern "C" int testPins(uint32_t pin0, uint32_t pin1);
 
 int main() {
@@ -1109,6 +1111,7 @@ int main() {
         gpio_put(PICO_DEFAULT_LED_PIN, false);
     }
     #endif
+    #ifdef VGA_HDMI
     linkVGA01 = testPins(VGA_BASE_PIN, VGA_BASE_PIN + 1);
     {
         FIL f;
@@ -1119,6 +1122,7 @@ int main() {
         f_write(&f, buf, strlen(buf), &bw);
         f_close(&f);
     }
+    #endif
 
     sem_init(&vga_start_semaphore, 0, 1);
     multicore_launch_core1(render_core);
