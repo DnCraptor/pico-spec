@@ -133,6 +133,9 @@ Your filesystem tree must be look like:
 ```
  - After building artifacts will be available in `pico-cpec/bin` directory
 
+## Contributing
+ This is a fork of [this repository](https://github.com/DnCraptor/pico-spec) . Please contribute there.
+
 ## Thanks to
 
 - [Original repo](https://github.com/EremusOne/ESPectrum)
