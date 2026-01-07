@@ -114,7 +114,9 @@ Finally, keep in mind that when updating the firmware, you will need to re-flash
  - Build.
 ### Linux
  - Install dependencies: build-essential, gcc-arm-none-eabi
- - Clone pico-sdk from [its repository](https://github.com/raspberrypi/pico-sdk) into directory near this project. Your filesystem tree must be look like:
+ - Clone pico-sdk from [its repository](https://github.com/raspberrypi/pico-sdk) into directory near this project.
+`git clone --recursive https://github.com/raspberrypi/pico-sdk`
+Your filesystem tree must be look like:
 ```
  Base folder
    |-- pico-sdk
