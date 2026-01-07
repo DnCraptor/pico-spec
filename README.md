@@ -121,9 +121,9 @@ Your filesystem tree must be look like:
  Base folder
    |-- pico-sdk
    |-- pico-spec
-        |-- Drivers
-        |-- Src
-        |-- Build
+        |-- build
+        |-- drivers
+        |-- src
 ```
  - Configule building options in `pico-spec/CMakeLists.txt` - pico board, video&audio output, etc.
  - Run building script:
