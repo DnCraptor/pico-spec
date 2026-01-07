@@ -131,7 +131,7 @@ Your filesystem tree must be look like:
  cd build
  ./build.sh
 ```
- - After building artifacts will be available in `pico-cpec/bin` directory
+ - After building artifacts will be available in `pico-spec/bin` directory
 
 ## Thanks to
 
