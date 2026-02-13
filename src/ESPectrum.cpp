@@ -173,6 +173,9 @@ uint32_t ESPectrum::audbufcntAY = 0;
 uint32_t ESPectrum::faudbufcntAY = 0;
 uint32_t ESPectrum::audbufcntCovox = 0;
 uint32_t ESPectrum::faudbufcntCovox = 0;
+uint8_t ESPectrum::audioBufferPIT[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
+uint32_t ESPectrum::audbufcntPIT = 0;
+uint32_t ESPectrum::faudbufcntPIT = 0;
 int ESPectrum::lastaudioBit = 0;
 int ESPectrum::lastCovoxVal = 0;
 int ESPectrum::faudioBit = 0;
@@ -714,6 +717,12 @@ void ESPectrum::setup()
     // Reset cpu
     CPU::reset();
 
+    // KR580VI53 (8253 PIT) — reset Byte synthesizer state
+    if (Z80Ops::isByte) {
+        memset(Ports::pitChannels, 0, sizeof(Ports::pitChannels));
+        memset(audioBufferPIT, 0, sizeof(audioBufferPIT));
+    }
+
     if (FileUtils::fsMount) {
         Config::load2();
     }
@@ -830,6 +839,12 @@ void ESPectrum::reset(uint8_t romInUse)
     chip1.reset();
 
     CPU::reset();
+
+    // KR580VI53 (8253 PIT) — reset Byte synthesizer state
+    if (Z80Ops::isByte) {
+        memset(Ports::pitChannels, 0, sizeof(Ports::pitChannels));
+        memset(audioBufferPIT, 0, sizeof(audioBufferPIT));
+    }
 }
 
 //=======================================================================================
@@ -1108,6 +1123,15 @@ IRAM_ATTR void ESPectrum::AYGetSample() {
     }
 }
 
+IRAM_ATTR void ESPectrum::PITGetSample() {
+    uint32_t audbufpos = CPU::tstates / audioAYDivider;
+    if (multiplicator) audbufpos >>= multiplicator;
+    if (audbufpos > audbufcntPIT) {
+        Ports::pitGenSound(audioBufferPIT + audbufcntPIT, audbufpos - audbufcntPIT);
+        audbufcntPIT = audbufpos;
+    }
+}
+
 // === Таймер ===
 bool __not_in_flash_func(ESPectrum::AY_timer_callback)(repeating_timer_t *rt)
 {
@@ -1188,6 +1212,7 @@ void ESPectrum::loop() {
     audbufcntover = 0;
     audbufcntAY = 0;
     audbufcntCovox = 0;
+    audbufcntPIT = 0;
 
     CPU::loop();
 
@@ -1196,6 +1221,7 @@ void ESPectrum::loop() {
     faudioBit = lastaudioBit;
     faudbufcntAY = audbufcntAY;
     faudbufcntCovox = audbufcntCovox;
+    faudbufcntPIT = audbufcntPIT;
     if (!CPU::paused) {
     #if LOAD_WAV_PIO
         if (Config::real_player) {
@@ -1231,13 +1257,17 @@ void ESPectrum::loop() {
                 *sound_buf++ = lastCovoxVal;
             }
         }
+        // KR580VI53 (8253 PIT) — complete buffer for remaining frame
+        if (Z80Ops::isByte && faudbufcntPIT < samplesPerFrame) {
+            Ports::pitGenSound(audioBufferPIT + faudbufcntPIT, samplesPerFrame - faudbufcntPIT);
+        }
         if (AY_emu) {
             if (faudbufcntAY < samplesPerFrame) {
                 if(Config::turbosound != 0 || AySound::selected_chip == 0) chip0.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
                 if(Config::turbosound != 0 || AySound::selected_chip == 1) chip1.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
             }
             for (int i = 0; i < samplesPerFrame; i++) {
-                int beeper_L = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i];
+                int beeper_L = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i] + audioBufferPIT[i];
                 int beeper_R = beeper_L;
                 if(Config::turbosound != 0 || AySound::selected_chip == 0) {
                     beeper_L += chip0.SamplebufAY_L[i];
@@ -1252,9 +1282,9 @@ void ESPectrum::loop() {
             }
         } else {
             for (int i = 0; i < samplesPerFrame; i++) {
-                auto v = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i];
-                audioBuffer_L[i] = v;
-                audioBuffer_R[i] = v;
+                int v = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i] + audioBufferPIT[i];
+                audioBuffer_L[i] = v > 255 ? 255 : v;
+                audioBuffer_R[i] = v > 255 ? 255 : v;
             }
         }
       }

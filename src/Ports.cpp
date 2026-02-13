@@ -68,6 +68,7 @@ uint8_t Ports::speaker_values[8]={ 0, 19, 34, 53, 97, 101, 130, 134 };
 uint8_t Ports::port[128];
 uint8_t Ports::port254 = 0;
 uint8_t Ports::portAFF7 = 0;
+Ports::PIT8253Channel Ports::pitChannels[3] = {};
 
 uint8_t (*Ports::getFloatBusData)() = &Ports::getFloatBusData48;
 
@@ -385,6 +386,33 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
             VIDEO::Draw(3, !Z80Ops::isPentagon);   // I/O Contention (Late)
             return;
         }
+        // KR580VI53 (8253 PIT) — Byte computer synthesizer =========================
+        if (Z80Ops::isByte && (a8 & 0x9F) == 0x8E) {
+            uint8_t synthPort = (a8 >> 5) & 3;
+            if (synthPort == 3) {
+                // Control register (0xEE) — parse 8253 control word
+                uint8_t ch = (data >> 6) & 3;
+                if (ch < 3) {
+                    pitChannels[ch].lsb_loaded = false;
+                    pitChannels[ch].counter = 0;
+                    pitChannels[ch].output = 0;
+                }
+            } else {
+                // Data port (0x8E/0xAE/0xCE) — LSB then MSB load
+                PIT8253Channel &pit = pitChannels[synthPort];
+                if (!pit.lsb_loaded) {
+                    pit.lsb = data;
+                    pit.lsb_loaded = true;
+                } else {
+                    ESPectrum::PITGetSample();
+                    pit.count_value = pit.lsb | (data << 8);
+                    pit.counter = 0;
+                    pit.output = 1;
+                    pit.active = pit.count_value >= 2;
+                    pit.lsb_loaded = false;
+                }
+            }
+        }
         VIDEO::Draw(3, !Z80Ops::isPentagon);   // I/O Contention (Late)
     } else {
         int covox = Config::covox;
@@ -513,6 +541,32 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
                 VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct() : MemESP::ram[5].direct();
             }
         }
+    }
+}
+
+// KR580VI53 (8253 PIT) square wave generator
+// PIT clock = CPU clock / 2 = 1.75 MHz
+// Mode 3: output toggles every count_value/2 PIT clock ticks
+IRAM_ATTR void Ports::pitGenSound(uint8_t* buf, int bufsize) {
+    const int PIT_TICKS_PER_SAMPLE = ESPectrum::audioAYDivider >> 1; // ~56
+    const int PIT_CHANNEL_AMP = 28;
+
+    while (bufsize-- > 0) {
+        int mix = 0;
+        for (int ch = 0; ch < 3; ch++) {
+            if (!pitChannels[ch].active || pitChannels[ch].count_value < 2) continue;
+            int high_count = 0;
+            int half = pitChannels[ch].count_value >> 1;
+            for (int m = 0; m < PIT_TICKS_PER_SAMPLE; m++) {
+                if (++pitChannels[ch].counter >= half) {
+                    pitChannels[ch].counter = 0;
+                    pitChannels[ch].output ^= 1;
+                }
+                high_count += pitChannels[ch].output;
+            }
+            mix += high_count * PIT_CHANNEL_AMP / PIT_TICKS_PER_SAMPLE;
+        }
+        *buf++ = mix;
     }
 }
 
