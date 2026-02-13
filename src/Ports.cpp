@@ -545,10 +545,10 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
 }
 
 // KR580VI53 (8253 PIT) square wave generator
-// PIT clock = CPU clock / 2 = 1.75 MHz
+// PIT clock = CPU clock = 3.5 MHz (verified: divisor 5602 → 624.7 Hz)
 // Mode 3: output toggles every count_value/2 PIT clock ticks
 IRAM_ATTR void Ports::pitGenSound(uint8_t* buf, int bufsize) {
-    const int PIT_TICKS_PER_SAMPLE = ESPectrum::audioAYDivider >> 1; // ~56
+    const int PIT_TICKS_PER_SAMPLE = ESPectrum::audioAYDivider; // ~112 (3.5 MHz / 31.25 kHz)
     const int PIT_CHANNEL_AMP = 28;
 
     while (bufsize-- > 0) {

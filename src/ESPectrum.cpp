@@ -717,10 +717,19 @@ void ESPectrum::setup()
     // Reset cpu
     CPU::reset();
 
-    // KR580VI53 (8253 PIT) — reset Byte synthesizer state
+    // KR580VI53 (8253 PIT) — power-on state: all 3 channels active
+    // Mode 3 (square wave), divisor 5602 → 624.7 Hz buzzing
+    // The Byte ROM silences them during BASIC init
     if (Z80Ops::isByte) {
-        memset(Ports::pitChannels, 0, sizeof(Ports::pitChannels));
         memset(audioBufferPIT, 0, sizeof(audioBufferPIT));
+        for (int i = 0; i < 3; i++) {
+            Ports::pitChannels[i].count_value = 5602;
+            Ports::pitChannels[i].counter = 0;
+            Ports::pitChannels[i].output = 1;
+            Ports::pitChannels[i].lsb = 0;
+            Ports::pitChannels[i].lsb_loaded = false;
+            Ports::pitChannels[i].active = true;
+        }
     }
 
     if (FileUtils::fsMount) {
@@ -840,10 +849,19 @@ void ESPectrum::reset(uint8_t romInUse)
 
     CPU::reset();
 
-    // KR580VI53 (8253 PIT) — reset Byte synthesizer state
+    // KR580VI53 (8253 PIT) — power-on state: all 3 channels active
+    // Mode 3 (square wave), divisor 5602 → 624.7 Hz buzzing
+    // The Byte ROM silences them during BASIC init
     if (Z80Ops::isByte) {
-        memset(Ports::pitChannels, 0, sizeof(Ports::pitChannels));
         memset(audioBufferPIT, 0, sizeof(audioBufferPIT));
+        for (int i = 0; i < 3; i++) {
+            Ports::pitChannels[i].count_value = 5602;
+            Ports::pitChannels[i].counter = 0;
+            Ports::pitChannels[i].output = 1;
+            Ports::pitChannels[i].lsb = 0;
+            Ports::pitChannels[i].lsb_loaded = false;
+            Ports::pitChannels[i].active = true;
+        }
     }
 }
 
