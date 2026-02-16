@@ -709,6 +709,8 @@ void ESPectrum::setup() {
     Audio_freq = ESP_AUDIO_FREQ_PENTAGON;
   }
 
+  audioCOVOXDivider = audioAYDivider;
+
   init_sound();
   pcm_setup(Audio_freq);
 
@@ -865,6 +867,8 @@ void ESPectrum::reset(uint8_t romInUse) {
     AY_emu = Config::AY48;
     Audio_freq = ESP_AUDIO_FREQ_PENTAGON;
   }
+
+  audioCOVOXDivider = audioAYDivider;
 
   init_sound();
   pcm_setup(Audio_freq);
