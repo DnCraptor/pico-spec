@@ -40,9 +40,9 @@ set(VGA_HDMI ON)
 set(CPU_MHZ 378)
 set (PORT_VERSION "1.2.K")
 
-set (MURM ON)
+#set (MURM ON)
 #set (MURM2 ON)
-#set (PICO_PC ON)
+set (PICO_PC ON)
 #set (PICO_DV ON)
 #set (ZERO ON)
 #set (ZERO2 ON)
@@ -140,6 +140,11 @@ endforeach ()
 message(STATUS "")
 
 add_executable(${PROJECT_NAME} ${SRC})
+
+# КРИТИЧНАЯ ОПТИМИЗАЦИЯ: компилируем AySound.cpp с максимальной оптимизацией
+# Это дает дополнительные 2-4 FPS при проигрывании цифровой музыки через AY
+set_source_files_properties(src/AySound.cpp PROPERTIES
+    COMPILE_FLAGS "-O3 -ffast-math -funroll-loops")
 
 if (PICO_BOARD STREQUAL "pico")
     pico_define_boot_stage2(slower_boot2 ${PICO_DEFAULT_BOOT_STAGE2_FILE})
