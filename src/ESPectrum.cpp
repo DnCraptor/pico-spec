@@ -1183,7 +1183,7 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
   }
 }
 
-IRAM_ATTR void ESPectrum::BeeperGetSample() {
+__not_in_flash("audio") void ESPectrum::BeeperGetSample() {
   uint32_t audbufpos = CPU::tstates / audioOverSampleDivider;
   if (multiplicator)
     audbufpos >>= multiplicator;
@@ -1197,7 +1197,7 @@ IRAM_ATTR void ESPectrum::BeeperGetSample() {
   }
 }
 
-IRAM_ATTR void ESPectrum::CovoxGetSample() {
+__not_in_flash("audio") void ESPectrum::CovoxGetSample() {
   uint32_t audbufpos = CPU::tstates / audioCOVOXDivider;
   if (multiplicator)
     audbufpos >>= multiplicator;
