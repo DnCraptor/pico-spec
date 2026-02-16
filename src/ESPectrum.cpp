@@ -1211,8 +1211,8 @@ IRAM_ATTR void ESPectrum::CovoxGetSample() {
   }
 }
 
-IRAM_ATTR void ESPectrum::AYGetSample() {
-  uint32_t audbufpos = CPU::tstates / audioAYDivider;
+__not_in_flash("audio") void ESPectrum::AYGetSample() {
+  uint32_t audbufpos = CPU::tstates >> 7; // /128 instead of /112 — fast shift for AY buffer position
     if (multiplicator) audbufpos >>= multiplicator;
     if (audbufpos > audbufcntAY) {
         chip0.gen_sound(audbufpos - audbufcntAY, audbufcntAY);
@@ -1222,8 +1222,8 @@ IRAM_ATTR void ESPectrum::AYGetSample() {
   }
 }
 
-IRAM_ATTR void ESPectrum::PITGetSample() {
-  uint32_t audbufpos = CPU::tstates / audioAYDivider;
+__not_in_flash("audio") void ESPectrum::PITGetSample() {
+  uint32_t audbufpos = CPU::tstates >> 7; // /128 instead of /112 — fast shift for PIT buffer position
   if (multiplicator)
     audbufpos >>= multiplicator;
   if (audbufpos > audbufcntPIT) {
