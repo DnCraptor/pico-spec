@@ -208,11 +208,23 @@ volatile int16_t* pcm_end_callback(volatile size_t* size) {
     return NULL;
 }
 
-static int16_t buff_L[640] = { 0 };
-static int16_t buff_R[640] = { 0 };
-static repeating_timer_t m_timer = { 0 };
-static volatile size_t m_off = 0; // in 16-bit words
-static volatile size_t m_size = 0; // 16-bit values prepared (available)
+// Double buffering: Core 0 writes to one buffer, Core 1 reads from the other
+static int16_t buff_L[2][640] = {0};
+static int16_t buff_R[2][640] = {0};
+static repeating_timer_t m_timer = {0};
+
+// Cross-core synchronization
+static volatile int pending_buf = -1;      // Core 0 signals ready buffer index (-1 = none)
+static volatile size_t pending_size = 0;   // size of pending buffer
+
+// Core 0 only
+static int write_buf_idx = 0;
+
+// Core 1 only
+static int read_buf_idx = 1;
+static size_t read_off = 0;
+static size_t read_size = 0;
+
 static volatile bool m_let_process_it = false;
 
 esp_err_t pwm_audio_write(
@@ -222,13 +234,20 @@ esp_err_t pwm_audio_write(
     size_t* bytes_written,
     uint32_t wait_ms
 ) {
+    // Wait for Core 1 to pick up previous buffer (typically <32us)
+    while (pending_buf >= 0) tight_loop_contents();
+
+    int wb = write_buf_idx;
     int16_t volume = vol;
     for (size_t i = 0; i < len; ++i) {
-        buff_L[i] = (((int16_t)bufL[i]) << 7) * volume / VOLUME_0DB;
-        buff_R[i] = (((int16_t)bufR[i]) << 7) * volume / VOLUME_0DB;
+        buff_L[wb][i] = (((int16_t)bufL[i]) << 7) * volume / VOLUME_0DB;
+        buff_R[wb][i] = (((int16_t)bufR[i]) << 7) * volume / VOLUME_0DB;
     }
-    m_off = 0;
-    m_size = len;
+    __dmb();  // ensure buffer writes are visible before signaling Core 1
+    pending_size = len;
+    pending_buf = wb;           // signal Core 1: new buffer ready
+    write_buf_idx = 1 - wb;    // next frame writes to the other buffer
+
     if (bytes_written) *bytes_written = len;
     return ESP_OK;
 }
@@ -328,40 +347,50 @@ void pcm_call() {
         return;
     }
     m_let_process_it = false;
+
+    // Check if Core 0 has a new buffer ready
+    int pb = pending_buf;
+    if (pb >= 0) {
+        read_buf_idx = pb;
+        read_off = 0;
+        read_size = pending_size;
+        __dmb();
+        pending_buf = -1;  // acknowledge — Core 0 can now write to the other buffer
+    }
+
     if (Config::audio_driver == 3) {
 /// TODO:
     }
     else if (is_i2s_enabled) {
         static int16_t v32[2];
-        if (m_off < m_size) {
-            v32[0] = *(buff_R + m_off);
-            v32[1] = *(buff_L + m_off);
-            ++m_off;
+        if (read_off < read_size) {
+            v32[0] = buff_R[read_buf_idx][read_off];
+            v32[1] = buff_L[read_buf_idx][read_off];
+            ++read_off;
         }
         i2s_write(&i2s_config, v32, 1);
-        // i2s_dma_write(&i2s_config, v32);
     } else {
         uint16_t outL = 0;
         uint16_t outR = 0;
-        if (m_off < m_size) {
-            int16_t* b_L = buff_L + m_off;
-            int16_t* b_R = buff_R + m_off;
-            uint32_t x = ((int32_t)*b_L) + 0x8000;
-            outL = x >> 8; // 4
-            ++m_off;
-            x = ((int32_t)*b_R) + 0x8000;
-            outR = x >> 8;///4;
+        if (read_off < read_size) {
+            uint32_t x = ((int32_t)buff_L[read_buf_idx][read_off]) + 0x8000;
+            outL = x >> 8;
+            x = ((int32_t)buff_R[read_buf_idx][read_off]) + 0x8000;
+            outR = x >> 8;
+            ++read_off;
         } else {
             return;
         }
         pwm_set_gpio_level(PWM_PIN0, outR); // Право
         pwm_set_gpio_level(PWM_PIN1, outL); // Лево
     }
-    return;
 }
 
 void pcm_cleanup(void) {
     m_let_process_it = false;
+    pending_buf = -1;
+    read_off = 0;
+    read_size = 0;
     cancel_repeating_timer(&m_timer);
     m_timer.delay_us = 0;
     if (Config::audio_driver == 3) {
