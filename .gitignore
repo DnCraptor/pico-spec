@@ -1,4 +1,5 @@
 .vscode
+.cache
 bin
 build
 drew.todo

@@ -553,9 +553,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
         else if (KeytoESP == fabgl::VK_PAGEUP) {
             if (Config::gigascreen_enabled)
             {
-                VIDEO::gigascreen_enabled = !VIDEO::gigascreen_enabled;
+                Config::gigascreen_onoff = !Config::gigascreen_onoff;
+                VIDEO::gigascreen_enabled = Config::gigascreen_onoff;
                 std::string menu = VIDEO::gigascreen_enabled ? OSD_GIGASCREEN_ON[Config::lang] : OSD_GIGASCREEN_OFF[Config::lang];
                 osdCenteredMsg(menu, LEVEL_INFO, 500);
+                Config::save();
             }
         }
     } else {
