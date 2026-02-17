@@ -83,6 +83,7 @@ public:
     const static bool     aspect_16_9; /// TODO:
     static uint8_t  lang;
     static bool     AY48;
+    static bool     SAA1099;
     static bool     Issue2;    
     static bool     flashload;    
     static bool     tape_player;
