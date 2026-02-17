@@ -423,22 +423,39 @@ static const char *MENU_UPDATE_FW[2] = { MENU_UPDATE_EN, MENU_UPDATE_ES };
 	"Firmware       [ALT+F12]\n"
 static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE_NO_SD_ES };
 
-#define MENU_VIDEO_EN \
-    "Video\n"\
-	"Mode\t>\n"\
-    "Render type\t>\n"\
-    "Aspect Ratio\t>\n"\
-    "Scanlines\t>\n"\
-	"V-Sync\t>\n"\
-	"Gigascreen (No Flick)\t>\n"
-#define MENU_VIDEO_ES \
-    "Video\n"\
-	"Modo\t>\n"\
-    "Tipo render\t>\n"\
-	"Relaci" "\xA2" "n de aspecto\t>\n"\
-    "Scanlines\t>\n"\
-	"V-Sync\t>\n"\
-	"Gigascreen (No Flick)\t>\n"
+#if !PICO_RP2040
+	#define MENU_VIDEO_EN \
+		"Video\n"\
+		"Mode\t>\n"\
+		"Render type\t>\n"\
+		"Aspect Ratio\t>\n"\
+		"Scanlines\t>\n"\
+		"V-Sync\t>\n"\
+		"Gigascreen (No Flick)\t>\n"
+	#define MENU_VIDEO_ES \
+		"Video\n"\
+		"Modo\t>\n"\
+		"Tipo render\t>\n"\
+		"Relaci" "\xA2" "n de aspecto\t>\n"\
+		"Scanlines\t>\n"\
+		"V-Sync\t>\n"\
+		"Gigascreen (No Flick)\t>\n"
+#else
+	#define MENU_VIDEO_EN \
+		"Video\n"\
+		"Mode\t>\n"\
+		"Render type\t>\n"\
+		"Aspect Ratio\t>\n"\
+		"Scanlines\t>\n"\
+		"V-Sync\t>\n"
+	#define MENU_VIDEO_ES \
+		"Video\n"\
+		"Modo\t>\n"\
+		"Tipo render\t>\n"\
+		"Relaci" "\xA2" "n de aspecto\t>\n"\
+		"Scanlines\t>\n"\
+		"V-Sync\t>\n"
+#endif
 static const char *MENU_VIDEO[2] = { MENU_VIDEO_EN, MENU_VIDEO_ES };
 
 #define MENU_VIDEO_MODE_EN \
