@@ -2,4 +2,6 @@
 .cache
 bin
 build
+build-*
+firmware
 drew.todo
