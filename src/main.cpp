@@ -1005,6 +1005,11 @@ static void __not_in_flash_func(flash_info)() {
     }
 }
 
+#ifdef VGA_HDMI
+extern "C" uint8_t linkVGA01;
+#endif
+extern "C" int testPins(uint32_t pin0, uint32_t pin1);
+
 int main() {
     flash_info();
 #ifdef PICO_RP2040
@@ -1084,11 +1089,14 @@ int main() {
 #endif
 
 #if PICO_RP2350
-    if (psram_pin != PSRAM_PIN_SCK)
+    if (butter_psram_size() == 0 || psram_pin != PSRAM_PIN_SCK) {
 #endif
     #ifndef MURM2
         init_psram();
     #endif
+#if PICO_RP2350
+    }
+#endif
     // send kbd reset only after initial process passed
 #ifndef KBDUSB
     keyboard_send(0xFF);
@@ -1103,6 +1111,19 @@ int main() {
         gpio_put(PICO_DEFAULT_LED_PIN, false);
     }
     #endif
+    #ifdef VGA_HDMI
+    linkVGA01 = testPins(VGA_BASE_PIN, VGA_BASE_PIN + 1);
+    {
+        FIL f;
+        f_open(&f, "/spec/video_detect.code", FA_WRITE | FA_CREATE_ALWAYS);
+        char buf[16] = {0};
+        snprintf(buf, 16, "%02Xh\n", linkVGA01);
+        UINT bw;
+        f_write(&f, buf, strlen(buf), &bw);
+        f_close(&f);
+    }
+    #endif
+
     sem_init(&vga_start_semaphore, 0, 1);
     multicore_launch_core1(render_core);
     sem_release(&vga_start_semaphore);

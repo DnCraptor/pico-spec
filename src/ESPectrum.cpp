@@ -1,5 +1,4 @@
 /*
-
 ESPectrum, a Sinclair ZX Spectrum emulator for Espressif ESP32 SoC
 
 Copyright (c) 2023, 2024 Víctor Iborra [Eremus] and 2023 David Crespo
@@ -30,7 +29,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 To Contact the dev team you can write to zxespectrum@gmail.com or
 visit https://zxespectrum.speccy.org/contacto
-
 */
 
 #include <hardware/watchdog.h>
@@ -62,6 +60,8 @@ visit https://zxespectrum.speccy.org/contacto
 #include "ps2.h"
 #endif
 
+#include "PinSerialData_595.h"
+
 using namespace std;
 
 extern size_t getFreeHeap(void);
@@ -84,7 +84,6 @@ volatile static fabgl::VirtualKey last_key_pressed = fabgl::VirtualKey::VK_NONE;
 fabgl::VirtualKey get_last_key_pressed(void) { return last_key_pressed; }
 
 void close_all(void) {
-  f_unlink(MOS_FILE);
 #ifdef BUTTER_PSRAM_GPIO
   if (butter_psram_size()) {
     memset((void *)PSRAM_DATA, 0, butter_psram_size());
