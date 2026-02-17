@@ -608,7 +608,8 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
 	"AY-3-8912 Stereo\t>\n"\
     "TurboSound\t>\n"\
     "Covox\t>\n"\
-    "Audio Driver\t>\n"
+    "Audio Driver\t>\n"\
+    "SAA1099 ON/OFF\t>\n"
 #define MENU_OTHER_ES "Otros\n"\
     "AY-3-8912 ON/OFF\t>\n"\
     "Temporizaci" "\xA2" "n ULA\t>\n"\
@@ -620,10 +621,13 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
     "AY-3-8912 Est" "\x82" "reo\t>\n" \
     "TurboSound\t>\n"\
     "Covox\t>\n"\
-    "Controlador de audio\t>\n"
+    "Controlador de audio\t>\n"\
+    "SAA1099 ON/OFF\t>\n"
 static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
 
 static const char *MENU_AY48[2] = { "Turned on?\n" , "Turned on?\n"};
+
+static const char *MENU_SAA1099[2] = { "Turned on?\n" , "Turned on?\n"};
 
 #define MENU_KBD2NDPS2_EN "Enable\n"\
     "No\t[N]\n"\

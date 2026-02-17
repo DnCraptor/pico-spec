@@ -324,9 +324,11 @@ void VIDEO::Init() {
 
     precalcborder32();  // Precalc border 32 bits values
 
-    VIDEO::gigascreen_enabled = Config::gigascreen_enabled;
-    if (VIDEO::gigascreen_enabled)
+    if (Config::gigascreen_enabled)
+    {
+        VIDEO::gigascreen_enabled = Config::gigascreen_onoff;
         InitPrevBuffer();   // For Gigascreen
+    }
 
 ///    SaveRect = (uint32_t *) SAVE_RECT; ///heap_caps_malloc(0x9000, MALLOC_CAP_INTERNAL | MALLOC_CAP_32BIT);
 

@@ -30,6 +30,7 @@ const bool     Config::aspect_16_9 = false;
 ///uint8_t  Config::esp32rev = 0;
 uint8_t  Config::lang = 0;
 bool     Config::AY48 = true;
+bool     Config::SAA1099 = false;
 bool     Config::Issue2 = true;
 bool     Config::flashload = true;
 bool     Config::tape_player = false; // Tape player mode
@@ -86,6 +87,7 @@ int      Config::hdmi_video_mode = 0;
 int      Config::vga_video_mode = 0;
 bool     Config::v_sync_enabled = false;
 bool     Config::gigascreen_enabled = false;
+bool     Config::gigascreen_onoff = false;
 uint8_t  Config::audio_driver = 0;
 extern "C" uint8_t  video_driver = 0;
 bool     Config::byte_cobmect_mode = false;
@@ -317,6 +319,7 @@ void Config::load() {
         nvs_get_str("pref_romSetP1M", pref_romSetP1M, sts);
         nvs_get_str("ram", ram_file, sts);
         nvs_get_b("AY48", AY48, sts);
+        nvs_get_b("SAA1099", SAA1099, sts);
         nvs_get_b("Issue2", Issue2, sts);
         nvs_get_b("flashload", flashload, sts);
         nvs_get_b("rightSpace", rightSpace, sts);
@@ -383,6 +386,7 @@ void Config::load() {
         nvs_get_b("v_sync_enabled", v_sync_enabled, sts);
         #if PICO_RP2350
         nvs_get_b("gigascreen_enabled", gigascreen_enabled, sts);
+        nvs_get_b("gigascreen_onoff", gigascreen_onoff, sts);
         #endif
         std::string v;
         nvs_get_str("audio_driver", v, sts);
@@ -460,6 +464,7 @@ void Config::save() {
 ///        nvs_set_str(handle,"asp169",aspect_16_9 ? "true" : "false");
         nvs_set_u8(handle,"language", Config::lang);
         nvs_set_str(handle,"AY48", AY48 ? "true" : "false");
+        nvs_set_str(handle,"SAA1099", SAA1099 ? "true" : "false");
         nvs_set_u8(handle,"ayConfig", Config::ayConfig);
         nvs_set_u8(handle,"turbosound", Config::turbosound);
         nvs_set_u8(handle,"covox", Config::covox);
@@ -518,6 +523,7 @@ void Config::save() {
         nvs_set_i(handle,"vga_video_mode",Config::vga_video_mode);
         nvs_set_str(handle,"v_sync_enabled", Config::v_sync_enabled ? "true" : "false");
         nvs_set_str(handle,"gigascreen_enabled", Config::gigascreen_enabled ? "true" : "false");
+        nvs_set_str(handle,"gigascreen_onoff", Config::gigascreen_onoff ? "true" : "false");
         nvs_set_str(handle,"audio_driver", Config::audio_driver == 0 ? "auto" :
             (Config::audio_driver == 1) ? "pwm" : ((Config::audio_driver == 2) ? "i2s" : "ay")
         );

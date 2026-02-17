@@ -83,6 +83,7 @@ public:
     const static bool     aspect_16_9; /// TODO:
     static uint8_t  lang;
     static bool     AY48;
+    static bool     SAA1099;
     static bool     Issue2;    
     static bool     flashload;    
     static bool     tape_player;
@@ -123,6 +124,7 @@ public:
     static int vga_video_mode;
     static bool v_sync_enabled;
     static bool gigascreen_enabled;
+    static bool gigascreen_onoff;
     static uint8_t audio_driver;
     static bool byte_cobmect_mode;
 };
