@@ -30,6 +30,7 @@ const bool     Config::aspect_16_9 = false;
 ///uint8_t  Config::esp32rev = 0;
 uint8_t  Config::lang = 0;
 bool     Config::AY48 = true;
+bool     Config::SAA1099 = false;
 bool     Config::Issue2 = true;
 bool     Config::flashload = true;
 bool     Config::tape_player = false; // Tape player mode
@@ -318,6 +319,7 @@ void Config::load() {
         nvs_get_str("pref_romSetP1M", pref_romSetP1M, sts);
         nvs_get_str("ram", ram_file, sts);
         nvs_get_b("AY48", AY48, sts);
+        nvs_get_b("SAA1099", SAA1099, sts);
         nvs_get_b("Issue2", Issue2, sts);
         nvs_get_b("flashload", flashload, sts);
         nvs_get_b("rightSpace", rightSpace, sts);
@@ -462,6 +464,7 @@ void Config::save() {
 ///        nvs_set_str(handle,"asp169",aspect_16_9 ? "true" : "false");
         nvs_set_u8(handle,"language", Config::lang);
         nvs_set_str(handle,"AY48", AY48 ? "true" : "false");
+        nvs_set_str(handle,"SAA1099", SAA1099 ? "true" : "false");
         nvs_set_u8(handle,"ayConfig", Config::ayConfig);
         nvs_set_u8(handle,"turbosound", Config::turbosound);
         nvs_set_u8(handle,"covox", Config::covox);

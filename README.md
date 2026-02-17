@@ -37,6 +37,7 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - Murmuzavr (up to 32 MB) support.
 - Contended memory and contended I/O emulation.
 - AY-3-8912 / TurboSound emulation.
+- SAA1099 sound chip emulation (https://en.wikipedia.org/wiki/Philips_SAA1099).
 - Beeper & Mic emulation (Cobra’s Arc).
 - Dual keyboard support: you can connect two devices: first using PS/2 protocol and second using USB at the same time.
 - PS/2 Joystick emulation (Cursor, Sinclair, Kempston and Fuller).
@@ -52,6 +53,13 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - Complete OSD menu in two languages: English & Spanish.
 - BMP screen capture to SD Card (thanks David Crespo 😉).
 
+## Byte Emulation Details (https://zxbyte.org/)
+
+- 48K ROM
+- 128K ROM + TR-DOS
+- 128K ROM + TR-DOS + Mr. Gluk Reset Service
+- Sovmest (COBMECT) Mode (more accurate emulation of a real ZX Spectrum 48/128)
+- Support for the KR580VI53 (a clone of the Intel 8253) three-channel timer
 
 ## Installing
 

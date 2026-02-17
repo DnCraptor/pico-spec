@@ -38,6 +38,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include <string>
 
 #include "AySound.h"
+#include "SAASound.h"
 #include "CPU.h"
 #include "Config.h"
 #include "ESPectrum.h"
@@ -190,6 +191,9 @@ int ESPectrum::lastCovoxVal = 0;
 int ESPectrum::faudioBit = 0;
 int ESPectrum::samplesPerFrame;
 bool ESPectrum::AY_emu = false;
+bool ESPectrum::SAA_emu = false;
+uint32_t ESPectrum::audbufcntSAA = 0;
+uint32_t ESPectrum::faudbufcntSAA = 0;
 int ESPectrum::Audio_freq = 44000;
 unsigned char ESPectrum::audioSampleDivider;
 unsigned char ESPectrum::audioAYDivider;
@@ -692,6 +696,7 @@ void ESPectrum::setup() {
     audioAYDivider = ESP_AUDIO_AY_DIV_48;
     audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;
     AY_emu = Config::AY48;
+    SAA_emu = Config::SAA1099;
     Audio_freq = ESP_AUDIO_FREQ_48;
   } else if (Config::arch == "128K" || Config::arch == "ALF") {
     samplesPerFrame = ESP_AUDIO_SAMPLES_128;
@@ -699,6 +704,7 @@ void ESPectrum::setup() {
     audioAYDivider = ESP_AUDIO_AY_DIV_128;
     audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
     AY_emu = Config::AY48;
+    SAA_emu = Config::SAA1099;
     Audio_freq = ESP_AUDIO_FREQ_128;
   } else { /// if (Config::arch == "P512" || Config::arch == "Pentagon") {
     samplesPerFrame = ESP_AUDIO_SAMPLES_PENTAGON;
@@ -706,6 +712,7 @@ void ESPectrum::setup() {
     audioAYDivider = ESP_AUDIO_AY_DIV_PENTAGON;
     audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_PENTAGON;
     AY_emu = Config::AY48;
+    SAA_emu = Config::SAA1099;
     Audio_freq = ESP_AUDIO_FREQ_PENTAGON;
   }
 
@@ -716,6 +723,7 @@ void ESPectrum::setup() {
 
   if (Config::tape_player) {
     AY_emu = false; // Disable AY emulation if tape player mode is set
+    SAA_emu = false;
     ESPectrum::aud_volume = ESP_VOLUME_MAX;
   } else
     ESPectrum::aud_volume = Config::aud_volume;
@@ -731,6 +739,11 @@ void ESPectrum::setup() {
   chip1.set_sound_format(Audio_freq, 1, 8);
   chip1.set_stereo(AYEMU_MONO, NULL);
   chip1.reset();
+
+  // SAA1099 Sound
+  saaChip.init();
+  saaChip.set_sound_format(Audio_freq, 1, 8);
+  saaChip.reset();
 
   // Init tape
   Tape::Init();
@@ -842,6 +855,8 @@ void ESPectrum::reset(uint8_t romInUse) {
   memset(audioBufferCovox, 0, sizeof(audioBufferCovox));
   memset(chip0.SamplebufAY_L, 0, sizeof(chip0.SamplebufAY_L));
   memset(chip1.SamplebufAY_R, 0, sizeof(chip1.SamplebufAY_R));
+  memset(saaChip.SamplebufSAA_L, 0, sizeof(saaChip.SamplebufSAA_L));
+  memset(saaChip.SamplebufSAA_R, 0, sizeof(saaChip.SamplebufSAA_R));
   lastCovoxVal = lastaudioBit = 0;
 
   // Set samples per frame and AY_emu flag depending on arch
@@ -851,6 +866,7 @@ void ESPectrum::reset(uint8_t romInUse) {
     audioAYDivider = ESP_AUDIO_AY_DIV_48;
     audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;
     AY_emu = Config::AY48;
+    SAA_emu = Config::SAA1099;
     Audio_freq = ESP_AUDIO_FREQ_48;
   } else if (Config::arch == "128K" || Config::arch == "ALF") {
     samplesPerFrame = ESP_AUDIO_SAMPLES_128;
@@ -858,6 +874,7 @@ void ESPectrum::reset(uint8_t romInUse) {
     audioAYDivider = ESP_AUDIO_AY_DIV_128;
     audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
     AY_emu = Config::AY48;
+    SAA_emu = Config::SAA1099;
     Audio_freq = ESP_AUDIO_FREQ_128;
   } else { /// if (Config::arch == "P512" || Config::arch == "Pentagon") {
     samplesPerFrame = ESP_AUDIO_SAMPLES_PENTAGON;
@@ -865,6 +882,7 @@ void ESPectrum::reset(uint8_t romInUse) {
     audioAYDivider = ESP_AUDIO_AY_DIV_PENTAGON;
     audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_PENTAGON;
     AY_emu = Config::AY48;
+    SAA_emu = Config::SAA1099;
     Audio_freq = ESP_AUDIO_FREQ_PENTAGON;
   }
 
@@ -873,8 +891,10 @@ void ESPectrum::reset(uint8_t romInUse) {
   init_sound();
   pcm_setup(Audio_freq);
 
-  if (Config::tape_player)
+  if (Config::tape_player) {
     AY_emu = false; // Disable AY emulation if tape player mode is set
+    SAA_emu = false;
+  }
 
   // Reset AY emulation
   chip0.init();
@@ -885,6 +905,11 @@ void ESPectrum::reset(uint8_t romInUse) {
   chip1.set_sound_format(Audio_freq, 1, 8);
   chip1.set_stereo(AYEMU_MONO, NULL);
   chip1.reset();
+
+  // Reset SAA1099 emulation
+  saaChip.init();
+  saaChip.set_sound_format(Audio_freq, 1, 8);
+  saaChip.reset();
 
   CPU::reset();
 
@@ -1226,6 +1251,15 @@ __not_in_flash("audio") void ESPectrum::AYGetSample() {
   }
 }
 
+__not_in_flash("audio") void ESPectrum::SAAGetSample() {
+  uint32_t audbufpos = CPU::tstates / audioAYDivider; // SAA counter = 8MHz/256 = 31.25kHz, same rate as AY
+  if (multiplicator) audbufpos >>= multiplicator;
+  if (audbufpos > audbufcntSAA) {
+    saaChip.gen_sound(audbufpos - audbufcntSAA, audbufcntSAA);
+    audbufcntSAA = audbufpos;
+  }
+}
+
 __not_in_flash("audio") void ESPectrum::PITGetSample() {
   uint32_t audbufpos = CPU::tstates >> 7; // /128 instead of /112 — fast shift for PIT buffer position
   if (multiplicator)
@@ -1316,6 +1350,7 @@ void ESPectrum::loop() {
     audbufcnt = 0;
     audbufcntover = 0;
     audbufcntAY = 0;
+    audbufcntSAA = 0;
     audbufcntCovox = 0;
     audbufcntPIT = 0;
 
@@ -1329,6 +1364,7 @@ void ESPectrum::loop() {
     faudbufcnt = audbufcnt;
     faudioBit = lastaudioBit;
     faudbufcntAY = audbufcntAY;
+    faudbufcntSAA = audbufcntSAA;
     faudbufcntCovox = audbufcntCovox;
     faudbufcntPIT = audbufcntPIT;
     if (!CPU::paused) {
@@ -1372,14 +1408,18 @@ void ESPectrum::loop() {
           Ports::pitGenSound(audioBufferPIT + faudbufcntPIT,
                              samplesPerFrame - faudbufcntPIT);
         }
-        if (AY_emu) {
-          if (faudbufcntAY < samplesPerFrame) {
+        if (AY_emu || SAA_emu) {
+          if (AY_emu && faudbufcntAY < samplesPerFrame) {
                 if(Config::turbosound != 0 || AySound::selected_chip == 0) chip0.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
                 if(Config::turbosound != 0 || AySound::selected_chip == 1) chip1.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
+          }
+          if (SAA_emu && faudbufcntSAA < samplesPerFrame) {
+                saaChip.gen_sound(samplesPerFrame - faudbufcntSAA, faudbufcntSAA);
           }
           for (int i = 0; i < samplesPerFrame; i++) {
                 int beeper_L = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i] + audioBufferPIT[i];
             int beeper_R = beeper_L;
+            if (AY_emu) {
                 if(Config::turbosound != 0 || AySound::selected_chip == 0) {
               beeper_L += chip0.SamplebufAY_L[i];
               beeper_R += chip0.SamplebufAY_R[i];
@@ -1387,6 +1427,11 @@ void ESPectrum::loop() {
                 if(Config::turbosound != 0 || AySound::selected_chip == 1) {
               beeper_L += chip1.SamplebufAY_L[i];
               beeper_R += chip1.SamplebufAY_R[i];
+            }
+            }
+            if (SAA_emu) {
+              beeper_L += saaChip.SamplebufSAA_L[i];
+              beeper_R += saaChip.SamplebufSAA_R[i];
             }
                 audioBuffer_L[i] = beeper_L > 255 ? 255 : beeper_L; // Clamp
                 audioBuffer_R[i] = beeper_R > 255 ? 255 : beeper_R; // Clamp

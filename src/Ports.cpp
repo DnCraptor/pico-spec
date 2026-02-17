@@ -36,6 +36,7 @@ visit https://zxespectrum.speccy.org/contacto
 
 #include "Ports.h"
 #include "AySound.h"
+#include "SAASound.h"
 #include "CPU.h"
 #include "Config.h"
 #include "ESPectrum.h"
@@ -440,6 +441,23 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     if ((covox == 1 && a8 == 0xFB) || (covox == 2 && a8 == 0xDD)) {
       ESPectrum::lastCovoxVal = data;
       ESPectrum::CovoxGetSample();
+    }
+    // SAA1099 Sound Chip
+    // Ports: 0x00FF/0x01FF (original), 0x04FF/0x05FF (Light/Middle revisions)
+    // Accessible only when TR-DOS ROM is NOT mapped (DOS/ = 1)
+    if (ESPectrum::SAA_emu && !ESPectrum::trdos && a8 == 0xFF) {
+      if (address & 0x0100) {
+        // Register select (bit 8 set): 0x01FF, 0x05FF, etc.
+        // Generate samples before selectRegister — it advances external envelope clock
+        ESPectrum::SAAGetSample();
+        saaChip.selectRegister(data);
+        return;
+      } else {
+        // Data write (bit 8 clear): 0x00FF, 0x04FF, etc.
+        ESPectrum::SAAGetSample();
+        saaChip.setRegisterData(data);
+        return;
+      }
     }
     // AY
     // ========================================================================
