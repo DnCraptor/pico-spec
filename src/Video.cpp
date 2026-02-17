@@ -200,6 +200,7 @@ bool VIDEO::brdChange = false;
 bool VIDEO::brdnextframe = true;
 bool VIDEO::brdGigascreenChange = true;
 bool VIDEO::gigascreen_enabled = false;
+uint8_t VIDEO::gigascreen_auto_countdown = 0;
 
 // void precalcColors() {
     
@@ -326,8 +327,9 @@ void VIDEO::Init() {
 
     if (Config::gigascreen_enabled)
     {
-        VIDEO::gigascreen_enabled = Config::gigascreen_onoff;
-        InitPrevBuffer();   // For Gigascreen
+        VIDEO::gigascreen_enabled = (Config::gigascreen_onoff == 1); // On=enabled, Auto=start disabled
+        VIDEO::gigascreen_auto_countdown = 0;
+        InitPrevBuffer();   // For Gigascreen (needed for both On and Auto modes)
     }
 
 ///    SaveRect = (uint32_t *) SAVE_RECT; ///heap_caps_malloc(0x9000, MALLOC_CAP_INTERNAL | MALLOC_CAP_32BIT);
@@ -1011,6 +1013,15 @@ IRAM_ATTR void VIDEO::EndFrame() {
     DrawBorder = Z80Ops::isPentagon ? &TopBorder_Blank_Pentagon : &TopBorder_Blank;
     lastBrdTstate = tStatesBorder;
     brdChange = false;
+
+    if (Config::gigascreen_onoff == 2) { // Auto mode
+        if (gigascreen_auto_countdown > 0) {
+            gigascreen_auto_countdown--;
+            if (!gigascreen_enabled) gigascreen_enabled = true;
+        } else {
+            if (gigascreen_enabled) gigascreen_enabled = false;
+        }
+    }
 
     framecnt++;
 }

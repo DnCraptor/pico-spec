@@ -212,6 +212,7 @@ public:
   static int video_mode;
 
   static bool gigascreen_enabled;
+  static uint8_t gigascreen_auto_countdown;
 };
 
 #define zxColor(color,bright) VIDEO::spectrum_colors[bright ? color + 8 : color]
