@@ -28,7 +28,7 @@ option(ZERO "RP2040-PiZero" OFF)
 option(ZERO2 "RP2350-PiZero" OFF)
 
 #set(FLASH_SIZE_GREEN ON)
-set(m1p2launcher ON)
+#set(m1p2launcher ON)
 
 # Display output (default: VGA_HDMI; override with -D flags, e.g. cmake -DSOFTTV=ON)
 if(NOT VGA_HDMI AND NOT SOFTTV AND NOT TFT AND NOT ILI9341 AND NOT TV)
@@ -43,7 +43,7 @@ set (PORT_VERSION "1.2.L")
 
 # Target board (default: PICO_PC; override with -D flags, e.g. cmake -DMURM2=ON)
 if(NOT MURM AND NOT MURM2 AND NOT PICO_PC AND NOT PICO_DV AND NOT ZERO AND NOT ZERO2)
-    set(MURM2 ON)
+    set(PICO_PC ON)
 endif()
 
 set(KBDUSB ON)

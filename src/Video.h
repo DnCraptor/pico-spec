@@ -212,7 +212,15 @@ public:
   static int video_mode;
 
   static bool gigascreen_enabled;
-  static uint8_t gigascreen_auto_countdown;
+
+  // ULA+
+  static bool ulaplus_enabled;
+  static uint8_t ulaplus_reg;
+  static uint8_t ulaplus_palette[64];
+  static unsigned int AluBytesUlaPlus[16][256];
+  static void regenerateUlaPlusAluBytes();
+  static void ulaPlusUpdateBorder();
+  static void ulaPlusDisable();
 };
 
 #define zxColor(color,bright) VIDEO::spectrum_colors[bright ? color + 8 : color]

@@ -435,7 +435,8 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 		"Aspect Ratio\t>\n"\
 		"Scanlines\t>\n"\
 		"V-Sync\t>\n"\
-		"Gigascreen (No Flick)\t>\n"
+		"Gigascreen (No Flick)\t>\n"\
+		"ULA+ ON/OFF\t>\n"
 	#define MENU_VIDEO_ES \
 		"Video\n"\
 		"Modo\t>\n"\
@@ -443,7 +444,8 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 		"Relaci" "\xA2" "n de aspecto\t>\n"\
 		"Scanlines\t>\n"\
 		"V-Sync\t>\n"\
-		"Gigascreen (No Flick)\t>\n"
+		"Gigascreen (No Flick)\t>\n"\
+		"ULA+ ON/OFF\t>\n"
 #else
 	#define MENU_VIDEO_EN \
 		"Video\n"\
@@ -451,14 +453,16 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 		"Render type\t>\n"\
 		"Aspect Ratio\t>\n"\
 		"Scanlines\t>\n"\
-		"V-Sync\t>\n"
+		"V-Sync\t>\n"\
+		"ULA+ ON/OFF\t>\n"
 	#define MENU_VIDEO_ES \
 		"Video\n"\
 		"Modo\t>\n"\
 		"Tipo render\t>\n"\
 		"Relaci" "\xA2" "n de aspecto\t>\n"\
 		"Scanlines\t>\n"\
-		"V-Sync\t>\n"
+		"V-Sync\t>\n"\
+		"ULA+ ON/OFF\t>\n"
 #endif
 static const char *MENU_VIDEO[2] = { MENU_VIDEO_EN, MENU_VIDEO_ES };
 
@@ -632,6 +636,8 @@ static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
 static const char *MENU_AY48[2] = { "Turned on?\n" , "Turned on?\n"};
 
 static const char *MENU_SAA1099[2] = { "Turned on?\n" , "Turned on?\n"};
+
+static const char *MENU_ULAPLUS[2] = { "ULA+\n", "ULA+\n"};
 
 #define MENU_KBD2NDPS2_EN "Enable\n"\
     "No\t[N]\n"\
