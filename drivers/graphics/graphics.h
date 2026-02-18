@@ -28,6 +28,13 @@ typedef struct video_mode_t{
   int h_width;
   int freq;
   int vgaPxClk;
+  int vsync_start;
+  int vsync_end;
+  int screen_width;
+  int h_sync_bytes;
+  int h_bp_bytes;
+  int h_fp_bytes;
+  int line_bytes;
 };
 
 enum graphics_mode_t {

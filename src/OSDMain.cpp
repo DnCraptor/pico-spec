@@ -219,6 +219,9 @@ void OSD::drawStats() {
     if (Config::aspect_16_9) {
         x = 156;
         y = 176;
+    } else if (Config::full_border) {
+        x = 188;
+        y = 268;
     } else {
         x = 168;
         y = 220;
@@ -684,7 +687,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     if (Config::aspect_16_9)
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen;
                     else
-                        VIDEO::Draw_OSD43 = Z80Ops::isPentagon ? VIDEO::BottomBorder_Pentagon :  VIDEO::BottomBorder;
+                        VIDEO::Draw_OSD43 = Config::full_border ? VIDEO::BottomBorder_FullBorder
+                                            : Z80Ops::isPentagon ? VIDEO::BottomBorder_Pentagon : VIDEO::BottomBorder;
                 }
                 VIDEO::OSD &= 0xfc;
             } else {
@@ -692,7 +696,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     if (Config::aspect_16_9)
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                     else
-                        VIDEO::Draw_OSD43  = Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
+                        VIDEO::Draw_OSD43  = Config::full_border ? VIDEO::BottomBorder_OSD_FullBorder
+                                             : Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
 
                     OSD::drawStats();
                 }
@@ -705,7 +710,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 if (Config::aspect_16_9)
                     VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                 else
-                    VIDEO::Draw_OSD43  = Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
+                    VIDEO::Draw_OSD43  = Config::full_border ? VIDEO::BottomBorder_OSD_FullBorder
+                                         : Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
                 VIDEO::OSD = 0x04;
             } else
                 VIDEO::OSD |= 0x04;
@@ -722,6 +728,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             if (Config::aspect_16_9) {
                 x = 156;
                 y = 180;
+            } else if (Config::full_border) {
+                x = 188;
+                y = 272;
             } else {
                 x = 168;
                 y = 224;
@@ -740,7 +749,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 if (Config::aspect_16_9)
                     VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                 else
-                    VIDEO::Draw_OSD43  = Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
+                    VIDEO::Draw_OSD43  = Config::full_border ? VIDEO::BottomBorder_OSD_FullBorder
+                                         : Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
                 VIDEO::OSD = 0x04;
             } else
                 VIDEO::OSD |= 0x04;
@@ -757,6 +767,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             if (Config::aspect_16_9) {
                 x = 156;
                 y = 180;
+            } else if (Config::full_border) {
+                x = 188;
+                y = 272;
             } else {
                 x = 168;
                 y = 224;
@@ -801,7 +814,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     if (Config::aspect_16_9)
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                     else
-                        VIDEO::Draw_OSD43  = Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
+                        VIDEO::Draw_OSD43  = Config::full_border ? VIDEO::BottomBorder_OSD_FullBorder
+                                             : Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
                     VIDEO::OSD = 0x04;
                 } else
                     VIDEO::OSD |= 0x04;
@@ -2002,28 +2016,32 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_saverect = true;
                                     while (1) {
                                         string opt_menu = MENU_VIDEO_MODE[Config::lang];
-                                        int* curVideoMode = 
+                                        int* curVideoMode =
 #ifdef VGA_HDMI
                                             SELECT_VGA ? &Config::vga_video_mode : &Config::hdmi_video_mode;
 #else
                                             0;
 #endif
-                                        uint8_t prev_opt = *curVideoMode;
-                                        if (prev_opt>0) {
-                                            opt_menu.replace(opt_menu.find("[6",0),2,"[ ");
-                                            opt_menu.replace(opt_menu.find("[5",0),2,"[*");
-                                        } else {
-                                            opt_menu.replace(opt_menu.find("[6",0),2,"[*");
-                                            opt_menu.replace(opt_menu.find("[5",0),2,"[ ");
-                                        }
+                                        // Determine current selection: 0=640x480@60, 1=640x480@50, 2=720x576@50
+                                        uint8_t cur_sel = Config::full_border ? 2 : (*curVideoMode > 0 ? 1 : 0);
+                                        opt_menu.replace(opt_menu.find("[6",0),2, cur_sel == 0 ? "[*" : "[ ");
+                                        opt_menu.replace(opt_menu.find("[5",0),2, cur_sel == 1 ? "[*" : "[ ");
+                                        opt_menu.replace(opt_menu.find("[F",0),2, cur_sel == 2 ? "[*" : "[ ");
                                         uint8_t opt2 = menuRun(opt_menu);
                                         if (opt2) {
-                                            if (opt2 == 1)
+                                            bool prev_full_border = Config::full_border;
+                                            uint8_t prev_vmode = *curVideoMode;
+                                            if (opt2 == 1) {
                                                 *curVideoMode = 0;
-                                            else
+                                                Config::full_border = false;
+                                            } else if (opt2 == 2) {
                                                 *curVideoMode = 1;
+                                                Config::full_border = false;
+                                            } else if (opt2 == 3) {
+                                                Config::full_border = true;
+                                            }
 
-                                            if (*curVideoMode != prev_opt) {
+                                            if (*curVideoMode != prev_vmode || Config::full_border != prev_full_border) {
                                                 Config::save();
                                                 esp_hard_reset();
                                             }

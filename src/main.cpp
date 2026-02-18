@@ -84,6 +84,8 @@ uint8_t nes_pad2_for_alf(void) {
 #include "fabutils.h"
 void repeat_handler(void);
 void back2joy2(fabgl::VirtualKey virtualKey, bool down);
+extern "C" int get_framebuffer_width();
+extern "C" int get_framebuffer_height();
 
 #define JPAD (Config::secondJoy == 3 ? back2joy2: joyPushData)
 
@@ -815,7 +817,7 @@ void repeat_me_for_input() {
 void __scratch_x("render") render_core() {
     multicore_lockout_victim_init();
     graphics_init();
-    graphics_set_buffer(NULL, DISP_WIDTH, DISP_HEIGHT); /// TODO:
+    graphics_set_buffer(NULL, get_framebuffer_width(), get_framebuffer_height());
     graphics_set_bgcolor(0x000000);
     graphics_set_flashmode(false, false);
     sem_acquire_blocking(&vga_start_semaphore);

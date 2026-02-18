@@ -1462,7 +1462,8 @@ void ESPectrum::loop() {
             if (Config::aspect_16_9)
               VIDEO::Draw_OSD169 = VIDEO::MainScreen;
             else
-                        VIDEO::Draw_OSD43 = Z80Ops::isPentagon ? VIDEO::BottomBorder_Pentagon :  VIDEO::BottomBorder;
+                        VIDEO::Draw_OSD43 = Config::full_border ? VIDEO::BottomBorder_FullBorder
+                                            : Z80Ops::isPentagon ? VIDEO::BottomBorder_Pentagon : VIDEO::BottomBorder;
             VIDEO::brdnextframe = true;
           }
         }

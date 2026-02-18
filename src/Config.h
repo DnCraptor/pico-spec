@@ -128,6 +128,7 @@ public:
     static bool ulaplus;
     static uint8_t audio_driver;
     static bool byte_cobmect_mode;
+    static bool full_border;
 };
 
 #endif // Config.h

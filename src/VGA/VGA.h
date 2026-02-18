@@ -118,8 +118,11 @@ enum vmodeproperties {
 #define CrtMode_352x272_TV_128 { 22, 32, 42, 352, 18, 3, 19, 272, 1, 1, 1, 194,47,7,14,8,15 } // 15606 / 50.020008
 #define CrtMode_352x272_TV_PENTAGON { 22, 32, 42, 352, 18, 3, 19, 272, 1, 1, 1, 217,154,7,15,7,14 } // 15237 / 48.838125
 
+// HDMI FULL BORDER MODE (720x576@50Hz, logical 360x288)
+#define VgaMode_360x288 { 6, 32, 34, 360, 5, 5, 39, 576, 2, 0, 0, 0,0,0,0,0,0 }
 
-const unsigned short int vidmodes[22][17]={ 
+
+const unsigned short int vidmodes[23][17]={
 	VgaMode_320x240, VgaMode_320x240_scanlines, VgaMode_360x200, VgaMode_360x200_scanlines,
 
 	VgaMode_320x240_50_48, VgaMode_320x240_50_48_scanlines, VgaMode_360x200_50_48,  VgaMode_360x200_50_48_scanlines,
@@ -127,11 +130,13 @@ const unsigned short int vidmodes[22][17]={
 	VgaMode_320x240_50_PENTAGON , VgaMode_320x240_50_PENTAGON_scanlines, VgaMode_360x200_50_PENTAGON, VgaMode_360x200_50_PENTAGON_scanlines,
 
 	// OVERSCAN / FOR FUTURE USE
-	// CrtMode_352x272_TV_48 , VgaMode_360x200_TV_48, CrtMode_352x272_TV_128, VgaMode_360x200_TV_128, CrtMode_352x272_TV_PENTAGON, VgaMode_360x200_TV_PENTAGON		
-	
-	VgaMode_320x240_TV_48, VgaMode_360x200_TV_48, 
-	VgaMode_320x240_TV_128, VgaMode_360x200_TV_128, 
-	VgaMode_320x240_TV_PENTAGON , VgaMode_360x200_TV_PENTAGON		
+	// CrtMode_352x272_TV_48 , VgaMode_360x200_TV_48, CrtMode_352x272_TV_128, VgaMode_360x200_TV_128, CrtMode_352x272_TV_PENTAGON, VgaMode_360x200_TV_PENTAGON
+
+	VgaMode_320x240_TV_48, VgaMode_360x200_TV_48,
+	VgaMode_320x240_TV_128, VgaMode_360x200_TV_128,
+	VgaMode_320x240_TV_PENTAGON , VgaMode_360x200_TV_PENTAGON,
+
+	VgaMode_360x288  // index 22: HDMI full border
 
 };
 

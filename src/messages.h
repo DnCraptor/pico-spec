@@ -469,12 +469,14 @@ static const char *MENU_VIDEO[2] = { MENU_VIDEO_EN, MENU_VIDEO_ES };
 #define MENU_VIDEO_MODE_EN \
     "Mode\n"\
     "640x480@60\t[6]\n"\
-    "640x480@50\t[5]\n"
+    "640x480@50\t[5]\n"\
+    "720x576@50\t[F]\n"
 
 #define MENU_VIDEO_MODE_ES \
     "Modo\n"\
     "640x480@60\t[6]\n"\
-    "640x480@50\t[5]\n"
+    "640x480@50\t[5]\n"\
+    "720x576@50\t[F]\n"
 
 static const char *MENU_VIDEO_MODE[2] = { MENU_VIDEO_MODE_EN, MENU_VIDEO_MODE_ES };
 
