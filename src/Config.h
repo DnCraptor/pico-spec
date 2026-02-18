@@ -124,7 +124,7 @@ public:
     static int vga_video_mode;
     static bool v_sync_enabled;
     static bool gigascreen_enabled;
-    static bool gigascreen_onoff;
+    static uint8_t gigascreen_onoff; // 0=Off, 1=On, 2=Auto
     static bool ulaplus;
     static uint8_t audio_driver;
     static bool byte_cobmect_mode;

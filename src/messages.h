@@ -82,6 +82,10 @@ static const char *OSD_GIGASCREEN_ON[2] = { OSD_GIGASCREEN_ON_EN,OSD_GIGASCREEN_
 #define OSD_GIGASCREEN_OFF_ES "--=[ GIGASCREEN APAGADA ]=--"
 static const char *OSD_GIGASCREEN_OFF[2] = { OSD_GIGASCREEN_OFF_EN,OSD_GIGASCREEN_OFF_ES };
 
+#define OSD_GIGASCREEN_AUTO_EN "--=[ GIGASCREEN AUTO ]=--"
+#define OSD_GIGASCREEN_AUTO_ES "--=[ GIGASCREEN AUTO ]=--"
+static const char *OSD_GIGASCREEN_AUTO[2] = { OSD_GIGASCREEN_AUTO_EN,OSD_GIGASCREEN_AUTO_ES };
+
 #define OSD_PSNA_NOT_AVAIL "No Persist Snapshot Available"
 #define OSD_PSNA_LOADING "Loading Persist Snapshot"
 #define OSD_PSNA_SAVING  "Saving Persist Snapshot"

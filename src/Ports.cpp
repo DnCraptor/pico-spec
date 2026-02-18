@@ -310,6 +310,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
             MemESP::videoLatch = bitRead(data, 3);
             VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct()
                                               : MemESP::ram[5].direct();
+            if (Config::gigascreen_onoff == 2) VIDEO::gigascreen_auto_countdown = 3;
           }
           MemESP::romLatch = bitRead(data, 4);
           MemESP::romInUse = MemESP::romLatch;
@@ -635,6 +636,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         MemESP::videoLatch = bitRead(data, 3);
         VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct()
                                           : MemESP::ram[5].direct();
+        if (Config::gigascreen_onoff == 2) VIDEO::gigascreen_auto_countdown = 3;
       }
     }
   }
