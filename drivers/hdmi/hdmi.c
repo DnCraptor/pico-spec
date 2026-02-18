@@ -177,9 +177,15 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
 
     if (line >= mode.h_total ) {
         line = 0;
-        ESPectrum_vsync();
     } else {
         ++line;
+    }
+
+    // Сигнализируем vsync в начале blanking-периода (после последней видимой строки),
+    // чтобы эмулятор рендерил следующий кадр во время blanking,
+    // пока HDMI не читает frameBuffer — предотвращает тиринг в верхней части экрана
+    if (line == mode.h_width) {
+        ESPectrum_vsync();
     }
 
     if ((line & 1) == 0) return;
@@ -259,24 +265,12 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
             //---|___________|-----
             memset(activ_buf + 48,BASE_HDMI_CTRL_INX + 2, 352);
             memset(activ_buf,BASE_HDMI_CTRL_INX + 3, 48);
-            //без выравнивания
-            // --|_|---|_|---|_|----
-            //-------|___________|----
-
-            // memset(activ_buf,BASE_HDMI_CTRL_INX+2,328);
-            // memset(activ_buf+328,BASE_HDMI_CTRL_INX+3,48);
-            // memset(activ_buf+376,BASE_HDMI_CTRL_INX+2,24);
         }
         else {
             //ССИ без изображения
             //для выравнивания синхры
-
             memset(activ_buf + 48,BASE_HDMI_CTRL_INX, 352);
             memset(activ_buf,BASE_HDMI_CTRL_INX + 1, 48);
-
-            // memset(activ_buf,BASE_HDMI_CTRL_INX,328);
-            // memset(activ_buf+328,BASE_HDMI_CTRL_INX+1,48);
-            // memset(activ_buf+376,BASE_HDMI_CTRL_INX,24);
         };
     }
 
