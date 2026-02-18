@@ -459,7 +459,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
           // Palette group write
           VIDEO::ulaplus_palette[reg & 0x3F] = data;
           if (VIDEO::ulaplus_enabled) {
-            VIDEO::regenerateUlaPlusAluBytes();
+            VIDEO::ulaPlusUpdateVga(reg & 0x3F);
             if ((reg & 0x3F) == 8)
               VIDEO::ulaPlusUpdateBorder();
           }
@@ -469,7 +469,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
           if (new_on && !VIDEO::ulaplus_enabled) {
             VIDEO::ulaplus_enabled = true;
             VIDEO::flashing = 0;
-            VIDEO::regenerateUlaPlusAluBytes();
+            VIDEO::ulaPlusRebuildVga();
             VIDEO::ulaPlusUpdateBorder();
           } else if (!new_on && VIDEO::ulaplus_enabled) {
             VIDEO::ulaPlusDisable();

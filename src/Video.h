@@ -229,8 +229,9 @@ public:
   static bool ulaplus_enabled;
   static uint8_t ulaplus_reg;
   static uint8_t ulaplus_palette[64];
-  static unsigned int AluBytesUlaPlus[16][256];
-  static void regenerateUlaPlusAluBytes();
+  static uint8_t ulaplus_vga[64];     // Palette index -> VGA6 color
+  static void ulaPlusUpdateVga(uint8_t idx);
+  static void ulaPlusRebuildVga();
   static void ulaPlusUpdateBorder();
   static void ulaPlusDisable();
 };

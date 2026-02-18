@@ -137,7 +137,16 @@ static const uint8_t ulaplus_default_palette[64] = {
     0x00, 0x03, 0x1C, 0x1F, 0xE0, 0xE3, 0xFC, 0xFF,
 };
 uint8_t VIDEO::ulaplus_palette[64];
-unsigned int VIDEO::AluBytesUlaPlus[16][256] = {};
+uint8_t VIDEO::ulaplus_vga[64] = {};
+
+// Ink mask for each 4-bit nibble. 0xFF = ink pixel, 0x00 = paper pixel.
+// Bit-to-byte mapping matches AluBytes: byte0=bit1, byte1=bit0, byte2=bit3, byte3=bit2
+static const uint32_t nibble_mask[16] = {
+    0x00000000, 0x0000FF00, 0x000000FF, 0x0000FFFF,
+    0xFF000000, 0xFF00FF00, 0xFF0000FF, 0xFF00FFFF,
+    0x00FF0000, 0x00FFFF00, 0x00FF00FF, 0x00FFFFFF,
+    0xFFFF0000, 0xFFFFFF00, 0xFFFF00FF, 0xFFFFFFFF,
+};
 
 #ifdef DIRTY_LINES
 uint8_t VIDEO::dirty_lines[SPEC_H];
@@ -326,32 +335,17 @@ static inline uint8_t grb_to_vga6(uint8_t grb) {
     return (b2 << 4) | (g2 << 2) | r2;
 }
 
-void VIDEO::regenerateUlaPlusAluBytes() {
-    uint8_t sbits = vga.SBits;
-    uint8_t mask = vga.RGBAXMask;
-    for (int nibble = 0; nibble < 16; nibble++) {
-        for (int att = 0; att < 256; att++) {
-            uint8_t group = (att >> 6) & 0x03;
-            uint8_t ink_idx   = group * 16 + (att & 0x07);
-            uint8_t paper_idx = group * 16 + ((att >> 3) & 0x07) + 8;
+void VIDEO::ulaPlusUpdateVga(uint8_t idx) {
+    ulaplus_vga[idx] = (grb_to_vga6(ulaplus_palette[idx]) & vga.RGBAXMask) | vga.SBits;
+}
 
-            uint8_t ink   = (grb_to_vga6(ulaplus_palette[ink_idx])   & mask) | sbits;
-            uint8_t paper = (grb_to_vga6(ulaplus_palette[paper_idx]) & mask) | sbits;
-
-            uint8_t px[2] = { paper, ink };
-            AluBytesUlaPlus[nibble][att] =
-                px[(nibble >> 1) & 1]        |
-                (px[nibble & 1]       << 8)  |
-                (px[(nibble >> 3) & 1] << 16)|
-                (px[(nibble >> 2) & 1] << 24);
-        }
-    }
-    for (int n = 0; n < 16; n++)
-        AluByte[n] = AluBytesUlaPlus[n];
+void VIDEO::ulaPlusRebuildVga() {
+    for (int i = 0; i < 64; i++)
+        ulaplus_vga[i] = (grb_to_vga6(ulaplus_palette[i]) & vga.RGBAXMask) | vga.SBits;
 }
 
 void VIDEO::ulaPlusUpdateBorder() {
-    uint8_t brd_color = (grb_to_vga6(ulaplus_palette[8]) & vga.RGBAXMask) | vga.SBits;
+    uint8_t brd_color = ulaplus_vga[8];
     brd = brd_color | (brd_color << 8) | (brd_color << 16) | (brd_color << 24);
     brdChange = true;
 }
@@ -359,8 +353,6 @@ void VIDEO::ulaPlusUpdateBorder() {
 void VIDEO::ulaPlusDisable() {
     ulaplus_enabled = false;
     flashing = 0;
-    for (int n = 0; n < 16; n++)
-        AluByte[n] = (unsigned int *)AluBytes[bitRead(vga.SBits, 7)][n];
     brd = border32[borderColor];
     brdChange = true;
 }
@@ -434,6 +426,7 @@ void VIDEO::Reset() {
     if (ulaplus_enabled) ulaPlusDisable();
     ulaplus_reg = 0;
     memcpy(ulaplus_palette, ulaplus_default_palette, 64);
+    memset(ulaplus_vga, 0, 64);
 
     is169 = Config::aspect_16_9 ? 1 : 0;
 #ifdef VGA_HDMI
@@ -731,6 +724,19 @@ static inline uint32_t __attribute__((always_inline)) mixColorR2G2B2S2(uint32_t 
     return avg_even | (avg_odd << 2);
 }
 
+// ULA+ inline rendering: compute pixel colors directly from 64-byte palette
+static inline void __attribute__((always_inline)) ulaPlusRenderCell(uint8_t att, uint8_t bmp, uint32_t*& dst) {
+    uint8_t base = (att >> 6) << 4;  // CLUT group * 16
+    uint8_t ink   = VIDEO::ulaplus_vga[base | (att & 0x07)];
+    uint8_t paper = VIDEO::ulaplus_vga[base | ((att >> 3) & 0x07) | 8];
+    uint32_t ink4   = ink   * 0x01010101u;
+    uint32_t paper4 = paper * 0x01010101u;
+    uint32_t m1 = nibble_mask[bmp >> 4];
+    uint32_t m2 = nibble_mask[bmp & 0x0F];
+    *dst++ = (ink4 & m1) | (paper4 & ~m1);
+    *dst++ = (ink4 & m2) | (paper4 & ~m2);
+}
+
 // ----------------------------------------------------------------------------------
 // Fast video emulation with no ULA cycle emulation and no snow effect support
 // ----------------------------------------------------------------------------------
@@ -756,33 +762,37 @@ static inline uint32_t __attribute__((always_inline)) mixColorR2G2B2S2(uint32_t 
         loopCount -= coldraw_cnt - 32;
     }
 
-    // Основной цикл
     for (; loopCount--; ) {
-        uint8_t att = grmem[attOffset++];
-        uint8_t bmp = (att & flashing) ? ~grmem[bmpOffset++] : grmem[bmpOffset++];
+        if (VIDEO::ulaplus_enabled) {
+            uint8_t att = grmem[attOffset++];
+            uint8_t bmp = grmem[bmpOffset++];
+            ulaPlusRenderCell(att, bmp, lineptr32);
+        } else {
+            uint8_t att = grmem[attOffset++];
+            uint8_t bmp = (att & flashing) ? ~grmem[bmpOffset++] : grmem[bmpOffset++];
 
-        uint32_t newPixel1 = AluByte[bmp >> 4][att];
-        uint32_t newPixel2 = AluByte[bmp & 0xF][att];
+            uint32_t newPixel1 = AluByte[bmp >> 4][att];
+            uint32_t newPixel2 = AluByte[bmp & 0xF][att];
 
-        if (VIDEO::gigascreen_enabled)
-        {
-            uint32_t oldPixel1 = *prevLineptr32;
-            uint32_t oldPixel2 = *(prevLineptr32 + 1);
+            if (VIDEO::gigascreen_enabled)
+            {
+                uint32_t oldPixel1 = *prevLineptr32;
+                uint32_t oldPixel2 = *(prevLineptr32 + 1);
 
-            // Усреднение 4 пикселей (по 1 байту в 32-битном слове)
-            uint32_t mix1 = mixColorR2G2B2S2(newPixel1, oldPixel1);
-            uint32_t mix2 = mixColorR2G2B2S2(newPixel2, oldPixel2);
+                uint32_t mix1 = mixColorR2G2B2S2(newPixel1, oldPixel1);
+                uint32_t mix2 = mixColorR2G2B2S2(newPixel2, oldPixel2);
 
-            *prevLineptr32++ = newPixel1;
-            *prevLineptr32++ = newPixel2;
+                *prevLineptr32++ = newPixel1;
+                *prevLineptr32++ = newPixel2;
 
-            *lineptr32++ = mix1;
-            *lineptr32++ = mix2;
-        }
-        else
-        {
-            *lineptr32++ = newPixel1;
-            *lineptr32++ = newPixel2;
+                *lineptr32++ = mix1;
+                *lineptr32++ = mix2;
+            }
+            else
+            {
+                *lineptr32++ = newPixel1;
+                *lineptr32++ = newPixel2;
+            }
         }
     }
 
@@ -816,6 +826,10 @@ IRAM_ATTR void VIDEO::MainScreen_OSD(unsigned int statestoadd, bool contended) {
             lineptr32+=2;
             attOffset++;
             bmpOffset++;
+        } else if (VIDEO::ulaplus_enabled) {
+            uint8_t att = grmem[attOffset++];
+            uint8_t bmp = grmem[bmpOffset++];
+            ulaPlusRenderCell(att, bmp, lineptr32);
         } else {
             uint8_t att = grmem[attOffset++];
             uint8_t bmp = (att & flashing) ? ~grmem[bmpOffset++] : grmem[bmpOffset++];
@@ -876,8 +890,10 @@ IRAM_ATTR void VIDEO::MainScreen_Snow(unsigned int statestoadd, bool contended) 
 
                 lastatt = att1;
 
-                if (do_stats && (col_osd >= 13 && col_osd <= 30)) {                    
+                if (do_stats && (col_osd >= 13 && col_osd <= 30)) {
                     lineptr32 += 2;
+                } else if (VIDEO::ulaplus_enabled) {
+                    ulaPlusRenderCell(att1, bmp1, lineptr32);
                 } else {
                     if (att1 & flashing) bmp1 = ~bmp1;
                     *lineptr32++ = AluByte[bmp1 >> 4][att1];
@@ -890,7 +906,7 @@ IRAM_ATTR void VIDEO::MainScreen_Snow(unsigned int statestoadd, bool contended) 
             case 4:
                 bmp2 = grmem[bmpOffset++];
                 break;
-            case 5:            
+            case 5:
                 if (dbl_att) {
                     att2 = lastatt;
                     attOffset++;
@@ -900,11 +916,12 @@ IRAM_ATTR void VIDEO::MainScreen_Snow(unsigned int statestoadd, bool contended) 
 
                 if (do_stats && (col_osd >= 13 && col_osd <= 30)) {
                     lineptr32 += 2;
+                } else if (VIDEO::ulaplus_enabled) {
+                    ulaPlusRenderCell(att2, bmp2, lineptr32);
                 } else {
                     if (att2 & flashing) bmp2 = ~bmp2;
                     *lineptr32++ = AluByte[bmp2 >> 4][att2];
                     *lineptr32++ = AluByte[bmp2 & 0xF][att2];
-
                 }
 
                 col_osd++;
@@ -1001,6 +1018,8 @@ IRAM_ATTR void VIDEO::MainScreen_Snow_Opcode(bool contended) {
 
                 if (do_stats && (col_osd >= 13 && col_osd <= 30)) {
                     lineptr32 += 2;
+                } else if (VIDEO::ulaplus_enabled) {
+                    ulaPlusRenderCell(att1, bmp1, lineptr32);
                 } else {
                     if (att1 & flashing) bmp1 = ~bmp1;
                     *lineptr32++ = AluByte[bmp1 >> 4][att1];
@@ -1016,13 +1035,13 @@ IRAM_ATTR void VIDEO::MainScreen_Snow_Opcode(bool contended) {
                 if (snow_effect && statestoadd == 0) {
                     bmp2 = lastbmp;
                     bmpOffset++;
-                    dbl_att = true;                    
+                    dbl_att = true;
                 } else
                     bmp2 = grmem[bmpOffset++];
 
                 break;
 
-            case 5:            
+            case 5:
 
                 if (dbl_att) {
                     att2 = lastatt;
@@ -1033,6 +1052,8 @@ IRAM_ATTR void VIDEO::MainScreen_Snow_Opcode(bool contended) {
 
                 if (do_stats && (col_osd >= 13 && col_osd <= 30)) {
                     lineptr32 += 2;
+                } else if (VIDEO::ulaplus_enabled) {
+                    ulaPlusRenderCell(att2, bmp2, lineptr32);
                 } else {
                     if (att2 & flashing) bmp2 = ~bmp2;
                     *lineptr32++ = AluByte[bmp2 >> 4][att2];
