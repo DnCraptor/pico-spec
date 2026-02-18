@@ -64,6 +64,11 @@ visit https://zxespectrum.speccy.org/contacto
 #define TS_BORDER_360x200_PENTAGON 17075  // START OF BORDER PENTAGON
 #define TS_BORDER_360x200_BYTE 13428
 
+#define TS_BORDER_360x288 3562          // START OF BORDER 48 FULL (+5 correction like 320x240)
+#define TS_BORDER_360x288_128 3396      // START OF BORDER 128 FULL (+5 correction like 320x240)
+#define TS_BORDER_360x288_PENTAGON 7209 // START OF BORDER PENTAGON FULL (+4 correction like 320x240)
+#define TS_BORDER_360x288_BYTE 3562
+
 // Colors as 8-bit palette indices (VGA8 mode)
 // Standard Spectrum color order: 0-7 normal, 8-15 bright, 16 orange
 #define BLACK       0
@@ -145,6 +150,12 @@ public:
   static void MiddleBorder_Pentagon();
   static void BottomBorder_Pentagon();
   static void BottomBorder_OSD_Pentagon();
+
+  static void TopBorder_Blank_FullBorder();
+  static void TopBorder_FullBorder();
+  static void MiddleBorder_FullBorder();
+  static void BottomBorder_FullBorder();
+  static void BottomBorder_OSD_FullBorder();
   
   static void (*Draw)(unsigned int, bool);
   static void (*Draw_Opcode)(bool);

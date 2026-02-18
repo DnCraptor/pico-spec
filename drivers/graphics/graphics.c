@@ -6,26 +6,96 @@ static struct video_mode_t video_mode[] = {
         .h_total = 524,
         .h_width = 480,
         .freq = 60,
-        .vgaPxClk = 25175000
+        .vgaPxClk = 25175000,
+        .vsync_start = 490,
+        .vsync_end = 492,
+        .screen_width = 320,
+        .h_sync_bytes = 48,
+        .h_bp_bytes = 24,
+        .h_fp_bytes = 8,
+        .line_bytes = 400
     },
     { // 640x480 50Hz Pentagon 48.82Hz
+        // HDMI pixel clock stays 25.175MHz (same as 60Hz), frame rate set by h_total
         .h_total = 644,
         .h_width = 480,
         .freq = 50,
-        .vgaPxClk = 25175000
+        .vgaPxClk = 25175000,
+        .vsync_start = 490,
+        .vsync_end = 492,
+        .screen_width = 320,
+        .h_sync_bytes = 48,
+        .h_bp_bytes = 24,
+        .h_fp_bytes = 8,
+        .line_bytes = 400
     },
     { // 640x480 50Hz 48K 50.08Hz
         .h_total = 628,
         .h_width = 480,
         .freq = 50,
-        .vgaPxClk = 25175000
+        .vgaPxClk = 25175000,
+        .vsync_start = 490,
+        .vsync_end = 492,
+        .screen_width = 320,
+        .h_sync_bytes = 48,
+        .h_bp_bytes = 24,
+        .h_fp_bytes = 8,
+        .line_bytes = 400
     },
     { // 640x480 50Hz 128K 50.02Hz
         .h_total = 629,
         .h_width = 480,
         .freq = 50,
-        .vgaPxClk = 25175000
-    }    
+        .vgaPxClk = 25175000,
+        .vsync_start = 490,
+        .vsync_end = 492,
+        .screen_width = 320,
+        .h_sync_bytes = 48,
+        .h_bp_bytes = 24,
+        .h_fp_bytes = 8,
+        .line_bytes = 400
+    },
+    { // 720x576 50Hz Pentagon full border (25.175MHz pixel clock, 800px/line)
+        // Uses same TMDS rate as 640x480 (252MHz, PIO divider 1.5) to avoid jitter
+        // 720 active + 32 sync + 32 BP + 16 FP = 800 pixels/line = 400 bytes
+        .h_total = 644,
+        .h_width = 576,
+        .freq = 50,
+        .vgaPxClk = 25175000,
+        .vsync_start = 581,
+        .vsync_end = 586,
+        .screen_width = 360,
+        .h_sync_bytes = 16,
+        .h_bp_bytes = 16,
+        .h_fp_bytes = 8,
+        .line_bytes = 400
+    },
+    { // 720x576 50Hz 48K full border
+        .h_total = 628,
+        .h_width = 576,
+        .freq = 50,
+        .vgaPxClk = 25175000,
+        .vsync_start = 581,
+        .vsync_end = 586,
+        .screen_width = 360,
+        .h_sync_bytes = 16,
+        .h_bp_bytes = 16,
+        .h_fp_bytes = 8,
+        .line_bytes = 400
+    },
+    { // 720x576 50Hz 128K full border
+        .h_total = 629,
+        .h_width = 576,
+        .freq = 50,
+        .vgaPxClk = 25175000,
+        .vsync_start = 581,
+        .vsync_end = 586,
+        .screen_width = 360,
+        .h_sync_bytes = 16,
+        .h_bp_bytes = 16,
+        .h_fp_bytes = 8,
+        .line_bytes = 400
+    }
 };
 
 /**

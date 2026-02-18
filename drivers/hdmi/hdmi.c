@@ -24,8 +24,7 @@ extern enum graphics_mode_t graphics_mode;
 static uint32_t palette[256];
 
 
-#define SCREEN_WIDTH (320)
-#define SCREEN_HEIGHT (240)
+// SCREEN_WIDTH is now dynamic: mode.screen_width (320 for 640x480, 360 for 720x576)
 
 // #define HDMI_WIDTH 480 //480 Default
 // #define HDMI_HEIGHT 644 //524 Default
@@ -48,7 +47,7 @@ static uint32_t* __scratch_x("hdmi_ptr_4") DMA_BUF_ADDR[2];
 
 //ДМА палитра для конвертации
 //в хвосте этой памяти выделяется dma_data
-static alignas(4096) uint32_t conv_color[1224];
+static alignas(4096) uint32_t conv_color[1240];
 // map64colors removed — frame buffer now stores direct 8-bit palette indices
 
 //индекс, проверяющий зависание
@@ -193,8 +192,14 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
 
     uint8_t* activ_buf = (uint8_t *)dma_lines[inx_buf_dma & 1];
 
+    const int h_sync = mode.h_sync_bytes;
+    const int h_bp = mode.h_bp_bytes;
+    const int h_fp = mode.h_fp_bytes;
+    const int scr_w = mode.screen_width;
+    const int line_sz = mode.line_bytes;
+
     if (line < mode.h_width ) {
-        uint8_t* output_buffer = activ_buf + 72; //для выравнивания синхры;
+        uint8_t* output_buffer = activ_buf + h_sync + h_bp;
         int y = line >> 1;
         //область изображения
         uint8_t* input_buffer = getLineBuffer(y);
@@ -203,20 +208,19 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
             case GRAPHICSMODE_DEFAULT:
                 //заполняем пространство сверху и снизу графического буфера
                 if (false || (graphics_buffer_shift_y > y) || (y >= (graphics_buffer_shift_y + graphics_buffer_height))
-                    || (graphics_buffer_shift_x >= SCREEN_WIDTH) || (
+                    || (graphics_buffer_shift_x >= scr_w) || (
                         (graphics_buffer_shift_x + graphics_buffer_width) < 0)) {
-                    memset(output_buffer, 255, SCREEN_WIDTH);
+                    memset(output_buffer, 255, scr_w);
                     break;
                 }
 
-                uint8_t* activ_buf_end = output_buffer + SCREEN_WIDTH;
+                uint8_t* activ_buf_end = output_buffer + scr_w;
             //рисуем пространство слева от буфера
                 for (int i = graphics_buffer_shift_x; i-- > 0;) {
                     *output_buffer++ = 255;
                 }
 
             //рисуем сам видеобуфер+пространство справа
-///                input_buffer = &graphics_buffer[(y - graphics_buffer_shift_y) * graphics_buffer_width];
                 const uint8_t* input_buffer_end = input_buffer + graphics_buffer_width;
                 if (graphics_buffer_shift_x < 0) input_buffer -= graphics_buffer_shift_x;
                 register size_t x = 0;
@@ -230,7 +234,7 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
                 }
                 break;
             default:
-                for (int i = SCREEN_WIDTH; i--;) {
+                for (int i = scr_w; i--;) {
                     uint8_t i_color = *input_buffer++;
                     i_color = (i_color & 0xf0) == 0xf0 ? 255 : i_color;
                     *output_buffer++ = i_color;
@@ -238,45 +242,24 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
                 break;
         }
 
-
-        // memset(activ_buf,2,320);//test
-
-        //ССИ
-        //для выравнивания синхры
-
-        // --|_|---|_|---|_|----
-        //---|___________|-----
-        memset(activ_buf + 48,BASE_HDMI_CTRL_INX, 24);
-        memset(activ_buf,BASE_HDMI_CTRL_INX + 1, 48);
-        memset(activ_buf + 392,BASE_HDMI_CTRL_INX, 8);
-
-        //без выравнивания
-        // --|_|---|_|---|_|----
-        //------|___________|----
-        //   memset(activ_buf+320,BASE_HDMI_CTRL_INX,8);
-        //   memset(activ_buf+328,BASE_HDMI_CTRL_INX+1,48);
-        //   memset(activ_buf+376,BASE_HDMI_CTRL_INX,24);
+        //ССИ — горизонтальная синхронизация
+        memset(activ_buf + h_sync, BASE_HDMI_CTRL_INX, h_bp);
+        memset(activ_buf, BASE_HDMI_CTRL_INX + 1, h_sync);
+        memset(activ_buf + line_sz - h_fp, BASE_HDMI_CTRL_INX, h_fp);
     }
     else {
-        if ((line >= 490) && (line < 492)) {
+        int blanking_rest = line_sz - h_sync;
+        if ((line >= mode.vsync_start) && (line < mode.vsync_end)) {
             //кадровый синхроимпульс
-            //для выравнивания синхры
-            // --|_|---|_|---|_|----
-            //---|___________|-----
-            memset(activ_buf + 48,BASE_HDMI_CTRL_INX + 2, 352);
-            memset(activ_buf,BASE_HDMI_CTRL_INX + 3, 48);
+            memset(activ_buf + h_sync, BASE_HDMI_CTRL_INX + 2, blanking_rest);
+            memset(activ_buf, BASE_HDMI_CTRL_INX + 3, h_sync);
         }
         else {
             //ССИ без изображения
-            //для выравнивания синхры
-            memset(activ_buf + 48,BASE_HDMI_CTRL_INX, 352);
-            memset(activ_buf,BASE_HDMI_CTRL_INX + 1, 48);
+            memset(activ_buf + h_sync, BASE_HDMI_CTRL_INX, blanking_rest);
+            memset(activ_buf, BASE_HDMI_CTRL_INX + 1, h_sync);
         };
     }
-
-
-    // y=(y==524)?0:(y+1);
-    // inx_buf_dma++;
 }
 
 
@@ -410,14 +393,28 @@ static inline bool hdmi_init() {
     sm_config_set_out_shift(&c_c, true, true, 30);
     sm_config_set_fifo_join(&c_c, PIO_FIFO_JOIN_TX);
 
-    int hdmi_hz = graphics_get_video_mode(get_video_mode()).freq;
-    sm_config_set_clkdiv(&c_c, (clock_get_hz(clk_sys) / 252000000.0f) * (60 / hdmi_hz));
+    struct video_mode_t hdmi_mode = graphics_get_video_mode(get_video_mode());
+    // PIO clock = TMDS bit clock = pixel_clock * 10
+    sm_config_set_clkdiv(&c_c, clock_get_hz(clk_sys) / (hdmi_mode.vgaPxClk * 10.0f));
     pio_sm_init(PIO_VIDEO, SM_video, offs_prg0, &c_c);
     pio_sm_set_enabled(PIO_VIDEO, SM_video, true);
 
     //настройки DMA
+    int line_u32 = hdmi_mode.line_bytes / 4; // uint32_t per line buffer
     dma_lines[0] = &conv_color[1024];
-    dma_lines[1] = &conv_color[1124];
+    dma_lines[1] = &conv_color[1024 + line_u32];
+
+    // Pre-fill DMA line buffers with valid blanking/sync pattern
+    // so the HDMI receiver sees correct sync from the very first line
+    {
+        const int ls = hdmi_mode.line_bytes;
+        const int hs = hdmi_mode.h_sync_bytes;
+        for (int b = 0; b < 2; b++) {
+            uint8_t *buf = (uint8_t *)dma_lines[b];
+            memset(buf + hs, BASE_HDMI_CTRL_INX, ls - hs);     // blanking
+            memset(buf, BASE_HDMI_CTRL_INX + 1, hs);            // hsync
+        }
+    }
 
     //основной рабочий канал
     dma_channel_config cfg_dma = dma_channel_get_default_config(dma_chan);
@@ -438,7 +435,7 @@ static inline bool hdmi_init() {
         &cfg_dma,
         &PIO_VIDEO_ADDR->txf[SM_conv], // Write address
         &dma_lines[0][0], // read address
-        400, //
+        hdmi_mode.line_bytes, //
         false // Don't start yet
     );
 

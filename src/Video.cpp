@@ -66,6 +66,14 @@ extern "C" int get_video_mode() {
     return VIDEO::video_mode;
 }
 
+extern "C" int get_framebuffer_width() {
+    return VIDEO::vga.xres;
+}
+
+extern "C" int get_framebuffer_height() {
+    return VIDEO::vga.yres;
+}
+
 // extern "C" video_mode_t ESPectrum_VideoMode() {
 //     return VIDEO::video_mode[0];
 // }
@@ -141,6 +149,8 @@ uint8_t VIDEO::dirty_lines[SPEC_H];
 // uint8_t VIDEO::linecalc[SPEC_H];
 #endif //  DIRTY_LINES
 static unsigned int is169;
+static unsigned int isFullBorder;
+static unsigned int lineptr_offset; // uint32_t offset for screen start in line buffer
 
 static uint32_t* lineptr32;
 static uint32_t* prevLineptr32;
@@ -417,8 +427,16 @@ void VIDEO::vgataskinit(void *unused) {
 static __aligned(4) uint8_t SAVE_RECT[0x9000] = {0};
 
 void VIDEO::Init() {
-    int Mode = Config::aspect_16_9 ? 2 : 0;
-    Mode += Config::scanlines;
+    int Mode;
+#ifdef VGA_HDMI
+    if (Config::full_border && !SELECT_VGA) {
+        Mode = 22; // VgaMode_360x288 — HDMI full border
+    } else
+#endif
+    {
+        Mode = Config::aspect_16_9 ? 2 : 0;
+        Mode += Config::scanlines;
+    }
     OSD::scrW = vidmodes[Mode][vmodeproperties::hRes];
     OSD::scrH = (vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv]) >> Config::scanlines;
     vga.VGA6Bit_useinterrupt = false;
@@ -471,6 +489,11 @@ void VIDEO::Reset() {
 #endif
 
     is169 = Config::aspect_16_9 ? 1 : 0;
+#ifdef VGA_HDMI
+    isFullBorder = (Config::full_border && !SELECT_VGA) ? 1 : 0;
+#else
+    isFullBorder = 0;
+#endif
 
     OSD = 0;
 
@@ -478,57 +501,82 @@ void VIDEO::Reset() {
         if (Config::romSet48 == "48Kby") {
             tStatesPerLine = TSTATES_PER_LINE_BYTE;
             tStatesScreen = TS_SCREEN_BYTE;
-            tStatesBorder = is169 ? TS_BORDER_360x200_BYTE : TS_BORDER_320x240_BYTE;
+            tStatesBorder = isFullBorder ? TS_BORDER_360x288_BYTE
+                          : is169 ? TS_BORDER_360x200_BYTE : TS_BORDER_320x240_BYTE;
         }
         else
         {
             tStatesPerLine = TSTATES_PER_LINE;
             tStatesScreen = TS_SCREEN_48;
-            tStatesBorder = is169 ? TS_BORDER_360x200 : TS_BORDER_320x240;
+            tStatesBorder = isFullBorder ? TS_BORDER_360x288
+                          : is169 ? TS_BORDER_360x200 : TS_BORDER_320x240;
         }
-        VsyncFinetune[0] = is169 ? 0 : 0;
-        VsyncFinetune[1] = is169 ? 0 : 0;
+        VsyncFinetune[0] = 0;
+        VsyncFinetune[1] = 0;
 
         Draw_OSD169 = MainScreen;
-        Draw_OSD43 = BottomBorder;
-        DrawBorder = TopBorder_Blank;
+        if (isFullBorder) {
+            Draw_OSD43 = BottomBorder_FullBorder;
+            DrawBorder = TopBorder_Blank_FullBorder;
+        } else {
+            Draw_OSD43 = BottomBorder;
+            DrawBorder = TopBorder_Blank;
+        }
     } else if (Config::arch == "128K" || Config::arch == "ALF") {
         if (Config::romSet128 == "128Kby" || Config::romSet128 == "128Kbg") {
             tStatesPerLine = TSTATES_PER_LINE_BYTE;
             tStatesScreen = TS_SCREEN_BYTE;
-            tStatesBorder = is169 ? TS_BORDER_360x200_BYTE : TS_BORDER_320x240_BYTE;
+            tStatesBorder = isFullBorder ? TS_BORDER_360x288_BYTE
+                          : is169 ? TS_BORDER_360x200_BYTE : TS_BORDER_320x240_BYTE;
         }
         else
         {
             tStatesPerLine = TSTATES_PER_LINE_128;
             tStatesScreen = TS_SCREEN_128;
-            tStatesBorder = is169 ? TS_BORDER_360x200_128 : TS_BORDER_320x240_128;
+            tStatesBorder = isFullBorder ? TS_BORDER_360x288_128
+                          : is169 ? TS_BORDER_360x200_128 : TS_BORDER_320x240_128;
         }
-        VsyncFinetune[0] = is169 ? 0 : 0;
-        VsyncFinetune[1] = is169 ? 0 : 0;
+        VsyncFinetune[0] = 0;
+        VsyncFinetune[1] = 0;
 
         Draw_OSD169 = MainScreen;
-        Draw_OSD43 = BottomBorder;
-        DrawBorder = TopBorder_Blank;
+        if (isFullBorder) {
+            Draw_OSD43 = BottomBorder_FullBorder;
+            DrawBorder = TopBorder_Blank_FullBorder;
+        } else {
+            Draw_OSD43 = BottomBorder;
+            DrawBorder = TopBorder_Blank;
+        }
     } else if (Config::arch == "Pentagon" || Config::arch == "P512" || Config::arch == "P1024") {
         tStatesPerLine = TSTATES_PER_LINE_PENTAGON;
         tStatesScreen = TS_SCREEN_PENTAGON;
-        tStatesBorder = is169 ? TS_BORDER_360x200_PENTAGON : TS_BORDER_320x240_PENTAGON;
-        // TODO: ADJUST THESE VALUES FOR PENTAGON
-        VsyncFinetune[0] = is169 ? 0 : 0;
-        VsyncFinetune[1] = is169 ? 0 : 0;
+        tStatesBorder = isFullBorder ? TS_BORDER_360x288_PENTAGON
+                      : is169 ? TS_BORDER_360x200_PENTAGON : TS_BORDER_320x240_PENTAGON;
+        VsyncFinetune[0] = 0;
+        VsyncFinetune[1] = 0;
 
         Draw_OSD169 = MainScreen;
-        Draw_OSD43 = BottomBorder_Pentagon;
-        DrawBorder = TopBorder_Blank_Pentagon;
+        if (isFullBorder) {
+            Draw_OSD43 = BottomBorder_FullBorder;
+            DrawBorder = TopBorder_Blank_FullBorder;
+        } else {
+            Draw_OSD43 = BottomBorder_Pentagon;
+            DrawBorder = TopBorder_Blank_Pentagon;
+        }
     }
 
-    if (is169) {
+    if (isFullBorder) {
+        lin_end = 48;
+        lin_end2 = 240;
+        lineptr_offset = 13; // 52 bytes = (360-256)/2 pixels
+    } else if (is169) {
         lin_end = 4;
         lin_end2 = 196;
+        lineptr_offset = 13;
     } else {
         lin_end = 24;
         lin_end2 = 216;
+        lineptr_offset = 8;  // 32 bytes = (320-256)/2 pixels
     }
 
     grmem = MemESP::videoLatch ? MemESP::ram[7].direct() : MemESP::ram[5].direct();
@@ -568,16 +616,26 @@ void VIDEO::Reset() {
     }
     else
     {
-        if (Config::hdmi_video_mode > 0)
-        {
+        if (Config::full_border) {
+            // 720x576 full border modes (same 25.175MHz pixel clock as 640x480)
             if (Config::arch == "48K")
-                Config::hdmi_video_mode=2;
-            else if (Config::arch == "128K")
-                Config::hdmi_video_mode=3;
+                video_mode = 5;
+            else if (Config::arch == "128K" || Config::arch == "ALF")
+                video_mode = 6;
             else
-                Config::hdmi_video_mode=1;
+                video_mode = 4; // Pentagon
+        } else {
+            if (Config::hdmi_video_mode > 0)
+            {
+                if (Config::arch == "48K")
+                    Config::hdmi_video_mode=2;
+                else if (Config::arch == "128K")
+                    Config::hdmi_video_mode=3;
+                else
+                    Config::hdmi_video_mode=1;
+            }
+            video_mode = Config::hdmi_video_mode;
         }
-        video_mode = Config::hdmi_video_mode;
     }
 #endif
 }
@@ -602,8 +660,8 @@ IRAM_ATTR void VIDEO::MainScreen_Blank(unsigned int statestoadd, bool contended)
 
         if (brdChange) DrawBorder(); // Needed to avoid tearing in demos like Gabba (Pentagon)
         
-        lineptr32 = (uint32_t *)(vga.frameBuffer[linedraw_cnt]) + (is169 ? 13: 8);
-        prevLineptr32 = (uint32_t *)(vga.prevFrameBuffer[linedraw_cnt]) + (is169 ? 13: 8);
+        lineptr32 = (uint32_t *)(vga.frameBuffer[linedraw_cnt]) + lineptr_offset;
+        prevLineptr32 = (uint32_t *)(vga.prevFrameBuffer[linedraw_cnt]) + lineptr_offset;
 
         coldraw_cnt = 0;
 
@@ -636,8 +694,8 @@ IRAM_ATTR void VIDEO::MainScreen_Blank_Snow(unsigned int statestoadd, bool conte
 
         if (brdChange) DrawBorder();
 
-        lineptr32 = (uint32_t *)(vga.frameBuffer[linedraw_cnt]) + (is169 ? 13: 8);
-        prevLineptr32 = (uint32_t *)(vga.prevFrameBuffer[linedraw_cnt]) + (is169 ? 13: 8);
+        lineptr32 = (uint32_t *)(vga.frameBuffer[linedraw_cnt]) + lineptr_offset;
+        prevLineptr32 = (uint32_t *)(vga.prevFrameBuffer[linedraw_cnt]) + lineptr_offset;
 
         coldraw_cnt = 0;
 
@@ -676,8 +734,8 @@ IRAM_ATTR void VIDEO::MainScreen_Blank_Snow_Opcode(bool contended) {
 
         if (brdChange) DrawBorder();
 
-        lineptr32 = (uint32_t *)(vga.frameBuffer[linedraw_cnt]) + (is169 ? 13: 8);
-        prevLineptr32 = (uint32_t *)(vga.prevFrameBuffer[linedraw_cnt]) + (is169 ? 13: 8);
+        lineptr32 = (uint32_t *)(vga.frameBuffer[linedraw_cnt]) + lineptr_offset;
+        prevLineptr32 = (uint32_t *)(vga.prevFrameBuffer[linedraw_cnt]) + lineptr_offset;
 
         coldraw_cnt = 0;
 
@@ -1129,7 +1187,7 @@ IRAM_ATTR void VIDEO::Blank_Snow_Opcode(bool contended) { CPU::tstates += 4; }
 
 IRAM_ATTR void VIDEO::EndFrame() {
 
-    linedraw_cnt = is169 ? 4 : 24;
+    linedraw_cnt = lin_end;
 
     tstateDraw = tStatesScreen;
 
@@ -1153,7 +1211,9 @@ IRAM_ATTR void VIDEO::EndFrame() {
     }
     
     // Restart border drawing
-    DrawBorder = Z80Ops::isPentagon ? &TopBorder_Blank_Pentagon : &TopBorder_Blank;
+    DrawBorder = isFullBorder ? &TopBorder_Blank_FullBorder
+               : Z80Ops::isPentagon ? &TopBorder_Blank_Pentagon
+               : &TopBorder_Blank;
     lastBrdTstate = tStatesBorder;
     brdChange = false;
 
@@ -1491,6 +1551,124 @@ IRAM_ATTR void VIDEO::BottomBorder_OSD_Pentagon() {
                 DrawBorder = &Border_Blank;
                 return;
             }
+        }
+    }
+}
+
+// Full border rendering functions (720x576 mode, 360x288 logical)
+// Uses 16-bit (2-pixel) columns for all models, 180 cols per line
+
+#define FB_COLS_TOTAL   180  // 360px / 2px per col
+#define FB_COLS_LEFT    26   // 52px left border / 2px
+#define FB_COLS_RIGHT   154  // FB_COLS_LEFT + 128 screen cols
+#define FB_TOP_LINES    48
+#define FB_BOTTOM_START 240  // FB_TOP_LINES + 192
+#define FB_TOTAL_LINES  288
+
+IRAM_ATTR void VIDEO::TopBorder_Blank_FullBorder() {
+    if (CPU::tstates >= tStatesBorder) {
+        brdcol_cnt = 0;
+        brdlin_cnt = 0;
+        brdptr16 = (uint16_t *)(vga.frameBuffer[0]);
+        prevBrdptr16 = vga.prevFrameBuffer ? (uint16_t *)(vga.prevFrameBuffer[0]) : brdptr16;
+        DrawBorder = &TopBorder_FullBorder;
+        DrawBorder();
+    }
+}
+
+IRAM_ATTR void VIDEO::TopBorder_FullBorder() {
+    while (lastBrdTstate <= CPU::tstates) {
+        Update_Border_Pentagon();
+
+        lastBrdTstate++;
+        brdcol_cnt++;
+
+        if (brdcol_cnt == FB_COLS_TOTAL) {
+            brdlin_cnt++;
+            brdptr16 = (uint16_t *)(vga.frameBuffer[brdlin_cnt]);
+            prevBrdptr16 = vga.prevFrameBuffer ? (uint16_t *)(vga.prevFrameBuffer[brdlin_cnt]) : brdptr16;
+            brdcol_cnt = 0;
+            lastBrdTstate += tStatesPerLine - FB_COLS_TOTAL;
+
+            if (brdlin_cnt == FB_TOP_LINES) {
+                DrawBorder = &MiddleBorder_FullBorder;
+                MiddleBorder_FullBorder();
+                return;
+            }
+        }
+    }
+}
+
+IRAM_ATTR void VIDEO::MiddleBorder_FullBorder() {
+    while (lastBrdTstate <= CPU::tstates) {
+        Update_Border_Pentagon();
+
+        lastBrdTstate++;
+        brdcol_cnt++;
+
+        if (brdcol_cnt == FB_COLS_LEFT) {
+            lastBrdTstate += 128; // 256px screen = 128 tstates
+            brdcol_cnt = FB_COLS_RIGHT;
+        } else if (brdcol_cnt == FB_COLS_TOTAL) {
+            brdlin_cnt++;
+            brdptr16 = (uint16_t *)(vga.frameBuffer[brdlin_cnt]);
+            prevBrdptr16 = vga.prevFrameBuffer ? (uint16_t *)(vga.prevFrameBuffer[brdlin_cnt]) : brdptr16;
+            brdcol_cnt = 0;
+            lastBrdTstate += tStatesPerLine - FB_COLS_TOTAL;
+            if (brdlin_cnt == FB_BOTTOM_START) {
+                DrawBorder = Draw_OSD43;
+                DrawBorder();
+                return;
+            }
+        }
+    }
+}
+
+IRAM_ATTR void VIDEO::BottomBorder_FullBorder() {
+    while (lastBrdTstate <= CPU::tstates) {
+        Update_Border_Pentagon();
+
+        lastBrdTstate++;
+        brdcol_cnt++;
+
+        if (brdcol_cnt == FB_COLS_TOTAL) {
+            brdlin_cnt++;
+            brdcol_cnt = 0;
+            lastBrdTstate += tStatesPerLine - FB_COLS_TOTAL;
+            if (brdlin_cnt == FB_TOTAL_LINES) {
+                DrawBorder = &Border_Blank;
+                return;
+            }
+            brdptr16 = (uint16_t *)(vga.frameBuffer[brdlin_cnt]);
+            prevBrdptr16 = vga.prevFrameBuffer ? (uint16_t *)(vga.prevFrameBuffer[brdlin_cnt]) : brdptr16;
+        }
+    }
+}
+
+IRAM_ATTR void VIDEO::BottomBorder_OSD_FullBorder() {
+    while (lastBrdTstate <= CPU::tstates) {
+        // Skip OSD area: stats at y=268 (lines 264-282), volume at x=188 (col 94+)
+        if (brdlin_cnt < 264 || brdlin_cnt > 282) {
+            Update_Border_Pentagon();
+        } else if (brdcol_cnt < 1 || brdcol_cnt > 179) {
+            Update_Border_Pentagon();
+        } else {
+            // skip OSD pixel
+        }
+
+        lastBrdTstate++;
+        brdcol_cnt++;
+
+        if (brdcol_cnt == FB_COLS_TOTAL) {
+            brdlin_cnt++;
+            brdcol_cnt = 0;
+            lastBrdTstate += tStatesPerLine - FB_COLS_TOTAL;
+            if (brdlin_cnt == FB_TOTAL_LINES) {
+                DrawBorder = &Border_Blank;
+                return;
+            }
+            brdptr16 = (uint16_t *)(vga.frameBuffer[brdlin_cnt]);
+            prevBrdptr16 = vga.prevFrameBuffer ? (uint16_t *)(vga.prevFrameBuffer[brdlin_cnt]) : brdptr16;
         }
     }
 }

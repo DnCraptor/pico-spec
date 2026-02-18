@@ -32,6 +32,19 @@ class DMABufferDescriptor /// : protected lldesc_t
 
 	static void **allocateDMABufferArray(int count, int bytes, bool clear = true, unsigned long clearValue = 0)
 	{
+		if (count == 288) {
+			// 288, 720x576 full border mode (need +1 safety line for border rendering)
+			void **arr = (void **)malloc(289 * sizeof(void *));
+			if(!arr)
+				ERROR("Not enough DMA memory");
+			for (int i = 0; i < 289; i++)
+			{
+				arr[i] = DMABufferDescriptor::allocateBuffer(bytes, true, clearValue);
+				if(!arr[i])
+					ERROR("Not enough DMA memory");
+			}
+			return arr;
+		}
 		if (count == 480) {
 			// 480, fake scanlines mode
 			void **arr = (void **)malloc(241 * sizeof(void *));
