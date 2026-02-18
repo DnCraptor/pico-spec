@@ -1508,8 +1508,8 @@ void ESPectrum::loop() {
         VIDEO::framecnt = 0;
       }
     }
-    // Flashing flag change
-    if (!(VIDEO::flash_ctr++ & 0x0f))
+    // Flashing flag change (disabled when ULA+ palette is active)
+    if (!(VIDEO::flash_ctr++ & 0x0f) && !VIDEO::ulaplus_enabled)
       VIDEO::flashing ^= 0x80;
 
     // // Draw fdd led if CPU OSD active

@@ -107,6 +107,12 @@ uint8_t VIDEO::snowpage;
 uint8_t VIDEO::snowR;
 bool VIDEO::snow_toggle = false;
 
+// ULA+
+bool VIDEO::ulaplus_enabled = false;
+uint8_t VIDEO::ulaplus_reg = 0;
+uint8_t VIDEO::ulaplus_palette[64] = {0};
+unsigned int VIDEO::AluBytesUlaPlus[16][256] = {};
+
 #ifdef DIRTY_LINES
 uint8_t VIDEO::dirty_lines[SPEC_H];
 // uint8_t VIDEO::linecalc[SPEC_H];
@@ -283,6 +289,53 @@ void precalcborder32()
     }
 }
 
+// ULA+ G3R3B2 to 6-bit VGA (BBGGRR) conversion
+static inline uint8_t grb_to_vga6(uint8_t grb) {
+    uint8_t g2 = (grb >> 6) & 0x03;
+    uint8_t r2 = (grb >> 3) & 0x03;
+    uint8_t b2 = grb & 0x03;
+    return (b2 << 4) | (g2 << 2) | r2;
+}
+
+void VIDEO::regenerateUlaPlusAluBytes() {
+    uint8_t sbits = vga.SBits;
+    uint8_t mask = vga.RGBAXMask;
+    for (int nibble = 0; nibble < 16; nibble++) {
+        for (int att = 0; att < 256; att++) {
+            uint8_t group = (att >> 6) & 0x03;
+            uint8_t ink_idx   = group * 16 + (att & 0x07);
+            uint8_t paper_idx = group * 16 + ((att >> 3) & 0x07) + 8;
+
+            uint8_t ink   = (grb_to_vga6(ulaplus_palette[ink_idx])   & mask) | sbits;
+            uint8_t paper = (grb_to_vga6(ulaplus_palette[paper_idx]) & mask) | sbits;
+
+            uint8_t px[2] = { paper, ink };
+            AluBytesUlaPlus[nibble][att] =
+                px[(nibble >> 1) & 1]        |
+                (px[nibble & 1]       << 8)  |
+                (px[(nibble >> 3) & 1] << 16)|
+                (px[(nibble >> 2) & 1] << 24);
+        }
+    }
+    for (int n = 0; n < 16; n++)
+        AluByte[n] = AluBytesUlaPlus[n];
+}
+
+void VIDEO::ulaPlusUpdateBorder() {
+    uint8_t brd_color = (grb_to_vga6(ulaplus_palette[8]) & vga.RGBAXMask) | vga.SBits;
+    brd = brd_color | (brd_color << 8) | (brd_color << 16) | (brd_color << 24);
+    brdChange = true;
+}
+
+void VIDEO::ulaPlusDisable() {
+    ulaplus_enabled = false;
+    flashing = 0;
+    for (int n = 0; n < 16; n++)
+        AluByte[n] = (unsigned int *)AluBytes[bitRead(vga.SBits, 7)][n];
+    brd = border32[borderColor];
+    brdChange = true;
+}
+
 const int redPins[] = {RED_PINS_6B};
 const int grePins[] = {GRE_PINS_6B};
 const int bluPins[] = {BLU_PINS_6B};
@@ -338,6 +391,11 @@ void VIDEO::Reset() {
 
     borderColor = 7;
     brd = border32[7];
+
+    // Reset ULA+ state
+    if (ulaplus_enabled) ulaPlusDisable();
+    ulaplus_reg = 0;
+    memset(ulaplus_palette, 0, 64);
 
     is169 = Config::aspect_16_9 ? 1 : 0;
 

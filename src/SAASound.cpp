@@ -371,26 +371,28 @@ IRAM_ATTR void SAASound::gen_sound(int bufsize, int bufpos) {
         }
 
         // Mix all 6 channels
-        // Envelope only applies to channels 2 and 5 (verified by stripwax/SAASound
-        // reference implementation — channels 0,1,3,4 have NULL envelope pointer).
+        // Envelope modulation applies to ALL channels in the group when enabled.
+        // Amplitude bit 0 masking only on channels 2/5 (stripwax hardware behavior:
+        // only ch2/ch5 have actual envelope wiring, other channels use full amp).
         // Per channel max: vol_table[15] * 16 * 2 = 576
         // 6 channels max: 3456. After >>5: 108.
         for (int ch = 0; ch < 6; ch++) {
             int noise_ng = ch / 3;
+            int env_group = ch / 3;
+            bool use_env = envs[env_group].enabled;
 
             int mix_mode = (channels[ch].tone_on ? 1 : 0) | (channels[ch].noise_on ? 2 : 0);
-            if (mix_mode == 0) continue;
+            // Envelope channels can produce sound even without tone/noise:
+            // stripwax: intermediate=0, output = EffAmp * (2-0) = full envelope output.
+            // This is the SAA1099 "buzz" effect — envelope IS the sound source.
+            if (mix_mode == 0 && !use_env) continue;
 
-            // Envelope only on channels 2 and 5 (last channel of each group)
-            int env_group = ch / 3;
-            bool use_env = (ch == 2 || ch == 5) && envs[env_group].enabled;
-
-            // Phase inversion only when envelope is active on THIS channel
             uint8_t tone_bit = channels[ch].bit;
             if (use_env) tone_bit ^= 1;
 
             int out_level;
             switch (mix_mode) {
+            case 0: out_level = 2; break; // envelope-only: constant full output
             case 1: out_level = tone_bit ? 2 : 0; break;
             case 2: out_level = noise[noise_ng].bit ? 2 : 0; break;
             case 3: out_level = tone_bit ? (2 - noise[noise_ng].bit) : 0; break;
@@ -403,9 +405,13 @@ IRAM_ATTR void SAASound::gen_sound(int bufsize, int bufpos) {
                 uint8_t env_l, env_r;
 
                 if (use_env) {
-                    // Envelope path: mask amp bit 0, apply envelope level
-                    al &= 0x0E;
-                    ar &= 0x0E;
+                    // Amp bit 0 masking: only ch2/ch5 (hardware envelope wiring).
+                    // Other channels keep full 4-bit amplitude to avoid silencing
+                    // odd amplitude values (which caused missing instruments).
+                    if (ch == 2 || ch == 5) {
+                        al &= 0x0E;
+                        ar &= 0x0E;
+                    }
                     uint8_t env_level = getEnvelopeLevel(env_group);
                     env_l = env_level;
                     env_r = env_level;
