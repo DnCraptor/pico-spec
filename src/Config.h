@@ -125,6 +125,7 @@ public:
     static bool v_sync_enabled;
     static bool gigascreen_enabled;
     static bool gigascreen_onoff;
+    static bool ulaplus;
     static uint8_t audio_driver;
     static bool byte_cobmect_mode;
 };

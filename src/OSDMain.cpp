@@ -2224,6 +2224,52 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     }
                                     #endif
                                 }
+                                // ULA+ ON/OFF
+                                #if !PICO_RP2040
+                                else if (options_num == 7) {
+                                #else
+                                else if (options_num == 6) {
+                                #endif
+                                    menu_level = 3;
+                                    menu_curopt = 1;
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string ula_menu = MENU_ULAPLUS[Config::lang];
+                                        ula_menu += MENU_YESNO[Config::lang];
+                                        bool prev_ula = Config::ulaplus;
+                                        if (prev_ula) {
+                                            ula_menu.replace(ula_menu.find("[Y",0),2,"[*");
+                                            ula_menu.replace(ula_menu.find("[N",0),2,"[ ");
+                                        } else {
+                                            ula_menu.replace(ula_menu.find("[Y",0),2,"[ ");
+                                            ula_menu.replace(ula_menu.find("[N",0),2,"[*");
+                                        }
+                                        uint8_t opt2 = menuRun(ula_menu);
+                                        if (opt2) {
+                                            if (opt2 == 1)
+                                                Config::ulaplus = true;
+                                            else
+                                                Config::ulaplus = false;
+
+                                            if (Config::ulaplus != prev_ula) {
+                                                if (!Config::ulaplus && VIDEO::ulaplus_enabled) {
+                                                    VIDEO::ulaPlusDisable();
+                                                }
+                                                Config::save();
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            #if !PICO_RP2040
+                                            menu_curopt = 7;
+                                            #else
+                                            menu_curopt = 6;
+                                            #endif
+                                            menu_level = 2;
+                                            break;
+                                        }
+                                    }
+                                }
                             } else {
                                 menu_curopt = 6;
                                 break;
