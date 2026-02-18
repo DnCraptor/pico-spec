@@ -212,6 +212,7 @@ public:
   static int video_mode;
 
   static bool gigascreen_enabled;
+  static uint8_t gigascreen_auto_countdown;
 
   // ULA+
   static bool ulaplus_enabled;
