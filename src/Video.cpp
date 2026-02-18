@@ -880,7 +880,6 @@ inline uint32_t blendPixels32(uint32_t cur, uint32_t prev) {
             *lineptr32++ = newPixel2;
         }
     }
-
 }
 
 IRAM_ATTR void VIDEO::MainScreen_OSD(unsigned int statestoadd, bool contended) {    
@@ -891,6 +890,8 @@ IRAM_ATTR void VIDEO::MainScreen_OSD(unsigned int statestoadd, bool contended) {
     statestoadd += video_rest;
     video_rest = statestoadd & 0x03;
     unsigned int loopCount = statestoadd >> 2;
+    unsigned int coldraw_osd = coldraw_cnt;
+    
     coldraw_cnt += loopCount;
 
     if (coldraw_cnt >= 32) {
@@ -910,7 +911,6 @@ IRAM_ATTR void VIDEO::MainScreen_OSD(unsigned int statestoadd, bool contended) {
         attOffset++;
         bmpOffset++;
     }
-
 }
 
 IRAM_ATTR void VIDEO::MainScreen_Opcode(bool contended) { Draw(4,contended); }
@@ -976,7 +976,7 @@ IRAM_ATTR void VIDEO::MainScreen_Snow(unsigned int statestoadd, bool contended) 
             case 4:
                 bmp2 = grmem[bmpOffset++];
                 break;
-            case 5:            
+            case 5:
                 if (dbl_att) {
                     att2 = lastatt;
                     attOffset++;
@@ -1102,13 +1102,13 @@ IRAM_ATTR void VIDEO::MainScreen_Snow_Opcode(bool contended) {
                 if (snow_effect && statestoadd == 0) {
                     bmp2 = lastbmp;
                     bmpOffset++;
-                    dbl_att = true;                    
+                    dbl_att = true;
                 } else
                     bmp2 = grmem[bmpOffset++];
 
                 break;
 
-            case 5:            
+            case 5:
 
                 if (dbl_att) {
                     att2 = lastatt;
