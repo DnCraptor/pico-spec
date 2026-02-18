@@ -717,37 +717,18 @@ IRAM_ATTR void VIDEO::MainScreen_Blank_Snow_Opcode(bool contended) {
 #ifndef DIRTY_LINES
 
 // Оптимизированная версия усреднения 4 пикселей в формате R2G2B2S2
-inline uint32_t mixColorR2G2B2S2(uint32_t c0, uint32_t c1) {
-    uint32_t result = 0;
-
-    // Побайтовая обработка — 4 пикселя в 32 битах
-    uint32_t xorv = c0 ^ c1;   // Различия
-    uint32_t andv = c0 & c1;   // Совпадения
-
-    // Если одинаковые — результат тот же
-    if (xorv == 0) return c0;
-
-    // Обрабатываем 4 байта без цикла
-#define MIXPIX(i) { \
-    uint8_t p0 = (c0 >> ((i) * 8)) & 0xFF; \
-    uint8_t p1 = (c1 >> ((i) * 8)) & 0xFF; \
-    \
-    uint8_t r = (((p0 & 0x03) + (p1 & 0x03) + 1) >> 1) & 0x03; \
-    uint8_t g = ((((p0 >> 2) & 0x03) + ((p1 >> 2) & 0x03) + 1) >> 1) & 0x03; \
-    uint8_t b = ((((p0 >> 4) & 0x03) + ((p1 >> 4) & 0x03) + 1) >> 1) & 0x03; \
-    uint8_t s = ((((p0 >> 6) & 0x03) + ((p1 >> 6) & 0x03) + 1) >> 1) & 0x03; \
-    \
-    uint8_t mix = (s << 6) | (b << 4) | (g << 2) | r; \
-    result |= (uint32_t)mix << ((i) * 8); \
-}
-
-    MIXPIX(0);
-    MIXPIX(1);
-    MIXPIX(2);
-    MIXPIX(3);
-
-#undef MIXPIX
-    return result;
+// SWAR (SIMD Within A Register) averaging of 2-bit fields: SSBBGGRR per byte, 4 bytes
+// Processes all 4 pixels × 4 color channels in 2 passes instead of 16 individual extractions
+// Uses (a + b + 1) >> 1 rounding to match original per-pixel implementation
+static inline uint32_t __attribute__((always_inline)) mixColorR2G2B2S2(uint32_t c0, uint32_t c1) {
+    if (c0 == c1) return c0;
+    const uint32_t M = 0x33333333; // 00110011 per byte — masks even 2-bit fields
+    const uint32_t R = 0x11111111; // rounding: +1 per 2-bit field before shift
+    // Even fields: R (bits 1:0) and B (bits 5:4)
+    uint32_t avg_even = ((c0 & M) + (c1 & M) + R) >> 1 & M;
+    // Odd fields: G (bits 3:2) and S (bits 7:6)
+    uint32_t avg_odd = (((c0 >> 2) & M) + ((c1 >> 2) & M) + R) >> 1 & M;
+    return avg_even | (avg_odd << 2);
 }
 
 // ----------------------------------------------------------------------------------
@@ -1357,24 +1338,12 @@ static int brdcol_end1 = 0;
 //     return result;
 // }
 
-inline uint32_t Border_Gigascreen(uint32_t c0, uint32_t c1) {
-    // Разделяем компоненты по байтам
-    uint32_t r0 = c0 & 0x03030303;
-    uint32_t r1 = c1 & 0x03030303;
-    uint32_t g0 = c0 & 0x0C0C0C0C;
-    uint32_t g1 = c1 & 0x0C0C0C0C;
-    uint32_t b0 = c0 & 0x30303030;
-    uint32_t b1 = c1 & 0x30303030;
-    uint32_t s0 = c0 & 0xC0C0C0C0;
-    uint32_t s1 = c1 & 0xC0C0C0C0;
-
-    // Усреднение каждой 2-битной группы с корректным округлением
-    uint32_t rMix = ((r0 + r1) >> 1) & 0x03030303;
-    uint32_t gMix = ((g0 + g1) >> 1) & 0x0C0C0C0C;
-    uint32_t bMix = ((b0 + b1) >> 1) & 0x30303030;
-    uint32_t sMix = ((s0 + s1) >> 1) & 0xC0C0C0C0;
-
-    return rMix | gMix | bMix | sMix;
+// Same SWAR technique as mixColorR2G2B2S2 — 2 passes instead of 4
+static inline uint32_t __attribute__((always_inline)) Border_Gigascreen(uint32_t c0, uint32_t c1) {
+    const uint32_t M = 0x33333333;
+    uint32_t avg_even = ((c0 & M) + (c1 & M)) >> 1 & M;
+    uint32_t avg_odd = (((c0 >> 2) & M) + ((c1 >> 2) & M)) >> 1 & M;
+    return avg_even | (avg_odd << 2);
 }
 
 void VIDEO::Update_Border() {
