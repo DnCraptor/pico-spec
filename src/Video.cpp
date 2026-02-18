@@ -110,7 +110,25 @@ bool VIDEO::snow_toggle = false;
 // ULA+
 bool VIDEO::ulaplus_enabled = false;
 uint8_t VIDEO::ulaplus_reg = 0;
-uint8_t VIDEO::ulaplus_palette[64] = {0};
+// Default palette: standard Spectrum colors in G3R3B2 format
+// G/R=5 for normal (truncates to 2-bit level 2), G/R=7 for bright (level 3)
+// B=2 for normal, B=3 for bright
+// Color order: Black, Blue, Red, Magenta, Green, Cyan, Yellow, White
+static const uint8_t ulaplus_default_palette[64] = {
+    // CLUT 0 (FLASH=0, BRIGHT=0): INK 0-7, PAPER 0-7
+    0x00, 0x02, 0x14, 0x16, 0xA0, 0xA2, 0xB4, 0xB6,
+    0x00, 0x02, 0x14, 0x16, 0xA0, 0xA2, 0xB4, 0xB6,
+    // CLUT 1 (FLASH=0, BRIGHT=1): INK 0-7, PAPER 0-7
+    0x00, 0x03, 0x1C, 0x1F, 0xE0, 0xE3, 0xFC, 0xFF,
+    0x00, 0x03, 0x1C, 0x1F, 0xE0, 0xE3, 0xFC, 0xFF,
+    // CLUT 2 (FLASH=1, BRIGHT=0): same as CLUT 0
+    0x00, 0x02, 0x14, 0x16, 0xA0, 0xA2, 0xB4, 0xB6,
+    0x00, 0x02, 0x14, 0x16, 0xA0, 0xA2, 0xB4, 0xB6,
+    // CLUT 3 (FLASH=1, BRIGHT=1): same as CLUT 1
+    0x00, 0x03, 0x1C, 0x1F, 0xE0, 0xE3, 0xFC, 0xFF,
+    0x00, 0x03, 0x1C, 0x1F, 0xE0, 0xE3, 0xFC, 0xFF,
+};
+uint8_t VIDEO::ulaplus_palette[64];
 unsigned int VIDEO::AluBytesUlaPlus[16][256] = {};
 
 #ifdef DIRTY_LINES
@@ -397,7 +415,7 @@ void VIDEO::Reset() {
     // Reset ULA+ state
     if (ulaplus_enabled) ulaPlusDisable();
     ulaplus_reg = 0;
-    memset(ulaplus_palette, 0, 64);
+    memcpy(ulaplus_palette, ulaplus_default_palette, 64);
 
     is169 = Config::aspect_16_9 ? 1 : 0;
 
