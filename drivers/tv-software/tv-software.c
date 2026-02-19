@@ -16,7 +16,6 @@
 #include "stdlib.h"
 #pragma GCC optimize("Ofast")
 
-static uint8_t map64colors[64] = { 0 };
 
 typedef struct tv_out_mode_t {
     // double color_freq;
@@ -919,8 +918,8 @@ static bool __time_critical_func(video_timer_callbackTV)(repeating_timer_t* rt) 
                             // для 8-битного буфера
                             register size_t x = 0;
                             register uint8_t c = input_buffer[(x++) ^ 2];
-                            // todo bgcolor
-                            uint8_t color = graphics_buffer.shift_x ? 200 : map64colors[c & 0b00111111];
+                            // Direct 8-bit palette index from frame buffer
+                            uint8_t color = graphics_buffer.shift_x ? 0 : c;
                             uint32_t cout32 = conv_color[li][color];
                             uint8_t* c_4 = (uint8_t*)&cout32;
                             output_buffer8 += buffer_shift;
@@ -932,10 +931,10 @@ static bool __time_critical_func(video_timer_callbackTV)(repeating_timer_t* rt) 
                                     c = input_buffer[(x++) ^ 2];
                                     if (x > graphics_buffer.shift_x && x < graphics_buffer.shift_x + graphics_buffer.
                                         width) {
-                                        color = map64colors[c & 0b00111111];
+                                        color = c;
                                     }
                                     else {
-                                        color = 200;
+                                        color = 0;
                                     }
                                     cout32 = conv_color[li][color];
                                     next_ibuf += 0x100;
@@ -1085,91 +1084,7 @@ void graphics_init() {
     // graphics_get_default_modeTV();
     graphics_set_modeTV(tv_out_mode);
 
-    for (uint8_t c = 0; c <= 0b00111111; ++c) {
-        switch (c)
-        {
-        case 0b000000: map64colors[c] = 200; break; // black
-
-        case 0b000001: map64colors[c] = 204; break; // red
-        case 0b000010: map64colors[c] = 204; break;
-
-        case 0b000011: map64colors[c] = 212; break; // light red
-        case 0b010011: map64colors[c] = 212; break;
-
-        case 0b000100: map64colors[c] = 202; break; // green
-        case 0b001000: map64colors[c] = 202; break;
-        case 0b001001: map64colors[c] = 202; break;
-
-        case 0b001100: map64colors[c] = 210; break; // light green
-
-        case 0b010000: map64colors[c] = 201; break; // blue
-        case 0b100000: map64colors[c] = 201; break;
-
-        case 0b110000: map64colors[c] = 209; break; // light blue
-
-        case 0b000101: map64colors[c] = 208; break; // yellow
-        case 0b000110: map64colors[c] = 208; break;
-        case 0b001010: map64colors[c] = 208; break;
-        case 0b001011: map64colors[c] = 208; break;
-        case 0b001110: map64colors[c] = 208; break;
-
-        case 0b001111: map64colors[c] = 214; break; // light tellow
-
-        case 0b010001: map64colors[c] = 205; break; // magenta
-        case 0b010010: map64colors[c] = 205; break;
-        case 0b100001: map64colors[c] = 205; break;
-        case 0b100010: map64colors[c] = 205; break;
-        case 0b110010: map64colors[c] = 205; break;
-        case 0b100011: map64colors[c] = 205; break;
-
-        case 0b110011: map64colors[c] = 213; break; // light magenta
-
-        case 0b010100: map64colors[c] = 203; break; // cyan
-        case 0b100100: map64colors[c] = 203; break;
-        case 0b011000: map64colors[c] = 203; break;
-        case 0b101000: map64colors[c] = 203; break;
-        case 0b111000: map64colors[c] = 203; break;
-        case 0b101100: map64colors[c] = 203; break;
-
-        case 0b111100: map64colors[c] = 211; break; // light cyan
-
-        case 0b010101: map64colors[c] = 207; break; // gray
-        case 0b010110: map64colors[c] = 207; break;
-        case 0b100101: map64colors[c] = 207; break;
-        case 0b100110: map64colors[c] = 207; break;
-        case 0b010111: map64colors[c] = 207; break;
-        case 0b011001: map64colors[c] = 207; break;
-        case 0b011111: map64colors[c] = 207; break;
-        case 0b111001: map64colors[c] = 207; break;
-        case 0b111010: map64colors[c] = 207; break;
-        case 0b101001: map64colors[c] = 207; break;
-        case 0b101010: map64colors[c] = 207; break;
-
-        case 0b111111: map64colors[c] = 215; break; // white
-
-        case 0b000111: map64colors[c] = 216; break; // orange
-
-        default: map64colors[c] = 215; break;
-        }
-    }
-    graphics_set_palette(200, RGB888(0x00, 0x00, 0x00)); //black
-    graphics_set_palette(201, RGB888(0x00, 0x00, 0xC4)); //blue
-    graphics_set_palette(202, RGB888(0x00, 0xC4, 0x00)); //green
-    graphics_set_palette(203, RGB888(0x00, 0xC4, 0xC4)); //cyan
-    graphics_set_palette(204, RGB888(0xC4, 0x00, 0x00)); //red
-    graphics_set_palette(205, RGB888(0xC4, 0x00, 0xC4)); //magenta
-    graphics_set_palette(206, RGB888(0xC4, 0x7E, 0x00)); //brown
-    graphics_set_palette(207, RGB888(0xC4, 0xC4, 0xC4)); //light gray
-//    graphics_set_palette(208, RGB888(0x4E, 0x4E, 0x4E)); //dark gray
-    graphics_set_palette(208, RGB888(0xC4, 0xC4, 0x00)); //yellow
-    graphics_set_palette(209, RGB888(0x4E, 0x4E, 0xDC)); //light blue
-    graphics_set_palette(210, RGB888(0x4E, 0xDC, 0x4E)); //light green
-    graphics_set_palette(211, RGB888(0x4E, 0xF3, 0xF3)); //light cyan
-    graphics_set_palette(212, RGB888(0xDC, 0x4E, 0x4E)); //light red
-    graphics_set_palette(213, RGB888(0xF3, 0x4E, 0xF3)); //light magenta
-    graphics_set_palette(214, RGB888(0xF3, 0xF3, 0x4E)); //light yellow
-    graphics_set_palette(215, RGB888(0xFF, 0xFF, 0xFF)); //white
-    graphics_set_palette(216, RGB888(0xFF, 0x7E, 0x00)); //orange
+    // Palette is initialized centrally by Video.cpp Init()
 };
 
 void graphics_set_offset(const int x, const int y) {

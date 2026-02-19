@@ -49,7 +49,7 @@ static uint32_t* __scratch_x("hdmi_ptr_4") DMA_BUF_ADDR[2];
 //ДМА палитра для конвертации
 //в хвосте этой памяти выделяется dma_data
 static alignas(4096) uint32_t conv_color[1224];
-static uint8_t __scratch_x("hdmi_ptr_5") map64colors[64] = { 0 };
+// map64colors removed — frame buffer now stores direct 8-bit palette indices
 
 //индекс, проверяющий зависание
 static uint32_t irq_inx = 0;
@@ -222,8 +222,8 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
                 register size_t x = 0;
                 while (activ_buf_end > output_buffer) {
                     if (input_buffer < input_buffer_end) {
-                        register uint8_t c = input_buffer[(x++) ^ 2];
-                        *output_buffer++ = map64colors[c & 0b00111111];
+                        // Direct 8-bit palette index — no mask or lookup needed
+                        *output_buffer++ = input_buffer[(x++) ^ 2];
                     }
                     else
                         *output_buffer++ = 255;
@@ -525,9 +525,18 @@ static inline bool hdmi_init() {
     return true;
 };
 
+// In VGA_HDMI mode, also update the VGA palette LUT
+#ifdef VGA_HDMI
+extern void vga_set_palette_entry(uint8_t i, uint32_t color888);
+#endif
+
 void graphics_set_palette(uint8_t i, uint32_t color888) {
     palette[i] = color888 & 0x00ffffff;
 
+#ifdef VGA_HDMI
+    // Update VGA palette LUT in parallel
+    vga_set_palette_entry(i, color888);
+#endif
 
     if ((i >= BASE_HDMI_CTRL_INX) && (i != 255)) return; //не записываем "служебные" цвета
 
@@ -550,118 +559,7 @@ void graphics_init_hdmi() {
     dma_chan_pal_conv_ctrl = dma_claim_unused_channel(true);
     dma_chan_pal_conv = dma_claim_unused_channel(true);
 
-    // массив индексов палитры для всех 64 комбинаций BGR
-    for (uint8_t c = 0; c < 64; ++c) {
-        uint8_t b = (c >> 4) & 0b11;
-        uint8_t g = (c >> 2) & 0b11;
-        uint8_t r = c & 0b11;
-
-        // базовые 16 цветов
-        if (r == 0 && g == 0 && b == 0) map64colors[c] = 0;   // black
-        else if (r == 3 && g == 0 && b == 0) map64colors[c] = 1; // red
-        else if (r == 0 && g == 3 && b == 0) map64colors[c] = 2; // green
-        else if (r == 0 && g == 0 && b == 3) map64colors[c] = 3; // blue
-        else if (r == 3 && g == 3 && b == 0) map64colors[c] = 4; // yellow
-        else if (r == 3 && g == 0 && b == 3) map64colors[c] = 5; // magenta
-        else if (r == 0 && g == 3 && b == 3) map64colors[c] = 6; // cyan
-        else if (r == 3 && g == 3 && b == 3) map64colors[c] = 7; // white
-        else {
-            // промежуточные оттенки для остальных комбинаций
-            // индекс палитры: 8..63
-            map64colors[c] = 8 + c;
-        }
-    }
-
-    // Таблица уровней Pulsar RGB
-    const uint8_t pulsar_levels[4] = {0x00, 0x55, 0xAA, 0xFF};
-
-    // Настройка 64 цветов палитры
-    for (uint8_t b = 0; b < 4; ++b) {
-        for (uint8_t g = 0; g < 4; ++g) {
-            for (uint8_t r = 0; r < 4; ++r) {
-                uint8_t idx = (b << 4) | (g << 2) | r;
-                uint8_t palette_idx = map64colors[idx];
-
-                uint8_t R = pulsar_levels[r];
-                uint8_t G = pulsar_levels[g];
-                uint8_t B = pulsar_levels[b];
-
-                graphics_set_palette(palette_idx, RGB888(R, G, B));
-            }
-        }
-    }
-
-    // for (uint8_t c = 0; c <= 0b111111; ++c) {
-    //     map64colors[c] = c;
-    //     switch (c)
-    //     {
-    //         case 0b000000: graphics_set_palette(c, RGB888(0x00, 0x00, 0x00)); break; // Black
-    //         case 0b000001: graphics_set_palette(c, RGB888(0xCD, 0x00, 0x00)); break; // Red
-    //         case 0b000010: graphics_set_palette(c, RGB888(0xAA, 0x00, 0x00)); break; // 
-    //         case 0b000011: graphics_set_palette(c, RGB888(0xFF, 0x00, 0x00)); break; // Bright Red
-    //         case 0b000100: graphics_set_palette(c, RGB888(0x00, 0xCD, 0x00)); break; // Green
-    //         case 0b000101: graphics_set_palette(c, RGB888(0xCD, 0xCD, 0x00)); break; // Yellow
-    //         case 0b000110: graphics_set_palette(c, RGB888(0xAA, 0xCD, 0x00)); break; // 
-    //         case 0b000111: graphics_set_palette(c, RGB888(0xFF, 0xCD, 0x00)); break; // 
-    //         case 0b001000: graphics_set_palette(c, RGB888(0x00, 0xAA, 0x00)); break; // 
-    //         case 0b001001: graphics_set_palette(c, RGB888(0xCD, 0xAA, 0x00)); break; //
-    //         case 0b001010: graphics_set_palette(c, RGB888(0xAA, 0xAA, 0x00)); break; //
-    //         case 0b001011: graphics_set_palette(c, RGB888(0xFF, 0xAA, 0x00)); break; //
-    //         case 0b001100: graphics_set_palette(c, RGB888(0x00, 0xFF, 0x00)); break; // Bright Green
-    //         case 0b001101: graphics_set_palette(c, RGB888(0xCD, 0xFF, 0x00)); break; //
-    //         case 0b001110: graphics_set_palette(c, RGB888(0xAA, 0xFF, 0x00)); break; //
-    //         case 0b001111: graphics_set_palette(c, RGB888(0xFF, 0xFF, 0x00)); break; // Bright Yellow
-    //         case 0b010000: graphics_set_palette(c, RGB888(0x00, 0x00, 0xCD)); break; // Blue 
-    //         case 0b010001: graphics_set_palette(c, RGB888(0xCD, 0x00, 0xCD)); break; // Magenta
-    //         case 0b010010: graphics_set_palette(c, RGB888(0xAA, 0x00, 0xCD)); break; //
-    //         case 0b010011: graphics_set_palette(c, RGB888(0xFF, 0x00, 0xCD)); break; //
-    //         case 0b010100: graphics_set_palette(c, RGB888(0x00, 0xCD, 0xCD)); break; // Cyan
-    //         case 0b010101: graphics_set_palette(c, RGB888(0xCD, 0xCD, 0xCD)); break; // White (light gray)
-    //         case 0b010110: graphics_set_palette(c, RGB888(0xAA, 0xCD, 0xCD)); break; //
-    //         case 0b010111: graphics_set_palette(c, RGB888(0xFF, 0xCD, 0xCD)); break; //
-    //         case 0b011000: graphics_set_palette(c, RGB888(0x00, 0xAA, 0xCD)); break; //
-    //         case 0b011001: graphics_set_palette(c, RGB888(0xCD, 0xAA, 0xCD)); break; //
-    //         case 0b011010: graphics_set_palette(c, RGB888(0xAA, 0xAA, 0xCD)); break; //
-    //         case 0b011011: graphics_set_palette(c, RGB888(0xFF, 0xAA, 0xCD)); break; //
-    //         case 0b011100: graphics_set_palette(c, RGB888(0x00, 0xFF, 0xCD)); break; //
-    //         case 0b011101: graphics_set_palette(c, RGB888(0xCD, 0xFF, 0xCD)); break; //
-    //         case 0b011110: graphics_set_palette(c, RGB888(0xAA, 0xFF, 0xCD)); break; //
-    //         case 0b011111: graphics_set_palette(c, RGB888(0xFF, 0xFF, 0xCD)); break; //
-    //         case 0b100000: graphics_set_palette(c, RGB888(0x00, 0x00, 0xAA)); break; //
-    //         case 0b100001: graphics_set_palette(c, RGB888(0xCD, 0x00, 0xAA)); break; //
-    //         case 0b100010: graphics_set_palette(c, RGB888(0xAA, 0x00, 0xAA)); break; //
-    //         case 0b100011: graphics_set_palette(c, RGB888(0xFF, 0x00, 0xAA)); break; //
-    //         case 0b100100: graphics_set_palette(c, RGB888(0x00, 0xCD, 0xAA)); break; //
-    //         case 0b100101: graphics_set_palette(c, RGB888(0xCD, 0xCD, 0xAA)); break; //
-    //         case 0b100110: graphics_set_palette(c, RGB888(0xAA, 0xCD, 0xAA)); break; //
-    //         case 0b100111: graphics_set_palette(c, RGB888(0xFF, 0xCD, 0xAA)); break; //
-    //         case 0b101000: graphics_set_palette(c, RGB888(0x00, 0xAA, 0xAA)); break; //
-    //         case 0b101001: graphics_set_palette(c, RGB888(0xCD, 0xAA, 0xAA)); break; //
-    //         case 0b101010: graphics_set_palette(c, RGB888(0xAA, 0xAA, 0xAA)); break; //
-    //         case 0b101011: graphics_set_palette(c, RGB888(0xFF, 0xAA, 0xAA)); break; //
-    //         case 0b101100: graphics_set_palette(c, RGB888(0x00, 0xFF, 0xAA)); break; //
-    //         case 0b101101: graphics_set_palette(c, RGB888(0xCD, 0xFF, 0xAA)); break; //
-    //         case 0b101110: graphics_set_palette(c, RGB888(0xAA, 0xFF, 0xAA)); break; //
-    //         case 0b101111: graphics_set_palette(c, RGB888(0xFF, 0xFF, 0xAA)); break; //
-    //         case 0b110000: graphics_set_palette(c, RGB888(0x00, 0x00, 0xFF)); break; // Bright Blue
-    //         case 0b110001: graphics_set_palette(c, RGB888(0xCD, 0x00, 0xFF)); break; //
-    //         case 0b110010: graphics_set_palette(c, RGB888(0xAA, 0x00, 0xFF)); break; //
-    //         case 0b110011: graphics_set_palette(c, RGB888(0xFF, 0x00, 0xFF)); break; // Bright Magenta
-    //         case 0b110100: graphics_set_palette(c, RGB888(0x00, 0xCD, 0xFF)); break; //
-    //         case 0b110101: graphics_set_palette(c, RGB888(0xCD, 0xCD, 0xFF)); break; //
-    //         case 0b110110: graphics_set_palette(c, RGB888(0xAA, 0xCD, 0xFF)); break; //
-    //         case 0b110111: graphics_set_palette(c, RGB888(0xFF, 0xCD, 0xFF)); break; //
-    //         case 0b111000: graphics_set_palette(c, RGB888(0x00, 0xAA, 0xFF)); break; //
-    //         case 0b111001: graphics_set_palette(c, RGB888(0xCD, 0xAA, 0xFF)); break; //
-    //         case 0b111010: graphics_set_palette(c, RGB888(0xAA, 0xAA, 0xFF)); break; //
-    //         case 0b111011: graphics_set_palette(c, RGB888(0xFF, 0xAA, 0xFF)); break; //
-    //         case 0b111100: graphics_set_palette(c, RGB888(0x00, 0xFF, 0xFF)); break; // Bright Cyan
-    //         case 0b111101: graphics_set_palette(c, RGB888(0xCD, 0xFF, 0xFF)); break; //
-    //         case 0b111110: graphics_set_palette(c, RGB888(0xAA, 0xFF, 0xFF)); break; //
-    //         case 0b111111: graphics_set_palette(c, RGB888(0xFF, 0xFF, 0xFF)); break; // Bright White
-    //     }
-    // }
-
+    // Palette is initialized centrally by Video.cpp Init()
     hdmi_init();
 }
 

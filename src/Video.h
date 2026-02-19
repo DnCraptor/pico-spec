@@ -64,25 +64,25 @@ visit https://zxespectrum.speccy.org/contacto
 #define TS_BORDER_360x200_PENTAGON 17075  // START OF BORDER PENTAGON
 #define TS_BORDER_360x200_BYTE 13428
 
-// Colors for 6 bit VGA mode
-//                  //  BBGGRR 
-#define BLACK       0b00000000
-#define BLUE        0b00100000
-#define RED         0b00000010
-#define MAGENTA     0b00100010
-#define GREEN       0b00001000
-#define CYAN        0b00101000
-#define YELLOW      0b00001010
-#define WHITE       0b00101010
-#define BRI_BLACK   0b00000000
-#define BRI_BLUE    0b00110000
-#define BRI_RED     0b00000011
-#define BRI_MAGENTA 0b00110011
-#define BRI_GREEN   0b00001100
-#define BRI_CYAN    0b00111100
-#define BRI_YELLOW  0b00001111
-#define BRI_WHITE   0b00111111
-#define ORANGE      0b00000111 // used in ESPectrum logo text
+// Colors as 8-bit palette indices (VGA8 mode)
+// Standard Spectrum color order: 0-7 normal, 8-15 bright, 16 orange
+#define BLACK       0
+#define BLUE        1
+#define RED         2
+#define MAGENTA     3
+#define GREEN       4
+#define CYAN        5
+#define YELLOW      6
+#define WHITE       7
+#define BRI_BLACK   8
+#define BRI_BLUE    9
+#define BRI_RED     10
+#define BRI_MAGENTA 11
+#define BRI_GREEN   12
+#define BRI_CYAN    13
+#define BRI_YELLOW  14
+#define BRI_WHITE   15
+#define ORANGE      16
 
 #define NUM_SPECTRUM_COLORS 17
 
@@ -220,6 +220,7 @@ public:
   static uint8_t ulaplus_palette[64];
   static unsigned int AluBytesUlaPlus[16][256];
   static void regenerateUlaPlusAluBytes();
+  static void ulaPlusUpdatePaletteEntry(uint8_t entry);
   static void ulaPlusUpdateBorder();
   static void ulaPlusDisable();
 };
