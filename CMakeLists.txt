@@ -39,11 +39,11 @@ endif()
 
 #set(CPU_MHZ 252)
 set(CPU_MHZ 378)
-set (PORT_VERSION "1.2.L")
+set (PORT_VERSION "1.2.M")
 
 # Target board (default: PICO_PC; override with -D flags, e.g. cmake -DMURM2=ON)
 if(NOT MURM AND NOT MURM2 AND NOT PICO_PC AND NOT PICO_DV AND NOT ZERO AND NOT ZERO2)
-    set(PICO_PC ON)
+    set(MURM2 ON)
 endif()
 
 set(KBDUSB ON)
@@ -146,6 +146,8 @@ set_source_files_properties(src/AySound.cpp PROPERTIES
     COMPILE_FLAGS "-O3 -ffast-math -funroll-loops")
 set_source_files_properties(src/SAASound.cpp PROPERTIES
     COMPILE_FLAGS "-O3 -ffast-math -funroll-loops")
+set_source_files_properties(src/Video.cpp PROPERTIES
+    COMPILE_FLAGS "-O3 -funroll-loops")
 
 if (PICO_BOARD STREQUAL "pico")
     pico_define_boot_stage2(slower_boot2 ${PICO_DEFAULT_BOOT_STAGE2_FILE})
