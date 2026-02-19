@@ -1102,6 +1102,10 @@ int main() {
     keyboard_send(0xFF);
 #endif
 
+    #ifdef VGA_HDMI
+    linkVGA01 = testPins(VGA_BASE_PIN, VGA_BASE_PIN + 1);
+    #endif
+
     ESPectrum::setup();
     #ifdef PICO_DEFAULT_LED_PIN
     for (int i = 0; i < 6; i++) {
@@ -1112,7 +1116,6 @@ int main() {
     }
     #endif
     #ifdef VGA_HDMI
-    linkVGA01 = testPins(VGA_BASE_PIN, VGA_BASE_PIN + 1);
     {
         FIL f;
         f_open(&f, "/spec/video_detect.code", FA_WRITE | FA_CREATE_ALWAYS);
