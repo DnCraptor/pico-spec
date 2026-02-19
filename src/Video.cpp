@@ -46,6 +46,8 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Z80_JLS/z80operations.h"
 #include "psram_spi.h"
 
+extern "C" void graphics_set_palette(uint8_t i, uint32_t color888);
+
 #pragma GCC optimize("O3")
 
 VGA6Bit VIDEO::vga;
@@ -308,27 +310,43 @@ void precalcborder32()
     }
 }
 
-// ULA+ G3R3B2 to 6-bit VGA (BBGGRR) conversion
-static inline uint8_t grb_to_vga6(uint8_t grb) {
-    uint8_t g2 = (grb >> 6) & 0x03;
-    uint8_t r2 = (grb >> 3) & 0x03;
+// Standard Spectrum RGB888 palette
+static const uint32_t spectrum_rgb888[16] = {
+    0x000000, 0x0000CD, 0xCD0000, 0xCD00CD,  // black, blue, red, magenta
+    0x00CD00, 0x00CDCD, 0xCDCD00, 0xCDCDCD,  // green, cyan, yellow, white
+    0x000000, 0x0000FF, 0xFF0000, 0xFF00FF,  // bright variants
+    0x00FF00, 0x00FFFF, 0xFFFF00, 0xFFFFFF,
+};
+
+void initGigascreenBlendLUT();
+
+// ULA+ G3R3B2 to full RGB888 conversion
+static inline uint32_t grb_to_rgb888(uint8_t grb) {
+    // G3R3B2 format: bits 7:5=green, bits 4:2=red, bits 1:0=blue
+    uint8_t g3 = (grb >> 5) & 0x07;
+    uint8_t r3 = (grb >> 2) & 0x07;
     uint8_t b2 = grb & 0x03;
-    return (b2 << 4) | (g2 << 2) | r2;
+    // Scale: 3-bit (0-7) → 8-bit, 2-bit (0-3) → 8-bit
+    uint8_t R = (r3 << 5) | (r3 << 2) | (r3 >> 1);
+    uint8_t G = (g3 << 5) | (g3 << 2) | (g3 >> 1);
+    uint8_t B = (b2 << 6) | (b2 << 4) | (b2 << 2) | b2;
+    return (R << 16) | (G << 8) | B;
 }
 
 void VIDEO::regenerateUlaPlusAluBytes() {
-    uint8_t sbits = vga.SBits;
-    uint8_t mask = vga.RGBAXMask;
+    // Set palette colors for all 64 ULA+ entries
+    for (int i = 0; i < 64; i++)
+        graphics_set_palette(i, grb_to_rgb888(ulaplus_palette[i]));
+
+    // Build AluBytes with fixed indices 0-63 (only depends on attribute format,
+    // not palette contents — only needs to be done once at ULA+ enable)
     for (int nibble = 0; nibble < 16; nibble++) {
         for (int att = 0; att < 256; att++) {
             uint8_t group = (att >> 6) & 0x03;
             uint8_t ink_idx   = group * 16 + (att & 0x07);
             uint8_t paper_idx = group * 16 + ((att >> 3) & 0x07) + 8;
 
-            uint8_t ink   = (grb_to_vga6(ulaplus_palette[ink_idx])   & mask) | sbits;
-            uint8_t paper = (grb_to_vga6(ulaplus_palette[paper_idx]) & mask) | sbits;
-
-            uint8_t px[2] = { paper, ink };
+            uint8_t px[2] = { paper_idx, ink_idx };
             AluBytesUlaPlus[nibble][att] =
                 px[(nibble >> 1) & 1]        |
                 (px[nibble & 1]       << 8)  |
@@ -340,8 +358,14 @@ void VIDEO::regenerateUlaPlusAluBytes() {
         AluByte[n] = AluBytesUlaPlus[n];
 }
 
+// Fast path: update single palette entry without rebuilding AluBytes
+void VIDEO::ulaPlusUpdatePaletteEntry(uint8_t entry) {
+    graphics_set_palette(entry, grb_to_rgb888(ulaplus_palette[entry]));
+}
+
 void VIDEO::ulaPlusUpdateBorder() {
-    uint8_t brd_color = (grb_to_vga6(ulaplus_palette[8]) & vga.RGBAXMask) | vga.SBits;
+    // ULA+ border = paper 0 of group 0 = palette index 8
+    uint8_t brd_color = 8;
     brd = brd_color | (brd_color << 8) | (brd_color << 16) | (brd_color << 24);
     brdChange = true;
 }
@@ -349,8 +373,19 @@ void VIDEO::ulaPlusUpdateBorder() {
 void VIDEO::ulaPlusDisable() {
     ulaplus_enabled = false;
     flashing = 0;
+    // Restore palette: indices 0-63 back to G3R3B2 defaults, then 0-15 to Spectrum
+    for (int i = 0; i < 64; i++)
+        graphics_set_palette(i, grb_to_rgb888(i));
+    for (int i = 0; i < 16; i++)
+        graphics_set_palette(i, spectrum_rgb888[i]);
+
+    // Restore GigaScreen blend palette (slots 17-136) if GigaScreen is configured,
+    // since palette entries 17-63 were overwritten by ULA+ above
+    if (Config::gigascreen_enabled)
+        initGigascreenBlendLUT();
+
     for (int n = 0; n < 16; n++)
-        AluByte[n] = (unsigned int *)AluBytes[bitRead(vga.SBits, 7)][n];
+        AluByte[n] = AluBytesStd[n];
     brd = border32[borderColor];
     brdChange = true;
 }
@@ -381,16 +416,21 @@ void VIDEO::Init() {
     vga.VGA6Bit_useinterrupt = false;
     vga.init( Mode, redPins, grePins, bluPins, HSYNC_PIN, VSYNC_PIN);
 
-    // Precalculate colors for current VGA mode
-    for (int i = 0; i < NUM_SPECTRUM_COLORS; i++) {
-        // printf("RGBAXMask: %d, SBits: %d\n",(int)VIDEO::vga.RGBAXMask,(int)VIDEO::vga.SBits);
-        // printf("Before: %d -> %d, ",i,(int)spectrum_colors[i]);
-        spectrum_colors[i] = (spectrum_colors[i] & VIDEO::vga.RGBAXMask) | VIDEO::vga.SBits;
-        // printf("After : %d -> %d\n",i,(int)spectrum_colors[i]);
-    }
+    // Initialize full 256-entry palette: G3R3B2 → RGB888 for all possible values
+    // This covers ULA+ (any G3R3B2 value maps to correct color) and provides
+    // a reasonable default for all indices
+    for (int i = 0; i < 240; i++)
+        graphics_set_palette(i, grb_to_rgb888(i));
 
-    for (int n = 0; n < 16; n++)
-        AluByte[n] = (unsigned int *)AluBytes[bitRead(VIDEO::vga.SBits,7)][n];
+    // Override indices 0-15 with standard Spectrum colors
+    for (int i = 0; i < 16; i++)
+        graphics_set_palette(i, spectrum_rgb888[i]);
+
+    // Index 16 = ORANGE
+    graphics_set_palette(16, 0xFF7F00);
+
+    // Generate AluBytes table with palette indices (no sync bits)
+    initAluBytes();
 
     precalcULASWAP();   // precalculate ULA SWAP values
 
@@ -400,6 +440,7 @@ void VIDEO::Init() {
     {
         VIDEO::gigascreen_enabled = (Config::gigascreen_onoff == 1); // On=enabled, Auto=start disabled
         VIDEO::gigascreen_auto_countdown = 0;
+        initGigascreenBlendLUT(); // Pre-compute blend palette entries
         InitPrevBuffer();   // For Gigascreen (needed for both On and Auto modes)
     }
 
@@ -658,37 +699,60 @@ IRAM_ATTR void VIDEO::MainScreen_Blank_Snow_Opcode(bool contended) {
 
 #ifndef DIRTY_LINES
 
-// Оптимизированная версия усреднения 4 пикселей в формате R2G2B2S2
-inline uint32_t mixColorR2G2B2S2(uint32_t c0, uint32_t c1) {
-    uint32_t result = 0;
+// GigaScreen blend LUT: maps (prev_palette_idx, cur_palette_idx) → blended palette_idx
+// Supports standard 16 Spectrum colors (indices 0-15)
+// Blended colors stored in palette slots 17-239
+static uint8_t gigsBlendLUT[256]; // indexed by (prev * 16 + cur)
+static bool gigsBlendLUTReady = false;
 
-    // Побайтовая обработка — 4 пикселя в 32 битах
-    uint32_t xorv = c0 ^ c1;   // Различия
-    uint32_t andv = c0 & c1;   // Совпадения
+void initGigascreenBlendLUT() {
+    uint8_t nextSlot = 17; // start after ORANGE(16)
 
-    // Если одинаковые — результат тот же
-    if (xorv == 0) return c0;
+    // For each pair (i, j), compute average RGB and assign palette slot
+    for (int i = 0; i < 16; i++) {
+        for (int j = 0; j < 16; j++) {
+            if (i == j) {
+                // Same color — no blend needed
+                gigsBlendLUT[i * 16 + j] = i;
+                continue;
+            }
+            // Check if reverse pair already computed
+            if (j < i) {
+                gigsBlendLUT[i * 16 + j] = gigsBlendLUT[j * 16 + i];
+                continue;
+            }
+            // Compute average RGB888
+            uint32_t c0 = spectrum_rgb888[i];
+            uint32_t c1 = spectrum_rgb888[j];
+            uint8_t R = (((c0 >> 16) & 0xFF) + ((c1 >> 16) & 0xFF)) / 2;
+            uint8_t G = (((c0 >> 8) & 0xFF) + ((c1 >> 8) & 0xFF)) / 2;
+            uint8_t B = ((c0 & 0xFF) + (c1 & 0xFF)) / 2;
+            uint32_t blended = (R << 16) | (G << 8) | B;
 
-    // Обрабатываем 4 байта без цикла
-#define MIXPIX(i) { \
-    uint8_t p0 = (c0 >> ((i) * 8)) & 0xFF; \
-    uint8_t p1 = (c1 >> ((i) * 8)) & 0xFF; \
-    \
-    uint8_t r = (((p0 & 0x03) + (p1 & 0x03) + 1) >> 1) & 0x03; \
-    uint8_t g = ((((p0 >> 2) & 0x03) + ((p1 >> 2) & 0x03) + 1) >> 1) & 0x03; \
-    uint8_t b = ((((p0 >> 4) & 0x03) + ((p1 >> 4) & 0x03) + 1) >> 1) & 0x03; \
-    uint8_t s = ((((p0 >> 6) & 0x03) + ((p1 >> 6) & 0x03) + 1) >> 1) & 0x03; \
-    \
-    uint8_t mix = (s << 6) | (b << 4) | (g << 2) | r; \
-    result |= (uint32_t)mix << ((i) * 8); \
+            // Assign to next available palette slot
+            if (nextSlot < 240) {
+                gigsBlendLUT[i * 16 + j] = nextSlot;
+                graphics_set_palette(nextSlot, blended);
+                nextSlot++;
+            } else {
+                gigsBlendLUT[i * 16 + j] = i; // fallback
+            }
+        }
+    }
+    gigsBlendLUTReady = true;
 }
 
-    MIXPIX(0);
-    MIXPIX(1);
-    MIXPIX(2);
-    MIXPIX(3);
-
-#undef MIXPIX
+// Blend 4 packed palette-index pixels via LUT
+inline uint32_t blendPixels32(uint32_t cur, uint32_t prev) {
+    if (cur == prev) return cur;
+    uint32_t result;
+    uint8_t* r = (uint8_t*)&result;
+    uint8_t* c = (uint8_t*)&cur;
+    uint8_t* p = (uint8_t*)&prev;
+    r[0] = gigsBlendLUT[(p[0] & 0x0F) * 16 + (c[0] & 0x0F)];
+    r[1] = gigsBlendLUT[(p[1] & 0x0F) * 16 + (c[1] & 0x0F)];
+    r[2] = gigsBlendLUT[(p[2] & 0x0F) * 16 + (c[2] & 0x0F)];
+    r[3] = gigsBlendLUT[(p[3] & 0x0F) * 16 + (c[3] & 0x0F)];
     return result;
 }
 
@@ -730,9 +794,9 @@ inline uint32_t mixColorR2G2B2S2(uint32_t c0, uint32_t c1) {
             uint32_t oldPixel1 = *prevLineptr32;
             uint32_t oldPixel2 = *(prevLineptr32 + 1);
 
-            // Усреднение 4 пикселей (по 1 байту в 32-битном слове)
-            uint32_t mix1 = mixColorR2G2B2S2(newPixel1, oldPixel1);
-            uint32_t mix2 = mixColorR2G2B2S2(newPixel2, oldPixel2);
+            // Blend via palette LUT (4 pixels at once)
+            uint32_t mix1 = blendPixels32(newPixel1, oldPixel1);
+            uint32_t mix2 = blendPixels32(newPixel2, oldPixel2);
 
             *prevLineptr32++ = newPixel1;
             *prevLineptr32++ = newPixel2;
@@ -1093,7 +1157,10 @@ IRAM_ATTR void VIDEO::EndFrame() {
     if (Config::gigascreen_onoff == 2) { // Auto mode
         if (gigascreen_auto_countdown > 0) {
             gigascreen_auto_countdown--;
-            if (!gigascreen_enabled) gigascreen_enabled = true;
+            if (!gigascreen_enabled) {
+                if (!gigsBlendLUTReady) initGigascreenBlendLUT();
+                gigascreen_enabled = true;
+            }
         } else {
             if (gigascreen_enabled) gigascreen_enabled = false;
         }
@@ -1264,57 +1331,9 @@ static int brdcol_end = 0;
 static int brdcol_end1 = 0;
 
 
-// uint32_t Border_Gigascreen(uint32_t c0, uint32_t c1) {
-//     uint32_t result = 0;
-
-//     for (int i = 0; i < 4; ++i) {
-//         uint8_t p0 = (c0 >> (i * 8)) & 0xFF;
-//         uint8_t p1 = (c1 >> (i * 8)) & 0xFF;
-
-//         // Разбираем компоненты BBGGRR
-//         uint8_t r0 = p0 & 0b00000011;
-//         uint8_t g0 = (p0 >> 2) & 0b00000011;
-//         uint8_t b0 = (p0 >> 4) & 0b00000011;
-//         uint8_t s0 = (p0 >> 6) & 0b00000011;
-
-//         uint8_t r1 = p1 & 0b00000011;
-//         uint8_t g1 = (p1 >> 2) & 0b00000011;
-//         uint8_t b1 = (p1 >> 4) & 0b00000011;
-//         uint8_t s1 = (p1 >> 6) & 0b00000011;
-
-//         // Усреднение
-//         uint8_t rMix = (r0 + r1 + 1) / 2;
-//         uint8_t gMix = (g0 + g1 + 1) / 2;
-//         uint8_t bMix = (b0 + b1 + 1) / 2;
-//         uint8_t sMix = (s0 + s1 + 1) / 2;
-
-//         // Сборка обратно
-//         uint8_t mixedPixel = (sMix << 6) | (bMix << 4) | (gMix << 2) | rMix;
-
-//         result |= (mixedPixel << (i * 8));
-//     }
-
-//     return result;
-// }
-
+// Border GigaScreen blend — uses same palette LUT as pixel blending
 inline uint32_t Border_Gigascreen(uint32_t c0, uint32_t c1) {
-    // Разделяем компоненты по байтам
-    uint32_t r0 = c0 & 0x03030303;
-    uint32_t r1 = c1 & 0x03030303;
-    uint32_t g0 = c0 & 0x0C0C0C0C;
-    uint32_t g1 = c1 & 0x0C0C0C0C;
-    uint32_t b0 = c0 & 0x30303030;
-    uint32_t b1 = c1 & 0x30303030;
-    uint32_t s0 = c0 & 0xC0C0C0C0;
-    uint32_t s1 = c1 & 0xC0C0C0C0;
-
-    // Усреднение каждой 2-битной группы с корректным округлением
-    uint32_t rMix = ((r0 + r1) >> 1) & 0x03030303;
-    uint32_t gMix = ((g0 + g1) >> 1) & 0x0C0C0C0C;
-    uint32_t bMix = ((b0 + b1) >> 1) & 0x30303030;
-    uint32_t sMix = ((s0 + s1) >> 1) & 0xC0C0C0C0;
-
-    return rMix | gMix | bMix | sMix;
+    return blendPixels32(c0, c1);
 }
 
 void VIDEO::Update_Border() {

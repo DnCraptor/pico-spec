@@ -54,7 +54,8 @@ class VGA6Bit : public VGA, public GraphicsR2G2B2S2Swapped
 	}
 
 	virtual Color **allocateFrameBuffer() {
-		return (Color **)DMABufferDescriptor::allocateDMABufferArray(yres, vidmodes[mode][vmodeproperties::hRes], true, syncBits(false, false));
+		// Fill with palette index 0 (BLACK), not sync bits
+		return (Color **)DMABufferDescriptor::allocateDMABufferArray(yres, vidmodes[mode][vmodeproperties::hRes], true, 0);
 	}
 /***
 	virtual void allocateLineBuffers() {
