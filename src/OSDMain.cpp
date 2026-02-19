@@ -2229,8 +2229,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             break;
                                         }
                                     }
-                                    #endif
                                 }
+                                #endif
                                 // ULA+ ON/OFF
                                 #if !PICO_RP2040
                                 else if (options_num == 7) {
