@@ -319,10 +319,11 @@ void graphics_set_mode(enum graphics_mode_t mode) {
     //корректировка  палитры по маске бит синхры
     bg_color[0] = bg_color[0] & 0x3f3f3f3f | palette16_mask | palette16_mask << 16;
     bg_color[1] = bg_color[1] & 0x3f3f3f3f | palette16_mask | palette16_mask << 16;
-///    for (int i = 0; i < 256; i++) {
-///        palette[0][i] = palette[0][i] & 0x3f3f | palette16_mask;
-///        palette[1][i] = palette[1][i] & 0x3f3f | palette16_mask;
-///    }
+    // Re-apply sync bits to all VGA palette entries (palette may have been
+    // initialized before palette16_mask was set)
+    for (int i = 0; i < 256; i++) {
+        palette_vga16[i] = (palette_vga16[i] & 0x3f3f) | palette16_mask;
+    }
 
     //инициализация шаблонов строк и синхросигнала
     if (!lines_pattern_data) //выделение памяти, если не выделено
