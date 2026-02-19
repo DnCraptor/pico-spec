@@ -47,6 +47,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "psram_spi.h"
 
 extern "C" void graphics_set_palette(uint8_t i, uint32_t color888);
+extern "C" void vga_set_palette_entry_solid(uint8_t i, uint32_t color888);
 
 #pragma GCC optimize("O3")
 
@@ -374,11 +375,13 @@ void VIDEO::ulaPlusUpdateBorder() {
 void VIDEO::ulaPlusDisable() {
     ulaplus_enabled = false;
     flashing = 0;
-    // Restore palette: indices 0-63 back to G3R3B2 defaults, then 0-15 to Spectrum
+    // Restore palette: indices 0-63 back to G3R3B2 defaults, then 0-15 to Spectrum (solid)
     for (int i = 0; i < 64; i++)
         graphics_set_palette(i, grb_to_rgb888(i));
-    for (int i = 0; i < 16; i++)
+    for (int i = 0; i < 16; i++) {
         graphics_set_palette(i, spectrum_rgb888[i]);
+        vga_set_palette_entry_solid(i, spectrum_rgb888[i]);
+    }
 
     // Restore GigaScreen blend palette (slots 17-136) if GigaScreen is configured,
     // since palette entries 17-63 were overwritten by ULA+ above
@@ -423,9 +426,11 @@ void VIDEO::Init() {
     for (int i = 0; i < 240; i++)
         graphics_set_palette(i, grb_to_rgb888(i));
 
-    // Override indices 0-15 with standard Spectrum colors
-    for (int i = 0; i < 16; i++)
+    // Override indices 0-15 with standard Spectrum colors (solid, no dithering)
+    for (int i = 0; i < 16; i++) {
         graphics_set_palette(i, spectrum_rgb888[i]);
+        vga_set_palette_entry_solid(i, spectrum_rgb888[i]);
+    }
 
     // Index 16 = ORANGE
     graphics_set_palette(16, 0xFF7F00);
