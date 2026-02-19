@@ -391,7 +391,10 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         VIDEO::Draw(0, true); // Seems not needed in Pentagon
       VIDEO::DrawBorder();
       VIDEO::borderColor = data & 0x07;
-      VIDEO::brd = VIDEO::border32[VIDEO::borderColor];
+      if (VIDEO::ulaplus_enabled)
+        VIDEO::ulaPlusUpdateBorder();
+      else
+        VIDEO::brd = VIDEO::border32[VIDEO::borderColor];
     }
     if (Config::tape_player)
       Audiobit = Tape::tapeEarBit ? 255 : 0; // For tape player mode
@@ -460,7 +463,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
           VIDEO::ulaplus_palette[reg & 0x3F] = data;
           if (VIDEO::ulaplus_enabled) {
             VIDEO::ulaPlusUpdatePaletteEntry(reg & 0x3F);
-            if ((reg & 0x3F) == 8)
+            if ((reg & 0x3F) == (8 + VIDEO::borderColor))
               VIDEO::ulaPlusUpdateBorder();
           }
         } else if ((reg & 0xC0) == 0x40) {

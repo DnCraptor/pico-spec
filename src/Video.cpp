@@ -364,8 +364,9 @@ void VIDEO::ulaPlusUpdatePaletteEntry(uint8_t entry) {
 }
 
 void VIDEO::ulaPlusUpdateBorder() {
-    // ULA+ border = paper 0 of group 0 = palette index 8
-    uint8_t brd_color = 8;
+    // ULA+ border = paper color from CLUT 0 for current borderColor
+    // CLUT 0 paper entries are at indices 8-15, so index = 8 + borderColor
+    uint8_t brd_color = 8 + borderColor;
     brd = brd_color | (brd_color << 8) | (brd_color << 16) | (brd_color << 24);
     brdChange = true;
 }
