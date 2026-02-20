@@ -1,17 +1,17 @@
 /*
   SAA1099 Sound Chip Emulation for pico-spec ZX Spectrum emulator
 
-  Based on Philips SAA1099 datasheet and SAASound library by Dave Hooper
-  https://github.com/stripwax/SAASound
+  Based on UnrealSpeccy SAA1099 driver by Juergen Buchmueller and Manuel Abadia
+  https://github.com/mkoloberdin/unrealspeccy/blob/master/sndrender/saa1099.cpp
 
-  SAA1099 specs:
-    - 6 tone channels, 8 octaves, 256 tones per octave
-    - 2 noise generators (18-bit Galois LFSR)
-    - 2 envelope generators (8 shapes)
-    - Stereo: independent 4-bit L/R amplitude per channel
-    - Clock: 8 MHz, internal /256 divider for counters
+  Key behavioral elements ported from UnrealSpeccy:
+    - Envelope: 64-step counter (0-31 once, then 32-63 loop), with deferred
+      parameter updates applied only at natural shape boundaries.
+    - Mixing: subtractive noise model (noise subtracts half amplitude).
+    - Buzz: ch2/ch5 output DC at envelope level when freq_enable=0.
+    - Noise LFSR: bits 14 and 6 tapped (XNOR feedback, shift left).
 
-  Optimized for RP2350: integer-only arithmetic, flash-resident tables.
+  Adapted for RP2350: integer-only arithmetic (no doubles), 8-bit buffer output.
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -31,71 +31,49 @@
 #define IRAM_ATTR __not_in_flash("audio")
 #endif
 
-// Volume table: maps 4-bit SAA volume (0-15) to output level
-// Linear mapping, max 18 per channel so 6 channels sum to ~108
-// Headroom for AY+SAA coexistence: 108 + 140 = 248 < 255
-const uint8_t SAASound::vol_table[16] = {
-    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
-};
-
-// Tone period: full-resolution (511 - offset), no octave shift.
-// Octave is applied as counter step (1 << octave) in gen_sound,
-// preserving fractional precision through accumulation.
-// Counter runs at 8MHz/256 = 31.25kHz base rate.
-
-// Envelope tables — verified against stripwax/SAASound (SAAEnv.cpp cs_EnvData).
-// Two resolutions per shape: [0]=4-bit (16 values), [1]=3-bit (16 values, pairs).
-// Position advances by 1 (4-bit) or 2 (3-bit); phase ends at position >= 16.
-// Looping shapes restart at position 0; non-looping return 0 when ended.
-//
-// Shape layout:  0=zero, 1=max, 2=single decay, 3=rep decay,
-//                4=single tri, 5=rep tri, 6=single attack, 7=rep attack
-struct EnvShape {
-    int  phases;    // number of phases (1 or 2)
-    bool looping;
-    uint8_t data[2][2][16]; // [resolution 0=4bit 1=3bit][phase][pos]
-};
-static const EnvShape envelope_shapes[8] = {
+// Envelope table from UnrealSpeccy — 8 shapes x 64 steps.
+// Steps 0-31 play once, then steps 32-63 loop forever.
+const uint8_t SAASound::envelope[8][64] = {
     /* 0: zero amplitude */
-    {1, false, {{{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-                 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
-                {{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-                 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}}},
+    { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
     /* 1: maximum amplitude */
-    {1, true,  {{{15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15},
-                 {15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15}},
-                {{14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14},
-                 {14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14}}}},
+    {15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+     15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+     15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
+     15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15 },
     /* 2: single decay */
-    {1, false, {{{15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0},
-                 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
-                {{14,14,12,12,10,10, 8, 8, 6, 6, 4, 4, 2, 2, 0, 0},
-                 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}}},
+    {15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
     /* 3: repetitive decay */
-    {1, true,  {{{15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0},
-                 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
-                {{14,14,12,12,10,10, 8, 8, 6, 6, 4, 4, 2, 2, 0, 0},
-                 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}}},
+    {15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
+     15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
+     15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
+     15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 },
     /* 4: single triangular */
-    {2, false, {{{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15},
-                 {15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0}},
-                {{ 0, 0, 2, 2, 4, 4, 6, 6, 8, 8,10,10,12,12,14,14},
-                 {14,14,12,12,10,10, 8, 8, 6, 6, 4, 4, 2, 2, 0, 0}}}},
+    { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
+     15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
     /* 5: repetitive triangular */
-    {2, true,  {{{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15},
-                 {15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0}},
-                {{ 0, 0, 2, 2, 4, 4, 6, 6, 8, 8,10,10,12,12,14,14},
-                 {14,14,12,12,10,10, 8, 8, 6, 6, 4, 4, 2, 2, 0, 0}}}},
+    { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
+     15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
+     15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 },
     /* 6: single attack */
-    {1, false, {{{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15},
-                 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
-                {{ 0, 0, 2, 2, 4, 4, 6, 6, 8, 8,10,10,12,12,14,14},
-                 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}}},
+    { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
     /* 7: repetitive attack */
-    {1, true,  {{{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15},
-                 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
-                {{ 0, 0, 2, 2, 4, 4, 6, 6, 8, 8,10,10,12,12,14,14},
-                 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}}}
+    { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15 }
 };
 
 SAASound saaChip;
@@ -106,20 +84,31 @@ SAASound::SAASound() {
 
 void SAASound::init() {
     selectedRegister = 0;
-    sound_enabled = false;
+    all_ch_enable = false;
     memset(regs, 0, sizeof(regs));
     memset(channels, 0, sizeof(channels));
     memset(noise, 0, sizeof(noise));
-    memset(envs, 0, sizeof(envs));
-    // Initialize all channel periods to max (offset=0, octave=0)
+
     for (int i = 0; i < 6; i++) {
         channels[i].period = 511;
+        channels[i].envelope[0] = 16;  // 16 = envelope off (pass-through)
+        channels[i].envelope[1] = 16;
     }
-    // Initialize noise LFSRs to non-zero (18-bit all ones)
-    noise[0].lfsr = 0x3FFFF;
-    noise[1].lfsr = 0x3FFFF;
-    noise[0].period = 1;
-    noise[1].period = 1;
+
+    for (int i = 0; i < 2; i++) {
+        noise_params[i] = 0;
+        env_enable[i] = 0;
+        env_reverse_right[i] = 0;
+        env_reverse_right_buf[i] = 0;
+        env_mode[i] = 0;
+        env_mode_buf[i] = 0;
+        env_bits[i] = 0;
+        env_clock[i] = 0;
+        env_clock_buf[i] = 0;
+        env_step[i] = 0;
+        env_upd[i] = false;
+    }
+
     memset(SamplebufSAA_L, 0, sizeof(SamplebufSAA_L));
     memset(SamplebufSAA_R, 0, sizeof(SamplebufSAA_R));
 }
@@ -129,21 +118,16 @@ void SAASound::reset() {
 }
 
 void SAASound::set_sound_format(int freq, int chans, int bits) {
-    // SAA1099 runs at 8MHz/256 = 31250 Hz — matches the fixed gen_sound tick rate.
-    // Audio_freq is always 31250 (48K/Pentagon) or 31112 (128K), so no scaling needed.
     (void)freq; (void)chans; (void)bits;
 }
 
+// Register address select — also triggers external envelope clock
+// (matches UnrealSpeccy WrCtl)
 void SAASound::selectRegister(uint8_t reg) {
     selectedRegister = reg & 0x1F;
-    // External envelope clock: only triggered when selecting the corresponding
-    // envelope register (0x18 or 0x19), not on every register address write.
-    // Verified by stripwax/SAASound: _WriteAddress only calls ExternalClock
-    // when m_nCurrentSaaReg == 24 or 25.
-    if (selectedRegister == 0x18) {
-        if ((envs[0].enabled && envs[0].ext_clock) || envs[0].new_data) advanceEnvelope(0);
-    } else if (selectedRegister == 0x19) {
-        if ((envs[1].enabled && envs[1].ext_clock) || envs[1].new_data) advanceEnvelope(1);
+    if (selectedRegister == 0x18 || selectedRegister == 0x19) {
+        if (env_clock[0]) updateEnvelope(0);
+        if (env_clock[1]) updateEnvelope(1);
     }
 }
 
@@ -152,100 +136,94 @@ uint8_t SAASound::getRegisterData() {
     return regs[selectedRegister];
 }
 
+// Register data write (matches UnrealSpeccy WrData)
 void SAASound::setRegisterData(uint8_t data) {
     if (selectedRegister > 0x1F) return;
     regs[selectedRegister] = data;
 
     switch (selectedRegister) {
-    // Amplitude registers 0x00-0x05: low nibble = left, high nibble = right
+    // Amplitude registers 0x00-0x05
     case 0x00: case 0x01: case 0x02:
-    case 0x03: case 0x04: case 0x05:
-        channels[selectedRegister].amp_left = data & 0x0F;
-        channels[selectedRegister].amp_right = (data >> 4) & 0x0F;
+    case 0x03: case 0x04: case 0x05: {
+        int ch = selectedRegister;
+        channels[ch].amp[0] = data & 0x0F;
+        channels[ch].amp[1] = (data >> 4) & 0x0F;
         break;
+    }
 
-    // Frequency offset registers 0x08-0x0D
+    // Frequency registers 0x08-0x0D
     case 0x08: case 0x09: case 0x0A:
-    case 0x0B: case 0x0C: case 0x0D:
-        channels[selectedRegister - 0x08].freq_offset = data;
-        updateChannelPeriod(selectedRegister - 0x08);
+    case 0x0B: case 0x0C: case 0x0D: {
+        int ch = selectedRegister - 0x08;
+        channels[ch].frequency = data;
+        int p = 511 - (int)data;
+        channels[ch].period = (p < 1) ? 1 : (uint32_t)p;
         break;
+    }
 
     // Octave registers
-    case 0x10: // Octave ch0 (low nibble), ch1 (high nibble)
+    case 0x10:
         channels[0].octave = data & 0x07;
         channels[1].octave = (data >> 4) & 0x07;
-        updateChannelPeriod(0);
-        updateChannelPeriod(1);
         break;
-    case 0x11: // Octave ch2, ch3
+    case 0x11:
         channels[2].octave = data & 0x07;
         channels[3].octave = (data >> 4) & 0x07;
-        updateChannelPeriod(2);
-        updateChannelPeriod(3);
         break;
-    case 0x12: // Octave ch4, ch5
+    case 0x12:
         channels[4].octave = data & 0x07;
         channels[5].octave = (data >> 4) & 0x07;
-        updateChannelPeriod(4);
-        updateChannelPeriod(5);
         break;
 
-    // Frequency enable (bit N = channel N tone on)
+    // Frequency enable
     case 0x14:
-        for (int i = 0; i < 6; i++)
-            channels[i].tone_on = (data >> i) & 1;
+        channels[0].freq_enable = data & 0x01;
+        channels[1].freq_enable = data & 0x02;
+        channels[2].freq_enable = data & 0x04;
+        channels[3].freq_enable = data & 0x08;
+        channels[4].freq_enable = data & 0x10;
+        channels[5].freq_enable = data & 0x20;
         break;
 
-    // Noise enable (bit N = channel N noise on)
+    // Noise enable
     case 0x15:
-        for (int i = 0; i < 6; i++)
-            channels[i].noise_on = (data >> i) & 1;
+        channels[0].noise_enable = data & 0x01;
+        channels[1].noise_enable = data & 0x02;
+        channels[2].noise_enable = data & 0x04;
+        channels[3].noise_enable = data & 0x08;
+        channels[4].noise_enable = data & 0x10;
+        channels[5].noise_enable = data & 0x20;
         break;
 
-    // Noise generator control
-    // bits 0-1: noise gen 0 source, bits 4-5: noise gen 1 source
-    // 0=31.3kHz, 1=15.6kHz, 2=7.8kHz, 3=use freq gen (ch0/ch3)
+    // Noise generator parameters
     case 0x16:
-        noise[0].source = data & 0x03;
-        noise[1].source = (data >> 4) & 0x03;
-        updateNoisePeriod(0);
-        updateNoisePeriod(1);
+        noise_params[0] = data & 0x03;
+        noise_params[1] = (data >> 4) & 0x03;
         break;
 
-    // Envelope generator 0 (affects channels 0-2, clocked by ch1)
-    // enabled and resolution apply immediately (per UnrealSpeccy / hardware).
-    // shape, invert_right, ext_clock are deferred to next envelope clock tick.
-    case 0x18: {
-        envs[0].enabled    = (data >> 7) & 0x01;   // immediate
-        envs[0].resolution = (data >> 4) & 0x01;   // immediate
-        envs[0].pending_invert_right = data & 0x01;
-        envs[0].pending_shape        = (data >> 1) & 0x07;
-        envs[0].pending_ext_clock    = (data >> 5) & 0x01;
-        envs[0].new_data = true;
-        break;
-    }
-
-    // Envelope generator 1 (affects channels 3-5, clocked by ch4)
-    case 0x19: {
-        envs[1].enabled    = (data >> 7) & 0x01;   // immediate
-        envs[1].resolution = (data >> 4) & 0x01;   // immediate
-        envs[1].pending_invert_right = data & 0x01;
-        envs[1].pending_shape        = (data >> 1) & 0x07;
-        envs[1].pending_ext_clock    = (data >> 5) & 0x01;
-        envs[1].new_data = true;
+    // Envelope generators
+    case 0x18: case 0x19: {
+        int ch = selectedRegister - 0x18;
+        // Immediate: resolution and enable
+        env_bits[ch] = data & 0x10;
+        env_enable[ch] = data & 0x80;
+        if (!(data & 0x80))
+            env_step[ch] = 0;  // reset on disable
+        // Buffered: shape, invert, clock — applied at natural boundary
+        env_reverse_right_buf[ch] = data & 0x01;
+        env_mode_buf[ch] = (data >> 1) & 0x07;
+        env_clock_buf[ch] = data & 0x20;
+        env_upd[ch] = true;
         break;
     }
 
-    // Sound enable / reset
+    // Sound enable & sync
     case 0x1C:
-        sound_enabled = data & 0x01;
+        all_ch_enable = data & 0x01;
         if (data & 0x02) {
-            // Sync: reset tone generators only (per datasheet and UnrealSpeccy).
-            // Noise and envelope generators are NOT affected by sync.
             for (int i = 0; i < 6; i++) {
+                channels[i].level = 0;
                 channels[i].counter = 0;
-                channels[i].bit = 0;
             }
         }
         break;
@@ -255,76 +233,59 @@ void SAASound::setRegisterData(uint8_t data) {
     }
 }
 
-void SAASound::updateChannelPeriod(int ch) {
-    // Full-resolution period: no octave shift here.
-    // Octave is applied as counter step (1 << octave) in gen_sound.
-    // SAA1099 counter counts offset → 510 (511 - offset values), then toggles.
-    channels[ch].period = 511 - channels[ch].freq_offset;
-    // If this channel is a noise source, update noise period too
-    if (ch == 0 && noise[0].source == 3) updateNoisePeriod(0);
-    if (ch == 3 && noise[1].source == 3) updateNoisePeriod(1);
-}
+// Envelope advance — ported from UnrealSpeccy saa1099_envelope().
+//
+// env_step counts 0..63 then loops 32..63:
+//   step = ((step + 1) & 0x3F) | (step & 0x20)
+//
+// Buffered parameters (mode, invert_right, clock) are applied only when
+// the current shape reaches a natural boundary — preventing mid-shape cutoff.
+void SAASound::updateEnvelope(int ch) {
+    if (env_enable[ch]) {
+        int step, mode, mask;
 
-void SAASound::updateNoisePeriod(int ng) {
-    switch (noise[ng].source) {
-    case 0: noise[ng].period = 1; break;   // 31.3 kHz
-    case 1: noise[ng].period = 2; break;   // 15.6 kHz
-    case 2: noise[ng].period = 4; break;   // 7.8 kHz
-    case 3: // Use frequency generator (ch0 for ng0, ch3 for ng1)
-        noise[ng].period = channels[ng * 3].period;
-        if (noise[ng].period < 1) noise[ng].period = 1;
-        break;
-    }
-}
+        // Advance step: 0→63 once, then loop 32→63
+        step = env_step[ch] =
+            ((env_step[ch] + 1) & 0x3F) | (env_step[ch] & 0x20);
 
-// Advance envelope by one step — stripwax/SAASound phase-based logic.
-// Resolution 0 (4-bit): step by 1, 16 distinct positions per phase.
-// Resolution 1 (3-bit): step by 2, 8 distinct positions per phase (even indices).
-// When position reaches 16, advance to next phase; loop or end per shape flags.
-void SAASound::advanceEnvelope(int env_idx) {
-    EnvelopeGen &env = envs[env_idx];
+        mode = env_mode[ch];
 
-    // Process pending parameter write (deferred from register write).
-    // enabled and resolution were already applied immediately on register write.
-    if (env.new_data) {
-        env.invert_right = env.pending_invert_right;
-        env.shape        = env.pending_shape;
-        env.ext_clock    = env.pending_ext_clock;
-        env.position = 0;
-        env.phase = 0;
-        env.ended = false;
-        env.new_data = false;
-        return; // Don't advance on the same tick as loading
-    }
-
-    if (!env.enabled || env.ended) return;
-
-    int step = env.resolution ? 2 : 1;
-    env.position += step;
-    if (env.position >= 16) {
-        env.position -= 16;
-        env.phase++;
-        const EnvShape &shape = envelope_shapes[env.shape];
-        if (env.phase >= (uint8_t)shape.phases) {
-            if (shape.looping) {
-                env.phase = 0;
-            } else {
-                env.ended = true;
-                env.phase = shape.phases - 1;
+        // Check if buffered parameters should be applied at natural boundary
+        if (env_upd[ch]) {
+            if (
+                ((mode == 1 || mode == 3 || mode == 7) && step && ((step & 0x0F) == 0))
+                ||
+                ((mode == 5) && step && ((step & 0x1F) == 0))
+                ||
+                ((mode == 0 || mode == 2 || mode == 6) && step > 0x0F)
+                ||
+                ((mode == 4) && step > 0x1F)
+            ) {
+                mode = env_mode[ch] = env_mode_buf[ch];
+                env_reverse_right[ch] = env_reverse_right_buf[ch];
+                env_clock[ch] = env_clock_buf[ch];
+                env_step[ch] = 1;
+                step = 1;
+                env_upd[ch] = false;
             }
         }
+
+        mask = 15;
+        if (env_bits[ch])
+            mask &= ~1;  // 3-bit resolution: mask LSB
+
+        channels[ch * 3 + 2].envelope[0] = envelope[mode][step] & mask;
+        if (env_reverse_right[ch] & 0x01)
+            channels[ch * 3 + 2].envelope[1] = (15 - envelope[mode][step]) & mask;
+        else
+            channels[ch * 3 + 2].envelope[1] = envelope[mode][step] & mask;
+    } else {
+        // Envelope disabled: all channels in group get 16 (unity pass-through)
+        for (int i = 0; i < 3; i++) {
+            channels[ch * 3 + i].envelope[0] = 16;
+            channels[ch * 3 + i].envelope[1] = 16;
+        }
     }
-}
-
-// Get current envelope amplitude level (0-15)
-// Uses stripwax phase-based table indexed by shape, resolution, phase, and position.
-uint8_t SAASound::getEnvelopeLevel(int env_idx) {
-    const EnvelopeGen &env = envs[env_idx];
-    if (!env.enabled) return 16; // Disabled = pass-through (16/16 = unity)
-    if (env.ended) return 0;     // Non-looping envelope finished = silent
-
-    int res = env.resolution ? 1 : 0;
-    return envelope_shapes[env.shape].data[res][env.phase][env.position];
 }
 
 // Main audio generation — runs in RAM for speed on RP2350
@@ -332,129 +293,90 @@ IRAM_ATTR void SAASound::gen_sound(int bufsize, int bufpos) {
     uint8_t *buf_L = SamplebufSAA_L + bufpos;
     uint8_t *buf_R = SamplebufSAA_R + bufpos;
 
-    if (!sound_enabled) {
+    if (!all_ch_enable) {
         memset(buf_L, 0, bufsize);
         memset(buf_R, 0, bufsize);
         return;
     }
 
     while (bufsize-- > 0) {
-        int mix_l = 0;
-        int mix_r = 0;
+        int output_l = 0;
+        int output_r = 0;
 
-        // Advance tone generators
-        // Counter step = 1 << octave (higher octaves count faster).
-        // Period stays at full resolution (511 - offset), so fractional
-        // precision is preserved through accumulation — no integer truncation.
+        // Process each channel: advance tone, clock envelope, then mix
         for (int ch = 0; ch < 6; ch++) {
+            // Advance tone counter (integer accumulator, same rate as UnrealSpeccy)
             channels[ch].counter += (1 << channels[ch].octave);
             while (channels[ch].counter >= channels[ch].period) {
                 channels[ch].counter -= channels[ch].period;
-                channels[ch].bit ^= 1;
-                // Channel 1 clocks envelope 0, channel 4 clocks envelope 1
-                // new_data check ensures pending params get processed even if currently disabled
-                if (ch == 1 && ((envs[0].enabled && !envs[0].ext_clock) || envs[0].new_data)) {
-                    advanceEnvelope(0);
-                }
-                if (ch == 4 && ((envs[1].enabled && !envs[1].ext_clock) || envs[1].new_data)) {
-                    advanceEnvelope(1);
-                }
-                // Channels 0 and 3 can trigger noise generators in source mode 3
-                if (ch == 0 && noise[0].source == 3) {
-                    if (noise[0].lfsr & 1)
-                        noise[0].lfsr = (noise[0].lfsr >> 1) ^ 0x20400;
-                    else
-                        noise[0].lfsr >>= 1;
-                    noise[0].bit = noise[0].lfsr & 1;
-                }
-                if (ch == 3 && noise[1].source == 3) {
-                    if (noise[1].lfsr & 1)
-                        noise[1].lfsr = (noise[1].lfsr >> 1) ^ 0x20400;
-                    else
-                        noise[1].lfsr >>= 1;
-                    noise[1].bit = noise[1].lfsr & 1;
-                }
+                channels[ch].level ^= 1;
+
+                // Internal envelope clock: ch1 clocks env0, ch4 clocks env1
+                if (ch == 1 && env_clock[0] == 0)
+                    updateEnvelope(0);
+                if (ch == 4 && env_clock[1] == 0)
+                    updateEnvelope(1);
             }
-        }
 
-        // Advance noise generators (for fixed-rate sources 0-2)
-        for (int ng = 0; ng < 2; ng++) {
-            if (noise[ng].source < 3) {
-                if (++noise[ng].counter >= noise[ng].period) {
-                    noise[ng].counter = 0;
-                    // 18-bit Galois LFSR with mask 0x20400 (verified against real SAA1099P)
-                    if (noise[ng].lfsr & 1)
-                        noise[ng].lfsr = (noise[ng].lfsr >> 1) ^ 0x20400;
-                    else
-                        noise[ng].lfsr >>= 1;
-                    noise[ng].bit = noise[ng].lfsr & 1;
-                }
-            }
-        }
-
-        // Mix all 6 channels — SAA1099 hardware OR-gate model.
-        //
-        // Envelope applies ONLY to ch2 (env0) and ch5 (env1).
-        // ch0/ch1/ch3/ch4 always use unity envelope (16).
-        //
-        // Channel output = amplitude×envelope when gate open:
-        //   gate = (tone_enable AND tone_bit) OR (noise_enable AND noise_bit)
-        // All contributions are positive — no subtraction.
-        //
-        // Buzz/DC mode (ch2/ch5 only): when BOTH freq_enable=0 AND
-        // noise_enable=0, the channel outputs DC at envelope level.
-        //
-        // Bit-0 masking on ch2/ch5 amplitude register when envelope is active.
-        //
-        // Per-channel max: vol_table[15]*16*2 = 480 → >>4 = 30.
-        // 6 channels → max 180; SAA-only machine (SAM Coupé), no AY headroom needed.
-        for (int ch = 0; ch < 6; ch++) {
-            int noise_ng = ch / 3;
-
-            uint8_t al = channels[ch].amp_left;
-            uint8_t ar = channels[ch].amp_right;
-            uint8_t env_l, env_r;
-
-            // Envelope modulation: only ch2 and ch5
-            if ((ch == 2 || ch == 5) && envs[ch/3].enabled) {
-                uint8_t env_level = getEnvelopeLevel(ch / 3);
-                al &= 0x0E;   // bit-0 masking while envelope is active
+            // Get amplitude with bit-0 masking for envelope channels
+            uint8_t al = channels[ch].amp[0];
+            uint8_t ar = channels[ch].amp[1];
+            if ((ch == 2 && env_enable[0]) || (ch == 5 && env_enable[1])) {
+                al &= 0x0E;
                 ar &= 0x0E;
-                env_l = env_level;
-                env_r = envs[ch/3].invert_right ? (15 - env_level) : env_level;
-            } else {
-                env_l = env_r = 16;   // unity for all other channels
             }
 
-            bool tone_on  = channels[ch].tone_on;
-            bool noise_on = channels[ch].noise_on;
+            uint8_t el = channels[ch].envelope[0];
+            uint8_t er = channels[ch].envelope[1];
 
-            int tone = channels[ch].bit;
-            int ns   = noise[noise_ng].bit;
+            // UnrealSpeccy mixing model:
+            //   noise: subtract half amplitude (when noise enabled & noise level high)
+            //   tone:  add full amplitude (when freq enabled & tone level high)
+            //   buzz:  add full amplitude (ch2/ch5 when freq disabled & envelope on)
+            if (channels[ch].noise_enable && (noise[ch / 3].level & 1)) {
+                output_l -= al * el;
+                output_r -= ar * er;
+            }
 
-            // SAA1099 hardware uses OR-gate model: output = amplitude when
-            // (tone_enable AND tone_bit) OR (noise_enable AND noise_bit).
-            // All contributions are positive — no subtraction.
-            //
-            // Buzz/DC mode (ch2/ch5 only): when BOTH tone_enable=0 AND
-            // noise_enable=0, the envelope drives the channel directly (DC).
-            // If either is enabled, the corresponding bit gates the amplitude.
-            if (!tone_on && !noise_on) {
-                // Both disabled: buzz for ch2/ch5 with active envelope
-                if ((ch == 2 || ch == 5) && envs[ch/3].enabled) {
-                    mix_l += vol_table[al] * env_l * 2;
-                    mix_r += vol_table[ar] * env_r * 2;
+            if (channels[ch].freq_enable) {
+                if (channels[ch].level & 1) {
+                    output_l += al * el * 2;
+                    output_r += ar * er * 2;
                 }
-            } else if ((tone_on && tone) || (noise_on && ns)) {
-                // OR gate: either tone or noise fires → output amplitude
-                mix_l += vol_table[al] * env_l * 2;
-                mix_r += vol_table[ar] * env_r * 2;
+            } else if ((ch == 2 || ch == 5) && env_enable[ch / 3]) {
+                output_l += al * el * 2;
+                output_r += ar * er * 2;
             }
         }
 
-        // Final scale: >>4 maps peak 2880 → 180 (SAM Coupé SAA-only, no AY headroom needed).
-        int out_l = (mix_l + 8) >> 4;
-        int out_r = (mix_r + 8) >> 4;
+        // Advance noise generators AFTER mixing (UnrealSpeccy order)
+        for (int ng = 0; ng < 2; ng++) {
+            uint32_t step, period;
+            switch (noise_params[ng]) {
+            case 0: step = 2; period = 1; break;   // 31.25 kHz x 2
+            case 1: step = 1; period = 1; break;   // 15.625 kHz x 2
+            case 2: step = 1; period = 2; break;   // 7.8125 kHz x 2
+            default: // source 3: use tone channel frequency
+                step = 1 << channels[ng * 3].octave;
+                period = channels[ng * 3].period;
+                break;
+            }
+            noise[ng].counter += step;
+            while (noise[ng].counter >= period) {
+                noise[ng].counter -= period;
+                // LFSR: bits 14 and 6 tapped (UnrealSpeccy polynomial)
+                if (((noise[ng].level & 0x4000) == 0) == ((noise[ng].level & 0x0040) == 0))
+                    noise[ng].level = (noise[ng].level << 1) | 1;
+                else
+                    noise[ng].level <<= 1;
+            }
+        }
+
+        // Scale to 8-bit output.
+        // Per-channel max (tone, env off): amp(15) * env(16) * 2 = 480
+        // 6 channels max: 2880. >>4 = 180. Good for SAM Coupe (SAA only).
+        int out_l = (output_l + 8) >> 4;
+        int out_r = (output_r + 8) >> 4;
         if (out_l < 0) out_l = 0;
         if (out_r < 0) out_r = 0;
         *buf_L++ = (uint8_t)(out_l > 255 ? 255 : out_l);

@@ -1,10 +1,10 @@
 /*
   SAA1099 Sound Chip Emulation for pico-spec ZX Spectrum emulator
 
-  Based on Philips SAA1099 datasheet and SAASound library by Dave Hooper
-  https://github.com/stripwax/SAASound
+  Based on UnrealSpeccy SAA1099 driver by Juergen Buchmueller and Manuel Abadia
+  https://github.com/mkoloberdin/unrealspeccy/blob/master/sndrender/saa1099.cpp
 
-  Optimized for RP2350: integer-only arithmetic, flash-resident tables,
+  Adapted for RP2350: integer-only arithmetic, 8-bit buffer output,
   minimal RAM footprint.
 
   This program is free software: you can redistribute it and/or modify
@@ -42,56 +42,42 @@ private:
     uint8_t selectedRegister;
 
     struct Channel {
-        uint8_t amp_left;
-        uint8_t amp_right;
-        uint8_t freq_offset;
-        uint8_t octave;
-        bool tone_on;
-        bool noise_on;
-        uint32_t counter;
-        uint32_t period;
-        uint8_t bit;          // current tone output (0 or 1)
+        uint8_t frequency;      // frequency register (0x00-0xFF)
+        uint8_t octave;         // octave (0-7)
+        bool freq_enable;       // tone enable
+        bool noise_enable;      // noise enable
+        uint8_t amp[2];         // raw amplitude (0-15), [0]=left [1]=right
+        uint8_t envelope[2];    // envelope level (0-15 or 16=off), [0]=left [1]=right
+        uint32_t counter;       // tone counter (integer accumulator)
+        uint32_t period;        // tone period = max(511 - frequency, 1)
+        uint8_t level;          // current square wave output (0 or 1)
     };
     Channel channels[6];
 
     struct NoiseGen {
-        uint8_t source;       // 0-3
-        uint32_t counter;
-        uint32_t period;
-        uint32_t lfsr;        // 18-bit LFSR state
-        uint8_t bit;          // current noise output (0 or 1)
+        uint32_t counter;       // noise rate counter
+        uint32_t level;         // noise LFSR state
     };
     NoiseGen noise[2];
 
-    // Envelope shapes:
-    // 0=zero, 1=max, 2=single decay, 3=repeat decay,
-    // 4=single triangle, 5=repeat triangle, 6=single attack, 7=repeat attack
-    struct EnvelopeGen {
-        bool enabled;
-        bool invert_right;
-        uint8_t shape;        // 3 bits (0-7)
-        bool resolution;      // 0=4-bit (16 steps), 1=3-bit (8 steps)
-        bool ext_clock;       // 0=internal (from freq gen), 1=external
-        uint8_t position;     // phase position (0-15, steps by 1 or 2)
-        uint8_t phase;        // current phase index (0 or 1)
-        bool ended;           // true when non-looping envelope has finished
-        // Pending data (deferred until next envelope clock tick):
-        // shape, invert_right, ext_clock only — enabled and resolution are immediate.
-        bool new_data;
-        bool pending_invert_right;
-        uint8_t pending_shape;
-        bool pending_ext_clock;
-    };
-    EnvelopeGen envs[2];
+    // Envelope state (matches UnrealSpeccy saa1099_state layout)
+    uint8_t noise_params[2];        // noise source (0-3)
+    uint8_t env_enable[2];          // 0 or 0x80
+    uint8_t env_reverse_right[2];   // active invert-right flag
+    uint8_t env_reverse_right_buf[2]; // buffered invert-right
+    uint8_t env_mode[2];            // active envelope mode (0-7)
+    uint8_t env_mode_buf[2];        // buffered envelope mode
+    uint8_t env_bits[2];            // 3-bit resolution flag (0 or 0x10)
+    uint8_t env_clock[2];           // active external clock flag (0 or 0x20)
+    uint8_t env_clock_buf[2];       // buffered external clock
+    int env_step[2];                // envelope position (0-63)
+    bool env_upd[2];                // buffered data pending
 
-    bool sound_enabled;
+    bool all_ch_enable;             // global sound enable
 
-    void updateChannelPeriod(int ch);
-    void updateNoisePeriod(int ng);
-    void advanceEnvelope(int env_idx);
-    uint8_t getEnvelopeLevel(int env_idx);
+    void updateEnvelope(int ch);
 
-    static const uint8_t vol_table[16];
+    static const uint8_t envelope[8][64];
 };
 
 extern SAASound saaChip;
