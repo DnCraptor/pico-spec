@@ -72,7 +72,9 @@ private:
         uint8_t shape;        // 3 bits (0-7)
         bool resolution;      // 0=4-bit (16 steps), 1=3-bit (8 steps)
         bool ext_clock;       // 0=internal (from freq gen), 1=external
-        uint8_t position;     // 6-bit step counter (0-63, loops in 32-63)
+        uint8_t position;     // phase position (0-15, steps by 1 or 2)
+        uint8_t phase;        // current phase index (0 or 1)
+        bool ended;           // true when non-looping envelope has finished
         // Pending data: deferred until next envelope clock tick
         bool new_data;
         bool pending_enabled;

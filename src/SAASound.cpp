@@ -43,49 +43,59 @@ const uint8_t SAASound::vol_table[16] = {
 // preserving fractional precision through accumulation.
 // Counter runs at 8MHz/256 = 31.25kHz base rate.
 
-// Envelope lookup table from MAME (8 shapes × 64 steps)
-// Step counter uses ((step+1)&0x3f)|(step&0x20): loops in 32-63 after first pass
-static const uint8_t envelope_table[8][64] = {
+// Envelope tables — verified against stripwax/SAASound (SAAEnv.cpp cs_EnvData).
+// Two resolutions per shape: [0]=4-bit (16 values), [1]=3-bit (16 values, pairs).
+// Position advances by 1 (4-bit) or 2 (3-bit); phase ends at position >= 16.
+// Looping shapes restart at position 0; non-looping return 0 when ended.
+//
+// Shape layout:  0=zero, 1=max, 2=single decay, 3=rep decay,
+//                4=single tri, 5=rep tri, 6=single attack, 7=rep attack
+struct EnvShape {
+    int  phases;    // number of phases (1 or 2)
+    bool looping;
+    uint8_t data[2][2][16]; // [resolution 0=4bit 1=3bit][phase][pos]
+};
+static const EnvShape envelope_shapes[8] = {
     /* 0: zero amplitude */
-    { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+    {1, false, {{{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+                 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
+                {{ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+                 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}}},
     /* 1: maximum amplitude */
-    {15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
-     15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
-     15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,
-     15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15 },
+    {1, true,  {{{15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15},
+                 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
+                {{14,14,14,14,14,14,14,14,14,14,14,14,14,14,14,14},
+                 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}}},
     /* 2: single decay */
-    {15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+    {1, false, {{{15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0},
+                 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
+                {{14,14,12,12,10,10, 8, 8, 6, 6, 4, 4, 2, 2, 0, 0},
+                 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}}},
     /* 3: repetitive decay */
-    {15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
-     15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
-     15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
-     15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 },
+    {1, true,  {{{15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0},
+                 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
+                {{14,14,12,12,10,10, 8, 8, 6, 6, 4, 4, 2, 2, 0, 0},
+                 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}}},
     /* 4: single triangular */
-    { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
-     15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+    {2, false, {{{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15},
+                 {15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0}},
+                {{ 0, 0, 2, 2, 4, 4, 6, 6, 8, 8,10,10,12,12,14,14},
+                 {14,14,12,12,10,10, 8, 8, 6, 6, 4, 4, 2, 2, 0, 0}}}},
     /* 5: repetitive triangular */
-    { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
-     15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0,
-      0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
-     15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0 },
+    {2, true,  {{{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15},
+                 {15,14,13,12,11,10, 9, 8, 7, 6, 5, 4, 3, 2, 1, 0}},
+                {{ 0, 0, 2, 2, 4, 4, 6, 6, 8, 8,10,10,12,12,14,14},
+                 {14,14,12,12,10,10, 8, 8, 6, 6, 4, 4, 2, 2, 0, 0}}}},
     /* 6: single attack */
-    { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 },
+    {1, false, {{{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15},
+                 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
+                {{ 0, 0, 2, 2, 4, 4, 6, 6, 8, 8,10,10,12,12,14,14},
+                 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}}},
     /* 7: repetitive attack */
-    { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
-      0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
-      0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15,
-      0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15 }
+    {1, true,  {{{ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15},
+                 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}},
+                {{ 0, 0, 2, 2, 4, 4, 6, 6, 8, 8,10,10,12,12,14,14},
+                 { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}}}}
 };
 
 SAASound saaChip;
@@ -240,6 +250,8 @@ void SAASound::setRegisterData(uint8_t data) {
                 noise[i].bit = 0;
             }
             envs[0].position = envs[1].position = 0;
+            envs[0].phase = envs[1].phase = 0;
+            envs[0].ended = envs[1].ended = false;
             envs[0].new_data = envs[1].new_data = false;
         }
         break;
@@ -271,8 +283,10 @@ void SAASound::updateNoisePeriod(int ng) {
     }
 }
 
-// Advance envelope by one step (MAME-compatible 64-step counter)
-// Step goes 0..63, then loops in 32..63 via sticky bit 5
+// Advance envelope by one step — stripwax/SAASound phase-based logic.
+// Resolution 0 (4-bit): step by 1, 16 distinct positions per phase.
+// Resolution 1 (3-bit): step by 2, 8 distinct positions per phase (even indices).
+// When position reaches 16, advance to next phase; loop or end per shape flags.
 void SAASound::advanceEnvelope(int env_idx) {
     EnvelopeGen &env = envs[env_idx];
 
@@ -284,25 +298,40 @@ void SAASound::advanceEnvelope(int env_idx) {
         env.resolution = env.pending_resolution;
         env.ext_clock = env.pending_ext_clock;
         env.position = 0;
+        env.phase = 0;
+        env.ended = false;
         env.new_data = false;
         return; // Don't advance on the same tick as loading
     }
 
-    if (!env.enabled) return;
+    if (!env.enabled || env.ended) return;
 
-    // 3-bit resolution steps by 2 (envelope runs 2x faster, 8 distinct levels)
-    // 4-bit resolution steps by 1 (16 distinct levels)
     int step = env.resolution ? 2 : 1;
-    env.position = ((env.position + step) & 0x3F) | (env.position & 0x20);
+    env.position += step;
+    if (env.position >= 16) {
+        env.position -= 16;
+        env.phase++;
+        const EnvShape &shape = envelope_shapes[env.shape];
+        if (env.phase >= (uint8_t)shape.phases) {
+            if (shape.looping) {
+                env.phase = 0;
+            } else {
+                env.ended = true;
+                env.phase = shape.phases - 1;
+            }
+        }
+    }
 }
 
 // Get current envelope amplitude level (0-15)
-// Uses MAME lookup table indexed by shape and 64-step position
+// Uses stripwax phase-based table indexed by shape, resolution, phase, and position.
 uint8_t SAASound::getEnvelopeLevel(int env_idx) {
     const EnvelopeGen &env = envs[env_idx];
     if (!env.enabled) return 16; // Disabled = pass-through (16/16 = unity)
+    if (env.ended) return 0;     // Non-looping envelope finished = silent
 
-    return envelope_table[env.shape][env.position];
+    int res = env.resolution ? 1 : 0;
+    return envelope_shapes[env.shape].data[res][env.phase][env.position];
 }
 
 // Main audio generation — runs in RAM for speed on RP2350
@@ -371,62 +400,56 @@ IRAM_ATTR void SAASound::gen_sound(int bufsize, int bufpos) {
         }
 
         // Mix all 6 channels
-        // Envelope modulation applies to ALL channels in the group when enabled.
-        // Amplitude bit 0 masking only on channels 2/5 (stripwax hardware behavior:
-        // only ch2/ch5 have actual envelope wiring, other channels use full amp).
+        // Stripwax-accurate: envelope applies ONLY to ch2 (env0) and ch5 (env1).
+        // All other channels have NULL envelope pointer per SAADevice.cpp constructor.
         // Per channel max: vol_table[15] * 16 * 2 = 576
         // 6 channels max: 3456. After >>5: 108.
         for (int ch = 0; ch < 6; ch++) {
             int noise_ng = ch / 3;
             int env_group = ch / 3;
-            bool use_env = envs[env_group].enabled;
+            bool use_env = (ch == 2 || ch == 5) && envs[env_group].enabled;
 
             int mix_mode = (channels[ch].tone_on ? 1 : 0) | (channels[ch].noise_on ? 2 : 0);
-            // Envelope channels can produce sound even without tone/noise:
-            // stripwax: intermediate=0, output = EffAmp * (2-0) = full envelope output.
-            // This is the SAA1099 "buzz" effect — envelope IS the sound source.
-            if (mix_mode == 0 && !use_env) continue;
 
-            uint8_t tone_bit = channels[ch].bit;
-            if (use_env) tone_bit ^= 1;
-
-            int out_level;
+            // Compute m_nOutputIntermediate (stripwax SAAAmp.cpp Tick):
+            // 0 = silent, 1 = half, 2 = full
+            int tone = channels[ch].bit;
+            int ns   = noise[noise_ng].bit;
+            int intermediate;
             switch (mix_mode) {
-            case 0: out_level = 2; break; // envelope-only: constant full output
-            case 1: out_level = tone_bit ? 2 : 0; break;
-            case 2: out_level = noise[noise_ng].bit ? 2 : 0; break;
-            case 3: out_level = tone_bit ? (2 - noise[noise_ng].bit) : 0; break;
-            default: out_level = 0; break;
+            case 0: intermediate = 0; break;
+            case 1: intermediate = tone * 2; break;
+            case 2: intermediate = ns * 2; break;
+            case 3: intermediate = tone * (2 - ns); break;
+            default: intermediate = 0; break;
             }
 
-            if (out_level > 0) {
-                uint8_t al = channels[ch].amp_left;
-                uint8_t ar = channels[ch].amp_right;
-                uint8_t env_l, env_r;
+            // Envelope path (ch2/ch5): output = EffAmp * (2 - intermediate)  — inverted
+            // Non-envelope path:       output = amp   * intermediate           — direct
+            // Buzz effect: mix_mode=0 → intermediate=0 → envelope gives (2-0)=2, non-env gives 0
+            int out_level = use_env ? (2 - intermediate) : intermediate;
+            if (out_level == 0) continue;
 
-                if (use_env) {
-                    // Amp bit 0 masking: only ch2/ch5 (hardware envelope wiring).
-                    // Other channels keep full 4-bit amplitude to avoid silencing
-                    // odd amplitude values (which caused missing instruments).
-                    if (ch == 2 || ch == 5) {
-                        al &= 0x0E;
-                        ar &= 0x0E;
-                    }
-                    uint8_t env_level = getEnvelopeLevel(env_group);
-                    env_l = env_level;
-                    env_r = env_level;
-                    if (envs[env_group].invert_right) {
-                        env_r = 15 - env_level;
-                    }
-                } else {
-                    // Non-envelope path: full amplitude, unity multiplier
-                    env_l = 16;
-                    env_r = 16;
-                }
+            uint8_t al = channels[ch].amp_left;
+            uint8_t ar = channels[ch].amp_right;
+            uint8_t env_l, env_r;
 
-                mix_l += vol_table[al] * env_l * out_level;
-                mix_r += vol_table[ar] * env_r * out_level;
+            if (use_env) {
+                // Mask amp bit 0 — simulates leftlevel_div2 (stripwax SAAAmp.cpp SetAmpLevel)
+                al &= 0x0E;
+                ar &= 0x0E;
+                uint8_t env_level = getEnvelopeLevel(env_group);
+                env_l = env_level;
+                env_r = env_level;
+                if (envs[env_group].invert_right) env_r = 15 - env_level;
+            } else {
+                // Unity multiplier (stripwax: envelope disabled → factor=16, /16=1)
+                env_l = 16;
+                env_r = 16;
             }
+
+            mix_l += vol_table[al] * env_l * out_level;
+            mix_r += vol_table[ar] * env_r * out_level;
         }
 
         // Single division at the end: >>5 scales 0-3456 to 0-108
