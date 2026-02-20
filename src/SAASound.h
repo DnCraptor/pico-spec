@@ -1,11 +1,11 @@
 /*
   SAA1099 Sound Chip Emulation for pico-spec ZX Spectrum emulator
 
-  Based on UnrealSpeccy SAA1099 driver by Juergen Buchmueller and Manuel Abadia
-  https://github.com/mkoloberdin/unrealspeccy/blob/master/sndrender/saa1099.cpp
+  Based on stripwax/SAASound by Dave Hooper — verified against real SAA1099P.
+  https://github.com/stripwax/SAASound
 
-  Adapted for RP2350: integer-only arithmetic, 8-bit buffer output,
-  minimal RAM footprint.
+  Flattened from stripwax's CSAAFreq, CSAANoise, CSAAEnv, CSAAAmp, CSAADevice
+  into a single class for RP2350 efficiency.
 
   This program is free software: you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -40,44 +40,76 @@ public:
 private:
     uint8_t regs[32];
     uint8_t selectedRegister;
+    bool outputEnabled;
+    bool syncState;
 
+    // Per-channel state (CSAAFreq + CSAAAmp flattened)
     struct Channel {
-        uint8_t frequency;      // frequency register (0x00-0xFF)
-        uint8_t octave;         // octave (0-7)
-        bool freq_enable;       // tone enable
-        bool noise_enable;      // noise enable
-        uint8_t amp[2];         // raw amplitude (0-15), [0]=left [1]=right
-        uint8_t envelope[2];    // envelope level (0-15 or 16=off), [0]=left [1]=right
-        uint32_t counter;       // tone counter (integer accumulator)
-        uint32_t period;        // tone period = max(511 - frequency, 1)
-        uint8_t level;          // current square wave output (0 or 1)
+        // Tone generator (from CSAAFreq)
+        uint8_t freq_offset;    // current frequency offset
+        uint8_t octave;         // current octave
+        uint8_t next_offset;    // buffered offset
+        uint8_t next_octave;    // buffered octave
+        bool new_data;          // buffered freq data pending
+        bool ignore_offset;     // Philips quirk: defer offset after same-cycle octave
+        uint32_t counter;       // tone accumulator
+        uint32_t period;        // = max(511 - freq_offset, 1)
+        uint8_t level;          // square wave output (0 or 1)
+
+        // Amplifier/mixer (from CSAAAmp)
+        uint8_t amp_left;       // 0-15
+        uint8_t amp_right;      // 0-15
+        uint8_t mix_mode;       // bit0=tone, bit1=noise
     };
     Channel channels[6];
 
+    // Noise generator (from CSAANoise)
     struct NoiseGen {
-        uint32_t counter;       // noise rate counter
-        uint32_t level;         // noise LFSR state
+        uint32_t counter;
+        uint8_t source;         // 0-3
+        uint32_t rand;          // 18-bit LFSR state
     };
     NoiseGen noise[2];
 
-    // Envelope state (matches UnrealSpeccy saa1099_state layout)
-    uint8_t noise_params[2];        // noise source (0-3)
-    uint8_t env_enable[2];          // 0 or 0x80
-    uint8_t env_reverse_right[2];   // active invert-right flag
-    uint8_t env_reverse_right_buf[2]; // buffered invert-right
-    uint8_t env_mode[2];            // active envelope mode (0-7)
-    uint8_t env_mode_buf[2];        // buffered envelope mode
-    uint8_t env_bits[2];            // 3-bit resolution flag (0 or 0x10)
-    uint8_t env_clock[2];           // active external clock flag (0 or 0x20)
-    uint8_t env_clock_buf[2];       // buffered external clock
-    int env_step[2];                // envelope position (0-63)
-    bool env_upd[2];                // buffered data pending
+    // Envelope generator (from CSAAEnv)
+    struct EnvelopeGen {
+        bool enabled;
+        bool invert_right;
+        bool clock_externally;
+        bool envelope_ended;
+        bool looping;
+        uint8_t num_phases;
+        uint8_t phase;
+        uint8_t phase_position;
+        uint8_t resolution;     // 1=4-bit (step by 1), 2=3-bit (step by 2)
+        uint8_t shape;          // 0-7 (index into env_shapes)
+        bool new_data;
+        uint8_t next_data;      // buffered register byte
+        int left_level;
+        int right_level;
+    };
+    EnvelopeGen envs[2];
 
-    bool all_ch_enable;             // global sound enable
+    // Tone: update buffered octave/offset on half-cycle
+    void toneUpdateData(int ch);
 
-    void updateEnvelope(int ch);
+    // Envelope control
+    void envSetControl(int env, uint8_t data);
+    void envTick(int env);
+    void envSetLevels(int env);
+    void envSetNewData(int env, uint8_t data);
 
-    static const uint8_t envelope[8][64];
+    // Envelope shape data table (from stripwax cs_EnvData)
+    struct EnvShape {
+        uint8_t num_phases;
+        bool looping;
+        uint8_t levels[2][2][16]; // [resolution 0=4bit 1=3bit][phase][position]
+    };
+    static const EnvShape env_shapes[8];
+
+    // PDM effective amplitude table (from stripwax SAAAmp)
+    // pdm_x4[amp/2][env_level] = EffectiveAmplitude * 4
+    static const uint16_t pdm_x4[8][16];
 };
 
 extern SAASound saaChip;
