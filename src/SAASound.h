@@ -86,7 +86,6 @@ private:
     EnvelopeGen envs[2];
 
     bool sound_enabled;
-    int sample_rate;
 
     void updateChannelPeriod(int ch);
     void updateNoisePeriod(int ng);

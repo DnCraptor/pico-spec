@@ -35,7 +35,7 @@
 // Linear mapping, max 18 per channel so 6 channels sum to ~108
 // Headroom for AY+SAA coexistence: 108 + 140 = 248 < 255
 const uint8_t SAASound::vol_table[16] = {
-    0, 1, 2, 4, 5, 6, 7, 8, 10, 11, 12, 13, 14, 16, 17, 18
+    0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
 };
 
 // Tone period: full-resolution (511 - offset), no octave shift.
@@ -107,7 +107,6 @@ SAASound::SAASound() {
 void SAASound::init() {
     selectedRegister = 0;
     sound_enabled = false;
-    sample_rate = 31250;
     memset(regs, 0, sizeof(regs));
     memset(channels, 0, sizeof(channels));
     memset(noise, 0, sizeof(noise));
@@ -130,7 +129,9 @@ void SAASound::reset() {
 }
 
 void SAASound::set_sound_format(int freq, int chans, int bits) {
-    sample_rate = freq;
+    // SAA1099 runs at 8MHz/256 = 31250 Hz — matches the fixed gen_sound tick rate.
+    // Audio_freq is always 31250 (48K/Pentagon) or 31112 (128K), so no scaling needed.
+    (void)freq; (void)chans; (void)bits;
 }
 
 void SAASound::selectRegister(uint8_t reg) {
@@ -399,63 +400,70 @@ IRAM_ATTR void SAASound::gen_sound(int bufsize, int bufpos) {
             }
         }
 
-        // Mix all 6 channels
-        // Stripwax-accurate: envelope applies ONLY to ch2 (env0) and ch5 (env1).
-        // All other channels have NULL envelope pointer per SAADevice.cpp constructor.
-        // Per channel max: vol_table[15] * 16 * 2 = 576
-        // 6 channels max: 3456. After >>5: 108.
+        // Mix all 6 channels — modelled on UnrealSpeccy saa1099.cpp (known correct).
+        //
+        // Envelope applies ONLY to ch2 (env0) and ch5 (env1) — the hardware-wired
+        // output channels. ch0/ch1/ch3/ch4 always use unity envelope (16).
+        //
+        // Buzz/DC mode: when freq_enable=0 AND noise_enable=0, only ch2/ch5
+        // with active envelope contribute amplitude×envelope/16 directly.
+        // All other channels are silent in this state.
+        //
+        // Noise and tone are independent (UnrealSpeccy model):
+        //   noise subtracts at half amplitude when noise bit=1
+        //   tone adds at full amplitude when tone bit=1
+        //
+        // Bit-0 masking on ch2/ch5 amplitude register when envelope is active.
+        //
+        // Per-channel tone max: vol_table[15]*16*2 = 576 → >>5 = 18.
+        // 6 channels → max ~108; fits 8-bit with headroom for AY mixing.
         for (int ch = 0; ch < 6; ch++) {
             int noise_ng = ch / 3;
-            int env_group = ch / 3;
-            bool use_env = (ch == 2 || ch == 5) && envs[env_group].enabled;
-
-            int mix_mode = (channels[ch].tone_on ? 1 : 0) | (channels[ch].noise_on ? 2 : 0);
-
-            // Compute m_nOutputIntermediate (stripwax SAAAmp.cpp Tick):
-            // 0 = silent, 1 = half, 2 = full
-            int tone = channels[ch].bit;
-            int ns   = noise[noise_ng].bit;
-            int intermediate;
-            switch (mix_mode) {
-            case 0: intermediate = 0; break;
-            case 1: intermediate = tone * 2; break;
-            case 2: intermediate = ns * 2; break;
-            case 3: intermediate = tone * (2 - ns); break;
-            default: intermediate = 0; break;
-            }
-
-            // Envelope path (ch2/ch5): output = EffAmp * (2 - intermediate)  — inverted
-            // Non-envelope path:       output = amp   * intermediate           — direct
-            // Buzz effect: mix_mode=0 → intermediate=0 → envelope gives (2-0)=2, non-env gives 0
-            int out_level = use_env ? (2 - intermediate) : intermediate;
-            if (out_level == 0) continue;
 
             uint8_t al = channels[ch].amp_left;
             uint8_t ar = channels[ch].amp_right;
             uint8_t env_l, env_r;
 
-            if (use_env) {
-                // Mask amp bit 0 — simulates leftlevel_div2 (stripwax SAAAmp.cpp SetAmpLevel)
-                al &= 0x0E;
+            // Envelope modulation: only ch2 and ch5
+            if ((ch == 2 || ch == 5) && envs[ch/3].enabled) {
+                uint8_t env_level = getEnvelopeLevel(ch / 3);
+                al &= 0x0E;   // bit-0 masking while envelope is active
                 ar &= 0x0E;
-                uint8_t env_level = getEnvelopeLevel(env_group);
                 env_l = env_level;
-                env_r = env_level;
-                if (envs[env_group].invert_right) env_r = 15 - env_level;
+                env_r = envs[ch/3].invert_right ? (15 - env_level) : env_level;
             } else {
-                // Unity multiplier (stripwax: envelope disabled → factor=16, /16=1)
-                env_l = 16;
-                env_r = 16;
+                env_l = env_r = 16;   // unity for all other channels
             }
 
-            mix_l += vol_table[al] * env_l * out_level;
-            mix_r += vol_table[ar] * env_r * out_level;
+            bool tone_on  = channels[ch].tone_on;
+            bool noise_on = channels[ch].noise_on;
+
+            int tone = channels[ch].bit;
+            int ns   = noise[noise_ng].bit;
+
+            // Noise is independent of tone (subtractive, half amplitude).
+            if (noise_on && ns) {
+                mix_l -= vol_table[al] * env_l;
+                mix_r -= vol_table[ar] * env_r;
+            }
+
+            // Tone path or buzz/DC path (mutually exclusive, matching UnrealSpeccy).
+            if (tone_on && tone) {
+                mix_l += vol_table[al] * env_l * 2;
+                mix_r += vol_table[ar] * env_r * 2;
+            } else if (!tone_on && (ch == 2 || ch == 5) && envs[ch/3].enabled) {
+                // Buzz: freq_enable=0 for envelope channels → DC at envelope level.
+                // Triggers regardless of noise_on (matches UnrealSpeccy else-if pattern).
+                mix_l += vol_table[al] * env_l * 2;
+                mix_r += vol_table[ar] * env_r * 2;
+            }
         }
 
-        // Single division at the end: >>5 scales 0-3456 to 0-108
-        // Rounding offset (+16 = half step) rescues near-threshold signals
+        // Final scale: >>5 maps peak 3456 → 108. Clamp both ends.
         int out_l = (mix_l + 16) >> 5;
         int out_r = (mix_r + 16) >> 5;
+        if (out_l < 0) out_l = 0;
+        if (out_r < 0) out_r = 0;
         *buf_L++ = (uint8_t)(out_l > 255 ? 255 : out_l);
         *buf_R++ = (uint8_t)(out_r > 255 ? 255 : out_r);
     }
