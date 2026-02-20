@@ -75,12 +75,11 @@ private:
         uint8_t position;     // phase position (0-15, steps by 1 or 2)
         uint8_t phase;        // current phase index (0 or 1)
         bool ended;           // true when non-looping envelope has finished
-        // Pending data: deferred until next envelope clock tick
+        // Pending data (deferred until next envelope clock tick):
+        // shape, invert_right, ext_clock only — enabled and resolution are immediate.
         bool new_data;
-        bool pending_enabled;
         bool pending_invert_right;
         uint8_t pending_shape;
-        bool pending_resolution;
         bool pending_ext_clock;
     };
     EnvelopeGen envs[2];

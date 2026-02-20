@@ -214,24 +214,25 @@ void SAASound::setRegisterData(uint8_t data) {
         break;
 
     // Envelope generator 0 (affects channels 0-2, clocked by ch1)
-    // Parameters are deferred until next envelope clock tick (new_data mechanism)
+    // enabled and resolution apply immediately (per UnrealSpeccy / hardware).
+    // shape, invert_right, ext_clock are deferred to next envelope clock tick.
     case 0x18: {
+        envs[0].enabled    = (data >> 7) & 0x01;   // immediate
+        envs[0].resolution = (data >> 4) & 0x01;   // immediate
         envs[0].pending_invert_right = data & 0x01;
-        envs[0].pending_shape = (data >> 1) & 0x07;
-        envs[0].pending_resolution = (data >> 4) & 0x01;
-        envs[0].pending_ext_clock = (data >> 5) & 0x01;
-        envs[0].pending_enabled = (data >> 7) & 0x01;
+        envs[0].pending_shape        = (data >> 1) & 0x07;
+        envs[0].pending_ext_clock    = (data >> 5) & 0x01;
         envs[0].new_data = true;
         break;
     }
 
     // Envelope generator 1 (affects channels 3-5, clocked by ch4)
     case 0x19: {
+        envs[1].enabled    = (data >> 7) & 0x01;   // immediate
+        envs[1].resolution = (data >> 4) & 0x01;   // immediate
         envs[1].pending_invert_right = data & 0x01;
-        envs[1].pending_shape = (data >> 1) & 0x07;
-        envs[1].pending_resolution = (data >> 4) & 0x01;
-        envs[1].pending_ext_clock = (data >> 5) & 0x01;
-        envs[1].pending_enabled = (data >> 7) & 0x01;
+        envs[1].pending_shape        = (data >> 1) & 0x07;
+        envs[1].pending_ext_clock    = (data >> 5) & 0x01;
         envs[1].new_data = true;
         break;
     }
@@ -240,20 +241,12 @@ void SAASound::setRegisterData(uint8_t data) {
     case 0x1C:
         sound_enabled = data & 0x01;
         if (data & 0x02) {
-            // Sync: reset all generators
+            // Sync: reset tone generators only (per datasheet and UnrealSpeccy).
+            // Noise and envelope generators are NOT affected by sync.
             for (int i = 0; i < 6; i++) {
                 channels[i].counter = 0;
                 channels[i].bit = 0;
             }
-            for (int i = 0; i < 2; i++) {
-                noise[i].counter = 0;
-                noise[i].lfsr = 0x3FFFF;
-                noise[i].bit = 0;
-            }
-            envs[0].position = envs[1].position = 0;
-            envs[0].phase = envs[1].phase = 0;
-            envs[0].ended = envs[1].ended = false;
-            envs[0].new_data = envs[1].new_data = false;
         }
         break;
 
@@ -291,13 +284,12 @@ void SAASound::updateNoisePeriod(int ng) {
 void SAASound::advanceEnvelope(int env_idx) {
     EnvelopeGen &env = envs[env_idx];
 
-    // Process pending parameter write (deferred from register write)
+    // Process pending parameter write (deferred from register write).
+    // enabled and resolution were already applied immediately on register write.
     if (env.new_data) {
-        env.enabled = env.pending_enabled;
         env.invert_right = env.pending_invert_right;
-        env.shape = env.pending_shape;
-        env.resolution = env.pending_resolution;
-        env.ext_clock = env.pending_ext_clock;
+        env.shape        = env.pending_shape;
+        env.ext_clock    = env.pending_ext_clock;
         env.position = 0;
         env.phase = 0;
         env.ended = false;
@@ -414,8 +406,8 @@ IRAM_ATTR void SAASound::gen_sound(int bufsize, int bufpos) {
         //
         // Bit-0 masking on ch2/ch5 amplitude register when envelope is active.
         //
-        // Per-channel max: vol_table[15]*16*2 = 480 → >>5 = 15.
-        // 6 channels → max 90; fits 8-bit with headroom for AY mixing.
+        // Per-channel max: vol_table[15]*16*2 = 480 → >>4 = 30.
+        // 6 channels → max 180; SAA-only machine (SAM Coupé), no AY headroom needed.
         for (int ch = 0; ch < 6; ch++) {
             int noise_ng = ch / 3;
 
@@ -460,9 +452,9 @@ IRAM_ATTR void SAASound::gen_sound(int bufsize, int bufpos) {
             }
         }
 
-        // Final scale: >>5 maps peak 3456 → 108. Clamp both ends.
-        int out_l = (mix_l + 16) >> 5;
-        int out_r = (mix_r + 16) >> 5;
+        // Final scale: >>4 maps peak 2880 → 180 (SAM Coupé SAA-only, no AY headroom needed).
+        int out_l = (mix_l + 8) >> 4;
+        int out_r = (mix_r + 8) >> 4;
         if (out_l < 0) out_l = 0;
         if (out_r < 0) out_r = 0;
         *buf_L++ = (uint8_t)(out_l > 255 ? 255 : out_l);
