@@ -400,23 +400,22 @@ IRAM_ATTR void SAASound::gen_sound(int bufsize, int bufpos) {
             }
         }
 
-        // Mix all 6 channels — modelled on UnrealSpeccy saa1099.cpp (known correct).
+        // Mix all 6 channels — SAA1099 hardware OR-gate model.
         //
-        // Envelope applies ONLY to ch2 (env0) and ch5 (env1) — the hardware-wired
-        // output channels. ch0/ch1/ch3/ch4 always use unity envelope (16).
+        // Envelope applies ONLY to ch2 (env0) and ch5 (env1).
+        // ch0/ch1/ch3/ch4 always use unity envelope (16).
         //
-        // Buzz/DC mode: when freq_enable=0 AND noise_enable=0, only ch2/ch5
-        // with active envelope contribute amplitude×envelope/16 directly.
-        // All other channels are silent in this state.
+        // Channel output = amplitude×envelope when gate open:
+        //   gate = (tone_enable AND tone_bit) OR (noise_enable AND noise_bit)
+        // All contributions are positive — no subtraction.
         //
-        // Noise and tone are independent (UnrealSpeccy model):
-        //   noise subtracts at half amplitude when noise bit=1
-        //   tone adds at full amplitude when tone bit=1
+        // Buzz/DC mode (ch2/ch5 only): when BOTH freq_enable=0 AND
+        // noise_enable=0, the channel outputs DC at envelope level.
         //
         // Bit-0 masking on ch2/ch5 amplitude register when envelope is active.
         //
-        // Per-channel tone max: vol_table[15]*16*2 = 576 → >>5 = 18.
-        // 6 channels → max ~108; fits 8-bit with headroom for AY mixing.
+        // Per-channel max: vol_table[15]*16*2 = 480 → >>5 = 15.
+        // 6 channels → max 90; fits 8-bit with headroom for AY mixing.
         for (int ch = 0; ch < 6; ch++) {
             int noise_ng = ch / 3;
 
@@ -441,19 +440,21 @@ IRAM_ATTR void SAASound::gen_sound(int bufsize, int bufpos) {
             int tone = channels[ch].bit;
             int ns   = noise[noise_ng].bit;
 
-            // Noise is independent of tone (subtractive, half amplitude).
-            if (noise_on && ns) {
-                mix_l -= vol_table[al] * env_l;
-                mix_r -= vol_table[ar] * env_r;
-            }
-
-            // Tone path or buzz/DC path (mutually exclusive, matching UnrealSpeccy).
-            if (tone_on && tone) {
-                mix_l += vol_table[al] * env_l * 2;
-                mix_r += vol_table[ar] * env_r * 2;
-            } else if (!tone_on && (ch == 2 || ch == 5) && envs[ch/3].enabled) {
-                // Buzz: freq_enable=0 for envelope channels → DC at envelope level.
-                // Triggers regardless of noise_on (matches UnrealSpeccy else-if pattern).
+            // SAA1099 hardware uses OR-gate model: output = amplitude when
+            // (tone_enable AND tone_bit) OR (noise_enable AND noise_bit).
+            // All contributions are positive — no subtraction.
+            //
+            // Buzz/DC mode (ch2/ch5 only): when BOTH tone_enable=0 AND
+            // noise_enable=0, the envelope drives the channel directly (DC).
+            // If either is enabled, the corresponding bit gates the amplitude.
+            if (!tone_on && !noise_on) {
+                // Both disabled: buzz for ch2/ch5 with active envelope
+                if ((ch == 2 || ch == 5) && envs[ch/3].enabled) {
+                    mix_l += vol_table[al] * env_l * 2;
+                    mix_r += vol_table[ar] * env_r * 2;
+                }
+            } else if ((tone_on && tone) || (noise_on && ns)) {
+                // OR gate: either tone or noise fires → output amplitude
                 mix_l += vol_table[al] * env_l * 2;
                 mix_r += vol_table[ar] * env_r * 2;
             }
