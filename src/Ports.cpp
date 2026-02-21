@@ -385,7 +385,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
   if ((address & 0x0001) == 0) {
     port254 = data;
     // Border color
-    if (VIDEO::borderColor != data & 0x07) {
+    if (VIDEO::borderColor != (data & 0x07)) {
       VIDEO::brdChange = true;
       if (!Z80Ops::isPentagon)
         VIDEO::Draw(0, true); // Seems not needed in Pentagon

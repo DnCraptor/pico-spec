@@ -1305,8 +1305,7 @@ IRAM_ATTR void VIDEO::BottomBorder_OSD() {
         } else if (brdcol_cnt < 21 || brdcol_cnt > 38) {
             Update_Border();
         } else {
-            brdptr32 += 2;
-            prevBrdptr32 += 2;
+            // OSD area: skip without writing (indexed access handles position via brdcol_cnt)
         }
 
         lastBrdTstate+=4;
@@ -1344,7 +1343,7 @@ inline uint32_t Border_Gigascreen(uint32_t c0, uint32_t c1) {
 
 void VIDEO::Update_Border() {
     uint32_t newColor = brd;
-    uint8_t brdColIndex = (brdcol_cnt ^ 1)*2;
+    uint8_t brdColIndex = brdcol_cnt * 2;
     if (VIDEO::gigascreen_enabled)
     {
         uint32_t oldColor = prevBrdptr32[brdColIndex];
