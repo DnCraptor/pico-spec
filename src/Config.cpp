@@ -87,7 +87,8 @@ int      Config::hdmi_video_mode = 0;
 int      Config::vga_video_mode = 0;
 bool     Config::v_sync_enabled = false;
 bool     Config::gigascreen_enabled = false;
-bool     Config::gigascreen_onoff = false;
+uint8_t  Config::gigascreen_onoff = 0;
+bool     Config::ulaplus = false;
 uint8_t  Config::audio_driver = 0;
 extern "C" uint8_t  video_driver = 0;
 bool     Config::byte_cobmect_mode = false;
@@ -386,8 +387,9 @@ void Config::load() {
         nvs_get_b("v_sync_enabled", v_sync_enabled, sts);
         #if PICO_RP2350
         nvs_get_b("gigascreen_enabled", gigascreen_enabled, sts);
-        nvs_get_b("gigascreen_onoff", gigascreen_onoff, sts);
+        nvs_get_u8("gigascreen_onoff", gigascreen_onoff, sts);
         #endif
+        nvs_get_b("ulaplus", ulaplus, sts);
         std::string v;
         nvs_get_str("audio_driver", v, sts);
         if (v == "pwm") Config::audio_driver = 1;
@@ -523,7 +525,8 @@ void Config::save() {
         nvs_set_i(handle,"vga_video_mode",Config::vga_video_mode);
         nvs_set_str(handle,"v_sync_enabled", Config::v_sync_enabled ? "true" : "false");
         nvs_set_str(handle,"gigascreen_enabled", Config::gigascreen_enabled ? "true" : "false");
-        nvs_set_str(handle,"gigascreen_onoff", Config::gigascreen_onoff ? "true" : "false");
+        nvs_set_u8(handle,"gigascreen_onoff", Config::gigascreen_onoff);
+        nvs_set_str(handle,"ulaplus", Config::ulaplus ? "true" : "false");
         nvs_set_str(handle,"audio_driver", Config::audio_driver == 0 ? "auto" :
             (Config::audio_driver == 1) ? "pwm" : ((Config::audio_driver == 2) ? "i2s" : "ay")
         );

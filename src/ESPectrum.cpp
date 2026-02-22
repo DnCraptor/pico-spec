@@ -678,6 +678,22 @@ void ESPectrum::setup() {
   //=======================================================================================
   // VIDEO
   //=======================================================================================
+#ifdef VGA_HDMI
+  {
+    extern bool SELECT_VGA;
+    extern uint8_t linkVGA01;
+    extern uint8_t video_driver;
+    if (video_driver == 0) {
+        #if defined(ZERO) || defined(ZERO2) || defined(PICO_DV)
+            SELECT_VGA = linkVGA01 == 0x1F;
+        #else
+            SELECT_VGA = (linkVGA01 == 0) || (linkVGA01 == 0x1F);
+        #endif
+    } else {
+        SELECT_VGA = video_driver == 1;
+    }
+  }
+#endif
   VIDEO::Init();
   VIDEO::Reset();
 
@@ -1508,8 +1524,8 @@ void ESPectrum::loop() {
         VIDEO::framecnt = 0;
       }
     }
-    // Flashing flag change
-    if (!(VIDEO::flash_ctr++ & 0x0f))
+    // Flashing flag change (disabled when ULA+ palette is active)
+    if (!(VIDEO::flash_ctr++ & 0x0f) && !VIDEO::ulaplus_enabled)
       VIDEO::flashing ^= 0x80;
 
     // // Draw fdd led if CPU OSD active

@@ -214,6 +214,14 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
       }
     }
 #endif
+    // ULA+ data port read
+    if (Config::ulaplus && address == 0xFF3B) {
+      uint8_t reg = VIDEO::ulaplus_reg;
+      if ((reg & 0xC0) == 0x00)
+        return VIDEO::ulaplus_palette[reg & 0x3F];
+      else
+        return VIDEO::ulaplus_enabled ? 1 : 0;
+    }
     // The default port value is 0xFF.
     data = 0xff;
     if (ESPectrum::trdos) {
@@ -302,6 +310,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
             MemESP::videoLatch = bitRead(data, 3);
             VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct()
                                               : MemESP::ram[5].direct();
+            if (Config::gigascreen_onoff == 2) VIDEO::gigascreen_auto_countdown = 3;
           }
           MemESP::romLatch = bitRead(data, 4);
           MemESP::romInUse = MemESP::romLatch;
@@ -376,13 +385,16 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
   if ((address & 0x0001) == 0) {
     port254 = data;
     // Border color
-    if (VIDEO::borderColor != data & 0x07) {
+    if (VIDEO::borderColor != (data & 0x07)) {
       VIDEO::brdChange = true;
       if (!Z80Ops::isPentagon)
         VIDEO::Draw(0, true); // Seems not needed in Pentagon
       VIDEO::DrawBorder();
       VIDEO::borderColor = data & 0x07;
-      VIDEO::brd = VIDEO::border32[VIDEO::borderColor];
+      if (VIDEO::ulaplus_enabled)
+        VIDEO::ulaPlusUpdateBorder();
+      else
+        VIDEO::brd = VIDEO::border32[VIDEO::borderColor];
     }
     if (Config::tape_player)
       Audiobit = Tape::tapeEarBit ? 255 : 0; // For tape player mode
@@ -437,6 +449,39 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     }
     VIDEO::Draw(3, !Z80Ops::isPentagon); // I/O Contention (Late)
   } else {
+    // ULA+ ports (odd addresses: 0xBF3B register select, 0xFF3B data)
+    if (Config::ulaplus) {
+      if (address == 0xBF3B) {
+        VIDEO::ulaplus_reg = data;
+        ioContentionLate(MemESP::ramContended[rambank]);
+        return;
+      }
+      if (address == 0xFF3B) {
+        uint8_t reg = VIDEO::ulaplus_reg;
+        if ((reg & 0xC0) == 0x00) {
+          // Palette group write
+          VIDEO::ulaplus_palette[reg & 0x3F] = data;
+          if (VIDEO::ulaplus_enabled) {
+            VIDEO::ulaPlusUpdatePaletteEntry(reg & 0x3F);
+            if ((reg & 0x3F) == (8 + VIDEO::borderColor))
+              VIDEO::ulaPlusUpdateBorder();
+          }
+        } else if ((reg & 0xC0) == 0x40) {
+          // Mode group write
+          bool new_on = data & 0x01;
+          if (new_on && !VIDEO::ulaplus_enabled) {
+            VIDEO::ulaplus_enabled = true;
+            VIDEO::flashing = 0;
+            VIDEO::regenerateUlaPlusAluBytes();
+            VIDEO::ulaPlusUpdateBorder();
+          } else if (!new_on && VIDEO::ulaplus_enabled) {
+            VIDEO::ulaPlusDisable();
+          }
+        }
+        ioContentionLate(MemESP::ramContended[rambank]);
+        return;
+      }
+    }
     int covox = Config::covox;
     if ((covox == 1 && a8 == 0xFB) || (covox == 2 && a8 == 0xDD)) {
       ESPectrum::lastCovoxVal = data;
@@ -594,6 +639,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         MemESP::videoLatch = bitRead(data, 3);
         VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct()
                                           : MemESP::ram[5].direct();
+        if (Config::gigascreen_onoff == 2) VIDEO::gigascreen_auto_countdown = 3;
       }
     }
   }

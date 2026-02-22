@@ -33,7 +33,8 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - Border effects emulated (Aquaplane, The Sentinel, Overscan demo).
 - Floating bus effect emulated (Arkanoid, Sidewize).
 - Snow effect accurate emulation (as [described](https://spectrumcomputing.co.uk/forums/viewtopic.php?t=8240) by Weiv and MartianGirl).
-- Gigascreen support.
+- Gigascreen support (Choose between three modes: On, Off, or Auto).
+- Ula+ support (https://sinclair.wiki.zxnet.co.uk/wiki/ULAplus).
 - Murmuzavr (up to 32 MB) support.
 - Contended memory and contended I/O emulation.
 - AY-3-8912 / TurboSound emulation.
