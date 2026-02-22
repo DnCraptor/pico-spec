@@ -982,7 +982,7 @@ void __attribute__((naked, noreturn)) __printflike(1, 0) dummy_panic(__unused co
 
 #ifndef PICO_RP2040
 void __not_in_flash() flash_timings() {
-        const int max_flash_freq = 88 * MHZ;
+        const int max_flash_freq = 66 * MHZ;
         const int clock_hz = CPU_MHZ * MHZ;
         int divisor = (clock_hz + max_flash_freq - 1) / max_flash_freq;
         if (divisor == 1 && clock_hz > 100000000) {
