@@ -313,8 +313,10 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
             if (Config::gigascreen_onoff == 2) VIDEO::gigascreen_auto_countdown = 3;
           }
           MemESP::romLatch = bitRead(data, 4);
-          MemESP::romInUse = MemESP::romLatch;
-          MemESP::recoverPage0();
+          if (!ESPectrum::trdos) {
+            MemESP::romInUse = MemESP::romLatch;
+            MemESP::recoverPage0();
+          }
         }
       }
     }
@@ -631,10 +633,10 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
             Z80Ops::isPentagon ? false : (page & 0x01 ? true : false);
       }
       MemESP::romLatch = bitRead(data, 4);
-      if (!ia) {
+      if (!ia && !ESPectrum::trdos) {
         MemESP::romInUse = MemESP::romLatch;
       }
-      MemESP::recoverPage0();
+      if (!ESPectrum::trdos) MemESP::recoverPage0();
       if (MemESP::videoLatch != bitRead(data, 3)) {
         MemESP::videoLatch = bitRead(data, 3);
         VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct()

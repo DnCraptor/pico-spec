@@ -67,6 +67,12 @@ bool Z80::ffIFF1 = false;
 bool Z80::ffIFF2 = false;
 bool Z80::pendingEI = false;
 bool Z80::activeNMI = false;
+bool Z80::activeNMIDOS = false;
+bool Z80::nmiDosInProgress = false;
+uint8_t Z80::nmiDos_savedRomInUse = 0;
+bool Z80::nmiDos_savedTrdos = false;
+uint16_t Z80::nmiDos_savedSP = 0;
+uint16_t Z80::nmiDos_savedPC = 0;
 Z80::IntMode Z80::modeINT = Z80::IntMode::IM0;
 bool Z80::halted = false;
 bool Z80::pinReset = false;
@@ -235,6 +241,8 @@ void Z80::reset(void) {
     ffIFF2 = false;
     pendingEI = false;
     activeNMI = false;
+    activeNMIDOS = false;
+    nmiDosInProgress = false;
     halted = false;
     setIM(IntMode::IM0);
     lastFlagQ = false;
@@ -924,6 +932,19 @@ void Z80::bitTest(uint8_t mask, uint8_t reg) {
 
 IRAM_ATTR void Z80::check_trdos() {
 
+    // Detect NMI-DOS handler return: exact PC and SP match after planted RET at 0x5C00
+    if (nmiDosInProgress && REG_PC == nmiDos_savedPC && REG_SP == nmiDos_savedSP) {
+        nmiDosInProgress = false;
+        MemESP::romInUse = nmiDos_savedRomInUse;
+        ESPectrum::trdos = nmiDos_savedTrdos;
+        if (ESPectrum::trdos) {
+            MemESP::ramCurrent[0] = MemESP::rom[4].direct();
+        } else {
+            MemESP::recoverPage0();
+        }
+        return;
+    }
+
     if (ESPectrum::trdos == true || Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) {
 
         if (!ESPectrum::trdos) {
@@ -1060,6 +1081,31 @@ void Z80::doNMI(void) {
     lastFlagQ = false;
     nmi();
     // printf("NMI!\n");
+
+}
+
+void Z80::doNMIDOS(void) {
+
+    activeNMIDOS = false;
+    lastFlagQ = false;
+
+    // Save current state
+    nmiDos_savedRomInUse = MemESP::romInUse;
+    nmiDos_savedTrdos = ESPectrum::trdos;
+    nmiDos_savedSP = REG_SP;
+    nmiDos_savedPC = REG_PC; // Save PC — the interrupted address
+
+    // Switch to TR-DOS ROM (slot 4) for Magic Button NMI
+    // Note: Gluk ROM has no NMI handler (0x0066 = 0xFF filler) — it's RESET-only
+    MemESP::romInUse = 4;
+    MemESP::ramCurrent[0] = MemESP::rom[4].direct();
+    ESPectrum::trdos = true; // Protect ROM from 7FFD changes
+
+    // Mark NMI-DOS in progress
+    nmiDosInProgress = true;
+
+    // Standard NMI sequence (pushes PC, SP becomes savedSP-2)
+    nmi();
 
 }
 
@@ -5816,8 +5862,13 @@ void Z80::decodeED(void) {
             sbc(aux);
             break;
         }
+        case 0x4D:
+        { /* RETI */
+            ffIFF1 = ffIFF2;
+            REG_PC = REG_WZ = pop();
+            break;
+        }
         case 0x45:
-        case 0x4D: /* RETI */
         case 0x55:
         case 0x5D:
         case 0x65:
@@ -5827,6 +5878,7 @@ void Z80::decodeED(void) {
         { /* RETN */
             ffIFF1 = ffIFF2;
             REG_PC = REG_WZ = pop();
+            check_trdos();
             break;
         }
         case 0x46:

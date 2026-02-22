@@ -278,7 +278,8 @@ static const char *MENU_TAPEPLAYER2[2] = { "Real input\n", "Entrada real\n" };
     "Drive C\t>\n"\
     "Drive D\t>\n"\
 	"Fast Mode\t>\n"\
-	"Write Protect\t>\n"
+	"Write Protect\t>\n"\
+	"BIOS\t>\n"
 #define MENU_BETADISK_ES \
     "Unidades\n"\
     "Unidad A\t>\n"\
@@ -286,11 +287,27 @@ static const char *MENU_TAPEPLAYER2[2] = { "Real input\n", "Entrada real\n" };
     "Unidad C\t>\n"\
     "Unidad D\t>\n"\
 	"Modo rápido\t>\n"\
-	"Protección contra escritura\t>\n"
+	"Protección contra escritura\t>\n"\
+	"BIOS\t>\n"
 static const char *MENU_BETADISK[2] = { MENU_BETADISK_EN,MENU_BETADISK_ES };
 
 static const char *MENU_FASTMODE[2] = { "Fast Mode\n", "Modo rápido\n" };
 static const char *MENU_WRITEPROTECT[2] = { "Write Protect\n", "MProtección contra escritura\n" };
+static const char *MENU_NMI_TITLE[2] = { "NMI\n", "NMI\n" };
+#define MENU_NMI_EN "NMI\n" "Magic Button\n"
+#define MENU_NMI_ES "NMI\n" "Magic Button\n"
+static const char *MENU_NMI_SEL[2] = { MENU_NMI_EN, MENU_NMI_ES };
+
+static const char *MENU_TRDOS_BIOS_TITLE[2] = { "TR-DOS BIOS\n", "TR-DOS BIOS\n" };
+#define MENU_TRDOS_BIOS_SEL_EN \
+    "5.03\t[ ]\n"\
+    "5.04TM\t[ ]\n"\
+    "5.05D\t[ ]\n"
+#define MENU_TRDOS_BIOS_SEL_ES \
+    "5.03\t[ ]\n"\
+    "5.04TM\t[ ]\n"\
+    "5.05D\t[ ]\n"
+static const char *MENU_TRDOS_BIOS_SEL[2] = { MENU_TRDOS_BIOS_SEL_EN, MENU_TRDOS_BIOS_SEL_ES };
 
 #define MENU_BETADRIVE_EN \
     "Drive#\n"\

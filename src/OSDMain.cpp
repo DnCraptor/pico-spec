@@ -451,7 +451,20 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         } else
         if (KeytoESP == fabgl::VK_F10) { // NMI
-            Z80::triggerNMI();
+            if (Z80Ops::isPentagon) {
+                menu_level = 0;
+                menu_curopt = 1;
+                menu_saverect = true;
+                string nmi_menu = MENU_NMI_TITLE[Config::lang];
+                nmi_menu += MENU_NMI_SEL[Config::lang];
+                uint8_t opt = menuRun(nmi_menu);
+                if (opt == 1)
+                    Z80::triggerNMI();
+                else if (opt == 2)
+                    Z80::triggerNMIDOS();
+            } else {
+                Z80::triggerNMI();
+            }
         }
         else
         if (KeytoESP == fabgl::VK_F11) { // Reset to Gluk ROM
@@ -1150,6 +1163,38 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 menu_saverect = false;
                             } else {
                                 menu_curopt = 6;
+                                menu_level = 2;
+                                break;
+                            }
+                        }
+                    }
+                    else if (dsk_num == 7) {
+                        menu_level = 2;
+                        menu_curopt = 1;
+                        menu_saverect = true;
+                        while (1) {
+                            string menu = MENU_TRDOS_BIOS_TITLE[Config::lang];
+                            menu += MENU_TRDOS_BIOS_SEL[Config::lang];
+                            // Mark current selection with [*]
+                            int mpos = -1;
+                            int idx = 0;
+                            while ((mpos = menu.find("[ ]", mpos + 1)) != (int)string::npos) {
+                                if (idx == Config::trdosBios)
+                                    menu.replace(mpos, 3, "[*]");
+                                idx++;
+                            }
+                            uint8_t prev = Config::trdosBios;
+                            uint8_t opt2 = menuRun(menu);
+                            if (opt2) {
+                                Config::trdosBios = opt2 - 1;
+                                if (Config::trdosBios != prev) {
+                                    Config::save();
+                                    esp_hard_reset();
+                                }
+                                menu_curopt = opt2;
+                                menu_saverect = false;
+                            } else {
+                                menu_curopt = 7;
                                 menu_level = 2;
                                 break;
                             }
@@ -4945,7 +4990,11 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
             fclose2(f);
             return false;
         }
-        rom = gb_rom_4_trdos_505d;
+        switch (Config::trdosBios) {
+            case 0: rom = gb_rom_4_trdos_503; break;
+            case 1: rom = gb_rom_4_trdos_504tm; break;
+            default: rom = gb_rom_4_trdos_505d; break;
+        }
         max_rom_size = 16ul << 10;
         dlgTitle += " TRDOS ";
         Config::arch = "Pentagon";
