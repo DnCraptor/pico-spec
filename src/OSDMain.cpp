@@ -451,10 +451,20 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         } else
         if (KeytoESP == fabgl::VK_F10) { // NMI
-            if (Z80Ops::isPentagon)
-                Z80::triggerNMIDOS();
-            else
+            if (Z80Ops::isPentagon) {
+                menu_level = 0;
+                menu_curopt = 1;
+                menu_saverect = true;
+                string nmi_menu = MENU_NMI_TITLE[Config::lang];
+                nmi_menu += MENU_NMI_SEL[Config::lang];
+                uint8_t opt = menuRun(nmi_menu);
+                if (opt == 1)
+                    Z80::triggerNMI();
+                else if (opt == 2)
+                    Z80::triggerNMIDOS();
+            } else {
                 Z80::triggerNMI();
+            }
         }
         else
         if (KeytoESP == fabgl::VK_F11) { // Reset to Gluk ROM

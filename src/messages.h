@@ -293,6 +293,11 @@ static const char *MENU_BETADISK[2] = { MENU_BETADISK_EN,MENU_BETADISK_ES };
 
 static const char *MENU_FASTMODE[2] = { "Fast Mode\n", "Modo rápido\n" };
 static const char *MENU_WRITEPROTECT[2] = { "Write Protect\n", "MProtección contra escritura\n" };
+static const char *MENU_NMI_TITLE[2] = { "NMI\n", "NMI\n" };
+#define MENU_NMI_EN "NMI\n" "Magic Button\n"
+#define MENU_NMI_ES "NMI\n" "Magic Button\n"
+static const char *MENU_NMI_SEL[2] = { MENU_NMI_EN, MENU_NMI_ES };
+
 static const char *MENU_TRDOS_BIOS_TITLE[2] = { "TR-DOS BIOS\n", "TR-DOS BIOS\n" };
 #define MENU_TRDOS_BIOS_SEL_EN \
     "5.03\t[ ]\n"\
