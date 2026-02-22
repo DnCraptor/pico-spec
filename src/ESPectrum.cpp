@@ -650,13 +650,17 @@ void ESPectrum::setup() {
   Config::requestMachine(Config::arch, Config::romSet);
 
   MemESP::page0ram = 0;
-  MemESP::romInUse = 0;
+  // Pentagon+Gluk: boot with Gluk ROM to install service monitor at 0xDB00
+  if (Config::romSet == "128Kpg" || Config::romSet == "128Kbg")
+      MemESP::romInUse = 3;
+  else
+      MemESP::romInUse = 0;
   MemESP::bankLatch = 0;
   MemESP::videoLatch = 0;
   MemESP::romLatch = 0;
   MemESP::newSRAM = false;
 
-  MemESP::ramCurrent[0] = MemESP::rom[0].direct();
+  MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse].direct();
   MemESP::ramCurrent[1] = MemESP::ram[5].direct();
   MemESP::ramCurrent[2] = MemESP::ram[2].sync(2);
   MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync(3);
@@ -814,7 +818,14 @@ void ESPectrum::setup() {
 //=======================================================================================
 // RESET
 //=======================================================================================
-void ESPectrum::reset() { ESPectrum::reset(0); }
+void ESPectrum::reset() {
+  // Pentagon+Gluk: boot with Gluk ROM so it installs service monitor at 0xDB00
+  // This matches real Pentagon hardware where Gluk always boots first
+  uint8_t romInUse = 0;
+  if (Config::romSet == "128Kpg" || Config::romSet == "128Kbg")
+      romInUse = 3;
+  ESPectrum::reset(romInUse);
+}
 
 void ESPectrum::reset(uint8_t romInUse) {
   // Ports

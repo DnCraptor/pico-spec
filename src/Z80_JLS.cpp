@@ -962,7 +962,7 @@ IRAM_ATTR void Z80::check_trdos() {
 
         } else {
 
-            if (REG_PCh >= 0x40 && !nmiDosInProgress) {
+            if (REG_PCh >= 0x40) {
 
                 if (Z80Ops::is48)
                     MemESP::romInUse = 0;
