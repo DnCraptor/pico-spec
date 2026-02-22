@@ -117,6 +117,7 @@ public:
 
     static bool trdosFastMode;
     static bool trdosWriteProtect;
+    static uint8_t trdosBios; // 0=5.03, 1=5.04TM, 2=5.05D
     
     static signed char aud_volume;
 

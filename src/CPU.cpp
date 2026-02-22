@@ -192,7 +192,10 @@ IRAM_ATTR void CPU::loop() {
 
     BREAKPOINTS
     // Check NMI
-    if (Z80::isNMI()) {
+    if (Z80::isNMIDOS()) {
+        Z80::execute();
+        Z80::doNMIDOS();
+    } else if (Z80::isNMI()) {
         Z80::execute();
         Z80::doNMI();
     }

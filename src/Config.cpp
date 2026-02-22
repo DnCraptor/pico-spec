@@ -76,6 +76,7 @@ uint8_t  Config::throtling = DEFAULT_THROTTLING;
 bool     Config::CursorAsJoy = true;
 bool     Config::trdosFastMode = false;
 bool     Config::trdosWriteProtect = false;
+uint8_t  Config::trdosBios = 2; // Default: 5.05D
 
 uint8_t Config::scanlines = 0;
 uint8_t Config::render = 0;
@@ -184,7 +185,11 @@ void Config::requestMachine(string newArch, string newRomSet)
             }
         }
     }
-    MemESP::rom[4].assign_rom(gb_rom_4_trdos_505d);
+    switch (Config::trdosBios) {
+        case 0: MemESP::rom[4].assign_rom(gb_rom_4_trdos_503); break;
+        case 1: MemESP::rom[4].assign_rom(gb_rom_4_trdos_504tm); break;
+        default: MemESP::rom[4].assign_rom(gb_rom_4_trdos_505d); break;
+    }
 }
 
 static bool nvs_get_str(const char* key, string& v, const vector<string>& sts) {
@@ -365,6 +370,7 @@ void Config::load() {
         nvs_get_b("CursorAsJoy", CursorAsJoy, sts);
         nvs_get_b("trdosFastMode", trdosFastMode, sts);
         nvs_get_b("trdosWriteProtect", trdosWriteProtect, sts);
+        nvs_get_u8("trdosBios", trdosBios, sts);
         nvs_get_str("SNA_Path", FileUtils::SNA_Path, sts);
         nvs_get_str("TAP_Path", FileUtils::TAP_Path, sts);
         nvs_get_str("DSK_Path", FileUtils::DSK_Path, sts);
@@ -502,6 +508,7 @@ void Config::save() {
         nvs_set_str(handle,"CursorAsJoy", CursorAsJoy ? "true" : "false");
         nvs_set_str(handle,"trdosFastMode", trdosFastMode ? "true" : "false");
         nvs_set_str(handle,"trdosWriteProtect", trdosWriteProtect ? "true" : "false");
+        nvs_set_u8(handle,"trdosBios", trdosBios);
         nvs_set_str(handle,"SNA_Path",FileUtils::SNA_Path.c_str());
         nvs_set_str(handle,"TAP_Path",FileUtils::TAP_Path.c_str());
         nvs_set_str(handle,"DSK_Path",FileUtils::DSK_Path.c_str());
