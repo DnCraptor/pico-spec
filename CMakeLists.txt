@@ -20,6 +20,7 @@ option(TFT "Enable TFT display" OFF)
 option(ILI9341 "Enable TFT ILI9341 display" OFF)
 option(TV "Enable TV composite output" OFF)
 option(SOFTTV "Enable TV soft composite output" OFF)
+option(MURM "Murmulator 1.0" OFF)
 option(MURM2 "Murmulator 2.0" OFF)
 option(PICO_PC "RP2040-PICO-PC" OFF)
 option(PICO_DV "RP2350-PICO-DV" OFF)
@@ -27,25 +28,23 @@ option(ZERO "RP2040-PiZero" OFF)
 option(ZERO2 "RP2350-PiZero" OFF)
 
 #set(FLASH_SIZE_GREEN ON)
-set(m1p2launcher ON)
+#set(m1p2launcher ON)
 
-set(VGA_HDMI ON)
-#set(SOFTTV ON)
-#set(TFT ON)
+# Display output (default: VGA_HDMI; override with -D flags, e.g. cmake -DSOFTTV=ON)
+if(NOT VGA_HDMI AND NOT SOFTTV AND NOT TFT AND NOT ILI9341 AND NOT TV)
+    set(VGA_HDMI ON)
+endif()
 #set(TFT_INV 0)
 #set(TFT_INV 1)
-#set(ILI9341 ON)
 
 #set(CPU_MHZ 252)
 set(CPU_MHZ 378)
-set (PORT_VERSION "1.2.K")
+set (PORT_VERSION "1.2.M")
 
-#set (MURM ON)
-set (MURM2 ON)
-#set (PICO_PC ON)
-#set (PICO_DV ON)
-#set (ZERO ON)
-#set (ZERO2 ON)
+# Target board (default: PICO_PC; override with -D flags, e.g. cmake -DMURM2=ON)
+if(NOT MURM AND NOT MURM2 AND NOT PICO_PC AND NOT PICO_DV AND NOT ZERO AND NOT ZERO2)
+    set(MURM2 ON)
+endif()
 
 set(KBDUSB ON)
 
@@ -98,7 +97,7 @@ ELSE()
     set (BUTTER_PSRAM_GPIO 19)
 ENDIF()
 
-set(OUTPUT_DIR "${CMAKE_SOURCE_DIR}/bin/${CMAKE_BUILD_TYPE}")
+set(OUTPUT_DIR "${CMAKE_BINARY_DIR}/bin/${CMAKE_BUILD_TYPE}")
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY "${OUTPUT_DIR}")
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${OUTPUT_DIR}")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${OUTPUT_DIR}")
@@ -140,6 +139,15 @@ endforeach ()
 message(STATUS "")
 
 add_executable(${PROJECT_NAME} ${SRC})
+
+# КРИТИЧНАЯ ОПТИМИЗАЦИЯ: компилируем AySound.cpp с максимальной оптимизацией
+# Это дает дополнительные 2-4 FPS при проигрывании цифровой музыки через AY
+set_source_files_properties(src/AySound.cpp PROPERTIES
+    COMPILE_FLAGS "-O3 -ffast-math -funroll-loops")
+set_source_files_properties(src/SAASound.cpp PROPERTIES
+    COMPILE_FLAGS "-O3 -ffast-math -funroll-loops")
+set_source_files_properties(src/Video.cpp PROPERTIES
+    COMPILE_FLAGS "-O3 -funroll-loops")
 
 if (PICO_BOARD STREQUAL "pico")
     pico_define_boot_stage2(slower_boot2 ${PICO_DEFAULT_BOOT_STAGE2_FILE})

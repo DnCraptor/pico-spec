@@ -12,19 +12,19 @@ static struct video_mode_t video_mode[] = {
         .h_total = 644,
         .h_width = 480,
         .freq = 50,
-        .vgaPxClk = 20979000
+        .vgaPxClk = 25175000
     },
     { // 640x480 50Hz 48K 50.08Hz
         .h_total = 628,
         .h_width = 480,
         .freq = 50,
-        .vgaPxClk = 20979000
+        .vgaPxClk = 25175000
     },
     { // 640x480 50Hz 128K 50.02Hz
         .h_total = 629,
         .h_width = 480,
         .freq = 50,
-        .vgaPxClk = 20979000
+        .vgaPxClk = 25175000
     }    
 };
 

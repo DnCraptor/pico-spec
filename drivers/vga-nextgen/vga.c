@@ -60,6 +60,10 @@ static bool is_flash_frame = false;
 static uint32_t bg_color[2];
 static uint16_t palette16_mask = 0;
 
+// VGA8 dithered palette LUT: /42 checkerboard dithering (7 levels per channel, 343 colors)
+// [0][i] = even scanline pixel pair,  [1][i] = odd scanline pixel pair
+static uint16_t palette_vga16[2][256] = { 0 };
+
 static uint text_buffer_width = 0;
 static uint text_buffer_height = 0;
 
@@ -118,7 +122,6 @@ void __time_critical_func() dma_handler_VGA() {
     switch (graphics_mode) {
         case GRAPHICSMODE_DEFAULT:
             line_number = screen_line / 2;
-            if (screen_line % 2) return;
             y = screen_line / 2 - graphics_buffer_shift_y;
             break;
 /**
@@ -189,7 +192,7 @@ if (!text_buffer) return;
         if (y == graphics_buffer_height | y == graphics_buffer_height + 1 |
             y == graphics_buffer_height + 2) {
             uint32_t* output_buffer_32bit = *output_buffer;
-            uint32_t p_i = ((line_number & is_flash_line) + (frame_number & is_flash_frame)) & 1;
+            uint32_t p_i = ((screen_line & is_flash_line) + (frame_number & is_flash_frame)) & 1;
             uint32_t color32 = bg_color[p_i];
 
             output_buffer_32bit += shift_picture / 4;
@@ -235,14 +238,14 @@ if (!text_buffer) return;
 
     uint8_t* output_buffer_8bit;
     switch (graphics_mode) {
-        case GRAPHICSMODE_DEFAULT:
+        case GRAPHICSMODE_DEFAULT: {
+            uint16_t* pal = palette_vga16[screen_line & 1];
             for  (int x = 0; x < width; ++x) {
-              ///  *output_buffer_16bit++ = palette[input_buffer_8bit[x ^ 2] & 0b00111111];
-                register uint8_t cx = input_buffer_8bit[x ^ 2] & 0b00111111;
-                uint16_t c = (cx >> 4) | (cx & 0b1100) | ((cx & 0b11) << 4); // swap R and B
-                *output_buffer_16bit++ = (c << 8 | c) & 0x3f3f | palette16_mask;
+                register uint8_t idx = input_buffer_8bit[x ^ 2];
+                *output_buffer_16bit++ = pal[idx];
             }
             break;
+        }
         default:
             break;
     }
@@ -316,10 +319,12 @@ void graphics_set_mode(enum graphics_mode_t mode) {
     //корректировка  палитры по маске бит синхры
     bg_color[0] = bg_color[0] & 0x3f3f3f3f | palette16_mask | palette16_mask << 16;
     bg_color[1] = bg_color[1] & 0x3f3f3f3f | palette16_mask | palette16_mask << 16;
-///    for (int i = 0; i < 256; i++) {
-///        palette[0][i] = palette[0][i] & 0x3f3f | palette16_mask;
-///        palette[1][i] = palette[1][i] & 0x3f3f | palette16_mask;
-///    }
+    // Re-apply sync bits to all VGA palette entries (palette may have been
+    // initialized before palette16_mask was set)
+    for (int i = 0; i < 256; i++) {
+        palette_vga16[0][i] = (palette_vga16[0][i] & 0x3f3f) | palette16_mask;
+        palette_vga16[1][i] = (palette_vga16[1][i] & 0x3f3f) | palette16_mask;
+    }
 
     //инициализация шаблонов строк и синхросигнала
     if (!lines_pattern_data) //выделение памяти, если не выделено
@@ -376,45 +381,64 @@ void graphics_set_flashmode(const bool flash_line, const bool flash_frame) {
     is_flash_line = flash_line;
 }
 
+// Bayer 2×2 ordered dithering: /21 → 13 levels/channel → 2197 perceived colors
+// Threshold matrix: [0 2]  Fill order per sub-level: (0,0), (1,1), (0,1), (1,0)
+//                   [3 1]
+static void vga_rgb888_dither(uint32_t color888, uint16_t *even_pair, uint16_t *odd_pair) {
+    uint8_t r_level = ((color888 >> 16) & 0xff) / 21;
+    uint8_t g_level = ((color888 >> 8) & 0xff) / 21;
+    uint8_t b_level = (color888 & 0xff) / 21;
+
+    uint8_t r_lo = r_level >> 2, r_sub = r_level & 3, r_hi = r_lo + (r_lo < 3 && r_sub);
+    uint8_t g_lo = g_level >> 2, g_sub = g_level & 3, g_hi = g_lo + (g_lo < 3 && g_sub);
+    uint8_t b_lo = b_level >> 2, b_sub = b_level & 3, b_hi = b_lo + (b_lo < 3 && b_sub);
+
+    // 4 pixel positions in 2×2 block, ordered by Bayer threshold
+    uint8_t p00 = ((r_sub >= 1 ? r_hi : r_lo) << 4) | ((g_sub >= 1 ? g_hi : g_lo) << 2) | (b_sub >= 1 ? b_hi : b_lo);
+    uint8_t p01 = ((r_sub >= 3 ? r_hi : r_lo) << 4) | ((g_sub >= 3 ? g_hi : g_lo) << 2) | (b_sub >= 3 ? b_hi : b_lo);
+    uint8_t p10 = (r_lo << 4) | (g_lo << 2) | b_lo;
+    uint8_t p11 = ((r_sub >= 2 ? r_hi : r_lo) << 4) | ((g_sub >= 2 ? g_hi : g_lo) << 2) | (b_sub >= 2 ? b_hi : b_lo);
+
+    // Pack pixel pairs: LSB = first pixel (PIO right-shift), MSB = second pixel
+    *even_pair = ((p01 << 8) | p00) & 0x3f3f | palette16_mask;
+    *odd_pair  = ((p11 << 8) | p10) & 0x3f3f | palette16_mask;
+}
+
+// Update a single VGA palette LUT entry with Bayer dithering
+void vga_set_palette_entry(uint8_t i, uint32_t color888) {
+    vga_rgb888_dither(color888, &palette_vga16[0][i], &palette_vga16[1][i]);
+}
+
+// Update a VGA palette entry WITHOUT dithering (both palettes get identical solid color)
+// Use for the 16 standard Spectrum colors to avoid visible dithering artifacts
+void vga_set_palette_entry_solid(uint8_t i, uint32_t color888) {
+    uint8_t r2 = ((color888 >> 16) & 0xff) / 85;
+    uint8_t g2 = ((color888 >> 8) & 0xff) / 85;
+    uint8_t b2 = (color888 & 0xff) / 85;
+    uint8_t vga6 = (r2 << 4) | (g2 << 2) | b2;
+    uint16_t solid = ((vga6 << 8) | vga6) & 0x3f3f | palette16_mask;
+    palette_vga16[0][i] = solid;
+    palette_vga16[1][i] = solid;
+}
+
 void graphics_set_bgcolor_hdmi(uint32_t color888);
 void graphics_set_bgcolor(const uint32_t color888) {
     if (!SELECT_VGA) {
         graphics_set_bgcolor_hdmi(color888);
         return;
     }
-    const uint8_t conv0[] = { 0b00, 0b00, 0b01, 0b10, 0b10, 0b10, 0b11, 0b11 };
-    const uint8_t conv1[] = { 0b00, 0b01, 0b01, 0b01, 0b10, 0b11, 0b11, 0b11 };
-
-    const uint8_t b = (color888 & 0xff) / 42;
-
-    const uint8_t r = (color888 >> 16 & 0xff) / 42;
-    const uint8_t g = (color888 >> 8 & 0xff) / 42;
-
-    const uint8_t c_hi = conv0[r] << 4 | conv0[g] << 2 | conv0[b];
-    const uint8_t c_lo = conv1[r] << 4 | conv1[g] << 2 | conv1[b];
-    bg_color[0] = ((c_hi << 8 | c_lo) & 0x3f3f | palette16_mask) << 16 |
-                  ((c_hi << 8 | c_lo) & 0x3f3f | palette16_mask);
-    bg_color[1] = ((c_lo << 8 | c_hi) & 0x3f3f | palette16_mask) << 16 |
-                  ((c_lo << 8 | c_hi) & 0x3f3f | palette16_mask);
+    uint16_t p0, p1;
+    vga_rgb888_dither(color888, &p0, &p1);
+    bg_color[0] = (p0 << 16) | p0;
+    bg_color[1] = (p1 << 16) | p1;
 }
 
+#ifndef VGA_HDMI
+// Standalone VGA build: provide graphics_set_palette
 void graphics_set_palette(const uint8_t i, const uint32_t color888) {
-    /**
-    const uint8_t conv0[] = { 0b00, 0b00, 0b01, 0b10, 0b10, 0b10, 0b11, 0b11 };
-    const uint8_t conv1[] = { 0b00, 0b01, 0b01, 0b01, 0b10, 0b11, 0b11, 0b11 };
-
-    const uint8_t b = (color888 & 0xff) / 42;
-
-    const uint8_t r = (color888 >> 16 & 0xff) / 42;
-    const uint8_t g = (color888 >> 8 & 0xff) / 42;
-
-    const uint8_t c_hi = conv0[r] << 4 | conv0[g] << 2 | conv0[b];
-    const uint8_t c_lo = conv1[r] << 4 | conv1[g] << 2 | conv1[b];
-
-    palette[0][i] = (c_hi << 8 | c_lo) & 0x3f3f | palette16_mask;
-    palette[1][i] = (c_lo << 8 | c_hi) & 0x3f3f | palette16_mask;
-    */
+    vga_set_palette_entry(i, color888);
 }
+#endif
 
 uint8_t linkVGA01;
 void graphics_init_hdmi();

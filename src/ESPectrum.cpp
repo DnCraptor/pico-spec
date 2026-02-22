@@ -1,8 +1,8 @@
 /*
 ESPectrum, a Sinclair ZX Spectrum emulator for Espressif ESP32 SoC
 
-Copyright (c) 2023, 2024 Víctor Iborra [Eremus] and 2023 David Crespo [dcrespo3d]
-https://github.com/EremusOne/ZX-ESPectrum-IDF
+Copyright (c) 2023, 2024 Víctor Iborra [Eremus] and 2023 David Crespo
+[dcrespo3d] https://github.com/EremusOne/ZX-ESPectrum-IDF
 
 Based on ZX-ESPectrum-Wiimote
 Copyright (c) 2020, 2022 David Crespo [dcrespo3d]
@@ -35,28 +35,29 @@ visit https://zxespectrum.speccy.org/contacto
 #include <stdio.h>
 #include <string>
 
-#include "ESPectrum.h"
-#include "Snapshot.h"
+#include "AySound.h"
+#include "SAASound.h"
+#include "CPU.h"
 #include "Config.h"
+#include "ESPectrum.h"
 #include "FileUtils.h"
+#include "MemESP.h"
 #include "OSDMain.h"
 #include "Ports.h"
-#include "MemESP.h"
-#include "CPU.h"
-#include "Video.h"
-#include "messages.h"
-#include "AySound.h"
+#include "Snapshot.h"
 #include "Tape.h"
+#include "Video.h"
 #include "Z80_JLS/z80.h"
+#include "messages.h"
 #include "pwm_audio.h"
 #include "wd1793.h"
 
 #include "psram_spi.h"
 
 #ifdef KBDUSB
-    #include "ps2kbd_mrmltr.h"
+#include "ps2kbd_mrmltr.h"
 #else
-    #include "ps2.h"
+#include "ps2.h"
 #endif
 
 #include "PinSerialData_595.h"
@@ -71,97 +72,106 @@ extern size_t getFreeHeap(void);
 fabgl::PS2Controller ESPectrum::PS2Controller;
 
 void joyPushData(fabgl::VirtualKey virtualKey, bool down) {
-    fabgl::Keyboard* kbd = ESPectrum::PS2Controller.keyboard();
-    if ( kbd ) {
-        kbd->injectVirtualKey(virtualKey, down);
-    }
+  fabgl::Keyboard *kbd = ESPectrum::PS2Controller.keyboard();
+  if (kbd) {
+    kbd->injectVirtualKey(virtualKey, down);
+  }
 }
 
 volatile static uint32_t tickKbdRep = 0;
 volatile static fabgl::VirtualKey last_key_pressed = fabgl::VirtualKey::VK_NONE;
 
-fabgl::VirtualKey get_last_key_pressed(void) {
-    return last_key_pressed;
-}
+fabgl::VirtualKey get_last_key_pressed(void) { return last_key_pressed; }
 
 void close_all(void) {
 #ifdef BUTTER_PSRAM_GPIO
-    if (butter_psram_size()) {
-        memset((void*)PSRAM_DATA, 0, butter_psram_size());
-    }
-    if (butter_psram_size()) {
-        gpio_init(psram_pin);
-        gpio_set_dir(psram_pin, GPIO_OUT);
-        gpio_put(psram_pin, true);
-    }
+  if (butter_psram_size()) {
+    memset((void *)PSRAM_DATA, 0, butter_psram_size());
+  }
+  if (butter_psram_size()) {
+    gpio_init(psram_pin);
+    gpio_set_dir(psram_pin, GPIO_OUT);
+    gpio_put(psram_pin, true);
+  }
 #endif
 }
 
 void kbdPushData(fabgl::VirtualKey virtualKey, bool down) {
-    static bool ctrlPressed = false;
-    static bool altPressed = false;
-    static bool delPressed = false;
-    if (virtualKey == fabgl::VirtualKey::VK_LCTRL || virtualKey == fabgl::VirtualKey::VK_RCTRL) ctrlPressed = down;
-    else if (virtualKey == fabgl::VirtualKey::VK_LALT || virtualKey == fabgl::VirtualKey::VK_RALT) altPressed = down;
-    else if (virtualKey == fabgl::VirtualKey::VK_DELETE || virtualKey == fabgl::VirtualKey::VK_KP_PERIOD) delPressed = down;
-    if (ctrlPressed && altPressed && delPressed) {
-        close_all();
-        watchdog_enable(1, true);
-        while (true);
+  static bool ctrlPressed = false;
+  static bool altPressed = false;
+  static bool delPressed = false;
+  if (virtualKey == fabgl::VirtualKey::VK_LCTRL ||
+      virtualKey == fabgl::VirtualKey::VK_RCTRL)
+    ctrlPressed = down;
+  else if (virtualKey == fabgl::VirtualKey::VK_LALT ||
+           virtualKey == fabgl::VirtualKey::VK_RALT)
+    altPressed = down;
+  else if (virtualKey == fabgl::VirtualKey::VK_DELETE ||
+           virtualKey == fabgl::VirtualKey::VK_KP_PERIOD)
+    delPressed = down;
+  if (ctrlPressed && altPressed && delPressed) {
+    close_all();
+    watchdog_enable(1, true);
+    while (true)
+      ;
+  }
+  if (down) {
+    if (ctrlPressed && virtualKey == fabgl::VirtualKey::VK_J) {
+      Config::CursorAsJoy = !Config::CursorAsJoy;
     }
-    if (down) {
-        if (ctrlPressed && virtualKey == fabgl::VirtualKey::VK_J) {
-            Config::CursorAsJoy = !Config::CursorAsJoy;
-        }
-        if (last_key_pressed != virtualKey && last_key_pressed != fabgl::VirtualKey::VK_MENU_UP && last_key_pressed != fabgl::VirtualKey::VK_MENU_DOWN) {
-            last_key_pressed = virtualKey;
-            tickKbdRep = time_us_32();
-        }
-    } else {
-///        switch (virtualKey) {
-///            case fabgl::VirtualKey::VK_NUMLOCK   : keyboard_toggle_led(PS2_LED_NUM_LOCK); break;
-///            case fabgl::VirtualKey::VK_SCROLLLOCK: keyboard_toggle_led(PS2_LED_SCROLL_LOCK); break;
-///            case fabgl::VirtualKey::VK_CAPSLOCK  : keyboard_toggle_led(PS2_LED_CAPS_LOCK); break;
-///        }
-        last_key_pressed = fabgl::VirtualKey::VK_NONE;
-        tickKbdRep = 0;
+    if (last_key_pressed != virtualKey &&
+        last_key_pressed != fabgl::VirtualKey::VK_MENU_UP &&
+        last_key_pressed != fabgl::VirtualKey::VK_MENU_DOWN) {
+      last_key_pressed = virtualKey;
+      tickKbdRep = time_us_32();
     }
-    fabgl::Keyboard* kbd = ESPectrum::PS2Controller.keyboard();
-    if ( kbd ) {
-        if (virtualKey != fabgl::VirtualKey::VK_NONE) {
-            virtualKey = kbd->manageCAPSLOCK(virtualKey);
-        }
-        kbd->injectVirtualKey(virtualKey, down);
+  } else {
+    ///        switch (virtualKey) {
+    ///            case fabgl::VirtualKey::VK_NUMLOCK   :
+    ///            keyboard_toggle_led(PS2_LED_NUM_LOCK); break; case
+    ///            fabgl::VirtualKey::VK_SCROLLLOCK:
+    ///            keyboard_toggle_led(PS2_LED_SCROLL_LOCK); break; case
+    ///            fabgl::VirtualKey::VK_CAPSLOCK  :
+    ///            keyboard_toggle_led(PS2_LED_CAPS_LOCK); break;
+    ///        }
+    last_key_pressed = fabgl::VirtualKey::VK_NONE;
+    tickKbdRep = 0;
+  }
+  fabgl::Keyboard *kbd = ESPectrum::PS2Controller.keyboard();
+  if (kbd) {
+    if (virtualKey != fabgl::VirtualKey::VK_NONE) {
+      virtualKey = kbd->manageCAPSLOCK(virtualKey);
     }
+    kbd->injectVirtualKey(virtualKey, down);
+  }
 }
 
 void repeat_handler(void) {
-    fabgl::VirtualKey v = last_key_pressed;
-    if (v != fabgl::VirtualKey::VK_NONE) {
-        if (tickKbdRep == 0) {
-            if (v == fabgl::VirtualKey::VK_UP) {
-                kbdPushData(fabgl::VirtualKey::VK_MENU_UP, true);
-            }
-            else if (v == fabgl::VirtualKey::VK_DOWN) {
-                kbdPushData(fabgl::VirtualKey::VK_MENU_DOWN, true);
-            }
-            kbdPushData(v, true);
-        } else {
-            uint32_t t2 = time_us_32();
-            if (t2 - tickKbdRep > 500000) {
-                tickKbdRep = 0;
-            }
-        }
+  fabgl::VirtualKey v = last_key_pressed;
+  if (v != fabgl::VirtualKey::VK_NONE) {
+    if (tickKbdRep == 0) {
+      if (v == fabgl::VirtualKey::VK_UP) {
+        kbdPushData(fabgl::VirtualKey::VK_MENU_UP, true);
+      } else if (v == fabgl::VirtualKey::VK_DOWN) {
+        kbdPushData(fabgl::VirtualKey::VK_MENU_DOWN, true);
+      }
+      kbdPushData(v, true);
+    } else {
+      uint32_t t2 = time_us_32();
+      if (t2 - tickKbdRep > 500000) {
+        tickKbdRep = 0;
+      }
     }
+  }
 }
 
 //=======================================================================================
 // AUDIO
 //=======================================================================================
-uint8_t ESPectrum::audioBuffer_L[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
-uint8_t ESPectrum::audioBuffer_R[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
-uint8_t ESPectrum::audioBufferCovox[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
-uint32_t ESPectrum::overSamplebuf[ESP_AUDIO_SAMPLES_PENTAGON] = { 0 };
+uint8_t ESPectrum::audioBuffer_L[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
+uint8_t ESPectrum::audioBuffer_R[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
+uint8_t ESPectrum::audioBufferCovox[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
+uint32_t ESPectrum::overSamplebuf[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
 signed char ESPectrum::aud_volume = ESP_VOLUME_DEFAULT;
 // signed char ESPectrum::aud_volume = ESP_VOLUME_MAX; // For .tap player test
 
@@ -172,11 +182,17 @@ uint32_t ESPectrum::audbufcntAY = 0;
 uint32_t ESPectrum::faudbufcntAY = 0;
 uint32_t ESPectrum::audbufcntCovox = 0;
 uint32_t ESPectrum::faudbufcntCovox = 0;
+uint8_t ESPectrum::audioBufferPIT[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
+uint32_t ESPectrum::audbufcntPIT = 0;
+uint32_t ESPectrum::faudbufcntPIT = 0;
 int ESPectrum::lastaudioBit = 0;
 int ESPectrum::lastCovoxVal = 0;
 int ESPectrum::faudioBit = 0;
 int ESPectrum::samplesPerFrame;
 bool ESPectrum::AY_emu = false;
+bool ESPectrum::SAA_emu = false;
+uint32_t ESPectrum::audbufcntSAA = 0;
+uint32_t ESPectrum::faudbufcntSAA = 0;
 int ESPectrum::Audio_freq = 44000;
 unsigned char ESPectrum::audioSampleDivider;
 unsigned char ESPectrum::audioAYDivider;
@@ -184,8 +200,8 @@ unsigned char ESPectrum::audioCOVOXDivider;
 unsigned char ESPectrum::audioOverSampleDivider;
 static int audioBitBuf = 0;
 static unsigned char audioBitbufCount = 0;
-///QueueHandle_t audioTaskQueue;
-///TaskHandle_t ESPectrum::audioTaskHandle;
+/// QueueHandle_t audioTaskQueue;
+/// TaskHandle_t ESPectrum::audioTaskHandle;
 uint8_t *param;
 
 //=======================================================================================
@@ -264,56 +280,62 @@ int ESPectrum::ESPtestvar2 = 0;
 
 void ShowStartMsg() {
 
-    fabgl::VirtualKeyItem Nextkey;
+  fabgl::VirtualKeyItem Nextkey;
 
-    VIDEO::vga.clear(zxColor(7,0));
+  VIDEO::vga.clear(zxColor(7, 0));
 
-    OSD::drawOSD(false);
+  OSD::drawOSD(false);
 
-    VIDEO::vga.fillRect(Config::aspect_16_9 ? 60 : 40,Config::aspect_16_9 ? 12 : 32,240,50,zxColor(0, 0));
+  VIDEO::vga.fillRect(Config::aspect_16_9 ? 60 : 40,
+                      Config::aspect_16_9 ? 12 : 32, 240, 50, zxColor(0, 0));
 
-    // Decode Logo in EBF8 format
-    uint8_t *logo = (uint8_t *)ESPectrum_logo;
-    int pos_x = Config::aspect_16_9 ? 86 : 66;
-    int pos_y = Config::aspect_16_9 ? 23 : 43;
-    int logo_w = (logo[5] << 8) + logo[4]; // Get Width
-    int logo_h = (logo[7] << 8) + logo[6]; // Get Height
-    logo+=8; // Skip header
-    for (int i=0; i < logo_h; i++)
-        for(int n=0; n<logo_w; n++)
-            VIDEO::vga.dotFast(pos_x + n,pos_y + i,logo[n+(i*logo_w)]);
+  // Decode Logo in EBF8 format
+  uint8_t *logo = (uint8_t *)ESPectrum_logo;
+  int pos_x = Config::aspect_16_9 ? 86 : 66;
+  int pos_y = Config::aspect_16_9 ? 23 : 43;
+  int logo_w = (logo[5] << 8) + logo[4]; // Get Width
+  int logo_h = (logo[7] << 8) + logo[6]; // Get Height
+  logo += 8;                             // Skip header
+  for (int i = 0; i < logo_h; i++)
+    for (int n = 0; n < logo_w; n++)
+      VIDEO::vga.dotFast(pos_x + n, pos_y + i, logo[n + (i * logo_w)]);
 
-    OSD::osdAt(7, 1);
-    VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(1, 0));
-    VIDEO::vga.print(Config::lang ? StartMsg[0] : StartMsg[1]);
+  OSD::osdAt(7, 1);
+  VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(1, 0));
+  VIDEO::vga.print(Config::lang ? StartMsg[0] : StartMsg[1]);
 
-    VIDEO::vga.setTextColor(zxColor(16,0), zxColor(1, 0));
-    OSD::osdAt(7, Config::lang ? 28 : 25);
-    VIDEO::vga.print("ESP");
-    OSD::osdAt(9, 1);
-    VIDEO::vga.print("ESP");
-    OSD::osdAt(13, 13);
-    VIDEO::vga.print("ESP");
+  VIDEO::vga.setTextColor(zxColor(16, 0), zxColor(1, 0));
+  OSD::osdAt(7, Config::lang ? 28 : 25);
+  VIDEO::vga.print("ESP");
+  OSD::osdAt(9, 1);
+  VIDEO::vga.print("ESP");
+  OSD::osdAt(13, 13);
+  VIDEO::vga.print("ESP");
 
-    OSD::osdAt(17, 4);
-    VIDEO::vga.setTextColor(zxColor(3, 1), zxColor(1, 0));
-    VIDEO::vga.print("https://patreon.com/ESPectrum");
+  OSD::osdAt(17, 4);
+  VIDEO::vga.setTextColor(zxColor(3, 1), zxColor(1, 0));
+  VIDEO::vga.print("https://patreon.com/ESPectrum");
 
-    char msg[38];
+  char msg[38];
 
-    for (int i=20; i >= 0; i--) {
-        OSD::osdAt(19, 1);
-        sprintf(msg,Config::lang ? "Este mensaje se cerrar" "\xA0" " en %02d segundos" : "This message will close in %02d seconds",i);
-        VIDEO::vga.setTextColor(zxColor(7, 0), zxColor(1, 0));
-        VIDEO::vga.print(msg);
-        sleep_ms(1);
-    }
+  for (int i = 20; i >= 0; i--) {
+    OSD::osdAt(19, 1);
+    sprintf(msg,
+            Config::lang ? "Este mensaje se cerrar"
+                           "\xA0"
+                           " en %02d segundos"
+                         : "This message will close in %02d seconds",
+            i);
+    VIDEO::vga.setTextColor(zxColor(7, 0), zxColor(1, 0));
+    VIDEO::vga.print(msg);
+    sleep_ms(1);
+  }
 
-    VIDEO::vga.clear(zxColor(7,0));
+  VIDEO::vga.clear(zxColor(7, 0));
 
-    // Disable StartMsg
-    Config::StartMsg = false;
-    Config::save();
+  // Disable StartMsg
+  Config::StartMsg = false;
+  Config::save();
 }
 
 /**
@@ -323,42 +345,53 @@ void showMemInfo(const char* caption = "ZX-ESPectrum-IDF") {
 
 multi_heap_info_t info;
 
-heap_caps_get_info(&info, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); // internal RAM, memory capable to store data or to create new task
+heap_caps_get_info(&info, MALLOC_CAP_INTERNAL | MALLOC_CAP_8BIT); // internal
+RAM, memory capable to store data or to create new task
 printf("=========================================================================\n");
 printf(" %s - Mem info:\n",caption);
 printf("-------------------------------------------------------------------------\n");
-printf("Total currently free in all non-continues blocks: %d\n", info.total_free_bytes);
-printf("Minimum free ever: %d\n", info.minimum_free_bytes);
-printf("Largest continues block to allocate big array: %d\n", info.largest_free_block);
-printf("Heap caps get free size (MALLOC_CAP_8BIT): %d\n", heap_caps_get_free_size(MALLOC_CAP_8BIT));
-printf("Heap caps get free size (MALLOC_CAP_32BIT): %d\n", heap_caps_get_free_size(MALLOC_CAP_32BIT));
-printf("Heap caps get free size (MALLOC_CAP_INTERNAL): %d\n", heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
+printf("Total currently free in all non-continues blocks: %d\n",
+info.total_free_bytes); printf("Minimum free ever: %d\n",
+info.minimum_free_bytes); printf("Largest continues block to allocate big array:
+%d\n", info.largest_free_block); printf("Heap caps get free size
+(MALLOC_CAP_8BIT): %d\n", heap_caps_get_free_size(MALLOC_CAP_8BIT));
+printf("Heap caps get free size (MALLOC_CAP_32BIT): %d\n",
+heap_caps_get_free_size(MALLOC_CAP_32BIT)); printf("Heap caps get free size
+(MALLOC_CAP_INTERNAL): %d\n", heap_caps_get_free_size(MALLOC_CAP_INTERNAL));
 printf("=========================================================================\n\n");
 
 // heap_caps_print_heap_info(MALLOC_CAP_INTERNAL);
 
-// printf("=========================================================================\n");
+//
+printf("=========================================================================\n");
 // heap_caps_print_heap_info(MALLOC_CAP_8BIT);
 
-// printf("=========================================================================\n");
+//
+printf("=========================================================================\n");
 // heap_caps_print_heap_info(MALLOC_CAP_32BIT);
 
-// printf("=========================================================================\n");
+//
+printf("=========================================================================\n");
 // heap_caps_print_heap_info(MALLOC_CAP_DEFAULT);
 
-// printf("=========================================================================\n");
+//
+printf("=========================================================================\n");
 // heap_caps_print_heap_info(MALLOC_CAP_DMA);
 
-// printf("=========================================================================\n");
+//
+printf("=========================================================================\n");
 // heap_caps_print_heap_info(MALLOC_CAP_EXEC);
 
-// printf("=========================================================================\n");
+//
+printf("=========================================================================\n");
 // heap_caps_print_heap_info(MALLOC_CAP_IRAM_8BIT);
 
-// printf("=========================================================================\n");
+//
+printf("=========================================================================\n");
 // heap_caps_dump_all();
 
-// printf("=========================================================================\n");
+//
+printf("=========================================================================\n");
 
 // UBaseType_t wm;
 // wm = uxTaskGetStackHighWaterMark(audioTaskHandle);
@@ -376,88 +409,88 @@ printf("========================================================================
 // BOOT KEYBOARD
 //=======================================================================================
 void ESPectrum::bootKeyboard() {
-/***
-    auto Kbd = PS2Controller.keyboard();
-    fabgl::VirtualKeyItem NextKey;
-    int i = 0;
-    string s = "00";
+  /***
+      auto Kbd = PS2Controller.keyboard();
+      fabgl::VirtualKeyItem NextKey;
+      int i = 0;
+      string s = "00";
 
-    // printf("Boot kbd!\n");
+      // printf("Boot kbd!\n");
 
-    for (; i < 200; i++) {
+      for (; i < 200; i++) {
 
-        if (ZXKeyb::Exists) {
+          if (ZXKeyb::Exists) {
 
-            // Process physical keyboard
-            ZXKeyb::process();
+              // Process physical keyboard
+              ZXKeyb::process();
 
-            // Detect and process physical kbd menu key combinations
-            if (!bitRead(ZXKeyb::ZXcols[3], 0)) { // 1
-                s[0]='1';
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[3], 1)) { // 2
-                s[0]='2';
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[3], 2)) { // 3
-                s[0]='3';
-            }
+              // Detect and process physical kbd menu key combinations
+              if (!bitRead(ZXKeyb::ZXcols[3], 0)) { // 1
+                  s[0]='1';
+              } else
+              if (!bitRead(ZXKeyb::ZXcols[3], 1)) { // 2
+                  s[0]='2';
+              } else
+              if (!bitRead(ZXKeyb::ZXcols[3], 2)) { // 3
+                  s[0]='3';
+              }
 
-            if (!bitRead(ZXKeyb::ZXcols[2], 0)) { // Q
-                s[1]='Q';
-            } else
-            if (!bitRead(ZXKeyb::ZXcols[2], 1)) { // W
-                s[1]='W';
-            }
+              if (!bitRead(ZXKeyb::ZXcols[2], 0)) { // Q
+                  s[1]='Q';
+              } else
+              if (!bitRead(ZXKeyb::ZXcols[2], 1)) { // W
+                  s[1]='W';
+              }
 
-        }
+          }
 
-        while (Kbd->virtualKeyAvailable()) {
+          while (Kbd->virtualKeyAvailable()) {
 
-            bool r = Kbd->getNextVirtualKey(&NextKey);
+              bool r = Kbd->getNextVirtualKey(&NextKey);
 
-            if (r && NextKey.down) {
+              if (r && NextKey.down) {
 
-                // Check keyboard status
-                switch (NextKey.vk) {
-                    case fabgl::VK_1:
-                        s[0] = '1';
-                        break;
-                    case fabgl::VK_2:
-                        s[0] = '2';
-                        break;
-                    case fabgl::VK_3:
-                        s[0] = '3';
-                        break;
-                    case fabgl::VK_Q:
-                    case fabgl::VK_q:
-                        s[1] = 'Q';
-                        break;
-                    case fabgl::VK_W:
-                    case fabgl::VK_w:
-                        s[1] = 'W';
-                        break;
-                }
+                  // Check keyboard status
+                  switch (NextKey.vk) {
+                      case fabgl::VK_1:
+                          s[0] = '1';
+                          break;
+                      case fabgl::VK_2:
+                          s[0] = '2';
+                          break;
+                      case fabgl::VK_3:
+                          s[0] = '3';
+                          break;
+                      case fabgl::VK_Q:
+                      case fabgl::VK_q:
+                          s[1] = 'Q';
+                          break;
+                      case fabgl::VK_W:
+                      case fabgl::VK_w:
+                          s[1] = 'W';
+                          break;
+                  }
 
-            }
+              }
 
-        }
+          }
 
-        if (s.find('0') == std::string::npos) break;
+          if (s.find('0') == std::string::npos) break;
 
-        delayMicroseconds(1000);
+          delayMicroseconds(1000);
 
-    }
+      }
 
-    // printf("Boot kbd end!\n");
+      // printf("Boot kbd end!\n");
 
-    if (i < 200) {
-///        Config::videomode = (s[0] == '1') ? 0 : (s[0] == '2') ? 1 : 2;
-///        Config::aspect_16_9 = (s[1] == 'Q') ? false : true;
-        Config::ram_file="none";
-        Config::save();
-        // printf("%s\n", s.c_str());
-    }
-*/
+      if (i < 200) {
+  ///        Config::videomode = (s[0] == '1') ? 0 : (s[0] == '2') ? 1 : 2;
+  ///        Config::aspect_16_9 = (s[1] == 'Q') ? false : true;
+          Config::ram_file="none";
+          Config::save();
+          // printf("%s\n", s.c_str());
+      }
+  */
 }
 
 //=======================================================================================
@@ -466,382 +499,440 @@ void ESPectrum::bootKeyboard() {
 extern int ram_pages, butter_pages, psram_pages, swap_pages;
 
 static void assign_ram(int i) {
-    static size_t butter_remains = butter_psram_size();
-    static size_t butter_idx = 0;
-    if (getFreeHeap() >= MEM_PG_SZ + MEM_REMAIN) {
-        MemESP::ram[i].assign_ram(new unsigned char[MEM_PG_SZ], i, false);
-        ++ram_pages;
+  static size_t butter_remains = butter_psram_size();
+  static size_t butter_idx = 0;
+  if (getFreeHeap() >= MEM_PG_SZ + MEM_REMAIN) {
+    MemESP::ram[i].assign_ram(new unsigned char[MEM_PG_SZ], i, false);
+    ++ram_pages;
+  } else {
+    if (butter_remains >= MEM_PG_SZ) {
+      MemESP::ram[i].assign_ram(
+          (uint8_t *)PSRAM_DATA + (butter_idx++) * MEM_PG_SZ, i, false);
+      butter_remains -= MEM_PG_SZ;
+      ++butter_pages;
+    } else if (psram_size() >= (MEM_PG_SZ * (i + 1))) {
+      MemESP::ram[i].assign_vram(i, mem_type_t::PSRAM_SPI);
+      ++psram_pages;
     } else {
-        if (butter_remains >= MEM_PG_SZ) {
-            MemESP::ram[i].assign_ram((uint8_t*)PSRAM_DATA + (butter_idx++) * MEM_PG_SZ, i, false);
-            butter_remains -= MEM_PG_SZ;
-            ++butter_pages;
-        } else if (psram_size() >= (MEM_PG_SZ * (i+1))) {
-            MemESP::ram[i].assign_vram(i, mem_type_t::PSRAM_SPI);
-            ++psram_pages;
-        } else {
-            MemESP::ram[i].assign_vram(i, mem_type_t::SWAP);
-            ++swap_pages;
-        }
+      MemESP::ram[i].assign_vram(i, mem_type_t::SWAP);
+      ++swap_pages;
     }
+  }
 }
 
-void ESPectrum::setup()
-{
-    //=======================================================================================
-    // INIT FILESYSTEM
-    //=======================================================================================
-    FileUtils::initFileSystem();
+void ESPectrum::setup() {
+  //=======================================================================================
+  // INIT FILESYSTEM
+  //=======================================================================================
+  FileUtils::initFileSystem();
 
-    mem_desc_t::reset();
-    Ports::portAFF7 = 0;
-    //=======================================================================================
-    // LOAD CONFIG
-    //=======================================================================================
-    if (FileUtils::fsMount) Config::load();
-    bool ext_ram_exist = butter_psram_size() >= (16 << 10) || psram_size() >= (16 << 10) || FileUtils::fsMount;
+  mem_desc_t::reset();
+  Ports::portAFF7 = 0;
+  //=======================================================================================
+  // LOAD CONFIG
+  //=======================================================================================
+  if (FileUtils::fsMount)
+    Config::load();
+  bool ext_ram_exist = butter_psram_size() >= (16 << 10) ||
+                       psram_size() >= (16 << 10) || FileUtils::fsMount;
 
-    // Set arch if there's no snapshot to load
-    if (Config::ram_file == NO_RAM_FILE) {
-        if (Config::pref_arch.substr(Config::pref_arch.length()-1) == "R") {
-            Config::pref_arch.pop_back();
-            Config::save();
-        } else {
-            if (Config::pref_arch != "Last") Config::arch = Config::pref_arch;
+  // Set arch if there's no snapshot to load
+  if (Config::ram_file == NO_RAM_FILE) {
+    if (Config::pref_arch.substr(Config::pref_arch.length() - 1) == "R") {
+      Config::pref_arch.pop_back();
+      Config::save();
+    } else {
+      if (Config::pref_arch != "Last")
+        Config::arch = Config::pref_arch;
 
-            if (Config::arch == "48K") {
-                if (Config::pref_romSet_48 != "Last")
-                    Config::romSet = Config::pref_romSet_48;
-                else
-                    Config::romSet = Config::romSet48;
-            }
+      if (Config::arch == "48K") {
+        if (Config::pref_romSet_48 != "Last")
+          Config::romSet = Config::pref_romSet_48;
+        else
+          Config::romSet = Config::romSet48;
+      }
 #if !NO_ALF
-            else if (Config::arch == "ALF") {
-                Config::romSet = "ALF";
-            }
+      else if (Config::arch == "ALF") {
+        Config::romSet = "ALF";
+      }
 #endif
-            else if (Config::arch == "128K") {
-                if (Config::pref_romSet_128 != "Last")
-                    Config::romSet = Config::pref_romSet_128;
-                else
-                    Config::romSet = Config::romSet128;
-            } else if (Config::arch == "P512") {
-                if (Config::pref_romSetP512 != "Last")
-                    Config::romSet = Config::pref_romSetP512;
-                else
-                    Config::romSet = Config::romSetP512;
-            } else if (Config::arch == "P1024") {
-                if (Config::pref_romSetP1M != "Last")
-                    Config::romSet = Config::pref_romSetP1M;
-                else
-                    Config::romSet = Config::romSetP1M;
-            } else {
-                if (Config::pref_romSetPent != "Last")
-                    Config::romSet = Config::pref_romSetPent;
-                else
-                    Config::romSet = Config::romSetPent;
-            }
-        }
+      else if (Config::arch == "128K") {
+        if (Config::pref_romSet_128 != "Last")
+          Config::romSet = Config::pref_romSet_128;
+        else
+          Config::romSet = Config::romSet128;
+      } else if (Config::arch == "P512") {
+        if (Config::pref_romSetP512 != "Last")
+          Config::romSet = Config::pref_romSetP512;
+        else
+          Config::romSet = Config::romSetP512;
+      } else if (Config::arch == "P1024") {
+        if (Config::pref_romSetP1M != "Last")
+          Config::romSet = Config::pref_romSetP1M;
+        else
+          Config::romSet = Config::romSetP1M;
+      } else {
+        if (Config::pref_romSetPent != "Last")
+          Config::romSet = Config::pref_romSetPent;
+        else
+          Config::romSet = Config::romSetPent;
+      }
     }
+  }
 
-    //=======================================================================================
-    // INIT PS/2 KEYBOARD
-    //=======================================================================================
+  //=======================================================================================
+  // INIT PS/2 KEYBOARD
+  //=======================================================================================
 
-    // Set Scroll Lock Led as current CursorAsJoy value
-    PS2Controller.keyboard()->setLEDs(false, false, Config::CursorAsJoy);
+  // Set Scroll Lock Led as current CursorAsJoy value
+  PS2Controller.keyboard()->setLEDs(false, false, Config::CursorAsJoy);
 
-    // Set TAB and GRAVEACCENT behaviour
-    if (Config::TABasfire1) {
-        ESPectrum::VK_ESPECTRUM_FIRE1 = fabgl::VK_TAB;
-        ESPectrum::VK_ESPECTRUM_FIRE2 = fabgl::VK_GRAVEACCENT;
-        ESPectrum::VK_ESPECTRUM_TAB = fabgl::VK_NONE;
-        ESPectrum::VK_ESPECTRUM_GRAVEACCENT = fabgl::VK_NONE;
-    } else {
-        ESPectrum::VK_ESPECTRUM_FIRE1 = fabgl::VK_NONE;
-        ESPectrum::VK_ESPECTRUM_FIRE2 = fabgl::VK_NONE;
-        ESPectrum::VK_ESPECTRUM_TAB = fabgl::VK_TAB;
-        ESPectrum::VK_ESPECTRUM_GRAVEACCENT = fabgl::VK_GRAVEACCENT;
+  // Set TAB and GRAVEACCENT behaviour
+  if (Config::TABasfire1) {
+    ESPectrum::VK_ESPECTRUM_FIRE1 = fabgl::VK_TAB;
+    ESPectrum::VK_ESPECTRUM_FIRE2 = fabgl::VK_GRAVEACCENT;
+    ESPectrum::VK_ESPECTRUM_TAB = fabgl::VK_NONE;
+    ESPectrum::VK_ESPECTRUM_GRAVEACCENT = fabgl::VK_NONE;
+  } else {
+    ESPectrum::VK_ESPECTRUM_FIRE1 = fabgl::VK_NONE;
+    ESPectrum::VK_ESPECTRUM_FIRE2 = fabgl::VK_NONE;
+    ESPectrum::VK_ESPECTRUM_TAB = fabgl::VK_TAB;
+    ESPectrum::VK_ESPECTRUM_GRAVEACCENT = fabgl::VK_GRAVEACCENT;
+  }
+
+  //=======================================================================================
+  // BOOTKEYS: Read keyboard for 200 ms. checking boot keys
+  //=======================================================================================
+
+  // printf("Waiting boot keys\n");
+  bootKeyboard();
+  // printf("End Waiting boot keys\n");
+
+  //=======================================================================================
+  // MEMORY SETUP
+  //=======================================================================================
+  if (ext_ram_exist) {
+    mem_desc_t *temp = MemESP::ram;
+    MemESP::ram = new mem_desc_t[MEM_PG_CNT + 2];
+    memcpy(MemESP::ram, temp, sizeof(mem_desc_t) * 8);
+    MemESP::ram[0].assign_ram(new unsigned char[MEM_PG_SZ], 0, false);
+    MemESP::ram[1].assign_ram(new unsigned char[MEM_PG_SZ], 1, false);
+    MemESP::ram[2].assign_ram(new unsigned char[MEM_PG_SZ], 2, false);
+    MemESP::ram[3].assign_ram(new unsigned char[MEM_PG_SZ], 3, false);
+    // pages 4 and 6 may be added to some other pool
+    // 5 and 7 - static (video RAM)
+    ram_pages += 4;
+    // for virtual ram
+    assign_ram(4);
+    assign_ram(6);
+    for (size_t i = 8; i < (MEM_PG_CNT + 2); ++i) {
+      assign_ram(i);
     }
+  } else {
+#if PICO_RP2350
+    // TODO: real number of supported pages: +256/16=16? or just +8 and support
+    // Pentagon 256? or 512-128...
+    MemESP::ram[0].assign_ram(new unsigned char[MEM_PG_SZ], 0, false);
+    ++ram_pages;
+#else
+// page 0 is not supported without virtual memory on RP2040
+#endif
+    MemESP::ram[1].assign_ram(new unsigned char[MEM_PG_SZ], 1, false);
+    MemESP::ram[2].assign_ram(new unsigned char[MEM_PG_SZ], 2, false);
+    MemESP::ram[3].assign_ram(new unsigned char[MEM_PG_SZ], 3, false);
+    MemESP::ram[4].assign_ram(new unsigned char[MEM_PG_SZ], 4, false);
+    // 5 - static (video RAM)
+    MemESP::ram[6].assign_ram(new unsigned char[MEM_PG_SZ], 6, false);
+    // 7 - static (video RAM)
+    ram_pages += 5;
+  }
+  // Load romset
+  Config::requestMachine(Config::arch, Config::romSet);
 
-    //=======================================================================================
-    // BOOTKEYS: Read keyboard for 200 ms. checking boot keys
-    //=======================================================================================
+  MemESP::page0ram = 0;
+  MemESP::romInUse = 0;
+  MemESP::bankLatch = 0;
+  MemESP::videoLatch = 0;
+  MemESP::romLatch = 0;
+  MemESP::newSRAM = false;
 
-    // printf("Waiting boot keys\n");
-    bootKeyboard();
-    // printf("End Waiting boot keys\n");
+  MemESP::ramCurrent[0] = MemESP::rom[0].direct();
+  MemESP::ramCurrent[1] = MemESP::ram[5].direct();
+  MemESP::ramCurrent[2] = MemESP::ram[2].sync(2);
+  MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync(3);
 
-    //=======================================================================================
-    // MEMORY SETUP
-    //=======================================================================================
-    if (ext_ram_exist) {
-        mem_desc_t* temp = MemESP::ram;
-        MemESP::ram = new mem_desc_t[MEM_PG_CNT+2];
-        memcpy(MemESP::ram, temp, sizeof(mem_desc_t) * 8);
-        MemESP::ram[0].assign_ram(new unsigned char[MEM_PG_SZ], 0, false);
-        MemESP::ram[1].assign_ram(new unsigned char[MEM_PG_SZ], 1, false);
-        MemESP::ram[2].assign_ram(new unsigned char[MEM_PG_SZ], 2, false);
-        MemESP::ram[3].assign_ram(new unsigned char[MEM_PG_SZ], 3, false);
-        // pages 4 and 6 may be added to some other pool
-        // 5 and 7 - static (video RAM)
-        ram_pages += 4;
-        // for virtual ram
-        assign_ram(4);
-        assign_ram(6);
-        for (size_t i = 8; i < (MEM_PG_CNT+2); ++i) {
-            assign_ram(i);
-        }
-    } else {
-        #if PICO_RP2350
-        // TODO: real number of supported pages: +256/16=16? or just +8 and support Pentagon 256? or 512-128...
-        MemESP::ram[0].assign_ram(new unsigned char[MEM_PG_SZ], 0, false);
-        ++ram_pages;
+  MemESP::ramContended[0] = false;
+  MemESP::ramContended[1] = Config::arch == "P1024" || Config::arch == "P512" ||
+                                    Config::arch == "Pentagon"
+                                ? false
+                                : true;
+  MemESP::ramContended[2] = false;
+  MemESP::ramContended[3] = false;
+
+  // if (Config::arch == "48K") MemESP::pagingLock = 1; else MemESP::pagingLock
+  // = 0;
+  MemESP::pagingLock = Config::arch == "48K" ? 1 : 0;
+
+  ///    if (Config::slog_on) showMemInfo("RAM Initialized");
+
+  //=======================================================================================
+  // VIDEO
+  //=======================================================================================
+#ifdef VGA_HDMI
+  {
+    extern bool SELECT_VGA;
+    extern uint8_t linkVGA01;
+    extern uint8_t video_driver;
+    if (video_driver == 0) {
+        #if defined(ZERO) || defined(ZERO2) || defined(PICO_DV)
+            SELECT_VGA = linkVGA01 == 0x1F;
         #else
-        // page 0 is not supported without virtual memory on RP2040
+            SELECT_VGA = (linkVGA01 == 0) || (linkVGA01 == 0x1F);
         #endif
-        MemESP::ram[1].assign_ram(new unsigned char[MEM_PG_SZ], 1, false);
-        MemESP::ram[2].assign_ram(new unsigned char[MEM_PG_SZ], 2, false);
-        MemESP::ram[3].assign_ram(new unsigned char[MEM_PG_SZ], 3, false);
-        MemESP::ram[4].assign_ram(new unsigned char[MEM_PG_SZ], 4, false);
-        // 5 - static (video RAM)
-        MemESP::ram[6].assign_ram(new unsigned char[MEM_PG_SZ], 6, false);
-        // 7 - static (video RAM)
-        ram_pages += 5;
+    } else {
+        SELECT_VGA = video_driver == 1;
     }
-    // Load romset
-    Config::requestMachine(Config::arch, Config::romSet);
+  }
+#endif
+  VIDEO::Init();
+  VIDEO::Reset();
 
-    MemESP::page0ram = 0;
-    MemESP::romInUse = 0;
-    MemESP::bankLatch = 0;
-    MemESP::videoLatch = 0;
-    MemESP::romLatch = 0;
-    MemESP::newSRAM = false;
+  ///    if (Config::slog_on) showMemInfo("VGA started");
 
-    MemESP::ramCurrent[0] = MemESP::rom[0].direct();
-    MemESP::ramCurrent[1] = MemESP::ram[5].direct();
-    MemESP::ramCurrent[2] = MemESP::ram[2].sync(2);
-    MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync(3);
+  // if (Config::StartMsg) ShowStartMsg(); // Show welcome message
 
-    MemESP::ramContended[0] = false;
-    MemESP::ramContended[1] = Config::arch == "P1024" || Config::arch == "P512" || Config::arch == "Pentagon" ? false : true;
-    MemESP::ramContended[2] = false;
-    MemESP::ramContended[3] = false;
+  //=======================================================================================
+  // AUDIO
+  //=======================================================================================
+  // Set samples per frame and AY_emu flag depending on arch
+  if (Config::arch == "48K") {
+    samplesPerFrame = ESP_AUDIO_SAMPLES_48;
+    audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_48;
+    audioAYDivider = ESP_AUDIO_AY_DIV_48;
+    audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;
+    AY_emu = Config::AY48;
+    SAA_emu = Config::SAA1099;
+    Audio_freq = ESP_AUDIO_FREQ_48;
+  } else if (Config::arch == "128K" || Config::arch == "ALF") {
+    samplesPerFrame = ESP_AUDIO_SAMPLES_128;
+    audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_128;
+    audioAYDivider = ESP_AUDIO_AY_DIV_128;
+    audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
+    AY_emu = Config::AY48;
+    SAA_emu = Config::SAA1099;
+    Audio_freq = ESP_AUDIO_FREQ_128;
+  } else { /// if (Config::arch == "P512" || Config::arch == "Pentagon") {
+    samplesPerFrame = ESP_AUDIO_SAMPLES_PENTAGON;
+    audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_PENTAGON;
+    audioAYDivider = ESP_AUDIO_AY_DIV_PENTAGON;
+    audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_PENTAGON;
+    AY_emu = Config::AY48;
+    SAA_emu = Config::SAA1099;
+    Audio_freq = ESP_AUDIO_FREQ_PENTAGON;
+  }
 
-    // if (Config::arch == "48K") MemESP::pagingLock = 1; else MemESP::pagingLock = 0;
-    MemESP::pagingLock = Config::arch == "48K" ? 1 : 0;
+  audioCOVOXDivider = audioAYDivider;
 
-///    if (Config::slog_on) showMemInfo("RAM Initialized");
+  init_sound();
+  pcm_setup(Audio_freq);
 
-    //=======================================================================================
-    // VIDEO
-    //=======================================================================================
-    VIDEO::Init();
-    VIDEO::Reset();
+  if (Config::tape_player) {
+    AY_emu = false; // Disable AY emulation if tape player mode is set
+    SAA_emu = false;
+    ESPectrum::aud_volume = ESP_VOLUME_MAX;
+  } else
+    ESPectrum::aud_volume = Config::aud_volume;
 
-///    if (Config::slog_on) showMemInfo("VGA started");
+  pwm_audio_set_volume(aud_volume);
 
-    //if (Config::StartMsg) ShowStartMsg(); // Show welcome message
+  // AY Sound
+  chip0.init();
+  chip0.set_sound_format(Audio_freq, 1, 8);
+  chip0.set_stereo(AYEMU_MONO, NULL);
+  chip0.reset();
+  chip1.init();
+  chip1.set_sound_format(Audio_freq, 1, 8);
+  chip1.set_stereo(AYEMU_MONO, NULL);
+  chip1.reset();
 
-    //=======================================================================================
-    // AUDIO
-    //=======================================================================================
-    // Set samples per frame and AY_emu flag depending on arch
-    if (Config::arch == "48K") {
-        samplesPerFrame = ESP_AUDIO_SAMPLES_48;
-        audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_48;
-        audioAYDivider = ESP_AUDIO_AY_DIV_48;
-        audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;        
-        AY_emu = Config::AY48;
-        Audio_freq = ESP_AUDIO_FREQ_48;
-    } else if (Config::arch == "128K" || Config::arch == "ALF") {
-        samplesPerFrame=ESP_AUDIO_SAMPLES_128;
-        audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_128;
-        audioAYDivider = ESP_AUDIO_AY_DIV_128;
-        audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
-        AY_emu = Config::AY48;
-        Audio_freq = ESP_AUDIO_FREQ_128;
-    } else { /// if (Config::arch == "P512" || Config::arch == "Pentagon") {
-        samplesPerFrame = ESP_AUDIO_SAMPLES_PENTAGON;
-        audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_PENTAGON;
-        audioAYDivider = ESP_AUDIO_AY_DIV_PENTAGON;
-        audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_PENTAGON;
-        AY_emu = Config::AY48;
-        Audio_freq = ESP_AUDIO_FREQ_PENTAGON;
-    }
+  // SAA1099 Sound
+  saaChip.init();
+  saaChip.set_sound_format(Audio_freq, 1, 8);
+  saaChip.reset();
 
-    init_sound();
-    pcm_setup(Audio_freq);
+  // Init tape
+  Tape::Init();
+  Tape::tapeFileName = "none";
+  Tape::tapeStatus = TAPE_STOPPED;
+  Tape::SaveStatus = SAVE_STOPPED;
+  Tape::romLoading = false;
 
-    if (Config::tape_player) {
-        AY_emu = false; // Disable AY emulation if tape player mode is set
-        ESPectrum::aud_volume = ESP_VOLUME_MAX;
-    } else
-        ESPectrum::aud_volume = Config::aud_volume;
+  // Init CPU
+  Z80::create();
 
-    pwm_audio_set_volume(aud_volume);
-  
-    // AY Sound
-    if (Config::audio_driver == 3) {
-        send_to_595(HIGH(AY_RES)); // reset
-        send_to_595(HIGH(AY_Z));
-        send_to_595(LOW(AY_Enable));
-        send_to_595(HIGH(AY_Enable | CS_SAA1099 | CS_AY0 | Beeper | CS_AY1 | BDIR | BC1 | (SAVE)));
-    }
-    chip0.init();
-    chip0.set_sound_format(Audio_freq,1,8);
-    chip0.set_stereo(AYEMU_MONO,NULL);
-    chip0.reset();
-    chip1.init();
-    chip1.set_sound_format(Audio_freq,1,8);
-    chip1.set_stereo(AYEMU_MONO,NULL);
-    chip1.reset();
+  // Set Ports starting values
+  for (int i = 0; i < 128; i++)
+    Ports::port[i] = 0xBF;
+  if (Config::joystick == JOY_KEMPSTON)
+    Ports::port[Config::kempstonPort] = 0; // Kempston
+  if (Config::joystick == JOY_FULLER)
+    Ports::port[0x7f] = 0xff; // Fuller
 
-    // Init tape
-    Tape::Init();
-    Tape::tapeFileName = "none";
-    Tape::tapeStatus = TAPE_STOPPED;
-    Tape::SaveStatus = SAVE_STOPPED;
-    Tape::romLoading = false;
+  // Init disk controller
+  rvmWD1793Reset(&fdd);
 
-    // Init CPU
-    Z80::create();
+  // Reset cpu
+  CPU::reset();
 
-    // Set Ports starting values
-    for (int i = 0; i < 128; i++) Ports::port[i] = 0xBF;
-    if (Config::joystick == JOY_KEMPSTON) Ports::port[Config::kempstonPort] = 0; // Kempston
-    if (Config::joystick == JOY_FULLER) Ports::port[0x7f] = 0xff; // Fuller
+  // KR580VI53 (8253 PIT) — reset to silent state
+  if (Z80Ops::isByte) {
+    memset(audioBufferPIT, 0, sizeof(audioBufferPIT));
+    memset(Ports::pitChannels, 0, sizeof(Ports::pitChannels));
+  }
 
-    // Init disk controller
-    rvmWD1793Reset(&fdd);
+  if (FileUtils::fsMount) {
+    Config::load2();
+  }
 
-    // Reset cpu
-    CPU::reset();
+  // Load snapshot if present in Config::
+  if (Config::ram_file != NO_RAM_FILE) {
+    if (FileUtils::fsMount)
+      LoadSnapshot(Config::ram_file, "", "");
+    Config::last_ram_file = Config::ram_file;
+    Config::ram_file = NO_RAM_FILE;
+    if (FileUtils::fsMount)
+      Config::save();
+  }
+  ///    if (Config::slog_on) showMemInfo("ZX-ESPectrum-IDF setup finished.");
 
-    if (FileUtils::fsMount) {
-        Config::load2();
-    }
-
-    // Load snapshot if present in Config::
-    if (Config::ram_file != NO_RAM_FILE) {
-        if (FileUtils::fsMount) LoadSnapshot(Config::ram_file, "", "");
-        Config::last_ram_file = Config::ram_file;
-        Config::ram_file = NO_RAM_FILE;
-        if (FileUtils::fsMount) Config::save();
-    }
-///    if (Config::slog_on) showMemInfo("ZX-ESPectrum-IDF setup finished.");
-
-    // Create loop function as task: it doesn't seem better than calling from main.cpp and increases RAM consumption (4096 bytes for stack).
-    // xTaskCreatePinnedToCore(&ESPectrum::loop, "loopTask", 4096, NULL, 1, &loopTaskHandle, 0);
+  // Create loop function as task: it doesn't seem better than calling from
+  // main.cpp and increases RAM consumption (4096 bytes for stack).
+  // xTaskCreatePinnedToCore(&ESPectrum::loop, "loopTask", 4096, NULL, 1,
+  // &loopTaskHandle, 0);
 }
 
 //=======================================================================================
 // RESET
 //=======================================================================================
-void ESPectrum::reset()
-{
-    ESPectrum::reset(0);
-}
+void ESPectrum::reset() { ESPectrum::reset(0); }
 
-void ESPectrum::reset(uint8_t romInUse)
-{
-    // Ports
-    for (int i = 0; i < 128; i++) Ports::port[i] = 0xBF;
-    if (Config::joystick == JOY_KEMPSTON) Ports::port[Config::kempstonPort] = 0; // Kempston
-    else if (Config::joystick == JOY_FULLER) Ports::port[0x7f] = 0xff; // Fuller
-    Ports::portAFF7 = 0;
+void ESPectrum::reset(uint8_t romInUse) {
+  // Ports
+  for (int i = 0; i < 128; i++)
+    Ports::port[i] = 0xBF;
+  if (Config::joystick == JOY_KEMPSTON)
+    Ports::port[Config::kempstonPort] = 0; // Kempston
+  else if (Config::joystick == JOY_FULLER)
+    Ports::port[0x7f] = 0xff; // Fuller
+  Ports::portAFF7 = 0;
 
-    // Memory
-    MemESP::page0ram = 0;
-    MemESP::romInUse = romInUse;
-    MemESP::bankLatch = 0;
-    MemESP::videoLatch = 0;
-    MemESP::romLatch = 0;
-    MemESP::newSRAM = false;
+  // Memory
+  MemESP::page0ram = 0;
+  MemESP::romInUse = romInUse;
+  MemESP::bankLatch = 0;
+  MemESP::videoLatch = 0;
+  MemESP::romLatch = 0;
+  MemESP::newSRAM = false;
 
-    MemESP::ramCurrent[0] = MemESP::rom[romInUse].direct();
-    MemESP::ramCurrent[1] = MemESP::ram[5].direct();
-    MemESP::ramCurrent[2] = MemESP::ram[2].sync(2);
-    MemESP::ramCurrent[3] = MemESP::ram[0].sync(3);
+  MemESP::ramCurrent[0] = MemESP::rom[romInUse].direct();
+  MemESP::ramCurrent[1] = MemESP::ram[5].direct();
+  MemESP::ramCurrent[2] = MemESP::ram[2].sync(2);
+  MemESP::ramCurrent[3] = MemESP::ram[0].sync(3);
 
-    MemESP::ramContended[0] = false;
-    MemESP::ramContended[1] = Config::arch == "P1024" || Config::arch == "P512" || Config::arch == "Pentagon" ? false : true;
-    MemESP::ramContended[2] = false;
-    MemESP::ramContended[3] = false;
+  MemESP::ramContended[0] = false;
+  MemESP::ramContended[1] = Config::arch == "P1024" || Config::arch == "P512" ||
+                                    Config::arch == "Pentagon"
+                                ? false
+                                : true;
+  MemESP::ramContended[2] = false;
+  MemESP::ramContended[3] = false;
 
-    MemESP::pagingLock = Config::arch == "48K" ? 1 : 0;
+  MemESP::pagingLock = Config::arch == "48K" ? 1 : 0;
 
-    VIDEO::Reset();
+  VIDEO::Reset();
 
-    // Init disk controller
-    rvmWD1793Reset(&fdd);
+  // Init disk controller
+  rvmWD1793Reset(&fdd);
 
-    Tape::tapeFileName = "none";
-    if (Tape::tape.obj.fs != NULL) {
-        f_close(&Tape::tape);
-    }
-    Tape::tapeStatus = TAPE_STOPPED;
-    Tape::tapePhase = TAPE_PHASE_STOPPED;
-    Tape::SaveStatus = SAVE_STOPPED;
-    Tape::romLoading = false;
+  Tape::tapeFileName = "none";
+  if (Tape::tape.obj.fs != NULL) {
+    f_close(&Tape::tape);
+  }
+  Tape::tapeStatus = TAPE_STOPPED;
+  Tape::tapePhase = TAPE_PHASE_STOPPED;
+  Tape::SaveStatus = SAVE_STOPPED;
+  Tape::romLoading = false;
 
-    // Empty audio buffers
-    memset(overSamplebuf, 0, sizeof(overSamplebuf));
-    memset(audioBuffer_L, 0, sizeof(audioBuffer_L));
-    memset(audioBuffer_R, 0, sizeof(audioBuffer_R));
-    memset(audioBufferCovox, 0, sizeof(audioBufferCovox));
-    memset(chip0.SamplebufAY_L, 0, sizeof(chip0.SamplebufAY_L));
-    memset(chip1.SamplebufAY_R, 0, sizeof(chip1.SamplebufAY_R));
-    lastCovoxVal = lastaudioBit = 0;
+  // Empty audio buffers
+  memset(overSamplebuf, 0, sizeof(overSamplebuf));
+  memset(audioBuffer_L, 0, sizeof(audioBuffer_L));
+  memset(audioBuffer_R, 0, sizeof(audioBuffer_R));
+  memset(audioBufferCovox, 0, sizeof(audioBufferCovox));
+  memset(chip0.SamplebufAY_L, 0, sizeof(chip0.SamplebufAY_L));
+  memset(chip1.SamplebufAY_R, 0, sizeof(chip1.SamplebufAY_R));
+  memset(saaChip.SamplebufSAA_L, 0, sizeof(saaChip.SamplebufSAA_L));
+  memset(saaChip.SamplebufSAA_R, 0, sizeof(saaChip.SamplebufSAA_R));
+  lastCovoxVal = lastaudioBit = 0;
 
-    // Set samples per frame and AY_emu flag depending on arch
-    if (Config::arch == "48K") {
-        samplesPerFrame = ESP_AUDIO_SAMPLES_48;
-        audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_48;
-        audioAYDivider = ESP_AUDIO_AY_DIV_48;
-        audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;        
-        AY_emu = Config::AY48;
-        Audio_freq = ESP_AUDIO_FREQ_48;
-    } else if (Config::arch == "128K" || Config::arch == "ALF") {
-        samplesPerFrame=ESP_AUDIO_SAMPLES_128;
-        audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_128;
-        audioAYDivider = ESP_AUDIO_AY_DIV_128;
-        audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
-        AY_emu = Config::AY48;
-        Audio_freq = ESP_AUDIO_FREQ_128;
-    } else { /// if (Config::arch == "P512" || Config::arch == "Pentagon") {
-        samplesPerFrame = ESP_AUDIO_SAMPLES_PENTAGON;
-        audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_PENTAGON;
-        audioAYDivider = ESP_AUDIO_AY_DIV_PENTAGON;
-        audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_PENTAGON;
-        AY_emu = Config::AY48;
-        Audio_freq = ESP_AUDIO_FREQ_PENTAGON;
-    }
+  // Set samples per frame and AY_emu flag depending on arch
+  if (Config::arch == "48K") {
+    samplesPerFrame = ESP_AUDIO_SAMPLES_48;
+    audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_48;
+    audioAYDivider = ESP_AUDIO_AY_DIV_48;
+    audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;
+    AY_emu = Config::AY48;
+    SAA_emu = Config::SAA1099;
+    Audio_freq = ESP_AUDIO_FREQ_48;
+  } else if (Config::arch == "128K" || Config::arch == "ALF") {
+    samplesPerFrame = ESP_AUDIO_SAMPLES_128;
+    audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_128;
+    audioAYDivider = ESP_AUDIO_AY_DIV_128;
+    audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
+    AY_emu = Config::AY48;
+    SAA_emu = Config::SAA1099;
+    Audio_freq = ESP_AUDIO_FREQ_128;
+  } else { /// if (Config::arch == "P512" || Config::arch == "Pentagon") {
+    samplesPerFrame = ESP_AUDIO_SAMPLES_PENTAGON;
+    audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_PENTAGON;
+    audioAYDivider = ESP_AUDIO_AY_DIV_PENTAGON;
+    audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_PENTAGON;
+    AY_emu = Config::AY48;
+    SAA_emu = Config::SAA1099;
+    Audio_freq = ESP_AUDIO_FREQ_PENTAGON;
+  }
 
-    init_sound();
-    pcm_setup(Audio_freq);
+  audioCOVOXDivider = audioAYDivider;
 
-    if (Config::tape_player) AY_emu = false; // Disable AY emulation if tape player mode is set
+  init_sound();
+  pcm_setup(Audio_freq);
 
-    // Real AY
-    if (Config::audio_driver == 3) {
-        send_to_595(HIGH(AY_RES)); // reset
-        send_to_595(HIGH(AY_Z));
-        send_to_595(LOW(AY_Enable));
-        send_to_595(HIGH(AY_Enable | CS_SAA1099 | CS_AY0 | Beeper | CS_AY1 | BDIR | BC1 | (SAVE)));
-    }
-    // Reset AY emulation
-    chip0.init();
-    chip0.set_sound_format(Audio_freq,1,8);
-    chip0.set_stereo(AYEMU_MONO,NULL);
-    chip0.reset();
-    chip1.init();
-    chip1.set_sound_format(Audio_freq,1,8);
-    chip1.set_stereo(AYEMU_MONO,NULL);
-    chip1.reset();
+  if (Config::tape_player) {
+    AY_emu = false; // Disable AY emulation if tape player mode is set
+    SAA_emu = false;
+  }
 
-    CPU::reset();
+  // Reset AY emulation
+  chip0.init();
+  chip0.set_sound_format(Audio_freq, 1, 8);
+  chip0.set_stereo(AYEMU_MONO, NULL);
+  chip0.reset();
+  chip1.init();
+  chip1.set_sound_format(Audio_freq, 1, 8);
+  chip1.set_stereo(AYEMU_MONO, NULL);
+  chip1.reset();
+
+  // Reset SAA1099 emulation
+  saaChip.init();
+  saaChip.set_sound_format(Audio_freq, 1, 8);
+  saaChip.reset();
+
+  CPU::reset();
+
+  // KR580VI53 (8253 PIT) — reset to silent state
+  if (Z80Ops::isByte) {
+    memset(audioBufferPIT, 0, sizeof(audioBufferPIT));
+    memset(Ports::pitChannels, 0, sizeof(Ports::pitChannels));
+  }
 }
 
 //=======================================================================================
@@ -849,22 +940,24 @@ void ESPectrum::reset(uint8_t romInUse)
 //=======================================================================================
 IRAM_ATTR bool ESPectrum::readKbd(fabgl::VirtualKeyItem *Nextkey) {
 
-    bool r = PS2Controller.keyboard()->getNextVirtualKey(Nextkey);
-    // Global keys
-    if (Nextkey->down) {
-        if (Nextkey->vk == fabgl::VK_PRINTSCREEN) { // Capture framebuffer to BMP file in SD Card (thx @dcrespo3d!)
-            CaptureToBmp();
-            r = false;
-        } else
-        if (Nextkey->vk == fabgl::VK_SCROLLLOCK) { // Change CursorAsJoy setting
-            Config::CursorAsJoy = !Config::CursorAsJoy;
-            PS2Controller.keyboard()->setLEDs(false, false, Config::CursorAsJoy);
-            Config::save();
-            r = false;
-        }
+  bool r = PS2Controller.keyboard()->getNextVirtualKey(Nextkey);
+  // Global keys
+  if (Nextkey->down) {
+    if (Nextkey->vk ==
+        fabgl::VK_PRINTSCREEN) { // Capture framebuffer to BMP file in SD Card
+                                 // (thx @dcrespo3d!)
+      CaptureToBmp();
+      r = false;
+    } else if (Nextkey->vk ==
+               fabgl::VK_SCROLLLOCK) { // Change CursorAsJoy setting
+      Config::CursorAsJoy = !Config::CursorAsJoy;
+      PS2Controller.keyboard()->setLEDs(false, false, Config::CursorAsJoy);
+      Config::save();
+      r = false;
     }
+  }
 
-    return r;
+  return r;
 }
 
 fabgl::VirtualKey ESPectrum::VK_ESPECTRUM_FIRE1 = fabgl::VK_NONE;
@@ -873,300 +966,371 @@ fabgl::VirtualKey ESPectrum::VK_ESPECTRUM_TAB = fabgl::VK_TAB;
 fabgl::VirtualKey ESPectrum::VK_ESPECTRUM_GRAVEACCENT = fabgl::VK_GRAVEACCENT;
 
 IRAM_ATTR void ESPectrum::processKeyboard() {
-    static uint8_t PS2cols[8] = { 0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf };
-    static int zxDelay = 0;
-    auto Kbd = PS2Controller.keyboard();
-    fabgl::VirtualKeyItem NextKey;
-    fabgl::VirtualKey KeytoESP;
-    bool Kdown;
-    bool r = false;
-    bool j[10] = { true, true, true, true, true, true, true, true, true, true };
-    bool jShift = true;
+  static uint8_t PS2cols[8] = {0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf};
+  static int zxDelay = 0;
+  auto Kbd = PS2Controller.keyboard();
+  fabgl::VirtualKeyItem NextKey;
+  fabgl::VirtualKey KeytoESP;
+  bool Kdown;
+  bool r = false;
+  bool j[10] = {true, true, true, true, true, true, true, true, true, true};
+  bool jShift = true;
 
-    if ((Config::enableBreakPoint && Config::breakPoint == Z80::getRegPC()) || CPU::portBasedBP) {
+  if ((Config::enableBreakPoint && Config::breakPoint == Z80::getRegPC()) ||
+      CPU::portBasedBP) {
+    int64_t osd_start = esp_timer_get_time();
+    OSD::osdDebug();
+    VIDEO::brdnextframe = true;
+    ESPectrum::ts_start += esp_timer_get_time() - osd_start;
+    CPU::portBasedBP = false;
+    return;
+  }
+
+  while (Kbd->virtualKeyAvailable()) {
+    r = readKbd(&NextKey);
+    if (r) {
+      KeytoESP = NextKey.vk;
+      Kdown = NextKey.down;
+      if ((Kdown) &&
+          ((KeytoESP >= fabgl::VK_F1 && KeytoESP <= fabgl::VK_F12) ||
+           KeytoESP == fabgl::VK_PAUSE || KeytoESP == fabgl::VK_NUMLOCK ||
+           KeytoESP == fabgl::VK_TILDE || KeytoESP == fabgl::VK_HOME ||
+           KeytoESP == fabgl::VK_END || KeytoESP == fabgl::VK_INSERT ||
+           KeytoESP == fabgl::VK_DELETE || KeytoESP == fabgl::VK_PAGEUP ||
+           KeytoESP == fabgl::VK_PAGEDOWN || KeytoESP == fabgl::VK_VOLUMEUP ||
+           KeytoESP == fabgl::VK_VOLUMEDOWN ||
+           KeytoESP == fabgl::VK_VOLUMEMUTE)) {
         int64_t osd_start = esp_timer_get_time();
-        OSD::osdDebug();
+        OSD::do_OSD(
+            KeytoESP,
+            Kbd->isVKDown(fabgl::VK_LALT) || Kbd->isVKDown(fabgl::VK_RALT),
+            Kbd->isVKDown(fabgl::VK_LCTRL) || Kbd->isVKDown(fabgl::VK_RCTRL));
+        Kbd->emptyVirtualKeyQueue();
+        // Set all zx keys as not pressed
+        zxDelay = 15;
+#ifdef DIRTY_LINES
+        for (int i = 0; i < SPEC_H; i++)
+          VIDEO::dirty_lines[i] |= 0x01;
+#endif // DIRTY_LINES
+       // Refresh border
         VIDEO::brdnextframe = true;
         ESPectrum::ts_start += esp_timer_get_time() - osd_start;
-        CPU::portBasedBP = false;
         return;
-    }
-
-    while (Kbd->virtualKeyAvailable()) {
-        r = readKbd(&NextKey);
-        if (r) {
-            KeytoESP = NextKey.vk;
-            Kdown = NextKey.down;
-            if ((Kdown) && ((KeytoESP >= fabgl::VK_F1 && KeytoESP <= fabgl::VK_F12) || KeytoESP == fabgl::VK_PAUSE ||
-                KeytoESP == fabgl::VK_NUMLOCK || KeytoESP == fabgl::VK_TILDE ||
-                KeytoESP == fabgl::VK_HOME || KeytoESP == fabgl::VK_END ||
-                KeytoESP == fabgl::VK_INSERT || KeytoESP == fabgl::VK_DELETE ||
-                KeytoESP == fabgl::VK_PAGEUP || KeytoESP == fabgl::VK_PAGEDOWN ||
-                KeytoESP == fabgl::VK_VOLUMEUP || KeytoESP == fabgl::VK_VOLUMEDOWN || KeytoESP == fabgl::VK_VOLUMEMUTE)
-            ) {
-                int64_t osd_start = esp_timer_get_time();
-                OSD::do_OSD(KeytoESP,
-                    Kbd->isVKDown(fabgl::VK_LALT) || Kbd->isVKDown(fabgl::VK_RALT),
-                    Kbd->isVKDown(fabgl::VK_LCTRL) || Kbd->isVKDown(fabgl::VK_RCTRL)
-                );
-                Kbd->emptyVirtualKeyQueue();
-                // Set all zx keys as not pressed
-                zxDelay = 15;
-                #ifdef DIRTY_LINES
-                for (int i = 0; i < SPEC_H; i++) VIDEO::dirty_lines[i] |= 0x01;
-                #endif // DIRTY_LINES
-                // Refresh border
-                VIDEO::brdnextframe = true;
-                ESPectrum::ts_start += esp_timer_get_time() - osd_start;
-                return;
+      }
+      // Reset keys
+      if (Kdown && NextKey.LALT) {
+        if (NextKey.CTRL) {
+          if (KeytoESP == fabgl::VK_DELETE) {
+            // printf("Ctrl + Alt + Supr!\n");
+            // ESP host reset
+            Config::ram_file = NO_RAM_FILE;
+            Config::save();
+            OSD::esp_hard_reset();
+          } else if (KeytoESP == fabgl::VK_BACKSPACE) {
+            // printf("Ctrl + Alt + backSpace!\n");
+            // Hard
+            if (Config::ram_file != NO_RAM_FILE) {
+              Config::ram_file = NO_RAM_FILE;
             }
-            // Reset keys
-            if (Kdown && NextKey.LALT) {
-                if (NextKey.CTRL) {
-                    if (KeytoESP == fabgl::VK_DELETE) {
-                        // printf("Ctrl + Alt + Supr!\n");
-                        // ESP host reset
-                        Config::ram_file = NO_RAM_FILE;
-                        Config::save();
-                        OSD::esp_hard_reset();
-                    } else if (KeytoESP == fabgl::VK_BACKSPACE) {
-                        // printf("Ctrl + Alt + backSpace!\n");
-                        // Hard
-                        if (Config::ram_file != NO_RAM_FILE) {
-                            Config::ram_file = NO_RAM_FILE;
-                        }
-                        Config::last_ram_file = NO_RAM_FILE;
-                        ESPectrum::reset();
-                        return;
-                    }
-                } else if (KeytoESP == fabgl::VK_BACKSPACE) {
-                    // printf("Alt + backSpace!\n");
-                    // Soft reset
-                    if (Config::last_ram_file != NO_RAM_FILE) {
-                        LoadSnapshot(Config::last_ram_file, "", "");
-                        Config::ram_file = Config::last_ram_file;
-                    }
-                    else
-                        ESPectrum::reset();
-                    return;
-                }
-            }
-
-            if (Config::joystick == JOY_KEMPSTON) Ports::port[Config::kempstonPort] = 0;
-            else if (Config::joystick == JOY_FULLER) Ports::port[0x7f] = 0xff;
-
-            if (Config::joystick == JOY_KEMPSTON) {
-                for (int i = fabgl::VK_JOY_RIGHT; i <= fabgl::VK_JOY_C; i++)
-                    if (Kbd->isVKDown((fabgl::VirtualKey) i))
-                        bitWrite(Ports::port[Config::kempstonPort], i - fabgl::VK_JOY_RIGHT, 1);
-            } else
-            if (Config::joystick == JOY_FULLER) {  // Fuller
-                if (Kbd->isVKDown(fabgl::VK_JOY_RIGHT)) {
-                    bitWrite(Ports::port[0x7f], 3, 0);
-                }
-                if (Kbd->isVKDown(fabgl::VK_JOY_LEFT)) {
-                    bitWrite(Ports::port[0x7f], 2, 0);
-                }
-                if (Kbd->isVKDown(fabgl::VK_JOY_DOWN)) {
-                    bitWrite(Ports::port[0x7f], 1, 0);
-                }
-                if (Kbd->isVKDown(fabgl::VK_JOY_UP)) {
-                    bitWrite(Ports::port[0x7f], 0, 0);
-                }
-                if (Kbd->isVKDown(fabgl::VK_JOY_A)) {
-                    bitWrite(Ports::port[0x7f], 7, 0);
-                }
-            }
-
-            jShift = !(Kbd->isVKDown(fabgl::VK_LSHIFT) || Kbd->isVKDown(fabgl::VK_RSHIFT));
-            // Cursor Keys
-            if (Kbd->isVKDown(fabgl::VK_RIGHT)) {
-                jShift = false;
-                j[8] = jShift;
-            }
-            if (Kbd->isVKDown(fabgl::VK_LEFT)) {
-                jShift = false;
-                j[5] = jShift;
-            }
-            if (Kbd->isVKDown(fabgl::VK_DOWN)) {
-                jShift = false;
-                j[6] = jShift;
-            }
-            if (Kbd->isVKDown(fabgl::VK_UP)) {
-                jShift = false;
-                j[7] = jShift;
-            }
-            // Check keyboard status and map it to Spectrum Ports
-            bitWrite(PS2cols[0], 0, (jShift)
-                & (!Kbd->isVKDown(fabgl::VK_BACKSPACE))
-                & (!Kbd->isVKDown(fabgl::VK_CAPSLOCK)) // Caps lock
-                &   (!Kbd->isVKDown(VK_ESPECTRUM_GRAVEACCENT)) // Edit
-                &   (!Kbd->isVKDown(VK_ESPECTRUM_TAB)) // Extended mode
-                &   (!Kbd->isVKDown(fabgl::VK_ESCAPE)) // Break
-                ); // CAPS SHIFT
-            bitWrite(PS2cols[0], 1, (!Kbd->isVKDown(fabgl::VK_Z)) & (!Kbd->isVKDown(fabgl::VK_z)));
-            bitWrite(PS2cols[0], 2, (!Kbd->isVKDown(fabgl::VK_X)) & (!Kbd->isVKDown(fabgl::VK_x)));
-            bitWrite(PS2cols[0], 3, (!Kbd->isVKDown(fabgl::VK_C)) & (!Kbd->isVKDown(fabgl::VK_c)));
-            bitWrite(PS2cols[0], 4, (!Kbd->isVKDown(fabgl::VK_V)) & (!Kbd->isVKDown(fabgl::VK_v)));
-
-            bitWrite(PS2cols[1], 0, (!Kbd->isVKDown(fabgl::VK_A)) & (!Kbd->isVKDown(fabgl::VK_a)));
-            bitWrite(PS2cols[1], 1, (!Kbd->isVKDown(fabgl::VK_S)) & (!Kbd->isVKDown(fabgl::VK_s)));
-            bitWrite(PS2cols[1], 2, (!Kbd->isVKDown(fabgl::VK_D)) & (!Kbd->isVKDown(fabgl::VK_d)));
-            bitWrite(PS2cols[1], 3, (!Kbd->isVKDown(fabgl::VK_F)) & (!Kbd->isVKDown(fabgl::VK_f)));
-            bitWrite(PS2cols[1], 4, (!Kbd->isVKDown(fabgl::VK_G)) & (!Kbd->isVKDown(fabgl::VK_g)));
-
-            bitWrite(PS2cols[2], 0, (!Kbd->isVKDown(fabgl::VK_Q)) & (!Kbd->isVKDown(fabgl::VK_q)));
-            bitWrite(PS2cols[2], 1, (!Kbd->isVKDown(fabgl::VK_W)) & (!Kbd->isVKDown(fabgl::VK_w)));
-            bitWrite(PS2cols[2], 2, (!Kbd->isVKDown(fabgl::VK_E)) & (!Kbd->isVKDown(fabgl::VK_e)));
-            bitWrite(PS2cols[2], 3, (!Kbd->isVKDown(fabgl::VK_R)) & (!Kbd->isVKDown(fabgl::VK_r)));
-            bitWrite(PS2cols[2], 4, (!Kbd->isVKDown(fabgl::VK_T)) & (!Kbd->isVKDown(fabgl::VK_t)));
-
-            bitWrite(PS2cols[3], 0, (!Kbd->isVKDown(fabgl::VK_1)) & (!Kbd->isVKDown(fabgl::VK_EXCLAIM))
-                                &   (!Kbd->isVKDown(VK_ESPECTRUM_GRAVEACCENT)) // Edit
-                                & (j[1]));
-            bitWrite(PS2cols[3], 1, (!Kbd->isVKDown(fabgl::VK_2)) & (!Kbd->isVKDown(fabgl::VK_AT))
-                                &   (!Kbd->isVKDown(fabgl::VK_CAPSLOCK)) // Caps lock
-                                & (j[2])
-                                );
-            bitWrite(PS2cols[3], 2, (!Kbd->isVKDown(fabgl::VK_3)) & (!Kbd->isVKDown(fabgl::VK_HASH)) & (j[3]));
-            bitWrite(PS2cols[3], 3, (!Kbd->isVKDown(fabgl::VK_4)) & (!Kbd->isVKDown(fabgl::VK_DOLLAR)) & (j[4]));
-            bitWrite(PS2cols[3], 4, (!Kbd->isVKDown(fabgl::VK_5)) & (!Kbd->isVKDown(fabgl::VK_PERCENT)) & (j[5]));
-
-            bitWrite(PS2cols[4], 0, (!Kbd->isVKDown(fabgl::VK_0)) & (!Kbd->isVKDown(fabgl::VK_RIGHTPAREN)) & (!Kbd->isVKDown(fabgl::VK_BACKSPACE)) & (j[0]));
-            bitWrite(PS2cols[4], 1, !Kbd->isVKDown(fabgl::VK_9) & (!Kbd->isVKDown(fabgl::VK_LEFTPAREN)) & (j[9]));
-            bitWrite(PS2cols[4], 2, (!Kbd->isVKDown(fabgl::VK_8)) & (!Kbd->isVKDown(fabgl::VK_ASTERISK)) & (j[8]));
-            bitWrite(PS2cols[4], 3, (!Kbd->isVKDown(fabgl::VK_7)) & (!Kbd->isVKDown(fabgl::VK_AMPERSAND)) & (j[7]));
-            bitWrite(PS2cols[4], 4, (!Kbd->isVKDown(fabgl::VK_6)) & (!Kbd->isVKDown(fabgl::VK_CARET)) & (j[6]));
-
-            bitWrite(PS2cols[5], 0, (!Kbd->isVKDown(fabgl::VK_P)) & (!Kbd->isVKDown(fabgl::VK_p))
-                                &   (!Kbd->isVKDown(fabgl::VK_QUOTE)) // Double quote
-                                );
-            bitWrite(PS2cols[5], 1, (!Kbd->isVKDown(fabgl::VK_O)) & (!Kbd->isVKDown(fabgl::VK_o))
-                                &   (!Kbd->isVKDown(fabgl::VK_SEMICOLON)) // Semicolon
-                                );
-            bitWrite(PS2cols[5], 2, (!Kbd->isVKDown(fabgl::VK_I)) & (!Kbd->isVKDown(fabgl::VK_i)));
-            bitWrite(PS2cols[5], 3, (!Kbd->isVKDown(fabgl::VK_U)) & (!Kbd->isVKDown(fabgl::VK_u)));
-            bitWrite(PS2cols[5], 4, (!Kbd->isVKDown(fabgl::VK_Y)) & (!Kbd->isVKDown(fabgl::VK_y)));
-
-            bitWrite(PS2cols[6], 0, !Kbd->isVKDown(fabgl::VK_RETURN));
-            bitWrite(PS2cols[6], 1, (!Kbd->isVKDown(fabgl::VK_L)) & (!Kbd->isVKDown(fabgl::VK_l)));
-            bitWrite(PS2cols[6], 2, (!Kbd->isVKDown(fabgl::VK_K)) & (!Kbd->isVKDown(fabgl::VK_k)));
-            bitWrite(PS2cols[6], 3, (!Kbd->isVKDown(fabgl::VK_J)) & (!Kbd->isVKDown(fabgl::VK_j)));
-            bitWrite(PS2cols[6], 4, (!Kbd->isVKDown(fabgl::VK_H)) & (!Kbd->isVKDown(fabgl::VK_h)));
-
-            bitWrite(PS2cols[7], 0, !Kbd->isVKDown(fabgl::VK_SPACE)
-                            &   (!Kbd->isVKDown(fabgl::VK_ESCAPE)) // Break
-            );
-            bitWrite(PS2cols[7], 1, (!Kbd->isVKDown(fabgl::VK_LCTRL)) // SYMBOL SHIFT
-                                &   (!Kbd->isVKDown(fabgl::VK_RCTRL))
-                                &   (!Kbd->isVKDown(fabgl::VK_COMMA)) // Comma
-                                &   (!Kbd->isVKDown(fabgl::VK_PERIOD)) // Period
-                                &   (!Kbd->isVKDown(fabgl::VK_SEMICOLON)) // Semicolon
-                                &   (!Kbd->isVKDown(fabgl::VK_QUOTE)) // Double quote
-                                &   (!Kbd->isVKDown(VK_ESPECTRUM_TAB)) // Extended mode
-                                ); // SYMBOL SHIFT
-            bitWrite(PS2cols[7], 2, (!Kbd->isVKDown(fabgl::VK_M)) & (!Kbd->isVKDown(fabgl::VK_m))
-                                &   (!Kbd->isVKDown(fabgl::VK_PERIOD)) // Period
-                                );
-            bitWrite(PS2cols[7], 3, (!Kbd->isVKDown(fabgl::VK_N)) & (!Kbd->isVKDown(fabgl::VK_n))
-                                &   (!Kbd->isVKDown(fabgl::VK_COMMA)) // Comma
-                                );
-            bitWrite(PS2cols[7], 4, (!Kbd->isVKDown(fabgl::VK_B)) & (!Kbd->isVKDown(fabgl::VK_b)));
-
+            Config::last_ram_file = NO_RAM_FILE;
+            ESPectrum::reset();
+            return;
+          }
+        } else if (KeytoESP == fabgl::VK_BACKSPACE) {
+          // printf("Alt + backSpace!\n");
+          // Soft reset
+          if (Config::last_ram_file != NO_RAM_FILE) {
+            LoadSnapshot(Config::last_ram_file, "", "");
+            Config::ram_file = Config::last_ram_file;
+          } else
+            ESPectrum::reset();
+          return;
         }
+      }
 
-    }
-    if (r) {
-        for (uint8_t rowidx = 0; rowidx < 8; rowidx++) {
-            Ports::port[rowidx] = PS2cols[rowidx];
+      if (Config::joystick == JOY_KEMPSTON)
+        Ports::port[Config::kempstonPort] = 0;
+      else if (Config::joystick == JOY_FULLER)
+        Ports::port[0x7f] = 0xff;
+
+      if (Config::joystick == JOY_KEMPSTON) {
+        for (int i = fabgl::VK_JOY_RIGHT; i <= fabgl::VK_JOY_C; i++)
+          if (Kbd->isVKDown((fabgl::VirtualKey)i))
+            bitWrite(Ports::port[Config::kempstonPort], i - fabgl::VK_JOY_RIGHT,
+                     1);
+      } else if (Config::joystick == JOY_FULLER) { // Fuller
+        if (Kbd->isVKDown(fabgl::VK_JOY_RIGHT)) {
+          bitWrite(Ports::port[0x7f], 3, 0);
         }
+        if (Kbd->isVKDown(fabgl::VK_JOY_LEFT)) {
+          bitWrite(Ports::port[0x7f], 2, 0);
+        }
+        if (Kbd->isVKDown(fabgl::VK_JOY_DOWN)) {
+          bitWrite(Ports::port[0x7f], 1, 0);
+        }
+        if (Kbd->isVKDown(fabgl::VK_JOY_UP)) {
+          bitWrite(Ports::port[0x7f], 0, 0);
+        }
+        if (Kbd->isVKDown(fabgl::VK_JOY_A)) {
+          bitWrite(Ports::port[0x7f], 7, 0);
+        }
+      }
+
+      jShift =
+          !(Kbd->isVKDown(fabgl::VK_LSHIFT) || Kbd->isVKDown(fabgl::VK_RSHIFT));
+      // Cursor Keys
+      if (Kbd->isVKDown(fabgl::VK_RIGHT)) {
+        jShift = false;
+        j[8] = jShift;
+      }
+      if (Kbd->isVKDown(fabgl::VK_LEFT)) {
+        jShift = false;
+        j[5] = jShift;
+      }
+      if (Kbd->isVKDown(fabgl::VK_DOWN)) {
+        jShift = false;
+        j[6] = jShift;
+      }
+      if (Kbd->isVKDown(fabgl::VK_UP)) {
+        jShift = false;
+        j[7] = jShift;
+      }
+      // Check keyboard status and map it to Spectrum Ports
+      bitWrite(PS2cols[0], 0,
+               (jShift) & (!Kbd->isVKDown(fabgl::VK_BACKSPACE)) &
+                   (!Kbd->isVKDown(fabgl::VK_CAPSLOCK))         // Caps lock
+                   & (!Kbd->isVKDown(VK_ESPECTRUM_GRAVEACCENT)) // Edit
+                   & (!Kbd->isVKDown(VK_ESPECTRUM_TAB))         // Extended mode
+                   & (!Kbd->isVKDown(fabgl::VK_ESCAPE))         // Break
+      );                                                        // CAPS SHIFT
+      bitWrite(PS2cols[0], 1,
+               (!Kbd->isVKDown(fabgl::VK_Z)) & (!Kbd->isVKDown(fabgl::VK_z)));
+      bitWrite(PS2cols[0], 2,
+               (!Kbd->isVKDown(fabgl::VK_X)) & (!Kbd->isVKDown(fabgl::VK_x)));
+      bitWrite(PS2cols[0], 3,
+               (!Kbd->isVKDown(fabgl::VK_C)) & (!Kbd->isVKDown(fabgl::VK_c)));
+      bitWrite(PS2cols[0], 4,
+               (!Kbd->isVKDown(fabgl::VK_V)) & (!Kbd->isVKDown(fabgl::VK_v)));
+
+      bitWrite(PS2cols[1], 0,
+               (!Kbd->isVKDown(fabgl::VK_A)) & (!Kbd->isVKDown(fabgl::VK_a)));
+      bitWrite(PS2cols[1], 1,
+               (!Kbd->isVKDown(fabgl::VK_S)) & (!Kbd->isVKDown(fabgl::VK_s)));
+      bitWrite(PS2cols[1], 2,
+               (!Kbd->isVKDown(fabgl::VK_D)) & (!Kbd->isVKDown(fabgl::VK_d)));
+      bitWrite(PS2cols[1], 3,
+               (!Kbd->isVKDown(fabgl::VK_F)) & (!Kbd->isVKDown(fabgl::VK_f)));
+      bitWrite(PS2cols[1], 4,
+               (!Kbd->isVKDown(fabgl::VK_G)) & (!Kbd->isVKDown(fabgl::VK_g)));
+
+      bitWrite(PS2cols[2], 0,
+               (!Kbd->isVKDown(fabgl::VK_Q)) & (!Kbd->isVKDown(fabgl::VK_q)));
+      bitWrite(PS2cols[2], 1,
+               (!Kbd->isVKDown(fabgl::VK_W)) & (!Kbd->isVKDown(fabgl::VK_w)));
+      bitWrite(PS2cols[2], 2,
+               (!Kbd->isVKDown(fabgl::VK_E)) & (!Kbd->isVKDown(fabgl::VK_e)));
+      bitWrite(PS2cols[2], 3,
+               (!Kbd->isVKDown(fabgl::VK_R)) & (!Kbd->isVKDown(fabgl::VK_r)));
+      bitWrite(PS2cols[2], 4,
+               (!Kbd->isVKDown(fabgl::VK_T)) & (!Kbd->isVKDown(fabgl::VK_t)));
+
+      bitWrite(PS2cols[3], 0,
+               (!Kbd->isVKDown(fabgl::VK_1)) &
+                   (!Kbd->isVKDown(fabgl::VK_EXCLAIM)) &
+                   (!Kbd->isVKDown(VK_ESPECTRUM_GRAVEACCENT)) // Edit
+                   & (j[1]));
+      bitWrite(PS2cols[3], 1,
+               (!Kbd->isVKDown(fabgl::VK_2)) & (!Kbd->isVKDown(fabgl::VK_AT)) &
+                   (!Kbd->isVKDown(fabgl::VK_CAPSLOCK)) // Caps lock
+                   & (j[2]));
+      bitWrite(PS2cols[3], 2,
+               (!Kbd->isVKDown(fabgl::VK_3)) &
+                   (!Kbd->isVKDown(fabgl::VK_HASH)) & (j[3]));
+      bitWrite(PS2cols[3], 3,
+               (!Kbd->isVKDown(fabgl::VK_4)) &
+                   (!Kbd->isVKDown(fabgl::VK_DOLLAR)) & (j[4]));
+      bitWrite(PS2cols[3], 4,
+               (!Kbd->isVKDown(fabgl::VK_5)) &
+                   (!Kbd->isVKDown(fabgl::VK_PERCENT)) & (j[5]));
+
+      bitWrite(PS2cols[4], 0,
+               (!Kbd->isVKDown(fabgl::VK_0)) &
+                   (!Kbd->isVKDown(fabgl::VK_RIGHTPAREN)) &
+                   (!Kbd->isVKDown(fabgl::VK_BACKSPACE)) & (j[0]));
+      bitWrite(PS2cols[4], 1,
+               !Kbd->isVKDown(fabgl::VK_9) &
+                   (!Kbd->isVKDown(fabgl::VK_LEFTPAREN)) & (j[9]));
+      bitWrite(PS2cols[4], 2,
+               (!Kbd->isVKDown(fabgl::VK_8)) &
+                   (!Kbd->isVKDown(fabgl::VK_ASTERISK)) & (j[8]));
+      bitWrite(PS2cols[4], 3,
+               (!Kbd->isVKDown(fabgl::VK_7)) &
+                   (!Kbd->isVKDown(fabgl::VK_AMPERSAND)) & (j[7]));
+      bitWrite(PS2cols[4], 4,
+               (!Kbd->isVKDown(fabgl::VK_6)) &
+                   (!Kbd->isVKDown(fabgl::VK_CARET)) & (j[6]));
+
+      bitWrite(PS2cols[5], 0,
+               (!Kbd->isVKDown(fabgl::VK_P)) & (!Kbd->isVKDown(fabgl::VK_p)) &
+                   (!Kbd->isVKDown(fabgl::VK_QUOTE)) // Double quote
+      );
+      bitWrite(PS2cols[5], 1,
+               (!Kbd->isVKDown(fabgl::VK_O)) & (!Kbd->isVKDown(fabgl::VK_o)) &
+                   (!Kbd->isVKDown(fabgl::VK_SEMICOLON)) // Semicolon
+      );
+      bitWrite(PS2cols[5], 2,
+               (!Kbd->isVKDown(fabgl::VK_I)) & (!Kbd->isVKDown(fabgl::VK_i)));
+      bitWrite(PS2cols[5], 3,
+               (!Kbd->isVKDown(fabgl::VK_U)) & (!Kbd->isVKDown(fabgl::VK_u)));
+      bitWrite(PS2cols[5], 4,
+               (!Kbd->isVKDown(fabgl::VK_Y)) & (!Kbd->isVKDown(fabgl::VK_y)));
+
+      bitWrite(PS2cols[6], 0, !Kbd->isVKDown(fabgl::VK_RETURN));
+      bitWrite(PS2cols[6], 1,
+               (!Kbd->isVKDown(fabgl::VK_L)) & (!Kbd->isVKDown(fabgl::VK_l)));
+      bitWrite(PS2cols[6], 2,
+               (!Kbd->isVKDown(fabgl::VK_K)) & (!Kbd->isVKDown(fabgl::VK_k)));
+      bitWrite(PS2cols[6], 3,
+               (!Kbd->isVKDown(fabgl::VK_J)) & (!Kbd->isVKDown(fabgl::VK_j)));
+      bitWrite(PS2cols[6], 4,
+               (!Kbd->isVKDown(fabgl::VK_H)) & (!Kbd->isVKDown(fabgl::VK_h)));
+
+      bitWrite(PS2cols[7], 0,
+               !Kbd->isVKDown(fabgl::VK_SPACE) &
+                   (!Kbd->isVKDown(fabgl::VK_ESCAPE)) // Break
+      );
+      bitWrite(PS2cols[7], 1,
+               (!Kbd->isVKDown(fabgl::VK_LCTRL)) // SYMBOL SHIFT
+                   & (!Kbd->isVKDown(fabgl::VK_RCTRL)) &
+                   (!Kbd->isVKDown(fabgl::VK_COMMA))       // Comma
+                   & (!Kbd->isVKDown(fabgl::VK_PERIOD))    // Period
+                   & (!Kbd->isVKDown(fabgl::VK_SEMICOLON)) // Semicolon
+                   & (!Kbd->isVKDown(fabgl::VK_QUOTE))     // Double quote
+                   & (!Kbd->isVKDown(VK_ESPECTRUM_TAB))    // Extended mode
+      );                                                   // SYMBOL SHIFT
+      bitWrite(PS2cols[7], 2,
+               (!Kbd->isVKDown(fabgl::VK_M)) & (!Kbd->isVKDown(fabgl::VK_m)) &
+                   (!Kbd->isVKDown(fabgl::VK_PERIOD)) // Period
+      );
+      bitWrite(PS2cols[7], 3,
+               (!Kbd->isVKDown(fabgl::VK_N)) & (!Kbd->isVKDown(fabgl::VK_n)) &
+                   (!Kbd->isVKDown(fabgl::VK_COMMA)) // Comma
+      );
+      bitWrite(PS2cols[7], 4,
+               (!Kbd->isVKDown(fabgl::VK_B)) & (!Kbd->isVKDown(fabgl::VK_b)));
     }
+  }
+  if (r) {
+    for (uint8_t rowidx = 0; rowidx < 8; rowidx++) {
+      Ports::port[rowidx] = PS2cols[rowidx];
+    }
+  }
 }
 
-IRAM_ATTR void ESPectrum::BeeperGetSample() {
-    uint32_t audbufpos = CPU::tstates / audioOverSampleDivider;
-    if (multiplicator) audbufpos >>= multiplicator;
-    for (;audbufcnt < audbufpos; audbufcnt++) {
-        audioBitBuf += lastaudioBit;
-        if(++audioBitbufCount == audioSampleDivider) {
-            overSamplebuf[audbufcntover++] = audioBitBuf;
-            audioBitBuf = 0;
-            audioBitbufCount = 0;
-        }
+__not_in_flash("audio") void ESPectrum::BeeperGetSample() {
+  uint32_t audbufpos = CPU::tstates / audioOverSampleDivider;
+  if (multiplicator)
+    audbufpos >>= multiplicator;
+  for (; audbufcnt < audbufpos; audbufcnt++) {
+    audioBitBuf += lastaudioBit;
+    if (++audioBitbufCount == audioSampleDivider) {
+      overSamplebuf[audbufcntover++] = audioBitBuf;
+      audioBitBuf = 0;
+      audioBitbufCount = 0;
     }
+  }
 }
 
-IRAM_ATTR void ESPectrum::CovoxGetSample() {
-    uint32_t audbufpos = CPU::tstates / audioCOVOXDivider;
-    if (multiplicator) audbufpos >>= multiplicator;
-    if (audbufpos > audbufcntCovox) {
-        uint8_t *sound_buf = audioBufferCovox + audbufcntCovox;
-        int sound_bufsize = audbufpos - audbufcntCovox;
-        while (sound_bufsize-- > 0) {
-            *sound_buf++ = lastCovoxVal;
-        }
-        audbufcntCovox = audbufpos;
+__not_in_flash("audio") void ESPectrum::CovoxGetSample() {
+  uint32_t audbufpos = CPU::tstates / audioCOVOXDivider;
+  if (multiplicator)
+    audbufpos >>= multiplicator;
+  if (audbufpos > audbufcntCovox) {
+    uint8_t *sound_buf = audioBufferCovox + audbufcntCovox;
+    int sound_bufsize = audbufpos - audbufcntCovox;
+    while (sound_bufsize-- > 0) {
+      *sound_buf++ = lastCovoxVal;
     }
+    audbufcntCovox = audbufpos;
+  }
 }
 
-IRAM_ATTR void ESPectrum::AYGetSample() {
-    uint32_t audbufpos = CPU::tstates / audioAYDivider;
+__not_in_flash("audio") void ESPectrum::AYGetSample() {
+  uint32_t audbufpos = CPU::tstates >> 7; // /128 instead of /112 — fast shift for AY buffer position
     if (multiplicator) audbufpos >>= multiplicator;
     if (audbufpos > audbufcntAY) {
         chip0.gen_sound(audbufpos - audbufcntAY, audbufcntAY);
-        if (Config::turbosound)
+    if (Config::turbosound)
             chip1.gen_sound(audbufpos - audbufcntAY, audbufcntAY);
-        audbufcntAY = audbufpos;
-    }
+    audbufcntAY = audbufpos;
+  }
+}
+
+__not_in_flash("audio") void ESPectrum::SAAGetSample() {
+  uint32_t audbufpos = CPU::tstates / audioAYDivider; // SAA counter = 8MHz/256 = 31.25kHz, same rate as AY
+  if (multiplicator) audbufpos >>= multiplicator;
+  if (audbufpos > audbufcntSAA) {
+    saaChip.gen_sound(audbufpos - audbufcntSAA, audbufcntSAA);
+    audbufcntSAA = audbufpos;
+  }
+}
+
+__not_in_flash("audio") void ESPectrum::PITGetSample() {
+  uint32_t audbufpos = CPU::tstates >> 7; // /128 instead of /112 — fast shift for PIT buffer position
+  if (multiplicator)
+    audbufpos >>= multiplicator;
+  if (audbufpos > audbufcntPIT) {
+    Ports::pitGenSound(audioBufferPIT + audbufcntPIT, audbufpos - audbufcntPIT);
+    audbufcntPIT = audbufpos;
+  }
 }
 
 // === Таймер ===
-bool __not_in_flash_func(ESPectrum::AY_timer_callback)(repeating_timer_t *rt)
-{
-    // uint32_t audbufpos = audbufcntAY++;
-    // if (multiplicator) audbufpos >>= multiplicator;
-    // if (audbufpos > audbufcntAY) {
-    //     chip0.gen_sound(audbufpos - audbufcntAY, audbufcntAY);
-    //     if (Config::turbosound)
-    //         chip1.gen_sound(audbufpos - audbufcntAY, audbufcntAY);
-    //     audbufcntAY = audbufpos;
-    // }
-    // uint8_t chip0Sample[2] = {0,0};
-    // uint8_t chip1Sample[2] = {0,0};
+bool __not_in_flash_func(ESPectrum::AY_timer_callback)(repeating_timer_t *rt) {
+  // uint32_t audbufpos = audbufcntAY++;
+  // if (multiplicator) audbufpos >>= multiplicator;
+  // if (audbufpos > audbufcntAY) {
+  //     chip0.gen_sound(audbufpos - audbufcntAY, audbufcntAY);
+  //     if (Config::turbosound)
+  //         chip1.gen_sound(audbufpos - audbufcntAY, audbufcntAY);
+  //     audbufcntAY = audbufpos;
+  // }
+  // uint8_t chip0Sample[2] = {0,0};
+  // uint8_t chip1Sample[2] = {0,0};
 
-    // if (AY_emu) {
-    //     if (Config::turbosound != 0 || AySound::selected_chip == 0) {
-    //         uint8_t *p0 = chip0.gen_sound();
-    //         if (p0) { chip0Sample[0] = p0[0]; chip0Sample[1] = p0[1]; }
-    //     }
-    //     if (Config::turbosound != 0 || AySound::selected_chip == 1) {
-    //         uint8_t *p1 = chip1.gen_sound();
-    //         if (p1) { chip1Sample[0] = p1[0]; chip1Sample[1] = p1[1]; }
-    //     }
-    // }
+  // if (AY_emu) {
+  //     if (Config::turbosound != 0 || AySound::selected_chip == 0) {
+  //         uint8_t *p0 = chip0.gen_sound();
+  //         if (p0) { chip0Sample[0] = p0[0]; chip0Sample[1] = p0[1]; }
+  //     }
+  //     if (Config::turbosound != 0 || AySound::selected_chip == 1) {
+  //         uint8_t *p1 = chip1.gen_sound();
+  //         if (p1) { chip1Sample[0] = p1[0]; chip1Sample[1] = p1[1]; }
+  //     }
+  // }
 
-    // // 4. Смешивание
-    // int32_t mix_L = 0;
-    // int32_t mix_R = mix_L;
+  // // 4. Смешивание
+  // int32_t mix_L = 0;
+  // int32_t mix_R = mix_L;
 
-    // if (AY_emu) {
-    //     if (Config::turbosound != 0 || AySound::selected_chip == 0) {
-    //         mix_L += chip0Sample[0];
-    //         mix_R += chip0Sample[1];
-    //     }
-    //     if (Config::turbosound != 0 || AySound::selected_chip == 1) {
-    //         mix_L += chip1Sample[0];
-    //         mix_R += chip1Sample[1];
-    //     }
-    // }
+  // if (AY_emu) {
+  //     if (Config::turbosound != 0 || AySound::selected_chip == 0) {
+  //         mix_L += chip0Sample[0];
+  //         mix_R += chip0Sample[1];
+  //     }
+  //     if (Config::turbosound != 0 || AySound::selected_chip == 1) {
+  //         mix_L += chip1Sample[0];
+  //         mix_R += chip1Sample[1];
+  //     }
+  // }
 
-    // // 5. Ограничение значений (для 8-бит)
-    // uint8_t out_L = mix_L > 255 ? 255 : (mix_L < 0 ? 0 : mix_L);
-    // uint8_t out_R = mix_R > 255 ? 255 : (mix_R < 0 ? 0 : mix_R);
+  // // 5. Ограничение значений (для 8-бит)
+  // uint8_t out_L = mix_L > 255 ? 255 : (mix_L < 0 ? 0 : mix_L);
+  // uint8_t out_R = mix_R > 255 ? 255 : (mix_R < 0 ? 0 : mix_R);
 
-    // pwm_audio_write(&out_L, &out_R, 1, nullptr, 0);
+  // pwm_audio_write(&out_L, &out_R, 1, nullptr, 0);
 
-    return true;
+  return true;
 }
 
 uint8_t debug_number = 0;
@@ -1174,146 +1338,201 @@ uint8_t debug_number = 0;
 // MAIN LOOP
 //=======================================================================================
 void ESPectrum::loop() {
-  
-    // if (AY_emu) {
-    //     int hz = 44100;
-    //     repeating_timer_t timer_audio;
-    //     if (!add_repeating_timer_us(-(1000000/hz), AY_timer_callback, NULL, &timer_audio))
-    //     {
-    //     }
-    // }
 
-  for(;;) {
+  // if (AY_emu) {
+  //     int hz = 44100;
+  //     repeating_timer_t timer_audio;
+  //     if (!add_repeating_timer_us(-(1000000/hz), AY_timer_callback, NULL,
+  //     &timer_audio))
+  //     {
+  //     }
+  // }
+
+  for (;;) {
     if (debug_number != 0) {
-        char msg[16];
-        snprintf(msg, 16, "%02Xh", debug_number);
-        OSD::osdCenteredMsg(msg, LEVEL_WARN, 5000);
-        debug_number = 0;
+      char msg[16];
+      snprintf(msg, 16, "%02Xh", debug_number);
+      OSD::osdCenteredMsg(msg, LEVEL_WARN, 5000);
+      debug_number = 0;
     }
     ts_start = time_us_64();
 
     if (!CPU::paused)
-        pwm_audio_write((uint8_t*)audioBuffer_L, (uint8_t*)audioBuffer_R, maxSpeed ? 1 : samplesPerFrame, 0, 0);
+      pwm_audio_write((uint8_t *)audioBuffer_L, (uint8_t *)audioBuffer_R,
+                      maxSpeed ? 1 : samplesPerFrame, 0, 0);
 
     // Send audioBuffer to pwmaudio
     audbufcnt = 0;
     audbufcntover = 0;
     audbufcntAY = 0;
+    audbufcntSAA = 0;
     audbufcntCovox = 0;
+    audbufcntPIT = 0;
 
     CPU::loop();
+
+    // Профилирование AY (только для отладки - закомментируйте после)
+    // static uint64_t ay_total = 0, ay_count = 0;
+    // uint64_t ay_start = time_us_64();
 
     // Process audio buffer
     faudbufcnt = audbufcnt;
     faudioBit = lastaudioBit;
     faudbufcntAY = audbufcntAY;
+    faudbufcntSAA = audbufcntSAA;
     faudbufcntCovox = audbufcntCovox;
+    faudbufcntPIT = audbufcntPIT;
     if (!CPU::paused) {
-    #if LOAD_WAV_PIO
-        if (Config::real_player) {
-            if (Tape::tapeStatus != TAPE_LOADING) {  // W/A
-                Tape::tapeStatus = TAPE_LOADING;
-                Tape::tapeFileType = TAPE_FTYPE_EMPTY;
-                Tape::tapeFileName = "REAL AUDIO";
-                TapeNameScroller = 0;
-                Tape::tapeCurBlock = 0;
-                Tape::tapeNumBlocks = 1;
-                Tape::tapebufByteCount = 0;
-                Tape::tapePlayOffset = 0;
-                Tape::tapeFileSize = 100;
-            }
-            pwm_audio_in_frame_started();
+#if LOAD_WAV_PIO
+      if (Config::real_player) {
+        if (Tape::tapeStatus != TAPE_LOADING) { // W/A
+          Tape::tapeStatus = TAPE_LOADING;
+          Tape::tapeFileType = TAPE_FTYPE_EMPTY;
+          Tape::tapeFileName = "REAL AUDIO";
+          TapeNameScroller = 0;
+          Tape::tapeCurBlock = 0;
+          Tape::tapeNumBlocks = 1;
+          Tape::tapebufByteCount = 0;
+          Tape::tapePlayOffset = 0;
+          Tape::tapeFileSize = 100;
         }
-    #endif
+        pwm_audio_in_frame_started();
+      }
+#endif
       int32_t t_us = Config::throtling * 1000l;
       if (!t_us || idle > t_us) {
         // Finish fill of beeper oversampled audio buffers
-        for (;faudbufcnt < (samplesPerFrame * audioSampleDivider); faudbufcnt++) {
-            audioBitBuf += faudioBit;
-            if(++audioBitbufCount == audioSampleDivider) {
-                overSamplebuf[audbufcntover++] = audioBitBuf;
-                audioBitBuf = 0;
-                audioBitbufCount = 0;
-            }
+        for (; faudbufcnt < (samplesPerFrame * audioSampleDivider);
+             faudbufcnt++) {
+          audioBitBuf += faudioBit;
+          if (++audioBitbufCount == audioSampleDivider) {
+            overSamplebuf[audbufcntover++] = audioBitBuf;
+            audioBitBuf = 0;
+            audioBitbufCount = 0;
+          }
         }
         if (Config::covox && faudbufcntCovox < samplesPerFrame) {
-            uint8_t *sound_buf = audioBufferCovox + faudbufcntCovox;
-            int sound_bufsize = samplesPerFrame - faudbufcntCovox;
-            while (sound_bufsize-- > 0) {
-                *sound_buf++ = lastCovoxVal;
-            }
+          uint8_t *sound_buf = audioBufferCovox + faudbufcntCovox;
+          int sound_bufsize = samplesPerFrame - faudbufcntCovox;
+          while (sound_bufsize-- > 0) {
+            *sound_buf++ = lastCovoxVal;
+          }
         }
-        if (AY_emu) {
-            if (faudbufcntAY < samplesPerFrame) {
+        // KR580VI53 (8253 PIT) — complete buffer for remaining frame
+        if (Z80Ops::isByte && faudbufcntPIT < samplesPerFrame) {
+          Ports::pitGenSound(audioBufferPIT + faudbufcntPIT,
+                             samplesPerFrame - faudbufcntPIT);
+        }
+        if (AY_emu || SAA_emu) {
+          if (AY_emu && faudbufcntAY < samplesPerFrame) {
                 if(Config::turbosound != 0 || AySound::selected_chip == 0) chip0.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
                 if(Config::turbosound != 0 || AySound::selected_chip == 1) chip1.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
-            }
-            for (int i = 0; i < samplesPerFrame; i++) {
-                int beeper_L = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i];
-                int beeper_R = beeper_L;
+          }
+          if (SAA_emu && faudbufcntSAA < samplesPerFrame) {
+                saaChip.gen_sound(samplesPerFrame - faudbufcntSAA, faudbufcntSAA);
+          }
+          for (int i = 0; i < samplesPerFrame; i++) {
+                int beeper_L = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i] + audioBufferPIT[i];
+            int beeper_R = beeper_L;
+            if (AY_emu) {
                 if(Config::turbosound != 0 || AySound::selected_chip == 0) {
-                    beeper_L += chip0.SamplebufAY_L[i];
-                    beeper_R += chip0.SamplebufAY_R[i];
-                }
+              beeper_L += chip0.SamplebufAY_L[i];
+              beeper_R += chip0.SamplebufAY_R[i];
+            }
                 if(Config::turbosound != 0 || AySound::selected_chip == 1) {
-                    beeper_L += chip1.SamplebufAY_L[i];
-                    beeper_R += chip1.SamplebufAY_R[i];
-                }
+              beeper_L += chip1.SamplebufAY_L[i];
+              beeper_R += chip1.SamplebufAY_R[i];
+            }
+            }
+            if (SAA_emu) {
+              beeper_L += saaChip.SamplebufSAA_L[i];
+              beeper_R += saaChip.SamplebufSAA_R[i];
+            }
                 audioBuffer_L[i] = beeper_L > 255 ? 255 : beeper_L; // Clamp
                 audioBuffer_R[i] = beeper_R > 255 ? 255 : beeper_R; // Clamp
-            }
+          }
         } else {
-            for (int i = 0; i < samplesPerFrame; i++) {
-                auto v = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i];
-                audioBuffer_L[i] = v;
-                audioBuffer_R[i] = v;
-            }
+          // Оптимизация деления через reciprocal multiplication
+          const uint32_t div_magic = (audioSampleDivider == 7) ? 0x24924925 :
+                                     (audioSampleDivider == 6) ? 0x2AAAAAAB :
+                                     ((1ULL << 32) / audioSampleDivider);
+          const int div_shift = (audioSampleDivider == 7) ? 34 :
+                                (audioSampleDivider == 6) ? 33 : 32;
+
+          for (int i = 0; i < samplesPerFrame; i++) {
+                int v = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i] + audioBufferPIT[i];
+            audioBuffer_L[i] = v > 255 ? 255 : v;
+            audioBuffer_R[i] = v > 255 ? 255 : v;
+          }
         }
       }
     }
     processKeyboard();
     // Update stats every 50 frames
     if (VIDEO::OSD && VIDEO::framecnt >= 10) {
-        if (VIDEO::OSD & 0x04) {
-            // printf("Vol. OSD out -> Framecnt: %d\n", VIDEO::framecnt);
-            if (VIDEO::framecnt >= 100) {
-                VIDEO::OSD &= 0xfb;
-                if (VIDEO::OSD == 0) {
-                    if (Config::aspect_16_9)
-                        VIDEO::Draw_OSD169 = VIDEO::MainScreen;
-                    else
+      if (VIDEO::OSD & 0x04) {
+        // printf("Vol. OSD out -> Framecnt: %d\n", VIDEO::framecnt);
+        if (VIDEO::framecnt >= 100) {
+          VIDEO::OSD &= 0xfb;
+          if (VIDEO::OSD == 0) {
+            if (Config::aspect_16_9)
+              VIDEO::Draw_OSD169 = VIDEO::MainScreen;
+            else
                         VIDEO::Draw_OSD43 = Z80Ops::isPentagon ? VIDEO::BottomBorder_Pentagon :  VIDEO::BottomBorder;
-                    VIDEO::brdnextframe = true;
-                }
-            }
+            VIDEO::brdnextframe = true;
+          }
         }
-        if ((VIDEO::OSD & 0x04) == 0 && !CPU::paused) {
-            if (VIDEO::OSD == 1 && Tape::tapeStatus == TAPE_LOADING) {
-                snprintf(OSD::stats_lin1, sizeof(OSD::stats_lin1), " %-12s %04d/%04d ", Tape::tapeFileName.substr(0 + ESPectrum::TapeNameScroller, 12).c_str(), Tape::tapeCurBlock + 1, Tape::tapeNumBlocks);
-                float percent = (float)((Tape::tapebufByteCount + Tape::tapePlayOffset) * 100) / (float)Tape::tapeFileSize;
-                snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2), " %05.2f%% %07d%s%07d ", percent, Tape::tapebufByteCount + Tape::tapePlayOffset, "/" , Tape::tapeFileSize);
-                if ((++ESPectrum::TapeNameScroller + 12) > Tape::tapeFileName.length()) ESPectrum::TapeNameScroller = 0;
-                OSD::drawStats();
-            } else if (VIDEO::OSD == 2) {
+      }
+      if ((VIDEO::OSD & 0x04) == 0 && !CPU::paused) {
+        if (VIDEO::OSD == 1 && Tape::tapeStatus == TAPE_LOADING) {
+          snprintf(
+              OSD::stats_lin1, sizeof(OSD::stats_lin1), " %-12s %04d/%04d ",
+              Tape::tapeFileName.substr(0 + ESPectrum::TapeNameScroller, 12)
+                  .c_str(),
+              Tape::tapeCurBlock + 1, Tape::tapeNumBlocks);
+          float percent =
+              (float)((Tape::tapebufByteCount + Tape::tapePlayOffset) * 100) /
+              (float)Tape::tapeFileSize;
+          snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2),
+                   " %05.2f%% %07d%s%07d ", percent,
+                   Tape::tapebufByteCount + Tape::tapePlayOffset, "/",
+                   Tape::tapeFileSize);
+          if ((++ESPectrum::TapeNameScroller + 12) >
+              Tape::tapeFileName.length())
+            ESPectrum::TapeNameScroller = 0;
+          OSD::drawStats();
+        } else if (VIDEO::OSD == 2) {
 
-                snprintf(OSD::stats_lin1, sizeof(OSD::stats_lin1), "CPU: %05d / IDL: %05d ", (int)(ESPectrum::elapsed), (int)(ESPectrum::idle));
-                snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2), "FPS:%6.2f / FND:%6.2f ", VIDEO::framecnt / (ESPectrum::totalseconds / 1000000), VIDEO::framecnt / (ESPectrum::totalsecondsnodelay / 1000000));
-                snprintf(OSD::stats_lin3, sizeof(OSD::stats_lin3), "ST:%s TR:%02X / SEC:%02X", rvmWD1793StepStateName(&ESPectrum::fdd).c_str(), ESPectrum::fdd.track, ESPectrum::fdd.sector);
-                //snprintf(OSD::stats_lin4, sizeof(OSD::stats_lin4), "CPU: X*%d ", (ESPectrum::multiplicator+1));
-                OSD::drawStats();
-            }
-            totalseconds = 0;
-            totalsecondsnodelay = 0;
-            VIDEO::framecnt = 0;
+          snprintf(OSD::stats_lin1, sizeof(OSD::stats_lin1),
+                   "CPU: %05d / IDL: %05d ", (int)(ESPectrum::elapsed),
+                   (int)(ESPectrum::idle));
+          snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2),
+                   "FPS:%6.2f / FND:%6.2f ",
+                   VIDEO::framecnt / (ESPectrum::totalseconds / 1000000),
+                   VIDEO::framecnt /
+                       (ESPectrum::totalsecondsnodelay / 1000000));
+          snprintf(OSD::stats_lin3, sizeof(OSD::stats_lin3),
+                   "ST:%s TR:%02X / SEC:%02X",
+                   rvmWD1793StepStateName(&ESPectrum::fdd).c_str(),
+                   ESPectrum::fdd.track, ESPectrum::fdd.sector);
+          // snprintf(OSD::stats_lin4, sizeof(OSD::stats_lin4), "CPU: X*%d ",
+          // (ESPectrum::multiplicator+1));
+          OSD::drawStats();
         }
+        totalseconds = 0;
+        totalsecondsnodelay = 0;
+        VIDEO::framecnt = 0;
+      }
     }
-    // Flashing flag change
-    if (!(VIDEO::flash_ctr++ & 0x0f)) VIDEO::flashing ^= 0x80;
+    // Flashing flag change (disabled when ULA+ palette is active)
+    if (!(VIDEO::flash_ctr++ & 0x0f) && !VIDEO::ulaplus_enabled)
+      VIDEO::flashing ^= 0x80;
 
     // // Draw fdd led if CPU OSD active
     // if (VIDEO::OSD == 2 && (VIDEO::framecnt & 1)) {
     //     if (ESPectrum::fdd.led)
-    //         VIDEO::vga.fillRect(168 + 137 , 220 + 2, 5, 4, zxColor( ESPectrum::fdd.led == 1 ? 4 : 2, 1));
+    //         VIDEO::vga.fillRect(168 + 137 , 220 + 2, 5, 4, zxColor(
+    //         ESPectrum::fdd.led == 1 ? 4 : 2, 1));
     //     else
     //         VIDEO::vga.fillRect(168 + 137 , 220 + 2, 5, 4, zxColor( 7, 0));
     // }
@@ -1323,24 +1542,19 @@ void ESPectrum::loop() {
 
     totalsecondsnodelay += elapsed;
 
-    if (!maxSpeed)
-    {
-        if (Config::v_sync_enabled)
-        {
+    if (!maxSpeed) {
+      if (Config::v_sync_enabled) {
         for (;;)
-            if (v_sync) {
-                v_sync = false;
-                break;
-            }
+          if (v_sync) {
+            v_sync = false;
+            break;
+          }
+      } else {
+        if (idle > 0) {
+          delayMicroseconds(idle);
         }
-        else
-        {
-            if (idle > 0) {
-                delayMicroseconds(idle);
-            }
-        }
+      }
     }
     totalseconds += time_us_64() - ts_start;
- }
+  }
 }
-

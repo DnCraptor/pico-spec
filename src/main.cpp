@@ -817,7 +817,7 @@ void __scratch_x("render") render_core() {
     graphics_init();
     graphics_set_buffer(NULL, DISP_WIDTH, DISP_HEIGHT); /// TODO:
     graphics_set_bgcolor(0x000000);
-    graphics_set_flashmode(false, false);
+    graphics_set_flashmode(true, false);
     sem_acquire_blocking(&vga_start_semaphore);
     while (true) {
         pcm_call();
@@ -1102,6 +1102,10 @@ int main() {
     keyboard_send(0xFF);
 #endif
 
+    #ifdef VGA_HDMI
+    linkVGA01 = testPins(VGA_BASE_PIN, VGA_BASE_PIN + 1);
+    #endif
+
     ESPectrum::setup();
     #ifdef PICO_DEFAULT_LED_PIN
     for (int i = 0; i < 6; i++) {
@@ -1112,7 +1116,6 @@ int main() {
     }
     #endif
     #ifdef VGA_HDMI
-    linkVGA01 = testPins(VGA_BASE_PIN, VGA_BASE_PIN + 1);
     {
         FIL f;
         f_open(&f, "/spec/video_detect.code", FA_WRITE | FA_CREATE_ALWAYS);

@@ -33,10 +33,12 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - Border effects emulated (Aquaplane, The Sentinel, Overscan demo).
 - Floating bus effect emulated (Arkanoid, Sidewize).
 - Snow effect accurate emulation (as [described](https://spectrumcomputing.co.uk/forums/viewtopic.php?t=8240) by Weiv and MartianGirl).
-- Gigascreen support.
+- Gigascreen support (Choose between three modes: On, Off, or Auto).
+- Ula+ support (https://sinclair.wiki.zxnet.co.uk/wiki/ULAplus).
 - Murmuzavr (up to 32 MB) support.
 - Contended memory and contended I/O emulation.
 - AY-3-8912 / TurboSound emulation.
+- SAA1099 sound chip emulation (https://en.wikipedia.org/wiki/Philips_SAA1099).
 - Beeper & Mic emulation (Cobra’s Arc).
 - Dual keyboard support: you can connect two devices: first using PS/2 protocol and second using USB at the same time.
 - PS/2 Joystick emulation (Cursor, Sinclair, Kempston and Fuller).
@@ -52,6 +54,13 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - Complete OSD menu in two languages: English & Spanish.
 - BMP screen capture to SD Card (thanks David Crespo 😉).
 
+## Byte Emulation Details (https://zxbyte.org/)
+
+- 48K ROM
+- 128K ROM + TR-DOS
+- 128K ROM + TR-DOS + Mr. Gluk Reset Service
+- Sovmest (COBMECT) Mode (more accurate emulation of a real ZX Spectrum 48/128)
+- Support for the KR580VI53 (a clone of the Intel 8253) three-channel timer
 
 ## Installing
 
@@ -103,7 +112,8 @@ It is important to note that for custom ROMs, fast loading of taps can be used, 
 
 Finally, keep in mind that when updating the firmware, you will need to re-flash the custom ROMs afterward, so I recommend leaving the files "48custom.rom" and "128custom.rom" on the card for the custom ROMs you wish to use.
 
-## Own build way (Win 10+)
+## How to build
+### Windows 10+
  - Install VSCode [pico-setup-windows-x64-standalone.exe](https://github.com/raspberrypi/pico-setup-windows/releases) it will tune up environment and install default SDK 1.5.1;
  - In VSCode install [Rapberri Pi Pico](https://t.me/ZX_MURMULATOR/42804/194110) plugin, to make other SDK versions available and auto-load;
  - Import this project, and agree on all requests from the plugin (it may be required to wait some times on these steps);
@@ -111,6 +121,26 @@ Finally, keep in mind that when updating the firmware, you will need to re-flash
  - Set required variables in your local copy of [CMakeLists.txt](https://github.com/DnCraptor/pico-spec/blob/main/CMakeLists.txt)
  - [Clean/Reconfigure](https://t.me/ZX_MURMULATOR/42804/214276)
  - Build.
+### Linux
+ - Install dependencies: build-essential, gcc-arm-none-eabi
+ - Clone pico-sdk from [its repository](https://github.com/raspberrypi/pico-sdk) into directory near this project.
+`git clone --recursive https://github.com/raspberrypi/pico-sdk`
+Your filesystem tree must be look like:
+```
+ Base folder
+   |-- pico-sdk
+   |-- pico-spec
+        |-- build
+        |-- drivers
+        |-- src
+```
+ - Configule building options in `pico-spec/CMakeLists.txt` - pico board, video&audio output, etc.
+ - Run building script:
+```
+ cd build
+ ./build.sh
+```
+ - After building artifacts will be available in `pico-spec/bin` directory
 
 ## Thanks to
 

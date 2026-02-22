@@ -82,6 +82,10 @@ static const char *OSD_GIGASCREEN_ON[2] = { OSD_GIGASCREEN_ON_EN,OSD_GIGASCREEN_
 #define OSD_GIGASCREEN_OFF_ES "--=[ GIGASCREEN APAGADA ]=--"
 static const char *OSD_GIGASCREEN_OFF[2] = { OSD_GIGASCREEN_OFF_EN,OSD_GIGASCREEN_OFF_ES };
 
+#define OSD_GIGASCREEN_AUTO_EN "--=[ GIGASCREEN AUTO ]=--"
+#define OSD_GIGASCREEN_AUTO_ES "--=[ GIGASCREEN AUTO ]=--"
+static const char *OSD_GIGASCREEN_AUTO[2] = { OSD_GIGASCREEN_AUTO_EN,OSD_GIGASCREEN_AUTO_ES };
+
 #define OSD_PSNA_NOT_AVAIL "No Persist Snapshot Available"
 #define OSD_PSNA_LOADING "Loading Persist Snapshot"
 #define OSD_PSNA_SAVING  "Saving Persist Snapshot"
@@ -431,7 +435,8 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 		"Aspect Ratio\t>\n"\
 		"Scanlines\t>\n"\
 		"V-Sync\t>\n"\
-		"Gigascreen (No Flick)\t>\n"
+		"Gigascreen (No Flick)\t>\n"\
+		"ULA+ ON/OFF\t>\n"
 	#define MENU_VIDEO_ES \
 		"Video\n"\
 		"Modo\t>\n"\
@@ -439,7 +444,8 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 		"Relaci" "\xA2" "n de aspecto\t>\n"\
 		"Scanlines\t>\n"\
 		"V-Sync\t>\n"\
-		"Gigascreen (No Flick)\t>\n"
+		"Gigascreen (No Flick)\t>\n"\
+		"ULA+ ON/OFF\t>\n"
 #else
 	#define MENU_VIDEO_EN \
 		"Video\n"\
@@ -447,14 +453,16 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 		"Render type\t>\n"\
 		"Aspect Ratio\t>\n"\
 		"Scanlines\t>\n"\
-		"V-Sync\t>\n"
+		"V-Sync\t>\n"\
+		"ULA+ ON/OFF\t>\n"
 	#define MENU_VIDEO_ES \
 		"Video\n"\
 		"Modo\t>\n"\
 		"Tipo render\t>\n"\
 		"Relaci" "\xA2" "n de aspecto\t>\n"\
 		"Scanlines\t>\n"\
-		"V-Sync\t>\n"
+		"V-Sync\t>\n"\
+		"ULA+ ON/OFF\t>\n"
 #endif
 static const char *MENU_VIDEO[2] = { MENU_VIDEO_EN, MENU_VIDEO_ES };
 
@@ -608,7 +616,8 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
 	"AY-3-8912 Stereo\t>\n"\
     "TurboSound\t>\n"\
     "Covox\t>\n"\
-    "Audio Driver\t>\n"
+    "Audio Driver\t>\n"\
+    "SAA1099 ON/OFF\t>\n"
 #define MENU_OTHER_ES "Otros\n"\
     "AY-3-8912 ON/OFF\t>\n"\
     "Temporizaci" "\xA2" "n ULA\t>\n"\
@@ -620,10 +629,15 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
     "AY-3-8912 Est" "\x82" "reo\t>\n" \
     "TurboSound\t>\n"\
     "Covox\t>\n"\
-    "Controlador de audio\t>\n"
+    "Controlador de audio\t>\n"\
+    "SAA1099 ON/OFF\t>\n"
 static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
 
 static const char *MENU_AY48[2] = { "Turned on?\n" , "Turned on?\n"};
+
+static const char *MENU_SAA1099[2] = { "Turned on?\n" , "Turned on?\n"};
+
+static const char *MENU_ULAPLUS[2] = { "ULA+\n", "ULA+\n"};
 
 #define MENU_KBD2NDPS2_EN "Enable\n"\
     "No\t[N]\n"\
