@@ -157,7 +157,10 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     int delay = MemESP::getByteContention(address);
     VIDEO::Draw(delay, true);
   } else {
-    VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
+    // ULA ports (A0=0): ULA always applies contention during display area
+    // Non-ULA ports (A0=1): contention only if port address maps to contended memory
+    bool earlyContend = ((address & 0x0001) == 0) ? !Z80Ops::isPentagon : MemESP::ramContended[rambank];
+    VIDEO::Draw(1, earlyContend); // I/O Contention (Early)
   }
 
   if (MEM_PG_CNT > 64 && address == 0xAFF7) {
@@ -334,7 +337,10 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     int delay = MemESP::getByteContention(address);
     VIDEO::Draw(delay, true);
   } else {
-    VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
+    // ULA ports (A0=0): ULA always applies contention during display area
+    // Non-ULA ports (A0=1): contention only if port address maps to contended memory
+    bool earlyContend = ((address & 0x0001) == 0) ? !Z80Ops::isPentagon : MemESP::ramContended[rambank];
+    VIDEO::Draw(1, earlyContend); // I/O Contention (Early)
   }
   uint8_t a8 = (address & 0xFF);
   p_states = CPU::tstates;
@@ -388,7 +394,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     if (VIDEO::borderColor != (data & 0x07)) {
       VIDEO::brdChange = true;
       if (!Z80Ops::isPentagon)
-        VIDEO::Draw(0, true); // Seems not needed in Pentagon
+        VIDEO::Draw(0, false); // Flush video rendering without adding contention
       VIDEO::DrawBorder();
       VIDEO::borderColor = data & 0x07;
       if (VIDEO::ulaplus_enabled)
