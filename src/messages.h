@@ -408,6 +408,7 @@ static const char *MENU_MAIN_NO_SD[2] = { MENU_MAIN_NO_SD_EN, MENU_MAIN_NO_SD_ES
     "Preferred ROM\t>\n"\
     "Joystick\t>\n"\
     "Joystick emulation\t>\n"\
+    "Audio\t>\n"\
     "Video\t>\n"\
     "Other\t>\n"\
     "Language\t>\n"\
@@ -419,6 +420,7 @@ static const char *MENU_MAIN_NO_SD[2] = { MENU_MAIN_NO_SD_EN, MENU_MAIN_NO_SD_ES
     "ROM preferida\t>\n"\
     "Joystick\t>\n"\
     "Emulaci" "\xA2" "n joystick\t>\n"\
+    "Audio\t>\n"\
     "Video\t>\n"\
     "Otros\t>\n"\
     "Idioma\t>\n"\
@@ -635,32 +637,36 @@ static const char *MENU_FLASHLOAD[2] = { "Fast load\n" , "Carga rapida\n"};
 
 static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
 
-#define MENU_OTHER_EN "Other\n"\
+#define MENU_AUDIO_EN "Audio\n"\
     "AY-3-8912 ON/OFF\t>\n"\
+    "AY-3-8912 Stereo\t>\n"\
+    "TurboSound\t>\n"\
+    "Covox\t>\n"\
+    "Audio Driver\t>\n"\
+    "SAA1099 ON/OFF\t>\n"
+#define MENU_AUDIO_ES "Audio\n"\
+    "AY-3-8912 ON/OFF\t>\n"\
+    "AY-3-8912 Est" "\x82" "reo\t>\n"\
+    "TurboSound\t>\n"\
+    "Covox\t>\n"\
+    "Controlador de audio\t>\n"\
+    "SAA1099 ON/OFF\t>\n"
+static const char *MENU_AUDIO[2] = { MENU_AUDIO_EN, MENU_AUDIO_ES };
+
+#define MENU_OTHER_EN "Other\n"\
     "ALU Timing\t>\n"\
     "48K Issue 2\t>\n"\
     "Map joystick to cursor\t>\n"\
     "Second joystick\t>\n"\
     "Kempston joystick port\t>\n"\
-    "Throttling\t>\n"\
-	"AY-3-8912 Stereo\t>\n"\
-    "TurboSound\t>\n"\
-    "Covox\t>\n"\
-    "Audio Driver\t>\n"\
-    "SAA1099 ON/OFF\t>\n"
+    "Throttling\t>\n"
 #define MENU_OTHER_ES "Otros\n"\
-    "AY-3-8912 ON/OFF\t>\n"\
     "Temporizaci" "\xA2" "n ULA\t>\n"\
     "48K Issue 2\t>\n"\
     "Joystick al cursor\t>\n"\
     "Segundo joystick\t>\n"\
     "Puerto Kempston joystick\t>\n"\
-    "Aceleraci" "\xA2" "n\t>\n"\
-    "AY-3-8912 Est" "\x82" "reo\t>\n" \
-    "TurboSound\t>\n"\
-    "Covox\t>\n"\
-    "Controlador de audio\t>\n"\
-    "SAA1099 ON/OFF\t>\n"
+    "Aceleraci" "\xA2" "n\t>\n"
 static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
 
 static const char *MENU_AY48[2] = { "Turned on?\n" , "Turned on?\n"};
