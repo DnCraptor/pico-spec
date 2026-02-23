@@ -457,7 +457,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 menu_saverect = true;
                 string nmi_menu = MENU_NMI_TITLE[Config::lang];
                 nmi_menu += MENU_NMI_SEL[Config::lang];
-                uint8_t opt = menuRun(nmi_menu);
+                uint8_t nmi_cols = 20;
+                uint16_t nmi_w = (nmi_cols * OSD_FONT_W) + 2;
+                uint16_t nmi_h = (rowCount(nmi_menu) * OSD_FONT_H) + 2;
+                uint8_t opt = simpleMenuRun(nmi_menu,
+                    scrAlignCenterX(nmi_w), scrAlignCenterY(nmi_h),
+                    rowCount(nmi_menu), nmi_cols);
                 if (opt == 1)
                     Z80::triggerNMI();
                 else if (opt == 2)
@@ -467,15 +472,75 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             }
         }
         else
-        if (KeytoESP == fabgl::VK_F11) { // Reset to Gluk ROM
-            if (Config::ram_file != NO_RAM_FILE) {
-                Config::ram_file = NO_RAM_FILE;
+        if (KeytoESP == fabgl::VK_F11) { // Reset to...
+            if (Z80Ops::is48) {
+                // 48K - just reset directly
+                if (Config::ram_file != NO_RAM_FILE) Config::ram_file = NO_RAM_FILE;
+                Config::last_ram_file = NO_RAM_FILE;
+                ESPectrum::reset(0);
+            } else {
+                // Build machine-dependent menu
+                string reset_menu;
+                if (Z80Ops::isPentagon) {
+                    if (Config::romSet == "128Kpg")
+                        reset_menu = MENU_RESETTO_PENTGLUK[Config::lang];
+                    else
+                        reset_menu = MENU_RESETTO_PENT[Config::lang];
+                } else {
+                    reset_menu = MENU_RESETTO_128[Config::lang];
+                }
+
+                menu_level = 0;
+                menu_curopt = 1;
+                menu_saverect = true;
+                uint8_t rst_cols = 22;
+                uint16_t rst_w = (rst_cols * OSD_FONT_W) + 2;
+                uint16_t rst_h = (rowCount(reset_menu) * OSD_FONT_H) + 2;
+                uint8_t opt = simpleMenuRun(reset_menu,
+                    scrAlignCenterX(rst_w), scrAlignCenterY(rst_h),
+                    rowCount(reset_menu), rst_cols);
+
+                if (opt > 0) {
+                    if (Config::ram_file != NO_RAM_FILE) Config::ram_file = NO_RAM_FILE;
+                    Config::last_ram_file = NO_RAM_FILE;
+
+                    if (Z80Ops::isPentagon && Config::romSet == "128Kpg") {
+                        // Service (Gluk)=1, TR-DOS=2, 128K=3, 48K=4
+                        if (opt == 1) {
+                            ESPectrum::reset(3); // Gluk ROM
+                        } else if (opt == 2) {
+                            ESPectrum::reset(4); // TR-DOS ROM
+                            MemESP::romLatch = 1;
+                            ESPectrum::trdos = true;
+                        } else if (opt == 3) {
+                            ESPectrum::reset(0); // 128K
+                        } else if (opt == 4) {
+                            ESPectrum::reset(1); // 48K BASIC ROM
+                            MemESP::pagingLock = 1;
+                        }
+                    } else if (Z80Ops::isPentagon) {
+                        // TR-DOS=1, 128K=2, 48K=3
+                        if (opt == 1) {
+                            ESPectrum::reset(4); // TR-DOS ROM
+                            MemESP::romLatch = 1;
+                            ESPectrum::trdos = true;
+                        } else if (opt == 2) {
+                            ESPectrum::reset(0); // 128K
+                        } else if (opt == 3) {
+                            ESPectrum::reset(1); // 48K BASIC ROM
+                            MemESP::pagingLock = 1;
+                        }
+                    } else { // 128K
+                        // 128K=1, 48K=2
+                        if (opt == 1) {
+                            ESPectrum::reset(0); // 128K
+                        } else if (opt == 2) {
+                            ESPectrum::reset(1); // 48K BASIC ROM
+                            MemESP::pagingLock = 1;
+                        }
+                    }
+                }
             }
-            Config::last_ram_file = NO_RAM_FILE;
-            uint8_t romInUse = 0;
-            if (Config::romSet == "128Kpg" || Config::romSet == "128Kbg")
-                romInUse = 3; // Gluk
-            ESPectrum::reset(romInUse);
         }
         else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F6) {
             while (1) {
@@ -1173,8 +1238,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         menu_curopt = 1;
                         menu_saverect = true;
                         while (1) {
-                            string menu = MENU_TRDOS_BIOS_TITLE[Config::lang];
-                            menu += MENU_TRDOS_BIOS_SEL[Config::lang];
+                            string menu = MENU_TRDOS_ROM_TITLE[Config::lang];
+                            menu += MENU_TRDOS_ROM_SEL[Config::lang];
                             // Mark current selection with [*]
                             int mpos = -1;
                             int idx = 0;

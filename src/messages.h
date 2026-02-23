@@ -279,7 +279,7 @@ static const char *MENU_TAPEPLAYER2[2] = { "Real input\n", "Entrada real\n" };
     "Drive D\t>\n"\
 	"Fast Mode\t>\n"\
 	"Write Protect\t>\n"\
-	"BIOS\t>\n"
+	"ROM\t>\n"
 #define MENU_BETADISK_ES \
     "Unidades\n"\
     "Unidad A\t>\n"\
@@ -288,7 +288,7 @@ static const char *MENU_TAPEPLAYER2[2] = { "Real input\n", "Entrada real\n" };
     "Unidad D\t>\n"\
 	"Modo rápido\t>\n"\
 	"Protección contra escritura\t>\n"\
-	"BIOS\t>\n"
+	"ROM\t>\n"
 static const char *MENU_BETADISK[2] = { MENU_BETADISK_EN,MENU_BETADISK_ES };
 
 static const char *MENU_FASTMODE[2] = { "Fast Mode\n", "Modo rápido\n" };
@@ -298,16 +298,29 @@ static const char *MENU_NMI_TITLE[2] = { "NMI\n", "NMI\n" };
 #define MENU_NMI_ES "NMI\n" "Magic Button\n"
 static const char *MENU_NMI_SEL[2] = { MENU_NMI_EN, MENU_NMI_ES };
 
-static const char *MENU_TRDOS_BIOS_TITLE[2] = { "TR-DOS BIOS\n", "TR-DOS BIOS\n" };
-#define MENU_TRDOS_BIOS_SEL_EN \
+// Reset To menu (ALT+F11) - machine-dependent options
+#define MENU_RESETTO_128_EN "Reset to\n" "128K\n" "48K\n"
+#define MENU_RESETTO_128_ES "Resetear a\n" "128K\n" "48K\n"
+static const char *MENU_RESETTO_128[2] = { MENU_RESETTO_128_EN, MENU_RESETTO_128_ES };
+
+#define MENU_RESETTO_PENT_EN "Reset to\n" "TR-DOS\n" "128K\n" "48K\n"
+#define MENU_RESETTO_PENT_ES "Resetear a\n" "TR-DOS\n" "128K\n" "48K\n"
+static const char *MENU_RESETTO_PENT[2] = { MENU_RESETTO_PENT_EN, MENU_RESETTO_PENT_ES };
+
+#define MENU_RESETTO_PENTGLUK_EN "Reset to\n" "Mr Gluk Reset Srvs\n" "TR-DOS\n" "128K\n" "48K\n"
+#define MENU_RESETTO_PENTGLUK_ES "Resetear a\n" "Mr Gluk Reset Srvs\n" "TR-DOS\n" "128K\n" "48K\n"
+static const char *MENU_RESETTO_PENTGLUK[2] = { MENU_RESETTO_PENTGLUK_EN, MENU_RESETTO_PENTGLUK_ES };
+
+static const char *MENU_TRDOS_ROM_TITLE[2] = { "TR-DOS ROM\n", "TR-DOS ROM\n" };
+#define MENU_TRDOS_ROM_SEL_EN \
     "5.03\t[ ]\n"\
     "5.04TM\t[ ]\n"\
     "5.05D\t[ ]\n"
-#define MENU_TRDOS_BIOS_SEL_ES \
+#define MENU_TRDOS_ROM_SEL_ES \
     "5.03\t[ ]\n"\
     "5.04TM\t[ ]\n"\
     "5.05D\t[ ]\n"
-static const char *MENU_TRDOS_BIOS_SEL[2] = { MENU_TRDOS_BIOS_SEL_EN, MENU_TRDOS_BIOS_SEL_ES };
+static const char *MENU_TRDOS_ROM_SEL[2] = { MENU_TRDOS_ROM_SEL_EN, MENU_TRDOS_ROM_SEL_ES };
 
 #define MENU_BETADRIVE_EN \
     "Drive#\n"\
