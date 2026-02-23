@@ -1479,7 +1479,7 @@ IRAM_ATTR void VIDEO::BottomBorder_OSD_Pentagon() {
     while (lastBrdTstate <= CPU::tstates) {
         if (brdlin_cnt < 220 || brdlin_cnt > 235)
             Update_Border_Pentagon();
-        else if (brdcol_cnt < 0 || brdcol_cnt > 155)
+        else if (brdcol_cnt < 84 || brdcol_cnt > 155)
             Update_Border_Pentagon();
         lastBrdTstate++;
         brdcol_cnt++;

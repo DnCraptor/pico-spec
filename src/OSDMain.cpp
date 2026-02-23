@@ -108,8 +108,6 @@ unsigned short OSD::scrH = 240;
 
 char OSD::stats_lin1[25]; // "CPU: 00000 / IDL: 00000 ";
 char OSD::stats_lin2[25]; // "FPS:000.00 / FND:000.00 ";
-char OSD::stats_lin3[25]; // TODO
-char OSD::stats_lin4[25]; // TODO
 
 // // X origin to center an element with pixel_width
 unsigned short OSD::scrAlignCenterX(unsigned short pixel_width) { return (scrW / 2) - (pixel_width / 2); }
@@ -230,10 +228,31 @@ void OSD::drawStats() {
     VIDEO::vga.print(stats_lin1);
     VIDEO::vga.setCursor(x,y+8);
     VIDEO::vga.print(stats_lin2);
-    // VIDEO::vga.setCursor(2,1);
-    // VIDEO::vga.print(stats_lin4);
-    VIDEO::vga.setCursor(2,y+8);
-    VIDEO::vga.print(stats_lin3);
+}
+
+void OSD::clearStats() {
+
+    unsigned short y = Config::aspect_16_9 ? 176 : 220;
+
+    if (Z80Ops::isPentagon) {
+        uint32_t brdColor = VIDEO::brd;
+        uint16_t brd16 = (uint16_t)brdColor;
+        for (int line = y; line < y + 16; line++) {
+            uint16_t *ptr = (uint16_t *)(VIDEO::vga.frameBuffer[line]);
+            for (int col = 84; col < 156; col++) {
+                ptr[col ^ 1] = brd16;
+            }
+        }
+    } else {
+        uint32_t brdColor = VIDEO::brd;
+        for (int line = y; line < y + 16; line++) {
+            uint32_t *ptr = (uint32_t *)(VIDEO::vga.frameBuffer[line]) + (Config::aspect_16_9 ? 5 : 0);
+            for (int col = 21; col < 39; col++) {
+                ptr[col * 2] = brdColor;
+                ptr[col * 2 + 1] = brdColor;
+            }
+        }
+    }
 }
 
 static bool persistSave(uint8_t slotnumber)
@@ -752,29 +771,38 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
         }
         else if (KeytoESP == fabgl::VK_F8) {
             // Show / hide OnScreen Stats
-            if ((VIDEO::OSD & 0x03) == 0)
-                VIDEO::OSD |= Tape::tapeStatus == TAPE_LOADING ? 1 : 2;
-            else
-                VIDEO::OSD++;
+            {
+                uint8_t mode = VIDEO::OSD & 0x03;
+                bool hasFdd = (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) && Tape::tapeStatus != TAPE_LOADING;
+                uint8_t maxMode = hasFdd ? 3 : 2;
 
-            if ((VIDEO::OSD & 0x03) > 2) {
-                if ((VIDEO::OSD & 0x04) == 0) {
-                    if (Config::aspect_16_9)
-                        VIDEO::Draw_OSD169 = VIDEO::MainScreen;
-                    else
-                        VIDEO::Draw_OSD43 = Z80Ops::isPentagon ? VIDEO::BottomBorder_Pentagon :  VIDEO::BottomBorder;
-                }
-                VIDEO::OSD &= 0xfc;
-            } else {
-                if ((VIDEO::OSD & 0x04) == 0) {
-                    if (Config::aspect_16_9)
-                        VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
-                    else
-                        VIDEO::Draw_OSD43  = Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
+                if (mode == 0)
+                    mode = Tape::tapeStatus == TAPE_LOADING ? 1 : 2;
+                else
+                    mode++;
 
-                    OSD::drawStats();
+                if (mode > maxMode) {
+                    if ((VIDEO::OSD & 0x04) == 0) {
+                        OSD::clearStats();
+                        if (Config::aspect_16_9)
+                            VIDEO::Draw_OSD169 = VIDEO::MainScreen;
+                        else
+                            VIDEO::Draw_OSD43 = Z80Ops::isPentagon ? VIDEO::BottomBorder_Pentagon :  VIDEO::BottomBorder;
+                        VIDEO::brdnextframe = true;
+                    }
+                    VIDEO::OSD &= 0xfc;
+                } else {
+                    VIDEO::OSD = (VIDEO::OSD & 0xfc) | mode;
+                    if ((VIDEO::OSD & 0x04) == 0) {
+                        if (Config::aspect_16_9)
+                            VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
+                        else
+                            VIDEO::Draw_OSD43  = Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
+
+                        OSD::drawStats();
+                    }
+                    ESPectrum::TapeNameScroller = 0;
                 }
-                ESPectrum::TapeNameScroller = 0;
             }
             click();
         }

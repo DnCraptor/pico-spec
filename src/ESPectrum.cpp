@@ -1513,7 +1513,6 @@ void ESPectrum::loop() {
             ESPectrum::TapeNameScroller = 0;
           OSD::drawStats();
         } else if (VIDEO::OSD == 2) {
-
           snprintf(OSD::stats_lin1, sizeof(OSD::stats_lin1),
                    "CPU: %05d / IDL: %05d ", (int)(ESPectrum::elapsed),
                    (int)(ESPectrum::idle));
@@ -1522,12 +1521,15 @@ void ESPectrum::loop() {
                    VIDEO::framecnt / (ESPectrum::totalseconds / 1000000),
                    VIDEO::framecnt /
                        (ESPectrum::totalsecondsnodelay / 1000000));
-          snprintf(OSD::stats_lin3, sizeof(OSD::stats_lin3),
-                   "ST:%s TR:%02X / SEC:%02X",
+          OSD::drawStats();
+        } else if (VIDEO::OSD == 3) {
+          snprintf(OSD::stats_lin1, sizeof(OSD::stats_lin1),
+                   "CPU: %05d / IDL: %05d ", (int)(ESPectrum::elapsed),
+                   (int)(ESPectrum::idle));
+          snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2),
+                   "ST:%-6sTR:#%02X/SEC:#%02X ",
                    rvmWD1793StepStateName(&ESPectrum::fdd).c_str(),
                    ESPectrum::fdd.track, ESPectrum::fdd.sector);
-          // snprintf(OSD::stats_lin4, sizeof(OSD::stats_lin4), "CPU: X*%d ",
-          // (ESPectrum::multiplicator+1));
           OSD::drawStats();
         }
         totalseconds = 0;
