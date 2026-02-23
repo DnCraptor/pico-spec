@@ -76,6 +76,7 @@ uint8_t  Config::throtling = DEFAULT_THROTTLING;
 bool     Config::CursorAsJoy = true;
 bool     Config::trdosFastMode = false;
 bool     Config::trdosWriteProtect = false;
+bool     Config::trdosSoundLed = false;
 uint8_t  Config::trdosBios = 2; // Default: 5.05D
 
 uint8_t Config::scanlines = 0;
@@ -370,6 +371,7 @@ void Config::load() {
         nvs_get_b("CursorAsJoy", CursorAsJoy, sts);
         nvs_get_b("trdosFastMode", trdosFastMode, sts);
         nvs_get_b("trdosWriteProtect", trdosWriteProtect, sts);
+        nvs_get_b("trdosSoundLed", trdosSoundLed, sts);
         nvs_get_u8("trdosBios", trdosBios, sts);
         nvs_get_str("SNA_Path", FileUtils::SNA_Path, sts);
         nvs_get_str("TAP_Path", FileUtils::TAP_Path, sts);
@@ -508,6 +510,7 @@ void Config::save() {
         nvs_set_str(handle,"CursorAsJoy", CursorAsJoy ? "true" : "false");
         nvs_set_str(handle,"trdosFastMode", trdosFastMode ? "true" : "false");
         nvs_set_str(handle,"trdosWriteProtect", trdosWriteProtect ? "true" : "false");
+        nvs_set_str(handle,"trdosSoundLed", trdosSoundLed ? "true" : "false");
         nvs_set_u8(handle,"trdosBios", trdosBios);
         nvs_set_str(handle,"SNA_Path",FileUtils::SNA_Path.c_str());
         nvs_set_str(handle,"TAP_Path",FileUtils::TAP_Path.c_str());

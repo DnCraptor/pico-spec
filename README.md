@@ -44,6 +44,7 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - PS/2 Joystick emulation (Cursor, Sinclair, Kempston and Fuller).
 - Two real joysticks support (Up to 8 button joysticks).
 - Emulation of Betadisk interface with four drives and TRD (read and write) and SCL (read only) support. Fast and tealtime modes.
+- FDD activity LED indicator and mechanical head click/seek sound emulation (optional, toggled via Betadisk menu).
 - Realtime (with OSD) TZX and TAP file loading.
 - Flashload of TAP files.
 - Rodolfo Guerra's ROMs fast load routines support with on the fly standard speed blocks translation.

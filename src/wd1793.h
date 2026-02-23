@@ -295,6 +295,7 @@ typedef struct
     int wtrackmark, wtracksector;
 
     uint8_t led;
+    uint8_t fdd_clicks;  // Pending step clicks count
 
 } rvmWD1793;
 

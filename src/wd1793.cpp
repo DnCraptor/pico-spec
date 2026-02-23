@@ -201,6 +201,7 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
         rvmwdDiskStep(wd, wd->control & kRVMWD177XDire ? 0x100 : 0x300);
 
         wd->led = 1; // RVM plays seek audio sample here
+        wd->fdd_clicks++;
 
         wd->c=(srate[(wd->control & kRVMWD177XRateSelect) ^ 0x4][wd->command & 0x3]) >> 3; // Value for 1 bit per diskstep / 8
 
@@ -940,6 +941,11 @@ IRAM_ATTR void rvmWD1793Step(rvmWD1793 *wd, uint32_t steps) {
 
       case kRVMWD177XStepWaiting: {
 
+        if ((wd->track == 0 || wd->track == 0xff) && wd->sector == 0) {
+          wd->led = 0;
+          wd->fdd_clicks = 0;
+        }
+
         if (wd->fastmode) {
           wd->c = 0;
           _do(wd);
@@ -1253,6 +1259,7 @@ void rvmWD1793Reset(rvmWD1793 *wd) {
   wd->status = kRVMWD177XStatusSetIndex | kRVMWD177XStatusSetTrack0 | kRVMWD177XStatusSetWP;
   wd->track = 0xff;
   wd->led = 0;
+  wd->fdd_clicks = 0;
   wd->wtrackmark = 0;
   wd->headerI = 0;
   wd->retry = 0;

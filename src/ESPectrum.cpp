@@ -183,6 +183,7 @@ uint32_t ESPectrum::faudbufcntAY = 0;
 uint32_t ESPectrum::audbufcntCovox = 0;
 uint32_t ESPectrum::faudbufcntCovox = 0;
 uint8_t ESPectrum::audioBufferPIT[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
+uint8_t ESPectrum::audioBufferFDD[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
 uint32_t ESPectrum::audbufcntPIT = 0;
 uint32_t ESPectrum::faudbufcntPIT = 0;
 int ESPectrum::lastaudioBit = 0;
@@ -1296,6 +1297,33 @@ __not_in_flash("audio") void ESPectrum::PITGetSample() {
   }
 }
 
+void ESPectrum::FDDGenSound() {
+    memset(audioBufferFDD, 0, samplesPerFrame);
+    uint8_t clicks = fdd.fdd_clicks;
+    fdd.fdd_clicks = 0;
+    if (clicks > 0) {
+        if (clicks > 8) clicks = 8;
+        int spacing = samplesPerFrame / (clicks + 1);
+        for (int c = 0; c < clicks; c++) {
+            int pos = spacing * (c + 1);
+            uint8_t amp = 48;
+            for (int j = 0; j < 20 && (pos + j) < samplesPerFrame; j++) {
+                audioBufferFDD[pos + j] += amp;
+                amp = (amp * 3) >> 2;
+                if (amp == 0) break;
+            }
+        }
+    } else if (fdd.led) {
+        static uint16_t fdd_lfsr = 0xACE1;
+        for (int i = 0; i < samplesPerFrame; i++) {
+            fdd_lfsr ^= fdd_lfsr >> 7;
+            fdd_lfsr ^= fdd_lfsr << 9;
+            fdd_lfsr ^= fdd_lfsr >> 13;
+            audioBufferFDD[i] = (fdd_lfsr & 0xF);
+        }
+    }
+}
+
 // === Таймер ===
 bool __not_in_flash_func(ESPectrum::AY_timer_callback)(repeating_timer_t *rt) {
   // uint32_t audbufpos = audbufcntAY++;
@@ -1434,6 +1462,7 @@ void ESPectrum::loop() {
           Ports::pitGenSound(audioBufferPIT + faudbufcntPIT,
                              samplesPerFrame - faudbufcntPIT);
         }
+        if (Config::trdosSoundLed) FDDGenSound();
         if (AY_emu || SAA_emu) {
           if (AY_emu && faudbufcntAY < samplesPerFrame) {
                 if(Config::turbosound != 0 || AySound::selected_chip == 0) chip0.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
@@ -1443,7 +1472,7 @@ void ESPectrum::loop() {
                 saaChip.gen_sound(samplesPerFrame - faudbufcntSAA, faudbufcntSAA);
           }
           for (int i = 0; i < samplesPerFrame; i++) {
-                int beeper_L = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i] + audioBufferPIT[i];
+                int beeper_L = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i] + audioBufferPIT[i] + audioBufferFDD[i];
             int beeper_R = beeper_L;
             if (AY_emu) {
                 if(Config::turbosound != 0 || AySound::selected_chip == 0) {
@@ -1471,7 +1500,7 @@ void ESPectrum::loop() {
                                 (audioSampleDivider == 6) ? 33 : 32;
 
           for (int i = 0; i < samplesPerFrame; i++) {
-                int v = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i] + audioBufferPIT[i];
+                int v = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i] + audioBufferPIT[i] + audioBufferFDD[i];
             audioBuffer_L[i] = v > 255 ? 255 : v;
             audioBuffer_R[i] = v > 255 ? 255 : v;
           }
@@ -1542,10 +1571,12 @@ void ESPectrum::loop() {
       VIDEO::flashing ^= 0x80;
 
     // Draw fdd led indicator in top-right corner
-    if (ESPectrum::fdd.led) {
-        VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(fdd.led == 2 ? 2 : 1, 1));
-    } else {
-        VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(VIDEO::borderColor, 0));
+    if (Config::trdosSoundLed) {
+        if (ESPectrum::fdd.led) {
+            VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(fdd.led == 2 ? 2 : 1, 1));
+        } else {
+            VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(VIDEO::borderColor, 0));
+        }
     }
 
     elapsed = time_us_64() - ts_start;

@@ -1266,6 +1266,35 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         menu_curopt = 1;
                         menu_saverect = true;
                         while (1) {
+                            string menu = MENU_SOUNDLED[Config::lang];
+                            menu += MENU_YESNO[Config::lang];
+                            uint8_t prev = Config::trdosSoundLed;
+                            if (prev) {
+                                menu.replace(menu.find("[Y",0),2,"[*");
+                                menu.replace(menu.find("[N",0),2,"[ ");
+                            } else {
+                                menu.replace(menu.find("[Y",0),2,"[ ");
+                                menu.replace(menu.find("[N",0),2,"[*");
+                            }
+                            uint8_t opt2 = menuRun(menu);
+                            if (opt2) {
+                                Config::trdosSoundLed = (opt2 == 1);
+                                if (Config::trdosSoundLed != prev)
+                                    Config::save();
+                                menu_curopt = opt2;
+                                menu_saverect = false;
+                            } else {
+                                menu_curopt = 7;
+                                menu_level = 2;
+                                break;
+                            }
+                        }
+                    }
+                    else if (dsk_num == 8) {
+                        menu_level = 2;
+                        menu_curopt = 1;
+                        menu_saverect = true;
+                        while (1) {
                             string menu = MENU_TRDOS_ROM_TITLE[Config::lang];
                             menu += MENU_TRDOS_ROM_SEL[Config::lang];
                             // Mark current selection with [*]
@@ -1287,7 +1316,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 menu_curopt = opt2;
                                 menu_saverect = false;
                             } else {
-                                menu_curopt = 7;
+                                menu_curopt = 8;
                                 menu_level = 2;
                                 break;
                             }

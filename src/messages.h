@@ -279,6 +279,7 @@ static const char *MENU_TAPEPLAYER2[2] = { "Real input\n", "Entrada real\n" };
     "Drive D\t>\n"\
 	"Fast Mode\t>\n"\
 	"Write Protect\t>\n"\
+	"Disk Sound & LED\t>\n"\
 	"ROM\t>\n"
 #define MENU_BETADISK_ES \
     "Unidades\n"\
@@ -288,11 +289,13 @@ static const char *MENU_TAPEPLAYER2[2] = { "Real input\n", "Entrada real\n" };
     "Unidad D\t>\n"\
 	"Modo rápido\t>\n"\
 	"Protección contra escritura\t>\n"\
+	"Sonido y LED del disco\t>\n"\
 	"ROM\t>\n"
 static const char *MENU_BETADISK[2] = { MENU_BETADISK_EN,MENU_BETADISK_ES };
 
 static const char *MENU_FASTMODE[2] = { "Fast Mode\n", "Modo rápido\n" };
 static const char *MENU_WRITEPROTECT[2] = { "Write Protect\n", "MProtección contra escritura\n" };
+static const char *MENU_SOUNDLED[2] = { "Disk Sound & LED\n", "Sonido y LED del disco\n" };
 static const char *MENU_NMI_TITLE[2] = { "NMI\n", "NMI\n" };
 #define MENU_NMI_EN "NMI\n" "Magic Button\n"
 #define MENU_NMI_ES "NMI\n" "Magic Button\n"
