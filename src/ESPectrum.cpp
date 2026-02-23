@@ -1541,14 +1541,12 @@ void ESPectrum::loop() {
     if (!(VIDEO::flash_ctr++ & 0x0f) && !VIDEO::ulaplus_enabled)
       VIDEO::flashing ^= 0x80;
 
-    // // Draw fdd led if CPU OSD active
-    // if (VIDEO::OSD == 2 && (VIDEO::framecnt & 1)) {
-    //     if (ESPectrum::fdd.led)
-    //         VIDEO::vga.fillRect(168 + 137 , 220 + 2, 5, 4, zxColor(
-    //         ESPectrum::fdd.led == 1 ? 4 : 2, 1));
-    //     else
-    //         VIDEO::vga.fillRect(168 + 137 , 220 + 2, 5, 4, zxColor( 7, 0));
-    // }
+    // Draw fdd led indicator in top-right corner
+    if (ESPectrum::fdd.led) {
+        VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(fdd.led == 2 ? 2 : 1, 1));
+    } else {
+        VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(VIDEO::borderColor, 0));
+    }
 
     elapsed = time_us_64() - ts_start;
     idle = target - elapsed;

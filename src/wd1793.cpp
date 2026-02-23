@@ -145,6 +145,7 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
           } else { // Restore
             wd->track=0xff;
             wd->data=0;
+            wd->led=0;
           }
 
           // printf("Seeking disk %d to track %d (disk in track: %d)\n",wd->diskS,wd->data,wd->disk[wd->diskS]->t);
@@ -1251,6 +1252,7 @@ void rvmWD1793Reset(rvmWD1793 *wd) {
   wd->command = wd->sector = wd->data = wd->dsr = 0x0;
   wd->status = kRVMWD177XStatusSetIndex | kRVMWD177XStatusSetTrack0 | kRVMWD177XStatusSetWP;
   wd->track = 0xff;
+  wd->led = 0;
   wd->wtrackmark = 0;
   wd->headerI = 0;
   wd->retry = 0;
