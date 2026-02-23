@@ -164,6 +164,13 @@ private:
     static bool pendingEI;
     // Estado de la línea NMI
     static bool activeNMI;
+    // NMI-DOS state
+    static bool activeNMIDOS;
+    static bool nmiDosInProgress;
+    static uint8_t nmiDos_savedRomInUse;
+    static bool nmiDos_savedTrdos;
+    static uint16_t nmiDos_savedSP;
+    static uint16_t nmiDos_savedPC;
     // Modo de interrupción
     static IntMode modeINT;
     // halted == true cuando la CPU está ejecutando un HALT (28/03/2010)
@@ -369,6 +376,12 @@ public:
 
     // /NMI is negative level triggered.
     static void triggerNMI(void) { activeNMI = true; }
+
+    // NMI-DOS (Magic Button) — pages in TR-DOS ROM before NMI
+    static void triggerNMIDOS(void) { activeNMIDOS = true; }
+    static bool isNMIDOS(void) { return activeNMIDOS; }
+    static void doNMIDOS(void);
+    static bool isNMIDosInProgress(void) { return nmiDosInProgress; }
 
     //Acceso al modo de interrupción
     // Maskable interrupt mode

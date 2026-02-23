@@ -44,6 +44,7 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - PS/2 Joystick emulation (Cursor, Sinclair, Kempston and Fuller).
 - Two real joysticks support (Up to 8 button joysticks).
 - Emulation of Betadisk interface with four drives and TRD (read and write) and SCL (read only) support. Fast and tealtime modes.
+- FDD activity LED indicator and mechanical head click/seek sound emulation (optional, toggled via Betadisk menu).
 - Realtime (with OSD) TZX and TAP file loading.
 - Flashload of TAP files.
 - Rodolfo Guerra's ROMs fast load routines support with on the fly standard speed blocks translation.
@@ -88,8 +89,8 @@ You can flash the binaries directly to the board: [Releases](https://github.com/
 - ALT+F7 Breakpoint at address
 - ALT+F8 Jump to address
 - ALT+F9 Input poke
-- ALT+F10 NMI
-- ALT+F11 Gluck service (in case available)
+- ALT+F10 NMI (Pentagon: modal menu with NMI / Magic Button options)
+- ALT+F11 Reset to... (modal menu: Service/Gluk, TR-DOS, 128K, 48K — depends on machine)
 - ALT+F12 Update Firmware
 - ALT+PageUp Switch Gigascreen mode ON/OFF
 - Pause Pause

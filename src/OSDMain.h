@@ -86,6 +86,7 @@ public:
     static void osdAt(uint8_t row, uint8_t col);
     static void drawOSD(bool bottom_info);
     static void drawStats();
+    static void clearStats();
     static void do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL);
     static void HWInfo();
 
@@ -148,9 +149,7 @@ public:
 
     static char stats_lin1[25]; // "CPU: 00000 / IDL: 00000 ";
     static char stats_lin2[25]; // "FPS:000.00 / FND:000.00 ";
-    static char stats_lin3[25];
-    static char stats_lin4[25];
-
+    
     static uint8_t cols;                     // Maximum columns
     static uint8_t mf_rows;                  // File menu maximum rows
     static unsigned short real_rows;      // Real row count

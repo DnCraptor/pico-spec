@@ -278,7 +278,9 @@ static const char *MENU_TAPEPLAYER2[2] = { "Real input\n", "Entrada real\n" };
     "Drive C\t>\n"\
     "Drive D\t>\n"\
 	"Fast Mode\t>\n"\
-	"Write Protect\t>\n"
+	"Write Protect\t>\n"\
+	"Disk Sound & LED\t>\n"\
+	"ROM\t>\n"
 #define MENU_BETADISK_ES \
     "Unidades\n"\
     "Unidad A\t>\n"\
@@ -286,11 +288,42 @@ static const char *MENU_TAPEPLAYER2[2] = { "Real input\n", "Entrada real\n" };
     "Unidad C\t>\n"\
     "Unidad D\t>\n"\
 	"Modo rápido\t>\n"\
-	"Protección contra escritura\t>\n"
+	"Protección contra escritura\t>\n"\
+	"Sonido y LED del disco\t>\n"\
+	"ROM\t>\n"
 static const char *MENU_BETADISK[2] = { MENU_BETADISK_EN,MENU_BETADISK_ES };
 
 static const char *MENU_FASTMODE[2] = { "Fast Mode\n", "Modo rápido\n" };
 static const char *MENU_WRITEPROTECT[2] = { "Write Protect\n", "MProtección contra escritura\n" };
+static const char *MENU_SOUNDLED[2] = { "Disk Sound & LED\n", "Sonido y LED del disco\n" };
+static const char *MENU_NMI_TITLE[2] = { "NMI\n", "NMI\n" };
+#define MENU_NMI_EN "NMI\n" "Magic Button\n"
+#define MENU_NMI_ES "NMI\n" "Magic Button\n"
+static const char *MENU_NMI_SEL[2] = { MENU_NMI_EN, MENU_NMI_ES };
+
+// Reset To menu (ALT+F11) - machine-dependent options
+#define MENU_RESETTO_128_EN "Reset to\n" "128K\n" "48K\n"
+#define MENU_RESETTO_128_ES "Resetear a\n" "128K\n" "48K\n"
+static const char *MENU_RESETTO_128[2] = { MENU_RESETTO_128_EN, MENU_RESETTO_128_ES };
+
+#define MENU_RESETTO_PENT_EN "Reset to\n" "TR-DOS\n" "128K\n" "48K\n"
+#define MENU_RESETTO_PENT_ES "Resetear a\n" "TR-DOS\n" "128K\n" "48K\n"
+static const char *MENU_RESETTO_PENT[2] = { MENU_RESETTO_PENT_EN, MENU_RESETTO_PENT_ES };
+
+#define MENU_RESETTO_PENTGLUK_EN "Reset to\n" "Mr Gluk Reset Srvs\n" "TR-DOS\n" "128K\n" "48K\n"
+#define MENU_RESETTO_PENTGLUK_ES "Resetear a\n" "Mr Gluk Reset Srvs\n" "TR-DOS\n" "128K\n" "48K\n"
+static const char *MENU_RESETTO_PENTGLUK[2] = { MENU_RESETTO_PENTGLUK_EN, MENU_RESETTO_PENTGLUK_ES };
+
+static const char *MENU_TRDOS_ROM_TITLE[2] = { "TR-DOS ROM\n", "TR-DOS ROM\n" };
+#define MENU_TRDOS_ROM_SEL_EN \
+    "5.03\t[ ]\n"\
+    "5.04TM\t[ ]\n"\
+    "5.05D\t[ ]\n"
+#define MENU_TRDOS_ROM_SEL_ES \
+    "5.03\t[ ]\n"\
+    "5.04TM\t[ ]\n"\
+    "5.05D\t[ ]\n"
+static const char *MENU_TRDOS_ROM_SEL[2] = { MENU_TRDOS_ROM_SEL_EN, MENU_TRDOS_ROM_SEL_ES };
 
 #define MENU_BETADRIVE_EN \
     "Drive#\n"\
@@ -378,6 +411,7 @@ static const char *MENU_MAIN_NO_SD[2] = { MENU_MAIN_NO_SD_EN, MENU_MAIN_NO_SD_ES
     "Preferred ROM\t>\n"\
     "Joystick\t>\n"\
     "Joystick emulation\t>\n"\
+    "Audio\t>\n"\
     "Video\t>\n"\
     "Other\t>\n"\
     "Language\t>\n"\
@@ -389,6 +423,7 @@ static const char *MENU_MAIN_NO_SD[2] = { MENU_MAIN_NO_SD_EN, MENU_MAIN_NO_SD_ES
     "ROM preferida\t>\n"\
     "Joystick\t>\n"\
     "Emulaci" "\xA2" "n joystick\t>\n"\
+    "Audio\t>\n"\
     "Video\t>\n"\
     "Otros\t>\n"\
     "Idioma\t>\n"\
@@ -605,32 +640,36 @@ static const char *MENU_FLASHLOAD[2] = { "Fast load\n" , "Carga rapida\n"};
 
 static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
 
-#define MENU_OTHER_EN "Other\n"\
+#define MENU_AUDIO_EN "Audio\n"\
     "AY-3-8912 ON/OFF\t>\n"\
+    "AY-3-8912 Stereo\t>\n"\
+    "TurboSound\t>\n"\
+    "Covox\t>\n"\
+    "Audio Driver\t>\n"\
+    "SAA1099 ON/OFF\t>\n"
+#define MENU_AUDIO_ES "Audio\n"\
+    "AY-3-8912 ON/OFF\t>\n"\
+    "AY-3-8912 Est" "\x82" "reo\t>\n"\
+    "TurboSound\t>\n"\
+    "Covox\t>\n"\
+    "Controlador de audio\t>\n"\
+    "SAA1099 ON/OFF\t>\n"
+static const char *MENU_AUDIO[2] = { MENU_AUDIO_EN, MENU_AUDIO_ES };
+
+#define MENU_OTHER_EN "Other\n"\
     "ALU Timing\t>\n"\
     "48K Issue 2\t>\n"\
     "Map joystick to cursor\t>\n"\
     "Second joystick\t>\n"\
     "Kempston joystick port\t>\n"\
-    "Throttling\t>\n"\
-	"AY-3-8912 Stereo\t>\n"\
-    "TurboSound\t>\n"\
-    "Covox\t>\n"\
-    "Audio Driver\t>\n"\
-    "SAA1099 ON/OFF\t>\n"
+    "Throttling\t>\n"
 #define MENU_OTHER_ES "Otros\n"\
-    "AY-3-8912 ON/OFF\t>\n"\
     "Temporizaci" "\xA2" "n ULA\t>\n"\
     "48K Issue 2\t>\n"\
     "Joystick al cursor\t>\n"\
     "Segundo joystick\t>\n"\
     "Puerto Kempston joystick\t>\n"\
-    "Aceleraci" "\xA2" "n\t>\n"\
-    "AY-3-8912 Est" "\x82" "reo\t>\n" \
-    "TurboSound\t>\n"\
-    "Covox\t>\n"\
-    "Controlador de audio\t>\n"\
-    "SAA1099 ON/OFF\t>\n"
+    "Aceleraci" "\xA2" "n\t>\n"
 static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
 
 static const char *MENU_AY48[2] = { "Turned on?\n" , "Turned on?\n"};

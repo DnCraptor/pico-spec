@@ -183,6 +183,7 @@ uint32_t ESPectrum::faudbufcntAY = 0;
 uint32_t ESPectrum::audbufcntCovox = 0;
 uint32_t ESPectrum::faudbufcntCovox = 0;
 uint8_t ESPectrum::audioBufferPIT[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
+uint8_t ESPectrum::audioBufferFDD[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
 uint32_t ESPectrum::audbufcntPIT = 0;
 uint32_t ESPectrum::faudbufcntPIT = 0;
 int ESPectrum::lastaudioBit = 0;
@@ -650,13 +651,17 @@ void ESPectrum::setup() {
   Config::requestMachine(Config::arch, Config::romSet);
 
   MemESP::page0ram = 0;
-  MemESP::romInUse = 0;
+  // Pentagon+Gluk: boot with Gluk ROM to install service monitor at 0xDB00
+  if (Config::romSet == "128Kpg" || Config::romSet == "128Kbg")
+      MemESP::romInUse = 3;
+  else
+      MemESP::romInUse = 0;
   MemESP::bankLatch = 0;
   MemESP::videoLatch = 0;
   MemESP::romLatch = 0;
   MemESP::newSRAM = false;
 
-  MemESP::ramCurrent[0] = MemESP::rom[0].direct();
+  MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse].direct();
   MemESP::ramCurrent[1] = MemESP::ram[5].direct();
   MemESP::ramCurrent[2] = MemESP::ram[2].sync(2);
   MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync(3);
@@ -814,7 +819,14 @@ void ESPectrum::setup() {
 //=======================================================================================
 // RESET
 //=======================================================================================
-void ESPectrum::reset() { ESPectrum::reset(0); }
+void ESPectrum::reset() {
+  // Pentagon+Gluk: boot with Gluk ROM so it installs service monitor at 0xDB00
+  // This matches real Pentagon hardware where Gluk always boots first
+  uint8_t romInUse = 0;
+  if (Config::romSet == "128Kpg" || Config::romSet == "128Kbg")
+      romInUse = 3;
+  ESPectrum::reset(romInUse);
+}
 
 void ESPectrum::reset(uint8_t romInUse) {
   // Ports
@@ -1285,6 +1297,33 @@ __not_in_flash("audio") void ESPectrum::PITGetSample() {
   }
 }
 
+void ESPectrum::FDDGenSound() {
+    memset(audioBufferFDD, 0, samplesPerFrame);
+    uint8_t clicks = fdd.fdd_clicks;
+    fdd.fdd_clicks = 0;
+    if (clicks > 0) {
+        if (clicks > 8) clicks = 8;
+        int spacing = samplesPerFrame / (clicks + 1);
+        for (int c = 0; c < clicks; c++) {
+            int pos = spacing * (c + 1);
+            uint8_t amp = 48;
+            for (int j = 0; j < 20 && (pos + j) < samplesPerFrame; j++) {
+                audioBufferFDD[pos + j] += amp;
+                amp = (amp * 3) >> 2;
+                if (amp == 0) break;
+            }
+        }
+    } else if (fdd.led) {
+        static uint16_t fdd_lfsr = 0xACE1;
+        for (int i = 0; i < samplesPerFrame; i++) {
+            fdd_lfsr ^= fdd_lfsr >> 7;
+            fdd_lfsr ^= fdd_lfsr << 9;
+            fdd_lfsr ^= fdd_lfsr >> 13;
+            audioBufferFDD[i] = (fdd_lfsr & 0xF);
+        }
+    }
+}
+
 // === Таймер ===
 bool __not_in_flash_func(ESPectrum::AY_timer_callback)(repeating_timer_t *rt) {
   // uint32_t audbufpos = audbufcntAY++;
@@ -1423,6 +1462,7 @@ void ESPectrum::loop() {
           Ports::pitGenSound(audioBufferPIT + faudbufcntPIT,
                              samplesPerFrame - faudbufcntPIT);
         }
+        if (Config::trdosSoundLed) FDDGenSound();
         if (AY_emu || SAA_emu) {
           if (AY_emu && faudbufcntAY < samplesPerFrame) {
                 if(Config::turbosound != 0 || AySound::selected_chip == 0) chip0.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
@@ -1432,7 +1472,7 @@ void ESPectrum::loop() {
                 saaChip.gen_sound(samplesPerFrame - faudbufcntSAA, faudbufcntSAA);
           }
           for (int i = 0; i < samplesPerFrame; i++) {
-                int beeper_L = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i] + audioBufferPIT[i];
+                int beeper_L = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i] + audioBufferPIT[i] + audioBufferFDD[i];
             int beeper_R = beeper_L;
             if (AY_emu) {
                 if(Config::turbosound != 0 || AySound::selected_chip == 0) {
@@ -1460,7 +1500,7 @@ void ESPectrum::loop() {
                                 (audioSampleDivider == 6) ? 33 : 32;
 
           for (int i = 0; i < samplesPerFrame; i++) {
-                int v = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i] + audioBufferPIT[i];
+                int v = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i] + audioBufferPIT[i] + audioBufferFDD[i];
             audioBuffer_L[i] = v > 255 ? 255 : v;
             audioBuffer_R[i] = v > 255 ? 255 : v;
           }
@@ -1502,7 +1542,6 @@ void ESPectrum::loop() {
             ESPectrum::TapeNameScroller = 0;
           OSD::drawStats();
         } else if (VIDEO::OSD == 2) {
-
           snprintf(OSD::stats_lin1, sizeof(OSD::stats_lin1),
                    "CPU: %05d / IDL: %05d ", (int)(ESPectrum::elapsed),
                    (int)(ESPectrum::idle));
@@ -1511,12 +1550,15 @@ void ESPectrum::loop() {
                    VIDEO::framecnt / (ESPectrum::totalseconds / 1000000),
                    VIDEO::framecnt /
                        (ESPectrum::totalsecondsnodelay / 1000000));
-          snprintf(OSD::stats_lin3, sizeof(OSD::stats_lin3),
-                   "ST:%s TR:%02X / SEC:%02X",
+          OSD::drawStats();
+        } else if (VIDEO::OSD == 3) {
+          snprintf(OSD::stats_lin1, sizeof(OSD::stats_lin1),
+                   "CPU: %05d / IDL: %05d ", (int)(ESPectrum::elapsed),
+                   (int)(ESPectrum::idle));
+          snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2),
+                   "ST:%-6sTR:#%02X/SEC:#%02X ",
                    rvmWD1793StepStateName(&ESPectrum::fdd).c_str(),
                    ESPectrum::fdd.track, ESPectrum::fdd.sector);
-          // snprintf(OSD::stats_lin4, sizeof(OSD::stats_lin4), "CPU: X*%d ",
-          // (ESPectrum::multiplicator+1));
           OSD::drawStats();
         }
         totalseconds = 0;
@@ -1528,14 +1570,14 @@ void ESPectrum::loop() {
     if (!(VIDEO::flash_ctr++ & 0x0f) && !VIDEO::ulaplus_enabled)
       VIDEO::flashing ^= 0x80;
 
-    // // Draw fdd led if CPU OSD active
-    // if (VIDEO::OSD == 2 && (VIDEO::framecnt & 1)) {
-    //     if (ESPectrum::fdd.led)
-    //         VIDEO::vga.fillRect(168 + 137 , 220 + 2, 5, 4, zxColor(
-    //         ESPectrum::fdd.led == 1 ? 4 : 2, 1));
-    //     else
-    //         VIDEO::vga.fillRect(168 + 137 , 220 + 2, 5, 4, zxColor( 7, 0));
-    // }
+    // Draw fdd led indicator in top-right corner
+    if (Config::trdosSoundLed) {
+        if (ESPectrum::fdd.led) {
+            VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(fdd.led == 2 ? 2 : 1, 1));
+        } else {
+            VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(VIDEO::borderColor, 0));
+        }
+    }
 
     elapsed = time_us_64() - ts_start;
     idle = target - elapsed;
