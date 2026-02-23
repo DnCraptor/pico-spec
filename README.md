@@ -88,8 +88,8 @@ You can flash the binaries directly to the board: [Releases](https://github.com/
 - ALT+F7 Breakpoint at address
 - ALT+F8 Jump to address
 - ALT+F9 Input poke
-- ALT+F10 NMI
-- ALT+F11 Gluck service (in case available)
+- ALT+F10 NMI (Pentagon: modal menu with NMI / Magic Button options)
+- ALT+F11 Reset to... (modal menu: Service/Gluk, TR-DOS, 128K, 48K — depends on machine)
 - ALT+F12 Update Firmware
 - ALT+PageUp Switch Gigascreen mode ON/OFF
 - Pause Pause
