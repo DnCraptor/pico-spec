@@ -1469,7 +1469,7 @@ void ESPectrum::loop() {
                 saaChip.gen_sound(samplesPerFrame - faudbufcntSAA, faudbufcntSAA);
           }
           for (int i = 0; i < samplesPerFrame; i++) {
-                int beeper_L = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i] + audioBufferPIT[i] + audioBufferFDD[i];
+                int beeper_L = (overSamplebuf[i] / audioSampleDivider >> 2) + audioBufferCovox[i] + audioBufferPIT[i] + audioBufferFDD[i];
             int beeper_R = beeper_L;
             if (AY_emu) {
                 if(Config::turbosound != 0 || AySound::selected_chip == 0) {
@@ -1568,7 +1568,8 @@ void ESPectrum::loop() {
       VIDEO::flashing ^= 0x80;
 
     // Draw fdd led indicator in top-right corner
-    if (Config::trdosSoundLed) {
+    bool hasFdd = (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) && Tape::tapeStatus != TAPE_LOADING;
+    if (hasFdd && Config::trdosSoundLed) {
         if (ESPectrum::fdd.led) {
             VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(fdd.led == 2 ? 2 : 1, 1));
         } else {

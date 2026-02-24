@@ -65,7 +65,7 @@ visit https://zxespectrum.speccy.org/contacto
 //   6: ula <= 8'hF8;
 //   7: ula <= 8'hFF;
 // and adjusted for BEEPER_MAX_VOLUME = 97
-uint8_t Ports::speaker_values[8] = {0, 10, 17, 27, 49, 51, 65, 67};
+uint8_t Ports::speaker_values[8] = {0, 19, 34, 53, 97, 101, 130, 134};
 uint8_t Ports::port[128];
 uint8_t Ports::port254 = 0;
 uint8_t Ports::portAFF7 = 0;
