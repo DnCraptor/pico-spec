@@ -168,7 +168,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
   }
   bool ia = Z80Ops::isALF;
   uint8_t p8 = address & 0xFF;
-  if (Z80Ops::isPentagon || Z80Ops::is512 || Z80Ops::is1024) { // Hidden RAM (Pentagon 512/1024 only)
+  if (Z80Ops::isPentagon) { // Hidden RAM (Pentagon 512/1024 only)
     if (p8 == 0xFB) { // Hidden RAM on
       MemESP::newSRAM = true;
       MemESP::recoverPage0();
