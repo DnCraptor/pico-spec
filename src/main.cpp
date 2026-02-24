@@ -29,6 +29,7 @@
 #include "audio.h"
 #include "ff.h"
 #include "psram_spi.h"
+#include "Debug.h"
 #ifdef KBDUSB
     #include "ps2kbd_mrmltr.h"
 #else
@@ -1097,16 +1098,21 @@ int main() {
 #if PICO_RP2350
     }
 #endif
+    Debug::log("main: psram init done");
     // send kbd reset only after initial process passed
 #ifndef KBDUSB
     keyboard_send(0xFF);
 #endif
 
     #ifdef VGA_HDMI
+    Debug::log("main: testPins begin");
     linkVGA01 = testPins(VGA_BASE_PIN, VGA_BASE_PIN + 1);
+    Debug::log("main: testPins=%02X", linkVGA01);
     #endif
 
+    Debug::log("main: before ESPectrum::setup()");
     ESPectrum::setup();
+    Debug::log("main: after ESPectrum::setup()");
     #ifdef PICO_DEFAULT_LED_PIN
     for (int i = 0; i < 6; i++) {
         sleep_ms(33);

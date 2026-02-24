@@ -61,6 +61,7 @@ visit https://zxespectrum.speccy.org/contacto
 #endif
 
 #include "PinSerialData_595.h"
+#include "Debug.h"
 
 using namespace std;
 
@@ -533,7 +534,9 @@ void ESPectrum::setup() {
   //=======================================================================================
   // INIT FILESYSTEM
   //=======================================================================================
+  Debug::log("setup: initFileSystem begin");
   FileUtils::initFileSystem();
+  Debug::log("setup: initFileSystem done, fsMount=%d", FileUtils::fsMount);
 
   mem_desc_t::reset();
   Ports::portAFF7 = 0;
@@ -542,8 +545,10 @@ void ESPectrum::setup() {
   //=======================================================================================
   if (FileUtils::fsMount)
     Config::load();
+  Debug::log("setup: Config loaded");
   bool ext_ram_exist = butter_psram_size() >= (16 << 10) ||
                        psram_size() >= (16 << 10) || FileUtils::fsMount;
+  Debug::log("setup: ext_ram_exist=%d, freeHeap=%u", ext_ram_exist, getFreeHeap());
 
   // Set arch if there's no snapshot to load
   if (Config::ram_file == NO_RAM_FILE) {
@@ -620,6 +625,7 @@ void ESPectrum::setup() {
   //=======================================================================================
   // MEMORY SETUP
   //=======================================================================================
+  Debug::log("setup: MEMORY SETUP begin, freeHeap=%u", getFreeHeap());
   if (ext_ram_exist) {
     mem_desc_t *temp = MemESP::ram;
     MemESP::ram = new mem_desc_t[MEM_PG_CNT + 2];
@@ -634,10 +640,13 @@ void ESPectrum::setup() {
     // for virtual ram
     assign_ram(4);
     assign_ram(6);
+    Debug::log("setup: ext_ram: pages 0-6 done, freeHeap=%u", getFreeHeap());
     for (size_t i = 8; i < (MEM_PG_CNT + 2); ++i) {
       assign_ram(i);
     }
+    Debug::log("setup: ext_ram: all pages done, freeHeap=%u", getFreeHeap());
   } else {
+    Debug::log("setup: no ext_ram path, freeHeap=%u", getFreeHeap());
 #if PICO_RP2350
     // TODO: real number of supported pages: +256/16=16? or just +8 and support
     // Pentagon 256? or 512-128...
@@ -654,9 +663,12 @@ void ESPectrum::setup() {
     MemESP::ram[6].assign_ram(new unsigned char[MEM_PG_SZ], 6, false);
     // 7 - static (video RAM)
     ram_pages += 5;
+    Debug::log("setup: no ext_ram: pages done, freeHeap=%u", getFreeHeap());
   }
   // Load romset
+  Debug::log("setup: requestMachine begin, freeHeap=%u", getFreeHeap());
   Config::requestMachine(Config::arch, Config::romSet);
+  Debug::log("setup: requestMachine done, freeHeap=%u", getFreeHeap());
 
   MemESP::page0ram = 0;
   // Pentagon+Gluk: boot with Gluk ROM to install service monitor at 0xDB00
@@ -707,13 +719,15 @@ void ESPectrum::setup() {
     }
   }
 #endif
+  Debug::log("setup: VIDEO::Init begin, freeHeap=%u", getFreeHeap());
   VIDEO::Init();
+  Debug::log("setup: VIDEO::Init done, freeHeap=%u", getFreeHeap());
   VIDEO::Reset();
-
-  ///    if (Config::slog_on) showMemInfo("VGA started");
+  Debug::log("setup: VIDEO::Reset done");
 
   // if (Config::StartMsg) ShowStartMsg(); // Show welcome message
 
+  Debug::log("setup: AUDIO section begin, freeHeap=%u", getFreeHeap());
   //=======================================================================================
   // AUDIO
   //=======================================================================================
@@ -749,8 +763,10 @@ void ESPectrum::setup() {
 
   audioCOVOXDivider = audioAYDivider;
 
+  Debug::log("setup: init_sound begin");
   init_sound();
   pcm_setup(Audio_freq);
+  Debug::log("setup: audio init done, freeHeap=%u", getFreeHeap());
 
   if (Config::tape_player) {
     AY_emu = false; // Disable AY emulation if tape player mode is set
@@ -771,10 +787,10 @@ void ESPectrum::setup() {
   chip1.set_stereo(AYEMU_MONO, NULL);
   chip1.reset();
 
-  // SAA1099 Sound
-  saaChip.init();
-  saaChip.set_sound_format(Audio_freq, 1, 8);
-  saaChip.reset();
+  // // SAA1099 Sound
+  // saaChip.init();
+  // saaChip.set_sound_format(Audio_freq, 1, 8);
+  // saaChip.reset();
 
   // Init tape
   Tape::Init();
@@ -819,7 +835,7 @@ void ESPectrum::setup() {
     if (FileUtils::fsMount)
       Config::save();
   }
-  ///    if (Config::slog_on) showMemInfo("ZX-ESPectrum-IDF setup finished.");
+  Debug::log("setup: COMPLETE, freeHeap=%u", getFreeHeap());
 
   // Create loop function as task: it doesn't seem better than calling from
   // main.cpp and increases RAM consumption (4096 bytes for stack).

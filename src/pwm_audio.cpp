@@ -6,6 +6,7 @@
 #include "audio.h"
 #include "pwm_audio.h"
 #include "Config.h"
+#include "Debug.h"
 #include "LoadWavStream.h"
 #include "PinSerialData_595.h"
 
@@ -284,9 +285,12 @@ void init_sound() {
         if (Config::audio_driver != 0) {
             is_i2s_enabled = (Config::audio_driver == 2);
         }
+        Debug::log("init_sound: audio_driver=%d, link_i2s=%02X, i2s_en=%d", Config::audio_driver, link_i2s_code, (int)is_i2s_enabled);
         if (is_i2s_enabled) {
+            Debug::log("init_sound: I2S mode");
             i2s_volume(&i2s_config, 0);
         } else {
+            Debug::log("init_sound: PWM mode, pins %d/%d", PWM_PIN0, PWM_PIN1);
             PWM_init_pin(PWM_PIN0, (1 << 8) - 1);
             PWM_init_pin(PWM_PIN1, (1 << 8) - 1);
             /// PWM_init_pin(BEEPER_PIN, (1 << 8) - 1);
