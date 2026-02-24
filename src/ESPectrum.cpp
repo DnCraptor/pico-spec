@@ -979,7 +979,6 @@ fabgl::VirtualKey ESPectrum::VK_ESPECTRUM_GRAVEACCENT = fabgl::VK_GRAVEACCENT;
 
 IRAM_ATTR void ESPectrum::processKeyboard() {
   static uint8_t PS2cols[8] = {0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf, 0xbf};
-  static int zxDelay = 0;
   auto Kbd = PS2Controller.keyboard();
   fabgl::VirtualKeyItem NextKey;
   fabgl::VirtualKey KeytoESP;
@@ -1018,8 +1017,6 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
             Kbd->isVKDown(fabgl::VK_LALT) || Kbd->isVKDown(fabgl::VK_RALT),
             Kbd->isVKDown(fabgl::VK_LCTRL) || Kbd->isVKDown(fabgl::VK_RCTRL));
         Kbd->emptyVirtualKeyQueue();
-        // Set all zx keys as not pressed
-        zxDelay = 15;
 #ifdef DIRTY_LINES
         for (int i = 0; i < SPEC_H; i++)
           VIDEO::dirty_lines[i] |= 0x01;

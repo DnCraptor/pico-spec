@@ -168,15 +168,17 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
   }
   bool ia = Z80Ops::isALF;
   uint8_t p8 = address & 0xFF;
-  if (p8 == 0xFB) { // Hidden RAM on
-    MemESP::newSRAM = true;
-    MemESP::recoverPage0();
-    return 0xFF;
-  }
-  if (p8 == 0x7B) { // Hidden RAM off
-    MemESP::newSRAM = false;
-    MemESP::recoverPage0();
-    return 0xFF;
+  if (Z80Ops::isPentagon || Z80Ops::is512 || Z80Ops::is1024) { // Hidden RAM (Pentagon 512/1024 only)
+    if (p8 == 0xFB) { // Hidden RAM on
+      MemESP::newSRAM = true;
+      MemESP::recoverPage0();
+      return 0xFF;
+    }
+    if (p8 == 0x7B) { // Hidden RAM off
+      MemESP::newSRAM = false;
+      MemESP::recoverPage0();
+      return 0xFF;
+    }
   }
   // ULA PORT
   if ((address & 0x0001) == 0) {
@@ -391,10 +393,10 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
   if ((address & 0x0001) == 0) {
     port254 = data;
     // Border color
-    if (VIDEO::borderColor != (data & 0x07)) {
+    if (VIDEO::borderColor != data) {
       VIDEO::brdChange = true;
       if (!Z80Ops::isPentagon)
-        VIDEO::Draw(0, false); // Flush video rendering without adding contention
+        VIDEO::Draw(0, true); // Apply contention to align border change with ULA character cell
       VIDEO::DrawBorder();
       VIDEO::borderColor = data & 0x07;
       if (VIDEO::ulaplus_enabled)
