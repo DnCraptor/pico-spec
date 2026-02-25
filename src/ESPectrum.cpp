@@ -270,6 +270,11 @@ int64_t ESPectrum::ts_start;
 int64_t ESPectrum::elapsed;
 int64_t ESPectrum::idle;
 uint8_t ESPectrum::multiplicator = 0;
+uint32_t ESPectrum::lastBeeperTstates = 0;
+uint32_t ESPectrum::accumulatorFP = 0;
+uint32_t ESPectrum::tstatesPerSampleFP = 0;
+uint32_t ESPectrum::beeperSampleAccum = 0;
+uint32_t ESPectrum::beeperTstatesInSample = 0;
 
 //=======================================================================================
 // LOGGING / TESTING
@@ -718,6 +723,7 @@ void ESPectrum::setup() {
     AY_emu = Config::AY48;
     SAA_emu = Config::SAA1099;
     Audio_freq = ESP_AUDIO_FREQ_48;
+    tstatesPerSampleFP = (TSTATES_PER_FRAME_48 << 8) / ESP_AUDIO_SAMPLES_48;
   } else if (Config::arch == "128K" || Config::arch == "ALF") {
     samplesPerFrame = ESP_AUDIO_SAMPLES_128;
     audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_128;
@@ -726,6 +732,7 @@ void ESPectrum::setup() {
     AY_emu = Config::AY48;
     SAA_emu = Config::SAA1099;
     Audio_freq = ESP_AUDIO_FREQ_128;
+    tstatesPerSampleFP = (TSTATES_PER_FRAME_128 << 8) / ESP_AUDIO_SAMPLES_128;
   } else { /// if (Config::arch == "P512" || Config::arch == "Pentagon") {
     samplesPerFrame = ESP_AUDIO_SAMPLES_PENTAGON;
     audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_PENTAGON;
@@ -734,6 +741,7 @@ void ESPectrum::setup() {
     AY_emu = Config::AY48;
     SAA_emu = Config::SAA1099;
     Audio_freq = ESP_AUDIO_FREQ_PENTAGON;
+    tstatesPerSampleFP = (TSTATES_PER_FRAME_PENTAGON << 8) / ESP_AUDIO_SAMPLES_PENTAGON;
   }
 
   audioCOVOXDivider = audioAYDivider;
@@ -895,6 +903,7 @@ void ESPectrum::reset(uint8_t romInUse) {
     AY_emu = Config::AY48;
     SAA_emu = Config::SAA1099;
     Audio_freq = ESP_AUDIO_FREQ_48;
+    tstatesPerSampleFP = (TSTATES_PER_FRAME_48 << 8) / ESP_AUDIO_SAMPLES_48;
   } else if (Config::arch == "128K" || Config::arch == "ALF") {
     samplesPerFrame = ESP_AUDIO_SAMPLES_128;
     audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_128;
@@ -903,6 +912,7 @@ void ESPectrum::reset(uint8_t romInUse) {
     AY_emu = Config::AY48;
     SAA_emu = Config::SAA1099;
     Audio_freq = ESP_AUDIO_FREQ_128;
+    tstatesPerSampleFP = (TSTATES_PER_FRAME_128 << 8) / ESP_AUDIO_SAMPLES_128;
   } else { /// if (Config::arch == "P512" || Config::arch == "Pentagon") {
     samplesPerFrame = ESP_AUDIO_SAMPLES_PENTAGON;
     audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_PENTAGON;
@@ -911,6 +921,7 @@ void ESPectrum::reset(uint8_t romInUse) {
     AY_emu = Config::AY48;
     SAA_emu = Config::SAA1099;
     Audio_freq = ESP_AUDIO_FREQ_PENTAGON;
+    tstatesPerSampleFP = (TSTATES_PER_FRAME_PENTAGON << 8) / ESP_AUDIO_SAMPLES_PENTAGON;
   }
 
   audioCOVOXDivider = audioAYDivider;
@@ -1237,16 +1248,31 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
 }
 
 __not_in_flash("audio") void ESPectrum::BeeperGetSample() {
-  uint32_t audbufpos = CPU::tstates / audioOverSampleDivider;
-  if (multiplicator)
-    audbufpos >>= multiplicator;
-  for (; audbufcnt < audbufpos; audbufcnt++) {
-    audioBitBuf += lastaudioBit;
-    if (++audioBitbufCount == audioSampleDivider) {
-      overSamplebuf[audbufcntover++] = audioBitBuf;
-      audioBitBuf = 0;
-      audioBitbufCount = 0;
-    }
+  uint32_t currentTstates = CPU::tstates;
+  uint32_t delta = currentTstates - lastBeeperTstates;
+  lastBeeperTstates = currentTstates;
+
+  uint32_t effectiveFP = tstatesPerSampleFP;
+  if (multiplicator) effectiveFP <<= multiplicator;
+
+  // Accumulate beeper value weighted by time
+  beeperSampleAccum += lastaudioBit * delta;
+  beeperTstatesInSample += delta;
+  accumulatorFP += (delta << 8);
+
+  // Generate completed output samples
+  while (accumulatorFP >= effectiveFP) {
+    accumulatorFP -= effectiveFP;
+    // Overflow tstates belong to next sample
+    uint32_t overflowTstates = accumulatorFP >> 8;
+    uint32_t completedAccum = beeperSampleAccum - lastaudioBit * overflowTstates;
+    uint32_t completedTstates = beeperTstatesInSample - overflowTstates;
+    // Write tstate-weighted average directly
+    overSamplebuf[audbufcntover++] = completedTstates > 0
+        ? completedAccum / completedTstates : 0;
+    // Carry overflow to next sample
+    beeperSampleAccum = lastaudioBit * overflowTstates;
+    beeperTstatesInSample = overflowTstates;
   }
 }
 
@@ -1404,6 +1430,10 @@ void ESPectrum::loop() {
     audbufcntSAA = 0;
     audbufcntCovox = 0;
     audbufcntPIT = 0;
+    lastBeeperTstates = 0;
+    accumulatorFP = 0;
+    beeperSampleAccum = 0;
+    beeperTstatesInSample = 0;
 
     CPU::loop();
 
@@ -1437,14 +1467,31 @@ void ESPectrum::loop() {
 #endif
       int32_t t_us = Config::throtling * 1000l;
       if (!t_us || idle > t_us) {
-        // Finish fill of beeper oversampled audio buffers
-        for (; faudbufcnt < (samplesPerFrame * audioSampleDivider);
-             faudbufcnt++) {
-          audioBitBuf += faudioBit;
-          if (++audioBitbufCount == audioSampleDivider) {
-            overSamplebuf[audbufcntover++] = audioBitBuf;
-            audioBitBuf = 0;
-            audioBitbufCount = 0;
+        // Finish fill of beeper audio buffer (tstate-weighted)
+        if (beeperTstatesInSample > 0 && audbufcntover < (uint32_t)samplesPerFrame) {
+          // Complete partial sample with constant beeper value
+          uint32_t tstatesPerSampleInt = tstatesPerSampleFP >> 8;
+          if (beeperTstatesInSample < tstatesPerSampleInt) {
+            uint32_t remaining = tstatesPerSampleInt - beeperTstatesInSample;
+            beeperSampleAccum += faudioBit * remaining;
+            beeperTstatesInSample += remaining;
+          }
+          overSamplebuf[audbufcntover++] = beeperSampleAccum / beeperTstatesInSample;
+          beeperSampleAccum = 0;
+          beeperTstatesInSample = 0;
+        }
+        // Fill remaining samples with constant beeper value
+        while (audbufcntover < (uint32_t)samplesPerFrame) {
+          overSamplebuf[audbufcntover++] = faudioBit;
+        }
+        // Smooth beeper buffer: simple 2-tap average to reduce jitter from
+        // non-integer tstate-per-sample division (especially 128K: 113.45)
+        {
+          uint32_t prev = overSamplebuf[0];
+          for (int i = 1; i < samplesPerFrame; i++) {
+            uint32_t curr = overSamplebuf[i];
+            overSamplebuf[i] = (prev + curr + 1) >> 1;
+            prev = curr;
           }
         }
         if (Config::covox && faudbufcntCovox < samplesPerFrame) {
@@ -1460,7 +1507,7 @@ void ESPectrum::loop() {
                              samplesPerFrame - faudbufcntPIT);
         }
         if (Config::trdosSoundLed) FDDGenSound();
-        if (AY_emu || SAA_emu) {
+        // if (AY_emu || SAA_emu) {
           if (AY_emu && faudbufcntAY < samplesPerFrame) {
                 if(Config::turbosound != 0 || AySound::selected_chip == 0) chip0.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
                 if(Config::turbosound != 0 || AySound::selected_chip == 1) chip1.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
@@ -1469,7 +1516,7 @@ void ESPectrum::loop() {
                 saaChip.gen_sound(samplesPerFrame - faudbufcntSAA, faudbufcntSAA);
           }
           for (int i = 0; i < samplesPerFrame; i++) {
-                int beeper_L = (overSamplebuf[i] / audioSampleDivider >> 2) + audioBufferCovox[i] + audioBufferPIT[i] + audioBufferFDD[i];
+                int beeper_L = (overSamplebuf[i] >> 2) + audioBufferCovox[i] + audioBufferPIT[i] + audioBufferFDD[i];
             int beeper_R = beeper_L;
             if (AY_emu) {
                 if(Config::turbosound != 0 || AySound::selected_chip == 0) {
@@ -1488,20 +1535,13 @@ void ESPectrum::loop() {
                 audioBuffer_L[i] = beeper_L > 255 ? 255 : beeper_L; // Clamp
                 audioBuffer_R[i] = beeper_R > 255 ? 255 : beeper_R; // Clamp
           }
-        } else {
-          // Оптимизация деления через reciprocal multiplication
-          const uint32_t div_magic = (audioSampleDivider == 7) ? 0x24924925 :
-                                     (audioSampleDivider == 6) ? 0x2AAAAAAB :
-                                     ((1ULL << 32) / audioSampleDivider);
-          const int div_shift = (audioSampleDivider == 7) ? 34 :
-                                (audioSampleDivider == 6) ? 33 : 32;
-
-          for (int i = 0; i < samplesPerFrame; i++) {
-                int v = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i] + audioBufferPIT[i] + audioBufferFDD[i];
-            audioBuffer_L[i] = v > 255 ? 255 : v;
-            audioBuffer_R[i] = v > 255 ? 255 : v;
-          }
-        }
+        // } else {
+        //   for (int i = 0; i < samplesPerFrame; i++) {
+        //         int v = overSamplebuf[i] + audioBufferCovox[i] + audioBufferPIT[i] + audioBufferFDD[i];
+        //     audioBuffer_L[i] = v > 255 ? 255 : v;
+        //     audioBuffer_R[i] = v > 255 ? 255 : v;
+        //   }
+        // }
       }
     }
     processKeyboard();
