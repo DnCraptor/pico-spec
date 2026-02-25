@@ -55,6 +55,7 @@ public:
 
     static uint8_t portAFF7;
 
+#if !PICO_RP2040
     // KR580VI53 (Intel 8253 PIT) — Byte computer sound synthesizer
     struct PIT8253Channel {
         uint16_t count_value;  // Programmed divisor (16-bit)
@@ -66,6 +67,7 @@ public:
     };
     static PIT8253Channel pitChannels[3];
     static void pitGenSound(uint8_t* buf, int bufsize);
+#endif
 
 private :
 

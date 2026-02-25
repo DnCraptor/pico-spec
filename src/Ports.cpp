@@ -69,7 +69,9 @@ uint8_t Ports::speaker_values[8] = {0, 19, 34, 53, 97, 101, 130, 134};
 uint8_t Ports::port[128];
 uint8_t Ports::port254 = 0;
 uint8_t Ports::portAFF7 = 0;
+#if !PICO_RP2040
 Ports::PIT8253Channel Ports::pitChannels[3] = {};
+#endif
 
 uint8_t (*Ports::getFloatBusData)() = &Ports::getFloatBusData48;
 
@@ -219,6 +221,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
       }
     }
 #endif
+#if !PICO_RP2040
     // ULA+ data port read
     if (Config::ulaplus && address == 0xFF3B) {
       uint8_t reg = VIDEO::ulaplus_reg;
@@ -227,6 +230,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
       else
         return VIDEO::ulaplus_enabled ? 1 : 0;
     }
+#endif
     // The default port value is 0xFF.
     data = 0xff;
     if (ESPectrum::trdos) {
@@ -399,9 +403,11 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         VIDEO::Draw(0, true); // Apply contention to align border change with ULA character cell
       VIDEO::DrawBorder();
       VIDEO::borderColor = data & 0x07;
+#if !PICO_RP2040
       if (VIDEO::ulaplus_enabled)
         VIDEO::ulaPlusUpdateBorder();
       else
+#endif
         VIDEO::brd = VIDEO::border32[VIDEO::borderColor];
     }
     if (Config::tape_player)
@@ -426,6 +432,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
       VIDEO::Draw(3, !Z80Ops::isPentagon); // I/O Contention (Late)
       return;
     }
+#if !PICO_RP2040
     // KR580VI53 (8253 PIT) — Byte computer synthesizer
     // =========================
     if (Z80Ops::isByte && (a8 & 0x9F) == 0x8E) {
@@ -455,8 +462,10 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         }
       }
     }
+#endif
     VIDEO::Draw(3, !Z80Ops::isPentagon); // I/O Contention (Late)
   } else {
+#if !PICO_RP2040
     // ULA+ ports (odd addresses: 0xBF3B register select, 0xFF3B data)
     if (Config::ulaplus) {
       if (address == 0xBF3B) {
@@ -490,11 +499,13 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         return;
       }
     }
+#endif
     int covox = Config::covox;
     if ((covox == 1 && a8 == 0xFB) || (covox == 2 && a8 == 0xDD)) {
       ESPectrum::lastCovoxVal = data;
       ESPectrum::CovoxGetSample();
     }
+#if !PICO_RP2040
     // SAA1099 Sound Chip
     // Ports: 0x00FF/0x01FF (original), 0x04FF/0x05FF (Light/Middle revisions)
     // Accessible only when TR-DOS ROM is NOT mapped (DOS/ = 1)
@@ -512,6 +523,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         return;
       }
     }
+#endif
     // AY
     // ========================================================================
     if ((ESPectrum::AY_emu) &&
@@ -653,6 +665,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
   }
 }
 
+#if !PICO_RP2040
 // KR580VI53 (8253 PIT) square wave generator
 // PIT clock = CPU clock = 3.5 MHz (verified: divisor 5602 → 624.7 Hz)
 // Mode 3: output toggles every count_value/2 PIT clock ticks
@@ -696,6 +709,7 @@ IRAM_ATTR void Ports::pitGenSound(uint8_t *buf, int bufsize) {
     *buf++ = mix;
   }
 }
+#endif
 
 IRAM_ATTR void Ports::ioContentionLate(bool contend) {
   if (contend) {

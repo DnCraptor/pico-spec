@@ -2354,6 +2354,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         }
                                     }
                                 }
+#if !PICO_RP2040
                                 else if (options_num == 6) {
                                     menu_level = 3;
                                     menu_curopt = 1;
@@ -2389,6 +2390,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         }
                                     }
                                 }
+#endif
                             } else {
                                 menu_curopt = 6;
                                 break;
@@ -2639,12 +2641,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     }
                                 }
                                 #endif
-                                // ULA+ ON/OFF
                                 #if !PICO_RP2040
+                                // ULA+ ON/OFF
                                 else if (options_num == 7) {
-                                #else
-                                else if (options_num == 6) {
-                                #endif
                                     menu_level = 3;
                                     menu_curopt = 1;
                                     menu_saverect = true;
@@ -2675,16 +2674,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             menu_curopt = opt2;
                                             menu_saverect = false;
                                         } else {
-                                            #if !PICO_RP2040
                                             menu_curopt = 7;
-                                            #else
-                                            menu_curopt = 6;
-                                            #endif
                                             menu_level = 2;
                                             break;
                                         }
                                     }
                                 }
+                                #endif
                             } else {
                                 menu_curopt = 7;
                                 break;
@@ -3255,11 +3251,21 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             }
             else if (FileUtils::fsMount && opt == 10 || opt == 8) { // About
                 // About
+                // Protect OSD area from Z80 video renderer overwrite
+                bool about_osd_enabled = (VIDEO::OSD != 0);
+                if (!about_osd_enabled) {
+                    if (Config::aspect_16_9)
+                        VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
+                    else
+                        VIDEO::Draw_OSD43 = Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
+                    VIDEO::OSD = 0x04;
+                }
                 drawOSD(false);
 
                 VIDEO::vga.fillRect(Config::aspect_16_9 ? 60 : 40,Config::aspect_16_9 ? 12 : 32,240,50,zxColor(0, 0));
 
                 // Decode Logo in EBF8 format
+                // Logo pixels are stored as ZX Spectrum palette indices (0-15)
                 uint8_t *logo = (uint8_t *)ESPectrum_logo;
                 int pos_x = Config::aspect_16_9 ? 86 : 66;
                 int pos_y = Config::aspect_16_9 ? 23 : 43;
@@ -3267,8 +3273,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 int logo_h = (logo[7] << 8) + logo[6]; // Get Height
                 logo+=8; // Skip header
                 for (int i=0; i < logo_h; i++)
-                    for(int n=0; n<logo_w; n++)
-                        VIDEO::vga.dotFast(pos_x + n,pos_y + i,logo[n+(i*logo_w)]);
+                    for(int n=0; n<logo_w; n++) {
+                        uint8_t zxIdx = logo[n+(i*logo_w)];
+                        VIDEO::vga.dotFast(pos_x + n, pos_y + i, zxColor(zxIdx & 7, zxIdx >> 3));
+                    }
 
                 // About Page 1
                 // osdAt(7, 0);
@@ -3345,6 +3353,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     sleep_ms(20);
                 }
                 click();
+                // Restore video renderer if we enabled OSD protection for About
+                if (!about_osd_enabled) {
+                    VIDEO::OSD = 0;
+                    if (Config::aspect_16_9)
+                        VIDEO::Draw_OSD169 = VIDEO::MainScreen;
+                    else
+                        VIDEO::Draw_OSD43 = Z80Ops::isPentagon ? VIDEO::BottomBorder_Pentagon : VIDEO::BottomBorder;
+                }
                 if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
                 if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                 return;

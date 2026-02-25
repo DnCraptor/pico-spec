@@ -146,14 +146,23 @@ message(STATUS "")
 
 add_executable(${PROJECT_NAME} ${SRC})
 
-# КРИТИЧНАЯ ОПТИМИЗАЦИЯ: компилируем AySound.cpp с максимальной оптимизацией
-# Это дает дополнительные 2-4 FPS при проигрывании цифровой музыки через AY
+# КРИТИЧНАЯ ОПТИМИЗАЦИЯ: принудительно -O3 для горячего кода независимо от CMAKE_BUILD_TYPE
+# Это важно для MinSizeRel (где по умолчанию -Os), чтобы не терять FPS
 set_source_files_properties(src/AySound.cpp PROPERTIES
     COMPILE_FLAGS "-O3 -ffast-math -funroll-loops")
 set_source_files_properties(src/SAASound.cpp PROPERTIES
     COMPILE_FLAGS "-O3 -ffast-math -funroll-loops")
 set_source_files_properties(src/Video.cpp PROPERTIES
     COMPILE_FLAGS "-O3 -funroll-loops")
+# Z80 эмулятор — самый горячий код, критично для производительности
+set_source_files_properties(src/Z80_JLS.cpp PROPERTIES
+    COMPILE_FLAGS "-O3")
+set_source_files_properties(src/CPU.cpp PROPERTIES
+    COMPILE_FLAGS "-O3")
+set_source_files_properties(src/Ports.cpp PROPERTIES
+    COMPILE_FLAGS "-O3")
+set_source_files_properties(src/wd1793.cpp PROPERTIES
+    COMPILE_FLAGS "-O3")
 
 if (PICO_BOARD STREQUAL "pico")
     pico_define_boot_stage2(slower_boot2 ${PICO_DEFAULT_BOOT_STAGE2_FILE})
@@ -495,7 +504,7 @@ ELSEIF(ZERO)
         NES_GPIO_CLK=7
         NES_GPIO_LAT=8
         NES_GPIO_DATA=9
-        NES_GPIO_DATA2=10
+        NES_GPIO_DATA2=9
 
         # VGA 8 pins starts from pin:
         VGA_BASE_PIN=22
@@ -506,6 +515,7 @@ ELSEIF(ZERO)
         DEFAULT_THROTTLING=0
         PICO_RP2040=1
         PICO_DEFAULT_LED_PIN=25
+        DEBUG=0
     )
 ELSEIF(ZERO2)
     target_compile_definitions(${PROJECT_NAME} PRIVATE

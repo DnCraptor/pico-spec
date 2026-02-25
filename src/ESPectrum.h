@@ -52,12 +52,12 @@ using namespace std;
 #define ESP_AUDIO_AY_DIV_48  112
 #define ESP_AUDIO_OVERSAMPLES_DIV_48  16
 
-#define ESP_AUDIO_OVERSAMPLES_128 3732
-#define ESP_AUDIO_FREQ_128 31112 // ESP_AUDIO_SAMPLES_128 * 50,020008 fps = 31112,445 Hz.
-#define ESP_AUDIO_SAMPLES_128 622
-#define ESP_AUDIO_SAMPLES_DIV_128  6
-#define ESP_AUDIO_AY_DIV_128  114
-#define ESP_AUDIO_OVERSAMPLES_DIV_128 19
+#define ESP_AUDIO_OVERSAMPLES_128 4375
+#define ESP_AUDIO_FREQ_128 31250 // Fixed 31250 Hz for all models, fixed-point accumulator handles non-integer division
+#define ESP_AUDIO_SAMPLES_128 625
+#define ESP_AUDIO_SAMPLES_DIV_128  7
+#define ESP_AUDIO_AY_DIV_128  113
+#define ESP_AUDIO_OVERSAMPLES_DIV_128 16
 
 #define ESP_AUDIO_OVERSAMPLES_PENTAGON 4480
 #define ESP_AUDIO_FREQ_PENTAGON 31250 // ESP_AUDIO_SAMPLES_PENTAGON * 48,828125 frames per second = 31250 Hz
@@ -105,8 +105,10 @@ public:
     static void BeeperGetSample();
     static void CovoxGetSample();
     static void AYGetSample();
+#if !PICO_RP2040
     static void SAAGetSample();
     static void PITGetSample();
+#endif
     static void FDDGenSound();
     static bool __not_in_flash_func(AY_timer_callback)(repeating_timer_t *rt);
     static uint8_t audioBuffer_L[ESP_AUDIO_SAMPLES_PENTAGON];
@@ -121,25 +123,38 @@ public:
     static uint32_t audbufcnt;
     static uint32_t audbufcntover;
     static uint32_t audbufcntAY;
+#if !PICO_RP2040
     static uint32_t audbufcntSAA;
+#endif
     static uint32_t audbufcntCovox;
     static uint32_t faudbufcnt;
     static uint32_t faudbufcntAY;
+#if !PICO_RP2040
     static uint32_t faudbufcntSAA;
+#endif
     static uint32_t faudbufcntCovox;
+#if !PICO_RP2040
     static uint8_t audioBufferPIT[ESP_AUDIO_SAMPLES_PENTAGON];
+#endif
     static uint8_t audioBufferFDD[ESP_AUDIO_SAMPLES_PENTAGON];
+#if !PICO_RP2040
     static uint32_t audbufcntPIT;
     static uint32_t faudbufcntPIT;
+    static bool SAA_emu;
+#endif
     static int lastaudioBit;
     static int lastCovoxVal;
     static int faudioBit;
     static int samplesPerFrame;
     static bool AY_emu;
-    static bool SAA_emu;
     static int Audio_freq;
 
     static uint8_t multiplicator;
+    static uint32_t lastBeeperTstates;
+    static uint32_t accumulatorFP;
+    static uint32_t tstatesPerSampleFP;
+    static uint32_t beeperSampleAccum;
+    static uint32_t beeperTstatesInSample;
     static int sync_cnt;
 
     static int TapeNameScroller;
