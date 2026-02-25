@@ -1484,8 +1484,8 @@ void ESPectrum::loop() {
         while (audbufcntover < (uint32_t)samplesPerFrame) {
           overSamplebuf[audbufcntover++] = faudioBit;
         }
-        // Smooth beeper buffer: simple 2-tap average to reduce jitter from
-        // non-integer tstate-per-sample division (especially 128K: 113.45)
+        // Smooth beeper buffer: causal 2-tap (1-1)/2
+        // Reduces PWM jitter from non-integer tstates/sample (128K: 113.45)
         {
           uint32_t prev = overSamplebuf[0];
           for (int i = 1; i < samplesPerFrame; i++) {

@@ -346,13 +346,21 @@ void pcm_call() {
         uint16_t outL = 0;
         uint16_t outR = 0;
         if (m_off < m_size) {
+            // First-order error diffusion (noise shaping):
+            // quantization error from previous sample is fed forward,
+            // pushing PWM quantization noise to ultrasonic frequencies
+            static int16_t err_L = 0, err_R = 0;
             int16_t* b_L = buff_L + m_off;
             int16_t* b_R = buff_R + m_off;
-            uint32_t x = ((int32_t)*b_L) + 0x8000;
-            outL = x >> 8; // 4
             ++m_off;
-            x = ((int32_t)*b_R) + 0x8000;
-            outR = x >> 8;///4;
+            int32_t xL = ((int32_t)*b_L) + 0x8000 + err_L;
+            if (xL < 0) xL = 0; else if (xL > 0xFFFF) xL = 0xFFFF;
+            outL = (uint16_t)xL >> 8;
+            err_L = (int16_t)(xL - ((int32_t)outL << 8));
+            int32_t xR = ((int32_t)*b_R) + 0x8000 + err_R;
+            if (xR < 0) xR = 0; else if (xR > 0xFFFF) xR = 0xFFFF;
+            outR = (uint16_t)xR >> 8;
+            err_R = (int16_t)(xR - ((int32_t)outR << 8));
         } else {
             return;
         }
