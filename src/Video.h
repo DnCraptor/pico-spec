@@ -215,6 +215,7 @@ public:
   static uint8_t gigascreen_auto_countdown;
 
   // ULA+
+#if !PICO_RP2040
   static bool ulaplus_enabled;
   static uint8_t ulaplus_reg;
   static uint8_t ulaplus_palette[64];
@@ -223,6 +224,7 @@ public:
   static void ulaPlusUpdatePaletteEntry(uint8_t entry);
   static void ulaPlusUpdateBorder();
   static void ulaPlusDisable();
+#endif
 };
 
 #define zxColor(color,bright) VIDEO::spectrum_colors[bright ? color + 8 : color]

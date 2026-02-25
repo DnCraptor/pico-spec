@@ -488,16 +488,14 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 		"Render type\t>\n"\
 		"Aspect Ratio\t>\n"\
 		"Scanlines\t>\n"\
-		"V-Sync\t>\n"\
-		"ULA+ ON/OFF\t>\n"
+		"V-Sync\t>\n"
 	#define MENU_VIDEO_ES \
 		"Video\n"\
 		"Modo\t>\n"\
 		"Tipo render\t>\n"\
 		"Relaci" "\xA2" "n de aspecto\t>\n"\
 		"Scanlines\t>\n"\
-		"V-Sync\t>\n"\
-		"ULA+ ON/OFF\t>\n"
+		"V-Sync\t>\n"
 #endif
 static const char *MENU_VIDEO[2] = { MENU_VIDEO_EN, MENU_VIDEO_ES };
 
@@ -640,6 +638,20 @@ static const char *MENU_FLASHLOAD[2] = { "Fast load\n" , "Carga rapida\n"};
 
 static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
 
+#if PICO_RP2040
+#define MENU_AUDIO_EN "Audio\n"\
+    "AY-3-8912 ON/OFF\t>\n"\
+    "AY-3-8912 Stereo\t>\n"\
+    "TurboSound\t>\n"\
+    "Covox\t>\n"\
+    "Audio Driver\t>\n"
+#define MENU_AUDIO_ES "Audio\n"\
+    "AY-3-8912 ON/OFF\t>\n"\
+    "AY-3-8912 Est" "\x82" "reo\t>\n"\
+    "TurboSound\t>\n"\
+    "Covox\t>\n"\
+    "Controlador de audio\t>\n"
+#else
 #define MENU_AUDIO_EN "Audio\n"\
     "AY-3-8912 ON/OFF\t>\n"\
     "AY-3-8912 Stereo\t>\n"\
@@ -654,6 +666,7 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
     "Covox\t>\n"\
     "Controlador de audio\t>\n"\
     "SAA1099 ON/OFF\t>\n"
+#endif
 static const char *MENU_AUDIO[2] = { MENU_AUDIO_EN, MENU_AUDIO_ES };
 
 #define MENU_OTHER_EN "Other\n"\
@@ -674,9 +687,13 @@ static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
 
 static const char *MENU_AY48[2] = { "Turned on?\n" , "Turned on?\n"};
 
+#if !PICO_RP2040
 static const char *MENU_SAA1099[2] = { "Turned on?\n" , "Turned on?\n"};
+#endif
 
+#if !PICO_RP2040
 static const char *MENU_ULAPLUS[2] = { "ULA+\n", "ULA+\n"};
+#endif
 
 #define MENU_KBD2NDPS2_EN "Enable\n"\
     "No\t[N]\n"\

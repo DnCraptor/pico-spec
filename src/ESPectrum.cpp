@@ -183,18 +183,22 @@ uint32_t ESPectrum::audbufcntAY = 0;
 uint32_t ESPectrum::faudbufcntAY = 0;
 uint32_t ESPectrum::audbufcntCovox = 0;
 uint32_t ESPectrum::faudbufcntCovox = 0;
+
+#if !PICO_RP2040
 uint8_t ESPectrum::audioBufferPIT[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
-uint8_t ESPectrum::audioBufferFDD[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
 uint32_t ESPectrum::audbufcntPIT = 0;
 uint32_t ESPectrum::faudbufcntPIT = 0;
+uint32_t ESPectrum::audbufcntSAA = 0;
+uint32_t ESPectrum::faudbufcntSAA = 0;
+bool ESPectrum::SAA_emu = false;
+#endif
+
+uint8_t ESPectrum::audioBufferFDD[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
 int ESPectrum::lastaudioBit = 0;
 int ESPectrum::lastCovoxVal = 0;
 int ESPectrum::faudioBit = 0;
 int ESPectrum::samplesPerFrame;
 bool ESPectrum::AY_emu = false;
-bool ESPectrum::SAA_emu = false;
-uint32_t ESPectrum::audbufcntSAA = 0;
-uint32_t ESPectrum::faudbufcntSAA = 0;
 int ESPectrum::Audio_freq = 44000;
 unsigned char ESPectrum::audioSampleDivider;
 unsigned char ESPectrum::audioAYDivider;
@@ -724,29 +728,29 @@ void ESPectrum::setup() {
   // AUDIO
   //=======================================================================================
   // Set samples per frame and AY_emu flag depending on arch
+    AY_emu = Config::AY48;
+#if !PICO_RP2040
+    SAA_emu = Config::SAA1099;
+#endif
+
   if (Config::arch == "48K") {
     samplesPerFrame = ESP_AUDIO_SAMPLES_48;
     audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_48;
     audioAYDivider = ESP_AUDIO_AY_DIV_48;
     audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;
-    AY_emu = Config::AY48;
-    SAA_emu = Config::SAA1099;
+
     Audio_freq = ESP_AUDIO_FREQ_48;
   } else if (Config::arch == "128K" || Config::arch == "ALF") {
     samplesPerFrame = ESP_AUDIO_SAMPLES_128;
     audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_128;
     audioAYDivider = ESP_AUDIO_AY_DIV_128;
     audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
-    AY_emu = Config::AY48;
-    SAA_emu = Config::SAA1099;
     Audio_freq = ESP_AUDIO_FREQ_128;
   } else { /// if (Config::arch == "P512" || Config::arch == "Pentagon") {
     samplesPerFrame = ESP_AUDIO_SAMPLES_PENTAGON;
     audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_PENTAGON;
     audioAYDivider = ESP_AUDIO_AY_DIV_PENTAGON;
     audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_PENTAGON;
-    AY_emu = Config::AY48;
-    SAA_emu = Config::SAA1099;
     Audio_freq = ESP_AUDIO_FREQ_PENTAGON;
   }
 
@@ -759,7 +763,9 @@ void ESPectrum::setup() {
 
   if (Config::tape_player) {
     AY_emu = false; // Disable AY emulation if tape player mode is set
+#if !PICO_RP2040
     SAA_emu = false;
+#endif
     ESPectrum::aud_volume = ESP_VOLUME_MAX;
   } else
     ESPectrum::aud_volume = Config::aud_volume;
@@ -767,6 +773,7 @@ void ESPectrum::setup() {
   pwm_audio_set_volume(aud_volume);
 
   // AY Sound
+  Debug::log("setup: AY init begin");
   chip0.init();
   chip0.set_sound_format(Audio_freq, 1, 8);
   chip0.set_stereo(AYEMU_MONO, NULL);
@@ -775,20 +782,28 @@ void ESPectrum::setup() {
   chip1.set_sound_format(Audio_freq, 1, 8);
   chip1.set_stereo(AYEMU_MONO, NULL);
   chip1.reset();
+  Debug::log("setup: AY init done");
 
-  // // SAA1099 Sound
-  // saaChip.init();
-  // saaChip.set_sound_format(Audio_freq, 1, 8);
-  // saaChip.reset();
+#if !PICO_RP2040
+  Debug::log("setup: SAA init begin");
+  // SAA1099 Sound
+  saaChip.init();
+  saaChip.set_sound_format(Audio_freq, 1, 8);
+  saaChip.reset();
+  Debug::log("setup: SAA init done");
+#endif
 
   // Init tape
+  Debug::log("setup: Tape init begin");
   Tape::Init();
   Tape::tapeFileName = "none";
   Tape::tapeStatus = TAPE_STOPPED;
   Tape::SaveStatus = SAVE_STOPPED;
   Tape::romLoading = false;
+  Debug::log("setup: Tape init done");
 
   // Init CPU
+  Debug::log("setup: Z80 create begin");
   Z80::create();
 
   // Set Ports starting values
@@ -800,22 +815,31 @@ void ESPectrum::setup() {
     Ports::port[0x7f] = 0xff; // Fuller
 
   // Init disk controller
+  Debug::log("setup: WD1793 reset begin");
   rvmWD1793Reset(&fdd);
+  Debug::log("setup: WD1793 reset done");
 
   // Reset cpu
+  Debug::log("setup: CPU reset begin");
   CPU::reset();
 
+#if !PICO_RP2040
   // KR580VI53 (8253 PIT) — reset to silent state
   if (Z80Ops::isByte) {
     memset(audioBufferPIT, 0, sizeof(audioBufferPIT));
     memset(Ports::pitChannels, 0, sizeof(Ports::pitChannels));
   }
+#endif
 
+  Debug::log("setup: CPU reset done");
+  Debug::log("setup: Config::load2 begin");
   if (FileUtils::fsMount) {
     Config::load2();
   }
+  Debug::log("setup: Config::load2 done");
 
   // Load snapshot if present in Config::
+  Debug::log("setup: ram_file='%s'", Config::ram_file.c_str());
   if (Config::ram_file != NO_RAM_FILE) {
     if (FileUtils::fsMount)
       LoadSnapshot(Config::ram_file, "", "");
@@ -898,9 +922,16 @@ void ESPectrum::reset(uint8_t romInUse) {
   memset(audioBufferCovox, 0, sizeof(audioBufferCovox));
   memset(chip0.SamplebufAY_L, 0, sizeof(chip0.SamplebufAY_L));
   memset(chip1.SamplebufAY_R, 0, sizeof(chip1.SamplebufAY_R));
+#if !PICO_RP2040
   memset(saaChip.SamplebufSAA_L, 0, sizeof(saaChip.SamplebufSAA_L));
   memset(saaChip.SamplebufSAA_R, 0, sizeof(saaChip.SamplebufSAA_R));
+#endif
   lastCovoxVal = lastaudioBit = 0;
+
+  AY_emu = Config::AY48;
+#if !PICO_RP2040
+    SAA_emu = Config::SAA1099;
+#endif
 
   // Set samples per frame and AY_emu flag depending on arch
   if (Config::arch == "48K") {
@@ -908,24 +939,18 @@ void ESPectrum::reset(uint8_t romInUse) {
     audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_48;
     audioAYDivider = ESP_AUDIO_AY_DIV_48;
     audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_48;
-    AY_emu = Config::AY48;
-    SAA_emu = Config::SAA1099;
     Audio_freq = ESP_AUDIO_FREQ_48;
   } else if (Config::arch == "128K" || Config::arch == "ALF") {
     samplesPerFrame = ESP_AUDIO_SAMPLES_128;
     audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_128;
     audioAYDivider = ESP_AUDIO_AY_DIV_128;
     audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_128;
-    AY_emu = Config::AY48;
-    SAA_emu = Config::SAA1099;
     Audio_freq = ESP_AUDIO_FREQ_128;
   } else { /// if (Config::arch == "P512" || Config::arch == "Pentagon") {
     samplesPerFrame = ESP_AUDIO_SAMPLES_PENTAGON;
     audioOverSampleDivider = ESP_AUDIO_OVERSAMPLES_DIV_PENTAGON;
     audioAYDivider = ESP_AUDIO_AY_DIV_PENTAGON;
     audioSampleDivider = ESP_AUDIO_SAMPLES_DIV_PENTAGON;
-    AY_emu = Config::AY48;
-    SAA_emu = Config::SAA1099;
     Audio_freq = ESP_AUDIO_FREQ_PENTAGON;
   }
 
@@ -936,7 +961,9 @@ void ESPectrum::reset(uint8_t romInUse) {
 
   if (Config::tape_player) {
     AY_emu = false; // Disable AY emulation if tape player mode is set
+#if !PICO_RP2040
     SAA_emu = false;
+#endif
   }
 
   // Reset AY emulation
@@ -949,18 +976,22 @@ void ESPectrum::reset(uint8_t romInUse) {
   chip1.set_stereo(AYEMU_MONO, NULL);
   chip1.reset();
 
+#if !PICO_RP2040
   // Reset SAA1099 emulation
   saaChip.init();
   saaChip.set_sound_format(Audio_freq, 1, 8);
   saaChip.reset();
+#endif
 
   CPU::reset();
 
+#if !PICO_RP2040
   // KR580VI53 (8253 PIT) — reset to silent state
   if (Z80Ops::isByte) {
     memset(audioBufferPIT, 0, sizeof(audioBufferPIT));
     memset(Ports::pitChannels, 0, sizeof(Ports::pitChannels));
   }
+#endif
 }
 
 //=======================================================================================
@@ -1291,6 +1322,7 @@ __not_in_flash("audio") void ESPectrum::AYGetSample() {
   }
 }
 
+#if !PICO_RP2040
 __not_in_flash("audio") void ESPectrum::SAAGetSample() {
   uint32_t audbufpos = CPU::tstates / audioAYDivider; // SAA counter = 8MHz/256 = 31.25kHz, same rate as AY
   if (multiplicator) audbufpos >>= multiplicator;
@@ -1309,6 +1341,7 @@ __not_in_flash("audio") void ESPectrum::PITGetSample() {
     audbufcntPIT = audbufpos;
   }
 }
+#endif
 
 void ESPectrum::FDDGenSound() {
     memset(audioBufferFDD, 0, samplesPerFrame);
@@ -1417,9 +1450,12 @@ void ESPectrum::loop() {
     audbufcnt = 0;
     audbufcntover = 0;
     audbufcntAY = 0;
-    audbufcntSAA = 0;
     audbufcntCovox = 0;
+
+#if !PICO_RP2040
+    audbufcntSAA = 0;
     audbufcntPIT = 0;
+#endif
 
     CPU::loop();
 
@@ -1431,9 +1467,13 @@ void ESPectrum::loop() {
     faudbufcnt = audbufcnt;
     faudioBit = lastaudioBit;
     faudbufcntAY = audbufcntAY;
-    faudbufcntSAA = audbufcntSAA;
     faudbufcntCovox = audbufcntCovox;
+
+#if !PICO_RP2040
     faudbufcntPIT = audbufcntPIT;
+    faudbufcntSAA = audbufcntSAA;
+#endif
+
     if (!CPU::paused) {
 #if LOAD_WAV_PIO
       if (Config::real_player) {
@@ -1470,54 +1510,70 @@ void ESPectrum::loop() {
             *sound_buf++ = lastCovoxVal;
           }
         }
+#if !PICO_RP2040
         // KR580VI53 (8253 PIT) — complete buffer for remaining frame
         if (Z80Ops::isByte && faudbufcntPIT < samplesPerFrame) {
           Ports::pitGenSound(audioBufferPIT + faudbufcntPIT,
                              samplesPerFrame - faudbufcntPIT);
         }
+#endif
         if (Config::trdosSoundLed) FDDGenSound();
-        if (AY_emu || SAA_emu) {
+        // if (AY_emu || SAA_emu) {
           if (AY_emu && faudbufcntAY < samplesPerFrame) {
                 if(Config::turbosound != 0 || AySound::selected_chip == 0) chip0.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
                 if(Config::turbosound != 0 || AySound::selected_chip == 1) chip1.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
           }
-          if (SAA_emu && faudbufcntSAA < samplesPerFrame) {
-                saaChip.gen_sound(samplesPerFrame - faudbufcntSAA, faudbufcntSAA);
+#if !PICO_RP2040
+          if (SAA_emu && faudbufcntSAA < samplesPerFrame)
+          {
+            saaChip.gen_sound(samplesPerFrame - faudbufcntSAA, faudbufcntSAA);
           }
-          for (int i = 0; i < samplesPerFrame; i++) {
-                int beeper_L = (overSamplebuf[i] / audioSampleDivider >> 2) + audioBufferCovox[i] + audioBufferPIT[i] + audioBufferFDD[i];
+#endif
+          for (int i = 0; i < samplesPerFrame; i++)
+          {
+            int beeper_L = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i] + audioBufferFDD[i]
+#if !PICO_RP2040
+                           + audioBufferPIT[i]
+#endif
+                ;
             int beeper_R = beeper_L;
-            if (AY_emu) {
-                if(Config::turbosound != 0 || AySound::selected_chip == 0) {
-              beeper_L += chip0.SamplebufAY_L[i];
-              beeper_R += chip0.SamplebufAY_R[i];
+            if (AY_emu)
+            {
+              if (Config::turbosound != 0 || AySound::selected_chip == 0)
+              {
+                beeper_L += chip0.SamplebufAY_L[i];
+                beeper_R += chip0.SamplebufAY_R[i];
+              }
+              if (Config::turbosound != 0 || AySound::selected_chip == 1)
+              {
+                beeper_L += chip1.SamplebufAY_L[i];
+                beeper_R += chip1.SamplebufAY_R[i];
+              }
             }
-                if(Config::turbosound != 0 || AySound::selected_chip == 1) {
-              beeper_L += chip1.SamplebufAY_L[i];
-              beeper_R += chip1.SamplebufAY_R[i];
-            }
-            }
-            if (SAA_emu) {
+#if !PICO_RP2040
+            if (SAA_emu)
+            {
               beeper_L += saaChip.SamplebufSAA_L[i];
               beeper_R += saaChip.SamplebufSAA_R[i];
             }
-                audioBuffer_L[i] = beeper_L > 255 ? 255 : beeper_L; // Clamp
-                audioBuffer_R[i] = beeper_R > 255 ? 255 : beeper_R; // Clamp
+#endif
+            audioBuffer_L[i] = beeper_L > 255 ? 255 : beeper_L; // Clamp
+            audioBuffer_R[i] = beeper_R > 255 ? 255 : beeper_R; // Clamp
           }
-        } else {
-          // Оптимизация деления через reciprocal multiplication
-          const uint32_t div_magic = (audioSampleDivider == 7) ? 0x24924925 :
-                                     (audioSampleDivider == 6) ? 0x2AAAAAAB :
-                                     ((1ULL << 32) / audioSampleDivider);
-          const int div_shift = (audioSampleDivider == 7) ? 34 :
-                                (audioSampleDivider == 6) ? 33 : 32;
-
-          for (int i = 0; i < samplesPerFrame; i++) {
-                int v = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i] + audioBufferPIT[i] + audioBufferFDD[i];
-            audioBuffer_L[i] = v > 255 ? 255 : v;
-            audioBuffer_R[i] = v > 255 ? 255 : v;
-          }
-        }
+//         }
+//         else
+//         {
+//           for (int i = 0; i < samplesPerFrame; i++) {
+//                 int v = overSamplebuf[i] / audioSampleDivider + audioBufferCovox[i]
+//                     + audioBufferFDD[i]
+// #if !PICO_RP2040
+//                     + audioBufferPIT[i]
+// #endif
+//                     ;
+//             audioBuffer_L[i] = v > 255 ? 255 : v;
+//             audioBuffer_R[i] = v > 255 ? 255 : v;
+//           }
+//         }
       }
     }
     processKeyboard();
@@ -1580,7 +1636,11 @@ void ESPectrum::loop() {
       }
     }
     // Flashing flag change (disabled when ULA+ palette is active)
+#if !PICO_RP2040
     if (!(VIDEO::flash_ctr++ & 0x0f) && !VIDEO::ulaplus_enabled)
+#else
+    if (!(VIDEO::flash_ctr++ & 0x0f))
+#endif
       VIDEO::flashing ^= 0x80;
 
     // Draw fdd led indicator in top-right corner
