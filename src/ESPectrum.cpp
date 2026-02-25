@@ -296,6 +296,7 @@ void ShowStartMsg() {
                       Config::aspect_16_9 ? 12 : 32, 240, 50, zxColor(0, 0));
 
   // Decode Logo in EBF8 format
+  // Logo pixels are stored as ZX Spectrum palette indices (0-15)
   uint8_t *logo = (uint8_t *)ESPectrum_logo;
   int pos_x = Config::aspect_16_9 ? 86 : 66;
   int pos_y = Config::aspect_16_9 ? 23 : 43;
@@ -303,8 +304,10 @@ void ShowStartMsg() {
   int logo_h = (logo[7] << 8) + logo[6]; // Get Height
   logo += 8;                             // Skip header
   for (int i = 0; i < logo_h; i++)
-    for (int n = 0; n < logo_w; n++)
-      VIDEO::vga.dotFast(pos_x + n, pos_y + i, logo[n + (i * logo_w)]);
+    for (int n = 0; n < logo_w; n++) {
+      uint8_t zxIdx = logo[n + (i * logo_w)];
+      VIDEO::vga.dotFast(pos_x + n, pos_y + i, zxColor(zxIdx & 7, zxIdx >> 3));
+    }
 
   OSD::osdAt(7, 1);
   VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(1, 0));

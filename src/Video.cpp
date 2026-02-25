@@ -826,10 +826,9 @@ IRAM_ATTR void VIDEO::MainScreen_OSD(unsigned int statestoadd, bool contended) {
     CPU::tstates += statestoadd;
     statestoadd += video_rest;
     video_rest = statestoadd & 0x03;
-    unsigned int loopCount = statestoadd >> 2; 
-    unsigned int coldraw_osd = coldraw_cnt;
+    unsigned int loopCount = statestoadd >> 2;
     coldraw_cnt += loopCount;
-    
+
     if (coldraw_cnt >= 32) {
         tstateDraw += tStatesPerLine;
         if (++linedraw_cnt == lin_end2) {
@@ -843,17 +842,9 @@ IRAM_ATTR void VIDEO::MainScreen_OSD(unsigned int statestoadd, bool contended) {
     }
 
     for (;loopCount--;) {
-        if (coldraw_osd >= 13 && coldraw_osd <= 30) {
-            lineptr32+=2;
-            attOffset++;
-            bmpOffset++;
-        } else {
-            uint8_t att = grmem[attOffset++];
-            uint8_t bmp = (att & flashing) ? ~grmem[bmpOffset++] : grmem[bmpOffset++];
-            *lineptr32++ = AluByte[bmp >> 4][att];
-            *lineptr32++ = AluByte[bmp & 0xF][att];
-        }
-        coldraw_osd++;
+        lineptr32+=2;
+        attOffset++;
+        bmpOffset++;
     }
 
 }
