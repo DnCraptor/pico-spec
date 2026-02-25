@@ -6,6 +6,7 @@
 #include "audio.h"
 #include "pwm_audio.h"
 #include "Config.h"
+#include "Debug.h"
 #include "LoadWavStream.h"
 #include "PinSerialData_595.h"
 
@@ -284,9 +285,12 @@ void init_sound() {
         if (Config::audio_driver != 0) {
             is_i2s_enabled = (Config::audio_driver == 2);
         }
+        Debug::log("init_sound: audio_driver=%d, link_i2s=%02X, i2s_en=%d", Config::audio_driver, link_i2s_code, (int)is_i2s_enabled);
         if (is_i2s_enabled) {
+            Debug::log("init_sound: I2S mode");
             i2s_volume(&i2s_config, 0);
         } else {
+            Debug::log("init_sound: PWM mode, pins %d/%d", PWM_PIN0, PWM_PIN1);
             PWM_init_pin(PWM_PIN0, (1 << 8) - 1);
             PWM_init_pin(PWM_PIN1, (1 << 8) - 1);
             /// PWM_init_pin(BEEPER_PIN, (1 << 8) - 1);
@@ -346,13 +350,21 @@ void pcm_call() {
         uint16_t outL = 0;
         uint16_t outR = 0;
         if (m_off < m_size) {
+            // First-order error diffusion (noise shaping):
+            // quantization error from previous sample is fed forward,
+            // pushing PWM quantization noise to ultrasonic frequencies
+            static int16_t err_L = 0, err_R = 0;
             int16_t* b_L = buff_L + m_off;
             int16_t* b_R = buff_R + m_off;
-            uint32_t x = ((int32_t)*b_L) + 0x8000;
-            outL = x >> 8; // 4
             ++m_off;
-            x = ((int32_t)*b_R) + 0x8000;
-            outR = x >> 8;///4;
+            int32_t xL = ((int32_t)*b_L) + 0x8000 + err_L;
+            if (xL < 0) xL = 0; else if (xL > 0xFFFF) xL = 0xFFFF;
+            outL = (uint16_t)xL >> 8;
+            err_L = (int16_t)(xL - ((int32_t)outL << 8));
+            int32_t xR = ((int32_t)*b_R) + 0x8000 + err_R;
+            if (xR < 0) xR = 0; else if (xR > 0xFFFF) xR = 0xFFFF;
+            outR = (uint16_t)xR >> 8;
+            err_R = (int16_t)(xR - ((int32_t)outR << 8));
         } else {
             return;
         }

@@ -30,7 +30,9 @@ const bool     Config::aspect_16_9 = false;
 ///uint8_t  Config::esp32rev = 0;
 uint8_t  Config::lang = 0;
 bool     Config::AY48 = true;
+#if !PICO_RP2040
 bool     Config::SAA1099 = false;
+#endif
 bool     Config::Issue2 = true;
 bool     Config::flashload = true;
 bool     Config::tape_player = false; // Tape player mode
@@ -90,7 +92,9 @@ int      Config::vga_video_mode = 0;
 bool     Config::v_sync_enabled = false;
 bool     Config::gigascreen_enabled = false;
 uint8_t  Config::gigascreen_onoff = 0;
+#if !PICO_RP2040
 bool     Config::ulaplus = false;
+#endif
 uint8_t  Config::audio_driver = 0;
 extern "C" uint8_t  video_driver = 0;
 bool     Config::byte_cobmect_mode = false;
@@ -249,7 +253,8 @@ void Config::load2() {
     if (!handle) {
         return;
     }
-    vector<string> sts;
+    // Parse line-by-line without loading entire file into vector
+    // Only need drive0..drive3 .file entries
     UINT br;
     char c;
     string s;
@@ -259,22 +264,24 @@ void Config::load2() {
             return;
         }
         if (c == '\n') {
-            sts.push_back(s);
+            // Check if this line is a driveN.file= entry
+            for (size_t i = 0; i < 4; ++i) {
+                char prefix[16];
+                snprintf(prefix, sizeof(prefix), "drive%u.file=", (unsigned)i);
+                size_t plen = strlen(prefix);
+                if (s.length() >= plen && s.compare(0, plen, prefix) == 0) {
+                    std::string fn = s.substr(plen);
+                    if (!fn.empty()) {
+                        rvmWD1793InsertDisk(&ESPectrum::fdd, i, fn);
+                    }
+                }
+            }
             s.clear();
         } else {
             s += c;
         }
     }
     fclose2(handle);
-
-    for (size_t i = 0; i < 4; ++i) {
-        s = "drive" + to_string(i);
-        std::string fn;
-        nvs_get_str((s + ".file").c_str(), fn, sts);
-        if (!fn.empty()) {
-            rvmWD1793InsertDisk(&ESPectrum::fdd, i, fn);
-        }
-    }
 }
 
 #if TFT
@@ -326,7 +333,9 @@ void Config::load() {
         nvs_get_str("pref_romSetP1M", pref_romSetP1M, sts);
         nvs_get_str("ram", ram_file, sts);
         nvs_get_b("AY48", AY48, sts);
+#if !PICO_RP2040
         nvs_get_b("SAA1099", SAA1099, sts);
+#endif
         nvs_get_b("Issue2", Issue2, sts);
         nvs_get_b("flashload", flashload, sts);
         nvs_get_b("rightSpace", rightSpace, sts);
@@ -397,7 +406,9 @@ void Config::load() {
         nvs_get_b("gigascreen_enabled", gigascreen_enabled, sts);
         nvs_get_u8("gigascreen_onoff", gigascreen_onoff, sts);
         #endif
+        #if !PICO_RP2040
         nvs_get_b("ulaplus", ulaplus, sts);
+        #endif
         std::string v;
         nvs_get_str("audio_driver", v, sts);
         if (v == "pwm") Config::audio_driver = 1;
@@ -474,7 +485,9 @@ void Config::save() {
 ///        nvs_set_str(handle,"asp169",aspect_16_9 ? "true" : "false");
         nvs_set_u8(handle,"language", Config::lang);
         nvs_set_str(handle,"AY48", AY48 ? "true" : "false");
+#if !PICO_RP2040
         nvs_set_str(handle,"SAA1099", SAA1099 ? "true" : "false");
+#endif
         nvs_set_u8(handle,"ayConfig", Config::ayConfig);
         nvs_set_u8(handle,"turbosound", Config::turbosound);
         nvs_set_u8(handle,"covox", Config::covox);
@@ -536,7 +549,9 @@ void Config::save() {
         nvs_set_str(handle,"v_sync_enabled", Config::v_sync_enabled ? "true" : "false");
         nvs_set_str(handle,"gigascreen_enabled", Config::gigascreen_enabled ? "true" : "false");
         nvs_set_u8(handle,"gigascreen_onoff", Config::gigascreen_onoff);
+        #if !PICO_RP2040
         nvs_set_str(handle,"ulaplus", Config::ulaplus ? "true" : "false");
+        #endif
         nvs_set_str(handle,"audio_driver", Config::audio_driver == 0 ? "auto" :
             (Config::audio_driver == 1) ? "pwm" : ((Config::audio_driver == 2) ? "i2s" : "ay")
         );

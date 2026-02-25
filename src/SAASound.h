@@ -112,6 +112,8 @@ private:
     static const uint16_t pdm_x4[8][16];
 };
 
+#if !PICO_RP2040
 extern SAASound saaChip;
+#endif
 
 #endif // SAASound_h

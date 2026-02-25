@@ -22,7 +22,7 @@ if [ -z "$CMAKE_GENERATOR" ]; then
 fi
 
 # All available targets
-ALL_TARGETS="MURM MURM2 PICO_PC PICO_DV ZERO ZERO2"
+ALL_TARGETS="MURM_P1 MURM_P2 MURM2 PICO_PC PICO_DV ZERO ZERO2"
 
 # Parse arguments: pass target names to build specific ones, or nothing for all
 if [ $# -gt 0 ]; then
@@ -51,21 +51,43 @@ for TARGET in $TARGETS; do
     echo " Build dir: $BUILD_DIR"
     echo "========================================"
 
-    # Clean stale CMake cache if generator changed
+    # Clean stale CMake cache if generator or platform changed
     if [ -f "$BUILD_DIR/CMakeCache.txt" ]; then
         CACHED_GEN=$(grep -m1 'CMAKE_GENERATOR:INTERNAL=' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null | cut -d= -f2)
+        CACHED_PLATFORM=$(grep -m1 'PICO_PLATFORM:' "$BUILD_DIR/CMakeCache.txt" 2>/dev/null | cut -d= -f2)
+        NEED_CLEAN=false
         if [ -n "$CACHED_GEN" ] && [ "$CACHED_GEN" != "$CMAKE_GENERATOR" ]; then
             echo "  Generator changed ($CACHED_GEN -> $CMAKE_GENERATOR), cleaning cache..."
+            NEED_CLEAN=true
+        fi
+        if [ -n "$CACHED_PLATFORM" ]; then
+            case "$TARGET" in
+                MURM_P1|ZERO) EXPECTED_PLATFORM="rp2040" ;;
+                *) EXPECTED_PLATFORM="rp2350-arm-s" ;;
+            esac
+            if [ "$CACHED_PLATFORM" != "$EXPECTED_PLATFORM" ]; then
+                echo "  Platform changed ($CACHED_PLATFORM -> $EXPECTED_PLATFORM), cleaning cache..."
+                NEED_CLEAN=true
+            fi
+        fi
+        if $NEED_CLEAN; then
             rm -rf "$BUILD_DIR/CMakeCache.txt" "$BUILD_DIR/CMakeFiles"
         fi
     fi
 
     mkdir -p "$BUILD_DIR"
 
+    # Map target name to CMake flags
+    case "$TARGET" in
+        MURM_P1) TARGET_FLAGS=(-DMURM=ON) ;;
+        MURM_P2) TARGET_FLAGS=(-DMURM=ON -DMURM_P2=ON) ;;
+        *)       TARGET_FLAGS=(-D"${TARGET}"=ON) ;;
+    esac
+
     CMAKE_ARGS=(
         -B "$BUILD_DIR" -S "$SCRIPT_DIR"
         -G "$CMAKE_GENERATOR"
-        -D"${TARGET}"=ON
+        "${TARGET_FLAGS[@]}"
         -DCMAKE_BUILD_TYPE="$BUILD_TYPE"
     )
     if [ -n "$CMAKE_MAKE_PROGRAM" ]; then
@@ -92,13 +114,13 @@ echo "========================================"
 if [ -n "$SUCCEEDED" ]; then
     echo "Succeeded:$SUCCEEDED"
     for TARGET in $SUCCEEDED; do
-        for UF2 in $(find "$SCRIPT_DIR/build-$TARGET" -name "*.uf2" 2>/dev/null); do
-            cp "$UF2" "$OUTPUT_DIR/"
-            echo "  $(basename "$UF2")"
+        for FW in $(find "$SCRIPT_DIR/build-$TARGET" -name "*.uf2" 2>/dev/null); do
+            cp "$FW" "$OUTPUT_DIR/"
+            echo "  $(basename "$FW")"
         done
     done
     echo ""
-    echo "All .uf2 files copied to: $OUTPUT_DIR/"
+    echo "All firmware files copied to: $OUTPUT_DIR/"
 fi
 
 if [ -n "$FAILED" ]; then

@@ -111,6 +111,7 @@ uint8_t VIDEO::snowR;
 bool VIDEO::snow_toggle = false;
 
 // ULA+
+#if !PICO_RP2040
 bool VIDEO::ulaplus_enabled = false;
 uint8_t VIDEO::ulaplus_reg = 0;
 // Default palette: standard Spectrum colors in G3R3B2 format
@@ -133,6 +134,7 @@ static const uint8_t ulaplus_default_palette[64] = {
 };
 uint8_t VIDEO::ulaplus_palette[64];
 unsigned int VIDEO::AluBytesUlaPlus[16][256] = {};
+#endif
 
 #ifdef DIRTY_LINES
 uint8_t VIDEO::dirty_lines[SPEC_H];
@@ -334,6 +336,7 @@ static inline uint32_t grb_to_rgb888(uint8_t grb) {
     return (R << 16) | (G << 8) | B;
 }
 
+#if !PICO_RP2040
 void VIDEO::regenerateUlaPlusAluBytes() {
     // Set palette colors for all 64 ULA+ entries
     for (int i = 0; i < 64; i++)
@@ -393,6 +396,7 @@ void VIDEO::ulaPlusDisable() {
     brd = border32[borderColor];
     brdChange = true;
 }
+#endif
 
 const int redPins[] = {RED_PINS_6B};
 const int grePins[] = {GRE_PINS_6B};
@@ -459,10 +463,12 @@ void VIDEO::Reset() {
     borderColor = 7;
     brd = border32[7];
 
+#if !PICO_RP2040
     // Reset ULA+ state
     if (ulaplus_enabled) ulaPlusDisable();
     ulaplus_reg = 0;
     memcpy(ulaplus_palette, ulaplus_default_palette, 64);
+#endif
 
     is169 = Config::aspect_16_9 ? 1 : 0;
 
@@ -826,10 +832,9 @@ IRAM_ATTR void VIDEO::MainScreen_OSD(unsigned int statestoadd, bool contended) {
     CPU::tstates += statestoadd;
     statestoadd += video_rest;
     video_rest = statestoadd & 0x03;
-    unsigned int loopCount = statestoadd >> 2; 
-    unsigned int coldraw_osd = coldraw_cnt;
+    unsigned int loopCount = statestoadd >> 2;
     coldraw_cnt += loopCount;
-    
+
     if (coldraw_cnt >= 32) {
         tstateDraw += tStatesPerLine;
         if (++linedraw_cnt == lin_end2) {
@@ -843,17 +848,9 @@ IRAM_ATTR void VIDEO::MainScreen_OSD(unsigned int statestoadd, bool contended) {
     }
 
     for (;loopCount--;) {
-        if (coldraw_osd >= 13 && coldraw_osd <= 30) {
-            lineptr32+=2;
-            attOffset++;
-            bmpOffset++;
-        } else {
-            uint8_t att = grmem[attOffset++];
-            uint8_t bmp = (att & flashing) ? ~grmem[bmpOffset++] : grmem[bmpOffset++];
-            *lineptr32++ = AluByte[bmp >> 4][att];
-            *lineptr32++ = AluByte[bmp & 0xF][att];
-        }
-        coldraw_osd++;
+        lineptr32+=2;
+        attOffset++;
+        bmpOffset++;
     }
 
 }
