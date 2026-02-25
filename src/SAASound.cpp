@@ -94,7 +94,9 @@ const uint16_t SAASound::pdm_x4[8][16] = {
     {  0, 16, 28, 44, 56, 72, 84,100,112,128,140,156,168,184,196,212}
 };
 
+#if !PICO_RP2040
 SAASound saaChip;
+#endif
 
 SAASound::SAASound() {
     init();

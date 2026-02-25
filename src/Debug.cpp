@@ -1,8 +1,9 @@
-#include <ctime>
-
 #include "Debug.h"
 #include "pico/stdlib.h"
+#include "hardware/watchdog.h"
 #include "FileUtils.h"
+
+static uint32_t log_counter = 0;
 
 void Debug::led_blink()
 {
@@ -33,21 +34,33 @@ void Debug::led_off()
 void Debug::log(string data)
 {
 #if DEBUG
-   if (!FileUtils::fsMount) return;
-    // Формируем путь к файлу
+    if (!FileUtils::fsMount) return;
     std::string nvs = std::string(MOUNT_POINT_SD) + STORAGE_LOG;
 
-    // Получаем текущее время
-    std::time_t t = std::time(nullptr);
-    char timeStr[64];
-    std::strftime(timeStr, sizeof(timeStr), "[%Y-%m-%d %H:%M:%S] ", std::localtime(&t));
+    // Заголовок сессии при первой записи
+    bool first = (log_counter == 0);
 
-    // Объединяем timestamp и данные
-    std::string logEntry = std::string(timeStr) + data + "\n";
+    char prefix[32];
+    snprintf(prefix, sizeof(prefix), "%08u %7u ", (unsigned)log_counter++,
+             (unsigned)(to_ms_since_boot(get_absolute_time())));
 
-    // Открываем файл
+    std::string logEntry;
+    if (first) {
+        const char* reason = watchdog_caused_reboot() ? "WATCHDOG" : "POWER-ON";
+        char hdr[64];
+        snprintf(hdr, sizeof(hdr), "--- BOOT (%s) ---\n", reason);
+        logEntry = std::string(hdr);
+    }
+    logEntry += std::string(prefix) + data + "\n";
+
+    // Лимит 10KB — перезаписываем с начала при переполнении
     FIL* handle = fopen2(nvs.c_str(), FA_WRITE | FA_OPEN_APPEND);
     if (handle) {
+        if (f_size(handle) >= 10240) {
+            fclose2(handle);
+            handle = fopen2(nvs.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
+            if (!handle) return;
+        }
         UINT btw;
         f_write(handle, logEntry.c_str(), logEntry.size(), &btw);
         fclose2(handle);

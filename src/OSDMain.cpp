@@ -2354,6 +2354,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         }
                                     }
                                 }
+#if !PICO_RP2040
                                 else if (options_num == 6) {
                                     menu_level = 3;
                                     menu_curopt = 1;
@@ -2389,6 +2390,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         }
                                     }
                                 }
+#endif
                             } else {
                                 menu_curopt = 6;
                                 break;
@@ -2639,12 +2641,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     }
                                 }
                                 #endif
-                                // ULA+ ON/OFF
                                 #if !PICO_RP2040
+                                // ULA+ ON/OFF
                                 else if (options_num == 7) {
-                                #else
-                                else if (options_num == 6) {
-                                #endif
                                     menu_level = 3;
                                     menu_curopt = 1;
                                     menu_saverect = true;
@@ -2675,16 +2674,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             menu_curopt = opt2;
                                             menu_saverect = false;
                                         } else {
-                                            #if !PICO_RP2040
                                             menu_curopt = 7;
-                                            #else
-                                            menu_curopt = 6;
-                                            #endif
                                             menu_level = 2;
                                             break;
                                         }
                                     }
                                 }
+                                #endif
                             } else {
                                 menu_curopt = 7;
                                 break;

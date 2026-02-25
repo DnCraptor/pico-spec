@@ -5,7 +5,7 @@ else()
     set(USERHOME $ENV{HOME})
 endif()
 set(sdkVersion 2.2.0)
-set(toolchainVersion 10_3_2021_10)
+set(toolchainVersion 14_2_Rel1)
 set(picotoolVersion 2.2.0)
 set(picoVscode ${USERHOME}/.pico-sdk/cmake/pico-vscode.cmake)
 if (EXISTS ${picoVscode})
@@ -515,8 +515,7 @@ ELSEIF(ZERO)
         DEFAULT_THROTTLING=0
         PICO_RP2040=1
         PICO_DEFAULT_LED_PIN=25
-
-        DEBUG=1
+        DEBUG=0
     )
 ELSEIF(ZERO2)
     target_compile_definitions(${PROJECT_NAME} PRIVATE
