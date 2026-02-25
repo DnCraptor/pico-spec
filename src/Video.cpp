@@ -34,6 +34,7 @@ visit https://zxespectrum.speccy.org/contacto
 */
 
 #include "Video.h"
+#include "Tape.h"
 #include "FileUtils.h"
 #include "VidPrecalc.h"
 #include "CPU.h"
@@ -1133,7 +1134,13 @@ IRAM_ATTR void VIDEO::EndFrame() {
 
     tstateDraw = tStatesScreen;
 
-    if (VIDEO::snow_toggle) {
+    static uint16_t skipCnt = 0;
+    bool skipFrame = ESPectrum::maxSpeed && (++skipCnt & (Tape::tapeStatus == TAPE_LOADING ? 1023 : 255));
+    if (skipFrame) {
+        // Skip rendering: 1/1024 frames during tape loading, 1/256 otherwise
+        Draw = VIDEO::snow_toggle ? &Blank_Snow : &Blank;
+        Draw_Opcode = VIDEO::snow_toggle ? &Blank_Snow_Opcode : &Blank_Opcode;
+    } else if (VIDEO::snow_toggle) {
         Draw = &MainScreen_Blank_Snow;
         Draw_Opcode = &MainScreen_Blank_Snow_Opcode;
     } else {
@@ -1141,19 +1148,26 @@ IRAM_ATTR void VIDEO::EndFrame() {
         Draw_Opcode = &MainScreen_Blank_Opcode;
     }
 
-    if (brdChange || brdGigascreenChange) {
-        DrawBorder();
-        brdnextframe = true;
-        brdGigascreenChange = false;
-    } else {
-        if (brdnextframe) {
+    if (!skipFrame) {
+        if (brdChange || brdGigascreenChange) {
             DrawBorder();
-            brdnextframe = false;
+            brdnextframe = true;
+            brdGigascreenChange = false;
+        } else {
+            if (brdnextframe) {
+                DrawBorder();
+                brdnextframe = false;
+            }
         }
+    } else {
+        brdGigascreenChange = false;
     }
     
     // Restart border drawing
-    DrawBorder = Z80Ops::isPentagon ? &TopBorder_Blank_Pentagon : &TopBorder_Blank;
+    if (skipFrame)
+        DrawBorder = &Border_Blank;
+    else
+        DrawBorder = Z80Ops::isPentagon ? &TopBorder_Blank_Pentagon : &TopBorder_Blank;
     lastBrdTstate = tStatesBorder;
     brdChange = false;
 

@@ -304,11 +304,37 @@ void Tape::LoadTape(string mFile) {
     } else if (FileUtils::hasTZXextension(mFile)) {
         string keySel = mFile.substr(0,1);
         mFile.erase(0, 1);
+        // Flashload .tzx if needed
+        if ((keySel == "R") && (Config::flashload) && (Config::arch != "ALF") &&
+             (Config::romSet != "ZX81+") && (Config::romSet != "48Kcs") && (Config::romSet != "128Kcs")
+        ) {
+                OSD::osdCenteredMsg(OSD_TAPE_FLASHLOAD, LEVEL_INFO, 100);
+                uint8_t OSDprev = VIDEO::OSD;
+                if (Z80Ops::is48)
+                    FileZ80::loader48();
+                else
+                    FileZ80::loader128();
+                MemESP::writebyte(0x5C78,rand() % 256);
+                MemESP::writebyte(0x5C79,rand() % 256);
+
+                if (Config::ram_file != NO_RAM_FILE) {
+                    Config::ram_file = NO_RAM_FILE;
+                }
+                Config::last_ram_file = NO_RAM_FILE;
+
+                if (OSDprev) {
+                    VIDEO::OSD = OSDprev;
+                    if (Config::aspect_16_9)
+                        VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
+                    else
+                        VIDEO::Draw_OSD43  = Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
+                    ESPectrum::TapeNameScroller = 0;
+                }
+        }
         Tape::Stop();
         // Read and analyze tzx file
         Tape::TZX_Open(mFile);
         ESPectrum::TapeNameScroller = 0;
-        // printf("%s loaded.\n",mFile.c_str());
     }
     else {
         OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR, LEVEL_WARN);
@@ -1584,15 +1610,112 @@ bool Tape::FlashLoad() {
     if (Z80Ops::isALF) { // unsupported now
         return false;
     }
+
+    if (tapeFileType == TAPE_FTYPE_TZX) {
+        // TZX flash load: only supported for 0x10 (Standard Speed Data) blocks
+        CalcTZXBlockPos(tapeCurBlock);
+        FIL* tape = &Tape::tape;
+        uint8_t blkId = readByteFile(tape);
+        if (blkId != 0x10) {
+            // Non-standard block — fall through to normal tape emulation
+            CalcTZXBlockPos(tapeCurBlock); // rewind to block start
+            return false;
+        }
+        // Skip pause_ms (2 bytes)
+        readByteFile(tape); readByteFile(tape);
+        // Read data length
+        uint16_t blockLen = (readByteFile(tape) | (readByteFile(tape) << 8));
+        uint8_t tapeFlag = readByteFile(tape);
+
+        if (Z80::getRegAx() != tapeFlag) {
+            Z80::setFlags(0x00);
+            Z80::setRegA(Z80::getRegAx() ^ tapeFlag);
+            if (tapeCurBlock < (tapeNumBlocks - 1)) {
+                tapeCurBlock++;
+                CalcTZXBlockPos(tapeCurBlock);
+            } else {
+                tapeCurBlock = 0;
+                f_lseek(tape, 0);
+            }
+            return true;
+        }
+
+        Z80::setRegA(tapeFlag);
+
+        int count = 0;
+        int addr = Z80::getRegIX();
+        int nBytes = Z80::getRegDE();
+        int addr2 = addr & 0x3fff;
+        uint8_t page = addr >> 14;
+
+        if ((addr2 + nBytes) <= MEM_PG_SZ) {
+            UINT br;
+            uint8_t* p = MemESP::ramCurrent[page];
+            if ( p < (uint8_t*)0x11000000 || (page == 0 && !MemESP::page0ram) ) {
+                f_lseek(tape, f_tell(tape) + nBytes);
+            } else {
+                f_read(tape, &p[addr2], nBytes, &br);
+            }
+            while ((count < nBytes) && (count < blockLen - 1)) {
+                Z80::Xor(MemESP::readbyte(addr));
+                addr = (addr + 1) & 0xffff;
+                count++;
+            }
+        } else {
+            int chunk1 = MEM_PG_SZ - addr2;
+            int chunkrest = nBytes > (blockLen - 1) ? (blockLen - 1) : nBytes;
+            do {
+                if ((page > 0) && (page < 4)) {
+                    UINT br;
+                    f_read(tape, &MemESP::ramCurrent[page][addr2], chunk1, &br);
+                    for (int i=0; i < chunk1; i++) {
+                        Z80::Xor(MemESP::readbyte(addr));
+                        addr = (addr + 1) & 0xffff;
+                        count++;
+                    }
+                } else {
+                    for (int i=0; i < chunk1; i++) {
+                        Z80::Xor(readByteFile(tape));
+                        addr = (addr + 1) & 0xffff;
+                        count++;
+                    }
+                }
+                addr2 = 0;
+                chunkrest = chunkrest - chunk1;
+                if (chunkrest > MEM_PG_SZ) chunk1 = MEM_PG_SZ; else chunk1 = chunkrest;
+                page++;
+            } while (chunkrest > 0);
+        }
+
+        if (nBytes > (blockLen - 2)) {
+            Z80::setFlags(0x50);
+        } else {
+            Z80::Xor(readByteFile(tape));
+            Z80::Cp(0x01);
+        }
+
+        if (tapeCurBlock < (tapeNumBlocks - 1)) {
+            tapeCurBlock++;
+        } else {
+            tapeCurBlock = 0;
+            f_lseek(tape, 0);
+        }
+
+        Z80::setRegIX(addr);
+        Z80::setRegDE(nBytes - (blockLen - 2));
+
+        return true;
+    }
+
     if (!tape.obj.fs) {
-        string fname = FileUtils::TAP_Path + tapeFileName;        
+        string fname = FileUtils::TAP_Path + tapeFileName;
         if (f_open(&tape, fname.c_str(), FA_READ) != FR_OK) {
             return false;
         }
         CalcTapBlockPos(tapeCurBlock);
     }
 
-    // printf("--< BLOCK: %d >--------------------------------\n",(int)tapeCurBlock);    
+    // printf("--< BLOCK: %d >--------------------------------\n",(int)tapeCurBlock);
     FIL* tape = &Tape::tape;
     uint16_t blockLen=(readByteFile(tape) | (readByteFile(tape) <<8));
     uint8_t tapeFlag = readByteFile(tape);

@@ -1526,7 +1526,7 @@ void ESPectrum::loop() {
       }
 #endif
       int32_t t_us = Config::throtling * 1000l;
-      if (!t_us || idle > t_us) {
+      if ((!t_us || idle > t_us) && !(maxSpeed && Tape::tapeStatus == TAPE_LOADING)) {
         // Finish fill of beeper audio buffer (tstate-weighted)
         if (beeperTstatesInSample > 0 && audbufcntover < (uint32_t)samplesPerFrame) {
           // Complete partial sample with constant beeper value

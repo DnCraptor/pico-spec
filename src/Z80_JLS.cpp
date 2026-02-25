@@ -2400,7 +2400,7 @@ void Z80::decodeOpcodebe()
 
     if (REG_PC == 0x56b) { // LOAD trap
 
-        if ((Tape::tapeFileType == TAPE_FTYPE_TAP) && (Tape::tapeFileName != "none")) {
+        if ((Tape::tapeFileType == TAPE_FTYPE_TAP || Tape::tapeFileType == TAPE_FTYPE_TZX) && (Tape::tapeFileName != "none")) {
               if ((Config::flashload) && (Tape::tapeStatus != TAPE_LOADING)) {
                 if (Tape::FlashLoad()) REG_PC = 0x5e2;
             }
