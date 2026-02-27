@@ -23,7 +23,6 @@ extern enum graphics_mode_t graphics_mode;
 //буфер  палитры 256 цветов в формате R8G8B8
 static uint32_t palette[256];
 
-
 // SCREEN_WIDTH is now dynamic: mode.screen_width (320 for 640x480, 360 for 720x576)
 
 // #define HDMI_WIDTH 480 //480 Default
