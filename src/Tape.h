@@ -191,6 +191,7 @@ public:
     static uint8_t tapeStatus;
     static uint8_t SaveStatus;
     static uint8_t romLoading;
+    static bool tapeAutoPlay;
     static int tapeCurBlock;  
     static int tapeNumBlocks;  
     static uint32_t tapebufByteCount;
@@ -207,6 +208,10 @@ public:
     static void Stop();
     static void Read();
     static bool FlashLoad();
+    static bool CerikopikFlashLoad();
+    static int JJFlashLoad(); // 0=not applicable, 1=in progress, 2=done
+    static bool jjScreenAnimating; // true while JJ screen animation in progress
+    static bool TapePortRead();
     static void Save();
 
     static uint32_t CalcTapBlockPos(int block);

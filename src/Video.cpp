@@ -1134,8 +1134,8 @@ IRAM_ATTR void VIDEO::EndFrame() {
 
     tstateDraw = tStatesScreen;
 
-    static uint16_t skipCnt = 0;
-    bool skipFrame = ESPectrum::maxSpeed && (++skipCnt & (Tape::tapeStatus == TAPE_LOADING ? 1023 : 255));
+    static uint8_t skipCnt = 0;
+    bool skipFrame = ESPectrum::maxSpeed && (++skipCnt & 63);
     if (skipFrame) {
         // Skip rendering: 1/1024 frames during tape loading, 1/256 otherwise
         Draw = VIDEO::snow_toggle ? &Blank_Snow : &Blank;

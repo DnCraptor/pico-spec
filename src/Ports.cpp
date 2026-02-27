@@ -195,19 +195,25 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
           data &= port[row];
       }
     }
-    if (Tape::tapeStatus == TAPE_LOADING) {
-      Tape::Read();
-    }
-    if ((Z80Ops::is48) &&
-        (Config::Issue2)) { // Issue 2 behaviour only on Spectrum 48K
-      if (port254 & 0x18)
+    if (Tape::TapePortRead()) return data;
+    // Turbo loaders at 0xFE00+ write to port254 to set border colors, which
+    // on Issue2 hardware feeds bit3 back into EAR input (bit6), inverting
+    // the tape signal. Bypass port254 feedback for turbo loaders.
+    if (Tape::tapeStatus == TAPE_LOADING && Z80::getRegPC() >= 0xFE00) {
+      if (Tape::tapeEarBit)
         data |= 0x40;
     } else {
-      if (port254 & 0x10)
-        data |= 0x40;
+      if ((Z80Ops::is48) &&
+          (Config::Issue2)) { // Issue 2 behaviour only on Spectrum 48K
+        if (port254 & 0x18)
+          data |= 0x40;
+      } else {
+        if (port254 & 0x10)
+          data |= 0x40;
+      }
+      if (Tape::tapeEarBit)
+        data ^= 0x40;
     }
-    if (Tape::tapeEarBit)
-      data ^= 0x40;
   } else {
     ioContentionLate(MemESP::ramContended[rambank]);
 #ifndef NO_ALF
