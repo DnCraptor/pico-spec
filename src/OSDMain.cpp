@@ -235,21 +235,34 @@ void OSD::drawStats() {
 
 void OSD::clearStats() {
 
-    unsigned short y = Config::aspect_16_9 ? 176 : 220;
+    uint16_t brd16 = (uint16_t)VIDEO::brd;
 
-    if (Z80Ops::isPentagon) {
-        uint32_t brdColor = VIDEO::brd;
-        uint16_t brd16 = (uint16_t)brdColor;
-        for (int line = y; line < y + 16; line++) {
+    if (Config::full_border) {
+        // full border 360x288: stats at x=188, y=268, 144x16px, uint16_t framebuffer
+        for (int line = 268; line < 284; line++) {
             uint16_t *ptr = (uint16_t *)(VIDEO::vga.frameBuffer[line]);
-            for (int col = 84; col < 156; col++) {
+            for (int col = 188; col < 332; col++)
                 ptr[col ^ 1] = brd16;
+        }
+    } else if (Config::aspect_16_9) {
+        uint32_t brdColor = VIDEO::brd;
+        for (int line = 176; line < 192; line++) {
+            uint32_t *ptr = (uint32_t *)(VIDEO::vga.frameBuffer[line]) + 5;
+            for (int col = 21; col < 39; col++) {
+                ptr[col * 2] = brdColor;
+                ptr[col * 2 + 1] = brdColor;
             }
+        }
+    } else if (Z80Ops::isPentagon) {
+        for (int line = 220; line < 236; line++) {
+            uint16_t *ptr = (uint16_t *)(VIDEO::vga.frameBuffer[line]);
+            for (int col = 84; col < 156; col++)
+                ptr[col ^ 1] = brd16;
         }
     } else {
         uint32_t brdColor = VIDEO::brd;
-        for (int line = y; line < y + 16; line++) {
-            uint32_t *ptr = (uint32_t *)(VIDEO::vga.frameBuffer[line]) + (Config::aspect_16_9 ? 5 : 0);
+        for (int line = 220; line < 236; line++) {
+            uint32_t *ptr = (uint32_t *)(VIDEO::vga.frameBuffer[line]);
             for (int col = 21; col < 39; col++) {
                 ptr[col * 2] = brdColor;
                 ptr[col * 2 + 1] = brdColor;

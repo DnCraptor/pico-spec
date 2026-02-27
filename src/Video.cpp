@@ -1647,10 +1647,10 @@ IRAM_ATTR void VIDEO::BottomBorder_FullBorder() {
 
 IRAM_ATTR void VIDEO::BottomBorder_OSD_FullBorder() {
     while (lastBrdTstate <= CPU::tstates) {
-        // Skip OSD area: stats at y=268 (lines 264-282), volume at x=188 (col 94+)
-        if (brdlin_cnt < 264 || brdlin_cnt > 282) {
+        // Skip OSD stats area: x=188..331 (col 94..165), y=268..283 (lines 268..283)
+        if (brdlin_cnt < 268 || brdlin_cnt > 283) {
             Update_Border_Pentagon();
-        } else if (brdcol_cnt < 1 || brdcol_cnt > 179) {
+        } else if (brdcol_cnt < 94 || brdcol_cnt >= 166) {
             Update_Border_Pentagon();
         } else {
             // skip OSD pixel
