@@ -217,9 +217,12 @@ void OSD::drawStats() {
     if (Config::aspect_16_9) {
         x = 156;
         y = 176;
-    } else if (Config::full_border) {
+    } else if (VIDEO::isFullBorder288()) {
         x = 188;
         y = 268;
+    } else if (VIDEO::isHalfBorder()) {
+        x = 188;
+        y = 220;
     } else {
         x = 168;
         y = 220;
@@ -237,9 +240,16 @@ void OSD::clearStats() {
 
     uint16_t brd16 = (uint16_t)VIDEO::brd;
 
-    if (Config::full_border) {
+    if (VIDEO::isFullBorder288()) {
         // full border 360x288: stats at x=188, y=268, 144x16px, uint16_t framebuffer
         for (int line = 268; line < 284; line++) {
+            uint16_t *ptr = (uint16_t *)(VIDEO::vga.frameBuffer[line]);
+            for (int col = 188; col < 332; col++)
+                ptr[col ^ 1] = brd16;
+        }
+    } else if (VIDEO::isHalfBorder()) {
+        // half border 360x240: stats at x=188, y=220, 144x16px, uint16_t framebuffer
+        for (int line = 220; line < 236; line++) {
             uint16_t *ptr = (uint16_t *)(VIDEO::vga.frameBuffer[line]);
             for (int col = 188; col < 332; col++)
                 ptr[col ^ 1] = brd16;
@@ -396,35 +406,18 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
     if (CTRL) {
         if (ALT) { // CTRL + ALT + [key]
             if (KeytoESP == fabgl::VK_HOME) { // HDMI 60Hz
-                if (VIDEO::video_mode == 0) return;
-                if (SELECT_VGA)
-                    Config::vga_video_mode=0;
-                else
-                    Config::hdmi_video_mode=0;
+                uint8_t &vm = SELECT_VGA ? Config::vga_video_mode : Config::hdmi_video_mode;
+                if (vm == Config::VM_640x480_60) return;
+                Config::savePendingVideoMode();
+                vm = Config::VM_640x480_60;
                 Config::save();
                 esp_hard_reset();
             } else
             if (KeytoESP == fabgl::VK_END) { // HDMI 50Hz
-                if (SELECT_VGA)
-                {
-                    if (Z80Ops::is48)
-                        Config::vga_video_mode=2;
-                    else if (Z80Ops::is128)
-                        Config::vga_video_mode=3;
-                    else
-                        Config::vga_video_mode=1;
-                    if (VIDEO::video_mode == Config::vga_video_mode) return;
-                }
-                else
-                {
-                    if (Z80Ops::is48)
-                        Config::hdmi_video_mode=2;
-                    else if (Z80Ops::is128)
-                        Config::hdmi_video_mode=3;
-                    else
-                        Config::hdmi_video_mode=1;
-                    if (VIDEO::video_mode == Config::hdmi_video_mode) return;
-                }
+                uint8_t &vm = SELECT_VGA ? Config::vga_video_mode : Config::hdmi_video_mode;
+                if (vm == Config::VM_640x480_50) return;
+                Config::savePendingVideoMode();
+                vm = Config::VM_640x480_50;
                 Config::save();
                 esp_hard_reset();
             }
@@ -803,7 +796,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         if (Config::aspect_16_9)
                             VIDEO::Draw_OSD169 = VIDEO::MainScreen;
                         else
-                            VIDEO::Draw_OSD43 = Config::full_border ? VIDEO::BottomBorder_FullBorder
+                            VIDEO::Draw_OSD43 = VIDEO::isFullBorderMode() ? VIDEO::BottomBorder_FullBorder
                                             : Z80Ops::isPentagon ? VIDEO::BottomBorder_Pentagon : VIDEO::BottomBorder;
                         VIDEO::brdnextframe = true;
                     }
@@ -814,7 +807,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         if (Config::aspect_16_9)
                             VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                         else
-                            VIDEO::Draw_OSD43  = Config::full_border ? VIDEO::BottomBorder_OSD_FullBorder
+                            VIDEO::Draw_OSD43  = VIDEO::isFullBorderMode() ? VIDEO::BottomBorder_OSD_FullBorder
                                              : Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
 
                         OSD::drawStats();
@@ -829,7 +822,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 if (Config::aspect_16_9)
                     VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                 else
-                    VIDEO::Draw_OSD43  = Config::full_border ? VIDEO::BottomBorder_OSD_FullBorder
+                    VIDEO::Draw_OSD43  = VIDEO::isFullBorderMode() ? VIDEO::BottomBorder_OSD_FullBorder
                                          : Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
                 VIDEO::OSD = 0x04;
             } else
@@ -847,9 +840,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             if (Config::aspect_16_9) {
                 x = 156;
                 y = 180;
-            } else if (Config::full_border) {
+            } else if (VIDEO::isFullBorder288()) {
                 x = 188;
                 y = 272;
+            } else if (VIDEO::isHalfBorder()) {
+                x = 188;
+                y = 224;
             } else {
                 x = 168;
                 y = 224;
@@ -868,7 +864,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 if (Config::aspect_16_9)
                     VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                 else
-                    VIDEO::Draw_OSD43  = Config::full_border ? VIDEO::BottomBorder_OSD_FullBorder
+                    VIDEO::Draw_OSD43  = VIDEO::isFullBorderMode() ? VIDEO::BottomBorder_OSD_FullBorder
                                          : Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
                 VIDEO::OSD = 0x04;
             } else
@@ -886,9 +882,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             if (Config::aspect_16_9) {
                 x = 156;
                 y = 180;
-            } else if (Config::full_border) {
+            } else if (VIDEO::isFullBorder288()) {
                 x = 188;
                 y = 272;
+            } else if (VIDEO::isHalfBorder()) {
+                x = 188;
+                y = 224;
             } else {
                 x = 168;
                 y = 224;
@@ -933,7 +932,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     if (Config::aspect_16_9)
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                     else
-                        VIDEO::Draw_OSD43  = Config::full_border ? VIDEO::BottomBorder_OSD_FullBorder
+                        VIDEO::Draw_OSD43  = VIDEO::isFullBorderMode() ? VIDEO::BottomBorder_OSD_FullBorder
                                              : Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
                     VIDEO::OSD = 0x04;
                 } else
@@ -2439,32 +2438,25 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_saverect = true;
                                     while (1) {
                                         string opt_menu = MENU_VIDEO_MODE[Config::lang];
-                                        int* curVideoMode =
 #ifdef VGA_HDMI
-                                            SELECT_VGA ? &Config::vga_video_mode : &Config::hdmi_video_mode;
+                                        uint8_t &curVideoMode = SELECT_VGA ? Config::vga_video_mode : Config::hdmi_video_mode;
 #else
-                                            0;
+                                        uint8_t dummy_vm = 0;
+                                        uint8_t &curVideoMode = dummy_vm;
 #endif
-                                        // Determine current selection: 0=640x480@60, 1=640x480@50, 2=720x576@50
-                                        uint8_t cur_sel = Config::full_border ? 2 : (*curVideoMode > 0 ? 1 : 0);
+                                        // cur_sel maps directly to VM_* enum: 0=640x480@60, 1=640x480@50, 2=720x480@60, 3=720x576@60, 4=720x576@50
+                                        uint8_t cur_sel = curVideoMode;
                                         opt_menu.replace(opt_menu.find("[6",0),2, cur_sel == 0 ? "[*" : "[ ");
                                         opt_menu.replace(opt_menu.find("[5",0),2, cur_sel == 1 ? "[*" : "[ ");
-                                        opt_menu.replace(opt_menu.find("[F",0),2, cur_sel == 2 ? "[*" : "[ ");
+                                        opt_menu.replace(opt_menu.find("[H",0),2, cur_sel == 2 ? "[*" : "[ ");
+                                        opt_menu.replace(opt_menu.find("[X",0),2, cur_sel == 3 ? "[*" : "[ ");
+                                        opt_menu.replace(opt_menu.find("[F",0),2, cur_sel == 4 ? "[*" : "[ ");
                                         uint8_t opt2 = menuRun(opt_menu);
                                         if (opt2) {
-                                            bool prev_full_border = Config::full_border;
-                                            uint8_t prev_vmode = *curVideoMode;
-                                            if (opt2 == 1) {
-                                                *curVideoMode = 0;
-                                                Config::full_border = false;
-                                            } else if (opt2 == 2) {
-                                                *curVideoMode = 1;
-                                                Config::full_border = false;
-                                            } else if (opt2 == 3) {
-                                                Config::full_border = true;
-                                            }
-
-                                            if (*curVideoMode != prev_vmode || Config::full_border != prev_full_border) {
+                                            uint8_t new_vm = opt2 - 1; // opt2 is 1-based, VM_* is 0-based
+                                            if (new_vm != curVideoMode) {
+                                                Config::savePendingVideoMode();
+                                                curVideoMode = new_vm;
                                                 Config::save();
                                                 esp_hard_reset();
                                             }
@@ -5521,6 +5513,129 @@ uint8_t OSD::msgDialog(string title, string msg) {
 
     return res;
 
+}
+
+bool OSD::videoModeConfirm(int timeout_sec) {
+
+    string title = "Video Mode";
+    string msg = Config::lang ? "Mantener este modo?" : "Keep this video mode?";
+
+    const unsigned short h = (OSD_FONT_H * 6) + 2;
+    const unsigned short y = scrAlignCenterY(h);
+    bool confirmed = false;
+
+    const unsigned short w = (((msg.length() + 2) * OSD_FONT_W) + 2);
+    const unsigned short x = scrAlignCenterX(w);
+
+    VIDEO::SaveRect.save(x, y, w, h);
+
+    VIDEO::vga.setFont(Font6x8);
+
+    // Border
+    VIDEO::vga.rect(x, y, w, h, zxColor(0, 0));
+
+    // Title bar
+    VIDEO::vga.fillRect(x + 1, y + 1, w - 2, OSD_FONT_H, zxColor(0, 0));
+    VIDEO::vga.fillRect(x + 1, y + 1 + OSD_FONT_H, w - 2, h - OSD_FONT_H - 2, zxColor(7, 1));
+
+    // Title
+    VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(0, 0));
+    VIDEO::vga.setCursor(x + OSD_FONT_W + 1, y + 1);
+    VIDEO::vga.print(title.c_str());
+
+    // Message
+    VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
+    VIDEO::vga.setCursor(scrAlignCenterX(msg.length() * OSD_FONT_W), y + 1 + (OSD_FONT_H * 2));
+    VIDEO::vga.print(msg.c_str());
+
+    // Countdown area (row 3) — will be updated each second
+    unsigned short count_y = y + 1 + (OSD_FONT_H * 3);
+
+    // Yes button (initially not selected)
+    VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
+    VIDEO::vga.setCursor(scrAlignCenterX(6 * OSD_FONT_W) - (w >> 2), y + 1 + (OSD_FONT_H * 4));
+    VIDEO::vga.print(Config::lang ? "  Si  " : " Yes  ");
+
+    // No button (initially selected/highlighted)
+    VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
+    VIDEO::vga.setCursor(scrAlignCenterX(6 * OSD_FONT_W) + (w >> 2), y + 1 + (OSD_FONT_H * 4));
+    VIDEO::vga.print("  No  ");
+
+    // Rainbow decoration
+    unsigned short rb_y = y + 8;
+    unsigned short rb_paint_x = x + w - 30;
+    uint8_t rb_colors[] = {2, 6, 4, 5};
+    for (uint8_t c = 0; c < 4; c++) {
+        for (uint8_t i = 0; i < 5; i++) {
+            VIDEO::vga.line(rb_paint_x + i, rb_y, rb_paint_x + 8 + i, rb_y - 8, zxColor(rb_colors[c], 1));
+        }
+        rb_paint_x += 5;
+    }
+
+    int remaining = timeout_sec;
+    int tick_count = 0;
+
+    // Show initial countdown
+    char countbuf[8];
+    snprintf(countbuf, sizeof(countbuf), " [%2d] ", remaining);
+    VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
+    VIDEO::vga.setCursor(scrAlignCenterX(6 * OSD_FONT_W), count_y);
+    VIDEO::vga.print(countbuf);
+
+    // Keyboard loop with countdown
+    fabgl::VirtualKeyItem Menukey;
+    while (remaining > 0) {
+        if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
+            if (ESPectrum::readKbd(&Menukey)) {
+                if (!Menukey.down) continue;
+                if (is_left(Menukey.vk)) {
+                    // Highlight Yes
+                    VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
+                    VIDEO::vga.setCursor(scrAlignCenterX(6 * OSD_FONT_W) - (w >> 2), y + 1 + (OSD_FONT_H * 4));
+                    VIDEO::vga.print(Config::lang ? "  Si  " : " Yes  ");
+                    // Unhighlight No
+                    VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
+                    VIDEO::vga.setCursor(scrAlignCenterX(6 * OSD_FONT_W) + (w >> 2), y + 1 + (OSD_FONT_H * 4));
+                    VIDEO::vga.print("  No  ");
+                    click();
+                    confirmed = true;
+                } else if (is_right(Menukey.vk)) {
+                    // Unhighlight Yes
+                    VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
+                    VIDEO::vga.setCursor(scrAlignCenterX(6 * OSD_FONT_W) - (w >> 2), y + 1 + (OSD_FONT_H * 4));
+                    VIDEO::vga.print(Config::lang ? "  Si  " : " Yes  ");
+                    // Highlight No
+                    VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
+                    VIDEO::vga.setCursor(scrAlignCenterX(6 * OSD_FONT_W) + (w >> 2), y + 1 + (OSD_FONT_H * 4));
+                    VIDEO::vga.print("  No  ");
+                    click();
+                    confirmed = false;
+                } else if (is_enter(Menukey.vk)) {
+                    break;
+                } else if (Menukey.vk == fabgl::VK_ESCAPE) {
+                    confirmed = false;
+                    break;
+                }
+            }
+        }
+
+        sleep_ms(5);
+        tick_count++;
+        if (tick_count >= 200) { // 200 * 5ms = 1 second
+            tick_count = 0;
+            remaining--;
+            snprintf(countbuf, sizeof(countbuf), " [%2d] ", remaining);
+            VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
+            VIDEO::vga.setCursor(scrAlignCenterX(6 * OSD_FONT_W), count_y);
+            VIDEO::vga.print(countbuf);
+        }
+    }
+
+    click();
+
+    VIDEO::SaveRect.restore_last();
+
+    return confirmed;
 }
 
 string OSD::inputBox(int x, int y, string text) {

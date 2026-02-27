@@ -38,6 +38,7 @@ visit https://zxespectrum.speccy.org/contacto
 
 #include <inttypes.h>
 #include "ESPectrum.h"
+#include "Config.h"
 #include "VGA/VGA6Bit.h"
 #include <list>
 
@@ -68,6 +69,11 @@ visit https://zxespectrum.speccy.org/contacto
 #define TS_BORDER_360x288_128 3396      // START OF BORDER 128 FULL (+5 correction like 320x240)
 #define TS_BORDER_360x288_PENTAGON 7209 // START OF BORDER PENTAGON FULL (+4 correction like 320x240)
 #define TS_BORDER_360x288_BYTE 3562
+
+#define TS_BORDER_360x240 8938          // START OF BORDER 48 HALF (24 top lines, 360px wide)
+#define TS_BORDER_360x240_128 8868      // START OF BORDER 128 HALF
+#define TS_BORDER_360x240_PENTAGON 12585 // START OF BORDER PENTAGON HALF
+#define TS_BORDER_360x240_BYTE 8938
 
 // Colors as 8-bit palette indices (VGA8 mode)
 // Standard Spectrum color order: 0-7 normal, 8-15 bright, 16 orange
@@ -221,6 +227,11 @@ public:
   static uint32_t framecnt; // Frames elapsed
 
   static int video_mode;
+
+  // Video mode helper methods
+  static bool isFullBorderMode() { return Config::hdmi_video_mode >= Config::VM_720x480_60; }
+  static bool isHalfBorder()     { return Config::hdmi_video_mode == Config::VM_720x480_60; }
+  static bool isFullBorder288()  { return Config::hdmi_video_mode >= Config::VM_720x576_60; }
 
   static bool gigascreen_enabled;
   static uint8_t gigascreen_auto_countdown;

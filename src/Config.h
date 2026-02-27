@@ -124,8 +124,18 @@ public:
     
     static signed char aud_volume;
 
-    static int hdmi_video_mode;
-    static int vga_video_mode;
+    // Video mode enum
+    enum {
+        VM_640x480_60  = 0,  // 640x480@60Hz (default)
+        VM_640x480_50  = 1,  // 640x480@50Hz (arch-dependent timing)
+        VM_720x480_60  = 2,  // 720x480@60Hz half border
+        VM_720x576_60  = 3,  // 720x576@60Hz full border (non-standard)
+        VM_720x576_50  = 4,  // 720x576@50Hz full border
+    };
+
+    static uint8_t hdmi_video_mode;
+    static uint8_t vga_video_mode;
+
     static bool v_sync_enabled;
     static bool gigascreen_enabled;
     static uint8_t gigascreen_onoff; // 0=Off, 1=On, 2=Auto
@@ -134,7 +144,10 @@ public:
 #endif
     static uint8_t audio_driver;
     static bool byte_cobmect_mode;
-    static bool full_border;
+
+    static void savePendingVideoMode();
+    static bool loadPendingVideoMode(uint8_t &hdmi_vm, uint8_t &vga_vm);
+    static void clearPendingVideoMode();
 };
 
 #endif // Config.h

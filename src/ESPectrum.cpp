@@ -1453,14 +1453,26 @@ uint8_t debug_number = 0;
 //=======================================================================================
 void ESPectrum::loop() {
 
-  // if (AY_emu) {
-  //     int hz = 44100;
-  //     repeating_timer_t timer_audio;
-  //     if (!add_repeating_timer_us(-(1000000/hz), AY_timer_callback, NULL,
-  //     &timer_audio))
-  //     {
-  //     }
-  // }
+  // Check if we're booting into a pending (unconfirmed) video mode
+  // Must be here (not in setup) because HDMI DMA starts on core1 after setup returns
+  {
+      uint8_t pend_hdmi = 0, pend_vga = 0;
+      if (Config::loadPendingVideoMode(pend_hdmi, pend_vga)) {
+          Debug::log("loop: pending video mode found, showing confirmation");
+          sleep_ms(500); // Let HDMI stabilize
+          if (!OSD::videoModeConfirm(15)) {
+              Debug::log("loop: reverting video mode");
+              Config::hdmi_video_mode = pend_hdmi;
+              Config::vga_video_mode = pend_vga;
+              Config::save();
+              Config::clearPendingVideoMode();
+              OSD::esp_hard_reset();
+          } else {
+              Debug::log("loop: video mode confirmed");
+              Config::clearPendingVideoMode();
+          }
+      }
+  }
 
   for (;;) {
     if (debug_number != 0) {
@@ -1623,7 +1635,7 @@ void ESPectrum::loop() {
             if (Config::aspect_16_9)
               VIDEO::Draw_OSD169 = VIDEO::MainScreen;
             else
-                        VIDEO::Draw_OSD43 = Config::full_border ? VIDEO::BottomBorder_FullBorder
+                        VIDEO::Draw_OSD43 = VIDEO::isFullBorderMode() ? VIDEO::BottomBorder_FullBorder
                                             : Z80Ops::isPentagon ? VIDEO::BottomBorder_Pentagon : VIDEO::BottomBorder;
             VIDEO::brdnextframe = true;
           }

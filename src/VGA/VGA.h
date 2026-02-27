@@ -121,8 +121,10 @@ enum vmodeproperties {
 // HDMI FULL BORDER MODE (720x576@50Hz, logical 360x288)
 #define VgaMode_360x288 { 6, 32, 34, 360, 5, 5, 39, 576, 2, 0, 0, 0,0,0,0,0,0 }
 
+// HDMI HALF BORDER MODE (720x480@60Hz, logical 360x240)
+#define VgaMode_360x240 { 8, 48, 24, 360, 10, 2, 33, 480, 2, 0, 0, 0,0,0,0,0,0 }
 
-const unsigned short int vidmodes[23][17]={
+const unsigned short int vidmodes[24][17]={
 	VgaMode_320x240, VgaMode_320x240_scanlines, VgaMode_360x200, VgaMode_360x200_scanlines,
 
 	VgaMode_320x240_50_48, VgaMode_320x240_50_48_scanlines, VgaMode_360x200_50_48,  VgaMode_360x200_50_48_scanlines,
@@ -136,7 +138,8 @@ const unsigned short int vidmodes[23][17]={
 	VgaMode_320x240_TV_128, VgaMode_360x200_TV_128,
 	VgaMode_320x240_TV_PENTAGON , VgaMode_360x200_TV_PENTAGON,
 
-	VgaMode_360x288  // index 22: HDMI full border
+	VgaMode_360x288,  // index 22: HDMI full border (360x288)
+	VgaMode_360x240   // index 23: HDMI half border (360x240)
 
 };
 

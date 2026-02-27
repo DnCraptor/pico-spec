@@ -84,16 +84,16 @@ void __time_critical_func() dma_handler_VGA() {
 
     struct video_mode_t mode = graphics_get_video_mode(get_video_mode());
 
-    if (screen_line == mode.h_total) {
+    if (screen_line == mode.v_total) {
         ESPectrum_vsync();
         screen_line = 0;
         frame_number++;
         input_buffer = getLineBuffer(screen_line);
     }
 
-    if (screen_line >= mode.h_width) {
+    if (screen_line >= mode.v_active) {
         //заполнение цветом фона
-        if (screen_line == mode.h_width | screen_line == mode.h_width + 3) {
+        if (screen_line == mode.v_active | screen_line == mode.v_active + 3) {
             uint32_t* output_buffer_32bit = lines_pattern[2 + (screen_line & 1)];
             output_buffer_32bit += shift_picture / 4;
             uint32_t p_i = (screen_line & is_flash_line) + (frame_number & is_flash_frame) & 1;
@@ -310,7 +310,7 @@ void graphics_set_mode(enum graphics_mode_t mode) {
             line_VS_begin = 490;
             line_VS_end = 491;
             struct video_mode_t vMode = graphics_get_video_mode(get_video_mode());            
-            fdiv = clock_get_hz(clk_sys) / vMode.vgaPxClk; //частота пиксельклока
+            fdiv = clock_get_hz(clk_sys) / vMode.pixel_clk; //частота пиксельклока
             break;
         default:
             return;

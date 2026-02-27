@@ -119,6 +119,14 @@ uint8_t VIDEO::snowpage;
 uint8_t VIDEO::snowR;
 bool VIDEO::snow_toggle = false;
 
+// Full border rendering constants (runtime-switchable for full/half border)
+#define FB_COLS_TOTAL   180  // 360px / 2px per col
+#define FB_COLS_LEFT    26   // 52px left border / 2px
+#define FB_COLS_RIGHT   154  // FB_COLS_LEFT + 128 screen cols
+static int FB_TOP_LINES    = 48;
+static int FB_BOTTOM_START = 240;  // FB_TOP_LINES + 192
+static int FB_TOTAL_LINES  = 288;
+
 // ULA+
 #if !PICO_RP2040
 bool VIDEO::ulaplus_enabled = false;
@@ -430,8 +438,10 @@ static __aligned(4) uint8_t SAVE_RECT[0x9000] = {0};
 void VIDEO::Init() {
     int Mode;
 #ifdef VGA_HDMI
-    if (Config::full_border && !SELECT_VGA) {
-        Mode = 22; // VgaMode_360x288 — HDMI full border
+    if (VIDEO::isFullBorder288() && !SELECT_VGA) {
+        Mode = 22; // VgaMode_360x288 — HDMI full border (720x576)
+    } else if (VIDEO::isHalfBorder() && !SELECT_VGA) {
+        Mode = 23; // VgaMode_360x240 — HDMI half border (720x480@60)
     } else
 #endif
     {
@@ -491,25 +501,27 @@ void VIDEO::Reset() {
 
     is169 = Config::aspect_16_9 ? 1 : 0;
 #ifdef VGA_HDMI
-    isFullBorder = (Config::full_border && !SELECT_VGA) ? 1 : 0;
+    isFullBorder = (VIDEO::isFullBorderMode() && !SELECT_VGA) ? 1 : 0;
 #else
     isFullBorder = 0;
 #endif
 
     OSD = 0;
 
+    bool isHalfBorder = VIDEO::isHalfBorder() && isFullBorder;
+
     if (Config::arch == "48K") {
         if (Config::romSet48 == "48Kby") {
             tStatesPerLine = TSTATES_PER_LINE_BYTE;
             tStatesScreen = TS_SCREEN_BYTE;
-            tStatesBorder = isFullBorder ? TS_BORDER_360x288_BYTE
+            tStatesBorder = isFullBorder ? (isHalfBorder ? TS_BORDER_360x240_BYTE : TS_BORDER_360x288_BYTE)
                           : is169 ? TS_BORDER_360x200_BYTE : TS_BORDER_320x240_BYTE;
         }
         else
         {
             tStatesPerLine = TSTATES_PER_LINE;
             tStatesScreen = TS_SCREEN_48;
-            tStatesBorder = isFullBorder ? TS_BORDER_360x288
+            tStatesBorder = isFullBorder ? (isHalfBorder ? TS_BORDER_360x240 : TS_BORDER_360x288)
                           : is169 ? TS_BORDER_360x200 : TS_BORDER_320x240;
         }
         VsyncFinetune[0] = 0;
@@ -527,14 +539,14 @@ void VIDEO::Reset() {
         if (Config::romSet128 == "128Kby" || Config::romSet128 == "128Kbg") {
             tStatesPerLine = TSTATES_PER_LINE_BYTE;
             tStatesScreen = TS_SCREEN_BYTE;
-            tStatesBorder = isFullBorder ? TS_BORDER_360x288_BYTE
+            tStatesBorder = isFullBorder ? (isHalfBorder ? TS_BORDER_360x240_BYTE : TS_BORDER_360x288_BYTE)
                           : is169 ? TS_BORDER_360x200_BYTE : TS_BORDER_320x240_BYTE;
         }
         else
         {
             tStatesPerLine = TSTATES_PER_LINE_128;
             tStatesScreen = TS_SCREEN_128;
-            tStatesBorder = isFullBorder ? TS_BORDER_360x288_128
+            tStatesBorder = isFullBorder ? (isHalfBorder ? TS_BORDER_360x240_128 : TS_BORDER_360x288_128)
                           : is169 ? TS_BORDER_360x200_128 : TS_BORDER_320x240_128;
         }
         VsyncFinetune[0] = 0;
@@ -551,7 +563,7 @@ void VIDEO::Reset() {
     } else if (Config::arch == "Pentagon" || Config::arch == "P512" || Config::arch == "P1024") {
         tStatesPerLine = TSTATES_PER_LINE_PENTAGON;
         tStatesScreen = TS_SCREEN_PENTAGON;
-        tStatesBorder = isFullBorder ? TS_BORDER_360x288_PENTAGON
+        tStatesBorder = isFullBorder ? (isHalfBorder ? TS_BORDER_360x240_PENTAGON : TS_BORDER_360x288_PENTAGON)
                       : is169 ? TS_BORDER_360x200_PENTAGON : TS_BORDER_320x240_PENTAGON;
         VsyncFinetune[0] = 0;
         VsyncFinetune[1] = 0;
@@ -566,10 +578,20 @@ void VIDEO::Reset() {
         }
     }
 
-    if (isFullBorder) {
+    if (isFullBorder && !isHalfBorder) {
         lin_end = 48;
         lin_end2 = 240;
         lineptr_offset = 13; // 52 bytes = (360-256)/2 pixels
+        FB_TOP_LINES = 48;
+        FB_BOTTOM_START = 240;
+        FB_TOTAL_LINES = 288;
+    } else if (isFullBorder && isHalfBorder) {
+        lin_end = 24;
+        lin_end2 = 216;
+        lineptr_offset = 13; // 52 bytes = (360-256)/2 pixels
+        FB_TOP_LINES = 24;
+        FB_BOTTOM_START = 216;
+        FB_TOTAL_LINES = 240;
     } else if (is169) {
         lin_end = 4;
         lin_end2 = 196;
@@ -604,38 +626,41 @@ void VIDEO::Reset() {
 #ifdef VGA_HDMI
     if (SELECT_VGA)
     {
-        if (Config::vga_video_mode > 0)
-        {
-            if (Config::arch == "48K")
-                Config::vga_video_mode=2;
-            else if (Config::arch == "128K")
-                Config::vga_video_mode=3;
-            else
-                Config::vga_video_mode=1;
+        // VGA: only 640x480 modes (graphics.c indices 0-3)
+        if (Config::vga_video_mode == Config::VM_640x480_50) {
+            if (Config::arch == "48K") video_mode = 2;
+            else if (Config::arch == "128K") video_mode = 3;
+            else video_mode = 1; // Pentagon
+        } else {
+            video_mode = 0; // 640x480@60Hz
         }
-        video_mode = Config::vga_video_mode;
     }
     else
     {
-        if (Config::full_border) {
-            // 720x576 full border modes (same 25.175MHz pixel clock as 640x480)
-            if (Config::arch == "48K")
-                video_mode = 5;
-            else if (Config::arch == "128K" || Config::arch == "ALF")
-                video_mode = 6;
-            else
-                video_mode = 4; // Pentagon
-        } else {
-            if (Config::hdmi_video_mode > 0)
-            {
-                if (Config::arch == "48K")
-                    Config::hdmi_video_mode=2;
-                else if (Config::arch == "128K")
-                    Config::hdmi_video_mode=3;
-                else
-                    Config::hdmi_video_mode=1;
-            }
-            video_mode = Config::hdmi_video_mode;
+        // HDMI: map Config enum to graphics.c video_mode index
+        switch (Config::hdmi_video_mode) {
+            case Config::VM_640x480_60:
+                video_mode = 0;
+                break;
+            case Config::VM_640x480_50:
+                if (Config::arch == "48K") video_mode = 2;
+                else if (Config::arch == "128K") video_mode = 3;
+                else video_mode = 1; // Pentagon
+                break;
+            case Config::VM_720x480_60:
+                video_mode = 7;
+                break;
+            case Config::VM_720x576_60:
+                video_mode = 8;
+                break;
+            case Config::VM_720x576_50:
+                if (Config::arch == "48K") video_mode = 5;
+                else if (Config::arch == "128K" || Config::arch == "ALF") video_mode = 6;
+                else video_mode = 4; // Pentagon
+                break;
+            default:
+                video_mode = 0;
+                break;
         }
     }
 #endif
@@ -1569,15 +1594,8 @@ IRAM_ATTR void VIDEO::BottomBorder_OSD_Pentagon() {
     }
 }
 
-// Full border rendering functions (720x576 mode, 360x288 logical)
+// Full border rendering functions (720x576/720x480 mode, 360x288/360x240 logical)
 // Uses 16-bit (2-pixel) columns for all models, 180 cols per line
-
-#define FB_COLS_TOTAL   180  // 360px / 2px per col
-#define FB_COLS_LEFT    26   // 52px left border / 2px
-#define FB_COLS_RIGHT   154  // FB_COLS_LEFT + 128 screen cols
-#define FB_TOP_LINES    48
-#define FB_BOTTOM_START 240  // FB_TOP_LINES + 192
-#define FB_TOTAL_LINES  288
 
 IRAM_ATTR void VIDEO::TopBorder_Blank_FullBorder() {
     if (CPU::tstates >= tStatesBorder) {
@@ -1660,9 +1678,11 @@ IRAM_ATTR void VIDEO::BottomBorder_FullBorder() {
 }
 
 IRAM_ATTR void VIDEO::BottomBorder_OSD_FullBorder() {
+    const int osd_y_start = VIDEO::isHalfBorder() ? 220 : 268;
+    const int osd_y_end = osd_y_start + 15;
     while (lastBrdTstate <= CPU::tstates) {
-        // Skip OSD stats area: x=188..331 (col 94..165), y=268..283 (lines 268..283)
-        if (brdlin_cnt < 268 || brdlin_cnt > 283) {
+        // Skip OSD stats area: x=188..331 (col 94..165)
+        if (brdlin_cnt < osd_y_start || brdlin_cnt > osd_y_end) {
             Update_Border_Pentagon();
         } else if (brdcol_cnt < 94 || brdcol_cnt >= 166) {
             Update_Border_Pentagon();

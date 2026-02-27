@@ -24,10 +24,10 @@ extern "C" {
 #include "font8x16.h"
 
 typedef struct video_mode_t{
-  int h_total;
-  int h_width;
+  int v_total;
+  int v_active;
   int freq;
-  int vgaPxClk;
+  int pixel_clk;
   int vsync_start;
   int vsync_end;
   int screen_width;
@@ -35,6 +35,7 @@ typedef struct video_mode_t{
   int h_bp_bytes;
   int h_fp_bytes;
   int line_bytes;
+  int v_offset;
 };
 
 enum graphics_mode_t {

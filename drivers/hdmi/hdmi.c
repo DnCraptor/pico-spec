@@ -173,7 +173,7 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
     dma_hw->ints0 = 1u << dma_chan_ctrl;
     dma_channel_set_read_addr(dma_chan_ctrl, &DMA_BUF_ADDR[inx_buf_dma & 1], false);
 
-    if (line >= mode.h_total ) {
+    if (line >= mode.v_total ) {
         line = 0;
     } else {
         ++line;
@@ -182,7 +182,7 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
     // Сигнализируем vsync в начале blanking-периода (после последней видимой строки),
     // чтобы эмулятор рендерил следующий кадр во время blanking,
     // пока HDMI не читает frameBuffer — предотвращает тиринг в верхней части экрана
-    if (line == mode.h_width) {
+    if (line == mode.v_active) {
         ESPectrum_vsync();
     }
 
@@ -197,9 +197,9 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
     const int scr_w = mode.screen_width;
     const int line_sz = mode.line_bytes;
 
-    if (line < mode.h_width ) {
+    if (line < mode.v_active ) {
         uint8_t* output_buffer = activ_buf + h_sync + h_bp;
-        int y = line >> 1;
+        int y = (line >> 1) + mode.v_offset;
         //область изображения
         uint8_t* input_buffer = getLineBuffer(y);
         if (!input_buffer) return;
@@ -394,7 +394,7 @@ static inline bool hdmi_init() {
 
     struct video_mode_t hdmi_mode = graphics_get_video_mode(get_video_mode());
     // PIO clock = TMDS bit clock = pixel_clock * 10
-    sm_config_set_clkdiv(&c_c, clock_get_hz(clk_sys) / (hdmi_mode.vgaPxClk * 10.0f));
+    sm_config_set_clkdiv(&c_c, clock_get_hz(clk_sys) / (hdmi_mode.pixel_clk * 10.0f));
     pio_sm_init(PIO_VIDEO, SM_video, offs_prg0, &c_c);
     pio_sm_set_enabled(PIO_VIDEO, SM_video, true);
 
