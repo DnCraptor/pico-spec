@@ -1,6 +1,10 @@
 #include "graphics.h"
 #include <string.h>
 
+// PIO clock divider must be integer or half-integer (n/2) for clean TMDS pixel clock.
+// All modes: sys_clk=378MHz, divider=1.5 → TMDS=252MHz → pixel_clk=25.2MHz
+#define PIO_DIV_1_5  1.5f
+
 static struct video_mode_t video_mode[] = {
     { // [0] 640x480 60Hz
         .v_total = 524,
@@ -14,10 +18,10 @@ static struct video_mode_t video_mode[] = {
         .h_bp_bytes = 24,
         .h_fp_bytes = 8,
         .line_bytes = 400,
-        .v_offset = 0
+        .v_offset = 0,
+        .pio_clk_div = PIO_DIV_1_5
     },
     { // [1] 640x480 50Hz Pentagon 48.82Hz
-        // HDMI pixel clock stays 25.175MHz (same as 60Hz), frame rate set by v_total
         .v_total = 644,
         .v_active = 480,
         .freq = 50,
@@ -29,7 +33,8 @@ static struct video_mode_t video_mode[] = {
         .h_bp_bytes = 24,
         .h_fp_bytes = 8,
         .line_bytes = 400,
-        .v_offset = 0
+        .v_offset = 0,
+        .pio_clk_div = PIO_DIV_1_5
     },
     { // [2] 640x480 50Hz 48K 50.08Hz
         .v_total = 628,
@@ -43,7 +48,8 @@ static struct video_mode_t video_mode[] = {
         .h_bp_bytes = 24,
         .h_fp_bytes = 8,
         .line_bytes = 400,
-        .v_offset = 0
+        .v_offset = 0,
+        .pio_clk_div = PIO_DIV_1_5
     },
     { // [3] 640x480 50Hz 128K 50.02Hz
         .v_total = 629,
@@ -57,12 +63,11 @@ static struct video_mode_t video_mode[] = {
         .h_bp_bytes = 24,
         .h_fp_bytes = 8,
         .line_bytes = 400,
-        .v_offset = 0
+        .v_offset = 0,
+        .pio_clk_div = PIO_DIV_1_5
     },
-    { // [4] 720x576 50Hz Pentagon full border (25.175MHz pixel clock, 800px/line)
-        // Uses same TMDS rate as 640x480 (252MHz, PIO divider 1.5) to avoid jitter
-        // 720 active + 32 sync + 32 BP + 16 FP = 800 pixels/line = 400 bytes
-        .v_total = 644,
+    { // [4] 720x576 50Hz Pentagon full border — 25.2MHz pixel (sys_clk=378MHz, div=1.5)
+        .v_total = 644,   // 25.2MHz/800/644 = 48.91Hz (Pentagon 48.83Hz)
         .v_active = 576,
         .freq = 50,
         .pixel_clk = 25175000,
@@ -73,10 +78,11 @@ static struct video_mode_t video_mode[] = {
         .h_bp_bytes = 16,
         .h_fp_bytes = 8,
         .line_bytes = 400,
-        .v_offset = 0
+        .v_offset = 0,
+        .pio_clk_div = PIO_DIV_1_5
     },
-    { // [5] 720x576 50Hz 48K full border
-        .v_total = 628,
+    { // [5] 720x576 50Hz 48K full border — 25.2MHz pixel
+        .v_total = 628,   // 25.2MHz/800/628 = 50.09Hz (48K 50.08Hz)
         .v_active = 576,
         .freq = 50,
         .pixel_clk = 25175000,
@@ -87,10 +93,11 @@ static struct video_mode_t video_mode[] = {
         .h_bp_bytes = 16,
         .h_fp_bytes = 8,
         .line_bytes = 400,
-        .v_offset = 0
+        .v_offset = 0,
+        .pio_clk_div = PIO_DIV_1_5
     },
-    { // [6] 720x576 50Hz 128K full border
-        .v_total = 629,
+    { // [6] 720x576 50Hz 128K full border — 25.2MHz pixel
+        .v_total = 629,   // 25.2MHz/800/629 = 50.00Hz (128K 50.02Hz)
         .v_active = 576,
         .freq = 50,
         .pixel_clk = 25175000,
@@ -101,10 +108,10 @@ static struct video_mode_t video_mode[] = {
         .h_bp_bytes = 16,
         .h_fp_bytes = 8,
         .line_bytes = 400,
-        .v_offset = 0
+        .v_offset = 0,
+        .pio_clk_div = PIO_DIV_1_5
     },
-    { // [7] 720x480 60Hz half border (same timing as 640x480@60, wider active area)
-        // Uses 360x240 framebuffer: 24 top + 192 screen + 24 bottom border lines
+    { // [7] 720x480 60Hz half border
         .v_total = 524,
         .v_active = 480,
         .freq = 60,
@@ -116,10 +123,11 @@ static struct video_mode_t video_mode[] = {
         .h_bp_bytes = 16,
         .h_fp_bytes = 8,
         .line_bytes = 400,
-        .v_offset = 0
+        .v_offset = 0,
+        .pio_clk_div = PIO_DIV_1_5
     },
-    { // [8] 720x576 60Hz full border (non-standard: v_active > v_total, may not work on all monitors)
-        .v_total = 525,
+    { // [8] 720x576 60Hz full border — 25.2MHz pixel (non-standard: v_active>v_total)
+        .v_total = 524,   // 25.2MHz/800/524 ≈ 60.1Hz; v_active=576>524 so all lines are active
         .v_active = 576,
         .freq = 60,
         .pixel_clk = 25175000,
@@ -130,7 +138,8 @@ static struct video_mode_t video_mode[] = {
         .h_bp_bytes = 16,
         .h_fp_bytes = 8,
         .line_bytes = 400,
-        .v_offset = 0
+        .v_offset = 0,
+        .pio_clk_div = PIO_DIV_1_5
     }
 };
 

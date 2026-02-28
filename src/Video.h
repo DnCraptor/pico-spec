@@ -39,7 +39,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include <inttypes.h>
 #include "ESPectrum.h"
 #include "Config.h"
-#include "VGA/VGA6Bit.h"
+#include "VGA/VGA8Bit.h"
 #include <list>
 
 #define SPEC_W 256
@@ -110,6 +110,10 @@ public:
   void restore_ram(void* p, size_t sz);
 };
 
+#if !PICO_RP2040
+void initGigascreenBlendLUT();
+#endif
+
 class VIDEO
 {
 public:
@@ -141,27 +145,14 @@ public:
   // static void DrawBorderFast();
   static void InitPrevBuffer();
 
+  static void Border_Blank();
+
   static void Update_Border();
   static void TopBorder_Blank();
   static void TopBorder();
   static void MiddleBorder();
   static void BottomBorder();
   static void BottomBorder_OSD();
-  static void Border_Blank();
-
-  static void Update_Border_Pentagon();
-  static void TopBorder_Blank_Pentagon();
-  static void TopBorder_Pentagon();
-  static void TopBorder_OSD_Pentagon();
-  static void MiddleBorder_Pentagon();
-  static void BottomBorder_Pentagon();
-  static void BottomBorder_OSD_Pentagon();
-
-  static void TopBorder_Blank_FullBorder();
-  static void TopBorder_FullBorder();
-  static void MiddleBorder_FullBorder();
-  static void BottomBorder_FullBorder();
-  static void BottomBorder_OSD_FullBorder();
   
   static void (*Draw)(unsigned int, bool);
   static void (*Draw_Opcode)(bool);
@@ -179,7 +170,7 @@ public:
   static uint16_t offBmp[SPEC_H];
   static uint16_t offAtt[SPEC_H];
 
-  static VGA6Bit vga;
+  static VGA8Bit vga;
 
   static uint8_t borderColor;
   static uint32_t border32[8];
@@ -229,9 +220,17 @@ public:
   static int video_mode;
 
   // Video mode helper methods
-  static bool isFullBorderMode() { return Config::hdmi_video_mode >= Config::VM_720x480_60; }
-  static bool isHalfBorder()     { return Config::hdmi_video_mode == Config::VM_720x480_60; }
-  static bool isFullBorder288()  { return Config::hdmi_video_mode >= Config::VM_720x576_60; }
+  static uint8_t activeVideoMode() {
+#ifdef VGA_HDMI
+    extern bool SELECT_VGA;
+    return SELECT_VGA ? Config::vga_video_mode : Config::hdmi_video_mode;
+#else
+    return Config::hdmi_video_mode;
+#endif
+  }
+  static bool isFullBorderMode() { return activeVideoMode() >= Config::VM_720x480_60; }
+  static bool isFullBorder240()  { return activeVideoMode() == Config::VM_720x480_60; }
+  static bool isFullBorder288()  { return activeVideoMode() >= Config::VM_720x576_60; }
 
   static bool gigascreen_enabled;
   static uint8_t gigascreen_auto_countdown;

@@ -36,6 +36,7 @@ typedef struct video_mode_t{
   int h_fp_bytes;
   int line_bytes;
   int v_offset;
+  float pio_clk_div; // PIO divider = sys_clk / TMDS_clk, must be integer or half-integer (n/2)
 };
 
 enum graphics_mode_t {

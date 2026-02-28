@@ -393,8 +393,8 @@ static inline bool hdmi_init() {
     sm_config_set_fifo_join(&c_c, PIO_FIFO_JOIN_TX);
 
     struct video_mode_t hdmi_mode = graphics_get_video_mode(get_video_mode());
-    // PIO clock = TMDS bit clock = pixel_clock * 10
-    sm_config_set_clkdiv(&c_c, clock_get_hz(clk_sys) / (hdmi_mode.pixel_clk * 10.0f));
+    // Use pre-computed clean divider (integer or half-integer) to avoid PIO clock jitter
+    sm_config_set_clkdiv(&c_c, hdmi_mode.pio_clk_div);
     pio_sm_init(PIO_VIDEO, SM_video, offs_prg0, &c_c);
     pio_sm_set_enabled(PIO_VIDEO, SM_video, true);
 

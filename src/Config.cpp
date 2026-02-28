@@ -77,7 +77,7 @@ uint8_t  Config::kempstonPort = 0x37;
 uint8_t  Config::throtling = DEFAULT_THROTTLING;
 bool     Config::CursorAsJoy = true;
 bool     Config::trdosFastMode = false;
-bool     Config::trdosWriteProtect = false;
+bool     Config::trdosWriteProtect = true;
 bool     Config::trdosSoundLed = false;
 uint8_t  Config::trdosBios = 2; // Default: 5.05D
 
@@ -162,7 +162,7 @@ void Config::requestMachine(string newArch, string newRomSet)
 #endif
         } else if (romSet128 == "128Kby" || romSet128 == "128Kbg") {
             MemESP::rom[0].assign_rom(gb_rom_0_sinclair_128k);
-            MemESP::rom[1].assign_rom(Config::byte_cobmect_mode ? gb_rom_0_byte_sovmest_48k : gb_rom_0_byte_48k);
+            MemESP::rom[1].assign_rom(gb_rom_0_byte_48k);
             if (romSet128 == "128Kbg") {
                 MemESP::rom[3].assign_rom(gb_rom_gluk);
             }

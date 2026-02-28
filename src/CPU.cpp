@@ -115,10 +115,7 @@ void CPU::reset() {
     Z80Ops::isALF = (Config::arch == "ALF");
 #endif
     if (Config::arch == "48K") {
-        if (Config::romSet48 == "48Kby")
-        {
-            Z80Ops::isByte = true;
-        }
+        Z80Ops::isByte = (Config::romSet48 == "48Kby");
         Ports::getFloatBusData = &Ports::getFloatBusData48;
         Z80Ops::is48 = true;
         Z80Ops::is128 = false;
@@ -128,10 +125,7 @@ void CPU::reset() {
         // Set emulation loop sync target
         ESPectrum::target = MICROS_PER_FRAME_48;
     } else if (Config::arch == "128K" || Z80Ops::isALF) {
-        if (Config::romSet128 == "128Kby" || Config::romSet128 == "128Kbg")
-        {
-            Z80Ops::isByte = true;
-        }
+        Z80Ops::isByte = (Config::romSet128 == "128Kby" || Config::romSet128 == "128Kbg");
         Ports::getFloatBusData = &Ports::getFloatBusData128;
         Z80Ops::is48 = false;
         Z80Ops::is128 = true;
@@ -141,6 +135,7 @@ void CPU::reset() {
         // Set emulation loop sync target
         ESPectrum::target = MICROS_PER_FRAME_128;
     } else if (Config::arch == "P512") {
+        Z80Ops::isByte = false;
         Z80Ops::is48 = false;
         Z80Ops::is128 = false;
         Z80Ops::isPentagon = true;
@@ -149,6 +144,7 @@ void CPU::reset() {
         // Set emulation loop sync target
         ESPectrum::target = MICROS_PER_FRAME_PENTAGON;
     } else if (Config::arch == "P1024") {
+        Z80Ops::isByte = false;
         Z80Ops::is48 = false;
         Z80Ops::is128 = false;
         Z80Ops::isPentagon = true;
@@ -157,6 +153,7 @@ void CPU::reset() {
         // Set emulation loop sync target
         ESPectrum::target = MICROS_PER_FRAME_PENTAGON;
     } else { // if (Config::arch == "Pentagon") - by default
+        Z80Ops::isByte = false;
         Z80Ops::is48 = false;
         Z80Ops::is128 = false;
         Z80Ops::isPentagon = true;

@@ -1,0 +1,5293 @@
+; ============================================================
+; Z80 Disassembly of ula128.tap
+; ============================================================
+; Total blocks: 7
+
+; === Block 0/1: Program "Loader" ===
+; Auto-start line: 10
+; Data length: 32 bytes
+; (BASIC program — not disassembled)
+
+; === Block 2/3: Code "Loader" ===
+; Load address: 0x5E00
+; Length: 146 bytes
+
+5E00: 3E 38            LD A, 0x38
+5E02: 32 8D 5C         LD (0x5C8D), A
+5E05: CD 6B 0D         CALL 0x0D6B
+5E08: 3A 6B 5E         LD A, (0x5E6B)
+5E0B: B7               OR A
+5E0C: 28 0D            JR Z, 0x5E1B
+5E0E: DD 21 00 40      LD IX, 0x4000
+5E12: 11 00 1B         LD DE, 0x1B00
+5E15: 3E FF            LD A, 0xFF
+5E17: 37               SCF
+5E18: CD 56 05         CALL 0x0556
+5E1B: 21 74 5E         LD HL, 0x5E74
+5E1E: 3A 73 5E         LD A, (0x5E73)
+5E21: B7               OR A
+5E22: 28 0F            JR Z, 0x5E33
+5E24: F5               PUSH AF
+5E25: E5               PUSH HL
+5E26: CD 4B 5E         CALL 0x5E4B
+5E29: E1               POP HL
+5E2A: F1               POP AF
+5E2B: 23               INC HL
+5E2C: 23               INC HL
+5E2D: 23               INC HL
+5E2E: 23               INC HL
+5E2F: 23               INC HL
+5E30: 3D               DEC A
+5E31: 20 F1            JR NZ, 0x5E24
+5E33: 3A 72 5E         LD A, (0x5E72)
+5E36: CD 63 5E         CALL 0x5E63
+5E39: 2A 6C 5E         LD HL, (0x5E6C)
+5E3C: E5               PUSH HL
+5E3D: DD 2A 6E 5E      LD IX, (0x5E6E)
+5E41: ED 5B 70 5E      LD DE, (0x5E70)
+5E45: 3E FF            LD A, 0xFF
+5E47: 37               SCF
+5E48: C3 56 05         JP 0x0556
+5E4B: F3               DI
+5E4C: 7E               LD A, (HL)
+5E4D: CD 63 5E         CALL 0x5E63
+5E50: FB               EI
+5E51: 23               INC HL
+5E52: 7E               LD A, (HL)
+5E53: DD 6F            LD IXL, A
+5E55: 23               INC HL
+5E56: 7E               LD A, (HL)
+5E57: DD 67            LD IXH, A
+5E59: 23               INC HL
+5E5A: 5E               LD E, (HL)
+5E5B: 23               INC HL
+5E5C: 56               LD D, (HL)
+5E5D: 3E FF            LD A, 0xFF
+5E5F: 37               SCF
+5E60: C3 56 05         JP 0x0556
+5E63: F6 10            OR 0x10
+5E65: 01 FD 7F         LD BC, 0x7FFD
+5E68: ED 79            OUT (C), A
+5E6A: C9               RET
+5E6B: 01 40 9C         LD BC, 0x9C40
+5E6E: 40               LD B, B
+5E6F: 9C               SBC A, H
+5E70: C0               RET NZ
+5E71: 23               INC HL
+5E72: 07               RLCA
+5E73: 01 07 00         LD BC, 0x0007
+5E76: C0               RET NZ
+5E77: 22 00 00         LD (0x0000), HL
+5E7A: 00               NOP
+5E7B: 00               NOP
+5E7C: 00               NOP
+5E7D: 00               NOP
+5E7E: 00               NOP
+5E7F: 00               NOP
+5E80: 00               NOP
+5E81: 00               NOP
+5E82: 00               NOP
+5E83: 00               NOP
+5E84: 00               NOP
+5E85: 00               NOP
+5E86: 00               NOP
+5E87: 00               NOP
+5E88: 00               NOP
+5E89: 00               NOP
+5E8A: 00               NOP
+5E8B: 00               NOP
+5E8C: 00               NOP
+5E8D: 00               NOP
+5E8E: 00               NOP
+5E8F: 00               NOP
+5E90: 00               NOP
+5E91: 00               NOP
+
+; === Block 4: Headerless data block ===
+; Flag: 0xFF
+; Payload length: 6912 bytes
+; Likely ZX Spectrum screen data (6144 pixels + 768 attributes)
+
+; === Block 5: Headerless data block ===
+; Flag: 0xFF
+; Payload length: 34 bytes
+; (Headerless block — load address unknown, disassembling from 0x0000)
+; Use --org to specify the correct base address for raw blocks.
+
+0000: 3E 18            LD A, 0x18
+0002: 32 FF FF         LD (0xFFFF), A
+0005: 21 F4 FF         LD HL, 0xFFF4
+0008: 36 FB            LD (HL), 0xFB
+000A: 23               INC HL
+000B: 36 C9            LD (HL), 0xC9
+000D: 21 00 FE         LD HL, 0xFE00
+0010: 36 FF            LD (HL), 0xFF
+0012: 11 01 FE         LD DE, 0xFE01
+0015: 01 00 01         LD BC, 0x0100
+0018: ED B0            LDIR
+001A: 3E FE            LD A, 0xFE
+001C: ED 47            LD I, A
+001E: ED 5E            IM 2
+0020: FB               EI
+0021: C9               RET
+
+; === Block 6: Headerless data block ===
+; Flag: 0xFF
+; Payload length: 9152 bytes
+; (Headerless block — load address unknown, disassembling from 0x0000)
+; Use --org to specify the correct base address for raw blocks.
+
+0000: CD FF BF         CALL 0xBFFF
+0003: 21 03 02         LD HL, 0x0203
+0006: 11 07 04         LD DE, 0x0407
+0009: 76               HALT
+000A: 01 38 01         LD BC, 0x0138
+000D: 0B               DEC BC
+000E: 78               LD A, B
+000F: B1               OR C
+0010: 00               NOP
+0011: C2 4D 9C         JP NZ, 0x9C4D
+0014: 00               NOP
+0015: 00               NOP
+0016: 00               NOP
+0017: 00               NOP
+0018: 00               NOP
+0019: 00               NOP
+001A: 1B               DEC DE
+001B: 3E 01            LD A, 0x01
+001D: 01 FE 02         LD BC, 0x02FE
+0020: 11 04 03         LD DE, 0x0304
+0023: 21 06 05         LD HL, 0x0506
+0026: ED 79            OUT (C), A
+0028: ED 71            OUT (C), 0
+002A: ED 79            OUT (C), A
+002C: ED 41            OUT (C), B
+002E: ED 71            OUT (C), 0
+0030: ED 71            OUT (C), 0
+0032: ED 51            OUT (C), D
+0034: ED 71            OUT (C), 0
+0036: ED 59            OUT (C), E
+0038: ED 71            OUT (C), 0
+003A: ED 61            OUT (C), H
+003C: ED 71            OUT (C), 0
+003E: ED 71            OUT (C), 0
+0040: ED 69            OUT (C), L
+0042: ED 71            OUT (C), 0
+0044: ED 71            OUT (C), 0
+0046: ED 71            OUT (C), 0
+0048: ED 71            OUT (C), 0
+004A: ED 71            OUT (C), 0
+004C: ED 79            OUT (C), A
+004E: ED 71            OUT (C), 0
+0050: ED 79            OUT (C), A
+0052: ED 41            OUT (C), B
+0054: ED 71            OUT (C), 0
+0056: ED 71            OUT (C), 0
+0058: ED 51            OUT (C), D
+005A: ED 71            OUT (C), 0
+005C: ED 59            OUT (C), E
+005E: ED 71            OUT (C), 0
+0060: ED 61            OUT (C), H
+0062: ED 71            OUT (C), 0
+0064: ED 71            OUT (C), 0
+0066: ED 69            OUT (C), L
+0068: ED 71            OUT (C), 0
+006A: ED 71            OUT (C), 0
+006C: ED 71            OUT (C), 0
+006E: ED 71            OUT (C), 0
+0070: ED 71            OUT (C), 0
+0072: ED 79            OUT (C), A
+0074: ED 71            OUT (C), 0
+0076: ED 79            OUT (C), A
+0078: ED 41            OUT (C), B
+007A: ED 71            OUT (C), 0
+007C: 00               NOP
+007D: ED 51            OUT (C), D
+007F: ED 51            OUT (C), D
+0081: 00               NOP
+0082: ED 59            OUT (C), E
+0084: ED 71            OUT (C), 0
+0086: ED 61            OUT (C), H
+0088: 00               NOP
+0089: 00               NOP
+008A: ED 71            OUT (C), 0
+008C: 00               NOP
+008D: 00               NOP
+008E: ED 69            OUT (C), L
+0090: ED 71            OUT (C), 0
+0092: ED 71            OUT (C), 0
+0094: ED 71            OUT (C), 0
+0096: ED 71            OUT (C), 0
+0098: ED 71            OUT (C), 0
+009A: ED 79            OUT (C), A
+009C: ED 71            OUT (C), 0
+009E: ED 79            OUT (C), A
+00A0: ED 41            OUT (C), B
+00A2: ED 71            OUT (C), 0
+00A4: 00               NOP
+00A5: ED 51            OUT (C), D
+00A7: ED 51            OUT (C), D
+00A9: 00               NOP
+00AA: ED 59            OUT (C), E
+00AC: ED 71            OUT (C), 0
+00AE: ED 61            OUT (C), H
+00B0: 00               NOP
+00B1: 00               NOP
+00B2: ED 71            OUT (C), 0
+00B4: 00               NOP
+00B5: ED 69            OUT (C), L
+00B7: 00               NOP
+00B8: 00               NOP
+00B9: ED 71            OUT (C), 0
+00BB: 00               NOP
+00BC: 00               NOP
+00BD: ED 71            OUT (C), 0
+00BF: ED 71            OUT (C), 0
+00C1: ED 71            OUT (C), 0
+00C3: ED 79            OUT (C), A
+00C5: ED 71            OUT (C), 0
+00C7: ED 79            OUT (C), A
+00C9: ED 41            OUT (C), B
+00CB: ED 71            OUT (C), 0
+00CD: ED 51            OUT (C), D
+00CF: ED 51            OUT (C), D
+00D1: ED 51            OUT (C), D
+00D3: ED 59            OUT (C), E
+00D5: ED 61            OUT (C), H
+00D7: ED 61            OUT (C), H
+00D9: 00               NOP
+00DA: 00               NOP
+00DB: ED 71            OUT (C), 0
+00DD: ED 69            OUT (C), L
+00DF: 00               NOP
+00E0: 00               NOP
+00E1: ED 71            OUT (C), 0
+00E3: 00               NOP
+00E4: 00               NOP
+00E5: ED 71            OUT (C), 0
+00E7: ED 71            OUT (C), 0
+00E9: ED 71            OUT (C), 0
+00EB: ED 79            OUT (C), A
+00ED: ED 71            OUT (C), 0
+00EF: ED 79            OUT (C), A
+00F1: ED 41            OUT (C), B
+00F3: ED 71            OUT (C), 0
+00F5: ED 51            OUT (C), D
+00F7: ED 51            OUT (C), D
+00F9: ED 51            OUT (C), D
+00FB: ED 59            OUT (C), E
+00FD: ED 61            OUT (C), H
+00FF: ED 61            OUT (C), H
+0101: 00               NOP
+0102: 00               NOP
+0103: ED 71            OUT (C), 0
+0105: ED 69            OUT (C), L
+0107: 00               NOP
+0108: 00               NOP
+0109: ED 71            OUT (C), 0
+010B: 00               NOP
+010C: 00               NOP
+010D: ED 71            OUT (C), 0
+010F: ED 71            OUT (C), 0
+0111: ED 71            OUT (C), 0
+0113: ED 79            OUT (C), A
+0115: ED 71            OUT (C), 0
+0117: ED 79            OUT (C), A
+0119: ED 41            OUT (C), B
+011B: ED 71            OUT (C), 0
+011D: ED 51            OUT (C), D
+011F: ED 51            OUT (C), D
+0121: ED 51            OUT (C), D
+0123: ED 59            OUT (C), E
+0125: ED 61            OUT (C), H
+0127: ED 61            OUT (C), H
+0129: ED 61            OUT (C), H
+012B: ED 69            OUT (C), L
+012D: ED 69            OUT (C), L
+012F: ED 69            OUT (C), L
+0131: ED 71            OUT (C), 0
+0133: ED 71            OUT (C), 0
+0135: ED 71            OUT (C), 0
+0137: ED 71            OUT (C), 0
+0139: ED 79            OUT (C), A
+013B: ED 71            OUT (C), 0
+013D: ED 79            OUT (C), A
+013F: ED 41            OUT (C), B
+0141: ED 71            OUT (C), 0
+0143: ED 51            OUT (C), D
+0145: ED 51            OUT (C), D
+0147: ED 51            OUT (C), D
+0149: ED 59            OUT (C), E
+014B: ED 61            OUT (C), H
+014D: ED 61            OUT (C), H
+014F: ED 61            OUT (C), H
+0151: ED 69            OUT (C), L
+0153: ED 69            OUT (C), L
+0155: ED 69            OUT (C), L
+0157: ED 71            OUT (C), 0
+0159: ED 71            OUT (C), 0
+015B: ED 71            OUT (C), 0
+015D: ED 71            OUT (C), 0
+015F: ED 79            OUT (C), A
+0161: ED 71            OUT (C), 0
+0163: ED 79            OUT (C), A
+0165: ED 41            OUT (C), B
+0167: ED 71            OUT (C), 0
+0169: ED 51            OUT (C), D
+016B: ED 51            OUT (C), D
+016D: ED 51            OUT (C), D
+016F: ED 59            OUT (C), E
+0171: ED 61            OUT (C), H
+0173: ED 71            OUT (C), 0
+0175: ED 61            OUT (C), H
+0177: ED 69            OUT (C), L
+0179: ED 71            OUT (C), 0
+017B: ED 69            OUT (C), L
+017D: ED 71            OUT (C), 0
+017F: ED 71            OUT (C), 0
+0181: ED 71            OUT (C), 0
+0183: ED 71            OUT (C), 0
+0185: ED 79            OUT (C), A
+0187: ED 71            OUT (C), 0
+0189: ED 79            OUT (C), A
+018B: ED 41            OUT (C), B
+018D: ED 71            OUT (C), 0
+018F: ED 51            OUT (C), D
+0191: ED 51            OUT (C), D
+0193: ED 51            OUT (C), D
+0195: ED 59            OUT (C), E
+0197: ED 61            OUT (C), H
+0199: ED 71            OUT (C), 0
+019B: ED 61            OUT (C), H
+019D: ED 69            OUT (C), L
+019F: ED 71            OUT (C), 0
+01A1: ED 69            OUT (C), L
+01A3: ED 71            OUT (C), 0
+01A5: ED 71            OUT (C), 0
+01A7: ED 71            OUT (C), 0
+01A9: ED 71            OUT (C), 0
+01AB: ED 79            OUT (C), A
+01AD: ED 71            OUT (C), 0
+01AF: ED 79            OUT (C), A
+01B1: ED 41            OUT (C), B
+01B3: ED 71            OUT (C), 0
+01B5: ED 51            OUT (C), D
+01B7: ED 71            OUT (C), 0
+01B9: ED 51            OUT (C), D
+01BB: ED 59            OUT (C), E
+01BD: ED 71            OUT (C), 0
+01BF: ED 71            OUT (C), 0
+01C1: ED 61            OUT (C), H
+01C3: ED 69            OUT (C), L
+01C5: ED 71            OUT (C), 0
+01C7: ED 69            OUT (C), L
+01C9: ED 71            OUT (C), 0
+01CB: ED 71            OUT (C), 0
+01CD: ED 71            OUT (C), 0
+01CF: ED 71            OUT (C), 0
+01D1: ED 79            OUT (C), A
+01D3: ED 71            OUT (C), 0
+01D5: ED 79            OUT (C), A
+01D7: ED 41            OUT (C), B
+01D9: ED 71            OUT (C), 0
+01DB: ED 51            OUT (C), D
+01DD: ED 71            OUT (C), 0
+01DF: ED 51            OUT (C), D
+01E1: ED 59            OUT (C), E
+01E3: ED 71            OUT (C), 0
+01E5: ED 71            OUT (C), 0
+01E7: ED 61            OUT (C), H
+01E9: ED 69            OUT (C), L
+01EB: ED 71            OUT (C), 0
+01ED: ED 69            OUT (C), L
+01EF: ED 71            OUT (C), 0
+01F1: ED 71            OUT (C), 0
+01F3: ED 71            OUT (C), 0
+01F5: ED 71            OUT (C), 0
+01F7: ED 79            OUT (C), A
+01F9: ED 71            OUT (C), 0
+01FB: ED 79            OUT (C), A
+01FD: ED 41            OUT (C), B
+01FF: ED 71            OUT (C), 0
+0201: ED 51            OUT (C), D
+0203: ED 71            OUT (C), 0
+0205: ED 51            OUT (C), D
+0207: ED 59            OUT (C), E
+0209: ED 71            OUT (C), 0
+020B: ED 71            OUT (C), 0
+020D: ED 61            OUT (C), H
+020F: ED 69            OUT (C), L
+0211: ED 71            OUT (C), 0
+0213: ED 69            OUT (C), L
+0215: ED 71            OUT (C), 0
+0217: ED 71            OUT (C), 0
+0219: ED 71            OUT (C), 0
+021B: ED 71            OUT (C), 0
+021D: ED 79            OUT (C), A
+021F: ED 71            OUT (C), 0
+0221: ED 79            OUT (C), A
+0223: ED 41            OUT (C), B
+0225: ED 71            OUT (C), 0
+0227: ED 51            OUT (C), D
+0229: ED 71            OUT (C), 0
+022B: ED 51            OUT (C), D
+022D: ED 59            OUT (C), E
+022F: ED 71            OUT (C), 0
+0231: ED 71            OUT (C), 0
+0233: ED 61            OUT (C), H
+0235: ED 69            OUT (C), L
+0237: ED 71            OUT (C), 0
+0239: ED 69            OUT (C), L
+023B: ED 71            OUT (C), 0
+023D: ED 71            OUT (C), 0
+023F: ED 71            OUT (C), 0
+0241: ED 71            OUT (C), 0
+0243: ED 79            OUT (C), A
+0245: ED 71            OUT (C), 0
+0247: ED 79            OUT (C), A
+0249: ED 41            OUT (C), B
+024B: ED 71            OUT (C), 0
+024D: ED 51            OUT (C), D
+024F: ED 71            OUT (C), 0
+0251: ED 51            OUT (C), D
+0253: ED 59            OUT (C), E
+0255: ED 71            OUT (C), 0
+0257: 00               NOP
+0258: 00               NOP
+0259: ED 61            OUT (C), H
+025B: 00               NOP
+025C: ED 69            OUT (C), L
+025E: ED 71            OUT (C), 0
+0260: ED 69            OUT (C), L
+0262: ED 71            OUT (C), 0
+0264: ED 71            OUT (C), 0
+0266: ED 71            OUT (C), 0
+0268: ED 71            OUT (C), 0
+026A: ED 79            OUT (C), A
+026C: ED 71            OUT (C), 0
+026E: ED 79            OUT (C), A
+0270: ED 41            OUT (C), B
+0272: ED 71            OUT (C), 0
+0274: ED 51            OUT (C), D
+0276: ED 71            OUT (C), 0
+0278: ED 51            OUT (C), D
+027A: ED 59            OUT (C), E
+027C: ED 71            OUT (C), 0
+027E: 00               NOP
+027F: 00               NOP
+0280: ED 61            OUT (C), H
+0282: 00               NOP
+0283: ED 69            OUT (C), L
+0285: ED 71            OUT (C), 0
+0287: ED 69            OUT (C), L
+0289: ED 71            OUT (C), 0
+028B: ED 71            OUT (C), 0
+028D: ED 71            OUT (C), 0
+028F: ED 71            OUT (C), 0
+0291: ED 79            OUT (C), A
+0293: ED 71            OUT (C), 0
+0295: ED 79            OUT (C), A
+0297: ED 41            OUT (C), B
+0299: ED 71            OUT (C), 0
+029B: ED 51            OUT (C), D
+029D: ED 71            OUT (C), 0
+029F: ED 51            OUT (C), D
+02A1: ED 59            OUT (C), E
+02A3: ED 71            OUT (C), 0
+02A5: 00               NOP
+02A6: 00               NOP
+02A7: ED 61            OUT (C), H
+02A9: 00               NOP
+02AA: ED 69            OUT (C), L
+02AC: ED 69            OUT (C), L
+02AE: ED 69            OUT (C), L
+02B0: ED 71            OUT (C), 0
+02B2: ED 71            OUT (C), 0
+02B4: ED 71            OUT (C), 0
+02B6: ED 71            OUT (C), 0
+02B8: ED 79            OUT (C), A
+02BA: ED 71            OUT (C), 0
+02BC: ED 79            OUT (C), A
+02BE: ED 41            OUT (C), B
+02C0: ED 71            OUT (C), 0
+02C2: ED 51            OUT (C), D
+02C4: ED 71            OUT (C), 0
+02C6: ED 51            OUT (C), D
+02C8: ED 59            OUT (C), E
+02CA: ED 71            OUT (C), 0
+02CC: 00               NOP
+02CD: ED 61            OUT (C), H
+02CF: 00               NOP
+02D0: ED 71            OUT (C), 0
+02D2: ED 69            OUT (C), L
+02D4: 00               NOP
+02D5: ED 69            OUT (C), L
+02D7: ED 71            OUT (C), 0
+02D9: ED 71            OUT (C), 0
+02DB: ED 71            OUT (C), 0
+02DD: ED 71            OUT (C), 0
+02DF: ED 79            OUT (C), A
+02E1: ED 71            OUT (C), 0
+02E3: ED 79            OUT (C), A
+02E5: ED 41            OUT (C), B
+02E7: ED 71            OUT (C), 0
+02E9: ED 51            OUT (C), D
+02EB: ED 71            OUT (C), 0
+02ED: ED 51            OUT (C), D
+02EF: ED 59            OUT (C), E
+02F1: ED 71            OUT (C), 0
+02F3: 00               NOP
+02F4: ED 61            OUT (C), H
+02F6: 00               NOP
+02F7: ED 71            OUT (C), 0
+02F9: ED 69            OUT (C), L
+02FB: 00               NOP
+02FC: 00               NOP
+02FD: ED 71            OUT (C), 0
+02FF: 00               NOP
+0300: 00               NOP
+0301: ED 71            OUT (C), 0
+0303: ED 71            OUT (C), 0
+0305: ED 71            OUT (C), 0
+0307: ED 79            OUT (C), A
+0309: ED 71            OUT (C), 0
+030B: ED 79            OUT (C), A
+030D: ED 41            OUT (C), B
+030F: ED 71            OUT (C), 0
+0311: ED 51            OUT (C), D
+0313: ED 71            OUT (C), 0
+0315: ED 51            OUT (C), D
+0317: ED 59            OUT (C), E
+0319: ED 71            OUT (C), 0
+031B: 00               NOP
+031C: ED 61            OUT (C), H
+031E: ED 71            OUT (C), 0
+0320: 00               NOP
+0321: ED 69            OUT (C), L
+0323: 00               NOP
+0324: 00               NOP
+0325: ED 71            OUT (C), 0
+0327: 00               NOP
+0328: 00               NOP
+0329: ED 71            OUT (C), 0
+032B: ED 71            OUT (C), 0
+032D: ED 71            OUT (C), 0
+032F: ED 79            OUT (C), A
+0331: ED 71            OUT (C), 0
+0333: ED 79            OUT (C), A
+0335: ED 41            OUT (C), B
+0337: ED 71            OUT (C), 0
+0339: ED 51            OUT (C), D
+033B: ED 51            OUT (C), D
+033D: ED 51            OUT (C), D
+033F: ED 59            OUT (C), E
+0341: ED 71            OUT (C), 0
+0343: ED 61            OUT (C), H
+0345: 00               NOP
+0346: ED 71            OUT (C), 0
+0348: 00               NOP
+0349: ED 69            OUT (C), L
+034B: 00               NOP
+034C: 00               NOP
+034D: ED 71            OUT (C), 0
+034F: 00               NOP
+0350: 00               NOP
+0351: ED 71            OUT (C), 0
+0353: ED 71            OUT (C), 0
+0355: ED 71            OUT (C), 0
+0357: ED 79            OUT (C), A
+0359: ED 71            OUT (C), 0
+035B: ED 79            OUT (C), A
+035D: ED 41            OUT (C), B
+035F: ED 71            OUT (C), 0
+0361: ED 51            OUT (C), D
+0363: ED 51            OUT (C), D
+0365: ED 51            OUT (C), D
+0367: ED 59            OUT (C), E
+0369: ED 71            OUT (C), 0
+036B: ED 61            OUT (C), H
+036D: ED 71            OUT (C), 0
+036F: 00               NOP
+0370: ED 69            OUT (C), L
+0372: 00               NOP
+0373: 00               NOP
+0374: 00               NOP
+0375: ED 71            OUT (C), 0
+0377: 00               NOP
+0378: 00               NOP
+0379: ED 71            OUT (C), 0
+037B: ED 71            OUT (C), 0
+037D: ED 71            OUT (C), 0
+037F: ED 79            OUT (C), A
+0381: ED 71            OUT (C), 0
+0383: ED 79            OUT (C), A
+0385: ED 41            OUT (C), B
+0387: ED 71            OUT (C), 0
+0389: ED 51            OUT (C), D
+038B: ED 51            OUT (C), D
+038D: ED 51            OUT (C), D
+038F: ED 59            OUT (C), E
+0391: ED 71            OUT (C), 0
+0393: ED 61            OUT (C), H
+0395: ED 71            OUT (C), 0
+0397: 00               NOP
+0398: ED 69            OUT (C), L
+039A: 00               NOP
+039B: 00               NOP
+039C: ED 69            OUT (C), L
+039E: ED 71            OUT (C), 0
+03A0: ED 71            OUT (C), 0
+03A2: ED 71            OUT (C), 0
+03A4: ED 71            OUT (C), 0
+03A6: ED 79            OUT (C), A
+03A8: ED 71            OUT (C), 0
+03AA: ED 79            OUT (C), A
+03AC: ED 41            OUT (C), B
+03AE: ED 71            OUT (C), 0
+03B0: ED 51            OUT (C), D
+03B2: ED 51            OUT (C), D
+03B4: ED 51            OUT (C), D
+03B6: ED 59            OUT (C), E
+03B8: ED 71            OUT (C), 0
+03BA: ED 61            OUT (C), H
+03BC: ED 71            OUT (C), 0
+03BE: 00               NOP
+03BF: ED 69            OUT (C), L
+03C1: 00               NOP
+03C2: 00               NOP
+03C3: ED 69            OUT (C), L
+03C5: ED 71            OUT (C), 0
+03C7: ED 71            OUT (C), 0
+03C9: ED 71            OUT (C), 0
+03CB: ED 71            OUT (C), 0
+03CD: ED 79            OUT (C), A
+03CF: ED 71            OUT (C), 0
+03D1: ED 71            OUT (C), 0
+03D3: ED 71            OUT (C), 0
+03D5: ED 71            OUT (C), 0
+03D7: ED 71            OUT (C), 0
+03D9: ED 71            OUT (C), 0
+03DB: ED 71            OUT (C), 0
+03DD: ED 71            OUT (C), 0
+03DF: ED 69            OUT (C), L
+03E1: 00               NOP
+03E2: ED 71            OUT (C), 0
+03E4: ED 69            OUT (C), L
+03E6: ED 71            OUT (C), 0
+03E8: ED 71            OUT (C), 0
+03EA: ED 71            OUT (C), 0
+03EC: 00               NOP
+03ED: 00               NOP
+03EE: 00               NOP
+03EF: ED 79            OUT (C), A
+03F1: ED 71            OUT (C), 0
+03F3: ED 71            OUT (C), 0
+03F5: ED 71            OUT (C), 0
+03F7: ED 71            OUT (C), 0
+03F9: ED 71            OUT (C), 0
+03FB: ED 71            OUT (C), 0
+03FD: ED 71            OUT (C), 0
+03FF: ED 71            OUT (C), 0
+0401: ED 69            OUT (C), L
+0403: 00               NOP
+0404: ED 71            OUT (C), 0
+0406: ED 69            OUT (C), L
+0408: ED 71            OUT (C), 0
+040A: ED 71            OUT (C), 0
+040C: ED 71            OUT (C), 0
+040E: 00               NOP
+040F: 00               NOP
+0410: 00               NOP
+0411: ED 79            OUT (C), A
+0413: ED 71            OUT (C), 0
+0415: ED 71            OUT (C), 0
+0417: ED 71            OUT (C), 0
+0419: ED 71            OUT (C), 0
+041B: ED 71            OUT (C), 0
+041D: ED 71            OUT (C), 0
+041F: ED 71            OUT (C), 0
+0421: ED 71            OUT (C), 0
+0423: ED 69            OUT (C), L
+0425: 00               NOP
+0426: ED 71            OUT (C), 0
+0428: ED 69            OUT (C), L
+042A: ED 71            OUT (C), 0
+042C: ED 71            OUT (C), 0
+042E: ED 71            OUT (C), 0
+0430: 00               NOP
+0431: 00               NOP
+0432: 00               NOP
+0433: ED 79            OUT (C), A
+0435: ED 79            OUT (C), A
+0437: ED 71            OUT (C), 0
+0439: ED 71            OUT (C), 0
+043B: ED 71            OUT (C), 0
+043D: ED 71            OUT (C), 0
+043F: ED 71            OUT (C), 0
+0441: ED 71            OUT (C), 0
+0443: ED 71            OUT (C), 0
+0445: ED 69            OUT (C), L
+0447: 00               NOP
+0448: ED 71            OUT (C), 0
+044A: ED 69            OUT (C), L
+044C: ED 71            OUT (C), 0
+044E: ED 71            OUT (C), 0
+0450: ED 71            OUT (C), 0
+0452: 00               NOP
+0453: 00               NOP
+0454: 00               NOP
+0455: ED 79            OUT (C), A
+0457: ED 79            OUT (C), A
+0459: ED 71            OUT (C), 0
+045B: ED 71            OUT (C), 0
+045D: ED 71            OUT (C), 0
+045F: ED 71            OUT (C), 0
+0461: ED 71            OUT (C), 0
+0463: ED 71            OUT (C), 0
+0465: ED 71            OUT (C), 0
+0467: ED 69            OUT (C), L
+0469: 00               NOP
+046A: ED 71            OUT (C), 0
+046C: ED 69            OUT (C), L
+046E: ED 71            OUT (C), 0
+0470: ED 71            OUT (C), 0
+0472: ED 71            OUT (C), 0
+0474: 00               NOP
+0475: 00               NOP
+0476: 00               NOP
+0477: ED 79            OUT (C), A
+0479: ED 79            OUT (C), A
+047B: ED 71            OUT (C), 0
+047D: ED 71            OUT (C), 0
+047F: ED 71            OUT (C), 0
+0481: ED 71            OUT (C), 0
+0483: ED 71            OUT (C), 0
+0485: ED 71            OUT (C), 0
+0487: ED 71            OUT (C), 0
+0489: ED 69            OUT (C), L
+048B: 00               NOP
+048C: ED 71            OUT (C), 0
+048E: ED 69            OUT (C), L
+0490: ED 71            OUT (C), 0
+0492: ED 71            OUT (C), 0
+0494: ED 71            OUT (C), 0
+0496: 00               NOP
+0497: 00               NOP
+0498: 00               NOP
+0499: ED 79            OUT (C), A
+049B: ED 79            OUT (C), A
+049D: ED 71            OUT (C), 0
+049F: ED 71            OUT (C), 0
+04A1: ED 71            OUT (C), 0
+04A3: ED 71            OUT (C), 0
+04A5: ED 71            OUT (C), 0
+04A7: ED 71            OUT (C), 0
+04A9: ED 71            OUT (C), 0
+04AB: ED 69            OUT (C), L
+04AD: 00               NOP
+04AE: ED 71            OUT (C), 0
+04B0: ED 69            OUT (C), L
+04B2: ED 71            OUT (C), 0
+04B4: ED 71            OUT (C), 0
+04B6: ED 71            OUT (C), 0
+04B8: 00               NOP
+04B9: 00               NOP
+04BA: 00               NOP
+04BB: ED 79            OUT (C), A
+04BD: ED 79            OUT (C), A
+04BF: ED 71            OUT (C), 0
+04C1: ED 71            OUT (C), 0
+04C3: ED 71            OUT (C), 0
+04C5: ED 71            OUT (C), 0
+04C7: ED 71            OUT (C), 0
+04C9: ED 71            OUT (C), 0
+04CB: ED 71            OUT (C), 0
+04CD: ED 69            OUT (C), L
+04CF: 00               NOP
+04D0: ED 71            OUT (C), 0
+04D2: ED 69            OUT (C), L
+04D4: ED 71            OUT (C), 0
+04D6: ED 71            OUT (C), 0
+04D8: ED 71            OUT (C), 0
+04DA: 00               NOP
+04DB: 00               NOP
+04DC: 00               NOP
+04DD: ED 79            OUT (C), A
+04DF: ED 79            OUT (C), A
+04E1: ED 71            OUT (C), 0
+04E3: ED 71            OUT (C), 0
+04E5: ED 71            OUT (C), 0
+04E7: ED 71            OUT (C), 0
+04E9: ED 71            OUT (C), 0
+04EB: ED 71            OUT (C), 0
+04ED: ED 71            OUT (C), 0
+04EF: ED 69            OUT (C), L
+04F1: 00               NOP
+04F2: ED 69            OUT (C), L
+04F4: ED 69            OUT (C), L
+04F6: ED 71            OUT (C), 0
+04F8: ED 71            OUT (C), 0
+04FA: ED 71            OUT (C), 0
+04FC: 00               NOP
+04FD: 00               NOP
+04FE: 00               NOP
+04FF: ED 79            OUT (C), A
+0501: ED 79            OUT (C), A
+0503: ED 71            OUT (C), 0
+0505: ED 71            OUT (C), 0
+0507: ED 71            OUT (C), 0
+0509: ED 71            OUT (C), 0
+050B: ED 71            OUT (C), 0
+050D: ED 71            OUT (C), 0
+050F: ED 71            OUT (C), 0
+0511: ED 69            OUT (C), L
+0513: 00               NOP
+0514: ED 69            OUT (C), L
+0516: ED 69            OUT (C), L
+0518: ED 71            OUT (C), 0
+051A: ED 71            OUT (C), 0
+051C: ED 71            OUT (C), 0
+051E: 00               NOP
+051F: 00               NOP
+0520: 00               NOP
+0521: 00               NOP
+0522: 00               NOP
+0523: ED 79            OUT (C), A
+0525: 00               NOP
+0526: ED 71            OUT (C), 0
+0528: ED 71            OUT (C), 0
+052A: ED 71            OUT (C), 0
+052C: ED 71            OUT (C), 0
+052E: ED 71            OUT (C), 0
+0530: ED 71            OUT (C), 0
+0532: ED 71            OUT (C), 0
+0534: ED 71            OUT (C), 0
+0536: ED 69            OUT (C), L
+0538: 00               NOP
+0539: 00               NOP
+053A: ED 71            OUT (C), 0
+053C: ED 71            OUT (C), 0
+053E: ED 71            OUT (C), 0
+0540: ED 71            OUT (C), 0
+0542: 00               NOP
+0543: 00               NOP
+0544: 00               NOP
+0545: 00               NOP
+0546: ED 79            OUT (C), A
+0548: 00               NOP
+0549: ED 71            OUT (C), 0
+054B: ED 71            OUT (C), 0
+054D: ED 71            OUT (C), 0
+054F: ED 71            OUT (C), 0
+0551: ED 71            OUT (C), 0
+0553: ED 71            OUT (C), 0
+0555: ED 71            OUT (C), 0
+0557: ED 71            OUT (C), 0
+0559: ED 69            OUT (C), L
+055B: 00               NOP
+055C: 00               NOP
+055D: ED 71            OUT (C), 0
+055F: ED 71            OUT (C), 0
+0561: ED 71            OUT (C), 0
+0563: ED 71            OUT (C), 0
+0565: 00               NOP
+0566: 00               NOP
+0567: 00               NOP
+0568: 00               NOP
+0569: ED 79            OUT (C), A
+056B: 00               NOP
+056C: ED 71            OUT (C), 0
+056E: ED 71            OUT (C), 0
+0570: ED 71            OUT (C), 0
+0572: ED 71            OUT (C), 0
+0574: ED 71            OUT (C), 0
+0576: ED 71            OUT (C), 0
+0578: ED 71            OUT (C), 0
+057A: ED 71            OUT (C), 0
+057C: ED 69            OUT (C), L
+057E: 00               NOP
+057F: 00               NOP
+0580: ED 71            OUT (C), 0
+0582: ED 71            OUT (C), 0
+0584: ED 71            OUT (C), 0
+0586: ED 71            OUT (C), 0
+0588: 00               NOP
+0589: 00               NOP
+058A: ED 71            OUT (C), 0
+058C: ED 79            OUT (C), A
+058E: ED 71            OUT (C), 0
+0590: ED 71            OUT (C), 0
+0592: ED 71            OUT (C), 0
+0594: ED 71            OUT (C), 0
+0596: ED 71            OUT (C), 0
+0598: ED 71            OUT (C), 0
+059A: ED 71            OUT (C), 0
+059C: ED 71            OUT (C), 0
+059E: 00               NOP
+059F: ED 69            OUT (C), L
+05A1: ED 71            OUT (C), 0
+05A3: ED 71            OUT (C), 0
+05A5: ED 71            OUT (C), 0
+05A7: ED 71            OUT (C), 0
+05A9: 00               NOP
+05AA: 00               NOP
+05AB: 00               NOP
+05AC: ED 71            OUT (C), 0
+05AE: ED 79            OUT (C), A
+05B0: ED 71            OUT (C), 0
+05B2: ED 71            OUT (C), 0
+05B4: ED 71            OUT (C), 0
+05B6: ED 71            OUT (C), 0
+05B8: ED 71            OUT (C), 0
+05BA: ED 71            OUT (C), 0
+05BC: ED 71            OUT (C), 0
+05BE: ED 71            OUT (C), 0
+05C0: 00               NOP
+05C1: ED 69            OUT (C), L
+05C3: ED 71            OUT (C), 0
+05C5: ED 71            OUT (C), 0
+05C7: ED 71            OUT (C), 0
+05C9: ED 71            OUT (C), 0
+05CB: 00               NOP
+05CC: 00               NOP
+05CD: 00               NOP
+05CE: ED 71            OUT (C), 0
+05D0: ED 79            OUT (C), A
+05D2: ED 71            OUT (C), 0
+05D4: ED 71            OUT (C), 0
+05D6: ED 71            OUT (C), 0
+05D8: ED 71            OUT (C), 0
+05DA: ED 71            OUT (C), 0
+05DC: ED 71            OUT (C), 0
+05DE: ED 71            OUT (C), 0
+05E0: ED 71            OUT (C), 0
+05E2: 00               NOP
+05E3: ED 69            OUT (C), L
+05E5: ED 71            OUT (C), 0
+05E7: ED 71            OUT (C), 0
+05E9: ED 71            OUT (C), 0
+05EB: ED 71            OUT (C), 0
+05ED: 00               NOP
+05EE: 00               NOP
+05EF: 00               NOP
+05F0: ED 71            OUT (C), 0
+05F2: ED 71            OUT (C), 0
+05F4: ED 71            OUT (C), 0
+05F6: ED 71            OUT (C), 0
+05F8: ED 71            OUT (C), 0
+05FA: ED 71            OUT (C), 0
+05FC: ED 71            OUT (C), 0
+05FE: ED 71            OUT (C), 0
+0600: ED 71            OUT (C), 0
+0602: ED 71            OUT (C), 0
+0604: 00               NOP
+0605: ED 71            OUT (C), 0
+0607: ED 71            OUT (C), 0
+0609: ED 71            OUT (C), 0
+060B: ED 71            OUT (C), 0
+060D: ED 71            OUT (C), 0
+060F: 00               NOP
+0610: 00               NOP
+0611: 00               NOP
+0612: ED 71            OUT (C), 0
+0614: ED 71            OUT (C), 0
+0616: ED 71            OUT (C), 0
+0618: ED 71            OUT (C), 0
+061A: ED 71            OUT (C), 0
+061C: ED 71            OUT (C), 0
+061E: ED 71            OUT (C), 0
+0620: ED 71            OUT (C), 0
+0622: ED 71            OUT (C), 0
+0624: ED 71            OUT (C), 0
+0626: 00               NOP
+0627: ED 71            OUT (C), 0
+0629: ED 71            OUT (C), 0
+062B: ED 71            OUT (C), 0
+062D: ED 71            OUT (C), 0
+062F: ED 71            OUT (C), 0
+0631: 00               NOP
+0632: 00               NOP
+0633: 00               NOP
+0634: ED 71            OUT (C), 0
+0636: ED 71            OUT (C), 0
+0638: ED 71            OUT (C), 0
+063A: ED 71            OUT (C), 0
+063C: ED 71            OUT (C), 0
+063E: ED 71            OUT (C), 0
+0640: ED 71            OUT (C), 0
+0642: ED 71            OUT (C), 0
+0644: ED 71            OUT (C), 0
+0646: ED 71            OUT (C), 0
+0648: 00               NOP
+0649: ED 71            OUT (C), 0
+064B: ED 71            OUT (C), 0
+064D: ED 71            OUT (C), 0
+064F: ED 71            OUT (C), 0
+0651: ED 71            OUT (C), 0
+0653: 00               NOP
+0654: 00               NOP
+0655: 00               NOP
+0656: ED 71            OUT (C), 0
+0658: ED 71            OUT (C), 0
+065A: ED 71            OUT (C), 0
+065C: ED 71            OUT (C), 0
+065E: ED 71            OUT (C), 0
+0660: ED 71            OUT (C), 0
+0662: ED 71            OUT (C), 0
+0664: ED 71            OUT (C), 0
+0666: ED 71            OUT (C), 0
+0668: ED 71            OUT (C), 0
+066A: 00               NOP
+066B: ED 71            OUT (C), 0
+066D: ED 71            OUT (C), 0
+066F: ED 71            OUT (C), 0
+0671: ED 71            OUT (C), 0
+0673: ED 71            OUT (C), 0
+0675: 00               NOP
+0676: 00               NOP
+0677: 00               NOP
+0678: ED 71            OUT (C), 0
+067A: ED 71            OUT (C), 0
+067C: ED 71            OUT (C), 0
+067E: ED 71            OUT (C), 0
+0680: ED 71            OUT (C), 0
+0682: ED 71            OUT (C), 0
+0684: ED 71            OUT (C), 0
+0686: ED 71            OUT (C), 0
+0688: ED 71            OUT (C), 0
+068A: ED 71            OUT (C), 0
+068C: 00               NOP
+068D: ED 71            OUT (C), 0
+068F: ED 71            OUT (C), 0
+0691: ED 71            OUT (C), 0
+0693: ED 71            OUT (C), 0
+0695: ED 71            OUT (C), 0
+0697: 00               NOP
+0698: 00               NOP
+0699: 00               NOP
+069A: ED 71            OUT (C), 0
+069C: ED 71            OUT (C), 0
+069E: ED 71            OUT (C), 0
+06A0: ED 71            OUT (C), 0
+06A2: ED 71            OUT (C), 0
+06A4: ED 71            OUT (C), 0
+06A6: ED 71            OUT (C), 0
+06A8: ED 71            OUT (C), 0
+06AA: ED 71            OUT (C), 0
+06AC: ED 71            OUT (C), 0
+06AE: 00               NOP
+06AF: ED 71            OUT (C), 0
+06B1: ED 71            OUT (C), 0
+06B3: ED 71            OUT (C), 0
+06B5: ED 71            OUT (C), 0
+06B7: ED 71            OUT (C), 0
+06B9: 00               NOP
+06BA: 00               NOP
+06BB: 00               NOP
+06BC: ED 71            OUT (C), 0
+06BE: ED 71            OUT (C), 0
+06C0: ED 71            OUT (C), 0
+06C2: ED 71            OUT (C), 0
+06C4: ED 71            OUT (C), 0
+06C6: ED 71            OUT (C), 0
+06C8: ED 71            OUT (C), 0
+06CA: ED 71            OUT (C), 0
+06CC: ED 71            OUT (C), 0
+06CE: ED 71            OUT (C), 0
+06D0: 00               NOP
+06D1: ED 71            OUT (C), 0
+06D3: ED 71            OUT (C), 0
+06D5: ED 71            OUT (C), 0
+06D7: ED 71            OUT (C), 0
+06D9: ED 71            OUT (C), 0
+06DB: 00               NOP
+06DC: 00               NOP
+06DD: 00               NOP
+06DE: ED 71            OUT (C), 0
+06E0: ED 71            OUT (C), 0
+06E2: ED 71            OUT (C), 0
+06E4: ED 71            OUT (C), 0
+06E6: ED 71            OUT (C), 0
+06E8: ED 71            OUT (C), 0
+06EA: ED 71            OUT (C), 0
+06EC: ED 71            OUT (C), 0
+06EE: ED 71            OUT (C), 0
+06F0: ED 71            OUT (C), 0
+06F2: 00               NOP
+06F3: ED 71            OUT (C), 0
+06F5: ED 71            OUT (C), 0
+06F7: ED 71            OUT (C), 0
+06F9: ED 71            OUT (C), 0
+06FB: ED 71            OUT (C), 0
+06FD: 00               NOP
+06FE: 00               NOP
+06FF: 00               NOP
+0700: ED 71            OUT (C), 0
+0702: ED 71            OUT (C), 0
+0704: ED 71            OUT (C), 0
+0706: ED 71            OUT (C), 0
+0708: ED 71            OUT (C), 0
+070A: ED 71            OUT (C), 0
+070C: ED 71            OUT (C), 0
+070E: ED 71            OUT (C), 0
+0710: ED 71            OUT (C), 0
+0712: ED 71            OUT (C), 0
+0714: 00               NOP
+0715: ED 71            OUT (C), 0
+0717: ED 71            OUT (C), 0
+0719: ED 71            OUT (C), 0
+071B: ED 71            OUT (C), 0
+071D: ED 71            OUT (C), 0
+071F: 00               NOP
+0720: 00               NOP
+0721: 00               NOP
+0722: ED 71            OUT (C), 0
+0724: ED 71            OUT (C), 0
+0726: ED 71            OUT (C), 0
+0728: ED 71            OUT (C), 0
+072A: ED 71            OUT (C), 0
+072C: ED 71            OUT (C), 0
+072E: ED 71            OUT (C), 0
+0730: ED 71            OUT (C), 0
+0732: ED 71            OUT (C), 0
+0734: ED 71            OUT (C), 0
+0736: 00               NOP
+0737: ED 71            OUT (C), 0
+0739: ED 71            OUT (C), 0
+073B: ED 71            OUT (C), 0
+073D: ED 71            OUT (C), 0
+073F: ED 71            OUT (C), 0
+0741: 00               NOP
+0742: 00               NOP
+0743: 00               NOP
+0744: ED 71            OUT (C), 0
+0746: ED 71            OUT (C), 0
+0748: ED 71            OUT (C), 0
+074A: ED 71            OUT (C), 0
+074C: ED 71            OUT (C), 0
+074E: ED 71            OUT (C), 0
+0750: ED 71            OUT (C), 0
+0752: ED 71            OUT (C), 0
+0754: ED 71            OUT (C), 0
+0756: ED 71            OUT (C), 0
+0758: 00               NOP
+0759: ED 71            OUT (C), 0
+075B: ED 71            OUT (C), 0
+075D: ED 71            OUT (C), 0
+075F: ED 71            OUT (C), 0
+0761: ED 71            OUT (C), 0
+0763: 00               NOP
+0764: 00               NOP
+0765: 00               NOP
+0766: ED 71            OUT (C), 0
+0768: ED 71            OUT (C), 0
+076A: ED 71            OUT (C), 0
+076C: ED 71            OUT (C), 0
+076E: ED 71            OUT (C), 0
+0770: ED 71            OUT (C), 0
+0772: ED 71            OUT (C), 0
+0774: ED 71            OUT (C), 0
+0776: ED 71            OUT (C), 0
+0778: ED 71            OUT (C), 0
+077A: 00               NOP
+077B: ED 71            OUT (C), 0
+077D: ED 71            OUT (C), 0
+077F: ED 71            OUT (C), 0
+0781: ED 71            OUT (C), 0
+0783: ED 71            OUT (C), 0
+0785: 00               NOP
+0786: 00               NOP
+0787: 00               NOP
+0788: ED 71            OUT (C), 0
+078A: ED 71            OUT (C), 0
+078C: ED 71            OUT (C), 0
+078E: ED 71            OUT (C), 0
+0790: ED 71            OUT (C), 0
+0792: ED 71            OUT (C), 0
+0794: ED 71            OUT (C), 0
+0796: ED 71            OUT (C), 0
+0798: ED 71            OUT (C), 0
+079A: ED 71            OUT (C), 0
+079C: 00               NOP
+079D: ED 71            OUT (C), 0
+079F: ED 71            OUT (C), 0
+07A1: ED 71            OUT (C), 0
+07A3: ED 71            OUT (C), 0
+07A5: ED 71            OUT (C), 0
+07A7: 00               NOP
+07A8: 00               NOP
+07A9: 00               NOP
+07AA: ED 71            OUT (C), 0
+07AC: ED 71            OUT (C), 0
+07AE: ED 71            OUT (C), 0
+07B0: ED 71            OUT (C), 0
+07B2: ED 71            OUT (C), 0
+07B4: ED 71            OUT (C), 0
+07B6: ED 71            OUT (C), 0
+07B8: ED 71            OUT (C), 0
+07BA: ED 71            OUT (C), 0
+07BC: ED 71            OUT (C), 0
+07BE: 00               NOP
+07BF: ED 71            OUT (C), 0
+07C1: ED 71            OUT (C), 0
+07C3: ED 71            OUT (C), 0
+07C5: ED 71            OUT (C), 0
+07C7: ED 71            OUT (C), 0
+07C9: 00               NOP
+07CA: 00               NOP
+07CB: 00               NOP
+07CC: ED 71            OUT (C), 0
+07CE: ED 71            OUT (C), 0
+07D0: ED 71            OUT (C), 0
+07D2: ED 71            OUT (C), 0
+07D4: ED 71            OUT (C), 0
+07D6: ED 71            OUT (C), 0
+07D8: ED 71            OUT (C), 0
+07DA: ED 71            OUT (C), 0
+07DC: ED 71            OUT (C), 0
+07DE: ED 71            OUT (C), 0
+07E0: 00               NOP
+07E1: ED 71            OUT (C), 0
+07E3: ED 71            OUT (C), 0
+07E5: ED 71            OUT (C), 0
+07E7: ED 71            OUT (C), 0
+07E9: ED 71            OUT (C), 0
+07EB: 00               NOP
+07EC: 00               NOP
+07ED: 00               NOP
+07EE: ED 71            OUT (C), 0
+07F0: ED 71            OUT (C), 0
+07F2: ED 71            OUT (C), 0
+07F4: ED 71            OUT (C), 0
+07F6: ED 71            OUT (C), 0
+07F8: ED 71            OUT (C), 0
+07FA: ED 71            OUT (C), 0
+07FC: ED 71            OUT (C), 0
+07FE: ED 71            OUT (C), 0
+0800: ED 71            OUT (C), 0
+0802: 00               NOP
+0803: ED 71            OUT (C), 0
+0805: ED 71            OUT (C), 0
+0807: ED 71            OUT (C), 0
+0809: ED 71            OUT (C), 0
+080B: ED 71            OUT (C), 0
+080D: 00               NOP
+080E: 00               NOP
+080F: 00               NOP
+0810: ED 41            OUT (C), B
+0812: ED 41            OUT (C), B
+0814: ED 71            OUT (C), 0
+0816: ED 71            OUT (C), 0
+0818: ED 71            OUT (C), 0
+081A: ED 71            OUT (C), 0
+081C: ED 71            OUT (C), 0
+081E: ED 71            OUT (C), 0
+0820: ED 71            OUT (C), 0
+0822: ED 41            OUT (C), B
+0824: ED 41            OUT (C), B
+0826: ED 71            OUT (C), 0
+0828: ED 71            OUT (C), 0
+082A: 00               NOP
+082B: ED 71            OUT (C), 0
+082D: ED 71            OUT (C), 0
+082F: 00               NOP
+0830: 00               NOP
+0831: 00               NOP
+0832: ED 41            OUT (C), B
+0834: ED 41            OUT (C), B
+0836: ED 71            OUT (C), 0
+0838: ED 71            OUT (C), 0
+083A: ED 71            OUT (C), 0
+083C: ED 71            OUT (C), 0
+083E: ED 71            OUT (C), 0
+0840: ED 71            OUT (C), 0
+0842: ED 71            OUT (C), 0
+0844: ED 41            OUT (C), B
+0846: ED 41            OUT (C), B
+0848: ED 71            OUT (C), 0
+084A: ED 71            OUT (C), 0
+084C: 00               NOP
+084D: ED 71            OUT (C), 0
+084F: ED 71            OUT (C), 0
+0851: 00               NOP
+0852: 00               NOP
+0853: 00               NOP
+0854: ED 41            OUT (C), B
+0856: ED 41            OUT (C), B
+0858: ED 71            OUT (C), 0
+085A: ED 71            OUT (C), 0
+085C: ED 71            OUT (C), 0
+085E: ED 71            OUT (C), 0
+0860: ED 71            OUT (C), 0
+0862: ED 71            OUT (C), 0
+0864: ED 71            OUT (C), 0
+0866: ED 41            OUT (C), B
+0868: ED 41            OUT (C), B
+086A: ED 71            OUT (C), 0
+086C: ED 71            OUT (C), 0
+086E: 00               NOP
+086F: ED 71            OUT (C), 0
+0871: ED 71            OUT (C), 0
+0873: 00               NOP
+0874: 00               NOP
+0875: 00               NOP
+0876: ED 41            OUT (C), B
+0878: ED 41            OUT (C), B
+087A: ED 71            OUT (C), 0
+087C: ED 71            OUT (C), 0
+087E: ED 71            OUT (C), 0
+0880: ED 71            OUT (C), 0
+0882: ED 71            OUT (C), 0
+0884: ED 71            OUT (C), 0
+0886: ED 71            OUT (C), 0
+0888: ED 41            OUT (C), B
+088A: ED 41            OUT (C), B
+088C: ED 71            OUT (C), 0
+088E: ED 71            OUT (C), 0
+0890: 00               NOP
+0891: ED 71            OUT (C), 0
+0893: ED 71            OUT (C), 0
+0895: 00               NOP
+0896: 00               NOP
+0897: 00               NOP
+0898: ED 41            OUT (C), B
+089A: ED 41            OUT (C), B
+089C: ED 71            OUT (C), 0
+089E: ED 71            OUT (C), 0
+08A0: ED 71            OUT (C), 0
+08A2: ED 71            OUT (C), 0
+08A4: ED 71            OUT (C), 0
+08A6: ED 71            OUT (C), 0
+08A8: ED 71            OUT (C), 0
+08AA: ED 41            OUT (C), B
+08AC: 00               NOP
+08AD: ED 41            OUT (C), B
+08AF: ED 71            OUT (C), 0
+08B1: ED 71            OUT (C), 0
+08B3: ED 71            OUT (C), 0
+08B5: ED 71            OUT (C), 0
+08B7: 00               NOP
+08B8: 00               NOP
+08B9: 00               NOP
+08BA: ED 41            OUT (C), B
+08BC: ED 41            OUT (C), B
+08BE: ED 71            OUT (C), 0
+08C0: ED 71            OUT (C), 0
+08C2: ED 71            OUT (C), 0
+08C4: ED 71            OUT (C), 0
+08C6: ED 71            OUT (C), 0
+08C8: ED 71            OUT (C), 0
+08CA: ED 71            OUT (C), 0
+08CC: ED 41            OUT (C), B
+08CE: 00               NOP
+08CF: ED 41            OUT (C), B
+08D1: ED 71            OUT (C), 0
+08D3: ED 71            OUT (C), 0
+08D5: ED 71            OUT (C), 0
+08D7: ED 71            OUT (C), 0
+08D9: 00               NOP
+08DA: 00               NOP
+08DB: 00               NOP
+08DC: ED 41            OUT (C), B
+08DE: ED 41            OUT (C), B
+08E0: ED 71            OUT (C), 0
+08E2: ED 71            OUT (C), 0
+08E4: ED 71            OUT (C), 0
+08E6: ED 71            OUT (C), 0
+08E8: ED 71            OUT (C), 0
+08EA: ED 71            OUT (C), 0
+08EC: ED 71            OUT (C), 0
+08EE: ED 41            OUT (C), B
+08F0: 00               NOP
+08F1: ED 41            OUT (C), B
+08F3: ED 71            OUT (C), 0
+08F5: ED 71            OUT (C), 0
+08F7: ED 71            OUT (C), 0
+08F9: ED 71            OUT (C), 0
+08FB: 00               NOP
+08FC: 00               NOP
+08FD: 00               NOP
+08FE: ED 41            OUT (C), B
+0900: ED 41            OUT (C), B
+0902: ED 71            OUT (C), 0
+0904: ED 71            OUT (C), 0
+0906: ED 71            OUT (C), 0
+0908: ED 71            OUT (C), 0
+090A: ED 71            OUT (C), 0
+090C: ED 71            OUT (C), 0
+090E: ED 71            OUT (C), 0
+0910: ED 41            OUT (C), B
+0912: 00               NOP
+0913: ED 41            OUT (C), B
+0915: ED 71            OUT (C), 0
+0917: ED 71            OUT (C), 0
+0919: ED 71            OUT (C), 0
+091B: ED 71            OUT (C), 0
+091D: 00               NOP
+091E: 00               NOP
+091F: 00               NOP
+0920: ED 41            OUT (C), B
+0922: ED 41            OUT (C), B
+0924: ED 71            OUT (C), 0
+0926: ED 71            OUT (C), 0
+0928: ED 71            OUT (C), 0
+092A: ED 71            OUT (C), 0
+092C: ED 71            OUT (C), 0
+092E: ED 71            OUT (C), 0
+0930: ED 71            OUT (C), 0
+0932: ED 41            OUT (C), B
+0934: 00               NOP
+0935: ED 41            OUT (C), B
+0937: 00               NOP
+0938: ED 71            OUT (C), 0
+093A: ED 71            OUT (C), 0
+093C: ED 71            OUT (C), 0
+093E: ED 71            OUT (C), 0
+0940: 00               NOP
+0941: 00               NOP
+0942: ED 41            OUT (C), B
+0944: ED 41            OUT (C), B
+0946: ED 71            OUT (C), 0
+0948: ED 71            OUT (C), 0
+094A: ED 71            OUT (C), 0
+094C: ED 71            OUT (C), 0
+094E: ED 71            OUT (C), 0
+0950: ED 71            OUT (C), 0
+0952: ED 71            OUT (C), 0
+0954: ED 41            OUT (C), B
+0956: 00               NOP
+0957: ED 41            OUT (C), B
+0959: 00               NOP
+095A: ED 71            OUT (C), 0
+095C: ED 71            OUT (C), 0
+095E: ED 71            OUT (C), 0
+0960: ED 71            OUT (C), 0
+0962: 00               NOP
+0963: 00               NOP
+0964: ED 41            OUT (C), B
+0966: ED 41            OUT (C), B
+0968: ED 71            OUT (C), 0
+096A: ED 71            OUT (C), 0
+096C: ED 71            OUT (C), 0
+096E: ED 71            OUT (C), 0
+0970: ED 71            OUT (C), 0
+0972: ED 71            OUT (C), 0
+0974: ED 71            OUT (C), 0
+0976: ED 41            OUT (C), B
+0978: 00               NOP
+0979: ED 41            OUT (C), B
+097B: 00               NOP
+097C: ED 71            OUT (C), 0
+097E: ED 71            OUT (C), 0
+0980: ED 71            OUT (C), 0
+0982: ED 71            OUT (C), 0
+0984: 00               NOP
+0985: 00               NOP
+0986: ED 41            OUT (C), B
+0988: ED 41            OUT (C), B
+098A: ED 71            OUT (C), 0
+098C: ED 71            OUT (C), 0
+098E: ED 71            OUT (C), 0
+0990: ED 71            OUT (C), 0
+0992: ED 71            OUT (C), 0
+0994: ED 71            OUT (C), 0
+0996: ED 71            OUT (C), 0
+0998: ED 41            OUT (C), B
+099A: 00               NOP
+099B: ED 41            OUT (C), B
+099D: 00               NOP
+099E: ED 71            OUT (C), 0
+09A0: ED 71            OUT (C), 0
+09A2: ED 71            OUT (C), 0
+09A4: ED 71            OUT (C), 0
+09A6: 00               NOP
+09A7: 00               NOP
+09A8: ED 41            OUT (C), B
+09AA: ED 41            OUT (C), B
+09AC: ED 71            OUT (C), 0
+09AE: ED 71            OUT (C), 0
+09B0: ED 71            OUT (C), 0
+09B2: ED 71            OUT (C), 0
+09B4: ED 71            OUT (C), 0
+09B6: ED 71            OUT (C), 0
+09B8: ED 71            OUT (C), 0
+09BA: ED 41            OUT (C), B
+09BC: 00               NOP
+09BD: ED 41            OUT (C), B
+09BF: ED 71            OUT (C), 0
+09C1: ED 71            OUT (C), 0
+09C3: ED 71            OUT (C), 0
+09C5: ED 71            OUT (C), 0
+09C7: 00               NOP
+09C8: 00               NOP
+09C9: 00               NOP
+09CA: ED 41            OUT (C), B
+09CC: ED 41            OUT (C), B
+09CE: ED 71            OUT (C), 0
+09D0: ED 71            OUT (C), 0
+09D2: ED 71            OUT (C), 0
+09D4: ED 71            OUT (C), 0
+09D6: ED 71            OUT (C), 0
+09D8: ED 71            OUT (C), 0
+09DA: ED 71            OUT (C), 0
+09DC: ED 41            OUT (C), B
+09DE: 00               NOP
+09DF: ED 41            OUT (C), B
+09E1: ED 71            OUT (C), 0
+09E3: ED 71            OUT (C), 0
+09E5: ED 71            OUT (C), 0
+09E7: ED 71            OUT (C), 0
+09E9: 00               NOP
+09EA: 00               NOP
+09EB: 00               NOP
+09EC: ED 41            OUT (C), B
+09EE: ED 41            OUT (C), B
+09F0: ED 71            OUT (C), 0
+09F2: ED 71            OUT (C), 0
+09F4: ED 71            OUT (C), 0
+09F6: ED 71            OUT (C), 0
+09F8: ED 71            OUT (C), 0
+09FA: ED 71            OUT (C), 0
+09FC: ED 71            OUT (C), 0
+09FE: ED 41            OUT (C), B
+0A00: 00               NOP
+0A01: ED 41            OUT (C), B
+0A03: ED 71            OUT (C), 0
+0A05: ED 71            OUT (C), 0
+0A07: ED 71            OUT (C), 0
+0A09: ED 71            OUT (C), 0
+0A0B: 00               NOP
+0A0C: 00               NOP
+0A0D: 00               NOP
+0A0E: ED 41            OUT (C), B
+0A10: ED 41            OUT (C), B
+0A12: ED 71            OUT (C), 0
+0A14: ED 71            OUT (C), 0
+0A16: ED 71            OUT (C), 0
+0A18: ED 71            OUT (C), 0
+0A1A: ED 71            OUT (C), 0
+0A1C: ED 71            OUT (C), 0
+0A1E: ED 71            OUT (C), 0
+0A20: ED 41            OUT (C), B
+0A22: 00               NOP
+0A23: ED 41            OUT (C), B
+0A25: ED 71            OUT (C), 0
+0A27: ED 71            OUT (C), 0
+0A29: ED 71            OUT (C), 0
+0A2B: ED 71            OUT (C), 0
+0A2D: 00               NOP
+0A2E: 00               NOP
+0A2F: 00               NOP
+0A30: 7F               LD A, A
+0A31: 00               NOP
+0A32: ED 41            OUT (C), B
+0A34: ED 71            OUT (C), 0
+0A36: ED 71            OUT (C), 0
+0A38: ED 71            OUT (C), 0
+0A3A: ED 71            OUT (C), 0
+0A3C: ED 71            OUT (C), 0
+0A3E: ED 71            OUT (C), 0
+0A40: ED 71            OUT (C), 0
+0A42: ED 71            OUT (C), 0
+0A44: ED 71            OUT (C), 0
+0A46: 00               NOP
+0A47: ED 71            OUT (C), 0
+0A49: ED 71            OUT (C), 0
+0A4B: ED 71            OUT (C), 0
+0A4D: ED 71            OUT (C), 0
+0A4F: ED 71            OUT (C), 0
+0A51: 00               NOP
+0A52: 7F               LD A, A
+0A53: 00               NOP
+0A54: ED 41            OUT (C), B
+0A56: ED 71            OUT (C), 0
+0A58: ED 71            OUT (C), 0
+0A5A: ED 71            OUT (C), 0
+0A5C: ED 71            OUT (C), 0
+0A5E: ED 71            OUT (C), 0
+0A60: ED 71            OUT (C), 0
+0A62: ED 71            OUT (C), 0
+0A64: ED 71            OUT (C), 0
+0A66: ED 71            OUT (C), 0
+0A68: 00               NOP
+0A69: ED 71            OUT (C), 0
+0A6B: ED 71            OUT (C), 0
+0A6D: ED 71            OUT (C), 0
+0A6F: ED 71            OUT (C), 0
+0A71: ED 71            OUT (C), 0
+0A73: 00               NOP
+0A74: 7F               LD A, A
+0A75: 00               NOP
+0A76: ED 41            OUT (C), B
+0A78: ED 71            OUT (C), 0
+0A7A: ED 71            OUT (C), 0
+0A7C: ED 71            OUT (C), 0
+0A7E: ED 71            OUT (C), 0
+0A80: ED 71            OUT (C), 0
+0A82: ED 71            OUT (C), 0
+0A84: ED 71            OUT (C), 0
+0A86: ED 71            OUT (C), 0
+0A88: ED 71            OUT (C), 0
+0A8A: 00               NOP
+0A8B: ED 71            OUT (C), 0
+0A8D: ED 71            OUT (C), 0
+0A8F: ED 71            OUT (C), 0
+0A91: ED 71            OUT (C), 0
+0A93: ED 71            OUT (C), 0
+0A95: 00               NOP
+0A96: 7F               LD A, A
+0A97: 00               NOP
+0A98: ED 41            OUT (C), B
+0A9A: ED 71            OUT (C), 0
+0A9C: ED 71            OUT (C), 0
+0A9E: ED 71            OUT (C), 0
+0AA0: ED 71            OUT (C), 0
+0AA2: ED 71            OUT (C), 0
+0AA4: ED 71            OUT (C), 0
+0AA6: ED 71            OUT (C), 0
+0AA8: ED 71            OUT (C), 0
+0AAA: ED 71            OUT (C), 0
+0AAC: 00               NOP
+0AAD: ED 71            OUT (C), 0
+0AAF: ED 71            OUT (C), 0
+0AB1: ED 71            OUT (C), 0
+0AB3: ED 71            OUT (C), 0
+0AB5: ED 71            OUT (C), 0
+0AB7: 00               NOP
+0AB8: 7F               LD A, A
+0AB9: 00               NOP
+0ABA: ED 41            OUT (C), B
+0ABC: ED 71            OUT (C), 0
+0ABE: ED 71            OUT (C), 0
+0AC0: ED 71            OUT (C), 0
+0AC2: ED 71            OUT (C), 0
+0AC4: ED 71            OUT (C), 0
+0AC6: ED 71            OUT (C), 0
+0AC8: ED 71            OUT (C), 0
+0ACA: ED 71            OUT (C), 0
+0ACC: ED 71            OUT (C), 0
+0ACE: 00               NOP
+0ACF: ED 71            OUT (C), 0
+0AD1: ED 71            OUT (C), 0
+0AD3: ED 71            OUT (C), 0
+0AD5: ED 71            OUT (C), 0
+0AD7: ED 71            OUT (C), 0
+0AD9: 00               NOP
+0ADA: 7F               LD A, A
+0ADB: 00               NOP
+0ADC: ED 41            OUT (C), B
+0ADE: ED 71            OUT (C), 0
+0AE0: ED 71            OUT (C), 0
+0AE2: ED 71            OUT (C), 0
+0AE4: ED 71            OUT (C), 0
+0AE6: ED 71            OUT (C), 0
+0AE8: ED 71            OUT (C), 0
+0AEA: ED 71            OUT (C), 0
+0AEC: ED 71            OUT (C), 0
+0AEE: ED 71            OUT (C), 0
+0AF0: 00               NOP
+0AF1: ED 71            OUT (C), 0
+0AF3: ED 71            OUT (C), 0
+0AF5: ED 71            OUT (C), 0
+0AF7: ED 71            OUT (C), 0
+0AF9: ED 71            OUT (C), 0
+0AFB: 00               NOP
+0AFC: 7F               LD A, A
+0AFD: 00               NOP
+0AFE: ED 41            OUT (C), B
+0B00: ED 71            OUT (C), 0
+0B02: ED 71            OUT (C), 0
+0B04: ED 71            OUT (C), 0
+0B06: ED 71            OUT (C), 0
+0B08: ED 71            OUT (C), 0
+0B0A: ED 71            OUT (C), 0
+0B0C: ED 71            OUT (C), 0
+0B0E: ED 71            OUT (C), 0
+0B10: ED 71            OUT (C), 0
+0B12: 00               NOP
+0B13: ED 71            OUT (C), 0
+0B15: ED 71            OUT (C), 0
+0B17: ED 71            OUT (C), 0
+0B19: ED 71            OUT (C), 0
+0B1B: ED 71            OUT (C), 0
+0B1D: 00               NOP
+0B1E: 7F               LD A, A
+0B1F: 00               NOP
+0B20: ED 41            OUT (C), B
+0B22: ED 71            OUT (C), 0
+0B24: ED 71            OUT (C), 0
+0B26: ED 71            OUT (C), 0
+0B28: ED 71            OUT (C), 0
+0B2A: ED 71            OUT (C), 0
+0B2C: ED 71            OUT (C), 0
+0B2E: ED 71            OUT (C), 0
+0B30: ED 71            OUT (C), 0
+0B32: ED 71            OUT (C), 0
+0B34: 00               NOP
+0B35: ED 71            OUT (C), 0
+0B37: ED 71            OUT (C), 0
+0B39: ED 71            OUT (C), 0
+0B3B: ED 71            OUT (C), 0
+0B3D: ED 71            OUT (C), 0
+0B3F: 00               NOP
+0B40: 7F               LD A, A
+0B41: 00               NOP
+0B42: ED 41            OUT (C), B
+0B44: ED 71            OUT (C), 0
+0B46: ED 71            OUT (C), 0
+0B48: ED 71            OUT (C), 0
+0B4A: ED 71            OUT (C), 0
+0B4C: ED 71            OUT (C), 0
+0B4E: ED 71            OUT (C), 0
+0B50: ED 71            OUT (C), 0
+0B52: ED 71            OUT (C), 0
+0B54: ED 71            OUT (C), 0
+0B56: 00               NOP
+0B57: ED 71            OUT (C), 0
+0B59: ED 71            OUT (C), 0
+0B5B: ED 71            OUT (C), 0
+0B5D: ED 71            OUT (C), 0
+0B5F: ED 71            OUT (C), 0
+0B61: 00               NOP
+0B62: 7F               LD A, A
+0B63: 00               NOP
+0B64: ED 41            OUT (C), B
+0B66: ED 71            OUT (C), 0
+0B68: ED 71            OUT (C), 0
+0B6A: ED 71            OUT (C), 0
+0B6C: ED 71            OUT (C), 0
+0B6E: ED 71            OUT (C), 0
+0B70: ED 71            OUT (C), 0
+0B72: ED 71            OUT (C), 0
+0B74: ED 71            OUT (C), 0
+0B76: ED 71            OUT (C), 0
+0B78: 00               NOP
+0B79: ED 71            OUT (C), 0
+0B7B: ED 71            OUT (C), 0
+0B7D: ED 71            OUT (C), 0
+0B7F: ED 71            OUT (C), 0
+0B81: ED 71            OUT (C), 0
+0B83: 00               NOP
+0B84: 7F               LD A, A
+0B85: 00               NOP
+0B86: ED 41            OUT (C), B
+0B88: ED 71            OUT (C), 0
+0B8A: ED 71            OUT (C), 0
+0B8C: ED 71            OUT (C), 0
+0B8E: ED 71            OUT (C), 0
+0B90: ED 71            OUT (C), 0
+0B92: ED 71            OUT (C), 0
+0B94: ED 71            OUT (C), 0
+0B96: ED 71            OUT (C), 0
+0B98: ED 71            OUT (C), 0
+0B9A: ED 41            OUT (C), B
+0B9C: ED 71            OUT (C), 0
+0B9E: 00               NOP
+0B9F: ED 71            OUT (C), 0
+0BA1: ED 71            OUT (C), 0
+0BA3: ED 71            OUT (C), 0
+0BA5: 00               NOP
+0BA6: 7F               LD A, A
+0BA7: 00               NOP
+0BA8: ED 41            OUT (C), B
+0BAA: ED 71            OUT (C), 0
+0BAC: ED 71            OUT (C), 0
+0BAE: ED 71            OUT (C), 0
+0BB0: ED 71            OUT (C), 0
+0BB2: ED 71            OUT (C), 0
+0BB4: ED 71            OUT (C), 0
+0BB6: ED 71            OUT (C), 0
+0BB8: ED 71            OUT (C), 0
+0BBA: ED 71            OUT (C), 0
+0BBC: ED 41            OUT (C), B
+0BBE: ED 71            OUT (C), 0
+0BC0: 00               NOP
+0BC1: ED 71            OUT (C), 0
+0BC3: ED 71            OUT (C), 0
+0BC5: ED 71            OUT (C), 0
+0BC7: 00               NOP
+0BC8: 7F               LD A, A
+0BC9: 00               NOP
+0BCA: ED 41            OUT (C), B
+0BCC: ED 71            OUT (C), 0
+0BCE: ED 71            OUT (C), 0
+0BD0: ED 71            OUT (C), 0
+0BD2: ED 71            OUT (C), 0
+0BD4: ED 71            OUT (C), 0
+0BD6: ED 71            OUT (C), 0
+0BD8: ED 71            OUT (C), 0
+0BDA: ED 71            OUT (C), 0
+0BDC: ED 71            OUT (C), 0
+0BDE: ED 41            OUT (C), B
+0BE0: ED 71            OUT (C), 0
+0BE2: 00               NOP
+0BE3: ED 71            OUT (C), 0
+0BE5: ED 71            OUT (C), 0
+0BE7: ED 71            OUT (C), 0
+0BE9: 00               NOP
+0BEA: 7F               LD A, A
+0BEB: 00               NOP
+0BEC: ED 41            OUT (C), B
+0BEE: ED 71            OUT (C), 0
+0BF0: ED 71            OUT (C), 0
+0BF2: ED 71            OUT (C), 0
+0BF4: ED 71            OUT (C), 0
+0BF6: ED 71            OUT (C), 0
+0BF8: ED 71            OUT (C), 0
+0BFA: ED 71            OUT (C), 0
+0BFC: ED 71            OUT (C), 0
+0BFE: ED 71            OUT (C), 0
+0C00: ED 41            OUT (C), B
+0C02: ED 71            OUT (C), 0
+0C04: 00               NOP
+0C05: ED 71            OUT (C), 0
+0C07: ED 71            OUT (C), 0
+0C09: ED 71            OUT (C), 0
+0C0B: 00               NOP
+0C0C: 7F               LD A, A
+0C0D: 00               NOP
+0C0E: ED 41            OUT (C), B
+0C10: ED 71            OUT (C), 0
+0C12: ED 71            OUT (C), 0
+0C14: ED 71            OUT (C), 0
+0C16: ED 71            OUT (C), 0
+0C18: ED 71            OUT (C), 0
+0C1A: ED 71            OUT (C), 0
+0C1C: ED 71            OUT (C), 0
+0C1E: ED 71            OUT (C), 0
+0C20: ED 71            OUT (C), 0
+0C22: ED 41            OUT (C), B
+0C24: ED 71            OUT (C), 0
+0C26: 00               NOP
+0C27: ED 71            OUT (C), 0
+0C29: ED 71            OUT (C), 0
+0C2B: ED 71            OUT (C), 0
+0C2D: 00               NOP
+0C2E: 7F               LD A, A
+0C2F: 00               NOP
+0C30: ED 41            OUT (C), B
+0C32: ED 71            OUT (C), 0
+0C34: ED 71            OUT (C), 0
+0C36: ED 71            OUT (C), 0
+0C38: ED 71            OUT (C), 0
+0C3A: ED 71            OUT (C), 0
+0C3C: ED 71            OUT (C), 0
+0C3E: ED 71            OUT (C), 0
+0C40: ED 71            OUT (C), 0
+0C42: ED 71            OUT (C), 0
+0C44: ED 41            OUT (C), B
+0C46: ED 71            OUT (C), 0
+0C48: 00               NOP
+0C49: ED 71            OUT (C), 0
+0C4B: ED 71            OUT (C), 0
+0C4D: ED 71            OUT (C), 0
+0C4F: 00               NOP
+0C50: 7F               LD A, A
+0C51: 00               NOP
+0C52: ED 41            OUT (C), B
+0C54: ED 71            OUT (C), 0
+0C56: ED 71            OUT (C), 0
+0C58: ED 71            OUT (C), 0
+0C5A: ED 71            OUT (C), 0
+0C5C: ED 71            OUT (C), 0
+0C5E: ED 71            OUT (C), 0
+0C60: ED 71            OUT (C), 0
+0C62: ED 71            OUT (C), 0
+0C64: 00               NOP
+0C65: 00               NOP
+0C66: ED 71            OUT (C), 0
+0C68: ED 41            OUT (C), B
+0C6A: ED 71            OUT (C), 0
+0C6C: ED 71            OUT (C), 0
+0C6E: ED 71            OUT (C), 0
+0C70: ED 71            OUT (C), 0
+0C72: 00               NOP
+0C73: 7F               LD A, A
+0C74: 00               NOP
+0C75: ED 41            OUT (C), B
+0C77: ED 71            OUT (C), 0
+0C79: ED 71            OUT (C), 0
+0C7B: ED 71            OUT (C), 0
+0C7D: ED 71            OUT (C), 0
+0C7F: ED 71            OUT (C), 0
+0C81: ED 71            OUT (C), 0
+0C83: ED 71            OUT (C), 0
+0C85: ED 71            OUT (C), 0
+0C87: 00               NOP
+0C88: 00               NOP
+0C89: ED 71            OUT (C), 0
+0C8B: ED 41            OUT (C), B
+0C8D: ED 71            OUT (C), 0
+0C8F: ED 71            OUT (C), 0
+0C91: ED 71            OUT (C), 0
+0C93: ED 71            OUT (C), 0
+0C95: 00               NOP
+0C96: 7F               LD A, A
+0C97: 00               NOP
+0C98: ED 41            OUT (C), B
+0C9A: ED 71            OUT (C), 0
+0C9C: ED 71            OUT (C), 0
+0C9E: ED 71            OUT (C), 0
+0CA0: ED 71            OUT (C), 0
+0CA2: ED 71            OUT (C), 0
+0CA4: ED 71            OUT (C), 0
+0CA6: ED 71            OUT (C), 0
+0CA8: ED 71            OUT (C), 0
+0CAA: 00               NOP
+0CAB: 00               NOP
+0CAC: ED 71            OUT (C), 0
+0CAE: ED 41            OUT (C), B
+0CB0: ED 71            OUT (C), 0
+0CB2: ED 71            OUT (C), 0
+0CB4: ED 71            OUT (C), 0
+0CB6: ED 71            OUT (C), 0
+0CB8: 00               NOP
+0CB9: 7F               LD A, A
+0CBA: 00               NOP
+0CBB: ED 41            OUT (C), B
+0CBD: ED 71            OUT (C), 0
+0CBF: ED 71            OUT (C), 0
+0CC1: ED 71            OUT (C), 0
+0CC3: ED 71            OUT (C), 0
+0CC5: ED 71            OUT (C), 0
+0CC7: ED 71            OUT (C), 0
+0CC9: ED 71            OUT (C), 0
+0CCB: ED 71            OUT (C), 0
+0CCD: 00               NOP
+0CCE: 00               NOP
+0CCF: ED 71            OUT (C), 0
+0CD1: ED 41            OUT (C), B
+0CD3: ED 71            OUT (C), 0
+0CD5: ED 71            OUT (C), 0
+0CD7: ED 71            OUT (C), 0
+0CD9: ED 71            OUT (C), 0
+0CDB: 00               NOP
+0CDC: 7F               LD A, A
+0CDD: 00               NOP
+0CDE: ED 41            OUT (C), B
+0CE0: ED 71            OUT (C), 0
+0CE2: ED 71            OUT (C), 0
+0CE4: ED 71            OUT (C), 0
+0CE6: ED 71            OUT (C), 0
+0CE8: ED 71            OUT (C), 0
+0CEA: ED 71            OUT (C), 0
+0CEC: ED 71            OUT (C), 0
+0CEE: ED 71            OUT (C), 0
+0CF0: 00               NOP
+0CF1: 00               NOP
+0CF2: ED 71            OUT (C), 0
+0CF4: ED 41            OUT (C), B
+0CF6: ED 71            OUT (C), 0
+0CF8: ED 71            OUT (C), 0
+0CFA: ED 71            OUT (C), 0
+0CFC: ED 71            OUT (C), 0
+0CFE: 00               NOP
+0CFF: 7F               LD A, A
+0D00: 00               NOP
+0D01: ED 41            OUT (C), B
+0D03: ED 71            OUT (C), 0
+0D05: ED 71            OUT (C), 0
+0D07: ED 71            OUT (C), 0
+0D09: ED 71            OUT (C), 0
+0D0B: ED 71            OUT (C), 0
+0D0D: ED 71            OUT (C), 0
+0D0F: ED 71            OUT (C), 0
+0D11: ED 71            OUT (C), 0
+0D13: 00               NOP
+0D14: 00               NOP
+0D15: ED 71            OUT (C), 0
+0D17: ED 41            OUT (C), B
+0D19: ED 71            OUT (C), 0
+0D1B: ED 71            OUT (C), 0
+0D1D: ED 71            OUT (C), 0
+0D1F: ED 71            OUT (C), 0
+0D21: 00               NOP
+0D22: 7F               LD A, A
+0D23: 00               NOP
+0D24: ED 41            OUT (C), B
+0D26: ED 71            OUT (C), 0
+0D28: ED 71            OUT (C), 0
+0D2A: ED 71            OUT (C), 0
+0D2C: ED 71            OUT (C), 0
+0D2E: ED 71            OUT (C), 0
+0D30: ED 71            OUT (C), 0
+0D32: ED 71            OUT (C), 0
+0D34: ED 71            OUT (C), 0
+0D36: 00               NOP
+0D37: 00               NOP
+0D38: ED 71            OUT (C), 0
+0D3A: ED 41            OUT (C), B
+0D3C: ED 71            OUT (C), 0
+0D3E: ED 71            OUT (C), 0
+0D40: ED 71            OUT (C), 0
+0D42: ED 71            OUT (C), 0
+0D44: 00               NOP
+0D45: 7F               LD A, A
+0D46: 00               NOP
+0D47: ED 41            OUT (C), B
+0D49: ED 71            OUT (C), 0
+0D4B: ED 71            OUT (C), 0
+0D4D: ED 71            OUT (C), 0
+0D4F: ED 71            OUT (C), 0
+0D51: ED 71            OUT (C), 0
+0D53: ED 71            OUT (C), 0
+0D55: ED 71            OUT (C), 0
+0D57: ED 71            OUT (C), 0
+0D59: 00               NOP
+0D5A: 00               NOP
+0D5B: ED 71            OUT (C), 0
+0D5D: ED 41            OUT (C), B
+0D5F: ED 71            OUT (C), 0
+0D61: ED 71            OUT (C), 0
+0D63: ED 71            OUT (C), 0
+0D65: ED 71            OUT (C), 0
+0D67: 00               NOP
+0D68: 7F               LD A, A
+0D69: 00               NOP
+0D6A: ED 41            OUT (C), B
+0D6C: ED 71            OUT (C), 0
+0D6E: ED 71            OUT (C), 0
+0D70: ED 71            OUT (C), 0
+0D72: ED 71            OUT (C), 0
+0D74: ED 71            OUT (C), 0
+0D76: ED 71            OUT (C), 0
+0D78: ED 71            OUT (C), 0
+0D7A: ED 71            OUT (C), 0
+0D7C: ED 41            OUT (C), B
+0D7E: 00               NOP
+0D7F: ED 41            OUT (C), B
+0D81: ED 71            OUT (C), 0
+0D83: ED 71            OUT (C), 0
+0D85: ED 71            OUT (C), 0
+0D87: ED 71            OUT (C), 0
+0D89: 00               NOP
+0D8A: 7F               LD A, A
+0D8B: 00               NOP
+0D8C: ED 41            OUT (C), B
+0D8E: ED 71            OUT (C), 0
+0D90: ED 71            OUT (C), 0
+0D92: ED 71            OUT (C), 0
+0D94: ED 71            OUT (C), 0
+0D96: ED 71            OUT (C), 0
+0D98: ED 71            OUT (C), 0
+0D9A: ED 71            OUT (C), 0
+0D9C: ED 71            OUT (C), 0
+0D9E: ED 41            OUT (C), B
+0DA0: 00               NOP
+0DA1: ED 41            OUT (C), B
+0DA3: ED 71            OUT (C), 0
+0DA5: ED 71            OUT (C), 0
+0DA7: ED 71            OUT (C), 0
+0DA9: ED 71            OUT (C), 0
+0DAB: 00               NOP
+0DAC: 7F               LD A, A
+0DAD: 00               NOP
+0DAE: ED 41            OUT (C), B
+0DB0: ED 71            OUT (C), 0
+0DB2: ED 71            OUT (C), 0
+0DB4: ED 71            OUT (C), 0
+0DB6: ED 71            OUT (C), 0
+0DB8: ED 71            OUT (C), 0
+0DBA: ED 71            OUT (C), 0
+0DBC: ED 71            OUT (C), 0
+0DBE: ED 71            OUT (C), 0
+0DC0: ED 41            OUT (C), B
+0DC2: 00               NOP
+0DC3: 00               NOP
+0DC4: 00               NOP
+0DC5: ED 71            OUT (C), 0
+0DC7: 00               NOP
+0DC8: ED 71            OUT (C), 0
+0DCA: ED 71            OUT (C), 0
+0DCC: ED 71            OUT (C), 0
+0DCE: 00               NOP
+0DCF: 7F               LD A, A
+0DD0: 00               NOP
+0DD1: ED 41            OUT (C), B
+0DD3: ED 71            OUT (C), 0
+0DD5: ED 71            OUT (C), 0
+0DD7: ED 71            OUT (C), 0
+0DD9: ED 71            OUT (C), 0
+0DDB: ED 71            OUT (C), 0
+0DDD: ED 71            OUT (C), 0
+0DDF: ED 71            OUT (C), 0
+0DE1: ED 71            OUT (C), 0
+0DE3: ED 41            OUT (C), B
+0DE5: 00               NOP
+0DE6: 00               NOP
+0DE7: 00               NOP
+0DE8: ED 71            OUT (C), 0
+0DEA: 00               NOP
+0DEB: ED 71            OUT (C), 0
+0DED: ED 71            OUT (C), 0
+0DEF: ED 71            OUT (C), 0
+0DF1: 00               NOP
+0DF2: 7F               LD A, A
+0DF3: 00               NOP
+0DF4: ED 41            OUT (C), B
+0DF6: ED 71            OUT (C), 0
+0DF8: ED 71            OUT (C), 0
+0DFA: ED 71            OUT (C), 0
+0DFC: ED 71            OUT (C), 0
+0DFE: ED 71            OUT (C), 0
+0E00: ED 71            OUT (C), 0
+0E02: ED 71            OUT (C), 0
+0E04: ED 71            OUT (C), 0
+0E06: ED 41            OUT (C), B
+0E08: 00               NOP
+0E09: 00               NOP
+0E0A: 00               NOP
+0E0B: ED 71            OUT (C), 0
+0E0D: 00               NOP
+0E0E: ED 71            OUT (C), 0
+0E10: ED 71            OUT (C), 0
+0E12: ED 71            OUT (C), 0
+0E14: 00               NOP
+0E15: 7F               LD A, A
+0E16: 00               NOP
+0E17: ED 41            OUT (C), B
+0E19: ED 71            OUT (C), 0
+0E1B: ED 71            OUT (C), 0
+0E1D: ED 71            OUT (C), 0
+0E1F: ED 71            OUT (C), 0
+0E21: ED 71            OUT (C), 0
+0E23: ED 71            OUT (C), 0
+0E25: ED 71            OUT (C), 0
+0E27: ED 71            OUT (C), 0
+0E29: ED 41            OUT (C), B
+0E2B: 00               NOP
+0E2C: 00               NOP
+0E2D: 00               NOP
+0E2E: ED 71            OUT (C), 0
+0E30: 00               NOP
+0E31: ED 71            OUT (C), 0
+0E33: ED 71            OUT (C), 0
+0E35: ED 71            OUT (C), 0
+0E37: 00               NOP
+0E38: 7F               LD A, A
+0E39: 00               NOP
+0E3A: ED 41            OUT (C), B
+0E3C: ED 71            OUT (C), 0
+0E3E: ED 71            OUT (C), 0
+0E40: ED 71            OUT (C), 0
+0E42: ED 71            OUT (C), 0
+0E44: ED 71            OUT (C), 0
+0E46: ED 71            OUT (C), 0
+0E48: ED 71            OUT (C), 0
+0E4A: ED 71            OUT (C), 0
+0E4C: ED 41            OUT (C), B
+0E4E: 00               NOP
+0E4F: 00               NOP
+0E50: 00               NOP
+0E51: ED 71            OUT (C), 0
+0E53: 00               NOP
+0E54: ED 71            OUT (C), 0
+0E56: ED 71            OUT (C), 0
+0E58: ED 71            OUT (C), 0
+0E5A: 00               NOP
+0E5B: 7F               LD A, A
+0E5C: 00               NOP
+0E5D: ED 41            OUT (C), B
+0E5F: ED 71            OUT (C), 0
+0E61: ED 71            OUT (C), 0
+0E63: ED 71            OUT (C), 0
+0E65: ED 71            OUT (C), 0
+0E67: ED 71            OUT (C), 0
+0E69: ED 71            OUT (C), 0
+0E6B: ED 71            OUT (C), 0
+0E6D: ED 71            OUT (C), 0
+0E6F: ED 41            OUT (C), B
+0E71: 00               NOP
+0E72: 00               NOP
+0E73: 00               NOP
+0E74: ED 71            OUT (C), 0
+0E76: 00               NOP
+0E77: ED 71            OUT (C), 0
+0E79: ED 71            OUT (C), 0
+0E7B: ED 71            OUT (C), 0
+0E7D: 00               NOP
+0E7E: 7F               LD A, A
+0E7F: 00               NOP
+0E80: ED 41            OUT (C), B
+0E82: ED 71            OUT (C), 0
+0E84: ED 71            OUT (C), 0
+0E86: ED 71            OUT (C), 0
+0E88: ED 71            OUT (C), 0
+0E8A: ED 71            OUT (C), 0
+0E8C: ED 71            OUT (C), 0
+0E8E: ED 71            OUT (C), 0
+0E90: ED 71            OUT (C), 0
+0E92: ED 41            OUT (C), B
+0E94: 00               NOP
+0E95: 00               NOP
+0E96: ED 71            OUT (C), 0
+0E98: 00               NOP
+0E99: 00               NOP
+0E9A: ED 71            OUT (C), 0
+0E9C: ED 71            OUT (C), 0
+0E9E: ED 71            OUT (C), 0
+0EA0: 00               NOP
+0EA1: 7F               LD A, A
+0EA2: 00               NOP
+0EA3: ED 41            OUT (C), B
+0EA5: ED 71            OUT (C), 0
+0EA7: ED 71            OUT (C), 0
+0EA9: ED 71            OUT (C), 0
+0EAB: ED 71            OUT (C), 0
+0EAD: ED 71            OUT (C), 0
+0EAF: ED 71            OUT (C), 0
+0EB1: ED 71            OUT (C), 0
+0EB3: ED 71            OUT (C), 0
+0EB5: ED 41            OUT (C), B
+0EB7: 00               NOP
+0EB8: 00               NOP
+0EB9: ED 71            OUT (C), 0
+0EBB: 00               NOP
+0EBC: 00               NOP
+0EBD: ED 71            OUT (C), 0
+0EBF: ED 71            OUT (C), 0
+0EC1: ED 71            OUT (C), 0
+0EC3: 00               NOP
+0EC4: 7F               LD A, A
+0EC5: 00               NOP
+0EC6: ED 41            OUT (C), B
+0EC8: ED 71            OUT (C), 0
+0ECA: ED 71            OUT (C), 0
+0ECC: ED 71            OUT (C), 0
+0ECE: ED 71            OUT (C), 0
+0ED0: ED 71            OUT (C), 0
+0ED2: ED 71            OUT (C), 0
+0ED4: ED 71            OUT (C), 0
+0ED6: ED 71            OUT (C), 0
+0ED8: ED 41            OUT (C), B
+0EDA: 00               NOP
+0EDB: 00               NOP
+0EDC: ED 71            OUT (C), 0
+0EDE: 00               NOP
+0EDF: 00               NOP
+0EE0: ED 71            OUT (C), 0
+0EE2: ED 71            OUT (C), 0
+0EE4: ED 71            OUT (C), 0
+0EE6: 00               NOP
+0EE7: 7F               LD A, A
+0EE8: 00               NOP
+0EE9: ED 41            OUT (C), B
+0EEB: ED 71            OUT (C), 0
+0EED: ED 71            OUT (C), 0
+0EEF: ED 71            OUT (C), 0
+0EF1: ED 71            OUT (C), 0
+0EF3: ED 71            OUT (C), 0
+0EF5: ED 71            OUT (C), 0
+0EF7: ED 71            OUT (C), 0
+0EF9: ED 71            OUT (C), 0
+0EFB: ED 41            OUT (C), B
+0EFD: 00               NOP
+0EFE: 00               NOP
+0EFF: ED 71            OUT (C), 0
+0F01: 00               NOP
+0F02: 00               NOP
+0F03: ED 71            OUT (C), 0
+0F05: ED 71            OUT (C), 0
+0F07: ED 71            OUT (C), 0
+0F09: 00               NOP
+0F0A: 7F               LD A, A
+0F0B: 00               NOP
+0F0C: ED 41            OUT (C), B
+0F0E: ED 71            OUT (C), 0
+0F10: ED 71            OUT (C), 0
+0F12: ED 71            OUT (C), 0
+0F14: ED 71            OUT (C), 0
+0F16: ED 71            OUT (C), 0
+0F18: ED 71            OUT (C), 0
+0F1A: ED 71            OUT (C), 0
+0F1C: ED 71            OUT (C), 0
+0F1E: ED 41            OUT (C), B
+0F20: 00               NOP
+0F21: ED 71            OUT (C), 0
+0F23: ED 71            OUT (C), 0
+0F25: ED 71            OUT (C), 0
+0F27: ED 71            OUT (C), 0
+0F29: ED 71            OUT (C), 0
+0F2B: 00               NOP
+0F2C: 7F               LD A, A
+0F2D: 00               NOP
+0F2E: ED 41            OUT (C), B
+0F30: ED 71            OUT (C), 0
+0F32: ED 71            OUT (C), 0
+0F34: ED 71            OUT (C), 0
+0F36: ED 71            OUT (C), 0
+0F38: ED 71            OUT (C), 0
+0F3A: ED 71            OUT (C), 0
+0F3C: ED 71            OUT (C), 0
+0F3E: ED 71            OUT (C), 0
+0F40: ED 41            OUT (C), B
+0F42: 00               NOP
+0F43: ED 71            OUT (C), 0
+0F45: ED 71            OUT (C), 0
+0F47: ED 71            OUT (C), 0
+0F49: ED 71            OUT (C), 0
+0F4B: ED 71            OUT (C), 0
+0F4D: 00               NOP
+0F4E: 7F               LD A, A
+0F4F: 00               NOP
+0F50: ED 41            OUT (C), B
+0F52: ED 71            OUT (C), 0
+0F54: ED 71            OUT (C), 0
+0F56: ED 71            OUT (C), 0
+0F58: ED 71            OUT (C), 0
+0F5A: ED 71            OUT (C), 0
+0F5C: ED 71            OUT (C), 0
+0F5E: ED 71            OUT (C), 0
+0F60: ED 71            OUT (C), 0
+0F62: ED 41            OUT (C), B
+0F64: 00               NOP
+0F65: ED 71            OUT (C), 0
+0F67: ED 71            OUT (C), 0
+0F69: ED 71            OUT (C), 0
+0F6B: ED 71            OUT (C), 0
+0F6D: ED 71            OUT (C), 0
+0F6F: 00               NOP
+0F70: 7F               LD A, A
+0F71: 00               NOP
+0F72: ED 41            OUT (C), B
+0F74: ED 71            OUT (C), 0
+0F76: ED 71            OUT (C), 0
+0F78: ED 71            OUT (C), 0
+0F7A: ED 71            OUT (C), 0
+0F7C: ED 71            OUT (C), 0
+0F7E: ED 71            OUT (C), 0
+0F80: ED 71            OUT (C), 0
+0F82: ED 71            OUT (C), 0
+0F84: ED 41            OUT (C), B
+0F86: 00               NOP
+0F87: ED 71            OUT (C), 0
+0F89: ED 71            OUT (C), 0
+0F8B: ED 71            OUT (C), 0
+0F8D: ED 71            OUT (C), 0
+0F8F: ED 71            OUT (C), 0
+0F91: 00               NOP
+0F92: ED 71            OUT (C), 0
+0F94: ED 71            OUT (C), 0
+0F96: ED 71            OUT (C), 0
+0F98: ED 71            OUT (C), 0
+0F9A: ED 71            OUT (C), 0
+0F9C: ED 71            OUT (C), 0
+0F9E: ED 71            OUT (C), 0
+0FA0: ED 71            OUT (C), 0
+0FA2: ED 71            OUT (C), 0
+0FA4: ED 71            OUT (C), 0
+0FA6: 00               NOP
+0FA7: ED 71            OUT (C), 0
+0FA9: ED 71            OUT (C), 0
+0FAB: ED 71            OUT (C), 0
+0FAD: ED 71            OUT (C), 0
+0FAF: ED 71            OUT (C), 0
+0FB1: 00               NOP
+0FB2: 00               NOP
+0FB3: 00               NOP
+0FB4: ED 71            OUT (C), 0
+0FB6: ED 71            OUT (C), 0
+0FB8: ED 71            OUT (C), 0
+0FBA: ED 71            OUT (C), 0
+0FBC: ED 71            OUT (C), 0
+0FBE: ED 71            OUT (C), 0
+0FC0: ED 71            OUT (C), 0
+0FC2: ED 71            OUT (C), 0
+0FC4: ED 71            OUT (C), 0
+0FC6: ED 71            OUT (C), 0
+0FC8: 00               NOP
+0FC9: ED 71            OUT (C), 0
+0FCB: ED 71            OUT (C), 0
+0FCD: ED 71            OUT (C), 0
+0FCF: ED 71            OUT (C), 0
+0FD1: ED 71            OUT (C), 0
+0FD3: 00               NOP
+0FD4: 00               NOP
+0FD5: 00               NOP
+0FD6: ED 71            OUT (C), 0
+0FD8: ED 71            OUT (C), 0
+0FDA: ED 71            OUT (C), 0
+0FDC: ED 71            OUT (C), 0
+0FDE: ED 71            OUT (C), 0
+0FE0: ED 71            OUT (C), 0
+0FE2: ED 71            OUT (C), 0
+0FE4: ED 71            OUT (C), 0
+0FE6: ED 71            OUT (C), 0
+0FE8: ED 71            OUT (C), 0
+0FEA: 00               NOP
+0FEB: ED 71            OUT (C), 0
+0FED: ED 71            OUT (C), 0
+0FEF: ED 71            OUT (C), 0
+0FF1: ED 71            OUT (C), 0
+0FF3: ED 71            OUT (C), 0
+0FF5: 00               NOP
+0FF6: 00               NOP
+0FF7: 00               NOP
+0FF8: ED 71            OUT (C), 0
+0FFA: ED 71            OUT (C), 0
+0FFC: ED 71            OUT (C), 0
+0FFE: ED 71            OUT (C), 0
+1000: ED 71            OUT (C), 0
+1002: ED 71            OUT (C), 0
+1004: ED 71            OUT (C), 0
+1006: ED 71            OUT (C), 0
+1008: ED 71            OUT (C), 0
+100A: ED 71            OUT (C), 0
+100C: 00               NOP
+100D: ED 71            OUT (C), 0
+100F: ED 71            OUT (C), 0
+1011: ED 71            OUT (C), 0
+1013: ED 71            OUT (C), 0
+1015: ED 71            OUT (C), 0
+1017: 00               NOP
+1018: 00               NOP
+1019: 00               NOP
+101A: ED 71            OUT (C), 0
+101C: ED 71            OUT (C), 0
+101E: ED 71            OUT (C), 0
+1020: ED 71            OUT (C), 0
+1022: ED 71            OUT (C), 0
+1024: ED 71            OUT (C), 0
+1026: ED 71            OUT (C), 0
+1028: ED 71            OUT (C), 0
+102A: ED 71            OUT (C), 0
+102C: ED 71            OUT (C), 0
+102E: 00               NOP
+102F: ED 71            OUT (C), 0
+1031: ED 71            OUT (C), 0
+1033: ED 71            OUT (C), 0
+1035: ED 71            OUT (C), 0
+1037: ED 71            OUT (C), 0
+1039: 00               NOP
+103A: 00               NOP
+103B: 00               NOP
+103C: ED 71            OUT (C), 0
+103E: ED 71            OUT (C), 0
+1040: ED 71            OUT (C), 0
+1042: ED 71            OUT (C), 0
+1044: ED 71            OUT (C), 0
+1046: ED 71            OUT (C), 0
+1048: ED 71            OUT (C), 0
+104A: ED 71            OUT (C), 0
+104C: ED 71            OUT (C), 0
+104E: ED 71            OUT (C), 0
+1050: 00               NOP
+1051: ED 71            OUT (C), 0
+1053: ED 71            OUT (C), 0
+1055: ED 71            OUT (C), 0
+1057: ED 71            OUT (C), 0
+1059: ED 71            OUT (C), 0
+105B: 00               NOP
+105C: 00               NOP
+105D: 00               NOP
+105E: ED 71            OUT (C), 0
+1060: ED 71            OUT (C), 0
+1062: ED 71            OUT (C), 0
+1064: ED 71            OUT (C), 0
+1066: ED 71            OUT (C), 0
+1068: ED 71            OUT (C), 0
+106A: ED 71            OUT (C), 0
+106C: ED 71            OUT (C), 0
+106E: ED 71            OUT (C), 0
+1070: ED 71            OUT (C), 0
+1072: 00               NOP
+1073: ED 71            OUT (C), 0
+1075: ED 71            OUT (C), 0
+1077: ED 71            OUT (C), 0
+1079: ED 71            OUT (C), 0
+107B: ED 71            OUT (C), 0
+107D: 00               NOP
+107E: 00               NOP
+107F: 00               NOP
+1080: ED 71            OUT (C), 0
+1082: ED 71            OUT (C), 0
+1084: ED 71            OUT (C), 0
+1086: ED 71            OUT (C), 0
+1088: ED 71            OUT (C), 0
+108A: ED 71            OUT (C), 0
+108C: ED 71            OUT (C), 0
+108E: ED 71            OUT (C), 0
+1090: ED 71            OUT (C), 0
+1092: ED 71            OUT (C), 0
+1094: 00               NOP
+1095: ED 71            OUT (C), 0
+1097: ED 71            OUT (C), 0
+1099: ED 71            OUT (C), 0
+109B: ED 71            OUT (C), 0
+109D: ED 71            OUT (C), 0
+109F: 00               NOP
+10A0: 00               NOP
+10A1: 00               NOP
+10A2: ED 71            OUT (C), 0
+10A4: ED 71            OUT (C), 0
+10A6: ED 71            OUT (C), 0
+10A8: ED 71            OUT (C), 0
+10AA: ED 71            OUT (C), 0
+10AC: ED 71            OUT (C), 0
+10AE: ED 71            OUT (C), 0
+10B0: ED 71            OUT (C), 0
+10B2: ED 71            OUT (C), 0
+10B4: ED 71            OUT (C), 0
+10B6: 00               NOP
+10B7: ED 71            OUT (C), 0
+10B9: ED 71            OUT (C), 0
+10BB: ED 71            OUT (C), 0
+10BD: ED 71            OUT (C), 0
+10BF: ED 71            OUT (C), 0
+10C1: 00               NOP
+10C2: 00               NOP
+10C3: 00               NOP
+10C4: ED 71            OUT (C), 0
+10C6: ED 71            OUT (C), 0
+10C8: ED 71            OUT (C), 0
+10CA: ED 71            OUT (C), 0
+10CC: ED 71            OUT (C), 0
+10CE: ED 71            OUT (C), 0
+10D0: ED 71            OUT (C), 0
+10D2: ED 71            OUT (C), 0
+10D4: ED 71            OUT (C), 0
+10D6: ED 71            OUT (C), 0
+10D8: 00               NOP
+10D9: ED 71            OUT (C), 0
+10DB: ED 71            OUT (C), 0
+10DD: ED 71            OUT (C), 0
+10DF: ED 71            OUT (C), 0
+10E1: ED 71            OUT (C), 0
+10E3: 00               NOP
+10E4: 00               NOP
+10E5: 00               NOP
+10E6: ED 71            OUT (C), 0
+10E8: ED 71            OUT (C), 0
+10EA: ED 71            OUT (C), 0
+10EC: ED 71            OUT (C), 0
+10EE: ED 71            OUT (C), 0
+10F0: ED 71            OUT (C), 0
+10F2: ED 71            OUT (C), 0
+10F4: ED 71            OUT (C), 0
+10F6: ED 71            OUT (C), 0
+10F8: ED 71            OUT (C), 0
+10FA: 00               NOP
+10FB: ED 71            OUT (C), 0
+10FD: ED 71            OUT (C), 0
+10FF: ED 71            OUT (C), 0
+1101: ED 71            OUT (C), 0
+1103: ED 71            OUT (C), 0
+1105: 00               NOP
+1106: 00               NOP
+1107: 00               NOP
+1108: ED 71            OUT (C), 0
+110A: ED 71            OUT (C), 0
+110C: ED 71            OUT (C), 0
+110E: ED 71            OUT (C), 0
+1110: ED 71            OUT (C), 0
+1112: ED 71            OUT (C), 0
+1114: ED 71            OUT (C), 0
+1116: ED 71            OUT (C), 0
+1118: ED 71            OUT (C), 0
+111A: ED 71            OUT (C), 0
+111C: 00               NOP
+111D: ED 71            OUT (C), 0
+111F: ED 71            OUT (C), 0
+1121: ED 71            OUT (C), 0
+1123: ED 71            OUT (C), 0
+1125: ED 71            OUT (C), 0
+1127: 00               NOP
+1128: 00               NOP
+1129: 00               NOP
+112A: ED 71            OUT (C), 0
+112C: ED 71            OUT (C), 0
+112E: ED 71            OUT (C), 0
+1130: ED 71            OUT (C), 0
+1132: ED 71            OUT (C), 0
+1134: ED 71            OUT (C), 0
+1136: ED 71            OUT (C), 0
+1138: ED 71            OUT (C), 0
+113A: ED 71            OUT (C), 0
+113C: ED 71            OUT (C), 0
+113E: 00               NOP
+113F: ED 71            OUT (C), 0
+1141: ED 71            OUT (C), 0
+1143: ED 71            OUT (C), 0
+1145: ED 71            OUT (C), 0
+1147: ED 71            OUT (C), 0
+1149: 00               NOP
+114A: 00               NOP
+114B: 00               NOP
+114C: ED 71            OUT (C), 0
+114E: ED 71            OUT (C), 0
+1150: ED 71            OUT (C), 0
+1152: ED 71            OUT (C), 0
+1154: ED 71            OUT (C), 0
+1156: ED 71            OUT (C), 0
+1158: ED 71            OUT (C), 0
+115A: ED 71            OUT (C), 0
+115C: ED 71            OUT (C), 0
+115E: ED 71            OUT (C), 0
+1160: 00               NOP
+1161: ED 71            OUT (C), 0
+1163: ED 71            OUT (C), 0
+1165: ED 71            OUT (C), 0
+1167: ED 71            OUT (C), 0
+1169: ED 71            OUT (C), 0
+116B: 00               NOP
+116C: 00               NOP
+116D: 00               NOP
+116E: ED 71            OUT (C), 0
+1170: ED 71            OUT (C), 0
+1172: ED 71            OUT (C), 0
+1174: ED 71            OUT (C), 0
+1176: ED 71            OUT (C), 0
+1178: ED 71            OUT (C), 0
+117A: ED 71            OUT (C), 0
+117C: ED 71            OUT (C), 0
+117E: ED 71            OUT (C), 0
+1180: ED 71            OUT (C), 0
+1182: 00               NOP
+1183: ED 71            OUT (C), 0
+1185: ED 71            OUT (C), 0
+1187: ED 71            OUT (C), 0
+1189: ED 71            OUT (C), 0
+118B: ED 71            OUT (C), 0
+118D: 00               NOP
+118E: 00               NOP
+118F: 00               NOP
+1190: ED 71            OUT (C), 0
+1192: ED 71            OUT (C), 0
+1194: ED 71            OUT (C), 0
+1196: ED 71            OUT (C), 0
+1198: ED 71            OUT (C), 0
+119A: ED 71            OUT (C), 0
+119C: ED 71            OUT (C), 0
+119E: ED 71            OUT (C), 0
+11A0: ED 71            OUT (C), 0
+11A2: ED 71            OUT (C), 0
+11A4: 00               NOP
+11A5: ED 71            OUT (C), 0
+11A7: ED 71            OUT (C), 0
+11A9: ED 71            OUT (C), 0
+11AB: ED 71            OUT (C), 0
+11AD: ED 71            OUT (C), 0
+11AF: 21 07 05         LD HL, 0x0507
+11B2: ED 69            OUT (C), L
+11B4: ED 69            OUT (C), L
+11B6: ED 71            OUT (C), 0
+11B8: ED 71            OUT (C), 0
+11BA: ED 71            OUT (C), 0
+11BC: ED 71            OUT (C), 0
+11BE: ED 71            OUT (C), 0
+11C0: ED 71            OUT (C), 0
+11C2: ED 71            OUT (C), 0
+11C4: ED 69            OUT (C), L
+11C6: 00               NOP
+11C7: ED 69            OUT (C), L
+11C9: ED 71            OUT (C), 0
+11CB: ED 71            OUT (C), 0
+11CD: ED 71            OUT (C), 0
+11CF: ED 71            OUT (C), 0
+11D1: 00               NOP
+11D2: 00               NOP
+11D3: 00               NOP
+11D4: ED 69            OUT (C), L
+11D6: ED 69            OUT (C), L
+11D8: ED 71            OUT (C), 0
+11DA: ED 71            OUT (C), 0
+11DC: ED 71            OUT (C), 0
+11DE: ED 71            OUT (C), 0
+11E0: ED 71            OUT (C), 0
+11E2: ED 71            OUT (C), 0
+11E4: ED 71            OUT (C), 0
+11E6: ED 69            OUT (C), L
+11E8: 00               NOP
+11E9: ED 69            OUT (C), L
+11EB: ED 71            OUT (C), 0
+11ED: ED 71            OUT (C), 0
+11EF: ED 71            OUT (C), 0
+11F1: ED 71            OUT (C), 0
+11F3: 00               NOP
+11F4: 00               NOP
+11F5: 00               NOP
+11F6: ED 69            OUT (C), L
+11F8: ED 69            OUT (C), L
+11FA: ED 71            OUT (C), 0
+11FC: ED 71            OUT (C), 0
+11FE: ED 71            OUT (C), 0
+1200: ED 71            OUT (C), 0
+1202: ED 71            OUT (C), 0
+1204: ED 71            OUT (C), 0
+1206: ED 71            OUT (C), 0
+1208: ED 69            OUT (C), L
+120A: 00               NOP
+120B: ED 69            OUT (C), L
+120D: ED 71            OUT (C), 0
+120F: ED 71            OUT (C), 0
+1211: ED 71            OUT (C), 0
+1213: ED 71            OUT (C), 0
+1215: 00               NOP
+1216: 00               NOP
+1217: 00               NOP
+1218: ED 69            OUT (C), L
+121A: ED 69            OUT (C), L
+121C: ED 71            OUT (C), 0
+121E: ED 71            OUT (C), 0
+1220: ED 71            OUT (C), 0
+1222: ED 71            OUT (C), 0
+1224: ED 71            OUT (C), 0
+1226: ED 71            OUT (C), 0
+1228: ED 71            OUT (C), 0
+122A: ED 69            OUT (C), L
+122C: 00               NOP
+122D: ED 69            OUT (C), L
+122F: ED 71            OUT (C), 0
+1231: ED 71            OUT (C), 0
+1233: ED 71            OUT (C), 0
+1235: ED 71            OUT (C), 0
+1237: 00               NOP
+1238: 00               NOP
+1239: 00               NOP
+123A: ED 69            OUT (C), L
+123C: ED 69            OUT (C), L
+123E: ED 71            OUT (C), 0
+1240: ED 71            OUT (C), 0
+1242: ED 71            OUT (C), 0
+1244: ED 71            OUT (C), 0
+1246: ED 71            OUT (C), 0
+1248: ED 71            OUT (C), 0
+124A: ED 71            OUT (C), 0
+124C: ED 69            OUT (C), L
+124E: 00               NOP
+124F: ED 69            OUT (C), L
+1251: ED 71            OUT (C), 0
+1253: ED 71            OUT (C), 0
+1255: ED 71            OUT (C), 0
+1257: ED 71            OUT (C), 0
+1259: 00               NOP
+125A: 00               NOP
+125B: 00               NOP
+125C: ED 69            OUT (C), L
+125E: ED 69            OUT (C), L
+1260: ED 71            OUT (C), 0
+1262: ED 71            OUT (C), 0
+1264: ED 71            OUT (C), 0
+1266: ED 71            OUT (C), 0
+1268: ED 71            OUT (C), 0
+126A: ED 71            OUT (C), 0
+126C: ED 71            OUT (C), 0
+126E: ED 69            OUT (C), L
+1270: 00               NOP
+1271: ED 69            OUT (C), L
+1273: ED 71            OUT (C), 0
+1275: ED 71            OUT (C), 0
+1277: ED 71            OUT (C), 0
+1279: ED 71            OUT (C), 0
+127B: 00               NOP
+127C: 00               NOP
+127D: 00               NOP
+127E: ED 69            OUT (C), L
+1280: ED 69            OUT (C), L
+1282: ED 71            OUT (C), 0
+1284: ED 71            OUT (C), 0
+1286: ED 71            OUT (C), 0
+1288: ED 71            OUT (C), 0
+128A: ED 71            OUT (C), 0
+128C: ED 71            OUT (C), 0
+128E: ED 71            OUT (C), 0
+1290: ED 69            OUT (C), L
+1292: 00               NOP
+1293: ED 69            OUT (C), L
+1295: ED 71            OUT (C), 0
+1297: ED 71            OUT (C), 0
+1299: ED 71            OUT (C), 0
+129B: ED 71            OUT (C), 0
+129D: 00               NOP
+129E: 00               NOP
+129F: 00               NOP
+12A0: ED 69            OUT (C), L
+12A2: ED 69            OUT (C), L
+12A4: ED 71            OUT (C), 0
+12A6: ED 71            OUT (C), 0
+12A8: ED 71            OUT (C), 0
+12AA: ED 71            OUT (C), 0
+12AC: ED 71            OUT (C), 0
+12AE: ED 71            OUT (C), 0
+12B0: ED 71            OUT (C), 0
+12B2: ED 69            OUT (C), L
+12B4: 00               NOP
+12B5: ED 69            OUT (C), L
+12B7: ED 71            OUT (C), 0
+12B9: ED 71            OUT (C), 0
+12BB: ED 71            OUT (C), 0
+12BD: ED 71            OUT (C), 0
+12BF: 00               NOP
+12C0: 00               NOP
+12C1: 00               NOP
+12C2: ED 69            OUT (C), L
+12C4: ED 69            OUT (C), L
+12C6: ED 71            OUT (C), 0
+12C8: ED 71            OUT (C), 0
+12CA: ED 71            OUT (C), 0
+12CC: ED 71            OUT (C), 0
+12CE: ED 71            OUT (C), 0
+12D0: ED 71            OUT (C), 0
+12D2: ED 71            OUT (C), 0
+12D4: ED 69            OUT (C), L
+12D6: 00               NOP
+12D7: ED 69            OUT (C), L
+12D9: ED 71            OUT (C), 0
+12DB: ED 71            OUT (C), 0
+12DD: ED 71            OUT (C), 0
+12DF: ED 71            OUT (C), 0
+12E1: 00               NOP
+12E2: 00               NOP
+12E3: 00               NOP
+12E4: ED 69            OUT (C), L
+12E6: ED 69            OUT (C), L
+12E8: ED 71            OUT (C), 0
+12EA: ED 71            OUT (C), 0
+12EC: ED 71            OUT (C), 0
+12EE: ED 71            OUT (C), 0
+12F0: ED 71            OUT (C), 0
+12F2: ED 71            OUT (C), 0
+12F4: ED 71            OUT (C), 0
+12F6: ED 69            OUT (C), L
+12F8: 00               NOP
+12F9: ED 69            OUT (C), L
+12FB: ED 71            OUT (C), 0
+12FD: ED 71            OUT (C), 0
+12FF: ED 71            OUT (C), 0
+1301: ED 71            OUT (C), 0
+1303: 00               NOP
+1304: 00               NOP
+1305: 00               NOP
+1306: ED 69            OUT (C), L
+1308: ED 69            OUT (C), L
+130A: ED 71            OUT (C), 0
+130C: ED 71            OUT (C), 0
+130E: ED 71            OUT (C), 0
+1310: ED 71            OUT (C), 0
+1312: ED 71            OUT (C), 0
+1314: ED 71            OUT (C), 0
+1316: ED 71            OUT (C), 0
+1318: ED 69            OUT (C), L
+131A: 00               NOP
+131B: ED 69            OUT (C), L
+131D: ED 71            OUT (C), 0
+131F: ED 71            OUT (C), 0
+1321: ED 71            OUT (C), 0
+1323: ED 71            OUT (C), 0
+1325: 00               NOP
+1326: 00               NOP
+1327: 00               NOP
+1328: ED 69            OUT (C), L
+132A: ED 69            OUT (C), L
+132C: ED 71            OUT (C), 0
+132E: ED 71            OUT (C), 0
+1330: ED 71            OUT (C), 0
+1332: ED 71            OUT (C), 0
+1334: ED 71            OUT (C), 0
+1336: ED 71            OUT (C), 0
+1338: ED 71            OUT (C), 0
+133A: ED 69            OUT (C), L
+133C: 00               NOP
+133D: ED 69            OUT (C), L
+133F: ED 71            OUT (C), 0
+1341: ED 71            OUT (C), 0
+1343: ED 71            OUT (C), 0
+1345: ED 71            OUT (C), 0
+1347: 00               NOP
+1348: 00               NOP
+1349: 00               NOP
+134A: ED 69            OUT (C), L
+134C: ED 69            OUT (C), L
+134E: ED 71            OUT (C), 0
+1350: ED 71            OUT (C), 0
+1352: ED 71            OUT (C), 0
+1354: ED 71            OUT (C), 0
+1356: ED 71            OUT (C), 0
+1358: ED 71            OUT (C), 0
+135A: ED 71            OUT (C), 0
+135C: ED 69            OUT (C), L
+135E: 00               NOP
+135F: ED 69            OUT (C), L
+1361: ED 71            OUT (C), 0
+1363: ED 71            OUT (C), 0
+1365: ED 71            OUT (C), 0
+1367: ED 71            OUT (C), 0
+1369: 00               NOP
+136A: 00               NOP
+136B: 00               NOP
+136C: ED 69            OUT (C), L
+136E: ED 69            OUT (C), L
+1370: ED 71            OUT (C), 0
+1372: ED 71            OUT (C), 0
+1374: ED 71            OUT (C), 0
+1376: ED 71            OUT (C), 0
+1378: ED 71            OUT (C), 0
+137A: ED 71            OUT (C), 0
+137C: ED 71            OUT (C), 0
+137E: ED 69            OUT (C), L
+1380: 00               NOP
+1381: ED 69            OUT (C), L
+1383: ED 71            OUT (C), 0
+1385: ED 71            OUT (C), 0
+1387: ED 71            OUT (C), 0
+1389: ED 71            OUT (C), 0
+138B: 00               NOP
+138C: 00               NOP
+138D: 00               NOP
+138E: ED 69            OUT (C), L
+1390: ED 69            OUT (C), L
+1392: ED 71            OUT (C), 0
+1394: ED 71            OUT (C), 0
+1396: ED 71            OUT (C), 0
+1398: ED 71            OUT (C), 0
+139A: ED 71            OUT (C), 0
+139C: ED 71            OUT (C), 0
+139E: ED 71            OUT (C), 0
+13A0: ED 69            OUT (C), L
+13A2: 00               NOP
+13A3: ED 69            OUT (C), L
+13A5: ED 71            OUT (C), 0
+13A7: ED 71            OUT (C), 0
+13A9: ED 71            OUT (C), 0
+13AB: ED 71            OUT (C), 0
+13AD: 00               NOP
+13AE: 00               NOP
+13AF: 00               NOP
+13B0: ED 69            OUT (C), L
+13B2: ED 69            OUT (C), L
+13B4: ED 71            OUT (C), 0
+13B6: ED 71            OUT (C), 0
+13B8: ED 71            OUT (C), 0
+13BA: ED 71            OUT (C), 0
+13BC: ED 71            OUT (C), 0
+13BE: ED 71            OUT (C), 0
+13C0: ED 71            OUT (C), 0
+13C2: ED 69            OUT (C), L
+13C4: 00               NOP
+13C5: ED 69            OUT (C), L
+13C7: ED 71            OUT (C), 0
+13C9: ED 71            OUT (C), 0
+13CB: ED 71            OUT (C), 0
+13CD: ED 71            OUT (C), 0
+13CF: 00               NOP
+13D0: 00               NOP
+13D1: 00               NOP
+13D2: ED 69            OUT (C), L
+13D4: ED 69            OUT (C), L
+13D6: ED 71            OUT (C), 0
+13D8: ED 71            OUT (C), 0
+13DA: ED 71            OUT (C), 0
+13DC: ED 71            OUT (C), 0
+13DE: ED 71            OUT (C), 0
+13E0: ED 71            OUT (C), 0
+13E2: ED 71            OUT (C), 0
+13E4: ED 69            OUT (C), L
+13E6: 00               NOP
+13E7: ED 69            OUT (C), L
+13E9: ED 71            OUT (C), 0
+13EB: ED 71            OUT (C), 0
+13ED: ED 71            OUT (C), 0
+13EF: ED 71            OUT (C), 0
+13F1: 00               NOP
+13F2: 00               NOP
+13F3: 00               NOP
+13F4: ED 69            OUT (C), L
+13F6: ED 69            OUT (C), L
+13F8: ED 71            OUT (C), 0
+13FA: ED 71            OUT (C), 0
+13FC: ED 71            OUT (C), 0
+13FE: ED 71            OUT (C), 0
+1400: ED 71            OUT (C), 0
+1402: ED 71            OUT (C), 0
+1404: ED 71            OUT (C), 0
+1406: ED 69            OUT (C), L
+1408: 00               NOP
+1409: ED 69            OUT (C), L
+140B: ED 71            OUT (C), 0
+140D: ED 71            OUT (C), 0
+140F: ED 71            OUT (C), 0
+1411: ED 71            OUT (C), 0
+1413: 00               NOP
+1414: 00               NOP
+1415: 00               NOP
+1416: ED 69            OUT (C), L
+1418: ED 69            OUT (C), L
+141A: ED 71            OUT (C), 0
+141C: ED 71            OUT (C), 0
+141E: ED 71            OUT (C), 0
+1420: ED 71            OUT (C), 0
+1422: ED 71            OUT (C), 0
+1424: ED 71            OUT (C), 0
+1426: ED 71            OUT (C), 0
+1428: ED 69            OUT (C), L
+142A: 00               NOP
+142B: ED 69            OUT (C), L
+142D: ED 71            OUT (C), 0
+142F: ED 71            OUT (C), 0
+1431: ED 71            OUT (C), 0
+1433: ED 71            OUT (C), 0
+1435: 00               NOP
+1436: 00               NOP
+1437: 00               NOP
+1438: ED 69            OUT (C), L
+143A: ED 69            OUT (C), L
+143C: ED 71            OUT (C), 0
+143E: ED 71            OUT (C), 0
+1440: ED 71            OUT (C), 0
+1442: ED 71            OUT (C), 0
+1444: ED 71            OUT (C), 0
+1446: ED 71            OUT (C), 0
+1448: ED 71            OUT (C), 0
+144A: ED 69            OUT (C), L
+144C: 00               NOP
+144D: ED 69            OUT (C), L
+144F: ED 71            OUT (C), 0
+1451: ED 71            OUT (C), 0
+1453: ED 71            OUT (C), 0
+1455: ED 71            OUT (C), 0
+1457: 00               NOP
+1458: 00               NOP
+1459: 00               NOP
+145A: ED 69            OUT (C), L
+145C: ED 69            OUT (C), L
+145E: ED 71            OUT (C), 0
+1460: ED 71            OUT (C), 0
+1462: ED 71            OUT (C), 0
+1464: ED 71            OUT (C), 0
+1466: ED 71            OUT (C), 0
+1468: ED 71            OUT (C), 0
+146A: ED 71            OUT (C), 0
+146C: ED 69            OUT (C), L
+146E: 00               NOP
+146F: ED 69            OUT (C), L
+1471: ED 71            OUT (C), 0
+1473: ED 71            OUT (C), 0
+1475: ED 71            OUT (C), 0
+1477: ED 71            OUT (C), 0
+1479: 00               NOP
+147A: 00               NOP
+147B: 00               NOP
+147C: ED 69            OUT (C), L
+147E: ED 69            OUT (C), L
+1480: ED 71            OUT (C), 0
+1482: ED 71            OUT (C), 0
+1484: ED 71            OUT (C), 0
+1486: ED 71            OUT (C), 0
+1488: ED 71            OUT (C), 0
+148A: ED 71            OUT (C), 0
+148C: ED 71            OUT (C), 0
+148E: ED 69            OUT (C), L
+1490: 00               NOP
+1491: ED 69            OUT (C), L
+1493: ED 71            OUT (C), 0
+1495: ED 71            OUT (C), 0
+1497: ED 71            OUT (C), 0
+1499: ED 71            OUT (C), 0
+149B: 00               NOP
+149C: 00               NOP
+149D: 00               NOP
+149E: ED 69            OUT (C), L
+14A0: ED 69            OUT (C), L
+14A2: ED 71            OUT (C), 0
+14A4: ED 71            OUT (C), 0
+14A6: ED 71            OUT (C), 0
+14A8: ED 71            OUT (C), 0
+14AA: ED 71            OUT (C), 0
+14AC: ED 71            OUT (C), 0
+14AE: ED 71            OUT (C), 0
+14B0: ED 69            OUT (C), L
+14B2: 00               NOP
+14B3: ED 69            OUT (C), L
+14B5: ED 71            OUT (C), 0
+14B7: ED 71            OUT (C), 0
+14B9: ED 71            OUT (C), 0
+14BB: ED 71            OUT (C), 0
+14BD: 00               NOP
+14BE: 00               NOP
+14BF: 00               NOP
+14C0: ED 69            OUT (C), L
+14C2: ED 69            OUT (C), L
+14C4: ED 71            OUT (C), 0
+14C6: ED 71            OUT (C), 0
+14C8: ED 71            OUT (C), 0
+14CA: ED 71            OUT (C), 0
+14CC: ED 71            OUT (C), 0
+14CE: ED 71            OUT (C), 0
+14D0: ED 71            OUT (C), 0
+14D2: ED 69            OUT (C), L
+14D4: 00               NOP
+14D5: ED 69            OUT (C), L
+14D7: ED 71            OUT (C), 0
+14D9: ED 71            OUT (C), 0
+14DB: ED 71            OUT (C), 0
+14DD: ED 71            OUT (C), 0
+14DF: 00               NOP
+14E0: 00               NOP
+14E1: 00               NOP
+14E2: ED 69            OUT (C), L
+14E4: ED 69            OUT (C), L
+14E6: ED 71            OUT (C), 0
+14E8: ED 71            OUT (C), 0
+14EA: ED 71            OUT (C), 0
+14EC: ED 71            OUT (C), 0
+14EE: ED 71            OUT (C), 0
+14F0: ED 71            OUT (C), 0
+14F2: ED 71            OUT (C), 0
+14F4: ED 69            OUT (C), L
+14F6: 00               NOP
+14F7: ED 69            OUT (C), L
+14F9: ED 71            OUT (C), 0
+14FB: ED 71            OUT (C), 0
+14FD: ED 71            OUT (C), 0
+14FF: ED 71            OUT (C), 0
+1501: 00               NOP
+1502: 00               NOP
+1503: 00               NOP
+1504: ED 69            OUT (C), L
+1506: ED 69            OUT (C), L
+1508: ED 71            OUT (C), 0
+150A: ED 71            OUT (C), 0
+150C: ED 71            OUT (C), 0
+150E: ED 71            OUT (C), 0
+1510: ED 71            OUT (C), 0
+1512: ED 71            OUT (C), 0
+1514: ED 71            OUT (C), 0
+1516: ED 69            OUT (C), L
+1518: 00               NOP
+1519: ED 69            OUT (C), L
+151B: ED 71            OUT (C), 0
+151D: ED 71            OUT (C), 0
+151F: ED 71            OUT (C), 0
+1521: ED 71            OUT (C), 0
+1523: 00               NOP
+1524: 00               NOP
+1525: 00               NOP
+1526: ED 69            OUT (C), L
+1528: ED 69            OUT (C), L
+152A: ED 71            OUT (C), 0
+152C: ED 71            OUT (C), 0
+152E: ED 71            OUT (C), 0
+1530: ED 71            OUT (C), 0
+1532: ED 71            OUT (C), 0
+1534: ED 71            OUT (C), 0
+1536: ED 71            OUT (C), 0
+1538: ED 69            OUT (C), L
+153A: 00               NOP
+153B: ED 69            OUT (C), L
+153D: ED 71            OUT (C), 0
+153F: ED 71            OUT (C), 0
+1541: ED 71            OUT (C), 0
+1543: ED 71            OUT (C), 0
+1545: 00               NOP
+1546: 00               NOP
+1547: 00               NOP
+1548: ED 69            OUT (C), L
+154A: ED 69            OUT (C), L
+154C: ED 71            OUT (C), 0
+154E: ED 71            OUT (C), 0
+1550: ED 71            OUT (C), 0
+1552: ED 71            OUT (C), 0
+1554: ED 71            OUT (C), 0
+1556: ED 71            OUT (C), 0
+1558: ED 71            OUT (C), 0
+155A: ED 69            OUT (C), L
+155C: 00               NOP
+155D: ED 69            OUT (C), L
+155F: ED 71            OUT (C), 0
+1561: ED 71            OUT (C), 0
+1563: ED 71            OUT (C), 0
+1565: ED 71            OUT (C), 0
+1567: 00               NOP
+1568: 00               NOP
+1569: 00               NOP
+156A: ED 69            OUT (C), L
+156C: ED 69            OUT (C), L
+156E: ED 71            OUT (C), 0
+1570: ED 71            OUT (C), 0
+1572: ED 71            OUT (C), 0
+1574: ED 71            OUT (C), 0
+1576: ED 71            OUT (C), 0
+1578: ED 71            OUT (C), 0
+157A: ED 71            OUT (C), 0
+157C: ED 69            OUT (C), L
+157E: 00               NOP
+157F: ED 69            OUT (C), L
+1581: ED 71            OUT (C), 0
+1583: ED 71            OUT (C), 0
+1585: ED 71            OUT (C), 0
+1587: ED 71            OUT (C), 0
+1589: 00               NOP
+158A: 00               NOP
+158B: 00               NOP
+158C: ED 69            OUT (C), L
+158E: ED 69            OUT (C), L
+1590: ED 71            OUT (C), 0
+1592: ED 71            OUT (C), 0
+1594: ED 71            OUT (C), 0
+1596: ED 71            OUT (C), 0
+1598: ED 71            OUT (C), 0
+159A: ED 71            OUT (C), 0
+159C: ED 71            OUT (C), 0
+159E: ED 69            OUT (C), L
+15A0: 00               NOP
+15A1: ED 69            OUT (C), L
+15A3: ED 71            OUT (C), 0
+15A5: ED 71            OUT (C), 0
+15A7: ED 71            OUT (C), 0
+15A9: ED 71            OUT (C), 0
+15AB: 00               NOP
+15AC: 00               NOP
+15AD: 00               NOP
+15AE: ED 69            OUT (C), L
+15B0: ED 69            OUT (C), L
+15B2: ED 71            OUT (C), 0
+15B4: ED 71            OUT (C), 0
+15B6: ED 71            OUT (C), 0
+15B8: ED 71            OUT (C), 0
+15BA: ED 71            OUT (C), 0
+15BC: ED 71            OUT (C), 0
+15BE: ED 71            OUT (C), 0
+15C0: ED 69            OUT (C), L
+15C2: 00               NOP
+15C3: ED 69            OUT (C), L
+15C5: ED 71            OUT (C), 0
+15C7: ED 71            OUT (C), 0
+15C9: ED 71            OUT (C), 0
+15CB: ED 71            OUT (C), 0
+15CD: 00               NOP
+15CE: 00               NOP
+15CF: 00               NOP
+15D0: ED 69            OUT (C), L
+15D2: ED 69            OUT (C), L
+15D4: ED 71            OUT (C), 0
+15D6: ED 71            OUT (C), 0
+15D8: ED 71            OUT (C), 0
+15DA: ED 71            OUT (C), 0
+15DC: ED 71            OUT (C), 0
+15DE: ED 71            OUT (C), 0
+15E0: ED 71            OUT (C), 0
+15E2: ED 69            OUT (C), L
+15E4: 00               NOP
+15E5: ED 69            OUT (C), L
+15E7: ED 71            OUT (C), 0
+15E9: ED 71            OUT (C), 0
+15EB: ED 71            OUT (C), 0
+15ED: ED 71            OUT (C), 0
+15EF: 00               NOP
+15F0: 00               NOP
+15F1: 00               NOP
+15F2: ED 71            OUT (C), 0
+15F4: ED 69            OUT (C), L
+15F6: ED 71            OUT (C), 0
+15F8: ED 71            OUT (C), 0
+15FA: ED 71            OUT (C), 0
+15FC: ED 71            OUT (C), 0
+15FE: ED 71            OUT (C), 0
+1600: ED 71            OUT (C), 0
+1602: ED 71            OUT (C), 0
+1604: ED 69            OUT (C), L
+1606: 00               NOP
+1607: ED 71            OUT (C), 0
+1609: ED 71            OUT (C), 0
+160B: ED 71            OUT (C), 0
+160D: ED 71            OUT (C), 0
+160F: ED 71            OUT (C), 0
+1611: 00               NOP
+1612: 00               NOP
+1613: 00               NOP
+1614: ED 71            OUT (C), 0
+1616: ED 69            OUT (C), L
+1618: ED 71            OUT (C), 0
+161A: ED 71            OUT (C), 0
+161C: ED 71            OUT (C), 0
+161E: ED 71            OUT (C), 0
+1620: ED 71            OUT (C), 0
+1622: ED 71            OUT (C), 0
+1624: ED 71            OUT (C), 0
+1626: ED 69            OUT (C), L
+1628: 00               NOP
+1629: ED 71            OUT (C), 0
+162B: ED 71            OUT (C), 0
+162D: ED 71            OUT (C), 0
+162F: ED 71            OUT (C), 0
+1631: ED 71            OUT (C), 0
+1633: 00               NOP
+1634: 00               NOP
+1635: 00               NOP
+1636: ED 71            OUT (C), 0
+1638: ED 69            OUT (C), L
+163A: ED 71            OUT (C), 0
+163C: ED 71            OUT (C), 0
+163E: ED 71            OUT (C), 0
+1640: ED 71            OUT (C), 0
+1642: ED 71            OUT (C), 0
+1644: ED 71            OUT (C), 0
+1646: ED 71            OUT (C), 0
+1648: ED 69            OUT (C), L
+164A: 00               NOP
+164B: ED 71            OUT (C), 0
+164D: ED 71            OUT (C), 0
+164F: ED 71            OUT (C), 0
+1651: ED 71            OUT (C), 0
+1653: ED 71            OUT (C), 0
+1655: 00               NOP
+1656: 00               NOP
+1657: 00               NOP
+1658: ED 71            OUT (C), 0
+165A: ED 69            OUT (C), L
+165C: ED 71            OUT (C), 0
+165E: ED 71            OUT (C), 0
+1660: ED 71            OUT (C), 0
+1662: ED 71            OUT (C), 0
+1664: ED 71            OUT (C), 0
+1666: ED 71            OUT (C), 0
+1668: ED 71            OUT (C), 0
+166A: ED 69            OUT (C), L
+166C: 00               NOP
+166D: ED 71            OUT (C), 0
+166F: ED 71            OUT (C), 0
+1671: ED 71            OUT (C), 0
+1673: ED 71            OUT (C), 0
+1675: ED 71            OUT (C), 0
+1677: 00               NOP
+1678: 00               NOP
+1679: 00               NOP
+167A: ED 71            OUT (C), 0
+167C: ED 69            OUT (C), L
+167E: ED 71            OUT (C), 0
+1680: ED 71            OUT (C), 0
+1682: ED 71            OUT (C), 0
+1684: ED 71            OUT (C), 0
+1686: ED 71            OUT (C), 0
+1688: ED 71            OUT (C), 0
+168A: ED 71            OUT (C), 0
+168C: ED 69            OUT (C), L
+168E: 00               NOP
+168F: ED 71            OUT (C), 0
+1691: ED 71            OUT (C), 0
+1693: ED 71            OUT (C), 0
+1695: ED 71            OUT (C), 0
+1697: ED 71            OUT (C), 0
+1699: 00               NOP
+169A: 00               NOP
+169B: 00               NOP
+169C: ED 71            OUT (C), 0
+169E: ED 69            OUT (C), L
+16A0: ED 71            OUT (C), 0
+16A2: ED 71            OUT (C), 0
+16A4: ED 71            OUT (C), 0
+16A6: ED 71            OUT (C), 0
+16A8: ED 71            OUT (C), 0
+16AA: ED 71            OUT (C), 0
+16AC: ED 71            OUT (C), 0
+16AE: ED 69            OUT (C), L
+16B0: 00               NOP
+16B1: ED 71            OUT (C), 0
+16B3: ED 71            OUT (C), 0
+16B5: ED 71            OUT (C), 0
+16B7: ED 71            OUT (C), 0
+16B9: ED 71            OUT (C), 0
+16BB: 00               NOP
+16BC: 00               NOP
+16BD: 00               NOP
+16BE: ED 71            OUT (C), 0
+16C0: ED 71            OUT (C), 0
+16C2: ED 71            OUT (C), 0
+16C4: ED 71            OUT (C), 0
+16C6: ED 71            OUT (C), 0
+16C8: ED 71            OUT (C), 0
+16CA: ED 71            OUT (C), 0
+16CC: ED 71            OUT (C), 0
+16CE: ED 71            OUT (C), 0
+16D0: ED 71            OUT (C), 0
+16D2: 00               NOP
+16D3: ED 71            OUT (C), 0
+16D5: ED 71            OUT (C), 0
+16D7: ED 71            OUT (C), 0
+16D9: ED 71            OUT (C), 0
+16DB: ED 71            OUT (C), 0
+16DD: 00               NOP
+16DE: 00               NOP
+16DF: 00               NOP
+16E0: ED 71            OUT (C), 0
+16E2: ED 71            OUT (C), 0
+16E4: ED 71            OUT (C), 0
+16E6: ED 71            OUT (C), 0
+16E8: ED 71            OUT (C), 0
+16EA: ED 71            OUT (C), 0
+16EC: ED 71            OUT (C), 0
+16EE: ED 71            OUT (C), 0
+16F0: ED 71            OUT (C), 0
+16F2: ED 71            OUT (C), 0
+16F4: 00               NOP
+16F5: ED 71            OUT (C), 0
+16F7: ED 71            OUT (C), 0
+16F9: ED 71            OUT (C), 0
+16FB: ED 71            OUT (C), 0
+16FD: ED 71            OUT (C), 0
+16FF: 00               NOP
+1700: 00               NOP
+1701: 00               NOP
+1702: ED 71            OUT (C), 0
+1704: ED 79            OUT (C), A
+1706: ED 71            OUT (C), 0
+1708: ED 71            OUT (C), 0
+170A: ED 71            OUT (C), 0
+170C: ED 71            OUT (C), 0
+170E: ED 71            OUT (C), 0
+1710: ED 71            OUT (C), 0
+1712: ED 71            OUT (C), 0
+1714: ED 79            OUT (C), A
+1716: 00               NOP
+1717: ED 71            OUT (C), 0
+1719: ED 71            OUT (C), 0
+171B: ED 71            OUT (C), 0
+171D: ED 71            OUT (C), 0
+171F: ED 71            OUT (C), 0
+1721: 00               NOP
+1722: 00               NOP
+1723: 00               NOP
+1724: ED 71            OUT (C), 0
+1726: ED 79            OUT (C), A
+1728: ED 71            OUT (C), 0
+172A: ED 71            OUT (C), 0
+172C: ED 71            OUT (C), 0
+172E: ED 71            OUT (C), 0
+1730: ED 71            OUT (C), 0
+1732: ED 71            OUT (C), 0
+1734: ED 71            OUT (C), 0
+1736: ED 79            OUT (C), A
+1738: 00               NOP
+1739: ED 71            OUT (C), 0
+173B: ED 71            OUT (C), 0
+173D: ED 71            OUT (C), 0
+173F: ED 71            OUT (C), 0
+1741: ED 71            OUT (C), 0
+1743: 00               NOP
+1744: 00               NOP
+1745: 00               NOP
+1746: ED 71            OUT (C), 0
+1748: ED 79            OUT (C), A
+174A: ED 71            OUT (C), 0
+174C: ED 71            OUT (C), 0
+174E: ED 71            OUT (C), 0
+1750: ED 71            OUT (C), 0
+1752: ED 71            OUT (C), 0
+1754: ED 71            OUT (C), 0
+1756: ED 71            OUT (C), 0
+1758: ED 79            OUT (C), A
+175A: 00               NOP
+175B: ED 71            OUT (C), 0
+175D: ED 71            OUT (C), 0
+175F: ED 71            OUT (C), 0
+1761: ED 71            OUT (C), 0
+1763: ED 71            OUT (C), 0
+1765: 00               NOP
+1766: 00               NOP
+1767: 00               NOP
+1768: ED 71            OUT (C), 0
+176A: ED 79            OUT (C), A
+176C: ED 71            OUT (C), 0
+176E: ED 71            OUT (C), 0
+1770: ED 71            OUT (C), 0
+1772: ED 71            OUT (C), 0
+1774: ED 71            OUT (C), 0
+1776: ED 71            OUT (C), 0
+1778: ED 71            OUT (C), 0
+177A: ED 79            OUT (C), A
+177C: 00               NOP
+177D: ED 71            OUT (C), 0
+177F: ED 71            OUT (C), 0
+1781: ED 71            OUT (C), 0
+1783: ED 71            OUT (C), 0
+1785: ED 71            OUT (C), 0
+1787: 00               NOP
+1788: 00               NOP
+1789: 00               NOP
+178A: ED 71            OUT (C), 0
+178C: ED 79            OUT (C), A
+178E: ED 71            OUT (C), 0
+1790: ED 71            OUT (C), 0
+1792: ED 71            OUT (C), 0
+1794: ED 71            OUT (C), 0
+1796: ED 71            OUT (C), 0
+1798: ED 71            OUT (C), 0
+179A: ED 71            OUT (C), 0
+179C: ED 79            OUT (C), A
+179E: 00               NOP
+179F: ED 71            OUT (C), 0
+17A1: ED 71            OUT (C), 0
+17A3: ED 71            OUT (C), 0
+17A5: ED 71            OUT (C), 0
+17A7: ED 71            OUT (C), 0
+17A9: 00               NOP
+17AA: 00               NOP
+17AB: 00               NOP
+17AC: ED 71            OUT (C), 0
+17AE: ED 79            OUT (C), A
+17B0: ED 71            OUT (C), 0
+17B2: ED 71            OUT (C), 0
+17B4: ED 71            OUT (C), 0
+17B6: ED 71            OUT (C), 0
+17B8: ED 71            OUT (C), 0
+17BA: ED 71            OUT (C), 0
+17BC: ED 71            OUT (C), 0
+17BE: ED 79            OUT (C), A
+17C0: 00               NOP
+17C1: ED 71            OUT (C), 0
+17C3: ED 71            OUT (C), 0
+17C5: ED 71            OUT (C), 0
+17C7: ED 71            OUT (C), 0
+17C9: ED 71            OUT (C), 0
+17CB: 00               NOP
+17CC: 00               NOP
+17CD: 00               NOP
+17CE: ED 71            OUT (C), 0
+17D0: ED 79            OUT (C), A
+17D2: ED 71            OUT (C), 0
+17D4: ED 71            OUT (C), 0
+17D6: ED 71            OUT (C), 0
+17D8: ED 71            OUT (C), 0
+17DA: ED 71            OUT (C), 0
+17DC: ED 71            OUT (C), 0
+17DE: ED 71            OUT (C), 0
+17E0: ED 79            OUT (C), A
+17E2: 00               NOP
+17E3: ED 71            OUT (C), 0
+17E5: ED 71            OUT (C), 0
+17E7: ED 71            OUT (C), 0
+17E9: ED 71            OUT (C), 0
+17EB: ED 71            OUT (C), 0
+17ED: 00               NOP
+17EE: 00               NOP
+17EF: 00               NOP
+17F0: ED 71            OUT (C), 0
+17F2: ED 79            OUT (C), A
+17F4: ED 71            OUT (C), 0
+17F6: ED 71            OUT (C), 0
+17F8: ED 71            OUT (C), 0
+17FA: ED 71            OUT (C), 0
+17FC: ED 71            OUT (C), 0
+17FE: ED 71            OUT (C), 0
+1800: ED 71            OUT (C), 0
+1802: ED 79            OUT (C), A
+1804: 00               NOP
+1805: ED 71            OUT (C), 0
+1807: ED 71            OUT (C), 0
+1809: ED 71            OUT (C), 0
+180B: ED 71            OUT (C), 0
+180D: ED 71            OUT (C), 0
+180F: 00               NOP
+1810: 00               NOP
+1811: 00               NOP
+1812: ED 71            OUT (C), 0
+1814: ED 79            OUT (C), A
+1816: ED 71            OUT (C), 0
+1818: ED 71            OUT (C), 0
+181A: ED 71            OUT (C), 0
+181C: ED 71            OUT (C), 0
+181E: ED 71            OUT (C), 0
+1820: ED 71            OUT (C), 0
+1822: ED 71            OUT (C), 0
+1824: ED 79            OUT (C), A
+1826: 00               NOP
+1827: ED 71            OUT (C), 0
+1829: ED 71            OUT (C), 0
+182B: ED 71            OUT (C), 0
+182D: ED 71            OUT (C), 0
+182F: ED 71            OUT (C), 0
+1831: 00               NOP
+1832: 00               NOP
+1833: 00               NOP
+1834: ED 71            OUT (C), 0
+1836: ED 79            OUT (C), A
+1838: ED 71            OUT (C), 0
+183A: ED 71            OUT (C), 0
+183C: ED 71            OUT (C), 0
+183E: ED 71            OUT (C), 0
+1840: ED 71            OUT (C), 0
+1842: ED 71            OUT (C), 0
+1844: ED 71            OUT (C), 0
+1846: ED 79            OUT (C), A
+1848: 00               NOP
+1849: ED 71            OUT (C), 0
+184B: ED 71            OUT (C), 0
+184D: ED 71            OUT (C), 0
+184F: ED 71            OUT (C), 0
+1851: ED 71            OUT (C), 0
+1853: 00               NOP
+1854: 00               NOP
+1855: 00               NOP
+1856: ED 71            OUT (C), 0
+1858: ED 79            OUT (C), A
+185A: ED 71            OUT (C), 0
+185C: ED 71            OUT (C), 0
+185E: ED 71            OUT (C), 0
+1860: ED 71            OUT (C), 0
+1862: ED 71            OUT (C), 0
+1864: ED 71            OUT (C), 0
+1866: ED 71            OUT (C), 0
+1868: ED 79            OUT (C), A
+186A: 00               NOP
+186B: ED 71            OUT (C), 0
+186D: ED 71            OUT (C), 0
+186F: ED 71            OUT (C), 0
+1871: ED 71            OUT (C), 0
+1873: ED 71            OUT (C), 0
+1875: 00               NOP
+1876: 00               NOP
+1877: 00               NOP
+1878: ED 71            OUT (C), 0
+187A: ED 79            OUT (C), A
+187C: ED 71            OUT (C), 0
+187E: ED 71            OUT (C), 0
+1880: ED 71            OUT (C), 0
+1882: ED 71            OUT (C), 0
+1884: ED 71            OUT (C), 0
+1886: ED 71            OUT (C), 0
+1888: ED 71            OUT (C), 0
+188A: ED 79            OUT (C), A
+188C: 00               NOP
+188D: ED 71            OUT (C), 0
+188F: ED 71            OUT (C), 0
+1891: ED 71            OUT (C), 0
+1893: ED 71            OUT (C), 0
+1895: ED 71            OUT (C), 0
+1897: 00               NOP
+1898: 00               NOP
+1899: 00               NOP
+189A: ED 71            OUT (C), 0
+189C: ED 79            OUT (C), A
+189E: ED 71            OUT (C), 0
+18A0: ED 71            OUT (C), 0
+18A2: ED 71            OUT (C), 0
+18A4: ED 71            OUT (C), 0
+18A6: ED 71            OUT (C), 0
+18A8: ED 71            OUT (C), 0
+18AA: ED 71            OUT (C), 0
+18AC: ED 79            OUT (C), A
+18AE: 00               NOP
+18AF: ED 71            OUT (C), 0
+18B1: ED 71            OUT (C), 0
+18B3: ED 71            OUT (C), 0
+18B5: ED 71            OUT (C), 0
+18B7: ED 71            OUT (C), 0
+18B9: 00               NOP
+18BA: 00               NOP
+18BB: 00               NOP
+18BC: ED 71            OUT (C), 0
+18BE: ED 79            OUT (C), A
+18C0: ED 71            OUT (C), 0
+18C2: ED 71            OUT (C), 0
+18C4: ED 71            OUT (C), 0
+18C6: ED 71            OUT (C), 0
+18C8: ED 71            OUT (C), 0
+18CA: ED 71            OUT (C), 0
+18CC: ED 71            OUT (C), 0
+18CE: ED 79            OUT (C), A
+18D0: 00               NOP
+18D1: ED 71            OUT (C), 0
+18D3: ED 71            OUT (C), 0
+18D5: ED 71            OUT (C), 0
+18D7: ED 71            OUT (C), 0
+18D9: ED 71            OUT (C), 0
+18DB: 00               NOP
+18DC: 00               NOP
+18DD: 00               NOP
+18DE: ED 71            OUT (C), 0
+18E0: ED 79            OUT (C), A
+18E2: ED 71            OUT (C), 0
+18E4: ED 71            OUT (C), 0
+18E6: ED 71            OUT (C), 0
+18E8: ED 71            OUT (C), 0
+18EA: ED 71            OUT (C), 0
+18EC: ED 71            OUT (C), 0
+18EE: ED 71            OUT (C), 0
+18F0: ED 79            OUT (C), A
+18F2: 00               NOP
+18F3: ED 71            OUT (C), 0
+18F5: ED 71            OUT (C), 0
+18F7: ED 71            OUT (C), 0
+18F9: ED 71            OUT (C), 0
+18FB: ED 71            OUT (C), 0
+18FD: 00               NOP
+18FE: 00               NOP
+18FF: 00               NOP
+1900: ED 71            OUT (C), 0
+1902: ED 79            OUT (C), A
+1904: ED 71            OUT (C), 0
+1906: ED 71            OUT (C), 0
+1908: ED 71            OUT (C), 0
+190A: ED 71            OUT (C), 0
+190C: ED 71            OUT (C), 0
+190E: ED 71            OUT (C), 0
+1910: ED 71            OUT (C), 0
+1912: ED 79            OUT (C), A
+1914: 00               NOP
+1915: ED 71            OUT (C), 0
+1917: ED 71            OUT (C), 0
+1919: ED 71            OUT (C), 0
+191B: ED 71            OUT (C), 0
+191D: ED 71            OUT (C), 0
+191F: 00               NOP
+1920: 00               NOP
+1921: 00               NOP
+1922: ED 71            OUT (C), 0
+1924: ED 79            OUT (C), A
+1926: ED 71            OUT (C), 0
+1928: ED 71            OUT (C), 0
+192A: ED 71            OUT (C), 0
+192C: ED 71            OUT (C), 0
+192E: ED 71            OUT (C), 0
+1930: ED 71            OUT (C), 0
+1932: ED 71            OUT (C), 0
+1934: ED 79            OUT (C), A
+1936: 00               NOP
+1937: ED 71            OUT (C), 0
+1939: ED 71            OUT (C), 0
+193B: ED 71            OUT (C), 0
+193D: ED 71            OUT (C), 0
+193F: ED 71            OUT (C), 0
+1941: 00               NOP
+1942: 00               NOP
+1943: 00               NOP
+1944: ED 71            OUT (C), 0
+1946: ED 79            OUT (C), A
+1948: ED 71            OUT (C), 0
+194A: ED 71            OUT (C), 0
+194C: ED 71            OUT (C), 0
+194E: ED 71            OUT (C), 0
+1950: ED 71            OUT (C), 0
+1952: ED 71            OUT (C), 0
+1954: ED 71            OUT (C), 0
+1956: ED 79            OUT (C), A
+1958: 00               NOP
+1959: ED 71            OUT (C), 0
+195B: ED 71            OUT (C), 0
+195D: ED 71            OUT (C), 0
+195F: ED 71            OUT (C), 0
+1961: ED 71            OUT (C), 0
+1963: 00               NOP
+1964: 00               NOP
+1965: 00               NOP
+1966: ED 71            OUT (C), 0
+1968: ED 79            OUT (C), A
+196A: ED 71            OUT (C), 0
+196C: ED 71            OUT (C), 0
+196E: ED 71            OUT (C), 0
+1970: ED 71            OUT (C), 0
+1972: ED 71            OUT (C), 0
+1974: ED 71            OUT (C), 0
+1976: ED 71            OUT (C), 0
+1978: ED 79            OUT (C), A
+197A: 00               NOP
+197B: ED 71            OUT (C), 0
+197D: ED 71            OUT (C), 0
+197F: ED 71            OUT (C), 0
+1981: ED 71            OUT (C), 0
+1983: ED 71            OUT (C), 0
+1985: 00               NOP
+1986: 00               NOP
+1987: 00               NOP
+1988: ED 71            OUT (C), 0
+198A: ED 79            OUT (C), A
+198C: ED 71            OUT (C), 0
+198E: ED 71            OUT (C), 0
+1990: ED 71            OUT (C), 0
+1992: ED 71            OUT (C), 0
+1994: ED 71            OUT (C), 0
+1996: ED 71            OUT (C), 0
+1998: ED 71            OUT (C), 0
+199A: ED 79            OUT (C), A
+199C: 00               NOP
+199D: ED 71            OUT (C), 0
+199F: ED 71            OUT (C), 0
+19A1: ED 71            OUT (C), 0
+19A3: ED 71            OUT (C), 0
+19A5: ED 71            OUT (C), 0
+19A7: 00               NOP
+19A8: 00               NOP
+19A9: 00               NOP
+19AA: ED 71            OUT (C), 0
+19AC: ED 79            OUT (C), A
+19AE: ED 71            OUT (C), 0
+19B0: ED 71            OUT (C), 0
+19B2: ED 71            OUT (C), 0
+19B4: ED 71            OUT (C), 0
+19B6: ED 71            OUT (C), 0
+19B8: ED 71            OUT (C), 0
+19BA: ED 71            OUT (C), 0
+19BC: ED 79            OUT (C), A
+19BE: 00               NOP
+19BF: ED 71            OUT (C), 0
+19C1: ED 71            OUT (C), 0
+19C3: ED 71            OUT (C), 0
+19C5: ED 71            OUT (C), 0
+19C7: ED 71            OUT (C), 0
+19C9: 00               NOP
+19CA: 00               NOP
+19CB: 00               NOP
+19CC: ED 71            OUT (C), 0
+19CE: ED 79            OUT (C), A
+19D0: ED 71            OUT (C), 0
+19D2: ED 71            OUT (C), 0
+19D4: ED 71            OUT (C), 0
+19D6: ED 71            OUT (C), 0
+19D8: ED 71            OUT (C), 0
+19DA: ED 71            OUT (C), 0
+19DC: ED 71            OUT (C), 0
+19DE: ED 79            OUT (C), A
+19E0: 00               NOP
+19E1: ED 71            OUT (C), 0
+19E3: ED 71            OUT (C), 0
+19E5: ED 71            OUT (C), 0
+19E7: ED 71            OUT (C), 0
+19E9: ED 71            OUT (C), 0
+19EB: 00               NOP
+19EC: 00               NOP
+19ED: 00               NOP
+19EE: ED 71            OUT (C), 0
+19F0: ED 79            OUT (C), A
+19F2: ED 71            OUT (C), 0
+19F4: ED 71            OUT (C), 0
+19F6: ED 71            OUT (C), 0
+19F8: ED 71            OUT (C), 0
+19FA: ED 71            OUT (C), 0
+19FC: ED 71            OUT (C), 0
+19FE: ED 71            OUT (C), 0
+1A00: ED 79            OUT (C), A
+1A02: 00               NOP
+1A03: ED 71            OUT (C), 0
+1A05: ED 71            OUT (C), 0
+1A07: ED 71            OUT (C), 0
+1A09: ED 71            OUT (C), 0
+1A0B: ED 71            OUT (C), 0
+1A0D: 00               NOP
+1A0E: 00               NOP
+1A0F: 00               NOP
+1A10: ED 71            OUT (C), 0
+1A12: ED 79            OUT (C), A
+1A14: ED 71            OUT (C), 0
+1A16: ED 71            OUT (C), 0
+1A18: ED 71            OUT (C), 0
+1A1A: ED 71            OUT (C), 0
+1A1C: ED 71            OUT (C), 0
+1A1E: ED 71            OUT (C), 0
+1A20: ED 71            OUT (C), 0
+1A22: ED 79            OUT (C), A
+1A24: 00               NOP
+1A25: ED 71            OUT (C), 0
+1A27: ED 71            OUT (C), 0
+1A29: ED 71            OUT (C), 0
+1A2B: ED 71            OUT (C), 0
+1A2D: ED 71            OUT (C), 0
+1A2F: 00               NOP
+1A30: 00               NOP
+1A31: 00               NOP
+1A32: ED 71            OUT (C), 0
+1A34: ED 79            OUT (C), A
+1A36: ED 71            OUT (C), 0
+1A38: ED 71            OUT (C), 0
+1A3A: ED 71            OUT (C), 0
+1A3C: ED 71            OUT (C), 0
+1A3E: ED 71            OUT (C), 0
+1A40: ED 71            OUT (C), 0
+1A42: ED 71            OUT (C), 0
+1A44: ED 79            OUT (C), A
+1A46: 00               NOP
+1A47: ED 71            OUT (C), 0
+1A49: ED 71            OUT (C), 0
+1A4B: ED 71            OUT (C), 0
+1A4D: ED 71            OUT (C), 0
+1A4F: ED 71            OUT (C), 0
+1A51: 00               NOP
+1A52: 00               NOP
+1A53: 00               NOP
+1A54: ED 71            OUT (C), 0
+1A56: ED 79            OUT (C), A
+1A58: ED 71            OUT (C), 0
+1A5A: ED 71            OUT (C), 0
+1A5C: ED 71            OUT (C), 0
+1A5E: ED 71            OUT (C), 0
+1A60: ED 71            OUT (C), 0
+1A62: ED 71            OUT (C), 0
+1A64: ED 71            OUT (C), 0
+1A66: ED 79            OUT (C), A
+1A68: 00               NOP
+1A69: ED 71            OUT (C), 0
+1A6B: ED 71            OUT (C), 0
+1A6D: ED 71            OUT (C), 0
+1A6F: ED 71            OUT (C), 0
+1A71: ED 71            OUT (C), 0
+1A73: 00               NOP
+1A74: 00               NOP
+1A75: 00               NOP
+1A76: ED 71            OUT (C), 0
+1A78: ED 79            OUT (C), A
+1A7A: ED 71            OUT (C), 0
+1A7C: ED 71            OUT (C), 0
+1A7E: ED 71            OUT (C), 0
+1A80: ED 71            OUT (C), 0
+1A82: ED 71            OUT (C), 0
+1A84: ED 71            OUT (C), 0
+1A86: ED 71            OUT (C), 0
+1A88: ED 79            OUT (C), A
+1A8A: 00               NOP
+1A8B: ED 71            OUT (C), 0
+1A8D: ED 71            OUT (C), 0
+1A8F: ED 71            OUT (C), 0
+1A91: ED 71            OUT (C), 0
+1A93: ED 71            OUT (C), 0
+1A95: 00               NOP
+1A96: 00               NOP
+1A97: 00               NOP
+1A98: ED 71            OUT (C), 0
+1A9A: ED 79            OUT (C), A
+1A9C: ED 71            OUT (C), 0
+1A9E: ED 71            OUT (C), 0
+1AA0: ED 71            OUT (C), 0
+1AA2: ED 71            OUT (C), 0
+1AA4: ED 71            OUT (C), 0
+1AA6: ED 71            OUT (C), 0
+1AA8: ED 71            OUT (C), 0
+1AAA: ED 79            OUT (C), A
+1AAC: 00               NOP
+1AAD: ED 71            OUT (C), 0
+1AAF: ED 71            OUT (C), 0
+1AB1: ED 71            OUT (C), 0
+1AB3: ED 71            OUT (C), 0
+1AB5: ED 71            OUT (C), 0
+1AB7: 00               NOP
+1AB8: 00               NOP
+1AB9: 00               NOP
+1ABA: ED 71            OUT (C), 0
+1ABC: ED 79            OUT (C), A
+1ABE: ED 71            OUT (C), 0
+1AC0: ED 71            OUT (C), 0
+1AC2: ED 71            OUT (C), 0
+1AC4: ED 71            OUT (C), 0
+1AC6: ED 71            OUT (C), 0
+1AC8: ED 71            OUT (C), 0
+1ACA: ED 71            OUT (C), 0
+1ACC: ED 79            OUT (C), A
+1ACE: 00               NOP
+1ACF: ED 71            OUT (C), 0
+1AD1: ED 71            OUT (C), 0
+1AD3: ED 71            OUT (C), 0
+1AD5: ED 71            OUT (C), 0
+1AD7: ED 71            OUT (C), 0
+1AD9: 00               NOP
+1ADA: 00               NOP
+1ADB: 00               NOP
+1ADC: ED 71            OUT (C), 0
+1ADE: ED 79            OUT (C), A
+1AE0: ED 71            OUT (C), 0
+1AE2: ED 71            OUT (C), 0
+1AE4: ED 71            OUT (C), 0
+1AE6: ED 71            OUT (C), 0
+1AE8: ED 71            OUT (C), 0
+1AEA: ED 71            OUT (C), 0
+1AEC: ED 71            OUT (C), 0
+1AEE: ED 79            OUT (C), A
+1AF0: 00               NOP
+1AF1: ED 71            OUT (C), 0
+1AF3: ED 71            OUT (C), 0
+1AF5: ED 71            OUT (C), 0
+1AF7: ED 71            OUT (C), 0
+1AF9: ED 71            OUT (C), 0
+1AFB: 00               NOP
+1AFC: 00               NOP
+1AFD: 00               NOP
+1AFE: ED 71            OUT (C), 0
+1B00: ED 79            OUT (C), A
+1B02: ED 71            OUT (C), 0
+1B04: ED 71            OUT (C), 0
+1B06: ED 71            OUT (C), 0
+1B08: ED 71            OUT (C), 0
+1B0A: ED 71            OUT (C), 0
+1B0C: ED 71            OUT (C), 0
+1B0E: ED 71            OUT (C), 0
+1B10: ED 79            OUT (C), A
+1B12: 00               NOP
+1B13: ED 71            OUT (C), 0
+1B15: ED 71            OUT (C), 0
+1B17: ED 71            OUT (C), 0
+1B19: ED 71            OUT (C), 0
+1B1B: ED 71            OUT (C), 0
+1B1D: 00               NOP
+1B1E: 00               NOP
+1B1F: 00               NOP
+1B20: ED 71            OUT (C), 0
+1B22: ED 79            OUT (C), A
+1B24: ED 71            OUT (C), 0
+1B26: ED 71            OUT (C), 0
+1B28: ED 71            OUT (C), 0
+1B2A: ED 71            OUT (C), 0
+1B2C: ED 71            OUT (C), 0
+1B2E: ED 71            OUT (C), 0
+1B30: ED 71            OUT (C), 0
+1B32: ED 79            OUT (C), A
+1B34: 00               NOP
+1B35: ED 71            OUT (C), 0
+1B37: ED 71            OUT (C), 0
+1B39: ED 71            OUT (C), 0
+1B3B: ED 71            OUT (C), 0
+1B3D: ED 71            OUT (C), 0
+1B3F: 00               NOP
+1B40: 00               NOP
+1B41: 00               NOP
+1B42: ED 71            OUT (C), 0
+1B44: ED 79            OUT (C), A
+1B46: ED 71            OUT (C), 0
+1B48: ED 71            OUT (C), 0
+1B4A: ED 71            OUT (C), 0
+1B4C: ED 71            OUT (C), 0
+1B4E: ED 71            OUT (C), 0
+1B50: ED 71            OUT (C), 0
+1B52: ED 71            OUT (C), 0
+1B54: ED 79            OUT (C), A
+1B56: 00               NOP
+1B57: ED 71            OUT (C), 0
+1B59: ED 71            OUT (C), 0
+1B5B: ED 71            OUT (C), 0
+1B5D: ED 71            OUT (C), 0
+1B5F: ED 71            OUT (C), 0
+1B61: 00               NOP
+1B62: 00               NOP
+1B63: 00               NOP
+1B64: ED 71            OUT (C), 0
+1B66: ED 79            OUT (C), A
+1B68: ED 71            OUT (C), 0
+1B6A: ED 71            OUT (C), 0
+1B6C: ED 71            OUT (C), 0
+1B6E: ED 71            OUT (C), 0
+1B70: ED 71            OUT (C), 0
+1B72: ED 71            OUT (C), 0
+1B74: ED 71            OUT (C), 0
+1B76: ED 79            OUT (C), A
+1B78: 00               NOP
+1B79: ED 71            OUT (C), 0
+1B7B: ED 71            OUT (C), 0
+1B7D: ED 71            OUT (C), 0
+1B7F: ED 71            OUT (C), 0
+1B81: ED 71            OUT (C), 0
+1B83: 00               NOP
+1B84: 00               NOP
+1B85: 00               NOP
+1B86: ED 71            OUT (C), 0
+1B88: ED 79            OUT (C), A
+1B8A: ED 71            OUT (C), 0
+1B8C: ED 71            OUT (C), 0
+1B8E: ED 71            OUT (C), 0
+1B90: ED 71            OUT (C), 0
+1B92: ED 71            OUT (C), 0
+1B94: ED 71            OUT (C), 0
+1B96: ED 71            OUT (C), 0
+1B98: ED 79            OUT (C), A
+1B9A: 00               NOP
+1B9B: ED 71            OUT (C), 0
+1B9D: ED 71            OUT (C), 0
+1B9F: ED 71            OUT (C), 0
+1BA1: ED 71            OUT (C), 0
+1BA3: ED 71            OUT (C), 0
+1BA5: 00               NOP
+1BA6: 00               NOP
+1BA7: 00               NOP
+1BA8: ED 71            OUT (C), 0
+1BAA: ED 79            OUT (C), A
+1BAC: ED 71            OUT (C), 0
+1BAE: ED 71            OUT (C), 0
+1BB0: ED 71            OUT (C), 0
+1BB2: ED 71            OUT (C), 0
+1BB4: ED 71            OUT (C), 0
+1BB6: ED 71            OUT (C), 0
+1BB8: ED 71            OUT (C), 0
+1BBA: ED 79            OUT (C), A
+1BBC: 00               NOP
+1BBD: ED 71            OUT (C), 0
+1BBF: ED 71            OUT (C), 0
+1BC1: ED 71            OUT (C), 0
+1BC3: ED 71            OUT (C), 0
+1BC5: ED 71            OUT (C), 0
+1BC7: 00               NOP
+1BC8: 00               NOP
+1BC9: 00               NOP
+1BCA: ED 71            OUT (C), 0
+1BCC: ED 79            OUT (C), A
+1BCE: ED 71            OUT (C), 0
+1BD0: ED 71            OUT (C), 0
+1BD2: ED 71            OUT (C), 0
+1BD4: ED 71            OUT (C), 0
+1BD6: ED 71            OUT (C), 0
+1BD8: ED 71            OUT (C), 0
+1BDA: ED 71            OUT (C), 0
+1BDC: ED 79            OUT (C), A
+1BDE: 00               NOP
+1BDF: ED 71            OUT (C), 0
+1BE1: ED 71            OUT (C), 0
+1BE3: ED 71            OUT (C), 0
+1BE5: ED 71            OUT (C), 0
+1BE7: ED 71            OUT (C), 0
+1BE9: 00               NOP
+1BEA: 00               NOP
+1BEB: 00               NOP
+1BEC: ED 71            OUT (C), 0
+1BEE: ED 79            OUT (C), A
+1BF0: ED 71            OUT (C), 0
+1BF2: ED 71            OUT (C), 0
+1BF4: ED 71            OUT (C), 0
+1BF6: ED 71            OUT (C), 0
+1BF8: ED 71            OUT (C), 0
+1BFA: ED 71            OUT (C), 0
+1BFC: ED 71            OUT (C), 0
+1BFE: ED 79            OUT (C), A
+1C00: 00               NOP
+1C01: ED 71            OUT (C), 0
+1C03: ED 71            OUT (C), 0
+1C05: ED 71            OUT (C), 0
+1C07: ED 71            OUT (C), 0
+1C09: ED 71            OUT (C), 0
+1C0B: 00               NOP
+1C0C: 00               NOP
+1C0D: 00               NOP
+1C0E: ED 71            OUT (C), 0
+1C10: ED 79            OUT (C), A
+1C12: ED 71            OUT (C), 0
+1C14: ED 71            OUT (C), 0
+1C16: ED 71            OUT (C), 0
+1C18: ED 71            OUT (C), 0
+1C1A: ED 71            OUT (C), 0
+1C1C: ED 71            OUT (C), 0
+1C1E: ED 71            OUT (C), 0
+1C20: ED 79            OUT (C), A
+1C22: 00               NOP
+1C23: ED 71            OUT (C), 0
+1C25: ED 71            OUT (C), 0
+1C27: ED 71            OUT (C), 0
+1C29: ED 71            OUT (C), 0
+1C2B: ED 71            OUT (C), 0
+1C2D: 00               NOP
+1C2E: 00               NOP
+1C2F: 00               NOP
+1C30: ED 71            OUT (C), 0
+1C32: ED 79            OUT (C), A
+1C34: ED 71            OUT (C), 0
+1C36: ED 71            OUT (C), 0
+1C38: ED 71            OUT (C), 0
+1C3A: ED 71            OUT (C), 0
+1C3C: ED 71            OUT (C), 0
+1C3E: ED 71            OUT (C), 0
+1C40: ED 71            OUT (C), 0
+1C42: ED 79            OUT (C), A
+1C44: 00               NOP
+1C45: ED 71            OUT (C), 0
+1C47: ED 71            OUT (C), 0
+1C49: ED 71            OUT (C), 0
+1C4B: ED 71            OUT (C), 0
+1C4D: ED 71            OUT (C), 0
+1C4F: 00               NOP
+1C50: 00               NOP
+1C51: 00               NOP
+1C52: ED 71            OUT (C), 0
+1C54: ED 71            OUT (C), 0
+1C56: ED 71            OUT (C), 0
+1C58: ED 71            OUT (C), 0
+1C5A: ED 71            OUT (C), 0
+1C5C: ED 71            OUT (C), 0
+1C5E: ED 71            OUT (C), 0
+1C60: ED 71            OUT (C), 0
+1C62: ED 71            OUT (C), 0
+1C64: ED 71            OUT (C), 0
+1C66: 00               NOP
+1C67: ED 71            OUT (C), 0
+1C69: ED 71            OUT (C), 0
+1C6B: ED 71            OUT (C), 0
+1C6D: ED 71            OUT (C), 0
+1C6F: ED 71            OUT (C), 0
+1C71: 00               NOP
+1C72: 00               NOP
+1C73: 00               NOP
+1C74: ED 71            OUT (C), 0
+1C76: ED 71            OUT (C), 0
+1C78: ED 71            OUT (C), 0
+1C7A: ED 71            OUT (C), 0
+1C7C: ED 71            OUT (C), 0
+1C7E: ED 71            OUT (C), 0
+1C80: ED 71            OUT (C), 0
+1C82: ED 71            OUT (C), 0
+1C84: ED 71            OUT (C), 0
+1C86: ED 71            OUT (C), 0
+1C88: 00               NOP
+1C89: ED 71            OUT (C), 0
+1C8B: ED 71            OUT (C), 0
+1C8D: ED 71            OUT (C), 0
+1C8F: ED 71            OUT (C), 0
+1C91: ED 71            OUT (C), 0
+1C93: 00               NOP
+1C94: 00               NOP
+1C95: 00               NOP
+1C96: ED 71            OUT (C), 0
+1C98: ED 41            OUT (C), B
+1C9A: ED 71            OUT (C), 0
+1C9C: ED 71            OUT (C), 0
+1C9E: ED 71            OUT (C), 0
+1CA0: ED 71            OUT (C), 0
+1CA2: ED 71            OUT (C), 0
+1CA4: ED 71            OUT (C), 0
+1CA6: ED 71            OUT (C), 0
+1CA8: ED 41            OUT (C), B
+1CAA: 00               NOP
+1CAB: ED 71            OUT (C), 0
+1CAD: ED 71            OUT (C), 0
+1CAF: ED 71            OUT (C), 0
+1CB1: ED 71            OUT (C), 0
+1CB3: ED 71            OUT (C), 0
+1CB5: 00               NOP
+1CB6: 00               NOP
+1CB7: 00               NOP
+1CB8: ED 71            OUT (C), 0
+1CBA: ED 41            OUT (C), B
+1CBC: ED 71            OUT (C), 0
+1CBE: ED 71            OUT (C), 0
+1CC0: ED 71            OUT (C), 0
+1CC2: ED 71            OUT (C), 0
+1CC4: ED 71            OUT (C), 0
+1CC6: ED 71            OUT (C), 0
+1CC8: ED 71            OUT (C), 0
+1CCA: ED 41            OUT (C), B
+1CCC: 00               NOP
+1CCD: ED 71            OUT (C), 0
+1CCF: ED 71            OUT (C), 0
+1CD1: ED 71            OUT (C), 0
+1CD3: ED 71            OUT (C), 0
+1CD5: ED 71            OUT (C), 0
+1CD7: 00               NOP
+1CD8: 00               NOP
+1CD9: 00               NOP
+1CDA: ED 71            OUT (C), 0
+1CDC: ED 41            OUT (C), B
+1CDE: ED 71            OUT (C), 0
+1CE0: ED 71            OUT (C), 0
+1CE2: ED 71            OUT (C), 0
+1CE4: ED 71            OUT (C), 0
+1CE6: ED 71            OUT (C), 0
+1CE8: ED 71            OUT (C), 0
+1CEA: ED 71            OUT (C), 0
+1CEC: ED 41            OUT (C), B
+1CEE: 00               NOP
+1CEF: ED 71            OUT (C), 0
+1CF1: ED 71            OUT (C), 0
+1CF3: ED 71            OUT (C), 0
+1CF5: ED 71            OUT (C), 0
+1CF7: ED 71            OUT (C), 0
+1CF9: 00               NOP
+1CFA: 00               NOP
+1CFB: 00               NOP
+1CFC: ED 71            OUT (C), 0
+1CFE: ED 41            OUT (C), B
+1D00: ED 71            OUT (C), 0
+1D02: ED 71            OUT (C), 0
+1D04: ED 71            OUT (C), 0
+1D06: ED 71            OUT (C), 0
+1D08: ED 71            OUT (C), 0
+1D0A: ED 71            OUT (C), 0
+1D0C: ED 71            OUT (C), 0
+1D0E: ED 41            OUT (C), B
+1D10: 00               NOP
+1D11: ED 71            OUT (C), 0
+1D13: ED 71            OUT (C), 0
+1D15: ED 71            OUT (C), 0
+1D17: ED 71            OUT (C), 0
+1D19: ED 71            OUT (C), 0
+1D1B: 00               NOP
+1D1C: 00               NOP
+1D1D: 00               NOP
+1D1E: ED 71            OUT (C), 0
+1D20: ED 41            OUT (C), B
+1D22: ED 71            OUT (C), 0
+1D24: ED 71            OUT (C), 0
+1D26: ED 71            OUT (C), 0
+1D28: ED 71            OUT (C), 0
+1D2A: ED 71            OUT (C), 0
+1D2C: ED 71            OUT (C), 0
+1D2E: ED 71            OUT (C), 0
+1D30: ED 41            OUT (C), B
+1D32: 00               NOP
+1D33: ED 71            OUT (C), 0
+1D35: ED 71            OUT (C), 0
+1D37: ED 71            OUT (C), 0
+1D39: ED 71            OUT (C), 0
+1D3B: ED 71            OUT (C), 0
+1D3D: 00               NOP
+1D3E: 00               NOP
+1D3F: 00               NOP
+1D40: ED 71            OUT (C), 0
+1D42: ED 41            OUT (C), B
+1D44: ED 71            OUT (C), 0
+1D46: ED 71            OUT (C), 0
+1D48: ED 71            OUT (C), 0
+1D4A: ED 71            OUT (C), 0
+1D4C: ED 71            OUT (C), 0
+1D4E: ED 71            OUT (C), 0
+1D50: ED 71            OUT (C), 0
+1D52: ED 41            OUT (C), B
+1D54: 00               NOP
+1D55: ED 71            OUT (C), 0
+1D57: ED 71            OUT (C), 0
+1D59: ED 71            OUT (C), 0
+1D5B: ED 71            OUT (C), 0
+1D5D: ED 71            OUT (C), 0
+1D5F: 00               NOP
+1D60: 00               NOP
+1D61: 00               NOP
+1D62: ED 71            OUT (C), 0
+1D64: ED 41            OUT (C), B
+1D66: 00               NOP
+1D67: ED 71            OUT (C), 0
+1D69: 00               NOP
+1D6A: ED 41            OUT (C), B
+1D6C: 00               NOP
+1D6D: ED 71            OUT (C), 0
+1D6F: 00               NOP
+1D70: 00               NOP
+1D71: ED 71            OUT (C), 0
+1D73: ED 71            OUT (C), 0
+1D75: 00               NOP
+1D76: ED 41            OUT (C), B
+1D78: 00               NOP
+1D79: 00               NOP
+1D7A: ED 71            OUT (C), 0
+1D7C: ED 41            OUT (C), B
+1D7E: 00               NOP
+1D7F: ED 71            OUT (C), 0
+1D81: ED 71            OUT (C), 0
+1D83: ED 71            OUT (C), 0
+1D85: ED 71            OUT (C), 0
+1D87: ED 71            OUT (C), 0
+1D89: ED 71            OUT (C), 0
+1D8B: ED 71            OUT (C), 0
+1D8D: ED 41            OUT (C), B
+1D8F: 00               NOP
+1D90: ED 71            OUT (C), 0
+1D92: 00               NOP
+1D93: ED 41            OUT (C), B
+1D95: 00               NOP
+1D96: ED 71            OUT (C), 0
+1D98: 00               NOP
+1D99: 00               NOP
+1D9A: ED 71            OUT (C), 0
+1D9C: ED 71            OUT (C), 0
+1D9E: 00               NOP
+1D9F: ED 41            OUT (C), B
+1DA1: 00               NOP
+1DA2: 00               NOP
+1DA3: ED 71            OUT (C), 0
+1DA5: ED 41            OUT (C), B
+1DA7: 00               NOP
+1DA8: ED 71            OUT (C), 0
+1DAA: ED 71            OUT (C), 0
+1DAC: ED 71            OUT (C), 0
+1DAE: ED 71            OUT (C), 0
+1DB0: ED 71            OUT (C), 0
+1DB2: ED 71            OUT (C), 0
+1DB4: ED 71            OUT (C), 0
+1DB6: ED 41            OUT (C), B
+1DB8: 00               NOP
+1DB9: ED 71            OUT (C), 0
+1DBB: 00               NOP
+1DBC: ED 41            OUT (C), B
+1DBE: 00               NOP
+1DBF: ED 71            OUT (C), 0
+1DC1: 00               NOP
+1DC2: 00               NOP
+1DC3: ED 71            OUT (C), 0
+1DC5: ED 71            OUT (C), 0
+1DC7: 00               NOP
+1DC8: ED 41            OUT (C), B
+1DCA: 00               NOP
+1DCB: 00               NOP
+1DCC: ED 71            OUT (C), 0
+1DCE: ED 41            OUT (C), B
+1DD0: 00               NOP
+1DD1: ED 71            OUT (C), 0
+1DD3: ED 71            OUT (C), 0
+1DD5: ED 71            OUT (C), 0
+1DD7: ED 71            OUT (C), 0
+1DD9: ED 71            OUT (C), 0
+1DDB: ED 71            OUT (C), 0
+1DDD: ED 71            OUT (C), 0
+1DDF: ED 41            OUT (C), B
+1DE1: 00               NOP
+1DE2: ED 71            OUT (C), 0
+1DE4: 00               NOP
+1DE5: ED 41            OUT (C), B
+1DE7: 00               NOP
+1DE8: ED 71            OUT (C), 0
+1DEA: 00               NOP
+1DEB: 00               NOP
+1DEC: ED 71            OUT (C), 0
+1DEE: ED 71            OUT (C), 0
+1DF0: 00               NOP
+1DF1: ED 41            OUT (C), B
+1DF3: 00               NOP
+1DF4: 00               NOP
+1DF5: ED 71            OUT (C), 0
+1DF7: ED 41            OUT (C), B
+1DF9: 00               NOP
+1DFA: ED 71            OUT (C), 0
+1DFC: ED 71            OUT (C), 0
+1DFE: ED 71            OUT (C), 0
+1E00: ED 71            OUT (C), 0
+1E02: ED 71            OUT (C), 0
+1E04: ED 71            OUT (C), 0
+1E06: ED 71            OUT (C), 0
+1E08: ED 41            OUT (C), B
+1E0A: 00               NOP
+1E0B: ED 71            OUT (C), 0
+1E0D: 00               NOP
+1E0E: ED 41            OUT (C), B
+1E10: 00               NOP
+1E11: ED 71            OUT (C), 0
+1E13: 00               NOP
+1E14: 00               NOP
+1E15: ED 71            OUT (C), 0
+1E17: ED 71            OUT (C), 0
+1E19: 00               NOP
+1E1A: ED 41            OUT (C), B
+1E1C: 00               NOP
+1E1D: 00               NOP
+1E1E: ED 71            OUT (C), 0
+1E20: ED 41            OUT (C), B
+1E22: 00               NOP
+1E23: ED 71            OUT (C), 0
+1E25: ED 71            OUT (C), 0
+1E27: ED 71            OUT (C), 0
+1E29: ED 71            OUT (C), 0
+1E2B: ED 71            OUT (C), 0
+1E2D: ED 71            OUT (C), 0
+1E2F: ED 71            OUT (C), 0
+1E31: ED 41            OUT (C), B
+1E33: 00               NOP
+1E34: ED 71            OUT (C), 0
+1E36: 00               NOP
+1E37: ED 41            OUT (C), B
+1E39: 00               NOP
+1E3A: ED 71            OUT (C), 0
+1E3C: 00               NOP
+1E3D: 00               NOP
+1E3E: ED 71            OUT (C), 0
+1E40: ED 71            OUT (C), 0
+1E42: 00               NOP
+1E43: ED 41            OUT (C), B
+1E45: 00               NOP
+1E46: 00               NOP
+1E47: ED 71            OUT (C), 0
+1E49: ED 41            OUT (C), B
+1E4B: 00               NOP
+1E4C: ED 71            OUT (C), 0
+1E4E: ED 71            OUT (C), 0
+1E50: ED 71            OUT (C), 0
+1E52: ED 71            OUT (C), 0
+1E54: ED 71            OUT (C), 0
+1E56: ED 71            OUT (C), 0
+1E58: ED 71            OUT (C), 0
+1E5A: ED 41            OUT (C), B
+1E5C: 00               NOP
+1E5D: ED 71            OUT (C), 0
+1E5F: 00               NOP
+1E60: ED 41            OUT (C), B
+1E62: 00               NOP
+1E63: ED 71            OUT (C), 0
+1E65: 00               NOP
+1E66: 00               NOP
+1E67: ED 71            OUT (C), 0
+1E69: ED 71            OUT (C), 0
+1E6B: 00               NOP
+1E6C: ED 41            OUT (C), B
+1E6E: 00               NOP
+1E6F: 00               NOP
+1E70: ED 71            OUT (C), 0
+1E72: ED 41            OUT (C), B
+1E74: 00               NOP
+1E75: ED 71            OUT (C), 0
+1E77: ED 71            OUT (C), 0
+1E79: ED 71            OUT (C), 0
+1E7B: ED 71            OUT (C), 0
+1E7D: ED 71            OUT (C), 0
+1E7F: ED 71            OUT (C), 0
+1E81: ED 71            OUT (C), 0
+1E83: ED 41            OUT (C), B
+1E85: 00               NOP
+1E86: ED 71            OUT (C), 0
+1E88: 00               NOP
+1E89: ED 41            OUT (C), B
+1E8B: 00               NOP
+1E8C: ED 71            OUT (C), 0
+1E8E: 00               NOP
+1E8F: 00               NOP
+1E90: ED 71            OUT (C), 0
+1E92: ED 71            OUT (C), 0
+1E94: 00               NOP
+1E95: ED 41            OUT (C), B
+1E97: 00               NOP
+1E98: 00               NOP
+1E99: ED 71            OUT (C), 0
+1E9B: ED 41            OUT (C), B
+1E9D: 00               NOP
+1E9E: ED 71            OUT (C), 0
+1EA0: ED 71            OUT (C), 0
+1EA2: ED 71            OUT (C), 0
+1EA4: ED 71            OUT (C), 0
+1EA6: ED 71            OUT (C), 0
+1EA8: ED 71            OUT (C), 0
+1EAA: ED 71            OUT (C), 0
+1EAC: ED 41            OUT (C), B
+1EAE: 00               NOP
+1EAF: ED 71            OUT (C), 0
+1EB1: 00               NOP
+1EB2: ED 41            OUT (C), B
+1EB4: ED 41            OUT (C), B
+1EB6: ED 41            OUT (C), B
+1EB8: ED 41            OUT (C), B
+1EBA: ED 41            OUT (C), B
+1EBC: ED 41            OUT (C), B
+1EBE: 00               NOP
+1EBF: 00               NOP
+1EC0: 00               NOP
+1EC1: ED 71            OUT (C), 0
+1EC3: ED 41            OUT (C), B
+1EC5: 00               NOP
+1EC6: ED 71            OUT (C), 0
+1EC8: ED 71            OUT (C), 0
+1ECA: ED 71            OUT (C), 0
+1ECC: ED 71            OUT (C), 0
+1ECE: ED 71            OUT (C), 0
+1ED0: ED 71            OUT (C), 0
+1ED2: ED 71            OUT (C), 0
+1ED4: ED 41            OUT (C), B
+1ED6: 00               NOP
+1ED7: ED 71            OUT (C), 0
+1ED9: 00               NOP
+1EDA: ED 41            OUT (C), B
+1EDC: ED 41            OUT (C), B
+1EDE: ED 41            OUT (C), B
+1EE0: ED 41            OUT (C), B
+1EE2: ED 41            OUT (C), B
+1EE4: ED 41            OUT (C), B
+1EE6: 00               NOP
+1EE7: 00               NOP
+1EE8: 00               NOP
+1EE9: ED 71            OUT (C), 0
+1EEB: ED 41            OUT (C), B
+1EED: 00               NOP
+1EEE: ED 71            OUT (C), 0
+1EF0: ED 71            OUT (C), 0
+1EF2: ED 71            OUT (C), 0
+1EF4: ED 71            OUT (C), 0
+1EF6: ED 71            OUT (C), 0
+1EF8: ED 71            OUT (C), 0
+1EFA: ED 71            OUT (C), 0
+1EFC: ED 41            OUT (C), B
+1EFE: 00               NOP
+1EFF: ED 71            OUT (C), 0
+1F01: 00               NOP
+1F02: ED 41            OUT (C), B
+1F04: ED 41            OUT (C), B
+1F06: ED 41            OUT (C), B
+1F08: ED 41            OUT (C), B
+1F0A: ED 41            OUT (C), B
+1F0C: ED 41            OUT (C), B
+1F0E: 00               NOP
+1F0F: 00               NOP
+1F10: 00               NOP
+1F11: ED 71            OUT (C), 0
+1F13: ED 41            OUT (C), B
+1F15: 00               NOP
+1F16: ED 71            OUT (C), 0
+1F18: ED 71            OUT (C), 0
+1F1A: ED 71            OUT (C), 0
+1F1C: ED 71            OUT (C), 0
+1F1E: ED 71            OUT (C), 0
+1F20: ED 71            OUT (C), 0
+1F22: ED 71            OUT (C), 0
+1F24: ED 41            OUT (C), B
+1F26: 00               NOP
+1F27: ED 71            OUT (C), 0
+1F29: 00               NOP
+1F2A: ED 41            OUT (C), B
+1F2C: ED 41            OUT (C), B
+1F2E: ED 41            OUT (C), B
+1F30: ED 41            OUT (C), B
+1F32: ED 41            OUT (C), B
+1F34: ED 41            OUT (C), B
+1F36: 00               NOP
+1F37: 00               NOP
+1F38: 00               NOP
+1F39: ED 71            OUT (C), 0
+1F3B: ED 41            OUT (C), B
+1F3D: 00               NOP
+1F3E: ED 71            OUT (C), 0
+1F40: ED 71            OUT (C), 0
+1F42: ED 71            OUT (C), 0
+1F44: ED 71            OUT (C), 0
+1F46: ED 71            OUT (C), 0
+1F48: ED 71            OUT (C), 0
+1F4A: ED 71            OUT (C), 0
+1F4C: ED 41            OUT (C), B
+1F4E: 00               NOP
+1F4F: ED 71            OUT (C), 0
+1F51: 00               NOP
+1F52: ED 41            OUT (C), B
+1F54: ED 41            OUT (C), B
+1F56: ED 41            OUT (C), B
+1F58: ED 41            OUT (C), B
+1F5A: ED 41            OUT (C), B
+1F5C: ED 41            OUT (C), B
+1F5E: 00               NOP
+1F5F: 00               NOP
+1F60: 00               NOP
+1F61: ED 71            OUT (C), 0
+1F63: ED 41            OUT (C), B
+1F65: 00               NOP
+1F66: ED 71            OUT (C), 0
+1F68: ED 71            OUT (C), 0
+1F6A: ED 71            OUT (C), 0
+1F6C: ED 71            OUT (C), 0
+1F6E: ED 71            OUT (C), 0
+1F70: ED 71            OUT (C), 0
+1F72: ED 71            OUT (C), 0
+1F74: ED 41            OUT (C), B
+1F76: 00               NOP
+1F77: ED 71            OUT (C), 0
+1F79: 00               NOP
+1F7A: ED 41            OUT (C), B
+1F7C: ED 41            OUT (C), B
+1F7E: ED 41            OUT (C), B
+1F80: ED 41            OUT (C), B
+1F82: ED 41            OUT (C), B
+1F84: ED 41            OUT (C), B
+1F86: 00               NOP
+1F87: 00               NOP
+1F88: 00               NOP
+1F89: ED 71            OUT (C), 0
+1F8B: ED 41            OUT (C), B
+1F8D: 00               NOP
+1F8E: ED 71            OUT (C), 0
+1F90: ED 71            OUT (C), 0
+1F92: ED 71            OUT (C), 0
+1F94: ED 71            OUT (C), 0
+1F96: ED 71            OUT (C), 0
+1F98: ED 71            OUT (C), 0
+1F9A: ED 71            OUT (C), 0
+1F9C: ED 41            OUT (C), B
+1F9E: 00               NOP
+1F9F: ED 71            OUT (C), 0
+1FA1: 00               NOP
+1FA2: ED 41            OUT (C), B
+1FA4: ED 41            OUT (C), B
+1FA6: ED 41            OUT (C), B
+1FA8: ED 41            OUT (C), B
+1FAA: ED 41            OUT (C), B
+1FAC: ED 41            OUT (C), B
+1FAE: 00               NOP
+1FAF: 00               NOP
+1FB0: 00               NOP
+1FB1: ED 71            OUT (C), 0
+1FB3: ED 41            OUT (C), B
+1FB5: 00               NOP
+1FB6: ED 71            OUT (C), 0
+1FB8: ED 71            OUT (C), 0
+1FBA: ED 71            OUT (C), 0
+1FBC: ED 71            OUT (C), 0
+1FBE: ED 71            OUT (C), 0
+1FC0: ED 71            OUT (C), 0
+1FC2: ED 71            OUT (C), 0
+1FC4: ED 41            OUT (C), B
+1FC6: 00               NOP
+1FC7: ED 71            OUT (C), 0
+1FC9: 00               NOP
+1FCA: ED 41            OUT (C), B
+1FCC: ED 41            OUT (C), B
+1FCE: ED 41            OUT (C), B
+1FD0: ED 41            OUT (C), B
+1FD2: ED 41            OUT (C), B
+1FD4: ED 41            OUT (C), B
+1FD6: 00               NOP
+1FD7: 00               NOP
+1FD8: 00               NOP
+1FD9: ED 71            OUT (C), 0
+1FDB: ED 41            OUT (C), B
+1FDD: 00               NOP
+1FDE: ED 71            OUT (C), 0
+1FE0: ED 71            OUT (C), 0
+1FE2: ED 71            OUT (C), 0
+1FE4: ED 71            OUT (C), 0
+1FE6: ED 71            OUT (C), 0
+1FE8: ED 71            OUT (C), 0
+1FEA: ED 71            OUT (C), 0
+1FEC: ED 41            OUT (C), B
+1FEE: 00               NOP
+1FEF: ED 71            OUT (C), 0
+1FF1: 00               NOP
+1FF2: ED 41            OUT (C), B
+1FF4: ED 41            OUT (C), B
+1FF6: ED 41            OUT (C), B
+1FF8: ED 41            OUT (C), B
+1FFA: ED 41            OUT (C), B
+1FFC: ED 41            OUT (C), B
+1FFE: 00               NOP
+1FFF: 00               NOP
+2000: ED 71            OUT (C), 0
+2002: 00               NOP
+2003: ED 41            OUT (C), B
+2005: 00               NOP
+2006: ED 71            OUT (C), 0
+2008: ED 71            OUT (C), 0
+200A: ED 71            OUT (C), 0
+200C: ED 71            OUT (C), 0
+200E: ED 71            OUT (C), 0
+2010: ED 71            OUT (C), 0
+2012: ED 71            OUT (C), 0
+2014: ED 41            OUT (C), B
+2016: 00               NOP
+2017: ED 71            OUT (C), 0
+2019: 00               NOP
+201A: ED 41            OUT (C), B
+201C: ED 41            OUT (C), B
+201E: ED 41            OUT (C), B
+2020: ED 41            OUT (C), B
+2022: ED 41            OUT (C), B
+2024: ED 41            OUT (C), B
+2026: 00               NOP
+2027: 00               NOP
+2028: ED 71            OUT (C), 0
+202A: 00               NOP
+202B: ED 41            OUT (C), B
+202D: 00               NOP
+202E: ED 71            OUT (C), 0
+2030: ED 71            OUT (C), 0
+2032: ED 71            OUT (C), 0
+2034: ED 71            OUT (C), 0
+2036: ED 71            OUT (C), 0
+2038: ED 71            OUT (C), 0
+203A: ED 71            OUT (C), 0
+203C: ED 41            OUT (C), B
+203E: 00               NOP
+203F: ED 71            OUT (C), 0
+2041: 00               NOP
+2042: ED 41            OUT (C), B
+2044: ED 41            OUT (C), B
+2046: ED 41            OUT (C), B
+2048: ED 41            OUT (C), B
+204A: ED 41            OUT (C), B
+204C: ED 41            OUT (C), B
+204E: 00               NOP
+204F: 00               NOP
+2050: ED 71            OUT (C), 0
+2052: 00               NOP
+2053: ED 41            OUT (C), B
+2055: 00               NOP
+2056: ED 71            OUT (C), 0
+2058: ED 71            OUT (C), 0
+205A: ED 71            OUT (C), 0
+205C: ED 71            OUT (C), 0
+205E: ED 71            OUT (C), 0
+2060: ED 71            OUT (C), 0
+2062: ED 71            OUT (C), 0
+2064: ED 41            OUT (C), B
+2066: 00               NOP
+2067: ED 71            OUT (C), 0
+2069: 00               NOP
+206A: ED 41            OUT (C), B
+206C: ED 41            OUT (C), B
+206E: ED 41            OUT (C), B
+2070: ED 41            OUT (C), B
+2072: ED 41            OUT (C), B
+2074: ED 41            OUT (C), B
+2076: 00               NOP
+2077: 00               NOP
+2078: ED 71            OUT (C), 0
+207A: 00               NOP
+207B: ED 41            OUT (C), B
+207D: 00               NOP
+207E: ED 71            OUT (C), 0
+2080: ED 71            OUT (C), 0
+2082: ED 71            OUT (C), 0
+2084: ED 71            OUT (C), 0
+2086: ED 71            OUT (C), 0
+2088: ED 71            OUT (C), 0
+208A: ED 71            OUT (C), 0
+208C: ED 41            OUT (C), B
+208E: 00               NOP
+208F: ED 71            OUT (C), 0
+2091: 00               NOP
+2092: ED 41            OUT (C), B
+2094: ED 41            OUT (C), B
+2096: ED 41            OUT (C), B
+2098: ED 41            OUT (C), B
+209A: ED 41            OUT (C), B
+209C: ED 41            OUT (C), B
+209E: 00               NOP
+209F: 00               NOP
+20A0: ED 71            OUT (C), 0
+20A2: 00               NOP
+20A3: ED 41            OUT (C), B
+20A5: 00               NOP
+20A6: ED 71            OUT (C), 0
+20A8: ED 71            OUT (C), 0
+20AA: ED 71            OUT (C), 0
+20AC: ED 71            OUT (C), 0
+20AE: ED 71            OUT (C), 0
+20B0: ED 71            OUT (C), 0
+20B2: ED 71            OUT (C), 0
+20B4: ED 41            OUT (C), B
+20B6: 00               NOP
+20B7: ED 71            OUT (C), 0
+20B9: 00               NOP
+20BA: ED 41            OUT (C), B
+20BC: ED 41            OUT (C), B
+20BE: ED 41            OUT (C), B
+20C0: ED 41            OUT (C), B
+20C2: ED 41            OUT (C), B
+20C4: ED 41            OUT (C), B
+20C6: 00               NOP
+20C7: 00               NOP
+20C8: ED 71            OUT (C), 0
+20CA: 00               NOP
+20CB: ED 41            OUT (C), B
+20CD: 00               NOP
+20CE: ED 71            OUT (C), 0
+20D0: ED 71            OUT (C), 0
+20D2: ED 71            OUT (C), 0
+20D4: ED 71            OUT (C), 0
+20D6: ED 71            OUT (C), 0
+20D8: ED 71            OUT (C), 0
+20DA: ED 71            OUT (C), 0
+20DC: ED 41            OUT (C), B
+20DE: 00               NOP
+20DF: ED 71            OUT (C), 0
+20E1: 00               NOP
+20E2: ED 41            OUT (C), B
+20E4: ED 41            OUT (C), B
+20E6: ED 41            OUT (C), B
+20E8: ED 41            OUT (C), B
+20EA: ED 41            OUT (C), B
+20EC: ED 41            OUT (C), B
+20EE: 00               NOP
+20EF: 00               NOP
+20F0: ED 71            OUT (C), 0
+20F2: 00               NOP
+20F3: ED 41            OUT (C), B
+20F5: 00               NOP
+20F6: ED 71            OUT (C), 0
+20F8: ED 71            OUT (C), 0
+20FA: ED 71            OUT (C), 0
+20FC: ED 71            OUT (C), 0
+20FE: ED 71            OUT (C), 0
+2100: ED 71            OUT (C), 0
+2102: ED 71            OUT (C), 0
+2104: ED 41            OUT (C), B
+2106: 00               NOP
+2107: ED 71            OUT (C), 0
+2109: 00               NOP
+210A: ED 41            OUT (C), B
+210C: ED 41            OUT (C), B
+210E: ED 41            OUT (C), B
+2110: ED 41            OUT (C), B
+2112: ED 41            OUT (C), B
+2114: ED 41            OUT (C), B
+2116: 00               NOP
+2117: 00               NOP
+2118: ED 71            OUT (C), 0
+211A: 00               NOP
+211B: ED 41            OUT (C), B
+211D: 00               NOP
+211E: ED 71            OUT (C), 0
+2120: ED 71            OUT (C), 0
+2122: ED 71            OUT (C), 0
+2124: ED 71            OUT (C), 0
+2126: ED 71            OUT (C), 0
+2128: ED 71            OUT (C), 0
+212A: ED 71            OUT (C), 0
+212C: ED 41            OUT (C), B
+212E: 00               NOP
+212F: ED 71            OUT (C), 0
+2131: 00               NOP
+2132: ED 41            OUT (C), B
+2134: ED 41            OUT (C), B
+2136: ED 41            OUT (C), B
+2138: ED 41            OUT (C), B
+213A: ED 41            OUT (C), B
+213C: ED 41            OUT (C), B
+213E: 00               NOP
+213F: ED 71            OUT (C), 0
+2141: 00               NOP
+2142: 00               NOP
+2143: ED 41            OUT (C), B
+2145: 00               NOP
+2146: ED 71            OUT (C), 0
+2148: ED 71            OUT (C), 0
+214A: ED 71            OUT (C), 0
+214C: ED 71            OUT (C), 0
+214E: ED 71            OUT (C), 0
+2150: ED 71            OUT (C), 0
+2152: ED 71            OUT (C), 0
+2154: ED 41            OUT (C), B
+2156: 00               NOP
+2157: ED 71            OUT (C), 0
+2159: 00               NOP
+215A: ED 41            OUT (C), B
+215C: ED 41            OUT (C), B
+215E: ED 41            OUT (C), B
+2160: ED 41            OUT (C), B
+2162: ED 41            OUT (C), B
+2164: ED 41            OUT (C), B
+2166: 00               NOP
+2167: ED 71            OUT (C), 0
+2169: 00               NOP
+216A: 00               NOP
+216B: ED 41            OUT (C), B
+216D: 00               NOP
+216E: ED 71            OUT (C), 0
+2170: ED 71            OUT (C), 0
+2172: ED 71            OUT (C), 0
+2174: ED 71            OUT (C), 0
+2176: ED 71            OUT (C), 0
+2178: ED 71            OUT (C), 0
+217A: ED 71            OUT (C), 0
+217C: ED 41            OUT (C), B
+217E: 00               NOP
+217F: ED 71            OUT (C), 0
+2181: 00               NOP
+2182: ED 41            OUT (C), B
+2184: ED 41            OUT (C), B
+2186: ED 41            OUT (C), B
+2188: ED 41            OUT (C), B
+218A: ED 41            OUT (C), B
+218C: ED 41            OUT (C), B
+218E: 00               NOP
+218F: ED 71            OUT (C), 0
+2191: 00               NOP
+2192: 00               NOP
+2193: ED 41            OUT (C), B
+2195: 00               NOP
+2196: ED 71            OUT (C), 0
+2198: ED 71            OUT (C), 0
+219A: ED 71            OUT (C), 0
+219C: ED 71            OUT (C), 0
+219E: ED 71            OUT (C), 0
+21A0: ED 71            OUT (C), 0
+21A2: ED 71            OUT (C), 0
+21A4: ED 41            OUT (C), B
+21A6: 00               NOP
+21A7: ED 71            OUT (C), 0
+21A9: 00               NOP
+21AA: ED 41            OUT (C), B
+21AC: ED 41            OUT (C), B
+21AE: ED 41            OUT (C), B
+21B0: ED 41            OUT (C), B
+21B2: ED 41            OUT (C), B
+21B4: ED 41            OUT (C), B
+21B6: 00               NOP
+21B7: ED 71            OUT (C), 0
+21B9: 00               NOP
+21BA: 00               NOP
+21BB: ED 41            OUT (C), B
+21BD: 00               NOP
+21BE: ED 71            OUT (C), 0
+21C0: ED 71            OUT (C), 0
+21C2: ED 71            OUT (C), 0
+21C4: ED 71            OUT (C), 0
+21C6: ED 71            OUT (C), 0
+21C8: ED 71            OUT (C), 0
+21CA: ED 71            OUT (C), 0
+21CC: ED 41            OUT (C), B
+21CE: 00               NOP
+21CF: ED 71            OUT (C), 0
+21D1: 00               NOP
+21D2: ED 41            OUT (C), B
+21D4: ED 41            OUT (C), B
+21D6: ED 41            OUT (C), B
+21D8: ED 41            OUT (C), B
+21DA: ED 41            OUT (C), B
+21DC: ED 41            OUT (C), B
+21DE: 00               NOP
+21DF: ED 71            OUT (C), 0
+21E1: 00               NOP
+21E2: 00               NOP
+21E3: ED 41            OUT (C), B
+21E5: 00               NOP
+21E6: ED 71            OUT (C), 0
+21E8: ED 71            OUT (C), 0
+21EA: ED 71            OUT (C), 0
+21EC: ED 71            OUT (C), 0
+21EE: ED 71            OUT (C), 0
+21F0: ED 71            OUT (C), 0
+21F2: ED 71            OUT (C), 0
+21F4: ED 41            OUT (C), B
+21F6: 00               NOP
+21F7: ED 71            OUT (C), 0
+21F9: 00               NOP
+21FA: ED 41            OUT (C), B
+21FC: ED 41            OUT (C), B
+21FE: ED 41            OUT (C), B
+2200: ED 41            OUT (C), B
+2202: ED 41            OUT (C), B
+2204: ED 41            OUT (C), B
+2206: 00               NOP
+2207: ED 71            OUT (C), 0
+2209: 00               NOP
+220A: 00               NOP
+220B: ED 41            OUT (C), B
+220D: 00               NOP
+220E: ED 71            OUT (C), 0
+2210: ED 71            OUT (C), 0
+2212: ED 71            OUT (C), 0
+2214: ED 71            OUT (C), 0
+2216: ED 71            OUT (C), 0
+2218: ED 71            OUT (C), 0
+221A: ED 71            OUT (C), 0
+221C: ED 41            OUT (C), B
+221E: 00               NOP
+221F: ED 71            OUT (C), 0
+2221: 00               NOP
+2222: ED 41            OUT (C), B
+2224: ED 41            OUT (C), B
+2226: ED 41            OUT (C), B
+2228: ED 41            OUT (C), B
+222A: ED 41            OUT (C), B
+222C: ED 41            OUT (C), B
+222E: 00               NOP
+222F: ED 71            OUT (C), 0
+2231: 00               NOP
+2232: 00               NOP
+2233: ED 41            OUT (C), B
+2235: 00               NOP
+2236: ED 71            OUT (C), 0
+2238: ED 71            OUT (C), 0
+223A: ED 71            OUT (C), 0
+223C: ED 71            OUT (C), 0
+223E: ED 71            OUT (C), 0
+2240: ED 71            OUT (C), 0
+2242: ED 71            OUT (C), 0
+2244: ED 41            OUT (C), B
+2246: 00               NOP
+2247: ED 71            OUT (C), 0
+2249: 00               NOP
+224A: ED 41            OUT (C), B
+224C: ED 41            OUT (C), B
+224E: ED 41            OUT (C), B
+2250: ED 41            OUT (C), B
+2252: ED 41            OUT (C), B
+2254: ED 41            OUT (C), B
+2256: 00               NOP
+2257: ED 71            OUT (C), 0
+2259: 00               NOP
+225A: 00               NOP
+225B: ED 41            OUT (C), B
+225D: 00               NOP
+225E: ED 71            OUT (C), 0
+2260: ED 71            OUT (C), 0
+2262: ED 71            OUT (C), 0
+2264: ED 71            OUT (C), 0
+2266: ED 71            OUT (C), 0
+2268: ED 71            OUT (C), 0
+226A: ED 71            OUT (C), 0
+226C: ED 41            OUT (C), B
+226E: 00               NOP
+226F: ED 71            OUT (C), 0
+2271: 00               NOP
+2272: ED 41            OUT (C), B
+2274: ED 41            OUT (C), B
+2276: ED 41            OUT (C), B
+2278: ED 41            OUT (C), B
+227A: ED 41            OUT (C), B
+227C: ED 41            OUT (C), B
+227E: ED 71            OUT (C), 0
+2280: 00               NOP
+2281: 00               NOP
+2282: 00               NOP
+2283: ED 41            OUT (C), B
+2285: 00               NOP
+2286: ED 71            OUT (C), 0
+2288: ED 71            OUT (C), 0
+228A: ED 71            OUT (C), 0
+228C: ED 71            OUT (C), 0
+228E: ED 71            OUT (C), 0
+2290: ED 71            OUT (C), 0
+2292: ED 71            OUT (C), 0
+2294: ED 41            OUT (C), B
+2296: 00               NOP
+2297: ED 71            OUT (C), 0
+2299: 00               NOP
+229A: ED 41            OUT (C), B
+229C: ED 41            OUT (C), B
+229E: ED 41            OUT (C), B
+22A0: ED 41            OUT (C), B
+22A2: ED 41            OUT (C), B
+22A4: ED 41            OUT (C), B
+22A6: ED 71            OUT (C), 0
+22A8: 00               NOP
+22A9: 00               NOP
+22AA: 00               NOP
+22AB: ED 41            OUT (C), B
+22AD: 00               NOP
+22AE: ED 71            OUT (C), 0
+22B0: ED 71            OUT (C), 0
+22B2: ED 71            OUT (C), 0
+22B4: ED 71            OUT (C), 0
+22B6: ED 71            OUT (C), 0
+22B8: ED 71            OUT (C), 0
+22BA: ED 71            OUT (C), 0
+22BC: ED 41            OUT (C), B
+22BE: 00               NOP
+22BF: ED 71            OUT (C), 0
+22C1: 00               NOP
+22C2: ED 41            OUT (C), B
+22C4: ED 41            OUT (C), B
+22C6: ED 41            OUT (C), B
+22C8: ED 41            OUT (C), B
+22CA: ED 41            OUT (C), B
+22CC: ED 41            OUT (C), B
+22CE: ED 71            OUT (C), 0
+22D0: 00               NOP
+22D1: 00               NOP
+22D2: 00               NOP
+22D3: ED 41            OUT (C), B
+22D5: 00               NOP
+22D6: ED 71            OUT (C), 0
+22D8: ED 71            OUT (C), 0
+22DA: ED 71            OUT (C), 0
+22DC: ED 71            OUT (C), 0
+22DE: ED 71            OUT (C), 0
+22E0: ED 71            OUT (C), 0
+22E2: ED 71            OUT (C), 0
+22E4: ED 41            OUT (C), B
+22E6: 00               NOP
+22E7: ED 71            OUT (C), 0
+22E9: 00               NOP
+22EA: ED 41            OUT (C), B
+22EC: ED 41            OUT (C), B
+22EE: ED 41            OUT (C), B
+22F0: ED 41            OUT (C), B
+22F2: ED 41            OUT (C), B
+22F4: ED 41            OUT (C), B
+22F6: ED 71            OUT (C), 0
+22F8: 00               NOP
+22F9: 00               NOP
+22FA: 00               NOP
+22FB: ED 41            OUT (C), B
+22FD: 00               NOP
+22FE: ED 71            OUT (C), 0
+2300: ED 71            OUT (C), 0
+2302: ED 71            OUT (C), 0
+2304: ED 71            OUT (C), 0
+2306: ED 71            OUT (C), 0
+2308: ED 71            OUT (C), 0
+230A: ED 71            OUT (C), 0
+230C: ED 41            OUT (C), B
+230E: 00               NOP
+230F: ED 71            OUT (C), 0
+2311: 00               NOP
+2312: ED 41            OUT (C), B
+2314: ED 41            OUT (C), B
+2316: ED 41            OUT (C), B
+2318: ED 41            OUT (C), B
+231A: ED 41            OUT (C), B
+231C: ED 41            OUT (C), B
+231E: ED 71            OUT (C), 0
+2320: 00               NOP
+2321: 00               NOP
+2322: 00               NOP
+2323: ED 41            OUT (C), B
+2325: 00               NOP
+2326: ED 71            OUT (C), 0
+2328: ED 71            OUT (C), 0
+232A: ED 71            OUT (C), 0
+232C: ED 71            OUT (C), 0
+232E: ED 71            OUT (C), 0
+2330: ED 71            OUT (C), 0
+2332: ED 71            OUT (C), 0
+2334: ED 41            OUT (C), B
+2336: 00               NOP
+2337: ED 71            OUT (C), 0
+2339: 00               NOP
+233A: ED 41            OUT (C), B
+233C: ED 41            OUT (C), B
+233E: ED 41            OUT (C), B
+2340: ED 41            OUT (C), B
+2342: ED 41            OUT (C), B
+2344: ED 41            OUT (C), B
+2346: ED 71            OUT (C), 0
+2348: 00               NOP
+2349: 00               NOP
+234A: 00               NOP
+234B: ED 41            OUT (C), B
+234D: 00               NOP
+234E: ED 71            OUT (C), 0
+2350: ED 71            OUT (C), 0
+2352: ED 71            OUT (C), 0
+2354: ED 71            OUT (C), 0
+2356: ED 71            OUT (C), 0
+2358: ED 71            OUT (C), 0
+235A: ED 71            OUT (C), 0
+235C: ED 41            OUT (C), B
+235E: 00               NOP
+235F: ED 71            OUT (C), 0
+2361: 00               NOP
+2362: ED 41            OUT (C), B
+2364: ED 41            OUT (C), B
+2366: ED 41            OUT (C), B
+2368: ED 41            OUT (C), B
+236A: ED 41            OUT (C), B
+236C: ED 41            OUT (C), B
+236E: ED 71            OUT (C), 0
+2370: 00               NOP
+2371: 00               NOP
+2372: 00               NOP
+2373: ED 41            OUT (C), B
+2375: 00               NOP
+2376: ED 71            OUT (C), 0
+2378: ED 71            OUT (C), 0
+237A: ED 71            OUT (C), 0
+237C: ED 71            OUT (C), 0
+237E: ED 71            OUT (C), 0
+2380: ED 71            OUT (C), 0
+2382: ED 71            OUT (C), 0
+2384: ED 41            OUT (C), B
+2386: 00               NOP
+2387: ED 71            OUT (C), 0
+2389: 00               NOP
+238A: ED 41            OUT (C), B
+238C: ED 41            OUT (C), B
+238E: ED 41            OUT (C), B
+2390: ED 41            OUT (C), B
+2392: ED 41            OUT (C), B
+2394: ED 41            OUT (C), B
+2396: ED 71            OUT (C), 0
+2398: 00               NOP
+2399: 00               NOP
+239A: 00               NOP
+239B: ED 41            OUT (C), B
+239D: 00               NOP
+239E: ED 71            OUT (C), 0
+23A0: ED 71            OUT (C), 0
+23A2: ED 71            OUT (C), 0
+23A4: ED 71            OUT (C), 0
+23A6: ED 71            OUT (C), 0
+23A8: ED 71            OUT (C), 0
+23AA: AF               XOR A
+23AB: DB FE            IN A, (0xFE)
+23AD: E6 1F            AND 0x1F
+23AF: FE 1F            CP 0x1F
+23B1: 3E 00            LD A, 0x00
+23B3: CA 49 9C         JP Z, 0x9C49
+23B6: F3               DI
+23B7: 3E 3F            LD A, 0x3F
+23B9: ED 57            LD A, I
+23BB: ED 56            IM 1
+23BD: FB               EI
+23BE: C9               RET
+23BF: F3               DI
+
+; === End of Disassembly ===

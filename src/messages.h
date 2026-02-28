@@ -155,6 +155,22 @@ static const char *OSD_FIRMW_UPDATE[2] = { OSD_FIRMW_UPDATE_EN,OSD_FIRMW_UPDATE_
 #define OSD_DLG_SURE_ES "\xA8" "Desea continuar?"
 static const char *OSD_DLG_SURE[2] = { OSD_DLG_SURE_EN, OSD_DLG_SURE_ES};
 
+#define OSD_DLG_REBOOT_EN "Reboot the board?"
+#define OSD_DLG_REBOOT_ES "\xA8" "Reiniciar la placa?"
+static const char *OSD_DLG_REBOOT[2] = { OSD_DLG_REBOOT_EN, OSD_DLG_REBOOT_ES};
+
+#define OSD_DLG_LOADDEFAULTS_EN "Load defaults and reboot?"
+#define OSD_DLG_LOADDEFAULTS_ES "\xA8" "Cargar defaults y reiniciar?"
+static const char *OSD_DLG_LOADDEFAULTS[2] = { OSD_DLG_LOADDEFAULTS_EN, OSD_DLG_LOADDEFAULTS_ES};
+
+#define OSD_DLG_USBBOOT_EN "Reboot to USB mode?"
+#define OSD_DLG_USBBOOT_ES "\xA8" "Reiniciar en modo USB?"
+static const char *OSD_DLG_USBBOOT[2] = { OSD_DLG_USBBOOT_EN, OSD_DLG_USBBOOT_ES};
+
+#define OSD_DLG_APPLYREBOOT_EN "Apply and reboot?"
+#define OSD_DLG_APPLYREBOOT_ES "\xA8" "Aplicar y reiniciar?"
+static const char *OSD_DLG_APPLYREBOOT[2] = { OSD_DLG_APPLYREBOOT_EN, OSD_DLG_APPLYREBOOT_ES};
+
 #define OSD_DLG_JOYSAVE_EN "Save changes?"
 #define OSD_DLG_JOYSAVE_ES "\xA8" "Guardar cambios?"
 static const char *OSD_DLG_JOYSAVE[2] = { OSD_DLG_JOYSAVE_EN, OSD_DLG_JOYSAVE_ES};

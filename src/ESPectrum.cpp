@@ -912,8 +912,6 @@ void ESPectrum::reset(uint8_t romInUse) {
 
   MemESP::pagingLock = Config::arch == "48K" ? 1 : 0;
 
-  VIDEO::Reset();
-
   // Init disk controller
   rvmWD1793Reset(&fdd);
 
@@ -998,6 +996,8 @@ void ESPectrum::reset(uint8_t romInUse) {
 #endif
 
   CPU::reset();
+
+  VIDEO::Reset();
 
 #if !PICO_RP2040
   // KR580VI53 (8253 PIT) — reset to silent state
@@ -1635,8 +1635,7 @@ void ESPectrum::loop() {
             if (Config::aspect_16_9)
               VIDEO::Draw_OSD169 = VIDEO::MainScreen;
             else
-                        VIDEO::Draw_OSD43 = VIDEO::isFullBorderMode() ? VIDEO::BottomBorder_FullBorder
-                                            : Z80Ops::isPentagon ? VIDEO::BottomBorder_Pentagon : VIDEO::BottomBorder;
+                        VIDEO::Draw_OSD43 = VIDEO::BottomBorder;
             VIDEO::brdnextframe = true;
           }
         }

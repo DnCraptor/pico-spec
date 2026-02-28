@@ -151,6 +151,10 @@ void OSD::esp_hard_reset() {
     while (true);
 }
 
+static bool confirmReboot(const char* const dlg[2]) {
+    return OSD::msgDialog("", dlg[Config::lang]) == DLG_YES;
+}
+
 // // Cursor to OSD first row,col
 void OSD::osdHome() { VIDEO::vga.setCursor(osdInsideX(), osdInsideY()); }
 
@@ -179,9 +183,22 @@ void OSD::drawOSD(bool bottom_info) {
     if (bottom_info) {
         string bottom_line;
 #ifdef VGA_HDMI
-    string hz = VIDEO::video_mode == 0 ? "60" : "50";
-    string videoDrv = SELECT_VGA ? "VGA " : "HDMI";
-    bottom_line = " Video mode: " + videoDrv + " " + hz + " Hz     ";
+    {
+        uint8_t vm = SELECT_VGA ? Config::vga_video_mode : Config::hdmi_video_mode;
+        const char* vmname;
+        switch (vm) {
+            case Config::VM_640x480_60: vmname = "640x480@60Hz"; break;
+            case Config::VM_640x480_50: vmname = "640x480@50Hz"; break;
+            case Config::VM_720x480_60: vmname = "720x480@60Hz"; break;
+            case Config::VM_720x576_60: vmname = "720x576@60Hz"; break;
+            case Config::VM_720x576_50: vmname = "720x576@50Hz"; break;
+            default:                    vmname = "unknown";      break;
+        }
+        char buf2[41];
+        snprintf(buf2, sizeof(buf2), " Video: %s %s   ",
+                 (SELECT_VGA ? "VGA" : "HDMI"), vmname);
+        bottom_line = buf2;
+    }
 #else
 #ifdef TV
         bottom_line = " Video mode: TV RGBI PAL    ";
@@ -220,7 +237,7 @@ void OSD::drawStats() {
     } else if (VIDEO::isFullBorder288()) {
         x = 188;
         y = 268;
-    } else if (VIDEO::isHalfBorder()) {
+    } else if (VIDEO::isFullBorder240()) {
         x = 188;
         y = 220;
     } else {
@@ -247,7 +264,7 @@ void OSD::clearStats() {
             for (int col = 188; col < 332; col++)
                 ptr[col ^ 1] = brd16;
         }
-    } else if (VIDEO::isHalfBorder()) {
+    } else if (VIDEO::isFullBorder240()) {
         // half border 360x240: stats at x=188, y=220, 144x16px, uint16_t framebuffer
         for (int line = 220; line < 236; line++) {
             uint16_t *ptr = (uint16_t *)(VIDEO::vga.frameBuffer[line]);
@@ -408,18 +425,22 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             if (KeytoESP == fabgl::VK_HOME) { // HDMI 60Hz
                 uint8_t &vm = SELECT_VGA ? Config::vga_video_mode : Config::hdmi_video_mode;
                 if (vm == Config::VM_640x480_60) return;
-                Config::savePendingVideoMode();
-                vm = Config::VM_640x480_60;
-                Config::save();
-                esp_hard_reset();
+                if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
+                    Config::savePendingVideoMode();
+                    vm = Config::VM_640x480_60;
+                    Config::save();
+                    esp_hard_reset();
+                }
             } else
             if (KeytoESP == fabgl::VK_END) { // HDMI 50Hz
                 uint8_t &vm = SELECT_VGA ? Config::vga_video_mode : Config::hdmi_video_mode;
                 if (vm == Config::VM_640x480_50) return;
-                Config::savePendingVideoMode();
-                vm = Config::VM_640x480_50;
-                Config::save();
-                esp_hard_reset();
+                if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
+                    Config::savePendingVideoMode();
+                    vm = Config::VM_640x480_50;
+                    Config::save();
+                    esp_hard_reset();
+                }
             }
             // if (KeytoESP == fabgl::VK_PAGEDOWN) {
             //     VIDEO::tStatesScreen--;
@@ -479,7 +500,29 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         } else
         if (KeytoESP == fabgl::VK_F10) { // NMI
-            if (Z80Ops::isPentagon) {
+            if (Z80Ops::isByte) {
+                // ZX Byte: NMI menu with COBMECT mode toggle
+                menu_level = 0;
+                menu_curopt = 1;
+                menu_saverect = true;
+                string nmi_menu = MENU_NMI_TITLE[Config::lang];
+                nmi_menu += "NMI\n";
+                nmi_menu += MENU_BYTE_COBMECT_MODE[Config::lang];
+                uint8_t nmi_cols = 20;
+                uint16_t nmi_w = (nmi_cols * OSD_FONT_W) + 2;
+                uint16_t nmi_h = (rowCount(nmi_menu) * OSD_FONT_H) + 2;
+                uint8_t opt = simpleMenuRun(nmi_menu,
+                    scrAlignCenterX(nmi_w), scrAlignCenterY(nmi_h),
+                    rowCount(nmi_menu), nmi_cols);
+                if (opt == 1) {
+                    Z80::triggerNMI();
+                } else if (opt == 2) {
+                    Config::byte_cobmect_mode = !Config::byte_cobmect_mode;
+                    Config::save();
+                    MemESP::rom[0].assign_rom(Config::byte_cobmect_mode ? gb_rom_0_byte_sovmest_48k : gb_rom_0_byte_48k);
+                    MemESP::recoverPage0();
+                }
+            } else if (Z80Ops::isPentagon) {
                 menu_level = 0;
                 menu_curopt = 1;
                 menu_saverect = true;
@@ -651,11 +694,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
         }
         else if (KeytoESP == fabgl::VK_F12) {
-            /// TODO: close all files
-            //close_all()
-            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
-            reset_usb_boot(0, 0);
-            while(1);
+            if (confirmReboot(OSD_DLG_USBBOOT)) {
+                if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
+                reset_usb_boot(0, 0);
+                while(1);
+            }
         }
         else if (KeytoESP == fabgl::VK_PAGEUP) {
             if (Config::gigascreen_enabled)
@@ -796,8 +839,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         if (Config::aspect_16_9)
                             VIDEO::Draw_OSD169 = VIDEO::MainScreen;
                         else
-                            VIDEO::Draw_OSD43 = VIDEO::isFullBorderMode() ? VIDEO::BottomBorder_FullBorder
-                                            : Z80Ops::isPentagon ? VIDEO::BottomBorder_Pentagon : VIDEO::BottomBorder;
+                            VIDEO::Draw_OSD43 = VIDEO::BottomBorder;
                         VIDEO::brdnextframe = true;
                     }
                     VIDEO::OSD &= 0xfc;
@@ -807,8 +849,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         if (Config::aspect_16_9)
                             VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                         else
-                            VIDEO::Draw_OSD43  = VIDEO::isFullBorderMode() ? VIDEO::BottomBorder_OSD_FullBorder
-                                             : Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
+                            VIDEO::Draw_OSD43  = VIDEO::BottomBorder_OSD;
 
                         OSD::drawStats();
                     }
@@ -822,8 +863,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 if (Config::aspect_16_9)
                     VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                 else
-                    VIDEO::Draw_OSD43  = VIDEO::isFullBorderMode() ? VIDEO::BottomBorder_OSD_FullBorder
-                                         : Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
+                    VIDEO::Draw_OSD43  = VIDEO::BottomBorder_OSD;
                 VIDEO::OSD = 0x04;
             } else
                 VIDEO::OSD |= 0x04;
@@ -843,7 +883,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             } else if (VIDEO::isFullBorder288()) {
                 x = 188;
                 y = 272;
-            } else if (VIDEO::isHalfBorder()) {
+            } else if (VIDEO::isFullBorder240()) {
                 x = 188;
                 y = 224;
             } else {
@@ -864,8 +904,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 if (Config::aspect_16_9)
                     VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                 else
-                    VIDEO::Draw_OSD43  = VIDEO::isFullBorderMode() ? VIDEO::BottomBorder_OSD_FullBorder
-                                         : Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
+                    VIDEO::Draw_OSD43  = VIDEO::BottomBorder_OSD;
                 VIDEO::OSD = 0x04;
             } else
                 VIDEO::OSD |= 0x04;
@@ -885,7 +924,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             } else if (VIDEO::isFullBorder288()) {
                 x = 188;
                 y = 272;
-            } else if (VIDEO::isHalfBorder()) {
+            } else if (VIDEO::isFullBorder240()) {
                 x = 188;
                 y = 224;
             } else {
@@ -910,11 +949,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             ESPectrum::reset();
         }
         else if (KeytoESP == fabgl::VK_F12) { // ESP32 reset
-            // ESP host reset
-            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
-            Config::ram_file = NO_RAM_FILE;
-            Config::save();
-            esp_hard_reset();
+            if (confirmReboot(OSD_DLG_REBOOT)) {
+                if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
+                Config::ram_file = NO_RAM_FILE;
+                Config::save();
+                esp_hard_reset();
+            }
         }
         else if (KeytoESP == fabgl::VK_F1) {
           if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
@@ -932,8 +972,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     if (Config::aspect_16_9)
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                     else
-                        VIDEO::Draw_OSD43  = VIDEO::isFullBorderMode() ? VIDEO::BottomBorder_OSD_FullBorder
-                                             : Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
+                        VIDEO::Draw_OSD43  = VIDEO::BottomBorder_OSD;
                     VIDEO::OSD = 0x04;
                 } else
                     VIDEO::OSD |= 0x04;
@@ -1240,8 +1279,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     Config::trdosFastMode = false;
 
                                 if (Config::trdosFastMode != prev) {
+                                    ESPectrum::fdd.fastmode = Config::trdosFastMode;
                                     Config::save();
-                                    esp_hard_reset();
                                 }
                                 menu_curopt = opt2;
                                 menu_saverect = false;
@@ -1275,8 +1314,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     Config::trdosWriteProtect = false;
 
                                 if (Config::trdosWriteProtect != prev) {
+                                    for (int i = 0; i < 4; i++)
+                                        if (ESPectrum::fdd.disk[i])
+                                            ESPectrum::fdd.disk[i]->writeprotect = Config::trdosWriteProtect;
                                     Config::save();
-                                    esp_hard_reset();
                                 }
                                 menu_curopt = opt2;
                                 menu_saverect = false;
@@ -1337,7 +1378,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 Config::trdosBios = opt2 - 1;
                                 if (Config::trdosBios != prev) {
                                     Config::save();
-                                    esp_hard_reset();
+                                    switch (Config::trdosBios) {
+                                        case 0: MemESP::rom[4].assign_rom(gb_rom_4_trdos_503); break;
+                                        case 1: MemESP::rom[4].assign_rom(gb_rom_4_trdos_504tm); break;
+                                        default: MemESP::rom[4].assign_rom(gb_rom_4_trdos_505d); break;
+                                    }
                                 }
                                 menu_curopt = opt2;
                                 menu_saverect = false;
@@ -1545,9 +1590,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
 
                                                 if (Config::byte_cobmect_mode != prev_opt) {
                                                     Config::save();
-                                                    Config::requestMachine(arch, romset);
-                                                    ESPectrum::reset();
-                                                    return;
+                                                    MemESP::rom[0].assign_rom(Config::byte_cobmect_mode ? gb_rom_0_byte_sovmest_48k : gb_rom_0_byte_48k);
+                                                    MemESP::recoverPage0();
                                                 }
                                                 menu_curopt = opt2;
                                                 menu_saverect = false;
@@ -1628,10 +1672,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     else if (opt2 == 4) new_opt = 1024;
                                     else if (opt2 == 5) new_opt = 2048;
                                     if (prev_opt != new_opt) {
-                                        MEM_PG_CNT = new_opt;
-                                        Config::save();
-                                        OSD::esp_hard_reset();
-                                        return;
+                                        if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
+                                            MEM_PG_CNT = new_opt;
+                                            Config::save();
+                                            OSD::esp_hard_reset();
+                                            return;
+                                        }
                                     }
                                     menu_curopt = opt2;
                                     menu_saverect = false;
@@ -1746,15 +1792,21 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     }
                     else if (opt2 == 3) {
                         // ESP host reset
-                        Config::ram_file = NO_RAM_FILE;
-                        Config::save();
-                        esp_hard_reset();
+                        if (confirmReboot(OSD_DLG_REBOOT)) {
+                            Config::ram_file = NO_RAM_FILE;
+                            Config::save();
+                            esp_hard_reset();
+                        }
                     } else if (mos && opt2 == 4) {
-                        f_unlink(MOS_FILE);
-                        esp_hard_reset();
+                        if (confirmReboot(OSD_DLG_REBOOT)) {
+                            f_unlink(MOS_FILE);
+                            esp_hard_reset();
+                        }
                     } else if ((mos && opt2 == 5) || (!mos && opt2 == 4)) {
-                        f_unlink(MOUNT_POINT_SD STORAGE_NVS);
-                        esp_hard_reset();
+                        if (confirmReboot(OSD_DLG_LOADDEFAULTS)) {
+                            f_unlink(MOUNT_POINT_SD STORAGE_NVS);
+                            esp_hard_reset();
+                        }
                     } else {
                         menu_curopt = FileUtils::fsMount ? 6 : 4;
                         break;
@@ -2368,8 +2420,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         if (opt2) {
                                             Config::audio_driver = opt2 - 1;
                                             if (Config::audio_driver != prev) {
-                                                Config::save();
-                                                esp_hard_reset();
+                                                if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
+                                                    Config::save();
+                                                    esp_hard_reset();
+                                                } else {
+                                                    Config::audio_driver = prev;
+                                                }
                                             }
                                             menu_curopt = opt2;
                                             menu_saverect = false;
@@ -2455,10 +2511,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         if (opt2) {
                                             uint8_t new_vm = opt2 - 1; // opt2 is 1-based, VM_* is 0-based
                                             if (new_vm != curVideoMode) {
-                                                Config::savePendingVideoMode();
-                                                curVideoMode = new_vm;
-                                                Config::save();
-                                                esp_hard_reset();
+                                                if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
+                                                    Config::savePendingVideoMode();
+                                                    curVideoMode = new_vm;
+                                                    Config::save();
+                                                    esp_hard_reset();
+                                                }
                                             }
                                             menu_curopt = opt2;
                                             menu_saverect = false;
@@ -2578,10 +2636,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                                 Config::scanlines = 0;
 
                                             if (Config::scanlines != prev_opt) {
-                                                Config::ram_file = "none";
-                                                Config::save();
-                                                // Reset to apply if mode != CRT
-                                                esp_hard_reset();
+                                                if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
+                                                    Config::ram_file = "none";
+                                                    Config::save();
+                                                    esp_hard_reset();
+                                                } else {
+                                                    Config::scanlines = prev_opt;
+                                                }
                                             }
                                             menu_curopt = opt2;
                                             menu_saverect = false;
@@ -2650,9 +2711,22 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                                 Config::gigascreen_enabled = false;
 
                                             if (Config::gigascreen_enabled != prev_opt) {
+                                                if (Config::gigascreen_enabled) {
+                                                    initGigascreenBlendLUT();
+                                                    VIDEO::InitPrevBuffer();
+                                                    if (Config::gigascreen_onoff == 0)
+                                                        Config::gigascreen_onoff = 1; // Off→On when enabling
+                                                    if (Config::gigascreen_onoff == 1)
+                                                        VIDEO::gigascreen_enabled = true;
+                                                    else {
+                                                        VIDEO::gigascreen_enabled = false;
+                                                        VIDEO::gigascreen_auto_countdown = 0;
+                                                    }
+                                                } else {
+                                                    VIDEO::gigascreen_enabled = false;
+                                                    VIDEO::gigascreen_auto_countdown = 0;
+                                                }
                                                 Config::save();
-                                                esp_hard_reset();
-                                                return;
                                             }
                                             menu_curopt = opt2;
                                             menu_saverect = false;
@@ -3280,18 +3354,23 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     if (Config::aspect_16_9)
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                     else
-                        VIDEO::Draw_OSD43 = Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
+                        VIDEO::Draw_OSD43 = VIDEO::BottomBorder_OSD;
                     VIDEO::OSD = 0x04;
                 }
                 drawOSD(false);
 
-                VIDEO::vga.fillRect(Config::aspect_16_9 ? 60 : 40,Config::aspect_16_9 ? 12 : 32,240,50,zxColor(0, 0));
+                int osd_xi = osdInsideX();               // x inside OSD (with margin)
+                int osd_y0 = osdInsideY() - OSD_MARGIN; // = scrAlignCenterY(OSD_H)
+
+                VIDEO::vga.fillRect(Config::aspect_16_9 ? osd_xi + 20 : osd_xi,
+                                    Config::aspect_16_9 ? osd_y0 - 8 : osd_y0 + 12,
+                                    240, 50, zxColor(0, 0));
 
                 // Decode Logo in EBF8 format
                 // Logo pixels are stored as ZX Spectrum palette indices (0-15)
                 uint8_t *logo = (uint8_t *)ESPectrum_logo;
-                int pos_x = Config::aspect_16_9 ? 86 : 66;
-                int pos_y = Config::aspect_16_9 ? 23 : 43;
+                int pos_x = Config::aspect_16_9 ? osd_xi + 46 : osd_xi + 26;
+                int pos_y = Config::aspect_16_9 ? osd_y0 + 3 : osd_y0 + 23;
                 int logo_w = (logo[5] << 8) + logo[4]; // Get Width
                 int logo_h = (logo[7] << 8) + logo[6]; // Get Height
                 logo+=8; // Skip header
@@ -3306,8 +3385,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 VIDEO::vga.setTextColor(zxColor(7, 0), zxColor(1, 0));
                 // VIDEO::vga.print(Config::lang ? OSD_ABOUT1_ES : OSD_ABOUT1_EN);
 
-                pos_x = Config::aspect_16_9 ? 66 : 46;
-                pos_y = Config::aspect_16_9 ? 68 : 88;
+                pos_x = Config::aspect_16_9 ? osd_xi + 26 : osd_xi + 6;
+                pos_y = Config::aspect_16_9 ? osd_y0 + 48 : osd_y0 + 68;
                 int osdRow = 0; int osdCol = 0;
                 int msgIndex = 0; int msgChar = 0;
                 int msgDelay = 0; int cursorBlink = 16; int nextChar = 0;
@@ -3349,7 +3428,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     } else {
                         msgDelay--;
                         if (msgDelay==0) {
-                            VIDEO::vga.fillRect(Config::aspect_16_9 ? 60 : 40,Config::aspect_16_9 ? 64 : 84,240,114,zxColor(1, 0));
+                            VIDEO::vga.fillRect(Config::aspect_16_9 ? osd_xi+20 : osd_xi, Config::aspect_16_9 ? osd_y0+44 : osd_y0+64, 240, 114, zxColor(1, 0));
                             osdCol = 0;
                             osdRow  = 0;
                             msgChar = 0;
@@ -3382,7 +3461,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     if (Config::aspect_16_9)
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen;
                     else
-                        VIDEO::Draw_OSD43 = Z80Ops::isPentagon ? VIDEO::BottomBorder_Pentagon : VIDEO::BottomBorder;
+                        VIDEO::Draw_OSD43 = VIDEO::BottomBorder;
                 }
                 if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
                 if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
@@ -3397,9 +3476,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     uint8_t opt2 = menuRun(MENU_TFT[Config::lang]);
                     if (opt2 == 1) {
                         // INVERSION
+                        uint8_t prev_inv = TFT_INVERSION;
                         TFT_INVERSION = !TFT_INVERSION;
-                        Config::save();
-                        esp_hard_reset();
+                        if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
+                            Config::save();
+                            esp_hard_reset();
+                        } else {
+                            TFT_INVERSION = prev_inv;
+                        }
                     }
                     else if (opt2 == 2) {
                         // FLAGS
@@ -3407,26 +3491,27 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         menu_saverect = true;
                         while (1) {
                             uint8_t opt2 = menuRun(MENU_TFT2[Config::lang]);
+                            uint8_t prev_flags = TFT_FLAGS;
                             if (opt2 == 1) {
                                 TFT_FLAGS = (TFT_FLAGS & MADCTL_BGR_PIXEL_ORDER) ? (TFT_FLAGS & ~MADCTL_BGR_PIXEL_ORDER) : (TFT_FLAGS | MADCTL_BGR_PIXEL_ORDER);
-                                Config::save();
-                                esp_hard_reset();
+                                if (confirmReboot(OSD_DLG_APPLYREBOOT)) { Config::save(); esp_hard_reset(); }
+                                else TFT_FLAGS = prev_flags;
                             }
                             else if (opt2 == 2) {
                                 TFT_FLAGS = (TFT_FLAGS & MADCTL_MX) ? (TFT_FLAGS & ~MADCTL_MX) : (TFT_FLAGS | MADCTL_MX);
-                                Config::save();
-                                esp_hard_reset();
+                                if (confirmReboot(OSD_DLG_APPLYREBOOT)) { Config::save(); esp_hard_reset(); }
+                                else TFT_FLAGS = prev_flags;
                             }
                             else if (opt2 == 3) {
                                 TFT_FLAGS = (TFT_FLAGS & MADCTL_MY) ? (TFT_FLAGS & ~MADCTL_MY) : (TFT_FLAGS | MADCTL_MY);
-                                Config::save();
-                                esp_hard_reset();
+                                if (confirmReboot(OSD_DLG_APPLYREBOOT)) { Config::save(); esp_hard_reset(); }
+                                else TFT_FLAGS = prev_flags;
                             }
                             else if (opt2 == 4) {
                                 TFT_FLAGS = (TFT_FLAGS & MADCTL_MX) ? (TFT_FLAGS & ~MADCTL_MX) : (TFT_FLAGS | MADCTL_MX);
                                 TFT_FLAGS = (TFT_FLAGS & MADCTL_MY) ? (TFT_FLAGS & ~MADCTL_MY) : (TFT_FLAGS | MADCTL_MY);
-                                Config::save();
-                                esp_hard_reset();
+                                if (confirmReboot(OSD_DLG_APPLYREBOOT)) { Config::save(); esp_hard_reset(); }
+                                else TFT_FLAGS = prev_flags;
                             } else {
                                 menu_level = 1;
                                 menu_curopt = 2;
@@ -3435,10 +3520,17 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         }
                     }
                     else if (opt2 == 3) {
+                        uint8_t prev_inv = TFT_INVERSION;
+                        uint8_t prev_flags = TFT_FLAGS;
                         TFT_INVERSION = 0;
                         TFT_FLAGS = MADCTL_ROW_COLUMN_EXCHANGE | MADCTL_BGR_PIXEL_ORDER;
-                        Config::save();
-                        esp_hard_reset();
+                        if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
+                            Config::save();
+                            esp_hard_reset();
+                        } else {
+                            TFT_INVERSION = prev_inv;
+                            TFT_FLAGS = prev_flags;
+                        }
                     } else {
                         menu_curopt = 11;
                         break;
