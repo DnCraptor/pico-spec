@@ -46,14 +46,12 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Z80_JLS/z80.h"
 #include "Z80_JLS/z80operations.h"
 #include "psram_spi.h"
-#include "Debug.h"
-
 extern "C" void graphics_set_palette(uint8_t i, uint32_t color888);
-
-// Debug: log border state for FPGA48all test analysis
-static int dbg_frame_cnt = 0;
-static bool dbg_logged = false;
 extern "C" void vga_set_palette_entry_solid(uint8_t i, uint32_t color888);
+
+// Place hot video functions in SRAM instead of XIP flash
+#undef IRAM_ATTR
+#define IRAM_ATTR __not_in_flash("video")
 
 #pragma GCC optimize("O3")
 
@@ -863,23 +861,19 @@ void initGigascreenBlendLUT() {
 }
 
 // Blend 4 packed palette-index pixels via LUT
+// Uses shift/mask instead of byte pointers to avoid aliasing overhead on ARM
 inline uint32_t blendPixels32(uint32_t cur, uint32_t prev) {
     if (cur == prev) return cur;
-    uint32_t result;
-    uint8_t* r = (uint8_t*)&result;
-    uint8_t* c = (uint8_t*)&cur;
-    uint8_t* p = (uint8_t*)&prev;
-    r[0] = gigsBlendLUT[(p[0] & 0x0F) * 16 + (c[0] & 0x0F)];
-    r[1] = gigsBlendLUT[(p[1] & 0x0F) * 16 + (c[1] & 0x0F)];
-    r[2] = gigsBlendLUT[(p[2] & 0x0F) * 16 + (c[2] & 0x0F)];
-    r[3] = gigsBlendLUT[(p[3] & 0x0F) * 16 + (c[3] & 0x0F)];
-    return result;
+    return  gigsBlendLUT[(prev       & 0x0F) * 16 + (cur       & 0x0F)]
+        | (gigsBlendLUT[((prev >> 8) & 0x0F) * 16 + ((cur >> 8) & 0x0F)] << 8)
+        | (gigsBlendLUT[((prev >>16) & 0x0F) * 16 + ((cur >>16) & 0x0F)] << 16)
+        | (gigsBlendLUT[((prev >>24) & 0x0F) * 16 + ((cur >>24) & 0x0F)] << 24);
 }
 
 // ----------------------------------------------------------------------------------
 // Fast video emulation with no ULA cycle emulation and no snow effect support
 // ----------------------------------------------------------------------------------
-/*IRAM_ATTR*/ void VIDEO::MainScreen(unsigned int statestoadd, bool contended) {    
+IRAM_ATTR void VIDEO::MainScreen(unsigned int statestoadd, bool contended) {
 
     if (contended) statestoadd += wait_st[CPU::tstates - tstateDraw];
 
@@ -901,33 +895,26 @@ inline uint32_t blendPixels32(uint32_t cur, uint32_t prev) {
         loopCount -= coldraw_cnt - 32;
     }
 
-    // Основной цикл
-    for (; loopCount--; ) {
-        uint8_t att = grmem[attOffset++];
-        uint8_t bmp = (att & flashing) ? ~grmem[bmpOffset++] : grmem[bmpOffset++];
+    if (VIDEO::gigascreen_enabled) {
+        for (; loopCount--; ) {
+            uint8_t att = grmem[attOffset++];
+            uint8_t bmp = (att & flashing) ? ~grmem[bmpOffset++] : grmem[bmpOffset++];
+            uint32_t newPixel1 = AluByte[bmp >> 4][att];
+            uint32_t newPixel2 = AluByte[bmp & 0xF][att];
 
-        uint32_t newPixel1 = AluByte[bmp >> 4][att];
-        uint32_t newPixel2 = AluByte[bmp & 0xF][att];
-
-        if (VIDEO::gigascreen_enabled)
-        {
-            uint32_t oldPixel1 = *prevLineptr32;
-            uint32_t oldPixel2 = *(prevLineptr32 + 1);
-
-            // Blend via palette LUT (4 pixels at once)
-            uint32_t mix1 = blendPixels32(newPixel1, oldPixel1);
-            uint32_t mix2 = blendPixels32(newPixel2, oldPixel2);
-
+            uint32_t mix1 = blendPixels32(newPixel1, *prevLineptr32);
+            uint32_t mix2 = blendPixels32(newPixel2, *(prevLineptr32 + 1));
             *prevLineptr32++ = newPixel1;
             *prevLineptr32++ = newPixel2;
-
             *lineptr32++ = mix1;
             *lineptr32++ = mix2;
         }
-        else
-        {
-            *lineptr32++ = newPixel1;
-            *lineptr32++ = newPixel2;
+    } else {
+        for (; loopCount--; ) {
+            uint8_t att = grmem[attOffset++];
+            uint8_t bmp = (att & flashing) ? ~grmem[bmpOffset++] : grmem[bmpOffset++];
+            *lineptr32++ = AluByte[bmp >> 4][att];
+            *lineptr32++ = AluByte[bmp & 0xF][att];
         }
     }
 }
@@ -1269,35 +1256,6 @@ IRAM_ATTR void VIDEO::EndFrame() {
     } else {
         brdGigascreenChange = false;
     }
-    
-    // Debug: dump border framebuffer once after ~500 frames
-    dbg_frame_cnt++;
-    if (!dbg_logged && dbg_frame_cnt == 500) {
-        dbg_logged = true;
-        Debug::log("=== Border debug frame %d ===", dbg_frame_cnt);
-        Debug::log("lin_end=%d lin_end2=%d end1=%d end=%d ret=%d step=%d lpo=%d",
-                   lin_end, lin_end2, brdcol_end1, brdcol_end, brdcol_retrace, brdcol_step, lineptr_offset);
-        // Dump full line for 3 sample middle lines to see paper/border boundary
-        int samples[] = { lin_end + 20, lin_end + 50, lin_end + 96 }; // lines within paper area
-        for (int s = 0; s < 3; s++) {
-            int line = samples[s];
-            if (line < lin_end2) {
-                uint16_t *p = (uint16_t *)(vga.frameBuffer[line]);
-                // left border (0..end1-1), paper boundary, right border boundary
-                Debug::log("L%d left: %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X",
-                    line, p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7],p[8],p[9],p[10],p[11],p[12],p[13],p[14],p[15]);
-                // paper start (uint16_t 16..23)
-                Debug::log("L%d pap0: %04X %04X %04X %04X %04X %04X %04X %04X",
-                    line, p[16],p[17],p[18],p[19],p[20],p[21],p[22],p[23]);
-                // paper end + right border start (uint16_t 140..151)
-                Debug::log("L%d papR: %04X %04X %04X %04X | %04X %04X %04X %04X %04X %04X %04X %04X",
-                    line, p[140],p[141],p[142],p[143], p[144],p[145],p[146],p[147],p[148],p[149],p[150],p[151]);
-                // right border end (uint16_t 156..159)
-                Debug::log("L%d rend: %04X %04X %04X %04X",
-                    line, p[156],p[157],p[158],p[159]);
-            }
-        }
-    }
 
     // Restart border drawing
     if (skipFrame)
@@ -1351,70 +1309,41 @@ IRAM_ATTR void VIDEO::Border_Blank() {
 
 }    
 
-// Border GigaScreen blend — uses same palette LUT as pixel blending
-inline uint32_t Border_Gigascreen(uint32_t c0, uint32_t c1) {
-    return blendPixels32(c0, c1);
-}
-
-void VIDEO::Update_Border() {
+IRAM_ATTR void VIDEO::Update_Border() {
     uint32_t newColor = brd;
-    if (brdcol_step == 4) {
-        // Non-FullBorder: 4T step, write 4 cols (8 pixels) at once via two uint32_t
+    if (brdPairWrite) {
+        // 48K/128K: write uint32_t pair to avoid XOR artifacts at color boundaries
+        uint32_t color32 = newColor | (newColor << 16);
+        int pair = brdcol_cnt & ~1;
         if (VIDEO::gigascreen_enabled) {
-            uint32_t old16 = prevBrdptr16[brdcol_cnt];
-            uint32_t mixed16 = (uint16_t)Border_Gigascreen(newColor, old16);
-            if (old16 != newColor) brdGigascreenChange = true;
-            uint32_t mix32 = mixed16 | (mixed16 << 16);
-            uint32_t new32 = newColor | (newColor << 16);
-            ((uint32_t *)&prevBrdptr16[brdcol_cnt])[0] = new32;
-            ((uint32_t *)&prevBrdptr16[brdcol_cnt])[1] = new32;
-            ((uint32_t *)&brdptr16[brdcol_cnt])[0] = mix32;
-            ((uint32_t *)&brdptr16[brdcol_cnt])[1] = mix32;
-        } else {
-            uint32_t color32 = newColor | (newColor << 16);
-            uint32_t *dst32 = (uint32_t *)&brdptr16[brdcol_cnt];
-            dst32[0] = color32;
-            dst32[1] = color32;
-        }
-    } else if (brdPairWrite) {
-        // 48K/128K: write uint32_t pair on even, single uint16_t on odd
-        // Even: write both pixels of pair (forward-fill next pixel too)
-        // Odd: write only current pixel (don't overwrite previous with new color)
-        if (brdcol_cnt & 1) {
-            if (VIDEO::gigascreen_enabled) {
-                uint32_t oldColor = prevBrdptr16[brdcol_cnt];
-                uint32_t mixedColor = Border_Gigascreen(newColor, oldColor);
-                prevBrdptr16[brdcol_cnt] = newColor;
-                brdptr16[brdcol_cnt] = mixedColor;
-                if (oldColor != newColor) brdGigascreenChange = true;
-            } else {
-                brdptr16[brdcol_cnt] = newColor;
-            }
-        } else {
-            uint32_t color32 = newColor | (newColor << 16);
-            if (VIDEO::gigascreen_enabled) {
-                uint32_t old32 = ((uint32_t *)&prevBrdptr16[brdcol_cnt])[0];
-                uint32_t mixed32 = Border_Gigascreen(newColor, (uint16_t)old32);
+            uint32_t old32 = ((uint32_t *)&prevBrdptr16[pair])[0];
+            if ((uint16_t)old32 != (uint16_t)newColor) {
+                uint32_t mixed32 = blendPixels32(newColor, (uint16_t)old32);
                 mixed32 = mixed32 | (mixed32 << 16);
-                ((uint32_t *)&prevBrdptr16[brdcol_cnt])[0] = color32;
-                ((uint32_t *)&brdptr16[brdcol_cnt])[0] = mixed32;
-                if ((uint16_t)old32 != (uint16_t)newColor) brdGigascreenChange = true;
+                ((uint32_t *)&prevBrdptr16[pair])[0] = color32;
+                ((uint32_t *)&brdptr16[pair])[0] = mixed32;
+                brdGigascreenChange = true;
             } else {
-                ((uint32_t *)&brdptr16[brdcol_cnt])[0] = color32;
+                ((uint32_t *)&prevBrdptr16[pair])[0] = color32;
+                ((uint32_t *)&brdptr16[pair])[0] = color32;
             }
+        } else {
+            ((uint32_t *)&brdptr16[pair])[0] = color32;
         }
     } else {
-        // Pentagon: uint16_t XOR write for best resolution
-        uint8_t brdColIndex = brdcol_cnt ^ 1;
+        // Pentagon: uint16_t XOR write
+        int idx = brdcol_cnt ^ 1;
         if (VIDEO::gigascreen_enabled) {
-            uint32_t oldColor = prevBrdptr16[brdColIndex];
-            uint32_t mixedColor = Border_Gigascreen(newColor, oldColor);
-            prevBrdptr16[brdColIndex] = newColor;
-            brdptr16[brdColIndex] = mixedColor;
-            if (oldColor != newColor)
+            uint32_t oldColor = prevBrdptr16[idx];
+            if (oldColor != newColor) {
+                prevBrdptr16[idx] = newColor;
+                brdptr16[idx] = blendPixels32(newColor, oldColor);
                 brdGigascreenChange = true;
+            } else {
+                brdptr16[idx] = newColor;
+            }
         } else {
-            brdptr16[brdColIndex] = newColor;
+            brdptr16[idx] = newColor;
         }
     }
 }
