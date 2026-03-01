@@ -147,7 +147,6 @@ public:
 
   static void Border_Blank();
 
-  static void Update_Border();
   static void TopBorder_Blank();
   static void TopBorder();
   static void MiddleBorder();

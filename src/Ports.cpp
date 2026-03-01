@@ -52,7 +52,11 @@ visit https://zxespectrum.speccy.org/contacto
 
 #include "Debug.h"
 
-// #pragma GCC optimize("O3")
+// Place hot port functions in SRAM instead of XIP flash
+#undef IRAM_ATTR
+#define IRAM_ATTR __not_in_flash("ports")
+
+#pragma GCC optimize("O3")
 
 // Values calculated for BEEPER, EAR, MIC bit mask (values 0-7)
 // Taken from FPGA values suggested by Rampa
@@ -75,7 +79,7 @@ Ports::PIT8253Channel Ports::pitChannels[3] = {};
 
 uint8_t (*Ports::getFloatBusData)() = &Ports::getFloatBusData48;
 
-uint8_t Ports::getFloatBusData48() {
+IRAM_ATTR uint8_t Ports::getFloatBusData48() {
 
   unsigned int currentTstates = CPU::tstates;
 
@@ -96,7 +100,7 @@ uint8_t Ports::getFloatBusData48() {
   return (VIDEO::grmem[VIDEO::offBmp[line] + hpoffset]);
 }
 
-uint8_t Ports::getFloatBusData128() {
+IRAM_ATTR uint8_t Ports::getFloatBusData128() {
 
   unsigned int currentTstates = CPU::tstates - 1;
 

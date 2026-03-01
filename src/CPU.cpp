@@ -44,7 +44,11 @@ visit https://zxespectrum.speccy.org/contacto
 #include "psram_spi.h"
 #include "Debug.h"
 
-// #pragma GCC optimize("O3")
+// Place hot CPU functions in SRAM instead of XIP flash
+#undef IRAM_ATTR
+#define IRAM_ATTR __not_in_flash("cpu")
+
+#pragma GCC optimize("O3")
 
 uint32_t CPU::tstates = 0;
 

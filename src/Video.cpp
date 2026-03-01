@@ -133,6 +133,7 @@ static int brdcol_end1 = 0;         // end of left border (start of 256px screen
 static int brdcol_retrace = 180;
 static int brdcol_step = 1;        // 1 for all modes (1T = 2px precision)
 static bool brdPairWrite = false;  // true: uint32_t pair write (no XOR artifacts), false: uint16_t XOR write
+static void Select_Update_Border(); // forward declaration
 
 // ULA+
 #if !PICO_RP2040
@@ -587,6 +588,7 @@ void VIDEO::Reset() {
     }
     brdcol_step = 1;
     brdPairWrite = !Z80Ops::isPentagon;
+    Select_Update_Border();
 
     if (isFullBorder && !isFullBorder240) {
         lin_end = 48;
@@ -898,7 +900,7 @@ IRAM_ATTR void VIDEO::MainScreen(unsigned int statestoadd, bool contended) {
     if (VIDEO::gigascreen_enabled) {
         for (; loopCount--; ) {
             uint8_t att = grmem[attOffset++];
-            uint8_t bmp = (att & flashing) ? ~grmem[bmpOffset++] : grmem[bmpOffset++];
+            uint8_t bmp = grmem[bmpOffset++] ^ (-((att & flashing) >> 7));
             uint32_t newPixel1 = AluByte[bmp >> 4][att];
             uint32_t newPixel2 = AluByte[bmp & 0xF][att];
 
@@ -912,7 +914,7 @@ IRAM_ATTR void VIDEO::MainScreen(unsigned int statestoadd, bool contended) {
     } else {
         for (; loopCount--; ) {
             uint8_t att = grmem[attOffset++];
-            uint8_t bmp = (att & flashing) ? ~grmem[bmpOffset++] : grmem[bmpOffset++];
+            uint8_t bmp = grmem[bmpOffset++] ^ (-((att & flashing) >> 7));
             *lineptr32++ = AluByte[bmp >> 4][att];
             *lineptr32++ = AluByte[bmp & 0xF][att];
         }
@@ -1309,43 +1311,54 @@ IRAM_ATTR void VIDEO::Border_Blank() {
 
 }    
 
-IRAM_ATTR void VIDEO::Update_Border() {
-    uint32_t newColor = brd;
-    if (brdPairWrite) {
-        // 48K/128K: write uint32_t pair to avoid XOR artifacts at color boundaries
-        uint32_t color32 = newColor | (newColor << 16);
-        int pair = brdcol_cnt & ~1;
-        if (VIDEO::gigascreen_enabled) {
-            uint32_t old32 = ((uint32_t *)&prevBrdptr16[pair])[0];
-            if ((uint16_t)old32 != (uint16_t)newColor) {
-                uint32_t mixed32 = blendPixels32(newColor, (uint16_t)old32);
-                mixed32 = mixed32 | (mixed32 << 16);
-                ((uint32_t *)&prevBrdptr16[pair])[0] = color32;
-                ((uint32_t *)&brdptr16[pair])[0] = mixed32;
-                brdGigascreenChange = true;
-            } else {
-                ((uint32_t *)&prevBrdptr16[pair])[0] = color32;
-                ((uint32_t *)&brdptr16[pair])[0] = color32;
-            }
-        } else {
-            ((uint32_t *)&brdptr16[pair])[0] = color32;
-        }
+// Specialized Update_Border variants — function pointer avoids per-call branching
+static void (*Update_Border)();
+
+IRAM_ATTR static void Update_Border_Pair() {
+    uint32_t newColor = VIDEO::brd;
+    uint32_t color32 = newColor | (newColor << 16);
+    ((uint32_t *)&brdptr16[brdcol_cnt & ~1])[0] = color32;
+}
+
+IRAM_ATTR static void Update_Border_Pair_Gig() {
+    uint32_t newColor = VIDEO::brd;
+    uint32_t color32 = newColor | (newColor << 16);
+    int pair = brdcol_cnt & ~1;
+    uint32_t old32 = ((uint32_t *)&prevBrdptr16[pair])[0];
+    if ((uint16_t)old32 != (uint16_t)newColor) {
+        uint32_t mixed32 = blendPixels32(newColor, (uint16_t)old32);
+        mixed32 = mixed32 | (mixed32 << 16);
+        ((uint32_t *)&prevBrdptr16[pair])[0] = color32;
+        ((uint32_t *)&brdptr16[pair])[0] = mixed32;
+        VIDEO::brdGigascreenChange = true;
     } else {
-        // Pentagon: uint16_t XOR write
-        int idx = brdcol_cnt ^ 1;
-        if (VIDEO::gigascreen_enabled) {
-            uint32_t oldColor = prevBrdptr16[idx];
-            if (oldColor != newColor) {
-                prevBrdptr16[idx] = newColor;
-                brdptr16[idx] = blendPixels32(newColor, oldColor);
-                brdGigascreenChange = true;
-            } else {
-                brdptr16[idx] = newColor;
-            }
-        } else {
-            brdptr16[idx] = newColor;
-        }
+        ((uint32_t *)&prevBrdptr16[pair])[0] = color32;
+        ((uint32_t *)&brdptr16[pair])[0] = color32;
     }
+}
+
+IRAM_ATTR static void Update_Border_XOR() {
+    brdptr16[brdcol_cnt ^ 1] = VIDEO::brd;
+}
+
+IRAM_ATTR static void Update_Border_XOR_Gig() {
+    uint32_t newColor = VIDEO::brd;
+    int idx = brdcol_cnt ^ 1;
+    uint32_t oldColor = prevBrdptr16[idx];
+    if (oldColor != newColor) {
+        prevBrdptr16[idx] = newColor;
+        brdptr16[idx] = blendPixels32(newColor, oldColor);
+        VIDEO::brdGigascreenChange = true;
+    } else {
+        brdptr16[idx] = newColor;
+    }
+}
+
+static void Select_Update_Border() {
+    if (brdPairWrite)
+        Update_Border = VIDEO::gigascreen_enabled ? &Update_Border_Pair_Gig : &Update_Border_Pair;
+    else
+        Update_Border = VIDEO::gigascreen_enabled ? &Update_Border_XOR_Gig : &Update_Border_XOR;
 }
 
 // 16-bit border rendering functions (all models: Pentagon, 48K, 128K)
@@ -1353,6 +1366,7 @@ IRAM_ATTR void VIDEO::Update_Border() {
 
 IRAM_ATTR void VIDEO::TopBorder_Blank() {
     if (CPU::tstates >= tStatesBorder) {
+        Select_Update_Border();
         brdcol_cnt = brdcol_start;
         brdcol_end = vga.xres / 2;
         brdlin_cnt = 0;
