@@ -580,7 +580,7 @@ void VIDEO::Reset() {
     brdcol_start = is169 ? 10 : 0;
     if (isFullBorder) {
         brdcol_end1    = Z80Ops::isPentagon ? 26 : 24;
-        brdcol_retrace = Z80Ops::isPentagon ? (vga.xres / 2) : (int)tStatesPerLine - 64;
+        brdcol_retrace = vga.xres / 2;
     } else {
         int half_end = vga.xres / 2;
         brdcol_end1    = brdcol_start + (half_end - brdcol_start - 128) / 2;
@@ -1315,8 +1315,7 @@ IRAM_ATTR void VIDEO::Border_Blank() {
 static void (*Update_Border)();
 
 IRAM_ATTR static void Update_Border_Pair() {
-    uint32_t newColor = VIDEO::brd;
-    uint32_t color32 = newColor | (newColor << 16);
+    uint32_t color32 = VIDEO::brd | (VIDEO::brd << 16);
     ((uint32_t *)&brdptr16[brdcol_cnt & ~1])[0] = color32;
 }
 
