@@ -46,8 +46,13 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Z80_JLS/z80.h"
 #include "Z80_JLS/z80operations.h"
 #include "psram_spi.h"
+#include "Debug.h"
 
 extern "C" void graphics_set_palette(uint8_t i, uint32_t color888);
+
+// Debug: log border state for FPGA48all test analysis
+static int dbg_frame_cnt = 0;
+static bool dbg_logged = false;
 extern "C" void vga_set_palette_entry_solid(uint8_t i, uint32_t color888);
 
 #pragma GCC optimize("O3")
@@ -129,6 +134,7 @@ static int brdcol_end1 = 0;         // end of left border (start of 256px screen
 // 128K:     64T retrace → 228-64=164 (16 cols of retrace area)
 static int brdcol_retrace = 180;
 static int brdcol_step = 1;        // 1 for all modes (1T = 2px precision)
+static bool brdPairWrite = false;  // true: uint32_t pair write (no XOR artifacts), false: uint16_t XOR write
 
 // ULA+
 #if !PICO_RP2040
@@ -582,6 +588,7 @@ void VIDEO::Reset() {
         brdcol_retrace = half_end;
     }
     brdcol_step = 1;
+    brdPairWrite = !Z80Ops::isPentagon;
 
     if (isFullBorder && !isFullBorder240) {
         lin_end = 48;
@@ -1263,6 +1270,35 @@ IRAM_ATTR void VIDEO::EndFrame() {
         brdGigascreenChange = false;
     }
     
+    // Debug: dump border framebuffer once after ~500 frames
+    dbg_frame_cnt++;
+    if (!dbg_logged && dbg_frame_cnt == 500) {
+        dbg_logged = true;
+        Debug::log("=== Border debug frame %d ===", dbg_frame_cnt);
+        Debug::log("lin_end=%d lin_end2=%d end1=%d end=%d ret=%d step=%d lpo=%d",
+                   lin_end, lin_end2, brdcol_end1, brdcol_end, brdcol_retrace, brdcol_step, lineptr_offset);
+        // Dump full line for 3 sample middle lines to see paper/border boundary
+        int samples[] = { lin_end + 20, lin_end + 50, lin_end + 96 }; // lines within paper area
+        for (int s = 0; s < 3; s++) {
+            int line = samples[s];
+            if (line < lin_end2) {
+                uint16_t *p = (uint16_t *)(vga.frameBuffer[line]);
+                // left border (0..end1-1), paper boundary, right border boundary
+                Debug::log("L%d left: %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X %04X",
+                    line, p[0],p[1],p[2],p[3],p[4],p[5],p[6],p[7],p[8],p[9],p[10],p[11],p[12],p[13],p[14],p[15]);
+                // paper start (uint16_t 16..23)
+                Debug::log("L%d pap0: %04X %04X %04X %04X %04X %04X %04X %04X",
+                    line, p[16],p[17],p[18],p[19],p[20],p[21],p[22],p[23]);
+                // paper end + right border start (uint16_t 140..151)
+                Debug::log("L%d papR: %04X %04X %04X %04X | %04X %04X %04X %04X %04X %04X %04X %04X",
+                    line, p[140],p[141],p[142],p[143], p[144],p[145],p[146],p[147],p[148],p[149],p[150],p[151]);
+                // right border end (uint16_t 156..159)
+                Debug::log("L%d rend: %04X %04X %04X %04X",
+                    line, p[156],p[157],p[158],p[159]);
+            }
+        }
+    }
+
     // Restart border drawing
     if (skipFrame)
         DrawBorder = &Border_Blank;
@@ -1340,18 +1376,46 @@ void VIDEO::Update_Border() {
             dst32[0] = color32;
             dst32[1] = color32;
         }
-    } else if (VIDEO::gigascreen_enabled) {
-        uint8_t brdColIndex = brdcol_cnt ^ 1;
-        uint32_t oldColor = prevBrdptr16[brdColIndex];
-        uint32_t mixedColor = Border_Gigascreen(newColor, oldColor);
-
-        prevBrdptr16[brdColIndex] = newColor;
-        brdptr16[brdColIndex] = mixedColor;
-
-        if (oldColor != newColor)
-            brdGigascreenChange = true;
+    } else if (brdPairWrite) {
+        // 48K/128K: write uint32_t pair on even, single uint16_t on odd
+        // Even: write both pixels of pair (forward-fill next pixel too)
+        // Odd: write only current pixel (don't overwrite previous with new color)
+        if (brdcol_cnt & 1) {
+            if (VIDEO::gigascreen_enabled) {
+                uint32_t oldColor = prevBrdptr16[brdcol_cnt];
+                uint32_t mixedColor = Border_Gigascreen(newColor, oldColor);
+                prevBrdptr16[brdcol_cnt] = newColor;
+                brdptr16[brdcol_cnt] = mixedColor;
+                if (oldColor != newColor) brdGigascreenChange = true;
+            } else {
+                brdptr16[brdcol_cnt] = newColor;
+            }
+        } else {
+            uint32_t color32 = newColor | (newColor << 16);
+            if (VIDEO::gigascreen_enabled) {
+                uint32_t old32 = ((uint32_t *)&prevBrdptr16[brdcol_cnt])[0];
+                uint32_t mixed32 = Border_Gigascreen(newColor, (uint16_t)old32);
+                mixed32 = mixed32 | (mixed32 << 16);
+                ((uint32_t *)&prevBrdptr16[brdcol_cnt])[0] = color32;
+                ((uint32_t *)&brdptr16[brdcol_cnt])[0] = mixed32;
+                if ((uint16_t)old32 != (uint16_t)newColor) brdGigascreenChange = true;
+            } else {
+                ((uint32_t *)&brdptr16[brdcol_cnt])[0] = color32;
+            }
+        }
     } else {
-        brdptr16[brdcol_cnt ^ 1] = newColor;
+        // Pentagon: uint16_t XOR write for best resolution
+        uint8_t brdColIndex = brdcol_cnt ^ 1;
+        if (VIDEO::gigascreen_enabled) {
+            uint32_t oldColor = prevBrdptr16[brdColIndex];
+            uint32_t mixedColor = Border_Gigascreen(newColor, oldColor);
+            prevBrdptr16[brdColIndex] = newColor;
+            brdptr16[brdColIndex] = mixedColor;
+            if (oldColor != newColor)
+                brdGigascreenChange = true;
+        } else {
+            brdptr16[brdColIndex] = newColor;
+        }
     }
 }
 
@@ -1376,9 +1440,10 @@ IRAM_ATTR void VIDEO::TopBorder() {
             Update_Border();
         } else if (brdcol_retrace < brdcol_end) {
             // Retrace: freeze at last visible border color (FullBorder only)
-            uint8_t lastVis = (brdcol_retrace - 1) ^ 1;
-            brdptr16[brdcol_cnt ^ 1] = brdptr16[lastVis];
-            if (gigascreen_enabled) prevBrdptr16[brdcol_cnt ^ 1] = prevBrdptr16[lastVis];
+            int lastPair = (brdcol_retrace - 1) & ~1;
+            int curPair = brdcol_cnt & ~1;
+            ((uint32_t *)&brdptr16[curPair])[0] = ((uint32_t *)&brdptr16[lastPair])[0];
+            if (gigascreen_enabled) ((uint32_t *)&prevBrdptr16[curPair])[0] = ((uint32_t *)&prevBrdptr16[lastPair])[0];
         }
 
         lastBrdTstate += brdcol_step;
@@ -1406,9 +1471,10 @@ IRAM_ATTR void VIDEO::MiddleBorder() {
             Update_Border();
         } else if (brdcol_retrace < brdcol_end) {
             // Retrace: freeze at last visible border color (FullBorder only)
-            uint8_t lastVis = (brdcol_retrace - 1) ^ 1;
-            brdptr16[brdcol_cnt ^ 1] = brdptr16[lastVis];
-            if (gigascreen_enabled) prevBrdptr16[brdcol_cnt ^ 1] = prevBrdptr16[lastVis];
+            int lastPair = (brdcol_retrace - 1) & ~1;
+            int curPair = brdcol_cnt & ~1;
+            ((uint32_t *)&brdptr16[curPair])[0] = ((uint32_t *)&brdptr16[lastPair])[0];
+            if (gigascreen_enabled) ((uint32_t *)&prevBrdptr16[curPair])[0] = ((uint32_t *)&prevBrdptr16[lastPair])[0];
         }
 
         lastBrdTstate += brdcol_step;
@@ -1438,9 +1504,10 @@ IRAM_ATTR void VIDEO::BottomBorder() {
             Update_Border();
         } else if (brdcol_retrace < brdcol_end) {
             // Retrace: freeze at last visible border color (FullBorder only)
-            uint8_t lastVis = (brdcol_retrace - 1) ^ 1;
-            brdptr16[brdcol_cnt ^ 1] = brdptr16[lastVis];
-            if (gigascreen_enabled) prevBrdptr16[brdcol_cnt ^ 1] = prevBrdptr16[lastVis];
+            int lastPair = (brdcol_retrace - 1) & ~1;
+            int curPair = brdcol_cnt & ~1;
+            ((uint32_t *)&brdptr16[curPair])[0] = ((uint32_t *)&brdptr16[lastPair])[0];
+            if (gigascreen_enabled) ((uint32_t *)&prevBrdptr16[curPair])[0] = ((uint32_t *)&prevBrdptr16[lastPair])[0];
         }
 
         lastBrdTstate += brdcol_step;
@@ -1476,9 +1543,10 @@ IRAM_ATTR void VIDEO::BottomBorder_OSD() {
             // else: skip OSD pixel
         } else if (brdcol_retrace < brdcol_end) {
             // Retrace: freeze at last visible border color (FullBorder only)
-            uint8_t lastVis = (brdcol_retrace - 1) ^ 1;
-            brdptr16[brdcol_cnt ^ 1] = brdptr16[lastVis];
-            if (gigascreen_enabled) prevBrdptr16[brdcol_cnt ^ 1] = prevBrdptr16[lastVis];
+            int lastPair = (brdcol_retrace - 1) & ~1;
+            int curPair = brdcol_cnt & ~1;
+            ((uint32_t *)&brdptr16[curPair])[0] = ((uint32_t *)&brdptr16[lastPair])[0];
+            if (gigascreen_enabled) ((uint32_t *)&prevBrdptr16[curPair])[0] = ((uint32_t *)&prevBrdptr16[lastPair])[0];
         }
 
         lastBrdTstate += brdcol_step;
