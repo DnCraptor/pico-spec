@@ -1664,7 +1664,7 @@ void ESPectrum::loop() {
           OSD::drawStats();
         } else if (VIDEO::OSD == 2) {
           snprintf(OSD::stats_lin1, sizeof(OSD::stats_lin1),
-                   "CPU: %05d / IDL: %05d ", CPU::tstates_active,
+                   "TST: %05d / IDL: %05d ", CPU::tstates_active,
                    (int)(ESPectrum::idle));
           snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2),
                    "FPS:%6.2f / FND:%6.2f ",
@@ -1674,7 +1674,7 @@ void ESPectrum::loop() {
           OSD::drawStats();
         } else if (VIDEO::OSD == 3) {
           snprintf(OSD::stats_lin1, sizeof(OSD::stats_lin1),
-                   "CPU: %05d / IDL: %05d ", CPU::tstates_active,
+                   "TST: %05d / IDL: %05d ", CPU::tstates_active,
                    (int)(ESPectrum::idle));
           snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2),
                    "ST:%-6sTR:#%02X/SEC:#%02X ",
