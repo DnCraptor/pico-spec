@@ -53,6 +53,8 @@ uint32_t CPU::tstates_diff = 0;
 
 uint64_t CPU::global_tstates = 0;
 uint32_t CPU::statesInFrame = 0;
+uint32_t CPU::tstates_frame = 0;
+uint32_t CPU::tstates_active = 0;
 uint8_t CPU::latetiming = 0;
 uint8_t CPU::IntStart = 0;
 uint8_t CPU::IntEnd = 0;
@@ -201,12 +203,13 @@ IRAM_ATTR void CPU::loop() {
         BREAKPOINTS
     }
     BREAKPOINTS
-    if (!Z80::isHalted()) {
+    bool halted = Z80::isHalted();
+    if (!halted) {
         stFrame = statesInFrame - IntEnd;
         Z80::exec_nocheck();
-        if (stFrame == 0) FlushOnHalt();
+        if (stFrame == 0) { tstates_active = tstates; FlushOnHalt(); halted = true; }
     } else {
-        FlushOnHalt();
+        tstates_active = tstates; FlushOnHalt();
     }
     BREAKPOINTS
     while (tstates < statesInFrame) {
@@ -224,6 +227,8 @@ IRAM_ATTR void CPU::loop() {
     CPU::tstates_diff = CPU::tstates_diff % WD177XSTEPSTATES;
 
     global_tstates += statesInFrame; // increase global Tstates
+    tstates_frame = tstates;
+    if (!halted) tstates_active = tstates_frame; // no HALT this frame: full load
     tstates -= statesInFrame;
 
     CPU::prev_tstates = tstates;

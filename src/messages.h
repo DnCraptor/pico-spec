@@ -86,6 +86,14 @@ static const char *OSD_GIGASCREEN_OFF[2] = { OSD_GIGASCREEN_OFF_EN,OSD_GIGASCREE
 #define OSD_GIGASCREEN_AUTO_ES "--=[ GIGASCREEN AUTO ]=--"
 static const char *OSD_GIGASCREEN_AUTO[2] = { OSD_GIGASCREEN_AUTO_EN,OSD_GIGASCREEN_AUTO_ES };
 
+#define OSD_COBMECT_ON_EN  "--=[ COBMECT. MODE ON ]=--"
+#define OSD_COBMECT_ON_ES  "--=[ COBMECT. MODE ON ]=--"
+static const char *OSD_COBMECT_ON[2] = { OSD_COBMECT_ON_EN,OSD_COBMECT_ON_ES };
+
+#define OSD_COBMECT_OFF_EN "--=[ COBMECT. MODE OFF ]=--"
+#define OSD_COBMECT_OFF_ES "--=[ COBMECT. MODE OFF ]=--"
+static const char *OSD_COBMECT_OFF[2] = { OSD_COBMECT_OFF_EN,OSD_COBMECT_OFF_ES };
+
 #define OSD_PSNA_NOT_AVAIL "No Persist Snapshot Available"
 #define OSD_PSNA_LOADING "Loading Persist Snapshot"
 #define OSD_PSNA_SAVING  "Saving Persist Snapshot"

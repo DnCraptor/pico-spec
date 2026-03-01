@@ -203,7 +203,6 @@ inline int MemESP::getByteContention(uint16_t addr) {
     return res;
 }
 
-
 inline uint8_t MemESP::readbyte(uint16_t addr) {
     uint8_t page = addr >> 14;
     uint8_t* p = ramCurrent[page];

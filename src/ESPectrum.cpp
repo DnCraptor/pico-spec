@@ -634,6 +634,7 @@ void ESPectrum::setup() {
     mem_desc_t *temp = MemESP::ram;
     MemESP::ram = new mem_desc_t[MEM_PG_CNT + 2];
     memcpy(MemESP::ram, temp, sizeof(mem_desc_t) * 8);
+    Debug::log("setup: after memcpy: ram5=%p ram7=%p", MemESP::ram[5].direct(), MemESP::ram[7].direct());
     MemESP::ram[0].assign_ram(new unsigned char[MEM_PG_SZ], 0, false);
     MemESP::ram[1].assign_ram(new unsigned char[MEM_PG_SZ], 1, false);
     MemESP::ram[2].assign_ram(new unsigned char[MEM_PG_SZ], 2, false);
@@ -649,6 +650,8 @@ void ESPectrum::setup() {
       assign_ram(i);
     }
     Debug::log("setup: ext_ram: all pages done, freeHeap=%u", getFreeHeap());
+    Debug::log("setup: ram5=%p ram7=%p diff=%d", MemESP::ram[5].direct(), MemESP::ram[7].direct(),
+               (int)((uint8_t*)MemESP::ram[7].direct() - (uint8_t*)MemESP::ram[5].direct()));
   } else {
     Debug::log("setup: no ext_ram path, freeHeap=%u", getFreeHeap());
 #if PICO_RP2350
@@ -833,6 +836,7 @@ void ESPectrum::setup() {
   // Reset cpu
   Debug::log("setup: CPU reset begin");
   CPU::reset();
+  VIDEO::Reset(); // Re-run after CPU::reset() so Z80Ops flags are correct
 
 #if !PICO_RP2040
   // KR580VI53 (8253 PIT) — reset to silent state
@@ -1660,7 +1664,7 @@ void ESPectrum::loop() {
           OSD::drawStats();
         } else if (VIDEO::OSD == 2) {
           snprintf(OSD::stats_lin1, sizeof(OSD::stats_lin1),
-                   "CPU: %05d / IDL: %05d ", (int)(ESPectrum::elapsed),
+                   "CPU: %05d / IDL: %05d ", CPU::tstates_active,
                    (int)(ESPectrum::idle));
           snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2),
                    "FPS:%6.2f / FND:%6.2f ",
@@ -1670,7 +1674,7 @@ void ESPectrum::loop() {
           OSD::drawStats();
         } else if (VIDEO::OSD == 3) {
           snprintf(OSD::stats_lin1, sizeof(OSD::stats_lin1),
-                   "CPU: %05d / IDL: %05d ", (int)(ESPectrum::elapsed),
+                   "CPU: %05d / IDL: %05d ", CPU::tstates_active,
                    (int)(ESPectrum::idle));
           snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2),
                    "ST:%-6sTR:#%02X/SEC:#%02X ",

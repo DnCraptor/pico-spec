@@ -1776,7 +1776,7 @@ bool Tape::FlashLoad() {
         }
 
         while ((count < nBytes) && (count < blockLen - 1)) {
-            Z80::Xor(MemESP::readbyte(addr));        
+            Z80::Xor(MemESP::readbyte(addr));
             addr = (addr + 1) & 0xffff;
             count++;
         }

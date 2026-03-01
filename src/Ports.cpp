@@ -668,6 +668,13 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
                                           : MemESP::ram[5].direct();
         if (Config::gigascreen_onoff == 2) VIDEO::gigascreen_auto_countdown = 3;
       }
+      // Sync BANKM system variable (0x5B5C = bank5 offset 0x1B5C).
+      // The 128K ROM paging routine at 0x5B00 reads BANKM to restore state;
+      // without this sync, direct OUT to 0x7FFD leaves BANKM stale.
+      if (Z80Ops::is128)
+      {
+        MemESP::ram[5].write(0x1B5C, data);
+      }
     }
   }
 }

@@ -85,6 +85,8 @@ public:
 
     // CPU Tstates in frame
     static uint32_t statesInFrame;
+    static uint32_t tstates_frame;  // tstates at end of last frame (before reset)
+    static uint32_t tstates_active; // tstates of real code (excluding HALT idle)
 
     // Late timing
     static uint8_t latetiming;
