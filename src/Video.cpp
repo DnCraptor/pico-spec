@@ -1324,10 +1324,22 @@ void VIDEO::Update_Border() {
     uint32_t newColor = brd;
     if (brdcol_step == 4) {
         // Non-FullBorder: 4T step, write 4 cols (8 pixels) at once via two uint32_t
-        uint32_t color32 = newColor | (newColor << 16);
-        uint32_t *dst32 = (uint32_t *)&brdptr16[brdcol_cnt];
-        dst32[0] = color32;
-        dst32[1] = color32;
+        if (VIDEO::gigascreen_enabled) {
+            uint32_t old16 = prevBrdptr16[brdcol_cnt];
+            uint32_t mixed16 = (uint16_t)Border_Gigascreen(newColor, old16);
+            if (old16 != newColor) brdGigascreenChange = true;
+            uint32_t mix32 = mixed16 | (mixed16 << 16);
+            uint32_t new32 = newColor | (newColor << 16);
+            ((uint32_t *)&prevBrdptr16[brdcol_cnt])[0] = new32;
+            ((uint32_t *)&prevBrdptr16[brdcol_cnt])[1] = new32;
+            ((uint32_t *)&brdptr16[brdcol_cnt])[0] = mix32;
+            ((uint32_t *)&brdptr16[brdcol_cnt])[1] = mix32;
+        } else {
+            uint32_t color32 = newColor | (newColor << 16);
+            uint32_t *dst32 = (uint32_t *)&brdptr16[brdcol_cnt];
+            dst32[0] = color32;
+            dst32[1] = color32;
+        }
     } else if (VIDEO::gigascreen_enabled) {
         uint8_t brdColIndex = brdcol_cnt ^ 1;
         uint32_t oldColor = prevBrdptr16[brdColIndex];
@@ -1449,14 +1461,16 @@ IRAM_ATTR void VIDEO::BottomBorder() {
 }
 
 IRAM_ATTR void VIDEO::BottomBorder_OSD() {
-    const int osd_y_start = VIDEO::isFullBorder240() ? 220 : 268;
+    const bool isFullBorder = VIDEO::isFullBorder288() || VIDEO::isFullBorder240();
+    const int osd_y_start = VIDEO::isFullBorder288() ? 268 : 220;
     const int osd_y_end = osd_y_start + 15;
+    const int osd_x_start = isFullBorder ? 94 : 84;
+    const int osd_x_end = isFullBorder ? 166 : 156;
     while (lastBrdTstate <= CPU::tstates) {
         if (brdcol_cnt < brdcol_retrace) {
-            // Skip OSD stats area: x=188..331 (col 94..165)
             if (brdlin_cnt < osd_y_start || brdlin_cnt > osd_y_end) {
                 Update_Border();
-            } else if (brdcol_cnt < 94 || brdcol_cnt >= 166) {
+            } else if (brdcol_cnt < osd_x_start || brdcol_cnt >= osd_x_end) {
                 Update_Border();
             }
             // else: skip OSD pixel
