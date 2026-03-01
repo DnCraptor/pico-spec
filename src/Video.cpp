@@ -128,7 +128,7 @@ static int brdcol_end1 = 0;         // end of left border (start of 256px screen
 // 48K/BYTE: 64T retrace → 224-64=160 (20 cols of retrace area)
 // 128K:     64T retrace → 228-64=164 (16 cols of retrace area)
 static int brdcol_retrace = 180;
-static int brdcol_step = 1;        // 1 for FullBorder (1T precision), 4 for non-FullBorder (4T like old 32-bit code)
+static int brdcol_step = 1;        // 1 for all modes (1T = 2px precision)
 
 // ULA+
 #if !PICO_RP2040
@@ -581,7 +581,7 @@ void VIDEO::Reset() {
         brdcol_end1    = brdcol_start + (half_end - brdcol_start - 128) / 2;
         brdcol_retrace = half_end;
     }
-    brdcol_step = isFullBorder ? 1 : 4;
+    brdcol_step = 1;
 
     if (isFullBorder && !isFullBorder240) {
         lin_end = 48;
@@ -1374,7 +1374,7 @@ IRAM_ATTR void VIDEO::TopBorder() {
     while (lastBrdTstate <= CPU::tstates) {
         if (brdcol_cnt < brdcol_retrace) {
             Update_Border();
-        } else {
+        } else if (brdcol_retrace < brdcol_end) {
             // Retrace: freeze at last visible border color (FullBorder only)
             uint8_t lastVis = (brdcol_retrace - 1) ^ 1;
             brdptr16[brdcol_cnt ^ 1] = brdptr16[lastVis];
@@ -1404,7 +1404,7 @@ IRAM_ATTR void VIDEO::MiddleBorder() {
     while (lastBrdTstate <= CPU::tstates) {
         if (brdcol_cnt < brdcol_retrace) {
             Update_Border();
-        } else {
+        } else if (brdcol_retrace < brdcol_end) {
             // Retrace: freeze at last visible border color (FullBorder only)
             uint8_t lastVis = (brdcol_retrace - 1) ^ 1;
             brdptr16[brdcol_cnt ^ 1] = brdptr16[lastVis];
@@ -1436,7 +1436,7 @@ IRAM_ATTR void VIDEO::BottomBorder() {
     while (lastBrdTstate <= CPU::tstates) {
         if (brdcol_cnt < brdcol_retrace) {
             Update_Border();
-        } else {
+        } else if (brdcol_retrace < brdcol_end) {
             // Retrace: freeze at last visible border color (FullBorder only)
             uint8_t lastVis = (brdcol_retrace - 1) ^ 1;
             brdptr16[brdcol_cnt ^ 1] = brdptr16[lastVis];
@@ -1474,7 +1474,7 @@ IRAM_ATTR void VIDEO::BottomBorder_OSD() {
                 Update_Border();
             }
             // else: skip OSD pixel
-        } else {
+        } else if (brdcol_retrace < brdcol_end) {
             // Retrace: freeze at last visible border color (FullBorder only)
             uint8_t lastVis = (brdcol_retrace - 1) ^ 1;
             brdptr16[brdcol_cnt ^ 1] = brdptr16[lastVis];
