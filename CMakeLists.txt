@@ -39,7 +39,7 @@ endif()
 
 #set(CPU_MHZ 252)
 set(CPU_MHZ 378)
-set (PORT_VERSION "1.2.M")
+set (PORT_VERSION "1.2.N")
 
 # Target board (default: PICO_PC; override with -D flags, e.g. cmake -DMURM2=ON)
 if(NOT MURM AND NOT MURM2 AND NOT PICO_PC AND NOT PICO_DV AND NOT ZERO AND NOT ZERO2)
