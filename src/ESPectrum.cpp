@@ -1578,19 +1578,20 @@ void ESPectrum::loop() {
         {
           static uint32_t dc_fade_q8 = 256u; // Q8 attenuation: 256 = full, 0 = silent
           uint32_t v0 = overSamplebuf[0];
-          bool is_const = (v0 > 0);
-          for (int i = 1; is_const && i < samplesPerFrame; i++)
-            if (overSamplebuf[i] != v0) is_const = false;
-          if (is_const) {
+          bool is_const = true;
+          for (int i = 1; i < samplesPerFrame; i++)
+            if (overSamplebuf[i] != v0) { is_const = false; break; }
+          if (is_const && v0 > 0) {
             // Constant non-zero DC — fade to silence over ~10 frames (~200ms)
             if (dc_fade_q8 >= 26u) dc_fade_q8 -= 26u; else dc_fade_q8 = 0u;
             uint32_t faded = (v0 * dc_fade_q8) >> 8;
             for (int i = 0; i < samplesPerFrame; i++)
               overSamplebuf[i] = faded;
-          } else {
-            // Oscillating beeper (music) — full amplitude, no modification
+          } else if (!is_const) {
+            // Oscillating beeper (music) — full amplitude, restore attenuation
             dc_fade_q8 = 256u;
           }
+          // is_const && v0 == 0: constant silence — don't reset dc_fade_q8
         }
         if (Config::covox && faudbufcntCovox < samplesPerFrame) {
           uint8_t *sound_buf = audioBufferCovox + faudbufcntCovox;
