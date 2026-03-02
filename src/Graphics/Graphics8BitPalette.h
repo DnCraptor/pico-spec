@@ -15,14 +15,14 @@
 #pragma once
 #include "Graphics.h"
 
-class GraphicsR2G2B2S2Swapped: public Graphics<unsigned char>
+class Graphics8BitPalette: public Graphics<unsigned char>
 {
 	public:
 	typedef unsigned char Color;
 	static const Color RGBAXMask = 0xff; // full 8-bit palette index
 	Color SBits; // kept for VGA sync generation, not embedded in pixels
 
-	GraphicsR2G2B2S2Swapped()
+	Graphics8BitPalette()
 	{
 		SBits = 0xc0;
 		frontColor = 0xff;

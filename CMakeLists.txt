@@ -39,7 +39,7 @@ endif()
 
 #set(CPU_MHZ 252)
 set(CPU_MHZ 378)
-set (PORT_VERSION "1.2.M")
+set (PORT_VERSION "1.2.N")
 
 # Target board (default: PICO_PC; override with -D flags, e.g. cmake -DMURM2=ON)
 if(NOT MURM AND NOT MURM2 AND NOT PICO_PC AND NOT PICO_DV AND NOT ZERO AND NOT ZERO2)
@@ -156,7 +156,7 @@ set_source_files_properties(src/Video.cpp PROPERTIES
     COMPILE_FLAGS "-O3 -funroll-loops")
 # Z80 эмулятор — самый горячий код, критично для производительности
 set_source_files_properties(src/Z80_JLS.cpp PROPERTIES
-    COMPILE_FLAGS "-O3")
+    COMPILE_FLAGS "-O3 -funroll-loops")
 set_source_files_properties(src/CPU.cpp PROPERTIES
     COMPILE_FLAGS "-O3")
 set_source_files_properties(src/Ports.cpp PROPERTIES

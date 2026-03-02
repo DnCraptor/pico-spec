@@ -77,7 +77,7 @@ uint8_t  Config::kempstonPort = 0x37;
 uint8_t  Config::throtling = DEFAULT_THROTTLING;
 bool     Config::CursorAsJoy = true;
 bool     Config::trdosFastMode = false;
-bool     Config::trdosWriteProtect = false;
+bool     Config::trdosWriteProtect = true;
 bool     Config::trdosSoundLed = false;
 uint8_t  Config::trdosBios = 2; // Default: 5.05D
 
@@ -87,8 +87,8 @@ uint8_t Config::render = 0;
 bool     Config::TABasfire1 = false;
 bool     Config::StartMsg = true;
 signed char Config::aud_volume = 0;
-int      Config::hdmi_video_mode = 0;
-int      Config::vga_video_mode = 0;
+uint8_t  Config::hdmi_video_mode = Config::VM_640x480_60;
+uint8_t  Config::vga_video_mode = Config::VM_640x480_60;
 bool     Config::v_sync_enabled = false;
 bool     Config::gigascreen_enabled = false;
 uint8_t  Config::gigascreen_onoff = 0;
@@ -162,7 +162,7 @@ void Config::requestMachine(string newArch, string newRomSet)
 #endif
         } else if (romSet128 == "128Kby" || romSet128 == "128Kbg") {
             MemESP::rom[0].assign_rom(gb_rom_0_sinclair_128k);
-            MemESP::rom[1].assign_rom(Config::byte_cobmect_mode ? gb_rom_0_byte_sovmest_48k : gb_rom_0_byte_48k);
+            MemESP::rom[1].assign_rom(gb_rom_0_byte_48k);
             if (romSet128 == "128Kbg") {
                 MemESP::rom[3].assign_rom(gb_rom_gluk);
             }
@@ -228,11 +228,13 @@ static void nvs_get_i8(const char* key, int8_t& v, const vector<string>& sts) {
         v = atoi(t.c_str());
     }
 }
-static void nvs_get_u8(const char* key, uint8_t& v, const vector<string>& sts) {
+static bool nvs_get_u8(const char* key, uint8_t& v, const vector<string>& sts) {
     string t;
     if (nvs_get_str(key, t, sts)) {
         v = atoi(t.c_str());
+        return true;
     }
+    return false;
 }
 static void nvs_get_u16(const char* key, uint16_t& v, const vector<string>& sts) {
     string t;
@@ -399,8 +401,22 @@ void Config::load() {
         nvs_get_b("TABasfire1", Config::TABasfire1, sts);
         nvs_get_b("StartMsg", Config::StartMsg, sts);
         nvs_get_sc("AudVolume", Config::aud_volume, sts);
-        nvs_get_i("hdmi_video_mode", Config::hdmi_video_mode, sts);
-        nvs_get_i("vga_video_mode", Config::vga_video_mode, sts);
+        // Try new format first, fallback to old bool-based format for migration
+        if (!nvs_get_u8("hdmi_vmode", Config::hdmi_video_mode, sts)) {
+            // Migration from old format
+            bool fb = false, hb = false, fb60 = false;
+            int old_mode = 0;
+            nvs_get_b("full_border", fb, sts);
+            nvs_get_b("half_border", hb, sts);
+            nvs_get_b("full_border_60", fb60, sts);
+            nvs_get_i("hdmi_video_mode", old_mode, sts);
+            Config::hdmi_video_mode = hb ? VM_720x480_60 : fb60 ? VM_720x576_60 : fb ? VM_720x576_50 : (old_mode > 0 ? VM_640x480_50 : VM_640x480_60);
+        }
+        if (!nvs_get_u8("vga_vmode", Config::vga_video_mode, sts)) {
+            int old_mode = 0;
+            nvs_get_i("vga_video_mode", old_mode, sts);
+            Config::vga_video_mode = old_mode > 0 ? VM_640x480_50 : VM_640x480_60;
+        }
         nvs_get_b("v_sync_enabled", v_sync_enabled, sts);
         #if PICO_RP2350
         nvs_get_b("gigascreen_enabled", gigascreen_enabled, sts);
@@ -544,8 +560,8 @@ void Config::save() {
         nvs_set_str(handle,"TABasfire1", TABasfire1 ? "true" : "false");
         nvs_set_str(handle,"StartMsg", StartMsg ? "true" : "false");
         nvs_set_sc(handle,"AudVolume", ESPectrum::aud_volume);
-        nvs_set_i(handle,"hdmi_video_mode",Config::hdmi_video_mode);
-        nvs_set_i(handle,"vga_video_mode",Config::vga_video_mode);
+        nvs_set_u8(handle,"hdmi_vmode",Config::hdmi_video_mode);
+        nvs_set_u8(handle,"vga_vmode",Config::vga_video_mode);
         nvs_set_str(handle,"v_sync_enabled", Config::v_sync_enabled ? "true" : "false");
         nvs_set_str(handle,"gigascreen_enabled", Config::gigascreen_enabled ? "true" : "false");
         nvs_set_u8(handle,"gigascreen_onoff", Config::gigascreen_onoff);
@@ -561,6 +577,50 @@ void Config::save() {
         fclose2(handle);
     }
     // printf("Config saved OK\n");
+}
+
+#define VMODE_PENDING_FILE MOUNT_POINT_SD "/vmode_pending.nvs"
+
+void Config::savePendingVideoMode() {
+    if (!FileUtils::fsMount) return;
+    FIL* handle = fopen2(VMODE_PENDING_FILE, FA_WRITE | FA_CREATE_ALWAYS);
+    if (handle) {
+        nvs_set_u8(handle, "hdmi_vmode", Config::hdmi_video_mode);
+        nvs_set_u8(handle, "vga_vmode", Config::vga_video_mode);
+        fclose2(handle);
+    }
+}
+
+bool Config::loadPendingVideoMode(uint8_t &hdmi_vm, uint8_t &vga_vm) {
+    if (!FileUtils::fsMount) return false;
+    FIL* handle = fopen2(VMODE_PENDING_FILE, FA_READ);
+    if (!handle) return false;
+
+    vector<string> sts;
+    UINT br;
+    char c;
+    string s;
+    while (!f_eof(handle)) {
+        if (f_read(handle, &c, 1, &br) != FR_OK) {
+            fclose2(handle);
+            return false;
+        }
+        if (c == '\n') {
+            sts.push_back(s);
+            s.clear();
+        } else {
+            s += c;
+        }
+    }
+    fclose2(handle);
+
+    nvs_get_u8("hdmi_vmode", hdmi_vm, sts);
+    nvs_get_u8("vga_vmode", vga_vm, sts);
+    return true;
+}
+
+void Config::clearPendingVideoMode() {
+    f_unlink(VMODE_PENDING_FILE);
 }
 
 void Config::setJoyMap(uint8_t joytype) {

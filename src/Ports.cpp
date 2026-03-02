@@ -52,7 +52,11 @@ visit https://zxespectrum.speccy.org/contacto
 
 #include "Debug.h"
 
-// #pragma GCC optimize("O3")
+// Place hot port functions in SRAM instead of XIP flash
+#undef IRAM_ATTR
+#define IRAM_ATTR __not_in_flash("ports")
+
+#pragma GCC optimize("O3")
 
 // Values calculated for BEEPER, EAR, MIC bit mask (values 0-7)
 // Taken from FPGA values suggested by Rampa
@@ -75,7 +79,7 @@ Ports::PIT8253Channel Ports::pitChannels[3] = {};
 
 uint8_t (*Ports::getFloatBusData)() = &Ports::getFloatBusData48;
 
-uint8_t Ports::getFloatBusData48() {
+IRAM_ATTR uint8_t Ports::getFloatBusData48() {
 
   unsigned int currentTstates = CPU::tstates;
 
@@ -96,7 +100,7 @@ uint8_t Ports::getFloatBusData48() {
   return (VIDEO::grmem[VIDEO::offBmp[line] + hpoffset]);
 }
 
-uint8_t Ports::getFloatBusData128() {
+IRAM_ATTR uint8_t Ports::getFloatBusData128() {
 
   unsigned int currentTstates = CPU::tstates - 1;
 
@@ -195,19 +199,25 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
           data &= port[row];
       }
     }
-    if (Tape::tapeStatus == TAPE_LOADING) {
-      Tape::Read();
-    }
-    if ((Z80Ops::is48) &&
-        (Config::Issue2)) { // Issue 2 behaviour only on Spectrum 48K
-      if (port254 & 0x18)
+    if (Tape::TapePortRead()) return data;
+    // Turbo loaders at 0xFE00+ write to port254 to set border colors, which
+    // on Issue2 hardware feeds bit3 back into EAR input (bit6), inverting
+    // the tape signal. Bypass port254 feedback for turbo loaders.
+    if (Tape::tapeStatus == TAPE_LOADING && Z80::getRegPC() >= 0xFE00) {
+      if (Tape::tapeEarBit)
         data |= 0x40;
     } else {
-      if (port254 & 0x10)
-        data |= 0x40;
+      if ((Z80Ops::is48) &&
+          (Config::Issue2)) { // Issue 2 behaviour only on Spectrum 48K
+        if (port254 & 0x18)
+          data |= 0x40;
+      } else {
+        if (port254 & 0x10)
+          data |= 0x40;
+      }
+      if (Tape::tapeEarBit)
+        data ^= 0x40;
     }
-    if (Tape::tapeEarBit)
-      data ^= 0x40;
   } else {
     ioContentionLate(MemESP::ramContended[rambank]);
 #ifndef NO_ALF
@@ -508,8 +518,9 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
 #if !PICO_RP2040
     // SAA1099 Sound Chip
     // Ports: 0x00FF/0x01FF (original), 0x04FF/0x05FF (Light/Middle revisions)
+    //        0x00FE/0x01FE (FPGA48all.tap and some other programs use a8=0xFE)
     // Accessible only when TR-DOS ROM is NOT mapped (DOS/ = 1)
-    if (ESPectrum::SAA_emu && !ESPectrum::trdos && a8 == 0xFF) {
+    if (ESPectrum::SAA_emu && !ESPectrum::trdos && (a8 == 0xFF)) {
       if (address & 0x0100) {
         // Register select (bit 8 set): 0x01FF, 0x05FF, etc.
         // Generate samples before selectRegister — it advances external envelope clock
@@ -660,6 +671,13 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct()
                                           : MemESP::ram[5].direct();
         if (Config::gigascreen_onoff == 2) VIDEO::gigascreen_auto_countdown = 3;
+      }
+      // Sync BANKM system variable (0x5B5C = bank5 offset 0x1B5C).
+      // The 128K ROM paging routine at 0x5B00 reads BANKM to restore state;
+      // without this sync, direct OUT to 0x7FFD leaves BANKM stale.
+      if (Z80Ops::is128)
+      {
+        MemESP::ram[5].write(0x1B5C, data);
       }
     }
   }

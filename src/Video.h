@@ -38,7 +38,8 @@ visit https://zxespectrum.speccy.org/contacto
 
 #include <inttypes.h>
 #include "ESPectrum.h"
-#include "VGA/VGA6Bit.h"
+#include "Config.h"
+#include "VGA/VGA8Bit.h"
 #include <list>
 
 #define SPEC_W 256
@@ -54,15 +55,25 @@ visit https://zxespectrum.speccy.org/contacto
 #define TS_SCREEN_PENTAGON     17983  // START OF ULA DRAW PAPER PENTAGON
 #define TS_SCREEN_BYTE         14335
 
-#define TS_BORDER_320x240 8948  // START OF BORDER 48
-#define TS_BORDER_320x240_128 8878  // START OF BORDER 128
+#define TS_BORDER_320x240 8946  // START OF BORDER 48 (+3 correction like FullBorder)
+#define TS_BORDER_320x240_128 8876  // START OF BORDER 128 (+3 correction like FullBorder)
 #define TS_BORDER_320x240_PENTAGON 12595  // START OF BORDER PENTAGON
-#define TS_BORDER_320x240_BYTE 8948
+#define TS_BORDER_320x240_BYTE 8946
 
 #define TS_BORDER_360x200 13428  // START OF BORDER 48
 #define TS_BORDER_360x200_128 13438  // START OF BORDER 128
 #define TS_BORDER_360x200_PENTAGON 17075  // START OF BORDER PENTAGON
 #define TS_BORDER_360x200_BYTE 13428
+
+#define TS_BORDER_360x288 3562          // START OF BORDER 48 FULL (+5 correction like 320x240)
+#define TS_BORDER_360x288_128 3396      // START OF BORDER 128 FULL (+5 correction like 320x240)
+#define TS_BORDER_360x288_PENTAGON 7209 // START OF BORDER PENTAGON FULL (+4 correction like 320x240)
+#define TS_BORDER_360x288_BYTE 3562
+
+#define TS_BORDER_360x240 8938          // START OF BORDER 48 HALF (24 top lines, 360px wide)
+#define TS_BORDER_360x240_128 8868      // START OF BORDER 128 HALF
+#define TS_BORDER_360x240_PENTAGON 12585 // START OF BORDER PENTAGON HALF
+#define TS_BORDER_360x240_BYTE 8938
 
 // Colors as 8-bit palette indices (VGA8 mode)
 // Standard Spectrum color order: 0-7 normal, 8-15 bright, 16 orange
@@ -99,6 +110,10 @@ public:
   void restore_ram(void* p, size_t sz);
 };
 
+#if !PICO_RP2040
+void initGigascreenBlendLUT();
+#endif
+
 class VIDEO
 {
 public:
@@ -130,21 +145,13 @@ public:
   // static void DrawBorderFast();
   static void InitPrevBuffer();
 
-  static void Update_Border();
+  static void Border_Blank();
+
   static void TopBorder_Blank();
   static void TopBorder();
   static void MiddleBorder();
   static void BottomBorder();
   static void BottomBorder_OSD();
-  static void Border_Blank();
-
-  static void Update_Border_Pentagon();
-  static void TopBorder_Blank_Pentagon();
-  static void TopBorder_Pentagon();
-  static void TopBorder_OSD_Pentagon();
-  static void MiddleBorder_Pentagon();
-  static void BottomBorder_Pentagon();
-  static void BottomBorder_OSD_Pentagon();
   
   static void (*Draw)(unsigned int, bool);
   static void (*Draw_Opcode)(bool);
@@ -162,7 +169,7 @@ public:
   static uint16_t offBmp[SPEC_H];
   static uint16_t offAtt[SPEC_H];
 
-  static VGA6Bit vga;
+  static VGA8Bit vga;
 
   static uint8_t borderColor;
   static uint32_t border32[8];
@@ -210,6 +217,19 @@ public:
   static uint32_t framecnt; // Frames elapsed
 
   static int video_mode;
+
+  // Video mode helper methods
+  static uint8_t activeVideoMode() {
+#ifdef VGA_HDMI
+    extern bool SELECT_VGA;
+    return SELECT_VGA ? Config::vga_video_mode : Config::hdmi_video_mode;
+#else
+    return Config::hdmi_video_mode;
+#endif
+  }
+  static bool isFullBorderMode() { return activeVideoMode() >= Config::VM_720x480_60; }
+  static bool isFullBorder240()  { return activeVideoMode() == Config::VM_720x480_60; }
+  static bool isFullBorder288()  { return activeVideoMode() >= Config::VM_720x576_60; }
 
   static bool gigascreen_enabled;
   static uint8_t gigascreen_auto_countdown;

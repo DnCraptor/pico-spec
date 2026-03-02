@@ -85,6 +85,8 @@ uint8_t nes_pad2_for_alf(void) {
 #include "fabutils.h"
 void repeat_handler(void);
 void back2joy2(fabgl::VirtualKey virtualKey, bool down);
+extern "C" int get_framebuffer_width();
+extern "C" int get_framebuffer_height();
 
 #define JPAD (Config::secondJoy == 3 ? back2joy2: joyPushData)
 
@@ -816,7 +818,7 @@ void repeat_me_for_input() {
 void __scratch_x("render") render_core() {
     multicore_lockout_victim_init();
     graphics_init();
-    graphics_set_buffer(NULL, DISP_WIDTH, DISP_HEIGHT); /// TODO:
+    graphics_set_buffer(NULL, get_framebuffer_width(), get_framebuffer_height());
     graphics_set_bgcolor(0x000000);
     graphics_set_flashmode(true, false);
     sem_acquire_blocking(&vga_start_semaphore);
@@ -1132,6 +1134,29 @@ int main() {
         f_close(&f);
     }
     #endif
+
+// #if defined(VGA_HDMI) && !defined(PICO_RP2040)
+//     {
+//         // 720x576 modes use real PAL pixel clock (27MHz).
+//         // 405MHz is NOT achievable (PLL VCO would be 1620MHz, exceeds 1600MHz max).
+//         // 270MHz sys_clk + pio_clk_div=1.0 → TMDS=270MHz → pixel=27MHz exactly.
+//         // VCO=1080MHz (FBDIV=90, PD1=4): achievable on RP2350 and faster than ZERO2 (252MHz).
+//         extern bool SELECT_VGA;
+//         if (!SELECT_VGA && Config::hdmi_video_mode >= Config::VM_720x576_50) {
+//             // Update QMI flash timing for 270MHz before changing sys_clk
+//             const int new_mhz = 270;
+//             const int max_flash = 66 * MHZ;
+//             int divisor = (new_mhz * MHZ + max_flash - 1) / max_flash; // ceil(270/66) = 5
+//             if (divisor == 1 && new_mhz * MHZ > 100000000) divisor = 2;
+//             int rxdelay = divisor;
+//             if (new_mhz * MHZ / divisor > 100000000) rxdelay += 1;
+//             qmi_hw->m[0].timing = 0x60007000 |
+//                                   rxdelay << QMI_M0_TIMING_RXDELAY_LSB |
+//                                   divisor << QMI_M0_TIMING_CLKDIV_LSB;
+//             set_sys_clock_khz(new_mhz * KHZ, true);
+//         }
+//     }
+// #endif
 
     sem_init(&vga_start_semaphore, 0, 1);
     multicore_launch_core1(render_core);

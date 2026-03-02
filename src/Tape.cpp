@@ -52,6 +52,7 @@ using namespace std;
 #include "messages.h"
 #include "Z80_JLS/z80.h"
 #include "pwm_audio.h"
+#include "Debug.h"
 
 #include "music_file.h"
 
@@ -68,6 +69,7 @@ int Tape::tapeFileType = TAPE_FTYPE_EMPTY;
 uint8_t Tape::tapeStatus = TAPE_STOPPED;
 uint8_t Tape::SaveStatus = SAVE_STOPPED;
 uint8_t Tape::romLoading = false;
+bool Tape::tapeAutoPlay = false;
 uint8_t Tape::tapeEarBit;
 std::vector<TapeBlock> Tape::TapeListing;
 int Tape::tapeCurBlock;
@@ -293,7 +295,7 @@ void Tape::LoadTape(string mFile) {
                     if (Config::aspect_16_9)
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                     else
-                        VIDEO::Draw_OSD43  = Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon : VIDEO::BottomBorder_OSD;
+                        VIDEO::Draw_OSD43  = VIDEO::BottomBorder_OSD;
                     ESPectrum::TapeNameScroller = 0;
                 }    
         }
@@ -304,11 +306,37 @@ void Tape::LoadTape(string mFile) {
     } else if (FileUtils::hasTZXextension(mFile)) {
         string keySel = mFile.substr(0,1);
         mFile.erase(0, 1);
+        // Flashload .tzx if needed
+        if ((keySel == "R") && (Config::flashload) && (Config::arch != "ALF") &&
+             (Config::romSet != "ZX81+") && (Config::romSet != "48Kcs") && (Config::romSet != "128Kcs")
+        ) {
+                OSD::osdCenteredMsg(OSD_TAPE_FLASHLOAD, LEVEL_INFO, 100);
+                uint8_t OSDprev = VIDEO::OSD;
+                if (Z80Ops::is48)
+                    FileZ80::loader48();
+                else
+                    FileZ80::loader128();
+                MemESP::writebyte(0x5C78,rand() % 256);
+                MemESP::writebyte(0x5C79,rand() % 256);
+
+                if (Config::ram_file != NO_RAM_FILE) {
+                    Config::ram_file = NO_RAM_FILE;
+                }
+                Config::last_ram_file = NO_RAM_FILE;
+
+                if (OSDprev) {
+                    VIDEO::OSD = OSDprev;
+                    if (Config::aspect_16_9)
+                        VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
+                    else
+                        VIDEO::Draw_OSD43  = VIDEO::BottomBorder_OSD;
+                    ESPectrum::TapeNameScroller = 0;
+                }
+        }
         Tape::Stop();
         // Read and analyze tzx file
         Tape::TZX_Open(mFile);
         ESPectrum::TapeNameScroller = 0;
-        // printf("%s loaded.\n",mFile.c_str());
     }
     else {
         OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR, LEVEL_WARN);
@@ -1012,6 +1040,7 @@ void Tape::Stop() {
     OSD::osdCenteredMsg("Tape loading is stopped", LEVEL_INFO, 100);
     tapeStatus = TAPE_STOPPED;
     tapePhase = TAPE_PHASE_STOPPED;
+    tapeAutoPlay = false;
     if (VIDEO::OSD) {
         VIDEO::OSD = 2;
     }
@@ -1584,25 +1613,133 @@ bool Tape::FlashLoad() {
     if (Z80Ops::isALF) { // unsupported now
         return false;
     }
+
+    if (tapeFileType == TAPE_FTYPE_TZX) {
+        // TZX flash load: supported for 0x10 (Standard) and 0x14 (Pure Data) blocks.
+        // Skip metadata/non-data blocks (archive info, text, group markers, pure tone,
+        // pulse sequence, etc.) to find the next loadable block.
+        FIL* tape = &Tape::tape;
+        uint8_t foundId = 0;
+        while (tapeCurBlock < tapeNumBlocks) {
+            CalcTZXBlockPos(tapeCurBlock);
+            foundId = readByteFile(tape);
+            if (foundId == 0x10 || foundId == 0x14) break;
+            tapeCurBlock++;
+        }
+        if (tapeCurBlock >= tapeNumBlocks) return false;
+        // Re-seek to block start to read header cleanly
+        CalcTZXBlockPos(tapeCurBlock);
+        foundId = readByteFile(tape);
+        uint16_t blockLen;
+        if (foundId == 0x10) {
+            // Standard Speed Data: pause(2) + len(2) + flag(1) + data
+            readByteFile(tape); readByteFile(tape); // pause
+            blockLen = (readByteFile(tape) | (readByteFile(tape) << 8));
+        } else {
+            // Pure Data (0x14): b0(2)+b1(2)+lastbits(1)+pause(2)+len(3) + flag(1) + data
+            readByteFile(tape); readByteFile(tape); // b0
+            readByteFile(tape); readByteFile(tape); // b1
+            readByteFile(tape);                     // lastbits
+            readByteFile(tape); readByteFile(tape); // pause
+            blockLen = (readByteFile(tape) | (readByteFile(tape) << 8));
+            readByteFile(tape);                     // 3rd byte of 24-bit len (ignored)
+        }
+        uint8_t tapeFlag = readByteFile(tape);
+
+        if (Z80::getRegAx() != tapeFlag) {
+            Z80::setFlags(0x00);
+            Z80::setRegA(Z80::getRegAx() ^ tapeFlag);
+            if (tapeCurBlock < (tapeNumBlocks - 1)) {
+                tapeCurBlock++;
+                CalcTZXBlockPos(tapeCurBlock);
+            } else {
+                tapeCurBlock = 0;
+                f_lseek(tape, 0);
+            }
+            return true;
+        }
+
+        Z80::setRegA(tapeFlag);
+
+        int count = 0;
+        int addr = Z80::getRegIX();
+        int nBytes = Z80::getRegDE();
+        int addr2 = addr & 0x3fff;
+        uint8_t page = addr >> 14;
+
+        if ((addr2 + nBytes) <= MEM_PG_SZ) {
+            UINT br;
+            uint8_t* p = MemESP::ramCurrent[page];
+            if ( p < (uint8_t*)0x11000000 || (page == 0 && !MemESP::page0ram) ) {
+                f_lseek(tape, f_tell(tape) + nBytes);
+            } else {
+                f_read(tape, &p[addr2], nBytes, &br);
+            }
+            while ((count < nBytes) && (count < blockLen - 1)) {
+                Z80::Xor(MemESP::readbyte(addr));
+                addr = (addr + 1) & 0xffff;
+                count++;
+            }
+        } else {
+            int chunk1 = MEM_PG_SZ - addr2;
+            int chunkrest = nBytes > (blockLen - 1) ? (blockLen - 1) : nBytes;
+            do {
+                if ((page > 0) && (page < 4)) {
+                    UINT br;
+                    f_read(tape, &MemESP::ramCurrent[page][addr2], chunk1, &br);
+                    for (int i=0; i < chunk1; i++) {
+                        Z80::Xor(MemESP::readbyte(addr));
+                        addr = (addr + 1) & 0xffff;
+                        count++;
+                    }
+                } else {
+                    for (int i=0; i < chunk1; i++) {
+                        Z80::Xor(readByteFile(tape));
+                        addr = (addr + 1) & 0xffff;
+                        count++;
+                    }
+                }
+                addr2 = 0;
+                chunkrest = chunkrest - chunk1;
+                if (chunkrest > MEM_PG_SZ) chunk1 = MEM_PG_SZ; else chunk1 = chunkrest;
+                page++;
+            } while (chunkrest > 0);
+        }
+
+        if (nBytes > (blockLen - 2)) {
+            Z80::setFlags(0x50);
+        } else {
+            Z80::Xor(readByteFile(tape));
+            Z80::Cp(0x01);
+        }
+
+        if (tapeCurBlock < (tapeNumBlocks - 1)) {
+            tapeCurBlock++;
+        } else {
+            tapeCurBlock = 0;
+            f_lseek(tape, 0);
+        }
+
+        Z80::setRegIX(addr);
+        Z80::setRegDE(nBytes - (blockLen - 2));
+
+        return true;
+    }
+
     if (!tape.obj.fs) {
-        string fname = FileUtils::TAP_Path + tapeFileName;        
+        string fname = FileUtils::TAP_Path + tapeFileName;
         if (f_open(&tape, fname.c_str(), FA_READ) != FR_OK) {
             return false;
         }
-        CalcTapBlockPos(tapeCurBlock);
     }
+    CalcTapBlockPos(tapeCurBlock);
 
-    // printf("--< BLOCK: %d >--------------------------------\n",(int)tapeCurBlock);    
+    // printf("--< BLOCK: %d >--------------------------------\n",(int)tapeCurBlock);
     FIL* tape = &Tape::tape;
     uint16_t blockLen=(readByteFile(tape) | (readByteFile(tape) <<8));
     uint8_t tapeFlag = readByteFile(tape);
 
-    // printf("blockLen: %d\n",(int)blockLen - 2);
-    // printf("tapeFlag: %d\n",(int)tapeFlag);
-    // printf("AX: %d\n",(int)Z80::getRegAx());
-
     if (Z80::getRegAx() != tapeFlag) {
-        // printf("No coincide el flag\n");
         Z80::setFlags(0x00);
         Z80::setRegA(Z80::getRegAx() ^ tapeFlag);
         if (tapeCurBlock < (tapeNumBlocks - 1)) {
@@ -1639,7 +1776,7 @@ bool Tape::FlashLoad() {
         }
 
         while ((count < nBytes) && (count < blockLen - 1)) {
-            Z80::Xor(MemESP::readbyte(addr));        
+            Z80::Xor(MemESP::readbyte(addr));
             addr = (addr + 1) & 0xffff;
             count++;
         }
@@ -1705,4 +1842,382 @@ bool Tape::FlashLoad() {
 
     return true;
 
+}
+
+// Cerikopik FlashLoad: instant load for Byte magazine custom speedloader.
+// The Cerikopik loader at 0xFE00 reads tape data with its own protocol and
+// decrypts each byte using: decoded = ((raw ^ 0x87) + KEY1) ^ KEY2
+//   KEY1 = static key at [0xFEA3] (unique per game/tape)
+//   KEY2 = flag byte from TAP block (first byte, not stored to memory)
+// We read the TAP block, apply the same decryption, and write directly to (IX).
+bool Tape::CerikopikFlashLoad() {
+
+    FIL* tp = &Tape::tape;
+    uint16_t blockLen;
+    uint8_t tapeFlag;
+
+    if (tapeFileType == TAPE_FTYPE_TZX) {
+
+        uint8_t foundId = 0;
+        while (tapeCurBlock < tapeNumBlocks) {
+            CalcTZXBlockPos(tapeCurBlock);
+            foundId = readByteFile(tp);
+            if (foundId == 0x10 || foundId == 0x14) break;
+            tapeCurBlock++;
+        }
+        if (tapeCurBlock >= tapeNumBlocks) return false;
+        CalcTZXBlockPos(tapeCurBlock);
+        foundId = readByteFile(tp);
+        if (foundId == 0x10) {
+            readByteFile(tp); readByteFile(tp); // pause
+            blockLen = (readByteFile(tp) | (readByteFile(tp) << 8));
+        } else {
+            readByteFile(tp); readByteFile(tp); // b0
+            readByteFile(tp); readByteFile(tp); // b1
+            readByteFile(tp);                   // lastbits
+            readByteFile(tp); readByteFile(tp); // pause
+            blockLen = (readByteFile(tp) | (readByteFile(tp) << 8));
+            readByteFile(tp);                   // 3rd byte of 24-bit len
+        }
+        tapeFlag = readByteFile(tp);
+
+    } else if (tapeFileType == TAPE_FTYPE_TAP) {
+
+        if (!tp->obj.fs) {
+            string fname = FileUtils::TAP_Path + tapeFileName;
+            if (f_open(tp, fname.c_str(), FA_READ) != FR_OK) {
+                return false;
+            }
+        }
+        CalcTapBlockPos(tapeCurBlock);
+
+        blockLen = (readByteFile(tp) | (readByteFile(tp) << 8));
+        tapeFlag = readByteFile(tp);
+
+    } else {
+        return false;
+    }
+
+    // Read decryption keys from Z80 memory (loader resident at 0xFE00)
+    uint8_t key1 = MemESP::readbyte(0xFEA3);  // static key (e.g. 0x6E)
+    uint8_t key2 = tapeFlag;                    // flag byte used as XOR key
+
+    // Destination from Z80 registers
+    int addr = Z80::getRegIX();
+    int dataLen = blockLen - 2;  // exclude flag byte and checksum
+
+    // Decrypt and write each data byte to Z80 memory
+    for (int i = 0; i < dataLen; i++) {
+        uint8_t raw = readByteFile(tp);
+        uint8_t step1 = raw ^ 0x87;
+        uint8_t step2 = (step1 + key1) & 0xFF;
+        uint8_t decoded = step2 ^ key2;
+        MemESP::writebyte(addr, decoded);
+        addr = (addr + 1) & 0xFFFF;
+    }
+
+    // Skip checksum byte
+    readByteFile(tp);
+
+    // Advance to next block
+    if (tapeCurBlock < (tapeNumBlocks - 1)) {
+        tapeCurBlock++;
+    } else {
+        tapeCurBlock = 0;
+        f_lseek(tp, 0);
+    }
+
+    // Update IX to point past loaded data
+    Z80::setRegIX(addr);
+
+    return true;
+}
+
+// Jumping Jack Cerikopik variant: different loader at 0xFE00 with NO encryption.
+// Signature: F3 ED 73 17 FE 31 80 FF (DI / LD (0xFE17),SP / LD SP,0xFF80)
+// Two modes determined by JP target at (0xFE66):
+//   0xFE68 = screen format: [H][L][attr→(H:L)][8×bitmap→screen]...[0xFF][tail]
+//            Animated loading: 1 group per ~205128 T-states (real tape speed).
+//   0xFEC5 = sequential: all bytes go to (IX), loaded instantly.
+// Returns: 0 = not applicable, 1 = screen group loaded (in progress), 2 = done.
+// JJ screen animation state
+bool Tape::jjScreenAnimating = false;
+static uint32_t jjScreenBlockLen = 0;
+static uint32_t jjScreenBytesRead = 0;
+static uint64_t jjScreenLastTs = 0;
+// Real tape timing: 205128T per 11-byte group, quartered for 4× speed animation
+static const uint32_t JJ_TSTATES_PER_GROUP = 205128 >> 2;
+
+int Tape::JJFlashLoad() {
+
+    FIL* tp = &Tape::tape;
+
+    if (tapeFileType != TAPE_FTYPE_TZX) return 0;
+
+    // If screen animation is in progress, continue loading groups
+    if (jjScreenAnimating) {
+        // Throttle: wait until enough T-states have elapsed for next group
+        uint64_t now = CPU::global_tstates + CPU::tstates;
+        if (now - jjScreenLastTs < JJ_TSTATES_PER_GROUP) return 1; // not yet, still in progress
+
+        // Load one group
+        if (jjScreenBytesRead < jjScreenBlockLen) {
+            uint8_t hByte = readByteFile(tp); jjScreenBytesRead++;
+            if (hByte == 0xFF) {
+                // End marker — consume tail bytes
+                while (jjScreenBytesRead < jjScreenBlockLen) {
+                    readByteFile(tp); jjScreenBytesRead++;
+                }
+            } else if (jjScreenBytesRead + 10 <= jjScreenBlockLen) {
+                uint8_t lByte = readByteFile(tp); jjScreenBytesRead++;
+                uint8_t attrByte = readByteFile(tp); jjScreenBytesRead++;
+                MemESP::writebyte((hByte << 8) | lByte, attrByte);
+
+                uint8_t bmpH = ((hByte & 0x03) << 3) | 0x40;
+                uint16_t bmpAddr = (bmpH << 8) | lByte;
+                for (int line = 0; line < 8; line++) {
+                    MemESP::writebyte(bmpAddr, readByteFile(tp));
+                    bmpAddr = ((bmpAddr + 0x100) & 0xFF00) | (bmpAddr & 0xFF);
+                    jjScreenBytesRead++;
+                }
+                jjScreenLastTs = now;
+                return 1; // group loaded, still in progress
+            }
+        }
+
+        // Screen loading complete — finalize
+        jjScreenAnimating = false;
+        MemESP::writebyte(0xFE66, 0xC5); // self-patch to sequential
+        MemESP::writebyte(0xFE67, 0xFE);
+        if (tapeCurBlock < (tapeNumBlocks - 1)) tapeCurBlock++;
+        else { tapeCurBlock = 0; f_lseek(tp, 0); }
+        Z80::setRegPC(0x50C0);
+        return 2; // done
+    }
+
+    uint16_t jpTarget = MemESP::readbyte(0xFE66) | (MemESP::readbyte(0xFE67) << 8);
+    if (jpTarget != 0xFE68 && jpTarget != 0xFEC5) return 0;
+
+    // Find next Pure Data (0x14) or Standard (0x10) block, skip metadata
+    uint8_t foundId = 0;
+    int startBlock = tapeCurBlock;
+    while (tapeCurBlock < tapeNumBlocks) {
+        CalcTZXBlockPos(tapeCurBlock);
+        foundId = readByteFile(tp);
+        if (foundId == 0x10 || foundId == 0x14) break;
+        tapeCurBlock++;
+    }
+    if (tapeCurBlock >= tapeNumBlocks) return 0;
+
+    // Read block header to get data length
+    CalcTZXBlockPos(tapeCurBlock);
+    foundId = readByteFile(tp);
+    uint32_t blockLen;
+    if (foundId == 0x10) {
+        readByteFile(tp); readByteFile(tp); // pause
+        blockLen = (readByteFile(tp) | (readByteFile(tp) << 8));
+    } else {
+        readByteFile(tp); readByteFile(tp); // b0
+        readByteFile(tp); readByteFile(tp); // b1
+        readByteFile(tp);                   // lastbits
+        readByteFile(tp); readByteFile(tp); // pause
+        blockLen = (readByteFile(tp) | (readByteFile(tp) << 8) | (readByteFile(tp) << 16));
+    }
+
+
+    if (jpTarget == 0xFE68) {
+        // Screen format — start incremental loading
+        jjScreenAnimating = true;
+        jjScreenBlockLen = blockLen;
+        jjScreenBytesRead = 0;
+        jjScreenLastTs = CPU::global_tstates + CPU::tstates;
+        return 1; // first call, no group loaded yet (next call will load first group)
+
+    } else {
+        // Sequential format (0xFEC5): all bytes go to (IX), loaded instantly.
+        // Save unwind info BEFORE writing data — the write may overwrite the
+        // loader at 0xFE00+ (e.g. Saboteur 2 loads 39925 bytes to 0x620C,
+        // reaching 0xFE00 and destroying the saved SP at 0xFE17).
+        uint16_t savedSP = MemESP::readbyte(0xFE17) |
+                           (MemESP::readbyte(0xFE18) << 8);
+
+        int addr = Z80::getRegIX();
+        for (uint32_t i = 0; i < blockLen; i++) {
+            MemESP::writebyte(addr, readByteFile(tp));
+            addr = (addr + 1) & 0xFFFF;
+        }
+        Z80::setRegIX(addr);
+
+        if (tapeCurBlock < (tapeNumBlocks - 1)) tapeCurBlock++;
+        else { tapeCurBlock = 0; f_lseek(tp, 0); }
+
+        // Unwind: restore SP and jump to caller's return address.
+        // Can't use memory at 0xFE15 (EI;RET) — it may be overwritten.
+        // Instead, do the unwind directly: restore SP, enable interrupts,
+        // pop return address and jump to it.
+        Z80::setRegSP(savedSP);
+        uint16_t retAddr = MemESP::readbyte(savedSP) |
+                           (MemESP::readbyte((savedSP + 1) & 0xFFFF) << 8);
+        Z80::setRegSP((savedSP + 2) & 0xFFFF);
+        Z80::setIFF1(true);
+        Z80::setIFF2(true);
+        Z80::setRegPC(retAddr);
+
+
+        return 2; // done — unwind already performed
+    }
+}
+
+// Called from port 0xFE read handler. Handles all tape-related logic:
+// - Cerikopik FlashLoad detection (PC >= 0xFE00, Byte ROM)
+// - Jumping Jack variant detection (different signature at 0xFE00)
+// - Generic auto-start for other custom loaders
+// - Normal tape Read() when loading
+// Returns true if the caller should suppress the tape signal (return port
+// data immediately without any further processing).
+bool Tape::TapePortRead() {
+    static uint16_t loopPC = 0;
+    static uint16_t loopCount = 0;
+
+    // Unwind Cerikopik loader stack to 0xFE04 (EI; RET) after FlashLoad.
+    // The loader entry is: DI / CALL 0xFE06, so 0xFE04 is always on the stack.
+    auto cerikUnwind = []() {
+        uint16_t sp = Z80::getRegSP();
+        for (int i = 0; i < 8; i++) {
+            uint16_t ret = MemESP::readbyte(sp) |
+                           (MemESP::readbyte((sp + 1) & 0xFFFF) << 8);
+            if (ret == 0xFE04) {
+                Z80::setRegSP((sp + 2) & 0xFFFF);
+                Z80::setRegPC(0xFE04);
+                break;
+            }
+            sp = (sp + 2) & 0xFFFF;
+        }
+    };
+
+    // Signature check for Cerikopik/JJ turbo loaders installed at 0xFE00.
+    // Only active when Config::flashload is ON (fast mode).
+    bool loaderCommon = (tapeFileType == TAPE_FTYPE_TAP || tapeFileType == TAPE_FTYPE_TZX) &&
+        tapeCurBlock > 0 && tapeCurBlock < tapeNumBlocks &&
+        MemESP::readbyte(0xFE00) == 0xF3;  // DI at 0xFE00
+
+    // Standard Cerikopik: DI / CALL 0xFE06 / EI / RET
+    bool isCerikopikCandidate = loaderCommon && Config::flashload &&
+        MemESP::readbyte(0xFE01) == 0xCD &&  // CALL nn
+        MemESP::readbyte(0xFE02) == 0x06 &&
+        MemESP::readbyte(0xFE03) == 0xFE &&  // 0xFE06
+        MemESP::readbyte(0xFE04) == 0xFB &&  // EI
+        MemESP::readbyte(0xFE05) == 0xC9;    // RET
+
+    // Jumping Jack variant: DI / LD (0xFE17),SP / LD SP,0xFF80
+    bool isJJCandidate = loaderCommon && Config::flashload &&
+        tapeFileType == TAPE_FTYPE_TZX &&
+        MemESP::readbyte(0xFE01) == 0xED &&  // ED prefix
+        MemESP::readbyte(0xFE02) == 0x73 &&  // LD (nn),SP
+        MemESP::readbyte(0xFE03) == 0x17 &&
+        MemESP::readbyte(0xFE04) == 0xFE &&  // 0xFE17
+        MemESP::readbyte(0xFE05) == 0x31 &&  // LD SP,nn
+        MemESP::readbyte(0xFE06) == 0x80 &&
+        MemESP::readbyte(0xFE07) == 0xFF;    // 0xFF80
+
+    // Note: JJ unwind for sequential mode is now done inside JJFlashLoad
+    // (before data write, since the write may overwrite the loader at 0xFE00+).
+
+    uint16_t pc = Z80::getRegPC();
+
+    if (tapeStatus == TAPE_LOADING) {
+        // Cerikopik/JJ loader at 0xFE00+: suppress tape so edge detection
+        // loops exhaust the B counter (~255 iters), then trigger FlashLoad.
+        if ((isCerikopikCandidate || isJJCandidate) && pc >= 0xFE00) {
+            // During JJ screen animation, call JJFlashLoad on every port read
+            // (timing throttle is inside JJFlashLoad). Must not wait for 200-count
+            // because the edge detection loop has B=0xC1 (~193) iterations before
+            // timeout — if we wait for 200, the loader exits and returns to BASIC.
+            if (isJJCandidate && jjScreenAnimating) {
+                int jjResult = JJFlashLoad();
+                if (jjResult == 2) {
+                    tapeStatus = TAPE_STOPPED;
+                    tapePhase = TAPE_PHASE_STOPPED;
+                }
+                return true;
+            }
+            if (pc == loopPC) {
+                if (++loopCount > 200) {
+                    loopCount = 0;
+                    if (isCerikopikCandidate) {
+                        if (CerikopikFlashLoad()) {
+                            tapeStatus = TAPE_STOPPED;
+                            tapePhase = TAPE_PHASE_STOPPED;
+                            cerikUnwind();
+                        }
+                    } else {
+                        int jjResult = JJFlashLoad();
+                        if (jjResult == 2) { // block complete
+                            tapeStatus = TAPE_STOPPED;
+                            tapePhase = TAPE_PHASE_STOPPED;
+                        }
+                        // jjResult==1: screen animation in progress, keep suppressing
+                    }
+                }
+            } else { loopPC = pc; loopCount = 1; }
+            return true; // suppress tape signal
+        }
+        // ROM is waiting for pilot tone while tape is in inter-block pause
+        // (e.g. long TZX pause). Skip the pause and start the next block.
+        if (tapePhase == TAPE_PHASE_PAUSE) {
+            if (pc == loopPC) {
+                if (++loopCount > 200) {
+                    loopCount = 0;
+                    tapeCurBlock++;
+                    Play();
+                    Read();
+                }
+            } else { loopPC = pc; loopCount = 1; }
+            return false;
+        }
+        loopPC = 0; loopCount = 0;
+        Read();
+        // If tape advanced into a turbo pilot block (PureTone) while non-turbo
+        // code is running (pc < 0xFE00, flashload OFF): stop the tape.
+        // Turbo autostart will resume Play() from this block when the turbo
+        // loader at 0xFE00 starts polling — PureTone will play from the start.
+        if (!Config::flashload && !isCerikopikCandidate && !isJJCandidate &&
+            pc < 0xFE00 && tapePhase == TAPE_PHASE_PURETONE) {
+            tapeStatus = TAPE_STOPPED;
+            tapePhase = TAPE_PHASE_STOPPED;
+        }
+
+    } else if (tapeFileType != TAPE_FTYPE_EMPTY && tapeFileName != "none") {
+        // During JJ screen animation (tape stopped path), call every port read
+        if (isJJCandidate && jjScreenAnimating && pc >= 0xFE00) {
+            JJFlashLoad();
+            return false;
+        }
+        if (pc == loopPC) {
+            if (++loopCount > 200) {
+                loopCount = 0;
+                if (isCerikopikCandidate && pc >= 0xFE00) {
+                    // Cerikopik FlashLoad (tape stopped, loader polls without tape)
+                    if (CerikopikFlashLoad()) cerikUnwind();
+                } else if (isJJCandidate && pc >= 0xFE00) {
+                    // JJ FlashLoad (tape stopped, unwind done inside)
+                    JJFlashLoad();
+                } else if (loaderCommon && !Config::flashload && pc >= 0xFE00) {
+                    // Turbo loader detected but flashload is OFF — auto-start tape
+                    // so the loader can read edges directly from the tape signal.
+                    tapeAutoPlay = true;
+                    Play();
+                    Read();
+                } else if (tapeCurBlock > 0) {
+                    // Generic auto-start for other custom loaders.
+                    // Skip when tapeCurBlock==0: tape finished (all blocks loaded),
+                    // game code may poll port 0xFE for keyboard — not a load request.
+                    tapeAutoPlay = true;
+                    Play();
+                    Read();
+                }
+            }
+        } else { loopPC = pc; loopCount = 1; }
+    }
+    return false;
 }
