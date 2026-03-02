@@ -1570,6 +1570,28 @@ void ESPectrum::loop() {
             prev = curr;
           }
         }
+        // Simulate speaker coupling capacitor: attenuate constant (DC) beeper signals.
+        // On real hardware the coupling cap blocks a static EAR output level — only
+        // transitions are audible. When all samples in the buffer are identical (bit
+        // held steady), fade the level out. When the beeper is oscillating (music),
+        // leave the buffer untouched so quality is fully preserved.
+        {
+          static uint32_t dc_fade_q8 = 256u; // Q8 attenuation: 256 = full, 0 = silent
+          uint32_t v0 = overSamplebuf[0];
+          bool is_const = (v0 > 0);
+          for (int i = 1; is_const && i < samplesPerFrame; i++)
+            if (overSamplebuf[i] != v0) is_const = false;
+          if (is_const) {
+            // Constant non-zero DC — fade to silence over ~10 frames (~200ms)
+            if (dc_fade_q8 >= 26u) dc_fade_q8 -= 26u; else dc_fade_q8 = 0u;
+            uint32_t faded = (v0 * dc_fade_q8) >> 8;
+            for (int i = 0; i < samplesPerFrame; i++)
+              overSamplebuf[i] = faded;
+          } else {
+            // Oscillating beeper (music) — full amplitude, no modification
+            dc_fade_q8 = 256u;
+          }
+        }
         if (Config::covox && faudbufcntCovox < samplesPerFrame) {
           uint8_t *sound_buf = audioBufferCovox + faudbufcntCovox;
           int sound_bufsize = samplesPerFrame - faudbufcntCovox;
