@@ -1320,18 +1320,15 @@ IRAM_ATTR static void Update_Border_Pair() {
 }
 
 IRAM_ATTR static void Update_Border_Pair_Gig() {
-    uint32_t newColor = VIDEO::brd;
-    uint32_t color32 = newColor | (newColor << 16);
+    if (!(brdcol_cnt & 1)) return; // Skip even pass; odd pass overwrites the whole pair
+    uint32_t color32 = VIDEO::brd | (VIDEO::brd << 16);
     int pair = brdcol_cnt & ~1;
     uint32_t old32 = ((uint32_t *)&prevBrdptr16[pair])[0];
-    if ((uint16_t)old32 != (uint16_t)newColor) {
-        uint32_t mixed32 = blendPixels32(newColor, (uint16_t)old32);
-        mixed32 = mixed32 | (mixed32 << 16);
-        ((uint32_t *)&prevBrdptr16[pair])[0] = color32;
-        ((uint32_t *)&brdptr16[pair])[0] = mixed32;
+    ((uint32_t *)&prevBrdptr16[pair])[0] = color32;
+    if (old32 != color32) {
+        ((uint32_t *)&brdptr16[pair])[0] = blendPixels32(color32, old32);
         VIDEO::brdGigascreenChange = true;
     } else {
-        ((uint32_t *)&prevBrdptr16[pair])[0] = color32;
         ((uint32_t *)&brdptr16[pair])[0] = color32;
     }
 }
