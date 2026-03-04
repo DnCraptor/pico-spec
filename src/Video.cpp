@@ -123,16 +123,15 @@ uint8_t VIDEO::snowR;
 bool VIDEO::snow_toggle = false;
 
 // Border column variables (runtime-switchable per machine)
-static int brdcol_start = 0;       // first visible column (16:9: 10, 4:3: 0)
-static int brdcol_end = 0;          // end of visible line (framebuffer width / 2)
-static int brdcol_end1 = 0;         // end of left border (start of 256px screen area)
-// Retrace start column: cols >= this are H-retrace (not visible on real TV/CRT)
-// Pentagon: 44T retrace → 224-44=180=brdcol_end for 360px (no retrace rendered, all cols visible)
-// 48K/BYTE: 64T retrace → 224-64=160 (20 cols of retrace area)
-// 128K:     64T retrace → 228-64=164 (16 cols of retrace area)
-static int brdcol_retrace = 180;
-static int brdcol_step = 1;        // 1 for all modes (1T = 2px precision)
-static bool brdPairWrite = false;  // true: uint32_t pair write (no XOR artifacts), false: uint16_t XOR write
+// 48K/128K: step=4, brdPairWrite=true (uint32_t pair writes via brdptr16 cast)
+// Pentagon:  step=1, brdPairWrite=false (uint16_t XOR writes)
+// brdcol_cnt always counts in T-states (1T = 2px = 1 uint16_t)
+static int brdcol_start = 0;       // first visible column (T-states from line start)
+static int brdcol_end = 0;         // end of visible line (T-states)
+static int brdcol_end1 = 0;        // end of left border / paper skip point (T-states)
+static int brdcol_retrace = 0;     // where H-retrace begins (= brdcol_end when no retrace visible)
+static int brdcol_step = 4;        // T-states per column (4 for 48K/128K, 1 for Pentagon)
+static bool brdPairWrite = true;   // true: uint32_t pair writes, false: uint16_t XOR
 static void Select_Update_Border(); // forward declaration
 
 // ULA+
@@ -177,6 +176,7 @@ static unsigned int linedraw_cnt;
 static int brdcol_cnt = 0;
 static int brdlin_cnt = 0;
 static unsigned int lin_end, lin_end2 /*, lin_end3*/;
+
 static unsigned int coldraw_cnt;
 static unsigned int col_end;
 static unsigned int video_rest;
@@ -571,33 +571,38 @@ void VIDEO::Reset() {
         DrawBorder = TopBorder_Blank;
     }
 
-    // Border column layout (all 16-bit modes):
-    // brdcol_start: first visible col (16:9=10, 4:3/fullborder=0)
-    // brdcol_end1: end of left border = start of 256px screen area
-    // brdcol_retrace: where H-retrace begins (= brdcol_end when fully visible)
-    // Pentagon: symmetric borders, 26T left in fullborder, retrace fully visible
-    // 48K/128K: asymmetric 24T left, 64T retrace
-    brdcol_start = is169 ? 10 : 0;
-    if (isFullBorder) {
-        brdcol_end1    = Z80Ops::isPentagon ? 26 : 24;
-        brdcol_retrace = vga.xres / 2;
+    // Border column layout (unified for all models):
+    // brdcol_cnt counts T-states (1T = 2px = 1 uint16_t in framebuffer)
+    // 48K/128K: step=4 (8px per column), brdPairWrite=true
+    // Pentagon:  step=1 (2px per column), brdPairWrite=false (XOR)
+    brdcol_end = isFullBorder ? 180 : 160;  // vga.xres / 2 (T-states = half pixel count)
+    if (Z80Ops::isPentagon) {
+        brdcol_step = 1;
+        brdPairWrite = false;
+        brdcol_start = is169 ? 10 : 0;
+        if (isFullBorder) {
+            brdcol_end1 = 26;
+        } else {
+            brdcol_end1 = brdcol_start + (brdcol_end - brdcol_start - 128) / 2;
+        }
+        brdcol_retrace = brdcol_end;    // no retrace visible for Pentagon
     } else {
-        int half_end = vga.xres / 2;
-        brdcol_end1    = brdcol_start + (half_end - brdcol_start - 128) / 2;
-        brdcol_retrace = half_end;
+        brdcol_step = 4;
+        brdPairWrite = true;
+        brdcol_start = 0;
+        brdcol_end1 = isFullBorder ? 24 : 16;  // left border T-states
+        brdcol_retrace = brdcol_end;            // no retrace visible with step=4
     }
-    brdcol_step = 1;
-    brdPairWrite = !Z80Ops::isPentagon;
     Select_Update_Border();
 
     if (isFullBorder && !isFullBorder240) {
         lin_end = 48;
         lin_end2 = 240;
-        lineptr_offset = brdcol_end1 / 2; // 13 (Pentagon) or 12 (48K/128K/BYTE)
+        lineptr_offset = (Z80Ops::isPentagon ? 26 : 24) / 2;
     } else if (isFullBorder && isFullBorder240) {
         lin_end = 24;
         lin_end2 = 216;
-        lineptr_offset = brdcol_end1 / 2; // 13 (Pentagon) or 12 (48K/128K/BYTE)
+        lineptr_offset = (Z80Ops::isPentagon ? 26 : 24) / 2;
     } else if (is169) {
         lin_end = 4;
         lin_end2 = 196;
@@ -1259,7 +1264,7 @@ IRAM_ATTR void VIDEO::EndFrame() {
         brdGigascreenChange = false;
     }
 
-    // Restart border drawing
+    // Restart border drawing (single TopBorder_Blank for all models)
     if (skipFrame)
         DrawBorder = &Border_Blank;
     else
@@ -1309,33 +1314,40 @@ IRAM_ATTR void VIDEO::EndFrame() {
 
 IRAM_ATTR void VIDEO::Border_Blank() {
 
-}    
+}
 
+//----------------------------------------------------------------------------------------------------------------
 // Specialized Update_Border variants — function pointer avoids per-call branching
+// 48K/128K (brdPairWrite=true, step=4): writes 2 uint32_t (8px) per step via brdptr16 cast
+// Pentagon (brdPairWrite=false, step=1): writes 1 uint16_t (2px) per step via XOR indexing
+//----------------------------------------------------------------------------------------------------------------
+
 static void (*Update_Border)();
 
+// 48K/128K: write 2 uint32_t (8px) at brdptr16[brdcol_cnt] (step=4, brdcol_cnt aligned to 4)
 IRAM_ATTR static void Update_Border_Pair() {
     uint32_t color32 = VIDEO::brd | (VIDEO::brd << 16);
-    ((uint32_t *)&brdptr16[brdcol_cnt & ~1])[0] = color32;
+    ((uint32_t *)&brdptr16[brdcol_cnt])[0] = color32;
+    ((uint32_t *)&brdptr16[brdcol_cnt])[1] = color32;
 }
 
 IRAM_ATTR static void Update_Border_Pair_Gig() {
-    uint32_t newColor = VIDEO::brd;
-    uint32_t color32 = newColor | (newColor << 16);
-    int pair = brdcol_cnt & ~1;
-    uint32_t old32 = ((uint32_t *)&prevBrdptr16[pair])[0];
-    if ((uint16_t)old32 != (uint16_t)newColor) {
-        uint32_t mixed32 = blendPixels32(newColor, (uint16_t)old32);
-        mixed32 = mixed32 | (mixed32 << 16);
-        ((uint32_t *)&prevBrdptr16[pair])[0] = color32;
-        ((uint32_t *)&brdptr16[pair])[0] = mixed32;
+    uint32_t color32 = VIDEO::brd | (VIDEO::brd << 16);
+    uint32_t old32 = ((uint32_t *)&prevBrdptr16[brdcol_cnt])[0];
+    ((uint32_t *)&prevBrdptr16[brdcol_cnt])[0] = color32;
+    ((uint32_t *)&prevBrdptr16[brdcol_cnt])[1] = color32;
+    if (old32 != color32) {
+        uint32_t mixed = blendPixels32(color32, old32);
+        ((uint32_t *)&brdptr16[brdcol_cnt])[0] = mixed;
+        ((uint32_t *)&brdptr16[brdcol_cnt])[1] = mixed;
         VIDEO::brdGigascreenChange = true;
     } else {
-        ((uint32_t *)&prevBrdptr16[pair])[0] = color32;
-        ((uint32_t *)&brdptr16[pair])[0] = color32;
+        ((uint32_t *)&brdptr16[brdcol_cnt])[0] = color32;
+        ((uint32_t *)&brdptr16[brdcol_cnt])[1] = color32;
     }
 }
 
+// Pentagon: write 1 uint16_t (2px) at brdptr16[brdcol_cnt ^ 1] (step=1)
 IRAM_ATTR static void Update_Border_XOR() {
     brdptr16[brdcol_cnt ^ 1] = VIDEO::brd;
 }
@@ -1360,14 +1372,15 @@ static void Select_Update_Border() {
         Update_Border = VIDEO::gigascreen_enabled ? &Update_Border_XOR_Gig : &Update_Border_XOR;
 }
 
-// 16-bit border rendering functions (all models: Pentagon, 48K, 128K)
-// Uses 16-bit (2-pixel) columns, brdcol_end cols per line
+//----------------------------------------------------------------------------------------------------------------
+// Unified border functions (all models: 48K, 128K, Pentagon; all resolutions)
+// Uses brdcol_step/brdcol_end/brdcol_end1/brdcol_start/brdcol_retrace variables
+//----------------------------------------------------------------------------------------------------------------
 
 IRAM_ATTR void VIDEO::TopBorder_Blank() {
     if (CPU::tstates >= tStatesBorder) {
         Select_Update_Border();
         brdcol_cnt = brdcol_start;
-        brdcol_end = vga.xres / 2;
         brdlin_cnt = 0;
         brdptr16 = (uint16_t *)(vga.frameBuffer[0]);
         prevBrdptr16 = vga.prevFrameBuffer ? (uint16_t *)(vga.prevFrameBuffer[0]) : brdptr16;
@@ -1381,7 +1394,6 @@ IRAM_ATTR void VIDEO::TopBorder() {
         if (brdcol_cnt < brdcol_retrace) {
             Update_Border();
         } else if (brdcol_retrace < brdcol_end) {
-            // Retrace: freeze at last visible border color (FullBorder only)
             int lastPair = (brdcol_retrace - 1) & ~1;
             int curPair = brdcol_cnt & ~1;
             ((uint32_t *)&brdptr16[curPair])[0] = ((uint32_t *)&brdptr16[lastPair])[0];
@@ -1412,7 +1424,6 @@ IRAM_ATTR void VIDEO::MiddleBorder() {
         if (brdcol_cnt < brdcol_retrace) {
             Update_Border();
         } else if (brdcol_retrace < brdcol_end) {
-            // Retrace: freeze at last visible border color (FullBorder only)
             int lastPair = (brdcol_retrace - 1) & ~1;
             int curPair = brdcol_cnt & ~1;
             ((uint32_t *)&brdptr16[curPair])[0] = ((uint32_t *)&brdptr16[lastPair])[0];
@@ -1423,7 +1434,7 @@ IRAM_ATTR void VIDEO::MiddleBorder() {
         brdcol_cnt += brdcol_step;
 
         if (brdcol_cnt == brdcol_end1) {
-            lastBrdTstate += 128; // 256px screen = 128 tstates
+            lastBrdTstate += 128;
             brdcol_cnt = brdcol_end1 + 128;
         } else if (brdcol_cnt >= brdcol_end) {
             brdlin_cnt++;
@@ -1445,7 +1456,6 @@ IRAM_ATTR void VIDEO::BottomBorder() {
         if (brdcol_cnt < brdcol_retrace) {
             Update_Border();
         } else if (brdcol_retrace < brdcol_end) {
-            // Retrace: freeze at last visible border color (FullBorder only)
             int lastPair = (brdcol_retrace - 1) & ~1;
             int curPair = brdcol_cnt & ~1;
             ((uint32_t *)&brdptr16[curPair])[0] = ((uint32_t *)&brdptr16[lastPair])[0];
@@ -1459,7 +1469,7 @@ IRAM_ATTR void VIDEO::BottomBorder() {
             brdlin_cnt++;
             brdcol_cnt = brdcol_start;
             lastBrdTstate += tStatesPerLine - brdcol_end;
-            if (brdlin_cnt == vga.yres) {
+            if (brdlin_cnt == (int)vga.yres) {
                 DrawBorder = &Border_Blank;
                 return;
             }
@@ -1470,11 +1480,12 @@ IRAM_ATTR void VIDEO::BottomBorder() {
 }
 
 IRAM_ATTR void VIDEO::BottomBorder_OSD() {
-    const bool isFullBorder = VIDEO::isFullBorder288() || VIDEO::isFullBorder240();
+    const bool isFB = VIDEO::isFullBorder288() || VIDEO::isFullBorder240();
     const int osd_y_start = VIDEO::isFullBorder288() ? 268 : 220;
     const int osd_y_end = osd_y_start + 15;
-    const int osd_x_start = isFullBorder ? 94 : 84;
-    const int osd_x_end = isFullBorder ? 166 : 156;
+    // OSD x coords in uint16_t units, aligned down/up to brdcol_step for step=4
+    const int osd_x_start = isFB ? (94 & ~(brdcol_step - 1)) : (84 & ~(brdcol_step - 1));
+    const int osd_x_end = isFB ? ((166 + brdcol_step - 1) & ~(brdcol_step - 1)) : ((156 + brdcol_step - 1) & ~(brdcol_step - 1));
     while (lastBrdTstate <= CPU::tstates) {
         if (brdcol_cnt < brdcol_retrace) {
             if (brdlin_cnt < osd_y_start || brdlin_cnt > osd_y_end) {
@@ -1482,9 +1493,7 @@ IRAM_ATTR void VIDEO::BottomBorder_OSD() {
             } else if (brdcol_cnt < osd_x_start || brdcol_cnt >= osd_x_end) {
                 Update_Border();
             }
-            // else: skip OSD pixel
         } else if (brdcol_retrace < brdcol_end) {
-            // Retrace: freeze at last visible border color (FullBorder only)
             int lastPair = (brdcol_retrace - 1) & ~1;
             int curPair = brdcol_cnt & ~1;
             ((uint32_t *)&brdptr16[curPair])[0] = ((uint32_t *)&brdptr16[lastPair])[0];
@@ -1498,7 +1507,7 @@ IRAM_ATTR void VIDEO::BottomBorder_OSD() {
             brdlin_cnt++;
             brdcol_cnt = brdcol_start;
             lastBrdTstate += tStatesPerLine - brdcol_end;
-            if (brdlin_cnt == vga.yres) {
+            if (brdlin_cnt == (int)vga.yres) {
                 DrawBorder = &Border_Blank;
                 return;
             }

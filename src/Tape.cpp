@@ -295,7 +295,7 @@ void Tape::LoadTape(string mFile) {
                     if (Config::aspect_16_9)
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                     else
-                        VIDEO::Draw_OSD43  = VIDEO::BottomBorder_OSD;
+                        VIDEO::Draw_OSD43 = VIDEO::BottomBorder_OSD;
                     ESPectrum::TapeNameScroller = 0;
                 }    
         }
@@ -329,7 +329,7 @@ void Tape::LoadTape(string mFile) {
                     if (Config::aspect_16_9)
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                     else
-                        VIDEO::Draw_OSD43  = VIDEO::BottomBorder_OSD;
+                        VIDEO::Draw_OSD43 = VIDEO::BottomBorder_OSD;
                     ESPectrum::TapeNameScroller = 0;
                 }
         }
@@ -1038,6 +1038,7 @@ void Tape::TAP_GetBlock() {
 
 void Tape::Stop() {
     OSD::osdCenteredMsg("Tape loading is stopped", LEVEL_INFO, 100);
+    tapeEarBit = 0;
     tapeStatus = TAPE_STOPPED;
     tapePhase = TAPE_PHASE_STOPPED;
     tapeAutoPlay = false;
@@ -2136,6 +2137,7 @@ bool Tape::TapePortRead() {
             if (isJJCandidate && jjScreenAnimating) {
                 int jjResult = JJFlashLoad();
                 if (jjResult == 2) {
+                    tapeEarBit = 0;
                     tapeStatus = TAPE_STOPPED;
                     tapePhase = TAPE_PHASE_STOPPED;
                 }
@@ -2146,6 +2148,7 @@ bool Tape::TapePortRead() {
                     loopCount = 0;
                     if (isCerikopikCandidate) {
                         if (CerikopikFlashLoad()) {
+                            tapeEarBit = 0;
                             tapeStatus = TAPE_STOPPED;
                             tapePhase = TAPE_PHASE_STOPPED;
                             cerikUnwind();
@@ -2153,6 +2156,7 @@ bool Tape::TapePortRead() {
                     } else {
                         int jjResult = JJFlashLoad();
                         if (jjResult == 2) { // block complete
+                            tapeEarBit = 0;
                             tapeStatus = TAPE_STOPPED;
                             tapePhase = TAPE_PHASE_STOPPED;
                         }
@@ -2171,6 +2175,13 @@ bool Tape::TapePortRead() {
                     tapeCurBlock++;
                     Play();
                     Read();
+                    // Stop immediately if next block is PURETONE and we're not in a loader
+                    if (!isCerikopikCandidate && !isJJCandidate &&
+                        pc < 0xFE00 && tapePhase == TAPE_PHASE_PURETONE) {
+                        tapeStatus = TAPE_STOPPED;
+                        tapePhase = TAPE_PHASE_STOPPED;
+                        tapeEarBit = 0;
+                    }
                 }
             } else { loopPC = pc; loopCount = 1; }
             return false;
@@ -2181,10 +2192,11 @@ bool Tape::TapePortRead() {
         // code is running (pc < 0xFE00, flashload OFF): stop the tape.
         // Turbo autostart will resume Play() from this block when the turbo
         // loader at 0xFE00 starts polling — PureTone will play from the start.
-        if (!Config::flashload && !isCerikopikCandidate && !isJJCandidate &&
+        if (!isCerikopikCandidate && !isJJCandidate &&
             pc < 0xFE00 && tapePhase == TAPE_PHASE_PURETONE) {
             tapeStatus = TAPE_STOPPED;
             tapePhase = TAPE_PHASE_STOPPED;
+            tapeEarBit = 0;
         }
 
     } else if (tapeFileType != TAPE_FTYPE_EMPTY && tapeFileName != "none") {
@@ -2208,10 +2220,10 @@ bool Tape::TapePortRead() {
                     tapeAutoPlay = true;
                     Play();
                     Read();
-                } else if (tapeCurBlock > 0) {
+                } else if (tapeCurBlock > 0 && pc >= 0x4000) {
                     // Generic auto-start for other custom loaders.
-                    // Skip when tapeCurBlock==0: tape finished (all blocks loaded),
-                    // game code may poll port 0xFE for keyboard — not a load request.
+                    // Skip when tapeCurBlock==0: tape finished (all blocks loaded).
+                    // Skip when pc < 0x4000: ROM/BASIC keyboard scan — not a loader.
                     tapeAutoPlay = true;
                     Play();
                     Read();

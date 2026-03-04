@@ -850,7 +850,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         if (Config::aspect_16_9)
                             VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                         else
-                            VIDEO::Draw_OSD43  = VIDEO::BottomBorder_OSD;
+                            VIDEO::Draw_OSD43 = VIDEO::BottomBorder_OSD;
 
                         OSD::drawStats();
                     }
@@ -864,7 +864,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 if (Config::aspect_16_9)
                     VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                 else
-                    VIDEO::Draw_OSD43  = VIDEO::BottomBorder_OSD;
+                    VIDEO::Draw_OSD43 = VIDEO::BottomBorder_OSD;
                 VIDEO::OSD = 0x04;
             } else
                 VIDEO::OSD |= 0x04;
@@ -973,7 +973,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     if (Config::aspect_16_9)
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                     else
-                        VIDEO::Draw_OSD43  = VIDEO::BottomBorder_OSD;
+                        VIDEO::Draw_OSD43 = VIDEO::BottomBorder_OSD;
                     VIDEO::OSD = 0x04;
                 } else
                     VIDEO::OSD |= 0x04;
@@ -4510,10 +4510,35 @@ c:
     VIDEO::SaveRect.restore_last();
 }
 
+static int instrLen(uint16_t addr) {
+    uint8_t b = MemESP::readbyte(addr);
+    if (b == 0xDD || b == 0xFD) {
+        uint8_t b1 = MemESP::readbyte(addr + 1);
+        if (b1 == 0xCB) return 4;
+        const char* m = mnemIX(b1);
+        if (strstr(m, "nn")) return 4;
+        bool has_d = strstr(m, "d") != nullptr;
+        bool has_n = strstr(m, "n") != nullptr;
+        if (has_d && has_n) return 4;
+        if (has_d || has_n) return 3;
+        return 2;
+    }
+    if (b == 0xED) {
+        const char* m = mnemED(MemESP::readbyte(addr + 1));
+        if (strstr(m, "nn")) return 4;
+        return 2;
+    }
+    if (b == 0xCB) return 2;
+    const char* m = mnem[b];
+    if (strstr(m, "nn")) return 3;
+    if (strstr(m, "n") || strstr(m, "d")) return 2;
+    return 1;
+}
+
 void OSD::osdDebug() {
     const unsigned short h = OSD_FONT_H * 22;
     const unsigned short y = scrAlignCenterY(h);
-    const unsigned short w = OSD_FONT_W * 40;
+    const unsigned short w = OSD_FONT_W * 46;
     const unsigned short x = scrAlignCenterX(w);
 
     VIDEO::SaveRect.save(x - 1, y - 1, w + 2, h + 2);
@@ -4555,6 +4580,7 @@ c:
     uint16_t pc = Z80::getRegPC();
     int i = 0;
     int xi = x + 1;
+    int pci_skip = 0;
     int nn = 0;
     int n = 0;
     int d = 0;
@@ -4565,7 +4591,7 @@ c:
     bool ICB = false;
     std::string mem;
     for (; i < 20; ++i) {
-        uint16_t pci = pc + i - ii;
+        uint16_t pci = pc + i + pci_skip - ii;
         uint8_t bi = MemESP::readbyte(pci);
         uint8_t b1 = MemESP::readbyte(pci + 1);
         int yi = y + (i + 1) * OSD_FONT_H + 2;
@@ -4628,7 +4654,73 @@ c:
                 n = 0;
                 nn = 0;
             }
-            snprintf(buf, 32, "%c%04X %02X %s", pci == pc ? '*' : ' ', pci, bi, memc);
+            // Replace operand placeholders with actual values
+            if (nn == 2) {
+                int off = (ED || IX || IY) ? 2 : 1;
+                uint16_t addr = MemESP::readbyte(pci + off) | (MemESP::readbyte(pci + off + 1) << 8);
+                char tmp[5];
+                snprintf(tmp, sizeof(tmp), "%04X", addr);
+                auto p = mem.find("nn");
+                if (p != string::npos) mem.replace(p, 2, tmp);
+            } else if (n == 1) {
+                int off = (ED || IX || IY) ? 2 : 1;
+                uint8_t val = MemESP::readbyte(pci + off);
+                char tmp[3];
+                snprintf(tmp, sizeof(tmp), "%02X", val);
+                auto p = mem.find("n");
+                if (p != string::npos) mem.replace(p, 1, tmp);
+            } else if (d == 1) {
+                bool isIXIY = IX || IY;
+                int off = isIXIY ? 2 : 1;
+                int8_t disp = (int8_t)MemESP::readbyte(pci + off);
+                char tmp[8];
+                if (isIXIY) {
+                    // IX/IY displacement: signed decimal, replace "+d" with "+3" or "-5"
+                    snprintf(tmp, sizeof(tmp), "%+d", disp);
+                    auto p = mem.find("+d");
+                    if (p != string::npos) mem.replace(p, 2, tmp);
+                } else {
+                    // JR/DJNZ: show target address
+                    uint16_t target = pci + 2 + disp;
+                    snprintf(tmp, sizeof(tmp), "%04X", target);
+                    auto p = mem.find("d");
+                    if (p != string::npos) mem.replace(p, 1, tmp);
+                }
+            }
+            memc = mem.c_str();
+            // Skip operand bytes in listing since values are now in mnemonic
+            bool prefixSubOpcodeSkipped = false;
+            if (nn == 2) {
+                pci_skip += (ED || IX || IY) ? 3 : 2;
+                prefixSubOpcodeSkipped = (ED || IX || IY);
+                nn = 0;
+            } else if (n == 1) {
+                pci_skip += (ED || IX || IY) ? 2 : 1;
+                prefixSubOpcodeSkipped = (ED || IX || IY);
+                n = 0;
+            } else if (d == 1) {
+                if (ICB) {
+                    pci_skip += 3; // CB + displacement + op byte
+                    ICB = false;
+                } else {
+                    pci_skip += (IX || IY) ? 2 : 1;
+                }
+                prefixSubOpcodeSkipped = (IX || IY);
+                d = 0;
+            }
+            // Skip sub-opcode byte for prefix instructions (displayed on mnemonic line)
+            bool isPrefix = ED || CB || (IX || IY);
+            if (isPrefix && !prefixSubOpcodeSkipped) {
+                pci_skip += 1;
+            }
+            if (ED) ED = false;
+            if (CB) CB = false;
+            if (IX || IY) { IX = false; IY = false; }
+            if (isPrefix) {
+                snprintf(buf, 32, "%c%04X %02X%02X %s", pci == pc ? '*' : ' ', pci, bi, b1, memc);
+            } else {
+                snprintf(buf, 32, "%c%04X %02X   %s", pci == pc ? '*' : ' ', pci, bi, memc);
+            }
         } else if (d == 1) {
             int8_t bib = bi;
             snprintf(buf, 32, bib >= 0 ? " %04X %02X +%d(d)" : " %04X %02X %d(d)", pci, bi, bib);
@@ -4651,7 +4743,7 @@ c:
         }
     }
     i = 0;
-    xi = x + 22 * OSD_FONT_W;
+    xi = x + 28 * OSD_FONT_W;
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
     if (MemESP::ramCurrent[0] < (uint8_t*)0x11000000)
         snprintf(buf, 32, "PAGE0 -> ROM#%d", MemESP::romInUse);
@@ -4826,11 +4918,17 @@ c:
                 goto c;
             }
             if (Nextkey.vk == fabgl::VK_KP_PLUS || Nextkey.vk == fabgl::VK_UP) {
-                ++ii;
+                // Scroll up by previous instruction length
+                uint16_t start = pc - ii;
+                int step = 1;
+                for (int k = 1; k <= 4; ++k) {
+                    if (instrLen(start - k) == k) { step = k; break; }
+                }
+                ii += step;
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_KP_MINUS || Nextkey.vk == fabgl::VK_DOWN) {
-                --ii;
+                ii -= instrLen(pc - ii);
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_0) {
