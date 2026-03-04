@@ -1268,6 +1268,11 @@ void rvmWD1793Reset(rvmWD1793 *wd) {
   wd->side = wd->diskS = 0;
   wd->fastmode = Config::trdosFastMode; //(Config::DiskCtrl == 2 || Config::DiskCtrl == 4);
   wd->sclConverted = false;
+#if !PICO_RP2040
+  wd->udiLoadedCyl = -1;
+  wd->udiLoadedSide = -1;
+  wd->udiTrackLen = 0;
+#endif
 }
 
 bool rvmWD1793InsertDisk(rvmWD1793 *wd, unsigned char UnitNum, std::string Filename) {
@@ -1297,11 +1302,125 @@ bool rvmWD1793InsertDisk(rvmWD1793 *wd, unsigned char UnitNum, std::string Filen
         // SCL file
         printf("SCL disk loaded\n");
         wd->disk[UnitNum]->IsSCLFile=true;
+#if !PICO_RP2040
+        wd->disk[UnitNum]->IsUDIFile = false;
+        wd->disk[UnitNum]->IsFDIFile = false;
+#endif
         wd->disk[UnitNum]->writeprotect = 1; // SCL files are read only
         diskType = 0x16;
 
+#if !PICO_RP2040
+    } else if (std::strncmp(magic,"UDI!",4) == 0) {
+        // UDI file
+        printf("UDI disk loaded\n");
+        wd->disk[UnitNum]->IsSCLFile = false;
+        wd->disk[UnitNum]->IsUDIFile = true;
+        wd->disk[UnitNum]->IsFDIFile = false;
+        wd->disk[UnitNum]->writeprotect = 1; // UDI files are read only
+        wd->disk[UnitNum]->sclDataOffset = 0;
+
+        // Read UDI header
+        uint8_t hdr[16];
+        f_lseek(wd->disk[UnitNum]->Diskfile, 0);
+        f_read(wd->disk[UnitNum]->Diskfile, hdr, 16, &br);
+
+        uint8_t cyls = hdr[9] + 1;
+        uint8_t sides = hdr[10] + 1;
+        uint32_t extHdrLen = hdr[12] | (hdr[13] << 8) | (hdr[14] << 16) | (hdr[15] << 24);
+
+        wd->disk[UnitNum]->tracks = cyls - 1; // tracks field stores max track index
+        wd->disk[UnitNum]->sides = sides;
+
+        // Parse track offsets and lengths
+        uint32_t offset = 16 + extHdrLen;
+        int totalTracks = cyls * sides;
+        if (totalTracks > 168) totalTracks = 168;
+
+        for (int i = 0; i < totalTracks; i++) {
+            uint8_t trkHdr[3];
+            f_lseek(wd->disk[UnitNum]->Diskfile, offset);
+            f_read(wd->disk[UnitNum]->Diskfile, trkHdr, 3, &br);
+
+            uint16_t tlen = trkHdr[1] | (trkHdr[2] << 8);
+            uint16_t clen = (tlen + 7) / 8;
+
+            wd->disk[UnitNum]->udiTrackOffsets[i] = offset + 3; // data starts after 3-byte track header
+            wd->disk[UnitNum]->udiTrackLengths[i] = tlen;
+
+            offset += 3 + tlen + clen;
+        }
+
+        // Skip the normal diskType switch — we already set tracks/sides
+        wd->disk[UnitNum]->t0s1_info = 0;
+        wd->disk[UnitNum]->cursectbufpos = 0xff;
+        wd->control |= kRVMWD177XPower0 << UnitNum;
+        wd->disk[UnitNum]->fname = Filename;
+        wd->udiLoadedCyl = -1;
+        wd->udiLoadedSide = -1;
+
+        printf("UDI: %d cylinders, %d sides\n", cyls, sides);
+        return true;
+
+    } else if (std::strncmp(magic,"FDI",3) == 0) {
+        // FDI file
+        printf("FDI disk loaded\n");
+        wd->disk[UnitNum]->IsSCLFile = false;
+        wd->disk[UnitNum]->IsUDIFile = false;
+        wd->disk[UnitNum]->IsFDIFile = true;
+        wd->disk[UnitNum]->sclDataOffset = 0;
+
+        // Read FDI header (14 bytes)
+        uint8_t hdr[14];
+        f_lseek(wd->disk[UnitNum]->Diskfile, 0);
+        f_read(wd->disk[UnitNum]->Diskfile, hdr, 14, &br);
+
+        uint8_t wpFlag = hdr[3];
+        uint16_t cyls = hdr[4] | (hdr[5] << 8);
+        uint16_t sides = hdr[6] | (hdr[7] << 8);
+        uint16_t dataOffset = hdr[10] | (hdr[11] << 8);
+        uint16_t extraHdrLen = hdr[12] | (hdr[13] << 8);
+
+        wd->disk[UnitNum]->tracks = cyls - 1;
+        wd->disk[UnitNum]->sides = sides;
+        wd->disk[UnitNum]->writeprotect = wpFlag ? 1 : Config::trdosWriteProtect;
+        wd->disk[UnitNum]->fdiDataOffset = dataOffset;
+
+        // Parse track headers — located right after the 14-byte header + extra header
+        uint32_t trkHdrPos = 14 + extraHdrLen;
+        int totalTracks = cyls * sides;
+        if (totalTracks > 168) totalTracks = 168;
+
+        for (int i = 0; i < totalTracks; i++) {
+            wd->disk[UnitNum]->fdiTrackHdrOffsets[i] = trkHdrPos;
+
+            // Read track header to get sector count
+            uint8_t trkHdr[7];
+            f_lseek(wd->disk[UnitNum]->Diskfile, trkHdrPos);
+            f_read(wd->disk[UnitNum]->Diskfile, trkHdr, 7, &br);
+
+            uint8_t sectorCount = trkHdr[6];
+
+            // Skip past track header (7 bytes) + sector headers (7 bytes each)
+            trkHdrPos += 7 + sectorCount * 7;
+        }
+
+        wd->disk[UnitNum]->t0s1_info = 0;
+        wd->disk[UnitNum]->cursectbufpos = 0xff;
+        wd->control |= kRVMWD177XPower0 << UnitNum;
+        wd->disk[UnitNum]->fname = Filename;
+        wd->udiLoadedCyl = -1;
+        wd->udiLoadedSide = -1;
+
+        printf("FDI: %d cylinders, %d sides\n", cyls, sides);
+        return true;
+#endif
+
     } else {
         wd->disk[UnitNum]->IsSCLFile = false;
+#if !PICO_RP2040
+        wd->disk[UnitNum]->IsUDIFile = false;
+        wd->disk[UnitNum]->IsFDIFile = false;
+#endif
         wd->disk[UnitNum]->writeprotect = Config::trdosWriteProtect;
         wd->disk[UnitNum]->sclDataOffset = 0;
 
@@ -1367,6 +1486,158 @@ bool rvmWD1793InsertDisk(rvmWD1793 *wd, unsigned char UnitNum, std::string Filen
 
 }
 
+#if !PICO_RP2040
+void udiLoadTrack(rvmWD1793 *wd, uint32_t cyl, uint8_t side) {
+    if ((int)cyl == wd->udiLoadedCyl && (int)side == wd->udiLoadedSide)
+        return;
+
+    rvmwdDisk *disk = wd->disk[wd->diskS];
+    int trkIdx = cyl * disk->sides + side;
+    if (trkIdx < 0 || trkIdx >= 168) {
+        wd->udiTrackLen = 0;
+        return;
+    }
+
+    uint16_t tlen = disk->udiTrackLengths[trkIdx];
+    if (tlen > sizeof(wd->udiTrackBuf))
+        tlen = sizeof(wd->udiTrackBuf);
+
+    UINT br;
+    f_lseek(disk->Diskfile, disk->udiTrackOffsets[trkIdx]);
+    f_read(disk->Diskfile, wd->udiTrackBuf, tlen, &br);
+
+    wd->udiTrackLen = tlen;
+    wd->udiLoadedCyl = (int)cyl;
+    wd->udiLoadedSide = (int)side;
+}
+
+static uint16_t fdiCrc16(uint16_t crc, uint8_t byte) {
+    crc ^= byte << 8;
+    for (int i = 0; i < 8; i++)
+        crc = (crc & 0x8000) ? (crc << 1) ^ 0x1021 : crc << 1;
+    return crc;
+}
+
+void fdiLoadTrack(rvmWD1793 *wd, uint32_t cyl, uint8_t side) {
+    if ((int)cyl == wd->udiLoadedCyl && (int)side == wd->udiLoadedSide)
+        return;
+
+    rvmwdDisk *disk = wd->disk[wd->diskS];
+    int trkIdx = cyl * disk->sides + side;
+    if (trkIdx < 0 || trkIdx >= 168) {
+        wd->udiTrackLen = 0;
+        return;
+    }
+
+    uint8_t *buf = wd->udiTrackBuf;
+    int pos = 0;
+
+    // Track header: 80×0x4E gap
+    for (int i = 0; i < 80 && pos < 6400; i++) buf[pos++] = 0x4e;
+    // 12×0x00 sync
+    for (int i = 0; i < 12 && pos < 6400; i++) buf[pos++] = 0x00;
+    // Index mark: 0xC2,0xC2,0xC2,0xFC
+    if (pos < 6396) { buf[pos++] = 0xc2; buf[pos++] = 0xc2; buf[pos++] = 0xc2; buf[pos++] = 0xfc; }
+    // 50×0x4E gap
+    for (int i = 0; i < 50 && pos < 6400; i++) buf[pos++] = 0x4e;
+
+    // Read FDI track header
+    uint8_t trkHdr[7];
+    UINT br;
+    f_lseek(disk->Diskfile, disk->fdiTrackHdrOffsets[trkIdx]);
+    f_read(disk->Diskfile, trkHdr, 7, &br);
+
+    uint32_t trkDataOffset = trkHdr[0] | (trkHdr[1] << 8) | (trkHdr[2] << 16) | (trkHdr[3] << 24);
+    uint8_t sectorCount = trkHdr[6];
+
+    // Read sector headers
+    uint8_t secHdrs[16 * 7]; // max 16 sectors
+    int nsec = sectorCount;
+    if (nsec > 16) nsec = 16;
+    if (nsec > 0) {
+        f_read(disk->Diskfile, secHdrs, nsec * 7, &br);
+    }
+
+    // Generate sectors
+    for (int s = 0; s < nsec && pos < 6300; s++) {
+        uint8_t *sh = &secHdrs[s * 7];
+        uint8_t secCyl = sh[0];
+        uint8_t secHead = sh[1];
+        uint8_t secNum = sh[2];
+        uint8_t secSizeCode = sh[3];
+        uint8_t secFlags = sh[4];
+        uint16_t secDataOff = sh[5] | (sh[6] << 8);
+
+        uint16_t secSize = 128 << secSizeCode;
+        if (secSize > 256) secSize = 256; // clamp for buffer safety
+
+        // Sector header sync: 12×0x00
+        for (int i = 0; i < 12 && pos < 6400; i++) buf[pos++] = 0x00;
+        // Address mark: 0xA1,0xA1,0xA1,0xFE
+        if (pos < 6396) { buf[pos++] = 0xa1; buf[pos++] = 0xa1; buf[pos++] = 0xa1; buf[pos++] = 0xfe; }
+        // ID field: cyl, head, sector, size code
+        uint16_t crc = 0xffff;
+        crc = fdiCrc16(crc, 0xa1); crc = fdiCrc16(crc, 0xa1); crc = fdiCrc16(crc, 0xa1); crc = fdiCrc16(crc, 0xfe);
+        if (pos < 6396) {
+            buf[pos++] = secCyl;  crc = fdiCrc16(crc, secCyl);
+            buf[pos++] = secHead; crc = fdiCrc16(crc, secHead);
+            buf[pos++] = secNum;  crc = fdiCrc16(crc, secNum);
+            buf[pos++] = secSizeCode; crc = fdiCrc16(crc, secSizeCode);
+            buf[pos++] = (crc >> 8) & 0xff;
+            buf[pos++] = crc & 0xff;
+        }
+        // Gap2: 22×0x4E
+        for (int i = 0; i < 22 && pos < 6400; i++) buf[pos++] = 0x4e;
+        // Data sync: 12×0x00
+        for (int i = 0; i < 12 && pos < 6400; i++) buf[pos++] = 0x00;
+
+        // Data mark
+        bool hasData = !(secFlags & 0x40);
+        bool deleted = (secFlags & 0x80);
+        uint8_t dataMark = deleted ? 0xf8 : 0xfb;
+        if (pos < 6396) { buf[pos++] = 0xa1; buf[pos++] = 0xa1; buf[pos++] = 0xa1; buf[pos++] = dataMark; }
+
+        // Data CRC init
+        crc = 0xffff;
+        crc = fdiCrc16(crc, 0xa1); crc = fdiCrc16(crc, 0xa1); crc = fdiCrc16(crc, 0xa1); crc = fdiCrc16(crc, dataMark);
+
+        // Sector data
+        if (hasData) {
+            uint32_t fileDataPos = disk->fdiDataOffset + trkDataOffset + secDataOff;
+            uint8_t secData[256];
+            f_lseek(disk->Diskfile, fileDataPos);
+            f_read(disk->Diskfile, secData, secSize, &br);
+            for (int i = 0; i < (int)secSize && pos < 6400; i++) {
+                buf[pos++] = secData[i];
+                crc = fdiCrc16(crc, secData[i]);
+            }
+        } else {
+            for (int i = 0; i < (int)secSize && pos < 6400; i++) {
+                buf[pos++] = 0x00;
+                crc = fdiCrc16(crc, 0x00);
+            }
+        }
+
+        // Data CRC
+        if (pos < 6398) {
+            buf[pos++] = (crc >> 8) & 0xff;
+            buf[pos++] = crc & 0xff;
+        }
+
+        // Gap3: variable (54 for 256-byte sectors, less for larger)
+        int gap3 = (secSizeCode <= 1) ? 54 : 24;
+        for (int i = 0; i < gap3 && pos < 6400; i++) buf[pos++] = 0x4e;
+    }
+
+    // Fill rest with 0x4E
+    while (pos < 6400) buf[pos++] = 0x4e;
+
+    wd->udiTrackLen = pos;
+    wd->udiLoadedCyl = (int)cyl;
+    wd->udiLoadedSide = (int)side;
+}
+#endif
+
 IRAM_ATTR uint8_t rvmwdDiskStep(rvmWD1793 *wd, uint32_t control) {
 
   rvmwdDisk *disk = wd->disk[wd->diskS];
@@ -1404,6 +1675,58 @@ IRAM_ATTR uint8_t rvmwdDiskStep(rvmWD1793 *wd, uint32_t control) {
     return disk->s;
 
   } else {
+
+#if !PICO_RP2040
+    if (disk->IsUDIFile) {
+
+      uint16_t trackLen = wd->udiTrackLen;
+
+      if(disk->indx != 0xffffffff && disk->indx >= trackLen) {
+        disk->indx = 0xffffffff;
+        disk->indexDelay = 25;
+        return disk->s;
+      }
+
+      disk->indx++;
+
+      // Load track from UDI file if needed
+      udiLoadTrack(wd, disk->t, wd->side);
+      trackLen = wd->udiTrackLen;
+
+      if (disk->indx < trackLen)
+        disk->a = wd->udiTrackBuf[disk->indx];
+      else
+        disk->a = 0x4e; // gap filler
+
+      return disk->s;
+
+    }
+
+    if (disk->IsFDIFile) {
+
+      uint16_t trackLen = wd->udiTrackLen;
+
+      if(disk->indx != 0xffffffff && disk->indx >= trackLen) {
+        disk->indx = 0xffffffff;
+        disk->indexDelay = 25;
+        return disk->s;
+      }
+
+      disk->indx++;
+
+      // Generate MFM track from FDI if needed
+      fdiLoadTrack(wd, disk->t, wd->side);
+      trackLen = wd->udiTrackLen;
+
+      if (disk->indx < trackLen)
+        disk->a = wd->udiTrackBuf[disk->indx];
+      else
+        disk->a = 0x4e;
+
+      return disk->s;
+
+    }
+#endif
 
     if(disk->indx != 0xffffffff && disk->indx >= /*6417*/ 6663) {
       disk->indx = 0xffffffff;
