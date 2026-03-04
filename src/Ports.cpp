@@ -51,6 +51,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "OSDMain.h"
 
 #include "Debug.h"
+#include "Midi.h"
 
 // Place hot port functions in SRAM instead of XIP flash
 #undef IRAM_ATTR
@@ -244,6 +245,15 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
       else
         return VIDEO::ulaplus_enabled ? 1 : 0;
     }
+    // ShamaZX MIDI — status read from 0xA1CF
+    // Bit 6 = "receiver full"; return 0 = ready to accept data
+    if (Midi::enabled && address == 0xA1CF) {
+      return 0x00;
+    }
+    // ShamaZX MIDI — read from 0xA0CF (parallel mode handshake)
+    if (Midi::enabled && address == 0xA0CF) {
+      return 0x00;
+    }
 #endif
     // The default port value is 0xFF.
     data = 0xff;
@@ -359,13 +369,13 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     int delay = MemESP::getByteContention(address);
     VIDEO::Draw(delay, true);
   } else {
-    // Early contention depends on ADDRESS (contended memory?), not port type
-    VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
+    // // Early contention depends on ADDRESS (contended memory?), not port type
+    // VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
     
-    // // ULA ports (A0=0): ULA always applies contention during display area
-    // // Non-ULA ports (A0=1): contention only if port address maps to contended memory
-    // bool earlyContend = ((address & 0x0001) == 0) ? !Z80Ops::isPentagon : MemESP::ramContended[rambank];
-    // VIDEO::Draw(1, earlyContend);
+    // ULA ports (A0=0): ULA always applies contention during display area
+    // Non-ULA ports (A0=1): contention only if port address maps to contended memory
+    bool earlyContend = ((address & 0x0001) == 0) ? !Z80Ops::isPentagon : MemESP::ramContended[rambank];
+    VIDEO::Draw(1, earlyContend);
   }
   uint8_t a8 = (address & 0xFF);
   p_states = CPU::tstates;
@@ -419,8 +429,8 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     if (VIDEO::borderColor != data) {
       VIDEO::brdChange = true;
       if (!Z80Ops::isPentagon)
-        VIDEO::Draw(0, false); // Flush video rendering without adding contention
-        // VIDEO::Draw(0, true); // Apply contention to align border change with ULA character cell
+        // VIDEO::Draw(0, false); // Flush video rendering without adding contention
+        VIDEO::Draw(0, true); // Apply contention to align border change with ULA character cell
       VIDEO::DrawBorder();
       VIDEO::borderColor = data & 0x07;
 #if !PICO_RP2040
@@ -526,6 +536,13 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
       ESPectrum::CovoxGetSample();
     }
 #if !PICO_RP2040
+    // ShamaZX MIDI Interface (SAM2695)
+    // 0xA0CF = control port: TX data byte here
+    // 0xA1CF = data port: write 0xFF/0x3F for init, read status (bit 6 = receiver full)
+    if (Midi::enabled && address == 0xA0CF) {
+      Midi::send(data);
+      return;
+    }
     // SAA1099 Sound Chip
     // Ports: 0x00FF/0x01FF (original), 0x04FF/0x05FF (Light/Middle revisions)
     //        0x00FE/0x01FE (FPGA48all.tap and some other programs use a8=0xFE)
@@ -683,9 +700,11 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         if (Config::gigascreen_onoff == 2) VIDEO::gigascreen_auto_countdown = 3;
       }
       // Sync BANKM system variable (0x5B5C = bank5 offset 0x1B5C).
-      // The 128K ROM paging routine at 0x5B00 reads BANKM to restore state;
-      // without this sync, direct OUT to 0x7FFD leaves BANKM stale.
-      if (Z80Ops::is128)
+      // Only needed when code runs from ROM (BASIC/128K ROM uses BANKM
+      // in IM1 ISR to restore paging). When PC is in RAM, games/demos
+      // may use 0x5B00+ for their own code/data — writing BANKM would
+      // corrupt it (e.g. DANDARAN places LZ decompressor at 0x5B00).
+      if (Z80Ops::is128 && Z80::getRegPC() < 0x4000)
       {
         MemESP::ram[5].write(0x1B5C, data);
       }

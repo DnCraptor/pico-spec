@@ -62,6 +62,7 @@ visit https://zxespectrum.speccy.org/contacto
 
 #include "PinSerialData_595.h"
 #include "Debug.h"
+#include "Midi.h"
 
 using namespace std;
 
@@ -742,6 +743,8 @@ void ESPectrum::setup() {
     AY_emu = Config::AY48;
 #if !PICO_RP2040
     SAA_emu = Config::SAA1099;
+    Midi::enabled = Config::midi;
+    if (Midi::enabled) Midi::init();
 #endif
 
   if (Config::arch == "48K") {
@@ -944,6 +947,8 @@ void ESPectrum::reset(uint8_t romInUse) {
   AY_emu = Config::AY48;
 #if !PICO_RP2040
     SAA_emu = Config::SAA1099;
+    Midi::enabled = Config::midi;
+    if (Midi::enabled) Midi::init();
 #endif
 
   // Set samples per frame and AY_emu flag depending on arch
@@ -1490,6 +1495,10 @@ void ESPectrum::loop() {
     if (!CPU::paused)
       pwm_audio_write((uint8_t *)audioBuffer_L, (uint8_t *)audioBuffer_R,
                       maxSpeed ? 1 : samplesPerFrame, 0, 0);
+
+#if !PICO_RP2040
+    if (Midi::enabled) Midi::flush();
+#endif
 
     // Send audioBuffer to pwmaudio
     audbufcnt = 0;

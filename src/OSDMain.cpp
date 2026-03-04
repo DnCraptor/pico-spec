@@ -56,6 +56,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Ports.h"
 #include "audio.h"
 #include "AySound.h"
+#include "Midi.h"
 
 #include <malloc.h>
 
@@ -2468,6 +2469,45 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             menu_saverect = false;
                                         } else {
                                             menu_curopt = 6;
+                                            menu_level = 2;
+                                            break;
+                                        }
+                                    }
+                                }
+                                else if (options_num == 7) {
+                                    menu_level = 3;
+                                    menu_curopt = 1;
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string midi_menu = MENU_MIDI[Config::lang];
+                                        midi_menu += MENU_YESNO[Config::lang];
+                                        bool prev_midi = Config::midi;
+                                        if (prev_midi) {
+                                            midi_menu.replace(midi_menu.find("[Y",0),2,"[*");
+                                            midi_menu.replace(midi_menu.find("[N",0),2,"[ ");
+                                        } else {
+                                            midi_menu.replace(midi_menu.find("[Y",0),2,"[ ");
+                                            midi_menu.replace(midi_menu.find("[N",0),2,"[*");
+                                        }
+                                        uint8_t opt2 = menuRun(midi_menu);
+                                        if (opt2) {
+                                            if (opt2 == 1)
+                                                Config::midi = true;
+                                            else
+                                                Config::midi = false;
+
+                                            if (Config::midi != prev_midi) {
+                                                Midi::enabled = Config::midi;
+                                                if (Midi::enabled)
+                                                    Midi::init();
+                                                else
+                                                    Midi::deinit();
+                                                Config::save();
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = 7;
                                             menu_level = 2;
                                             break;
                                         }

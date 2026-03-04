@@ -32,6 +32,7 @@ uint8_t  Config::lang = 0;
 bool     Config::AY48 = true;
 #if !PICO_RP2040
 bool     Config::SAA1099 = false;
+bool     Config::midi = false;
 #endif
 bool     Config::Issue2 = true;
 bool     Config::flashload = true;
@@ -337,6 +338,7 @@ void Config::load() {
         nvs_get_b("AY48", AY48, sts);
 #if !PICO_RP2040
         nvs_get_b("SAA1099", SAA1099, sts);
+        nvs_get_b("midi", midi, sts);
 #endif
         nvs_get_b("Issue2", Issue2, sts);
         nvs_get_b("flashload", flashload, sts);
@@ -503,6 +505,7 @@ void Config::save() {
         nvs_set_str(handle,"AY48", AY48 ? "true" : "false");
 #if !PICO_RP2040
         nvs_set_str(handle,"SAA1099", SAA1099 ? "true" : "false");
+        nvs_set_str(handle,"midi", midi ? "true" : "false");
 #endif
         nvs_set_u8(handle,"ayConfig", Config::ayConfig);
         nvs_set_u8(handle,"turbosound", Config::turbosound);
