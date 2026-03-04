@@ -1264,15 +1264,7 @@ IRAM_ATTR void VIDEO::EndFrame() {
         DrawBorder = &Border_Blank;
     else
         DrawBorder = &TopBorder_Blank;
-    // Eliminate border jitter by quantizing carry to 4T and compensating residual.
-    // column = carry + ISR_T - lastBrdTstate = ISR_T - tsBrd + carry_q (constant)
-    if (Z80Ops::isPentagon) {
-        lastBrdTstate = tStatesBorder;
-    } else {
-        int carry = (int)(CPU::tstates - CPU::statesInFrame);
-        int carry_q = ((carry + 2) >> 2) << 2; // round to nearest 4T
-        lastBrdTstate = tStatesBorder + (carry - carry_q);
-    }
+    lastBrdTstate = tStatesBorder;
     brdChange = false;
 
     if (Config::gigascreen_onoff == 2) { // Auto mode
