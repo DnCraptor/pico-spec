@@ -699,15 +699,6 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
                                           : MemESP::ram[5].direct();
         if (Config::gigascreen_onoff == 2) VIDEO::gigascreen_auto_countdown = 3;
       }
-      // Sync BANKM system variable (0x5B5C = bank5 offset 0x1B5C).
-      // Only needed when code runs from ROM (BASIC/128K ROM uses BANKM
-      // in IM1 ISR to restore paging). When PC is in RAM, games/demos
-      // may use 0x5B00+ for their own code/data — writing BANKM would
-      // corrupt it (e.g. DANDARAN places LZ decompressor at 0x5B00).
-      if (Z80Ops::is128 && Z80::getRegPC() < 0x4000)
-      {
-        MemESP::ram[5].write(0x1B5C, data);
-      }
     }
   }
 }
