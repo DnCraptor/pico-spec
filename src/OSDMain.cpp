@@ -1195,7 +1195,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             pwm_audio_set_volume(ESPectrum::aud_volume);
                                         } else {
 #if LOAD_WAV_PIO
-                                            if (Config::real_player) pcm_audio_in_stop();
+                                            pcm_audio_in_stop();
 #endif
                                         }
                                         Config::save();
