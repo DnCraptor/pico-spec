@@ -92,15 +92,15 @@ void CPU::updateStatesInFrame() {
     } else if (Config::arch == "P512") {
         statesInFrame = TSTATES_PER_FRAME_PENTAGON;
         IntStart = INT_START_PENTAGON;
-        IntEnd = INT_END_PENTAGON + CPU::latetiming;
+        IntEnd = INT_END_PENTAGON;
     } else if (Config::arch == "P1024") {
         statesInFrame = TSTATES_PER_FRAME_PENTAGON;
         IntStart = INT_START_PENTAGON;
-        IntEnd = INT_END_PENTAGON + CPU::latetiming;
+        IntEnd = INT_END_PENTAGON;
     } else { // if (Config::arch == "Pentagon") - by default
         statesInFrame = TSTATES_PER_FRAME_PENTAGON;
         IntStart = INT_START_PENTAGON;
-        IntEnd = INT_END_PENTAGON + CPU::latetiming;
+        IntEnd = INT_END_PENTAGON;
     }
     uint8_t m = ESPectrum::multiplicator;
     if (m) {
