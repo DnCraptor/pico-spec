@@ -55,25 +55,25 @@ visit https://zxespectrum.speccy.org/contacto
 #define TS_SCREEN_PENTAGON     17983  // START OF ULA DRAW PAPER PENTAGON
 #define TS_SCREEN_BYTE         14335
 
-#define TS_BORDER_320x240 8946  // START OF BORDER 48 (+3 correction like FullBorder)
-#define TS_BORDER_320x240_128 8876  // START OF BORDER 128 (+3 correction like FullBorder)
-#define TS_BORDER_320x240_PENTAGON 12595  // START OF BORDER PENTAGON
-#define TS_BORDER_320x240_BYTE 8946
+#define TS_BORDER_320x240 8947  // START OF BORDER 48 (+4 correction)
+#define TS_BORDER_320x240_128 8877  // START OF BORDER 128 (+4 correction)
+#define TS_BORDER_320x240_PENTAGON 12595  // START OF BORDER PENTAGON (+4 correction)
+#define TS_BORDER_320x240_BYTE 8947
 
 #define TS_BORDER_360x200 13428  // START OF BORDER 48
 #define TS_BORDER_360x200_128 13438  // START OF BORDER 128
 #define TS_BORDER_360x200_PENTAGON 17075  // START OF BORDER PENTAGON
 #define TS_BORDER_360x200_BYTE 13428
 
-#define TS_BORDER_360x288 3562          // START OF BORDER 48 FULL (+5 correction like 320x240)
-#define TS_BORDER_360x288_128 3396      // START OF BORDER 128 FULL (+5 correction like 320x240)
-#define TS_BORDER_360x288_PENTAGON 7209 // START OF BORDER PENTAGON FULL (+4 correction like 320x240)
-#define TS_BORDER_360x288_BYTE 3562
+#define TS_BORDER_360x288 3563          // START OF BORDER 48 FULL (formula 3559 + 4)
+#define TS_BORDER_360x288_128 3397      // START OF BORDER 128 FULL (formula 3393 + 4)
+#define TS_BORDER_360x288_PENTAGON 7209 // START OF BORDER PENTAGON FULL (formula 7205 + 4)
+#define TS_BORDER_360x288_BYTE 3563
 
-#define TS_BORDER_360x240 8938          // START OF BORDER 48 HALF (24 top lines, 360px wide)
-#define TS_BORDER_360x240_128 8868      // START OF BORDER 128 HALF
-#define TS_BORDER_360x240_PENTAGON 12585 // START OF BORDER PENTAGON HALF
-#define TS_BORDER_360x240_BYTE 8938
+#define TS_BORDER_360x240 8939          // START OF BORDER 48 HALF (formula 8935 + 4)
+#define TS_BORDER_360x240_128 8869      // START OF BORDER 128 HALF (formula 8865 + 4)
+#define TS_BORDER_360x240_PENTAGON 12585 // START OF BORDER PENTAGON HALF (formula 12581 + 4)
+#define TS_BORDER_360x240_BYTE 8939
 
 // Colors as 8-bit palette indices (VGA8 mode)
 // Standard Spectrum color order: 0-7 normal, 8-15 bright, 16 orange
@@ -147,11 +147,28 @@ public:
 
   static void Border_Blank();
 
+  // Non-FullBorder 48K/128K (brdptr32, step=4)
+  static void Update_Border();
   static void TopBorder_Blank();
   static void TopBorder();
   static void MiddleBorder();
   static void BottomBorder();
   static void BottomBorder_OSD();
+
+  // Pentagon (brdptr16, step=1, XOR)
+  static void Update_Border_Pentagon();
+  static void TopBorder_Blank_Pentagon();
+  static void TopBorder_Pentagon();
+  static void MiddleBorder_Pentagon();
+  static void BottomBorder_Pentagon();
+  static void BottomBorder_OSD_Pentagon();
+
+  // FullBorder (brdptr16, step=1)
+  static void TopBorder_Blank_FullBorder();
+  static void TopBorder_FullBorder();
+  static void MiddleBorder_FullBorder();
+  static void BottomBorder_FullBorder();
+  static void BottomBorder_OSD_FullBorder();
   
   static void (*Draw)(unsigned int, bool);
   static void (*Draw_Opcode)(bool);
