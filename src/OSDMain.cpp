@@ -840,9 +840,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         if (Config::aspect_16_9)
                             VIDEO::Draw_OSD169 = VIDEO::MainScreen;
                         else
-                            VIDEO::Draw_OSD43 = Z80Ops::isPentagon
-                                              ? (VIDEO::isFullBorderMode() ? VIDEO::BottomBorder_FullBorder : VIDEO::BottomBorder_Pentagon)
-                                              : VIDEO::BottomBorder;
+                            VIDEO::Draw_OSD43 = VIDEO::BottomBorder;
                         VIDEO::brdnextframe = true;
                     }
                     VIDEO::OSD &= 0xfc;
@@ -852,9 +850,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         if (Config::aspect_16_9)
                             VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                         else
-                            VIDEO::Draw_OSD43 = Z80Ops::isPentagon
-                                              ? (VIDEO::isFullBorderMode() ? VIDEO::BottomBorder_OSD_FullBorder : VIDEO::BottomBorder_OSD_Pentagon)
-                                              : VIDEO::BottomBorder_OSD;
+                            VIDEO::Draw_OSD43 = VIDEO::BottomBorder_OSD;
 
                         OSD::drawStats();
                     }
@@ -868,9 +864,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 if (Config::aspect_16_9)
                     VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                 else
-                    VIDEO::Draw_OSD43 = VIDEO::isFullBorderMode() ? VIDEO::BottomBorder_OSD_FullBorder
-                                      : Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon
-                                      : VIDEO::BottomBorder_OSD;
+                    VIDEO::Draw_OSD43 = VIDEO::BottomBorder_OSD;
                 VIDEO::OSD = 0x04;
             } else
                 VIDEO::OSD |= 0x04;
@@ -979,9 +973,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     if (Config::aspect_16_9)
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                     else
-                        VIDEO::Draw_OSD43 = VIDEO::isFullBorderMode() ? VIDEO::BottomBorder_OSD_FullBorder
-                                          : Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon
-                                          : VIDEO::BottomBorder_OSD;
+                        VIDEO::Draw_OSD43 = VIDEO::BottomBorder_OSD;
                     VIDEO::OSD = 0x04;
                 } else
                     VIDEO::OSD |= 0x04;
@@ -3363,9 +3355,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     if (Config::aspect_16_9)
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
                     else
-                        VIDEO::Draw_OSD43 = VIDEO::isFullBorderMode() ? VIDEO::BottomBorder_OSD_FullBorder
-                                          : Z80Ops::isPentagon ? VIDEO::BottomBorder_OSD_Pentagon
-                                          : VIDEO::BottomBorder_OSD;
+                        VIDEO::Draw_OSD43 = VIDEO::BottomBorder_OSD;
                     VIDEO::OSD = 0x04;
                 }
                 drawOSD(false);
@@ -3472,9 +3462,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     if (Config::aspect_16_9)
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen;
                     else
-                        VIDEO::Draw_OSD43 = VIDEO::isFullBorderMode() ? VIDEO::BottomBorder_FullBorder
-                                          : Z80Ops::isPentagon ? VIDEO::BottomBorder_Pentagon
-                                          : VIDEO::BottomBorder;
+                        VIDEO::Draw_OSD43 = VIDEO::BottomBorder;
                 }
                 if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
                 if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));

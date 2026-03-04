@@ -147,28 +147,12 @@ public:
 
   static void Border_Blank();
 
-  // Non-FullBorder 48K/128K (brdptr32, step=4)
-  static void Update_Border();
+  // Unified border functions (all models, all resolutions)
   static void TopBorder_Blank();
   static void TopBorder();
   static void MiddleBorder();
   static void BottomBorder();
   static void BottomBorder_OSD();
-
-  // Pentagon (brdptr16, step=1, XOR)
-  static void Update_Border_Pentagon();
-  static void TopBorder_Blank_Pentagon();
-  static void TopBorder_Pentagon();
-  static void MiddleBorder_Pentagon();
-  static void BottomBorder_Pentagon();
-  static void BottomBorder_OSD_Pentagon();
-
-  // FullBorder (brdptr16, step=1)
-  static void TopBorder_Blank_FullBorder();
-  static void TopBorder_FullBorder();
-  static void MiddleBorder_FullBorder();
-  static void BottomBorder_FullBorder();
-  static void BottomBorder_OSD_FullBorder();
   
   static void (*Draw)(unsigned int, bool);
   static void (*Draw_Opcode)(bool);
