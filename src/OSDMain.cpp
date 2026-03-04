@@ -2390,7 +2390,90 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         }
                                     }
                                 }
+#if !PICO_RP2040
                                 else if (options_num == 5) {
+                                    menu_level = 3;
+                                    menu_curopt = 1;
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string saa_menu = MENU_SAA1099[Config::lang];
+                                        saa_menu += MENU_YESNO[Config::lang];
+                                        bool prev_saa = Config::SAA1099;
+                                        if (prev_saa) {
+                                            saa_menu.replace(saa_menu.find("[Y",0),2,"[*");
+                                            saa_menu.replace(saa_menu.find("[N",0),2,"[ ");
+                                        } else {
+                                            saa_menu.replace(saa_menu.find("[Y",0),2,"[ ");
+                                            saa_menu.replace(saa_menu.find("[N",0),2,"[*");
+                                        }
+                                        uint8_t opt2 = menuRun(saa_menu);
+                                        if (opt2) {
+                                            if (opt2 == 1)
+                                                Config::SAA1099 = true;
+                                            else
+                                                Config::SAA1099 = false;
+
+                                            if (Config::SAA1099 != prev_saa) {
+                                                ESPectrum::SAA_emu = Config::SAA1099;
+                                                Config::save();
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = 5;
+                                            menu_level = 2;
+                                            break;
+                                        }
+                                    }
+                                }
+                                else if (options_num == 6) {
+                                    menu_level = 3;
+                                    menu_curopt = 1;
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string midi_menu = MENU_MIDI[Config::lang];
+                                        uint8_t prev_midi = Config::midi;
+                                        if (prev_midi == 0) {
+                                            midi_menu.replace(midi_menu.find("[O",0),2,"[*");
+                                            midi_menu.replace(midi_menu.find("[A",0),2,"[ ");
+                                            midi_menu.replace(midi_menu.find("[S",0),2,"[ ");
+                                        } else if (prev_midi == 1) {
+                                            midi_menu.replace(midi_menu.find("[O",0),2,"[ ");
+                                            midi_menu.replace(midi_menu.find("[A",0),2,"[*");
+                                            midi_menu.replace(midi_menu.find("[S",0),2,"[ ");
+                                        } else {
+                                            midi_menu.replace(midi_menu.find("[O",0),2,"[ ");
+                                            midi_menu.replace(midi_menu.find("[A",0),2,"[ ");
+                                            midi_menu.replace(midi_menu.find("[S",0),2,"[*");
+                                        }
+                                        uint8_t opt2 = menuRun(midi_menu);
+                                        if (opt2) {
+                                            Config::midi = opt2 - 1;
+                                            if (Config::midi != prev_midi) {
+                                                Midi::enabled = Config::midi;
+                                                if (Midi::enabled)
+                                                    Midi::init();
+                                                else
+                                                    Midi::deinit();
+                                                Config::save();
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = 6;
+                                            menu_level = 2;
+                                            break;
+                                        }
+                                    }
+                                }
+#endif
+                                else if (options_num ==
+#if !PICO_RP2040
+                                    7
+#else
+                                    5
+#endif
+                                ) {
                                     menu_level = 3;
                                     menu_curopt = 1;
                                     menu_saverect = true;
@@ -2432,88 +2515,17 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             menu_curopt = opt2;
                                             menu_saverect = false;
                                         } else {
-                                            menu_curopt = 5;
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                }
+                                            menu_curopt =
 #if !PICO_RP2040
-                                else if (options_num == 6) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string saa_menu = MENU_SAA1099[Config::lang];
-                                        saa_menu += MENU_YESNO[Config::lang];
-                                        bool prev_saa = Config::SAA1099;
-                                        if (prev_saa) {
-                                            saa_menu.replace(saa_menu.find("[Y",0),2,"[*");
-                                            saa_menu.replace(saa_menu.find("[N",0),2,"[ ");
-                                        } else {
-                                            saa_menu.replace(saa_menu.find("[Y",0),2,"[ ");
-                                            saa_menu.replace(saa_menu.find("[N",0),2,"[*");
-                                        }
-                                        uint8_t opt2 = menuRun(saa_menu);
-                                        if (opt2) {
-                                            if (opt2 == 1)
-                                                Config::SAA1099 = true;
-                                            else
-                                                Config::SAA1099 = false;
-
-                                            if (Config::SAA1099 != prev_saa) {
-                                                ESPectrum::SAA_emu = Config::SAA1099;
-                                                Config::save();
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 6;
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                }
-                                else if (options_num == 7) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string midi_menu = MENU_MIDI[Config::lang];
-                                        midi_menu += MENU_YESNO[Config::lang];
-                                        bool prev_midi = Config::midi;
-                                        if (prev_midi) {
-                                            midi_menu.replace(midi_menu.find("[Y",0),2,"[*");
-                                            midi_menu.replace(midi_menu.find("[N",0),2,"[ ");
-                                        } else {
-                                            midi_menu.replace(midi_menu.find("[Y",0),2,"[ ");
-                                            midi_menu.replace(midi_menu.find("[N",0),2,"[*");
-                                        }
-                                        uint8_t opt2 = menuRun(midi_menu);
-                                        if (opt2) {
-                                            if (opt2 == 1)
-                                                Config::midi = true;
-                                            else
-                                                Config::midi = false;
-
-                                            if (Config::midi != prev_midi) {
-                                                Midi::enabled = Config::midi;
-                                                if (Midi::enabled)
-                                                    Midi::init();
-                                                else
-                                                    Midi::deinit();
-                                                Config::save();
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 7;
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                }
+                                                7;
+#else
+                                                5;
 #endif
+                                            menu_level = 2;
+                                            break;
+                                        }
+                                    }
+                                }
                             } else {
                                 menu_curopt = 6;
                                 break;

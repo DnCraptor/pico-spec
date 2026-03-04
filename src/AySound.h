@@ -203,6 +203,13 @@ private:
 
     uint8_t regs[16];
     uint8_t selectedRegister;
+
+#if !PICO_RP2040
+    // Bit-bang UART decoder for MIDI via AY IOPortA (reg 14, bit 2)
+    int8_t midi_bitbang_pos;   // -1=idle, 0=start received, 1-8=data bits, 9=stop
+    uint8_t midi_bitbang_byte; // accumulated data byte
+    bool midi_bitbang_prev;    // previous line state (bit 2)
+#endif
 };
 
 extern AySound chip0;

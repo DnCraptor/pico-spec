@@ -85,7 +85,7 @@ public:
     static bool     AY48;
 #if !PICO_RP2040
     static bool     SAA1099;
-    static bool     midi;
+    static uint8_t  midi;  // 0=Off, 1=AY bitbang, 2=ShamaZX
 #endif
     static bool     Issue2;    
     static bool     flashload;    

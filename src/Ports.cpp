@@ -246,12 +246,12 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
         return VIDEO::ulaplus_enabled ? 1 : 0;
     }
     // ShamaZX MIDI — status read from 0xA1CF
-    // Bit 6 = "receiver full"; return 0 = ready to accept data
-    if (Midi::enabled && address == 0xA1CF) {
-      return 0x00;
+    // Bit 6 = "receiver full" — reflect real UART FIFO state
+    if (Midi::enabled == 2 && address == 0xA1CF) {
+      return Midi::busy() ? 0x40 : 0x00;
     }
     // ShamaZX MIDI — read from 0xA0CF (parallel mode handshake)
-    if (Midi::enabled && address == 0xA0CF) {
+    if (Midi::enabled == 2 && address == 0xA0CF) {
       return 0x00;
     }
 #endif
@@ -539,7 +539,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     // ShamaZX MIDI Interface (SAM2695)
     // 0xA0CF = control port: TX data byte here
     // 0xA1CF = data port: write 0xFF/0x3F for init, read status (bit 6 = receiver full)
-    if (Midi::enabled && address == 0xA0CF) {
+    if (Midi::enabled == 2 && address == 0xA0CF) {
       Midi::send(data);
       return;
     }

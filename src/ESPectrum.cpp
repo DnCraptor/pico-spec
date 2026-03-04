@@ -1496,10 +1496,6 @@ void ESPectrum::loop() {
       pwm_audio_write((uint8_t *)audioBuffer_L, (uint8_t *)audioBuffer_R,
                       maxSpeed ? 1 : samplesPerFrame, 0, 0);
 
-#if !PICO_RP2040
-    if (Midi::enabled) Midi::flush();
-#endif
-
     // Send audioBuffer to pwmaudio
     audbufcnt = 0;
     audbufcntover = 0;

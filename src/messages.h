@@ -687,17 +687,17 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
     "AY-3-8912 Stereo\t>\n"\
     "TurboSound\t>\n"\
     "Covox\t>\n"\
-    "Audio Driver\t>\n"\
     "SAA1099 ON/OFF\t>\n"\
-    "MIDI OUT\t>\n"
+    "Ext MIDI\t>\n"\
+    "Audio Driver\t>\n"
 #define MENU_AUDIO_ES "Audio\n"\
     "AY-3-8912 ON/OFF\t>\n"\
     "AY-3-8912 Est" "\x82" "reo\t>\n"\
     "TurboSound\t>\n"\
     "Covox\t>\n"\
-    "Controlador de audio\t>\n"\
     "SAA1099 ON/OFF\t>\n"\
-    "MIDI OUT\t>\n"
+    "Ext MIDI\t>\n"\
+    "Controlador de audio\t>\n"
 #endif
 static const char *MENU_AUDIO[2] = { MENU_AUDIO_EN, MENU_AUDIO_ES };
 
@@ -721,7 +721,15 @@ static const char *MENU_AY48[2] = { "Turned on?\n" , "Turned on?\n"};
 
 #if !PICO_RP2040
 static const char *MENU_SAA1099[2] = { "Turned on?\n" , "Turned on?\n"};
-static const char *MENU_MIDI[2] = { "Turned on?\n" , "Turned on?\n"};
+#define MENU_MIDI_EN "Ext MIDI\n"\
+    "OFF     \t[O]\n"\
+    "AY      \t[A]\n"\
+    "ShamaZX \t[S]\n"
+#define MENU_MIDI_ES "Ext MIDI\n"\
+    "OFF     \t[O]\n"\
+    "AY      \t[A]\n"\
+    "ShamaZX \t[S]\n"
+static const char *MENU_MIDI[2] = { MENU_MIDI_EN, MENU_MIDI_ES };
 #endif
 
 #if !PICO_RP2040

@@ -9,15 +9,11 @@ public:
     static void init();
     static void deinit();
     static void send(uint8_t b);
-    static void flush();
+    static bool busy();
 
-    static bool enabled;
+    static uint8_t enabled;  // 0=Off, 1=AY bitbang, 2=ShamaZX
 
 private:
-    static constexpr int BUF_SIZE = 256;
-    static uint8_t buf[BUF_SIZE];
-    static volatile uint8_t head;
-    static volatile uint8_t tail;
     static bool hw_initialized;
 };
 

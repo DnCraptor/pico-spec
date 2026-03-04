@@ -42,6 +42,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "PinSerialData_595.h"
 
 #include <pico/platform.h>
+#include "Midi.h"
 #define IRAM_ATTR __not_in_flash("audio")
 
 // #pragma GCC optimize("O3")
@@ -159,6 +160,12 @@ void AySound::init()
     bit_a = bit_b = bit_c = bit_n = 0;
     env_pos = EnvNum = 0;
     SamplebufAY[0] = SamplebufAY[1] = 0;
+
+#if !PICO_RP2040
+    midi_bitbang_pos = -1;
+    midi_bitbang_byte = 0;
+    midi_bitbang_prev = true;
+#endif
 
     /* GenNoise (c) Hacker KAY & Sergey Bulba */
     Cur_Seed = 0xffff;
@@ -581,6 +588,34 @@ void AySound::updEnvType() {
 
 void AySound::updIOPortA() {
     ayregs.IOPortA = regs[14] & 0xff;
+
+#if !PICO_RP2040
+    // Bit-bang UART decoder: zx-midiplayer uses reg 14 bit 2 as serial TX line
+    // 0xFE = HIGH (bit2=1), 0xFA = LOW (bit2=0)
+    // Frame: idle(H) → START(L) → D0..D7 (LSB first) → STOP(H)
+    if (Midi::enabled == 1) {
+        bool line = (regs[14] & 0x04) != 0; // bit 2
+
+        if (midi_bitbang_pos == -1) {
+            // Idle: detect START bit (HIGH → LOW)
+            if (midi_bitbang_prev && !line) {
+                midi_bitbang_pos = 0; // START bit received
+                midi_bitbang_byte = 0;
+            }
+        } else if (midi_bitbang_pos >= 0 && midi_bitbang_pos < 8) {
+            // Data bits 0-7 (LSB first)
+            if (line)
+                midi_bitbang_byte |= (1 << midi_bitbang_pos);
+            midi_bitbang_pos++;
+        } else if (midi_bitbang_pos == 8) {
+            // STOP bit — send the byte
+            Midi::send(midi_bitbang_byte);
+            midi_bitbang_pos = -1;
+        }
+
+        midi_bitbang_prev = line;
+    }
+#endif
 }
 
 void AySound::updIOPortB() {
@@ -705,6 +740,12 @@ void AySound::reset()
     regs[7] = 0xff; // Mixer register
 
     selectedRegister = 0xff;
+
+#if !PICO_RP2040
+    midi_bitbang_pos = -1;
+    midi_bitbang_byte = 0;
+    midi_bitbang_prev = true; // idle = HIGH
+#endif
 
     updToneA();
     updToneA();
