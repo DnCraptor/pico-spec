@@ -43,6 +43,9 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Z80_JLS/z80.h"
 #include "psram_spi.h"
 #include "Debug.h"
+#if !PICO_RP2040
+#include "DivMMC.h"
+#endif
 
 // Place hot CPU functions in SRAM instead of XIP flash
 #undef IRAM_ATTR
@@ -285,14 +288,28 @@ IRAM_ATTR void CPU::FlushOnHalt() {
 IRAM_ATTR uint8_t Z80Ops::peek8(uint16_t address) {
     uint8_t page = address >> 14;
     VIDEO::Draw(3, MemESP::ramContended[page]);
+#if !PICO_RP2040
+    if (page == 0 && MemESP::divmmc_mapped) {
+        return (address < 0x2000) ? MemESP::page0_lo[address] : MemESP::page0_hi[address & 0x1FFF];
+    }
+#endif
     return MemESP::ramCurrent[page][address & 0x3fff];
 }
 
 // Fetch opcode from RAM (NON +2A/3 version)
 IRAM_ATTR uint8_t Z80Ops::fetchOpcode() {
-    uint8_t pg = Z80::getRegPC() >> 14;
+    uint16_t pc = Z80::getRegPC();
+    uint8_t pg = pc >> 14;
     VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
-    return MemESP::ramCurrent[pg][Z80::getRegPC() & 0x3fff];
+#if !PICO_RP2040
+    if (pg == 0 && DivMMC::enabled) {
+        DivMMC::checkM1(pc);
+        if (MemESP::divmmc_mapped) {
+            return (pc < 0x2000) ? MemESP::page0_lo[pc] : MemESP::page0_hi[pc & 0x1FFF];
+        }
+    }
+#endif
+    return MemESP::ramCurrent[pg][pc & 0x3fff];
 }
 
 // // Write byte to RAM

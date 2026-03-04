@@ -57,6 +57,9 @@ visit https://zxespectrum.speccy.org/contacto
 #include "audio.h"
 #include "AySound.h"
 #include "Midi.h"
+#if !PICO_RP2040
+#include "DivMMC.h"
+#endif
 
 #include <malloc.h>
 
@@ -501,6 +504,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         } else
         if (KeytoESP == fabgl::VK_F10) { // NMI
+#if !PICO_RP2040
+            if (DivMMC::enabled) {
+                // DivMMC: standard NMI -> 0x0066 automap -> ESXDOS NMI browser
+                Z80::triggerNMI();
+            } else
+#endif
             if (Z80Ops::isByte) {
                 // ZX Byte: NMI menu with COBMECT mode toggle
                 menu_level = 0;
@@ -1225,7 +1234,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 while(1) {
                     // Betadisk menu
                     menu_level = 1;
+#if !PICO_RP2040
+                    uint8_t dsk_num = menuRun(MENU_BETADISK_DIVMMC[Config::lang]);
+#else
                     uint8_t dsk_num = menuRun(MENU_BETADISK[Config::lang]);
+#endif
                     if (dsk_num > 0 && dsk_num < 5) {
                         string drvmenu = MENU_BETADRIVE[Config::lang];
                         drvmenu.replace(drvmenu.find("#",0),1,(string)" " + char(64 + dsk_num));
@@ -1395,6 +1408,45 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                             }
                         }
                     }
+#if !PICO_RP2040
+                    else if (dsk_num == 9) {
+                        menu_level = 2;
+                        menu_curopt = 1;
+                        menu_saverect = true;
+                        while (1) {
+                            string menu = MENU_DIVMMC_TITLE[Config::lang];
+                            menu += MENU_YESNO[Config::lang];
+                            uint8_t prev = Config::divmmc;
+                            if (prev) {
+                                menu.replace(menu.find("[Y",0),2,"[*");
+                                menu.replace(menu.find("[N",0),2,"[ ");
+                            } else {
+                                menu.replace(menu.find("[Y",0),2,"[ ");
+                                menu.replace(menu.find("[N",0),2,"[*");
+                            }
+                            uint8_t opt2 = menuRun(menu);
+                            if (opt2) {
+                                Config::divmmc = (opt2 == 1);
+                                if (Config::divmmc != prev) {
+                                    DivMMC::enabled = Config::divmmc;
+                                    if (DivMMC::enabled) {
+                                        DivMMC::reset();
+                                    } else {
+                                        MemESP::divmmc_mapped = false;
+                                        MemESP::recoverPage0();
+                                    }
+                                    Config::save();
+                                }
+                                menu_curopt = opt2;
+                                menu_saverect = false;
+                            } else {
+                                menu_curopt = 9;
+                                menu_level = 2;
+                                break;
+                            }
+                        }
+                    }
+#endif
                     else {
                         menu_curopt = 4;
                         break;

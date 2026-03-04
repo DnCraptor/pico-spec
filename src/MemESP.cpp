@@ -263,3 +263,9 @@ uint8_t MemESP::romLatch = 0;
 uint8_t MemESP::pagingLock = 0;
 uint8_t MemESP::romInUse = 0;
 
+#if !PICO_RP2040
+uint8_t* MemESP::page0_lo = nullptr;
+uint8_t* MemESP::page0_hi = nullptr;
+bool MemESP::divmmc_mapped = false;
+#endif
+

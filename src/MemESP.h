@@ -173,6 +173,12 @@ public:
 
     static uint8_t romInUse;
 
+#if !PICO_RP2040
+    static uint8_t* page0_lo;      // 0x0000-0x1FFF when DivMMC mapped
+    static uint8_t* page0_hi;      // 0x2000-0x3FFF when DivMMC mapped
+    static bool divmmc_mapped;     // DivMMC memory currently visible at page 0
+#endif
+
     static uint8_t readbyte(uint16_t addr);
     static uint16_t readword(uint16_t addr);
     static void writebyte(uint16_t addr, uint8_t data);
@@ -205,8 +211,12 @@ inline int MemESP::getByteContention(uint16_t addr) {
 
 inline uint8_t MemESP::readbyte(uint16_t addr) {
     uint8_t page = addr >> 14;
-    uint8_t* p = ramCurrent[page];
-    return p[addr & 0x3fff];
+#if !PICO_RP2040
+    if (page == 0 && divmmc_mapped) {
+        return (addr < 0x2000) ? page0_lo[addr] : page0_hi[addr & 0x1FFF];
+    }
+#endif
+    return ramCurrent[page][addr & 0x3fff];
 }
 
 inline uint16_t MemESP::readword(uint16_t addr) {
@@ -216,6 +226,20 @@ inline uint16_t MemESP::readword(uint16_t addr) {
 inline void MemESP::writebyte(uint16_t addr, uint8_t data)
 {
     uint8_t page = addr >> 14;
+#if !PICO_RP2040
+    if (page == 0 && divmmc_mapped) {
+        if (addr < 0x2000) {
+            // 0x0000-0x1FFF: writable only when MAPRAM (RAM bank 3)
+            // ROM is read-only
+            if (page0_lo >= (uint8_t*)0x11000000)
+                page0_lo[addr] = data;
+        } else {
+            // 0x2000-0x3FFF: always RAM bank, writable
+            page0_hi[addr & 0x1FFF] = data;
+        }
+        return;
+    }
+#endif
     uint8_t* p = ramCurrent[page];
     if (p < (uint8_t*)0x11000000) return;
     p[addr & 0x3fff] = data;

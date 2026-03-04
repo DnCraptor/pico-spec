@@ -81,6 +81,9 @@ bool     Config::trdosFastMode = false;
 bool     Config::trdosWriteProtect = true;
 bool     Config::trdosSoundLed = false;
 uint8_t  Config::trdosBios = 2; // Default: 5.05D
+#if !PICO_RP2040
+bool     Config::divmmc = false;
+#endif
 
 uint8_t Config::scanlines = 0;
 uint8_t Config::render = 0;
@@ -386,6 +389,9 @@ void Config::load() {
         nvs_get_b("trdosWriteProtect", trdosWriteProtect, sts);
         nvs_get_b("trdosSoundLed", trdosSoundLed, sts);
         nvs_get_u8("trdosBios", trdosBios, sts);
+#if !PICO_RP2040
+        nvs_get_b("divmmc", divmmc, sts);
+#endif
         nvs_get_str("SNA_Path", FileUtils::SNA_Path, sts);
         nvs_get_str("TAP_Path", FileUtils::TAP_Path, sts);
         nvs_get_str("DSK_Path", FileUtils::DSK_Path, sts);
@@ -544,6 +550,9 @@ void Config::save() {
         nvs_set_str(handle,"trdosWriteProtect", trdosWriteProtect ? "true" : "false");
         nvs_set_str(handle,"trdosSoundLed", trdosSoundLed ? "true" : "false");
         nvs_set_u8(handle,"trdosBios", trdosBios);
+#if !PICO_RP2040
+        nvs_set_str(handle,"divmmc", divmmc ? "true" : "false");
+#endif
         nvs_set_str(handle,"SNA_Path",FileUtils::SNA_Path.c_str());
         nvs_set_str(handle,"TAP_Path",FileUtils::TAP_Path.c_str());
         nvs_set_str(handle,"DSK_Path",FileUtils::DSK_Path.c_str());

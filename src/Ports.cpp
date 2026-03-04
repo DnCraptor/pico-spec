@@ -52,6 +52,11 @@ visit https://zxespectrum.speccy.org/contacto
 
 #include "Debug.h"
 #include "Midi.h"
+#if !PICO_RP2040
+#include "DivMMC.h"
+#include "hardware/gpio.h"
+#include "sdcard.h"
+#endif
 
 // Place hot port functions in SRAM instead of XIP flash
 #undef IRAM_ATTR
@@ -257,6 +262,25 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
 #endif
     // The default port value is 0xFF.
     data = 0xff;
+
+#if !PICO_RP2040
+    if (DivMMC::enabled) {
+      uint8_t lo = address & 0xFF;
+      if (lo == 0xE3) {
+        // DivMMC control register read
+        return (DivMMC::conmem ? 0x80 : 0) | (DivMMC::mapram ? 0x40 : 0) | DivMMC::bank;
+      }
+      if (lo == 0xEB) {
+        // SPI data read (exchange 0xFF to receive)
+        return DivMMC::spiTransfer(0xFF);
+      }
+      if (lo == 0xE7) {
+        // CS status read
+        return DivMMC::spi_cs;
+      }
+    }
+#endif
+
     if (ESPectrum::trdos) {
 
       uint8_t dat;
@@ -587,6 +611,31 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
       ioContentionLate(MemESP::ramContended[rambank]);
       return;
     }
+#if !PICO_RP2040
+    if (DivMMC::enabled) {
+      uint8_t lo = address & 0xFF;
+      if (lo == 0xE3) {
+        // DivMMC control register write
+        DivMMC::bank = data & 0x3F;
+        if (data & 0x40) DivMMC::mapram = true; // Sticky!
+        DivMMC::conmem = (data & 0x80) != 0;
+        DivMMC::applyMapping();
+        return;
+      }
+      if (lo == 0xEB) {
+        // SPI data write
+        DivMMC::spiTransfer(data);
+        return;
+      }
+      if (lo == 0xE7) {
+        // SD card chip select
+        DivMMC::spi_cs = data & 0x01;
+        gpio_put(SDCARD_PIN_SPI0_CS, DivMMC::spi_cs);
+        return;
+      }
+    }
+#endif
+
     // Check if TRDOS Rom is mapped.
     if (ESPectrum::trdos) {
 

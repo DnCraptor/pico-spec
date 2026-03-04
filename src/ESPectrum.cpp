@@ -62,6 +62,9 @@ visit https://zxespectrum.speccy.org/contacto
 
 #include "PinSerialData_595.h"
 #include "Debug.h"
+#if !PICO_RP2040
+#include "DivMMC.h"
+#endif
 #include "Midi.h"
 
 using namespace std;
@@ -707,6 +710,13 @@ void ESPectrum::setup() {
   MemESP::pagingLock = Config::arch == "48K" ? 1 : 0;
 
   ///    if (Config::slog_on) showMemInfo("RAM Initialized");
+
+#if !PICO_RP2040
+  // Initialize DivMMC before VIDEO (which consumes remaining heap)
+  if (Config::divmmc) {
+    DivMMC::init();
+  }
+#endif
 
   //=======================================================================================
   // VIDEO

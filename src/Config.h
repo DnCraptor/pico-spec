@@ -122,6 +122,9 @@ public:
     static bool trdosWriteProtect;
     static bool trdosSoundLed;
     static uint8_t trdosBios; // 0=5.03, 1=5.04TM, 2=5.05D
+#if !PICO_RP2040
+    static bool divmmc;
+#endif
     
     static signed char aud_volume;
 
