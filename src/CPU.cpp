@@ -548,7 +548,7 @@ IRAM_ATTR void Z80Ops::addressOnBus(uint16_t address, int32_t wstates) {
 
 /* Callback to know when the INT signal is active */
 IRAM_ATTR bool Z80Ops::isActiveINT(void) {
-    int tmp = CPU::tstates + CPU::latetiming;
+    int tmp = CPU::tstates + (Z80Ops::isPentagon ? 0 : CPU::latetiming);
     if (tmp >= CPU::statesInFrame) tmp -= CPU::statesInFrame;
     return ((tmp >= CPU::IntStart) && (tmp < CPU::IntEnd));
 }
