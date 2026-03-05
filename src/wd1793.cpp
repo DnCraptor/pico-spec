@@ -1357,6 +1357,7 @@ bool rvmWD1793InsertDisk(rvmWD1793 *wd, unsigned char UnitNum, std::string Filen
         wd->disk[UnitNum]->fname = Filename;
         wd->udiLoadedCyl = -1;
         wd->udiLoadedSide = -1;
+        wd->fastmode = false; // fastmode uses sectdatapos, incompatible with raw MFM
 
         printf("UDI: %d cylinders, %d sides\n", cyls, sides);
         return true;
@@ -1410,6 +1411,7 @@ bool rvmWD1793InsertDisk(rvmWD1793 *wd, unsigned char UnitNum, std::string Filen
         wd->disk[UnitNum]->fname = Filename;
         wd->udiLoadedCyl = -1;
         wd->udiLoadedSide = -1;
+        wd->fastmode = false; // fastmode uses sectdatapos, incompatible with raw MFM
 
         printf("FDI: %d cylinders, %d sides\n", cyls, sides);
         return true;
@@ -1569,7 +1571,7 @@ void fdiLoadTrack(rvmWD1793 *wd, uint32_t cyl, uint8_t side) {
         uint16_t secDataOff = sh[5] | (sh[6] << 8);
 
         uint16_t secSize = 128 << secSizeCode;
-        if (secSize > 256) secSize = 256; // clamp for buffer safety
+        if (secSize > 1024) secSize = 1024; // clamp for buffer safety
 
         // Sector header sync: 12×0x00
         for (int i = 0; i < 12 && pos < 6400; i++) buf[pos++] = 0x00;
@@ -1604,7 +1606,7 @@ void fdiLoadTrack(rvmWD1793 *wd, uint32_t cyl, uint8_t side) {
         // Sector data
         if (hasData) {
             uint32_t fileDataPos = disk->fdiDataOffset + trkDataOffset + secDataOff;
-            uint8_t secData[256];
+            uint8_t secData[1024];
             f_lseek(disk->Diskfile, fileDataPos);
             f_read(disk->Diskfile, secData, secSize, &br);
             for (int i = 0; i < (int)secSize && pos < 6400; i++) {
@@ -1679,9 +1681,10 @@ IRAM_ATTR uint8_t rvmwdDiskStep(rvmWD1793 *wd, uint32_t control) {
 #if !PICO_RP2040
     if (disk->IsUDIFile) {
 
-      uint16_t trackLen = wd->udiTrackLen;
+      // Load track before checking length
+      udiLoadTrack(wd, disk->t, wd->side);
 
-      if(disk->indx != 0xffffffff && disk->indx >= trackLen) {
+      if(disk->indx != 0xffffffff && disk->indx >= wd->udiTrackLen) {
         disk->indx = 0xffffffff;
         disk->indexDelay = 25;
         return disk->s;
@@ -1689,11 +1692,7 @@ IRAM_ATTR uint8_t rvmwdDiskStep(rvmWD1793 *wd, uint32_t control) {
 
       disk->indx++;
 
-      // Load track from UDI file if needed
-      udiLoadTrack(wd, disk->t, wd->side);
-      trackLen = wd->udiTrackLen;
-
-      if (disk->indx < trackLen)
+      if (disk->indx < wd->udiTrackLen)
         disk->a = wd->udiTrackBuf[disk->indx];
       else
         disk->a = 0x4e; // gap filler
@@ -1704,9 +1703,10 @@ IRAM_ATTR uint8_t rvmwdDiskStep(rvmWD1793 *wd, uint32_t control) {
 
     if (disk->IsFDIFile) {
 
-      uint16_t trackLen = wd->udiTrackLen;
+      // Generate MFM track before checking length
+      fdiLoadTrack(wd, disk->t, wd->side);
 
-      if(disk->indx != 0xffffffff && disk->indx >= trackLen) {
+      if(disk->indx != 0xffffffff && disk->indx >= wd->udiTrackLen) {
         disk->indx = 0xffffffff;
         disk->indexDelay = 25;
         return disk->s;
@@ -1714,11 +1714,7 @@ IRAM_ATTR uint8_t rvmwdDiskStep(rvmWD1793 *wd, uint32_t control) {
 
       disk->indx++;
 
-      // Generate MFM track from FDI if needed
-      fdiLoadTrack(wd, disk->t, wd->side);
-      trackLen = wd->udiTrackLen;
-
-      if (disk->indx < trackLen)
+      if (disk->indx < wd->udiTrackLen)
         disk->a = wd->udiTrackBuf[disk->indx];
       else
         disk->a = 0x4e;
