@@ -288,7 +288,7 @@ IF(MURM2)
         BEEPER_PIN=9 #
         PWM_PIN0=10 #
         PWM_PIN1=11
-        MIDI_TX_PIN=28
+        MIDI_TX_PIN=22
 
         # SDCARD
         SDCARD_PIN_SPI0_CS=5
@@ -365,7 +365,7 @@ ELSEIF(PICO_PC)
         BEEPER_PIN=26 # not implemented
         PWM_PIN0=27 # R
         PWM_PIN1=28 # L
-        MIDI_TX_PIN=28
+        MIDI_TX_PIN=26
 
         # SDCARD
         SDCARD_PIN_SPI0_MISO=4
@@ -409,7 +409,7 @@ ELSEIF(PICO_DV)
         KBD_CLOCK_PIN=0
         KBD_DATA_PIN=1
 
-        LOAD_WAV_PIO=14 # Same place as button A on the board (replacement)
+        LOAD_WAV_PIO=17
 
         CLK_AY_PIN1=21 # not in use
         LATCH_595_PIN=26
@@ -424,7 +424,7 @@ ELSEIF(PICO_DV)
         PWM_PIN0=26 # R
         PWM_PIN1=27 # L
         BEEPER_PIN=28 # not implemented
-        MIDI_TX_PIN=28
+        MIDI_TX_PIN=4
 
         # SDCARD
         SDCARD_SPI_BUS=spi1
@@ -546,7 +546,7 @@ ELSEIF(ZERO2)
         PWM_PIN0=10
         PWM_PIN1=11
         BEEPER_PIN=12
-        MIDI_TX_PIN=28
+        MIDI_TX_PIN=22
 
         # SDCARD
         SDCARD_SPI_BUS=spi1
@@ -604,7 +604,7 @@ ELSE()
         PWM_PIN0=26 #
         PWM_PIN1=27 #
         BEEPER_PIN=28
-        MIDI_TX_PIN=28
+        MIDI_TX_PIN=22
 
         # SDCARD
         SDCARD_PIN_SPI0_CS=5

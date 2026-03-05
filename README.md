@@ -123,7 +123,30 @@ Two modes are available:
 - **AY** — Decodes bit-bang UART transmitted through AY-3-8912 register 14 (IOPortA, bit 2). Software like [zx-midiplayer](https://github.com/UzixLS/zx-midiplayer) uses this method in "128std" / "TS1" / "TS2" output modes, writing individual bits (0xFE=HIGH, 0xFA=LOW) to form MIDI bytes at 31250 baud. The emulator reconstructs complete bytes from these bit-bang writes and sends them to the UART.
 - **ShamaZX** — Emulates the ShamaZX parallel MIDI interface (SAM2695 synth module). Port 0xA0CF is used for TX data, port 0xA1CF for status (bit 6 = busy). This corresponds to the "ShamaZX" output mode in [zx-midiplayer](https://github.com/UzixLS/zx-midiplayer).
 
-The MIDI TX pin is configured per board in `CMakeLists.txt` (`MIDI_TX_PIN=28`).
+### MIDI TX Pin Configuration
+
+The MIDI TX pin is configured per board in `CMakeLists.txt` via `MIDI_TX_PIN`. Default values by board:
+
+| Board | MIDI_TX_PIN |
+|-------|-------------|
+| Murmulator | 22 |
+| Waveshare PiZero | 26 |
+| Pimoroni Pico DV | 4 |
+| Olimex RP2040-PICO-PC | 22 |
+
+### Connecting to Raspberry Pi 3/4 as MIDI Host
+
+You can use a Raspberry Pi 3 or 4 as a USB MIDI host with a hardware synth or software synthesizer (e.g. FluidSynth).
+
+**Wiring** (directly, no optocoupler needed for short connections):
+
+```
+RP2350 Board              Raspberry Pi 3/4
+─────────────             ────────────────
+MIDI_TX_PIN  ──────────── GPIO 15 (RXD, pin 10)
++5V          ──────────── +5V (e.g. pin 2)
+GND          ──────────── GND (e.g. pin 6)
+```
 
 ## How to build
 ### Windows 10+

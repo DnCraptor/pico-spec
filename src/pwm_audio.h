@@ -10,6 +10,7 @@ bool pcm_data_in(void);
 void pwm_audio_in_frame_started(void);
 #if LOAD_WAV_PIO
 void pcm_audio_in_stop(void);
+void inInit(uint gpio);
 #endif
 
 #define esp_err_t int

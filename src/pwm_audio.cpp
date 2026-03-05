@@ -259,7 +259,7 @@ static void PWM_init_pin(uint8_t pinN, uint16_t max_lvl) {
 }
 
 #ifdef LOAD_WAV_PIO
-inline static void inInit(uint gpio) {
+void inInit(uint gpio) {
     gpio_init(gpio);
     gpio_set_dir(gpio, GPIO_IN);
     gpio_pull_up(gpio);
@@ -297,8 +297,10 @@ void init_sound() {
         }
     }
 #ifdef LOAD_WAV_PIO
-    //пин ввода звука
-    inInit(LOAD_WAV_PIO);
+    //пин ввода звука (не инициализировать если MIDI использует тот же пин)
+    if (!Config::midi) {
+        inInit(LOAD_WAV_PIO);
+    }
 #endif
 }
 

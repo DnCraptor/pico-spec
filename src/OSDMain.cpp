@@ -2453,8 +2453,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                                 Midi::enabled = Config::midi;
                                                 if (Midi::enabled)
                                                     Midi::init();
-                                                else
+                                                else {
                                                     Midi::deinit();
+#ifdef LOAD_WAV_PIO
+                                                    inInit(LOAD_WAV_PIO);
+#endif
+                                                }
                                                 Config::save();
                                             }
                                             menu_curopt = opt2;
