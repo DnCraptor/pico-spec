@@ -541,7 +541,9 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
 
         wd->status &= ~kRVMWD177XStatusCRC;
 
-        wd->c = 0x100; // Esto, en Betadisk, siempre será el tamaño del sector
+        // Sector size from header[4] (size code): 0=128, 1=256, 2=512, 3=1024
+        // For Betadisk/TR-DOS always 256, but UDI/FDI may have other sizes
+        wd->c = 128 << (wd->header[4] & 0x03);
 
         // _waitMark(wd);
         // printf("Waitmark ReadSectorHeader\n");
@@ -1307,6 +1309,7 @@ bool rvmWD1793InsertDisk(rvmWD1793 *wd, unsigned char UnitNum, std::string Filen
         wd->disk[UnitNum]->IsFDIFile = false;
 #endif
         wd->disk[UnitNum]->writeprotect = 1; // SCL files are read only
+        wd->fastmode = Config::trdosFastMode;
         diskType = 0x16;
 
 #if !PICO_RP2040
@@ -1425,6 +1428,7 @@ bool rvmWD1793InsertDisk(rvmWD1793 *wd, unsigned char UnitNum, std::string Filen
 #endif
         wd->disk[UnitNum]->writeprotect = Config::trdosWriteProtect;
         wd->disk[UnitNum]->sclDataOffset = 0;
+        wd->fastmode = Config::trdosFastMode;
 
         // fseek(wd->disk[UnitNum]->Diskfile,2048 + 227,SEEK_SET);
         // fread(&diskType,1,1,wd->disk[UnitNum]->Diskfile);
@@ -1606,13 +1610,14 @@ void fdiLoadTrack(rvmWD1793 *wd, uint32_t cyl, uint8_t side) {
         // Sector data
         if (hasData) {
             uint32_t fileDataPos = disk->fdiDataOffset + trkDataOffset + secDataOff;
-            uint8_t secData[1024];
+            uint16_t toRead = secSize;
+            if (pos + toRead > 6400) toRead = 6400 - pos;
             f_lseek(disk->Diskfile, fileDataPos);
-            f_read(disk->Diskfile, secData, secSize, &br);
-            for (int i = 0; i < (int)secSize && pos < 6400; i++) {
-                buf[pos++] = secData[i];
-                crc = fdiCrc16(crc, secData[i]);
+            f_read(disk->Diskfile, buf + pos, toRead, &br);
+            for (int i = 0; i < (int)toRead; i++) {
+                crc = fdiCrc16(crc, buf[pos + i]);
             }
+            pos += toRead;
         } else {
             for (int i = 0; i < (int)secSize && pos < 6400; i++) {
                 buf[pos++] = 0x00;
