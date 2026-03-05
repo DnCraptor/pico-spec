@@ -298,7 +298,10 @@ void init_sound() {
     }
 #ifdef LOAD_WAV_PIO
     //пин ввода звука (не инициализировать если MIDI использует тот же пин)
-    if (!Config::midi) {
+#if !PICO_RP2040
+    if (!Config::midi)
+#endif
+    {
         inInit(LOAD_WAV_PIO);
     }
 #endif
