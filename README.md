@@ -134,6 +134,8 @@ The MIDI TX pin is configured per board in `CMakeLists.txt` via `MIDI_TX_PIN`. D
 | Pimoroni Pico DV | 4 |
 | Olimex RP2040-PICO-PC | 22 |
 
+**Note:** On Murmulator boards, MIDI TX and real tape input share the same pin (GPIO 22). When MIDI is enabled, real tape loading is disabled. Disable MIDI in the menu to use real tape input.
+
 ### Connecting to Raspberry Pi 3/4 as MIDI Host
 
 You can use a Raspberry Pi 3 or 4 as a USB MIDI host with a hardware synth or software synthesizer (e.g. FluidSynth).
