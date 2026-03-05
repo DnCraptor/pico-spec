@@ -460,7 +460,7 @@ ELSEIF(PICO_DV)
         DEFAULT_THROTTLING=0
         PICO_DEFAULT_LED_PIN=25
 
-        DEBUG=0
+        DEBUG=1
 )
 ELSEIF(ZERO)
     target_compile_definitions(${PROJECT_NAME} PRIVATE

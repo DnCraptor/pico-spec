@@ -974,6 +974,10 @@ IRAM_ATTR void Z80::check_trdos() {
                     MemESP::romInUse = 4;
                     MemESP::ramCurrent[0] = MemESP::rom[4].direct();
                     ESPectrum::trdos = true;
+#if !PICO_RP2040
+                    if (ESPectrum::fdd.disk[ESPectrum::fdd.diskS] && ESPectrum::fdd.disk[ESPectrum::fdd.diskS]->IsUDIFile)
+                        udiTraceAddStk('+', REG_PC, ESPectrum::fdd.track, ESPectrum::fdd.command, 1, REG_SP);
+#endif
                 }
 
             }
@@ -981,6 +985,11 @@ IRAM_ATTR void Z80::check_trdos() {
         } else {
 
             if (REG_PCh >= 0x40) {
+
+#if !PICO_RP2040
+                if (ESPectrum::fdd.disk[ESPectrum::fdd.diskS] && ESPectrum::fdd.disk[ESPectrum::fdd.diskS]->IsUDIFile)
+                    udiTraceAddStk('-', REG_PC, ESPectrum::fdd.track, ESPectrum::fdd.command, 0, REG_SP);
+#endif
 
                 if (Z80Ops::is48)
                     MemESP::romInUse = 0;
@@ -1196,6 +1205,16 @@ IRAM_ATTR void Z80::execute() {
 
         REG_PC++;
 
+#if !PICO_RP2040
+        // Trace every instruction while in TR-DOS ROM during UDI high-track access
+        if (ESPectrum::trdos &&
+            ESPectrum::fdd.disk[ESPectrum::fdd.diskS] &&
+            ESPectrum::fdd.disk[ESPectrum::fdd.diskS]->IsUDIFile &&
+            ESPectrum::fdd.udiLoadedCyl >= 73) {
+            udiTraceAdd('I', REG_PC - 1, opCode, 0, 1, REG_SP);
+        }
+#endif
+
         if (prefixOpcode == 0) {
             flagQ = pendingEI = false;
             dcOpcode[opCode]();
@@ -1244,6 +1263,16 @@ IRAM_ATTR void Z80::exec_nocheck() {
 
         regR++;
         REG_PC++;
+
+#if !PICO_RP2040
+        // Trace every instruction while in TR-DOS ROM during UDI high-track access
+        if (ESPectrum::trdos &&
+            ESPectrum::fdd.disk[ESPectrum::fdd.diskS] &&
+            ESPectrum::fdd.disk[ESPectrum::fdd.diskS]->IsUDIFile &&
+            ESPectrum::fdd.udiLoadedCyl >= 73) {
+            udiTraceAdd('I', REG_PC - 1, opCode, 0, 1, REG_SP);
+        }
+#endif
 
         if (prefixOpcode == 0) {
             flagQ = pendingEI = false;

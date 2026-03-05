@@ -69,6 +69,41 @@ uint32_t CPU::stFrame = 0;
 bool CPU::portBasedBP = false;
 bool CPU::paused = false;
 
+#if !PICO_RP2040
+// Ring buffer for UDI debug trace — no SD writes in hot path
+struct UdiTraceEntry {
+    uint16_t pc;
+    uint8_t  trk;
+    uint8_t  cmd;
+    uint8_t  td;   // trdos flag
+    uint8_t  type; // 'C'=cmd, '+'=trdos on, '-'=trdos off, 'F'=fint, 'M'=mem
+    uint16_t sp;
+    uint8_t  stk[4]; // top 4 stack bytes
+};
+#define UDI_TRACE_SIZE 256
+#define UDI_TRACE_MASK (UDI_TRACE_SIZE - 1)
+static UdiTraceEntry udiTrace[UDI_TRACE_SIZE];
+static uint16_t udiTraceIdx = 0;
+static bool udiTraceDumped = false;
+
+void udiTraceAdd(uint8_t type, uint16_t pc, uint8_t trk, uint8_t cmd, uint8_t td, uint16_t sp) {
+    udiTrace[udiTraceIdx & UDI_TRACE_MASK] = {pc, trk, cmd, td, type, sp, {0,0,0,0}};
+    udiTraceIdx++;
+}
+
+void udiTraceAddStk(uint8_t type, uint16_t pc, uint8_t trk, uint8_t cmd, uint8_t td, uint16_t sp) {
+    uint8_t pg;
+    UdiTraceEntry &e = udiTrace[udiTraceIdx & UDI_TRACE_MASK];
+    e = {pc, trk, cmd, td, type, sp, {0,0,0,0}};
+    for (int i = 0; i < 4; i++) {
+        uint16_t addr = sp + i;
+        pg = addr >> 14;
+        e.stk[i] = MemESP::ramCurrent[pg][addr & 0x3fff];
+    }
+    udiTraceIdx++;
+}
+#endif
+
 bool Z80Ops::is48;
 bool Z80Ops::isByte = false;
 bool Z80Ops::isALF = false;
@@ -232,6 +267,33 @@ IRAM_ATTR void CPU::loop() {
         rvmWD1793Step(&ESPectrum::fdd, CPU::tstates_diff / WD177XSTEPSTATES); // FDD
     }
     CPU::tstates_diff = CPU::tstates_diff % WD177XSTEPSTATES;
+
+#if !PICO_RP2040
+    // Detect crash: PC=0x0038 with UDI disk — dump ring buffer once
+    // Only trigger if trace buffer has events (udiTraceIdx > 0) to avoid false positives at boot
+    if (Z80::getRegPC() == 0x0038 && !udiTraceDumped && udiTraceIdx > 0 &&
+        ESPectrum::fdd.disk[ESPectrum::fdd.diskS] &&
+        ESPectrum::fdd.disk[ESPectrum::fdd.diskS]->IsUDIFile &&
+        ESPectrum::fdd.udiLoadedCyl >= 73) {
+        udiTraceDumped = true;
+        Debug::log("=== UDI TRACE DUMP (last %d events) ===", UDI_TRACE_SIZE);
+        for (int i = 0; i < UDI_TRACE_SIZE; i++) {
+            uint16_t idx = (udiTraceIdx + i) & UDI_TRACE_MASK;
+            UdiTraceEntry &e = udiTrace[idx];
+            if (e.type == 0) continue; // unused slot
+            if (e.type == 'I')
+                Debug::log("I pc=%04X op=%02X sp=%04X",
+                           e.pc, e.trk, e.sp);
+            else
+                Debug::log("%c pc=%04X trk=%d cmd=%02X td=%d sp=%04X [%02X%02X %02X%02X]",
+                           e.type, e.pc, e.trk, e.cmd, e.td, e.sp,
+                           e.stk[1], e.stk[0], e.stk[3], e.stk[2]);
+        }
+        Debug::log("=== CRASH pc=0038 trk=%d cmd=%02X td=%d sp=%04X ===",
+                   ESPectrum::fdd.track, ESPectrum::fdd.command,
+                   ESPectrum::trdos ? 1 : 0, Z80::getRegSP());
+    }
+#endif
 
     global_tstates += statesInFrame; // increase global Tstates
     tstates_frame = tstates;

@@ -287,7 +287,24 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     }
 #endif
 
-    if (ESPectrum::trdos) {
+    // Beta-128 ports: accessible when TR-DOS ROM is paged in,
+    // or when a raw-format disk (UDI/FDI) is inserted (copy-protected loaders
+    // access WD1793 ports from RAM with TR-    // Beta-128 ports: accessible when TR-DOS ROM is paged in,
+    // or when a raw-format disk (UDI/FDI) is inserted (copy-protected loaders
+    // access WD1793 ports from RAM with TR-DOS ROM paged out)
+    if (ESPectrum::trdos
+#if !PICO_RP2040
+        || (ESPectrum::fdd.disk[ESPectrum::fdd.diskS] &&
+            (ESPectrum::fdd.disk[ESPectrum::fdd.diskS]->IsUDIFile || ESPectrum::fdd.disk[ESPectrum::fdd.diskS]->IsFDIFile))
+#endif
+    ) {
+DOS ROM paged out)
+    if (ESPectrum::trdos
+#if !PICO_RP2040
+        || (ESPectrum::fdd.disk[ESPectrum::fdd.diskS] &&
+            (ESPectrum::fdd.disk[ESPectrum::fdd.diskS]->IsUDIFile || ESPectrum::fdd.disk[ESPectrum::fdd.diskS]->IsFDIFile))
+#endif
+    ) {
 
       uint8_t dat;
 
@@ -308,6 +325,16 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
           v |= 0x40;
         if (ESPectrum::fdd.control & (kRVMWD177XINTRQ | kRVMWD177XFINTRQ))
           v |= 0x80;
+#if !PICO_RP2040
+        if (ESPectrum::fdd.track == 0x4b && ESPectrum::fdd.disk[ESPectrum::fdd.diskS] &&
+            ESPectrum::fdd.disk[ESPectrum::fdd.diskS]->IsUDIFile) {
+          static int ff4b_cnt = 0;
+          if (ff4b_cnt < 10) {
+            Debug::log("P_FF T4b v=%02x step=%d state=%d", v, ESPectrum::fdd.stepState, ESPectrum::fdd.state);
+            ff4b_cnt++;
+          }
+        }
+#endif
         return v;
       }
       }
@@ -676,6 +703,11 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         }
 
         if (!(data & 0x4)) {
+#if !PICO_RP2040
+          if (ESPectrum::fdd.track == 0x4b && ESPectrum::fdd.disk[ESPectrum::fdd.diskS] &&
+              ESPectrum::fdd.disk[ESPectrum::fdd.diskS]->IsUDIFile)
+            Debug::log("SYS_RESET T4b data=%02x", data);
+#endif
           rvmWD1793Reset(&ESPectrum::fdd);
         }
 

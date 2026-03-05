@@ -31,6 +31,7 @@ THE SOFTWARE.
 #include "wd1793.h"
 #include "Debug.h"
 #include "Config.h"
+#include "CPU.h"
 
 // #pragma GCC optimize("O3")
 
@@ -70,6 +71,11 @@ IRAM_ATTR static void _end(rvmWD1793 *wd) {
   wd->retry = 15;
   wd->led = 0;
   wd->control |= kRVMWD177XINTRQ; //TODO: ADD A INTERRUPT HANDLER
+#if !PICO_RP2040
+  if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsUDIFile && wd->track >= 0x40)
+    Debug::log("E T%02x S%02x c%02x st%02x",
+               wd->track, wd->sector, wd->command, wd->status);
+#endif
 }
 
 IRAM_ATTR void _do(rvmWD1793 *wd) {
@@ -159,6 +165,10 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
     }
 
     case kRVMWD177XTypeICheck: {
+#if !PICO_RP2040
+      if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsUDIFile && wd->dsr >= 0x40)
+        Debug::log("chk T%02x dsr%02x dt%d", wd->track, wd->dsr, wd->disk[wd->diskS]->t);
+#endif
       if(wd->track==wd->dsr) {
         wd->state=kRVMWD177XTypeIEnd;
       } else {
@@ -222,6 +232,10 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
     }
 
     case kRVMWD177XTypeIEnd: {
+#if !PICO_RP2040
+      if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsUDIFile && wd->track >= 0x28)
+        Debug::log("T1end T%02x v%d", wd->track, (wd->command & kRVMWD177XVerifyBit) ? 1 : 0);
+#endif
       if(wd->command & kRVMWD177XVerifyBit) {
         //printf("Verify\n");
         if(wd->control & kRVMWD177XHLD) {
@@ -240,6 +254,7 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
         wd->control|=kRVMWD177XINTRQ;
         wd->status|=kRVMWD177XStatusSetHead;
         wd->status&=~kRVMWD177XStatusBusy;
+        wd->stepState=kRVMWD177XStepIdle;
       }
       return;
     }
@@ -541,9 +556,16 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
 
         wd->status &= ~kRVMWD177XStatusCRC;
 
-        // Sector size from header[4] (size code): 0=128, 1=256, 2=512, 3=1024
-        // For Betadisk/TR-DOS always 256, but UDI/FDI may have other sizes
-        wd->c = 128 << (wd->header[4] & 0x03);
+        // Sector size from address mark: 0=128, 1=256, 2=512, 3=1024
+        // Use real size for UDI/FDI, hardcode 256 for TRD/SCL (Betadisk standard)
+        {
+            uint32_t sz = 128 << (wd->header[4] & 0x03);
+#if !PICO_RP2040
+            if (!wd->disk[wd->diskS]->IsUDIFile && !wd->disk[wd->diskS]->IsFDIFile)
+#endif
+                sz = 0x100;
+            wd->c = sz;
+        }
 
         // _waitMark(wd);
         // printf("Waitmark ReadSectorHeader\n");
@@ -590,6 +612,10 @@ case kRVMWD177XWriteData: {
       // Verificar underrun ANTES de procesar el byte
       if(wd->control & kRVMWD177XDRQ) {
         //printf("Lost data in write - aborting command\n");
+#if !PICO_RP2040
+        if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsUDIFile)
+          Debug::log("LostData T=%02x S=%02x c=%d", wd->track, wd->sector, (int)wd->c);
+#endif
         wd->status|=kRVMWD177XStatusLostData;
         wd->control&=~kRVMWD177XWriting;
         _end(wd);
@@ -925,6 +951,14 @@ IRAM_ATTR void rvmWD1793Step(rvmWD1793 *wd, uint32_t steps) {
     uint8_t pd = s ^ wd->diskP;
     wd->diskP=s;
 
+    // Force Interrupt condition check: bit 2 = index pulse
+    if ((wd->control >> 16) & 0x4) {
+      if ((pd & kRVMwdDiskOutIndex) && (s & kRVMwdDiskOutIndex)) {
+        wd->control &= 0xffff; // clear conditions
+        wd->control |= kRVMWD177XINTRQ;
+      }
+    }
+
     // printf("wd->stepState: %d\n",wd->stepState);
 
     switch(wd->stepState) {
@@ -1051,7 +1085,15 @@ IRAM_ATTR void rvmWD1793Step(rvmWD1793 *wd, uint32_t steps) {
 }
 
 IRAM_ATTR void rvmWD1793Write(rvmWD1793 *wd,uint8_t a,uint8_t value) {
-
+#if !PICO_RP2040
+  if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsUDIFile && wd->track == 0x4b) {
+    static int wr4b_cnt = 0;
+    if (wr4b_cnt < 20) {
+      Debug::log("WR r%d=%02x T%02x S%02x st=%04x", a&3, value, wd->track, wd->sector, wd->status);
+      wr4b_cnt++;
+    }
+  }
+#endif
   switch(a & 0x3) {
 
     case 0: //Command
@@ -1067,7 +1109,12 @@ IRAM_ATTR void rvmWD1793Write(rvmWD1793 *wd,uint8_t a,uint8_t value) {
       // // --- end of patch ---
 
       if ((value & 0xf0) == 0xd0) {
-
+#if !PICO_RP2040
+        if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsUDIFile && wd->track >= 0x40)
+          Debug::log("FINT %02x T%02x busy=%d st=%04x ctl=%04x",
+                     value, wd->track, (wd->status & kRVMWD177XStatusBusy)?1:0,
+                     wd->status, wd->control);
+#endif
         //Force interrupt
         if(wd->status & kRVMWD177XStatusBusy) {
 
@@ -1107,13 +1154,22 @@ IRAM_ATTR void rvmWD1793Write(rvmWD1793 *wd,uint8_t a,uint8_t value) {
 
       }
 
+#if !PICO_RP2040
+      if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsUDIFile && (wd->status & kRVMWD177XStatusBusy) && wd->track >= 0x40)
+          Debug::log("BUSY! C%02x T%02x S%02x st%02x state=%d",
+                     value, wd->track, wd->sector, wd->status, wd->state);
+#endif
       if(!(wd->status & kRVMWD177XStatusBusy)) {
 
         wd->control &= ~(kRVMWD177XINTRQ|kRVMWD177XFINTRQ);
 
         wd->command = value;
 
-        // printf("COMMAND: %02x TRACK: %02x SECTOR %02x\n",wd->command,wd->track,wd->sector);
+#if !PICO_RP2040
+        if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsUDIFile && wd->track >= 0x40)
+          Debug::log("C%02x T%02x>%02x S%02x s%d",
+                     value, wd->track, wd->data, wd->sector, wd->side);
+#endif
 
         if(wd->disk[wd->diskS]  && (wd->control & (kRVMWD177XPower0 << wd->diskS))) {
 
@@ -1156,10 +1212,20 @@ IRAM_ATTR void rvmWD1793Write(rvmWD1793 *wd,uint8_t a,uint8_t value) {
             // printf("TYPE I COMMAND: %02x TRACK: %02x SECTOR %02x SIDE %02x\n",wd->command,wd->track,wd->sector, wd->side);
 
             //Type I
+            // Clear DRQ (mirrors UnrealSpeccy S_TYPE1_CMD: status &= ~WDS_DRQ, rqs=0)
+            wd->control &= ~kRVMWD177XDRQ;
             wd->status = kRVMWD177XStatusSetIndex | kRVMWD177XStatusSetTrack0 | kRVMWD177XStatusSetWP | kRVMWD177XStatusBusy;
             wd->state = kRVMWD177XTypeI0;
 
             _do(wd);
+
+            // Complete Type I (Seek/Step/Restore) immediately — don't wait for step delays.
+            // Copy-protected loaders issue the next command before step delays expire.
+            if (!(wd->command & kRVMWD177XTypeI)) {
+              while (wd->stepState == kRVMWD177XStepWaiting) {
+                _do(wd);
+              }
+            }
 
           }
 
@@ -1220,7 +1286,9 @@ IRAM_ATTR uint8_t rvmWD1793Read(rvmWD1793 *wd,uint8_t a) {
           if(wd->control & kRVMWD177XDRQ) r|=kRVMWD177XStatusDataRequest;
         }
 
-        if(wd->status & kRVMWD177XStatusSetHead) {
+        // HeadLoaded is only visible in status if HLT bit (bit 3 of system reg) is set.
+        // UnrealSpeccy: status & ((system & 8) ? 0xFF : ~WDS_HEADL)
+        if((wd->status & kRVMWD177XStatusSetHead) && (wd->control & kRVMWD177XTest)) {
           r|=kRVMWD177XStatusHeadLoaded;
         }
       } else {
@@ -1228,6 +1296,16 @@ IRAM_ATTR uint8_t rvmWD1793Read(rvmWD1793 *wd,uint8_t a) {
       }
 
       //printf("Read status: %02x\n",r);
+#if !PICO_RP2040
+      if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsUDIFile && wd->track == 0x4b) {
+        static int st4b_cnt = 0;
+        if (st4b_cnt < 10) {
+          Debug::log("RD_ST T4b st=%02x ctl=%04x step=%d state=%d cnt=%d",
+                     r, wd->control, wd->stepState, wd->state, st4b_cnt);
+          st4b_cnt++;
+        }
+      }
+#endif
       return r;
     case 1: //Track
       return wd->track;
@@ -1274,6 +1352,7 @@ void rvmWD1793Reset(rvmWD1793 *wd) {
   wd->udiLoadedCyl = -1;
   wd->udiLoadedSide = -1;
   wd->udiTrackLen = 0;
+  wd->udiDirty = false;
 #endif
 }
 
@@ -1316,10 +1395,11 @@ bool rvmWD1793InsertDisk(rvmWD1793 *wd, unsigned char UnitNum, std::string Filen
     } else if (std::strncmp(magic,"UDI!",4) == 0) {
         // UDI file
         printf("UDI disk loaded\n");
+        Debug::log("UDI disk loaded unit=%d wp=%d", UnitNum, Config::trdosWriteProtect);
         wd->disk[UnitNum]->IsSCLFile = false;
         wd->disk[UnitNum]->IsUDIFile = true;
         wd->disk[UnitNum]->IsFDIFile = false;
-        wd->disk[UnitNum]->writeprotect = 1; // UDI files are read only
+        wd->disk[UnitNum]->writeprotect = Config::trdosWriteProtect;
         wd->disk[UnitNum]->sclDataOffset = 0;
 
         // Read UDI header
@@ -1493,9 +1573,29 @@ bool rvmWD1793InsertDisk(rvmWD1793 *wd, unsigned char UnitNum, std::string Filen
 }
 
 #if !PICO_RP2040
+static void udiFlushTrack(rvmWD1793 *wd) {
+    rvmwdDisk *disk = wd->disk[wd->diskS];
+    if (!disk || wd->udiLoadedCyl < 0) return;
+    int trkIdx = wd->udiLoadedCyl * disk->sides + wd->udiLoadedSide;
+    if (trkIdx < 0 || trkIdx >= 168) return;
+    uint16_t tlen = disk->udiTrackLengths[trkIdx];
+    UINT bw;
+    f_lseek(disk->Diskfile, disk->udiTrackOffsets[trkIdx]);
+    f_write(disk->Diskfile, wd->udiTrackBuf, tlen, &bw);
+    Debug::log("udiFlush cyl=%d side=%d tlen=%d bw=%d off=%u",
+               wd->udiLoadedCyl, wd->udiLoadedSide, tlen, bw,
+               (unsigned)disk->udiTrackOffsets[trkIdx]);
+    wd->udiDirty = false;
+    // CRC32 at end of file not updated — our parser doesn't validate it
+}
+
 void udiLoadTrack(rvmWD1793 *wd, uint32_t cyl, uint8_t side) {
     if ((int)cyl == wd->udiLoadedCyl && (int)side == wd->udiLoadedSide)
         return;
+
+    // Flush modified track back to file before switching tracks
+    if (wd->udiDirty)
+        udiFlushTrack(wd);
 
     rvmwdDisk *disk = wd->disk[wd->diskS];
     int trkIdx = cyl * disk->sides + side;
@@ -1697,6 +1797,16 @@ IRAM_ATTR uint8_t rvmwdDiskStep(rvmWD1793 *wd, uint32_t control) {
 
       disk->indx++;
 
+      if(control & kRVMwdDiskControlWrite) {
+        if (disk->indx < wd->udiTrackLen)
+          wd->udiTrackBuf[disk->indx] = control & 0xff;
+        if (!wd->udiDirty)
+          Debug::log("udiWrite first byte=%02x indx=%u cyl=%d side=%d",
+                     control & 0xff, disk->indx, wd->udiLoadedCyl, wd->udiLoadedSide);
+        wd->udiDirty = true;
+        return 0;
+      }
+
       if (disk->indx < wd->udiTrackLen)
         disk->a = wd->udiTrackBuf[disk->indx];
       else
@@ -1813,6 +1923,10 @@ void wdDiskEject(rvmWD1793 *wd, unsigned char UnitNum) {
     printf("Ejecting disk\n");
 
     if (wd->disk[UnitNum]->Diskfile != NULL) {
+#if !PICO_RP2040
+        if (wd->disk[UnitNum]->IsUDIFile && wd->udiDirty && wd->diskS == UnitNum)
+            udiFlushTrack(wd);
+#endif
         f_close(wd->disk[UnitNum]->Diskfile);
         wd->disk[UnitNum]->Diskfile = NULL;
     }

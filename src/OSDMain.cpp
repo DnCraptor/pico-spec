@@ -754,9 +754,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     }
 
                     string ext = FileUtils::getLCaseExt(fname);
-                    if (ext == "trd" || ext == "scl") {
-                        printf("Insert TRD/SCL disk %s\n",fname.c_str());
-                        //Debug::log("Insert TRD/SCL disk %s\n",fname.c_str());
+                    if (ext == "trd" || ext == "scl" || ext == "udi" || ext == "fdi") {
+                        printf("Insert disk %s\n",fname.c_str());
                         rvmWD1793InsertDisk(&ESPectrum::fdd, 0, fname);
                     }
                     else

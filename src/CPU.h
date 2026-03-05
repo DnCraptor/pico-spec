@@ -103,4 +103,9 @@ public:
     static bool paused;
 };
 
+#if !PICO_RP2040
+void udiTraceAdd(uint8_t type, uint16_t pc, uint8_t trk, uint8_t cmd, uint8_t td, uint16_t sp);
+void udiTraceAddStk(uint8_t type, uint16_t pc, uint8_t trk, uint8_t cmd, uint8_t td, uint16_t sp);
+#endif
+
 #endif // CPU_h

@@ -310,6 +310,7 @@ typedef struct
     uint16_t udiTrackLen;         // length of current track
     int udiLoadedCyl;             // loaded cylinder (-1 = none)
     int udiLoadedSide;            // loaded side
+    bool udiDirty;               // track buffer modified, needs flush to file
 #endif
 
 } rvmWD1793;
