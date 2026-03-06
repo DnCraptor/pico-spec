@@ -289,16 +289,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
 
     // Beta-128 ports: accessible when TR-DOS ROM is paged in,
     // or when a raw-format disk (UDI/FDI) is inserted (copy-protected loaders
-    // access WD1793 ports from RAM with TR-    // Beta-128 ports: accessible when TR-DOS ROM is paged in,
-    // or when a raw-format disk (UDI/FDI) is inserted (copy-protected loaders
     // access WD1793 ports from RAM with TR-DOS ROM paged out)
-    if (ESPectrum::trdos
-#if !PICO_RP2040
-        || (ESPectrum::fdd.disk[ESPectrum::fdd.diskS] &&
-            (ESPectrum::fdd.disk[ESPectrum::fdd.diskS]->IsUDIFile || ESPectrum::fdd.disk[ESPectrum::fdd.diskS]->IsFDIFile))
-#endif
-    ) {
-DOS ROM paged out)
     if (ESPectrum::trdos
 #if !PICO_RP2040
         || (ESPectrum::fdd.disk[ESPectrum::fdd.diskS] &&
