@@ -82,7 +82,9 @@ bool     Config::trdosWriteProtect = true;
 bool     Config::trdosSoundLed = false;
 uint8_t  Config::trdosBios = 2; // Default: 5.05D
 #if !PICO_RP2040
-bool     Config::divmmc = false;
+uint8_t  Config::esxdos = 0;
+string   Config::esxdos_mmc_image = "";
+string   Config::esxdos_hdf_image[2] = {"", ""};
 #endif
 
 uint8_t Config::scanlines = 0;
@@ -390,13 +392,19 @@ void Config::load() {
         nvs_get_b("trdosSoundLed", trdosSoundLed, sts);
         nvs_get_u8("trdosBios", trdosBios, sts);
 #if !PICO_RP2040
-        nvs_get_b("divmmc", divmmc, sts);
+        nvs_get_u8("esxdos", esxdos, sts);
+        // Migrate old bool key
+        { bool old_divmmc = false; nvs_get_b("divmmc", old_divmmc, sts); if (old_divmmc && esxdos == 0) esxdos = 1; }
+        nvs_get_str("esxdos_mmc", esxdos_mmc_image, sts);
+        nvs_get_str("esxdos_hdf", esxdos_hdf_image[0], sts);
+        nvs_get_str("esxdos_hd1", esxdos_hdf_image[1], sts);
 #endif
         nvs_get_str("SNA_Path", FileUtils::SNA_Path, sts);
         nvs_get_str("TAP_Path", FileUtils::TAP_Path, sts);
         nvs_get_str("DSK_Path", FileUtils::DSK_Path, sts);
         nvs_get_str("ROM_Path", FileUtils::ROM_Path, sts);
-        for (size_t i = 0; i < 4; ++i) {
+        nvs_get_str("IMG_Path", FileUtils::IMG_Path, sts);
+        for (size_t i = 0; i < 5; ++i) {
             DISK_FTYPE& ft = FileUtils::fileTypes[i];
             const string s = "fileTypes" + to_string(i);
             nvs_get_i((s + ".begin_row").c_str(), ft.begin_row, sts);
@@ -551,21 +559,27 @@ void Config::save() {
         nvs_set_str(handle,"trdosSoundLed", trdosSoundLed ? "true" : "false");
         nvs_set_u8(handle,"trdosBios", trdosBios);
 #if !PICO_RP2040
-        nvs_set_str(handle,"divmmc", divmmc ? "true" : "false");
+        nvs_set_u8(handle,"esxdos", esxdos);
+        nvs_set_str(handle,"esxdos_mmc", esxdos_mmc_image.c_str());
+        nvs_set_str(handle,"esxdos_hdf", esxdos_hdf_image[0].c_str());
+        nvs_set_str(handle,"esxdos_hd1", esxdos_hdf_image[1].c_str());
 #endif
         nvs_set_str(handle,"SNA_Path",FileUtils::SNA_Path.c_str());
         nvs_set_str(handle,"TAP_Path",FileUtils::TAP_Path.c_str());
         nvs_set_str(handle,"DSK_Path",FileUtils::DSK_Path.c_str());
         nvs_set_str(handle,"ROM_Path",FileUtils::ROM_Path.c_str());
-        for (size_t i = 0; i < 4; ++i) {
+        nvs_set_str(handle,"IMG_Path",FileUtils::IMG_Path.c_str());
+        for (size_t i = 0; i < 5; ++i) {
             const DISK_FTYPE& ft = FileUtils::fileTypes[i];
             string s = "fileTypes" + to_string(i);
             nvs_set_i(handle, (s + ".begin_row").c_str(), ft.begin_row);
             nvs_set_i(handle, (s + ".focus").c_str(), ft.focus);
             nvs_set_u8(handle, (s + ".fdMode").c_str(), ft.fdMode);
             nvs_set_str(handle, (s + ".fileSearch").c_str(), ft.fileSearch.c_str());
-            s = "drive" + to_string(i);
-            nvs_set_str(handle, (s + ".file").c_str(), ESPectrum::fdd.disk[i] ? ESPectrum::fdd.disk[i]->fname.c_str() : "");
+            if (i < 4) {
+                s = "drive" + to_string(i);
+                nvs_set_str(handle, (s + ".file").c_str(), ESPectrum::fdd.disk[i] ? ESPectrum::fdd.disk[i]->fname.c_str() : "");
+            }
         }
         nvs_set_u8(handle,"scanlines",Config::scanlines);
         nvs_set_u8(handle,"render",Config::render);

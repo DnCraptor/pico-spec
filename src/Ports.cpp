@@ -50,7 +50,6 @@ visit https://zxespectrum.speccy.org/contacto
 
 #include "OSDMain.h"
 
-#include "Debug.h"
 #include "Midi.h"
 #if !PICO_RP2040
 #include "DivMMC.h"
@@ -267,16 +266,23 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     if (DivMMC::enabled) {
       uint8_t lo = address & 0xFF;
       if (lo == 0xE3) {
-        // DivMMC control register read
+        // Control register read
         return (DivMMC::conmem ? 0x80 : 0) | (DivMMC::mapram ? 0x40 : 0) | DivMMC::bank;
       }
-      if (lo == 0xEB) {
-        // SPI data read (exchange 0xFF to receive)
-        return DivMMC::spiTransfer(0xFF);
-      }
-      if (lo == 0xE7) {
-        // CS status read
-        return DivMMC::spi_cs;
+      if (DivMMC::divide_mode) {
+        // DivIDE: IDE/ATA ports
+        if ((lo & 0xE3) == 0xA3) {
+          uint8_t reg = (lo >> 2) & 0x07;
+          return DivMMC::ide_read(reg);
+        }
+      } else {
+        // DivMMC/DivSD: SPI ports
+        if (lo == 0xEB) {
+          return DivMMC::mmc_read();
+        }
+        if (lo == 0xE7) {
+          return 0xFF;
+        }
       }
     }
 #endif
@@ -615,23 +621,30 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     if (DivMMC::enabled) {
       uint8_t lo = address & 0xFF;
       if (lo == 0xE3) {
-        // DivMMC control register write
-        DivMMC::bank = data & 0x3F;
+        // Control register write
+        DivMMC::bank = data & (DIVMMC_NUM_BANKS - 1);
         if (data & 0x40) DivMMC::mapram = true; // Sticky!
         DivMMC::conmem = (data & 0x80) != 0;
         DivMMC::applyMapping();
         return;
       }
-      if (lo == 0xEB) {
-        // SPI data write
-        DivMMC::spiTransfer(data);
-        return;
-      }
-      if (lo == 0xE7) {
-        // SD card chip select
-        DivMMC::spi_cs = data & 0x01;
-        gpio_put(SDCARD_PIN_SPI0_CS, DivMMC::spi_cs);
-        return;
+      if (DivMMC::divide_mode) {
+        // DivIDE: IDE/ATA ports (mask 0xE3 = xxxx xxxx 101r rr11)
+        if ((lo & 0xE3) == 0xA3) {
+          uint8_t reg = (lo >> 2) & 0x07; // extract rrr bits
+          DivMMC::ide_write(reg, data);
+          return;
+        }
+      } else {
+        // DivMMC/DivSD: SPI ports
+        if (lo == 0xEB) {
+          DivMMC::mmc_write(data);
+          return;
+        }
+        if (lo == 0xE7) {
+          DivMMC::mmc_cs(data);
+          return;
+        }
       }
     }
 #endif

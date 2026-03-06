@@ -420,6 +420,7 @@ string getMenuPrefix() {
 // OSD Main Loop
 void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
 
+
     static uint8_t last_sna_row = 0;
     fabgl::VirtualKeyItem Nextkey;
 
@@ -506,7 +507,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
         if (KeytoESP == fabgl::VK_F10) { // NMI
 #if !PICO_RP2040
             if (DivMMC::enabled) {
-                // DivMMC: standard NMI -> 0x0066 automap -> ESXDOS NMI browser
+                // DivMMC NMI: automap at 0x0066 handled by preOpcFetch/postOpcFetch
                 Z80::triggerNMI();
             } else
 #endif
@@ -555,6 +556,32 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
         }
         else
         if (KeytoESP == fabgl::VK_F11) { // Reset to...
+#if !PICO_RP2040
+            if (DivMMC::enabled) {
+                menu_level = 0;
+                menu_curopt = 1;
+                menu_saverect = true;
+                uint8_t rst_cols = 22;
+                uint16_t rst_w = (rst_cols * OSD_FONT_W) + 2;
+                uint16_t rst_h = (rowCount(MENU_RESETTO_DIVMMC[Config::lang]) * OSD_FONT_H) + 2;
+                uint8_t opt = simpleMenuRun(MENU_RESETTO_DIVMMC[Config::lang],
+                    scrAlignCenterX(rst_w), scrAlignCenterY(rst_h),
+                    rowCount(MENU_RESETTO_DIVMMC[Config::lang]), rst_cols);
+                if (opt == 1) {
+                    // Soft Reset: keep DivMMC RAM (ESXDOS sees 0xAA flag, goes to file browser)
+                    if (Config::ram_file != NO_RAM_FILE) Config::ram_file = NO_RAM_FILE;
+                    Config::last_ram_file = NO_RAM_FILE;
+                    DivMMC::reset();
+                    ESPectrum::reset();
+                } else if (opt == 2) {
+                    // Hard Reset: clear DivMMC RAM (ESXDOS re-initializes from scratch)
+                    if (Config::ram_file != NO_RAM_FILE) Config::ram_file = NO_RAM_FILE;
+                    Config::last_ram_file = NO_RAM_FILE;
+                    DivMMC::init();
+                    ESPectrum::reset();
+                }
+            } else
+#endif
             if (Z80Ops::is48) {
                 // 48K - just reset directly
                 if (Config::ram_file != NO_RAM_FILE) Config::ram_file = NO_RAM_FILE;
@@ -625,6 +652,47 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             }
         }
         else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F6) {
+#if !PICO_RP2040
+            if (DivMMC::enabled) {
+                menu_level = 0;
+                menu_saverect = false;
+                string mFile = fileDialog(FileUtils::IMG_Path, MENU_IMG_TITLE[Config::lang], DISK_IMGFILE, 51, 22);
+                if (mFile != "") {
+                    string fname = FileUtils::IMG_Path + mFile.substr(1);
+                    // Check if selected file is .hdf — offer drive slot selection
+                    bool is_hdf = (fname.size() >= 4 &&
+                        (fname.substr(fname.size() - 4) == ".hdf" || fname.substr(fname.size() - 4) == ".HDF"));
+                    int hdf_slot = 0;
+                    if (is_hdf) {
+                        menu_level = 0;
+                        menu_curopt = 1;
+                        menu_saverect = true;
+                        string drv_menu = "Select Drive\n";
+                        drv_menu += "hd0 (master)\n";
+                        drv_menu += "hd1 (slave)\n";
+                        uint8_t drv_cols = 16;
+                        uint16_t drv_w = (drv_cols * OSD_FONT_W) + 2;
+                        uint16_t drv_h = (3 * OSD_FONT_H) + 2;
+                        uint8_t opt = simpleMenuRun(drv_menu,
+                            scrAlignCenterX(drv_w), scrAlignCenterY(drv_h), 3, drv_cols);
+                        if (opt == 0) is_hdf = false; // cancelled
+                        else hdf_slot = opt - 1; // 0=master, 1=slave
+                    }
+                    if (is_hdf)
+                        Config::esxdos_hdf_image[hdf_slot] = fname;
+                    else if (!is_hdf && fname.size() >= 4 &&
+                        (fname.substr(fname.size() - 4) == ".mmc" || fname.substr(fname.size() - 4) == ".MMC"))
+                        Config::esxdos_mmc_image = fname;
+                    else if (DivMMC::divide_mode)
+                        Config::esxdos_hdf_image[0] = fname;
+                    else
+                        Config::esxdos_mmc_image = fname;
+                    DivMMC::init();
+                    Config::save();
+                }
+                if (VIDEO::OSD) OSD::drawStats();
+            } else
+#endif
             while (1) {
                 menu_level = 0;
                 menu_saverect = false;
@@ -836,7 +904,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             // Show / hide OnScreen Stats
             {
                 uint8_t mode = VIDEO::OSD & 0x03;
-                bool hasFdd = (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) && Tape::tapeStatus != TAPE_LOADING;
+                bool hasFdd = (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) && Tape::tapeStatus != TAPE_LOADING && !DivMMC::enabled;
                 uint8_t maxMode = hasFdd ? 3 : 2;
 
                 if (mode == 0)
@@ -1414,28 +1482,26 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         menu_curopt = 1;
                         menu_saverect = true;
                         while (1) {
-                            string menu = MENU_DIVMMC_TITLE[Config::lang];
-                            menu += MENU_YESNO[Config::lang];
-                            uint8_t prev = Config::divmmc;
-                            if (prev) {
-                                menu.replace(menu.find("[Y",0),2,"[*");
-                                menu.replace(menu.find("[N",0),2,"[ ");
-                            } else {
-                                menu.replace(menu.find("[Y",0),2,"[ ");
-                                menu.replace(menu.find("[N",0),2,"[*");
+                            string menu = MENU_ESXDOS_TITLE[Config::lang];
+                            const char* mode_names[] = { "OFF", "DivMMC", "DivIDE", "DivSD" };
+                            for (int i = 0; i < 4; i++) {
+                                menu += (i == Config::esxdos) ? "[*] " : "[ ] ";
+                                menu += mode_names[i];
+                                menu += "\n";
                             }
                             uint8_t opt2 = menuRun(menu);
                             if (opt2) {
-                                Config::divmmc = (opt2 == 1);
-                                if (Config::divmmc != prev) {
-                                    DivMMC::enabled = Config::divmmc;
-                                    if (DivMMC::enabled) {
-                                        DivMMC::reset();
-                                    } else {
-                                        MemESP::divmmc_mapped = false;
-                                        MemESP::recoverPage0();
+                                uint8_t newval = opt2 - 1;
+                                if (newval != Config::esxdos) {
+                                    Config::esxdos = newval;
+                                    DivMMC::init(); // handles enable/disable, mode switch, cleanup
+                                    if (DivMMC::enabled && !DivMMC::rom_loaded) {
+                                        OSD::osdCenteredMsg("ESXDOS ROM not found", LEVEL_ERROR, 2000);
+                                        Config::esxdos = 0;
+                                        DivMMC::init(); // disable
                                     }
                                     Config::save();
+                                    ESPectrum::reset();
                                 }
                                 menu_curopt = opt2;
                                 menu_saverect = false;
@@ -2819,6 +2885,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                                 if (Config::gigascreen_enabled) {
                                                     initGigascreenBlendLUT();
                                                     VIDEO::InitPrevBuffer();
+                                                    if (!VIDEO::vga.prevFrameBuffer) {
+                                                        Config::gigascreen_enabled = false;
+                                                        VIDEO::gigascreen_enabled = false;
+                                                    }
                                                     if (Config::gigascreen_onoff == 0)
                                                         Config::gigascreen_onoff = 1; // Off→On when enabling
                                                     if (Config::gigascreen_onoff == 1)

@@ -59,11 +59,13 @@ string FileUtils::SNA_Path = "/";
 string FileUtils::TAP_Path = "/";
 string FileUtils::DSK_Path = "/";
 string FileUtils::ROM_Path = "/";
-DISK_FTYPE FileUtils::fileTypes[4] = {
+string FileUtils::IMG_Path = "/";
+DISK_FTYPE FileUtils::fileTypes[5] = {
     {".sna,.SNA,.z80,.Z80,.p,.P",2,2,0,""},
     {".tap,.TAP,.tzx,.TZX,.wav,.WAV,.mp3,.MP3",2,2,0,""},
     {".trd,.TRD,.scl,.SCL",2,2,0,""},
-    {".rom,.ROM,.bin,.BIN",2,2,0,""}
+    {".rom,.ROM,.bin,.BIN",2,2,0,""},
+    {".mmc,.MMC,.hdf,.HDF",2,2,0,""}
 };
 
 string toLower(const std::string& str) {

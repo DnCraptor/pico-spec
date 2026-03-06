@@ -712,10 +712,8 @@ void ESPectrum::setup() {
   ///    if (Config::slog_on) showMemInfo("RAM Initialized");
 
 #if !PICO_RP2040
-  // Initialize DivMMC before VIDEO (which consumes remaining heap)
-  if (Config::divmmc) {
-    DivMMC::init();
-  }
+  // Always init DivMMC (load ROM) so it's ready if user enables from OSD later
+  DivMMC::init();
 #endif
 
   //=======================================================================================
@@ -1524,6 +1522,7 @@ void ESPectrum::loop() {
 
     CPU::loop();
 
+
     // Профилирование AY (только для отладки - закомментируйте после)
     // static uint64_t ay_total = 0, ay_count = 0;
     // uint64_t ay_start = time_us_64();
@@ -1734,7 +1733,7 @@ void ESPectrum::loop() {
       VIDEO::flashing ^= 0x80;
 
     // Draw fdd led indicator in top-right corner
-    bool hasFdd = (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) && Tape::tapeStatus != TAPE_LOADING;
+    bool hasFdd = (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) && Tape::tapeStatus != TAPE_LOADING && !DivMMC::enabled;
     if (hasFdd && Config::trdosSoundLed) {
         if (ESPectrum::fdd.led) {
             VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(fdd.led == 2 ? 2 : 1, 1));

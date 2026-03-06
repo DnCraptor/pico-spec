@@ -34,6 +34,7 @@ visit https://zxespectrum.speccy.org/contacto
 */
 
 #include "Video.h"
+#include "Debug.h"
 #include "Tape.h"
 #include "FileUtils.h"
 #include "VidPrecalc.h"
@@ -694,9 +695,20 @@ void VIDEO::Reset() {
 #endif
 }
 
+extern size_t getFreeHeap(void);
+
 void VIDEO::InitPrevBuffer() {
-    if (!vga.prevFrameBuffer)
+    if (!vga.prevFrameBuffer) {
+        // Each line = xres bytes, need (yres+1) lines + pointer array
+        size_t needed = (size_t)(vga.yres + 1) * (vga.xres + sizeof(void*)) + 4096;
+        size_t avail = getFreeHeap();
+        if (avail < needed) {
+            Debug::log("InitPrevBuffer: not enough heap (%u < %u)", (unsigned)avail, (unsigned)needed);
+            return;
+        }
         vga.prevFrameBuffer = vga.allocateFrameBuffer();
+    }
+    if (!vga.prevFrameBuffer) return;
     const int h = VIDEO::vga.yres;
     const size_t lineBytes = (size_t)VIDEO::vga.xres;
     for (int y = 0; y < h; ++y) {

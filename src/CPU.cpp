@@ -286,14 +286,8 @@ IRAM_ATTR void CPU::FlushOnHalt() {
 
 // Read byte from RAM
 IRAM_ATTR uint8_t Z80Ops::peek8(uint16_t address) {
-    uint8_t page = address >> 14;
-    VIDEO::Draw(3, MemESP::ramContended[page]);
-#if !PICO_RP2040
-    if (page == 0 && MemESP::divmmc_mapped) {
-        return (address < 0x2000) ? MemESP::page0_lo[address] : MemESP::page0_hi[address & 0x1FFF];
-    }
-#endif
-    return MemESP::ramCurrent[page][address & 0x3fff];
+    VIDEO::Draw(3, MemESP::ramContended[address >> 14]);
+    return MemESP::readbyte(address);
 }
 
 // Fetch opcode from RAM (NON +2A/3 version)
@@ -302,11 +296,17 @@ IRAM_ATTR uint8_t Z80Ops::fetchOpcode() {
     uint8_t pg = pc >> 14;
     VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
 #if !PICO_RP2040
-    if (pg == 0 && DivMMC::enabled) {
-        DivMMC::checkM1(pc);
-        if (MemESP::divmmc_mapped) {
-            return (pc < 0x2000) ? MemESP::page0_lo[pc] : MemESP::page0_hi[pc & 0x1FFF];
+    if (DivMMC::enabled) {
+        DivMMC::preOpcFetch(pc);
+        pg = pc >> 14; // re-read in case instant map changed it
+        uint8_t opCode;
+        if (pg == 0 && MemESP::divmmc_mapped) {
+            opCode = (pc < 0x2000) ? MemESP::page0_lo[pc] : MemESP::page0_hi[pc & 0x1FFF];
+        } else {
+            opCode = MemESP::ramCurrent[pg][pc & 0x3fff];
         }
+        DivMMC::postOpcFetch();
+        return opCode;
     }
 #endif
     return MemESP::ramCurrent[pg][pc & 0x3fff];
@@ -380,14 +380,8 @@ IRAM_ATTR uint8_t Z80Ops::fetchOpcode() {
 
 // Write byte to RAM
 IRAM_ATTR void Z80Ops::poke8(uint16_t address, uint8_t value) {
-    uint8_t page = address >> 14;
-    uint8_t* p = MemESP::ramCurrent[page];
-    if ( p < (uint8_t*)0x11000000 ) {
-        VIDEO::Draw(3, false);
-        return;
-    }
-    VIDEO::Draw(3, MemESP::ramContended[page]);
-    p[address & 0x3fff] = value;
+    VIDEO::Draw(3, MemESP::ramContended[address >> 14]);
+    MemESP::writebyte(address, value);
 }
 
 // Read word from RAM
@@ -402,8 +396,7 @@ IRAM_ATTR uint16_t Z80Ops::peek16(uint16_t address) {
             VIDEO::Draw(3, true);
         } else
             VIDEO::Draw(6, false);
-        uint8_t* sp = MemESP::ramCurrent[page];
-        return ((sp[(address & 0x3fff) + 1] << 8) | sp[address & 0x3fff]);
+        return ((MemESP::readbyte(address + 1) << 8) | MemESP::readbyte(address));
 
     } else {
 
@@ -422,20 +415,13 @@ IRAM_ATTR void Z80Ops::poke16(uint16_t address, RegisterPair word) {
     uint16_t page_addr = address & 0x3fff;
 
     if (page_addr < 0x3fff) {    // Check if address is between two different pages
-        uint8_t* p = MemESP::ramCurrent[page];
-        if ( p < (uint8_t*)0x11000000 ) {
-            VIDEO::Draw(6, false);
-            return;
-        }
-
         if (MemESP::ramContended[page]) {
             VIDEO::Draw(3, true);
             VIDEO::Draw(3, true);
         } else
             VIDEO::Draw(6, false);
-
-        p[page_addr] = word.byte8.lo;
-        p[page_addr + 1] = word.byte8.hi;
+        MemESP::writebyte(address, word.byte8.lo);
+        MemESP::writebyte(address + 1, word.byte8.hi);
 
     } else {
         // Order matters, first write lsb, then write msb, don't "optimize"

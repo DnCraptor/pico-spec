@@ -327,7 +327,7 @@ static const char *MENU_BETADISK[2] = { MENU_BETADISK_EN,MENU_BETADISK_ES };
 	"Write Protect\t>\n"\
 	"Disk Sound & LED\t>\n"\
 	"ROM\t>\n"\
-	"DivMMC\t>\n"
+	"ESXDOS\t>\n"
 #define MENU_BETADISK_DIVMMC_ES \
     "Unidades\n"\
     "Unidad A\t>\n"\
@@ -338,9 +338,10 @@ static const char *MENU_BETADISK[2] = { MENU_BETADISK_EN,MENU_BETADISK_ES };
 	"Protección contra escritura\t>\n"\
 	"Sonido y LED del disco\t>\n"\
 	"ROM\t>\n"\
-	"DivMMC\t>\n"
+	"ESXDOS\t>\n"
 static const char *MENU_BETADISK_DIVMMC[2] = { MENU_BETADISK_DIVMMC_EN,MENU_BETADISK_DIVMMC_ES };
-static const char *MENU_DIVMMC_TITLE[2] = { "DivMMC\n", "DivMMC\n" };
+static const char *MENU_ESXDOS_TITLE[2] = { "ESXDOS\n", "ESXDOS\n" };
+static const char *MENU_IMG_TITLE[2] = { "ESXDOS Image\n", "Imagen ESXDOS\n" };
 #endif
 
 static const char *MENU_FASTMODE[2] = { "Fast Mode\n", "Modo rápido\n" };
@@ -355,6 +356,10 @@ static const char *MENU_NMI_SEL[2] = { MENU_NMI_EN, MENU_NMI_ES };
 #define MENU_RESETTO_128_EN "Reset to\n" "128K\n" "48K\n"
 #define MENU_RESETTO_128_ES "Resetear a\n" "128K\n" "48K\n"
 static const char *MENU_RESETTO_128[2] = { MENU_RESETTO_128_EN, MENU_RESETTO_128_ES };
+
+#define MENU_RESETTO_DIVMMC_EN "Reset\n" "Soft Reset\n" "Hard Reset\n"
+#define MENU_RESETTO_DIVMMC_ES "Reset\n" "Soft Reset\n" "Hard Reset\n"
+static const char *MENU_RESETTO_DIVMMC[2] = { MENU_RESETTO_DIVMMC_EN, MENU_RESETTO_DIVMMC_ES };
 
 #define MENU_RESETTO_PENT_EN "Reset to\n" "TR-DOS\n" "128K\n" "48K\n"
 #define MENU_RESETTO_PENT_ES "Resetear a\n" "TR-DOS\n" "128K\n" "48K\n"

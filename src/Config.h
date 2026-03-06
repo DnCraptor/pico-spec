@@ -123,7 +123,9 @@ public:
     static bool trdosSoundLed;
     static uint8_t trdosBios; // 0=5.03, 1=5.04TM, 2=5.05D
 #if !PICO_RP2040
-    static bool divmmc;
+    static uint8_t esxdos;   // 0=OFF 1=DivMMC 2=DivIDE 3=DivSD
+    static string esxdos_mmc_image; // Full path to .mmc image (empty = /esxdos.mmc)
+    static string esxdos_hdf_image[2]; // HDF images: [0]=master/hd0, [1]=slave/hd1
 #endif
     
     static signed char aud_volume;

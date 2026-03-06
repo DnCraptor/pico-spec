@@ -6,79 +6,1014 @@
 #include "MemESP.h"
 #include "Config.h"
 #include "Debug.h"
-#include "ff.h"
+#include "roms.h"
+extern "C" {
+    #include "diskio.h"
+}
+extern int butter_pages;
 
 // Static member definitions
 bool DivMMC::enabled = false;
 bool DivMMC::automap = false;
-bool DivMMC::automap_pending = false;
+bool DivMMC::trap_after = false;
+bool DivMMC::unmap_after = false;
 bool DivMMC::conmem = false;
 bool DivMMC::mapram = false;
 uint8_t DivMMC::bank = 0;
-uint8_t DivMMC::esxdos_rom[DIVMMC_ROM_SIZE];
-uint8_t DivMMC::ram[DIVMMC_NUM_BANKS][DIVMMC_BANK_SIZE];
-uint8_t DivMMC::spi_cs = 1; // CS deselected by default
+uint8_t *DivMMC::esxdos_rom = nullptr;
+uint8_t* DivMMC::bank_ptr[DIVMMC_NUM_BANKS] = {};
+bool DivMMC::rom_loaded = false;
+bool DivMMC::divsd_mode = false;
+bool DivMMC::divide_mode = false;
+bool DivMMC::sdhc_mode = false;
 
-// External PIO SPI instance from sdcard.c
-extern "C" {
-    #include "pio_spi.h"
-    extern pio_spi_inst_t pio_spi;
-}
+// Bank memory management
+bool DivMMC::use_butter = false;
+uint8_t* DivMMC::active_buf[2] = {nullptr, nullptr};
+int8_t DivMMC::active_bank[2] = {-1, -1};
+FIL DivMMC::swap_file;
+bool DivMMC::swap_open = false;
+
+// IDE/ATA state (DivIDE)
+uint8_t DivMMC::ide_feature = 0;
+uint8_t DivMMC::ide_sector_count = 0;
+uint8_t DivMMC::ide_sector = 0;
+uint8_t DivMMC::ide_cylinder_lo = 0;
+uint8_t DivMMC::ide_cylinder_hi = 0;
+uint8_t DivMMC::ide_head = 0;
+uint8_t DivMMC::ide_status = 0;
+uint8_t DivMMC::ide_error = 0;
+uint8_t DivMMC::ide_buffer[512];
+int DivMMC::ide_data_index = -1;
+bool DivMMC::ide_data_write = false;
+uint32_t DivMMC::ide_hdf_data_offset[2] = {128, 128};
+uint8_t DivMMC::ide_identity[2][106];
+uint16_t DivMMC::ide_cylinders[2] = {0, 0};
+uint16_t DivMMC::ide_heads[2] = {0, 0};
+uint16_t DivMMC::ide_sectors[2] = {0, 0};
+
+// SD protocol state
+uint8_t DivMMC::mmc_last_command = 0;
+int DivMMC::mmc_index_command = 0;
+uint8_t DivMMC::mmc_params[6];
+uint8_t DivMMC::mmc_r1 = 0;
+bool DivMMC::mmc_cs_active = false;
+
+int DivMMC::mmc_read_index = -1;
+int DivMMC::mmc_write_index = -1;
+int DivMMC::mmc_csd_index = -1;
+int DivMMC::mmc_cid_index = -1;
+int DivMMC::mmc_ocr_index = -1;
+
+uint32_t DivMMC::mmc_read_address = 0;
+uint32_t DivMMC::mmc_write_address = 0;
+
+uint8_t DivMMC::mmc_sector_buf[512];
+uint32_t DivMMC::mmc_sector_buf_addr = 0xFFFFFFFF;
+bool DivMMC::mmc_sector_dirty = false;
+
+FIL DivMMC::mmc_file[2];
+bool DivMMC::mmc_file_open[2] = {false, false};
+uint32_t DivMMC::mmc_file_size[2] = {0, 0};
+
+// CSD: fabricated for .mmc image size (updated in init)
+uint8_t DivMMC::mmc_csd[16] = {11,11,11,11,11,11,11,11,11,11,11,11,11,11,11,11};
+
+// CID: "PI" OEM, "CO SD" product name
+uint8_t DivMMC::mmc_cid[16] = {1,'P','I','C','O',' ','S','D',' ',1,1,1,1,1,127,128};
+
+// OCR: standard capacity by default, updated to SDHC in init() for DivSD
+uint8_t DivMMC::mmc_ocr[5] = {5,0,0,0,0};
 
 void DivMMC::init() {
-    memset(ram, 0, sizeof(ram));
-    memset(esxdos_rom, 0xFF, sizeof(esxdos_rom));
+    enabled = (Config::esxdos != 0);
+    divsd_mode = (Config::esxdos == 3);
+    divide_mode = (Config::esxdos == 2);
 
-    // Load ESXDOS ROM from SD card
-    FIL f;
-    FRESULT fr = f_open(&f, "SD/r/esxdos.rom", FA_READ);
-    if (fr == FR_OK) {
-        UINT br;
-        f_read(&f, esxdos_rom, DIVMMC_ROM_SIZE, &br);
-        f_close(&f);
-        Debug::log("DivMMC: ESXDOS ROM loaded (%d bytes)", br);
-        enabled = Config::divmmc;
-    } else {
-        Debug::log("DivMMC: esxdos.rom not found, DivMMC disabled");
-        enabled = false;
+    // Free previous allocations if switching modes or disabling
+    if (!enabled) {
+        // Cleanup bank memory
+        if (!use_butter) {
+            if (swap_open) { f_close(&swap_file); f_unlink("/tmp/divmmc-pico-spec.swap"); swap_open = false; }
+            free(active_buf[0]); active_buf[0] = nullptr;
+            free(active_buf[1]); active_buf[1] = nullptr;
+            active_bank[0] = active_bank[1] = -1;
+        }
+        memset(bank_ptr, 0, sizeof(bank_ptr));
+        use_butter = false;
+        if (esxdos_rom) { free(esxdos_rom); esxdos_rom = nullptr; }
+        rom_loaded = false;
+        automap = false;
+        conmem = false;
+        mapram = false;
+        return;
     }
 
+    // Allocate DivMMC bank RAM: prefer butter PSRAM, fallback to swap
+    size_t divmmc_total = DIVMMC_NUM_BANKS * DIVMMC_BANK_SIZE;
+    size_t butter_used = (size_t)butter_pages * MEM_PG_SZ;
+    size_t butter_free = butter_psram_size() > butter_used ? butter_psram_size() - butter_used : 0;
+
+    if (butter_free >= divmmc_total) {
+        use_butter = true;
+        uint8_t* base = PSRAM_DATA + butter_used;
+        for (int i = 0; i < DIVMMC_NUM_BANKS; i++)
+            bank_ptr[i] = base + i * DIVMMC_BANK_SIZE;
+        Debug::log("DivMMC: %d banks in butter PSRAM @ %p", DIVMMC_NUM_BANKS, base);
+    } else {
+        use_butter = false;
+        if (!active_buf[0]) active_buf[0] = (uint8_t*)malloc(DIVMMC_BANK_SIZE);
+        if (!active_buf[1]) active_buf[1] = (uint8_t*)malloc(DIVMMC_BANK_SIZE);
+        if (!active_buf[0] || !active_buf[1]) {
+            free(active_buf[0]); active_buf[0] = nullptr;
+            free(active_buf[1]); active_buf[1] = nullptr;
+            enabled = false; return;
+        }
+        if (!swap_open) {
+            f_unlink("/tmp/divmmc-pico-spec.swap");
+            FRESULT fr = f_open(&swap_file, "/tmp/divmmc-pico-spec.swap", FA_READ | FA_WRITE | FA_CREATE_ALWAYS);
+            if (fr != FR_OK) {
+                free(active_buf[0]); active_buf[0] = nullptr;
+                free(active_buf[1]); active_buf[1] = nullptr;
+                enabled = false; return;
+            }
+            swap_open = true;
+        }
+        memset(bank_ptr, 0, sizeof(bank_ptr));
+        active_bank[0] = active_bank[1] = -1;
+        Debug::log("DivMMC: %d banks via swap file", DIVMMC_NUM_BANKS);
+    }
+    clearAllBanks();
+
+    if (!esxdos_rom) {
+        esxdos_rom = (uint8_t *)malloc(DIVMMC_ROM_SIZE);
+        if (!esxdos_rom) { enabled = false; return; }
+    }
+
+    // Select ROM and image file based on mode
+    const unsigned char* rom_src;
+    const char* mode_name;
+
+    if (Config::esxdos == 2) {
+        rom_src = gb_rom_esxide;
+        mode_name = "DivIDE";
+    } else if (divsd_mode) {
+        rom_src = gb_rom_esxdos;
+        mode_name = "DivSD";
+    } else {
+        rom_src = gb_rom_esxdos;
+        mode_name = "DivMMC";
+    }
+
+    memcpy(esxdos_rom, rom_src, DIVMMC_ROM_SIZE);
+    rom_loaded = true;
+    Debug::log("%s ROM verify: %02X %02X %02X %02X %02X %02X %02X @ %p",
+        mode_name, esxdos_rom[0], esxdos_rom[1], esxdos_rom[2], esxdos_rom[3],
+        esxdos_rom[4], esxdos_rom[5], esxdos_rom[6], esxdos_rom);
+
+    // Close previous images if open
+    for (int d = 0; d < 2; d++) {
+        if (mmc_file_open[d]) {
+            if (d == 0) flushWriteBuffer();
+            f_close(&mmc_file[d]);
+            mmc_file_open[d] = false;
+            mmc_file_size[d] = 0;
+        }
+    }
+
+    if (divsd_mode && enabled) {
+        // DivSD: raw SD access — SDHC mode (sector-addressed)
+        sdhc_mode = true;
+        DWORD sector_count = 0;
+        disk_ioctl(0, GET_SECTOR_COUNT, &sector_count);
+        mmc_file_size[0] = (uint32_t)((uint64_t)sector_count * 512 > 0xFFFFFFFF ? 0xFFFFFFFF : sector_count * 512);
+        buildCSD_real(sector_count);
+        // SDHC OCR: power_up done (bit31) + CCS=1 (bit30) + voltage
+        mmc_ocr[0] = 0xC0;  // bits 31:24 — power_up=1, CCS=1
+        mmc_ocr[1] = 0xFF;  // bits 23:16 — all voltages
+        mmc_ocr[2] = 0x80;  // bits 15:8
+        mmc_ocr[3] = 0x00;  // bits 7:0
+        mmc_ocr[4] = 0x00;
+        Debug::log("%s: raw SD, %lu sectors, SDHC mode", mode_name, (unsigned long)sector_count);
+        Debug::log("CSD: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",
+            mmc_csd[0], mmc_csd[1], mmc_csd[2], mmc_csd[3], mmc_csd[4],
+            mmc_csd[5], mmc_csd[6], mmc_csd[7], mmc_csd[8], mmc_csd[9], mmc_csd[10]);
+        Debug::log("OCR: %02X %02X %02X %02X %02X", mmc_ocr[0], mmc_ocr[1], mmc_ocr[2], mmc_ocr[3], mmc_ocr[4]);
+    } else if (divide_mode && enabled) {
+        sdhc_mode = false;
+        // DivIDE: open HDF images (hd0=master, hd1=slave)
+        const char* defaults[2] = {"/esxdos.hdf", ""};
+        for (int d = 0; d < 2; d++) {
+            const char* image_path = Config::esxdos_hdf_image[d].empty() ? defaults[d] : Config::esxdos_hdf_image[d].c_str();
+            if (image_path[0] == '\0') continue; // no slave configured
+            FRESULT fr = f_open(&mmc_file[d], image_path, FA_READ | FA_WRITE);
+            if (fr == FR_OK) {
+                mmc_file_open[d] = true;
+                mmc_file_size[d] = f_size(&mmc_file[d]);
+                Debug::log("%s hd%d: opened %s (%u bytes)", mode_name, d, image_path, mmc_file_size[d]);
+            } else {
+                fr = f_open(&mmc_file[d], image_path, FA_READ);
+                if (fr == FR_OK) {
+                    mmc_file_open[d] = true;
+                    mmc_file_size[d] = f_size(&mmc_file[d]);
+                    Debug::log("%s hd%d: opened %s read-only (%u bytes)", mode_name, d, image_path, mmc_file_size[d]);
+                } else {
+                    Debug::log("%s hd%d: %s not found (err=%d)", mode_name, d, image_path, fr);
+                }
+            }
+        }
+        if (mmc_file_open[0]) buildCSD();
+    } else if (enabled) {
+        sdhc_mode = false;
+        // DivMMC: open .mmc image
+        const char* default_path = "/esxdos.mmc";
+        const char* image_path = Config::esxdos_mmc_image.empty() ? default_path : Config::esxdos_mmc_image.c_str();
+        FRESULT fr = f_open(&mmc_file[0], image_path, FA_READ | FA_WRITE);
+        if (fr == FR_OK) {
+            mmc_file_open[0] = true;
+            mmc_file_size[0] = f_size(&mmc_file[0]);
+            buildCSD();
+            Debug::log("%s: opened %s (%u bytes)", mode_name, image_path, mmc_file_size[0]);
+        } else {
+            fr = f_open(&mmc_file[0], image_path, FA_READ);
+            if (fr == FR_OK) {
+                mmc_file_open[0] = true;
+                mmc_file_size[0] = f_size(&mmc_file[0]);
+                buildCSD();
+                Debug::log("%s: opened %s read-only (%u bytes)", mode_name, image_path, mmc_file_size[0]);
+            } else {
+                Debug::log("%s: %s not found (err=%d)", mode_name, image_path, fr);
+            }
+        }
+    }
+
+    // Parse HDF headers for DivIDE
+    if (divide_mode) {
+        for (int d = 0; d < 2; d++) {
+            if (!mmc_file_open[d]) continue;
+            uint8_t hdr[128];
+            UINT br;
+            f_lseek(&mmc_file[d], 0);
+            f_read(&mmc_file[d], hdr, 128, &br);
+            if (br == 128 && memcmp(hdr, "RS-IDE", 6) == 0 && hdr[6] == 0x1A) {
+                ide_hdf_data_offset[d] = hdr[9] | (hdr[10] << 8);
+                memcpy(ide_identity[d], &hdr[0x16], 106);
+                ide_cylinders[d] = ide_identity[d][2] | (ide_identity[d][3] << 8);
+                ide_heads[d]     = ide_identity[d][6] | (ide_identity[d][7] << 8);
+                ide_sectors[d]   = ide_identity[d][12] | (ide_identity[d][13] << 8);
+                Debug::log("%s hd%d: HDF C=%u H=%u S=%u data@%u",
+                    mode_name, d, ide_cylinders[d], ide_heads[d], ide_sectors[d], ide_hdf_data_offset[d]);
+            } else {
+                Debug::log("%s hd%d: invalid HDF header", mode_name, d);
+            }
+        }
+    }
+
+    Debug::log("%s: ESXDOS ROM initialized (built-in)", mode_name);
     reset();
 }
 
 void DivMMC::reset() {
     automap = false;
-    automap_pending = false;
+    trap_after = false;
+    unmap_after = false;
     conmem = false;
     mapram = false;
     bank = 0;
-    spi_cs = 1;
+
+    // Reset SD protocol state
+    mmc_last_command = 0;
+    mmc_index_command = 0;
+    mmc_r1 = 1; // Start in idle state
+    mmc_cs_active = false;
+    mmc_read_index = -1;
+    mmc_write_index = -1;
+    mmc_csd_index = -1;
+    mmc_cid_index = -1;
+    mmc_ocr_index = -1;
+    mmc_sector_buf_addr = 0xFFFFFFFF;
+    mmc_sector_dirty = false;
+
+    // Reset IDE state
+    ide_feature = 0;
+    ide_sector_count = 0;
+    ide_sector = 0;
+    ide_cylinder_lo = 0;
+    ide_cylinder_hi = 0;
+    ide_head = 0;
+    ide_error = 0;
+    ide_status = (mmc_file_open[0] || mmc_file_open[1]) ? 0x40 : 0x00; // DRDY if any disk present
+    ide_data_index = -1;
+    ide_data_write = false;
+
     applyMapping();
 }
 
 void DivMMC::applyMapping() {
     if (conmem || automap) {
-        // DivMMC mapped in
-        // 0x0000-0x1FFF: ESXDOS ROM (or RAM bank 3 if MAPRAM)
+        uint8_t b = bank & (DIVMMC_NUM_BANKS - 1);
         if (mapram) {
-            MemESP::page0_lo = ram[3];
+            materialize(3);
+            MemESP::page0_lo = bank_ptr[3];
         } else {
             MemESP::page0_lo = esxdos_rom;
         }
-        // 0x2000-0x3FFF: selected RAM bank
-        MemESP::page0_hi = ram[bank & (DIVMMC_NUM_BANKS - 1)];
+        materialize(b);
+        MemESP::page0_hi = bank_ptr[b];
         MemESP::divmmc_mapped = true;
     } else {
-        // DivMMC unmapped - restore normal ROM
         MemESP::divmmc_mapped = false;
         MemESP::recoverPage0();
     }
 }
 
-uint8_t DivMMC::spiTransfer(uint8_t data) {
-    uint8_t result = 0xFF;
-    pio_spi_write8_read8_blocking(&pio_spi, &data, &result, 1);
-    return result;
+// Build CSD register based on .mmc file size
+void DivMMC::buildCSD() {
+    // Simple CSD v1.0 encoding
+    // We encode capacity so ESXDOS can compute total sectors
+    // capacity = (C_SIZE+1) * 2^(C_SIZE_MULT+2) * 2^(READ_BL_LEN)
+    // For 64MB: C_SIZE=4095, C_SIZE_MULT=7, READ_BL_LEN=9 (512 bytes)
+    // That gives (4096) * (512) * (512) = 1GB max
+    // For simplicity use fixed values that work for <=1GB images
+
+    memset(mmc_csd, 0, 16);
+
+    uint32_t sectors = mmc_file_size[0] / 512;
+    // C_SIZE_MULT = 7, READ_BL_LEN = 9
+    // capacity = (C_SIZE+1) * 512 * 512
+    // C_SIZE = sectors / 512 - 1
+    uint32_t c_size = (sectors / 512);
+    if (c_size > 0) c_size--;
+    if (c_size > 4095) c_size = 4095;
+
+    // CSD v1.0 format (simplified)
+    mmc_csd[0] = 0x00;  // CSD structure v1.0
+    mmc_csd[1] = 0x00;
+    mmc_csd[2] = 0x00;
+    mmc_csd[3] = 0x00;
+    mmc_csd[4] = 0x00;
+    mmc_csd[5] = 0x59;  // READ_BL_LEN = 9
+    mmc_csd[6] = ((c_size >> 10) & 0x03);           // C_SIZE [11:10]
+    mmc_csd[7] = ((c_size >> 2) & 0xFF);             // C_SIZE [9:2]
+    mmc_csd[8] = ((c_size & 0x03) << 6) | 0x00;     // C_SIZE [1:0] + VDD_R_CURR_MIN
+    mmc_csd[9] = 0x03 | (7 << 2);                    // VDD_W_CURR_MAX + C_SIZE_MULT[2:1]
+    mmc_csd[10] = 0x80 | (1 << 6);                   // C_SIZE_MULT[0] + ...
+    mmc_csd[11] = 0x00;
+    mmc_csd[12] = 0x00;
+    mmc_csd[13] = 0x00;
+    mmc_csd[14] = 0x00;
+    mmc_csd[15] = 0x00;
+}
+
+// Build CSD v2.0 (SDHC) for real SD card
+void DivMMC::buildCSD_real(uint32_t sector_count) {
+    memset(mmc_csd, 0, 16);
+    // CSD v2.0: capacity = (C_SIZE + 1) * 512KB
+    // C_SIZE = sector_count / 1024 - 1
+    uint32_t c_size = sector_count / 1024;
+    if (c_size > 0) c_size--;
+    mmc_csd[0] = 0x40;  // CSD structure v2.0
+    mmc_csd[5] = 0x59;  // READ_BL_LEN = 9
+    mmc_csd[7] = (c_size >> 16) & 0x3F;
+    mmc_csd[8] = (c_size >> 8) & 0xFF;
+    mmc_csd[9] = c_size & 0xFF;
+}
+
+// Bank memory management
+void DivMMC::clearAllBanks() {
+    if (use_butter) {
+        // All banks are contiguous in butter PSRAM
+        memset(bank_ptr[0], 0, DIVMMC_NUM_BANKS * DIVMMC_BANK_SIZE);
+    } else {
+        // Clear active buffers
+        if (active_buf[0]) memset(active_buf[0], 0, DIVMMC_BANK_SIZE);
+        if (active_buf[1]) memset(active_buf[1], 0, DIVMMC_BANK_SIZE);
+        active_bank[0] = active_bank[1] = -1;
+        memset(bank_ptr, 0, sizeof(bank_ptr));
+        // Zero the swap file
+        if (swap_open) {
+            uint8_t zeros[256];
+            memset(zeros, 0, sizeof(zeros));
+            f_lseek(&swap_file, 0);
+            UINT bw;
+            for (size_t i = 0; i < DIVMMC_NUM_BANKS * DIVMMC_BANK_SIZE; i += sizeof(zeros))
+                f_write(&swap_file, zeros, sizeof(zeros), &bw);
+        }
+    }
+}
+
+void DivMMC::evict(int slot) {
+    if (active_bank[slot] < 0) return;
+    UINT bw;
+    f_lseek(&swap_file, (FSIZE_t)active_bank[slot] * DIVMMC_BANK_SIZE);
+    f_write(&swap_file, active_buf[slot], DIVMMC_BANK_SIZE, &bw);
+    bank_ptr[active_bank[slot]] = nullptr;
+    active_bank[slot] = -1;
+}
+
+void DivMMC::materialize(uint8_t bank_idx) {
+    if (bank_ptr[bank_idx]) return; // already available (butter mode always)
+
+    // Find free slot or pick eviction victim
+    int slot = -1;
+    if (active_bank[0] == -1) slot = 0;
+    else if (active_bank[1] == -1) slot = 1;
+    else {
+        // Don't evict the other needed bank
+        uint8_t cur = bank & (DIVMMC_NUM_BANKS - 1);
+        uint8_t other_needed = (bank_idx == cur) ? 3 : cur;
+        slot = (active_bank[0] == other_needed) ? 1 : 0;
+    }
+    evict(slot);
+
+    // Load from swap
+    UINT br;
+    f_lseek(&swap_file, (FSIZE_t)bank_idx * DIVMMC_BANK_SIZE);
+    f_read(&swap_file, active_buf[slot], DIVMMC_BANK_SIZE, &br);
+    bank_ptr[bank_idx] = active_buf[slot];
+    active_bank[slot] = bank_idx;
+}
+
+// Read a byte from image/SD, using sector cache
+// address is always a byte offset (even in SDHC mode — converted at CMD level)
+uint8_t DivMMC::readByte(uint32_t address) {
+    if (!divsd_mode && !mmc_file_open[0]) return 0xFF;
+
+    uint32_t sector = address / 512;
+    uint32_t offset = address % 512;
+
+    if (sector != mmc_sector_buf_addr) {
+        flushWriteBuffer();
+        if (divsd_mode) {
+            disk_read(0, mmc_sector_buf, sector, 1);
+        } else {
+            UINT br;
+            f_lseek(&mmc_file[0], (FSIZE_t)sector * 512);
+            f_read(&mmc_file[0], mmc_sector_buf, 512, &br);
+        }
+        mmc_sector_buf_addr = sector;
+    }
+
+    return mmc_sector_buf[offset];
+}
+
+// Write a byte to image/SD, using sector cache
+void DivMMC::writeByte(uint32_t address, uint8_t value) {
+    if (!divsd_mode && !mmc_file_open[0]) return;
+
+    uint32_t sector = address / 512;
+    uint32_t offset = address % 512;
+
+    if (sector != mmc_sector_buf_addr) {
+        flushWriteBuffer();
+        if (divsd_mode) {
+            disk_read(0, mmc_sector_buf, sector, 1);
+        } else {
+            UINT br;
+            f_lseek(&mmc_file[0], (FSIZE_t)sector * 512);
+            f_read(&mmc_file[0], mmc_sector_buf, 512, &br);
+        }
+        mmc_sector_buf_addr = sector;
+    }
+
+    mmc_sector_buf[offset] = value;
+    mmc_sector_dirty = true;
+}
+
+// Flush dirty sector buffer
+void DivMMC::flushWriteBuffer() {
+    if (!mmc_sector_dirty || mmc_sector_buf_addr == 0xFFFFFFFF) return;
+    if (divsd_mode) {
+        disk_write(0, mmc_sector_buf, mmc_sector_buf_addr, 1);
+    } else {
+        if (!mmc_file_open[0]) return;
+        UINT bw;
+        f_lseek(&mmc_file[0], (FSIZE_t)mmc_sector_buf_addr * 512);
+        f_write(&mmc_file[0], mmc_sector_buf, 512, &bw);
+        f_sync(&mmc_file[0]);
+    }
+    mmc_sector_dirty = false;
+}
+
+// Port 0xE7 write — chip select
+void DivMMC::mmc_cs(uint8_t value) {
+    bool was_active = mmc_cs_active;
+    mmc_cs_active = (value & 0x01) == 0;  // Active low
+
+    // Reset protocol state on CS change (like ZEsarUX)
+    mmc_r1 = 1;
+    mmc_last_command = 0;
+    mmc_index_command = 0;
+    mmc_read_index = -1;
+    mmc_write_index = -1;
+    mmc_csd_index = -1;
+    mmc_cid_index = -1;
+    mmc_ocr_index = -1;
+}
+
+// Port 0xEB read — SD protocol response
+uint8_t DivMMC::mmc_read() {
+    if (!mmc_file_open[0] && !divsd_mode) return 0xFF;
+    if (!mmc_cs_active) return 0xFF;
+
+    // If not idle, return R1
+    if ((mmc_r1 & 1) == 0) {
+        return mmc_r1;
+    }
+
+    uint8_t value = 0xFF;
+
+    switch (mmc_last_command) {
+        case 0x00:
+            // After CS — no command yet
+            return 0;
+
+        case 0x40: // CMD0 GO_IDLE_STATE
+            return 1;
+
+        case 0x48: // CMD8 SEND_IF_COND
+            return 0; // Accept (not error)
+
+        case 0x49: // CMD9 SEND_CSD
+            if (mmc_csd_index >= 0) {
+                if (mmc_csd_index == 0) value = 0xFF;       // NCR
+                if (mmc_csd_index == 1) value = 0;           // R1 = OK
+                if (mmc_csd_index == 2) value = 0xFE;        // Data token
+                if (mmc_csd_index >= 3 && mmc_csd_index <= 18)
+                    value = mmc_csd[mmc_csd_index - 3];
+                if (mmc_csd_index == 19 || mmc_csd_index == 20)
+                    value = 0xFF; // CRC
+                mmc_csd_index++;
+                if (mmc_csd_index == 21) mmc_csd_index = -1;
+                return value;
+            }
+            return 0xFF;
+
+        case 0x4A: // CMD10 SEND_CID
+            if (mmc_cid_index >= 0) {
+                if (mmc_cid_index == 0) value = 0xFF;
+                if (mmc_cid_index == 1) value = 0;
+                if (mmc_cid_index == 2) value = 0xFE;
+                if (mmc_cid_index >= 3 && mmc_cid_index <= 18)
+                    value = mmc_cid[mmc_cid_index - 3];
+                if (mmc_cid_index == 19 || mmc_cid_index == 20)
+                    value = 0xFF;
+                mmc_cid_index++;
+                if (mmc_cid_index == 21) mmc_cid_index = -1;
+                return value;
+            }
+            return 0xFF;
+
+        case 0x4C: // CMD12 STOP_TRANSMISSION
+            return 1;
+
+        case 0x51: // CMD17 READ_SINGLE_BLOCK
+            if (mmc_read_index >= 0) {
+                if (mmc_read_index == 0) value = 0xFF;       // NCR
+                if (mmc_read_index == 1) value = 0;           // R1 = OK
+                if (mmc_read_index == 2) value = 0xFE;        // Data token
+                if (mmc_read_index >= 3 && mmc_read_index <= 514) {
+                    if (sdhc_mode)
+                        value = mmc_sector_buf[mmc_read_index - 3];
+                    else
+                        value = readByte(mmc_read_address + mmc_read_index - 3);
+                }
+                if (mmc_read_index == 515 || mmc_read_index == 516)
+                    value = 0xFF; // CRC
+                mmc_read_index++;
+                if (mmc_read_index == 516) mmc_read_index = -1;
+                return value;
+            }
+            return 0xFF;
+
+        case 0x52: // CMD18 READ_MULTIPLE_BLOCK
+            if (mmc_read_index >= 0) {
+                if (mmc_read_index == 0) value = 0xFF;
+                if (mmc_read_index == 1) value = 0;
+                if (mmc_read_index == 2) value = 0xFE;
+                if (mmc_read_index >= 3 && mmc_read_index <= 514) {
+                    if (sdhc_mode)
+                        value = mmc_sector_buf[mmc_read_index - 3];
+                    else
+                        value = readByte(mmc_read_address + mmc_read_index - 3);
+                }
+                mmc_read_index++;
+                if (mmc_read_index == 516) mmc_read_index = -1;
+                // Auto-advance to next sector
+                if (mmc_read_index == -1) {
+                    mmc_read_index = 0;
+                    mmc_read_address += sdhc_mode ? 1 : 512;
+                    if (sdhc_mode) {
+                        disk_read(0, mmc_sector_buf, mmc_read_address, 1);
+                        mmc_sector_buf_addr = mmc_read_address;
+                    }
+                }
+                return value;
+            }
+            return 0xFF;
+
+        case 0x58: // CMD24 WRITE_BLOCK
+            if (mmc_write_index >= 0) {
+                if (mmc_write_index == 0) value = 0xFF;       // NCR
+                if (mmc_write_index == 1) value = 0;           // R1
+                if (mmc_write_index == 2) value = 0xFF;
+                if (mmc_write_index == 3) value = 0xFF;
+                if (mmc_write_index >= 4) value = 0x05;        // Data accepted
+                mmc_write_index++;
+                return value;
+            }
+            return 0xFF;
+
+        case 0x7A: // CMD58 READ_OCR
+            if (mmc_ocr_index >= 0) {
+                if (mmc_ocr_index == 0) value = 0xFF;
+                if (mmc_ocr_index == 1) value = 0;
+                if (mmc_ocr_index >= 2 && mmc_ocr_index <= 6)
+                    value = mmc_ocr[mmc_ocr_index - 2];
+                if (mmc_ocr_index == 7 || mmc_ocr_index == 8)
+                    value = 0xFF;
+                mmc_ocr_index++;
+                if (mmc_ocr_index == 9) mmc_ocr_index = -1;
+                return value;
+            }
+            return 0xFF;
+
+        default:
+            break;
+    }
+
+    return 0;
+}
+
+// Port 0xEB write — SD protocol command/data
+void DivMMC::mmc_write(uint8_t value) {
+    if (!mmc_file_open[0] && !divsd_mode) return;
+    if (!mmc_cs_active) return;
+
+    if (mmc_index_command == 0) {
+        // Receive command byte
+        mmc_last_command = value;
+        mmc_index_command++;
+        return;
+    }
+
+    // Receive parameter bytes
+    switch (mmc_last_command) {
+        case 0x40: // CMD0 GO_IDLE_STATE
+            if (mmc_index_command == 5) {
+                mmc_r1 = 1; // Idle
+                mmc_index_command = 0;
+            } else {
+                mmc_index_command++;
+            }
+            break;
+
+        case 0x48: // CMD8 SEND_IF_COND
+            if (mmc_index_command == 5) {
+                mmc_index_command = 0;
+            } else {
+                mmc_index_command++;
+            }
+            break;
+
+        case 0x49: // CMD9 SEND_CSD
+            if (mmc_index_command == 5) {
+                mmc_csd_index = 0;
+                mmc_index_command = 0;
+            } else {
+                mmc_index_command++;
+            }
+            break;
+
+        case 0x4A: // CMD10 SEND_CID
+            if (mmc_index_command == 5) {
+                mmc_cid_index = 0;
+                mmc_index_command = 0;
+            } else {
+                mmc_index_command++;
+            }
+            break;
+
+        case 0x4C: // CMD12 STOP_TRANSMISSION
+            if (mmc_index_command == 5) {
+                mmc_r1 = 1;
+                mmc_index_command = 0;
+            } else {
+                mmc_index_command++;
+            }
+            break;
+
+        case 0x51: // CMD17 READ_SINGLE_BLOCK
+            mmc_params[mmc_index_command - 1] = value;
+            mmc_index_command++;
+            if (mmc_index_command == 6) {
+                mmc_index_command = 0;
+                mmc_read_address = ((uint32_t)mmc_params[0] << 24) |
+                                   ((uint32_t)mmc_params[1] << 16) |
+                                   ((uint32_t)mmc_params[2] << 8) |
+                                   mmc_params[3];
+                // SDHC: address is sector number; pre-read sector into cache
+                if (sdhc_mode) {
+                    flushWriteBuffer();
+                    disk_read(0, mmc_sector_buf, mmc_read_address, 1);
+                    mmc_sector_buf_addr = mmc_read_address;
+                }
+                mmc_read_index = 0;
+            }
+            break;
+
+        case 0x52: // CMD18 READ_MULTIPLE_BLOCK
+            mmc_params[mmc_index_command - 1] = value;
+            mmc_index_command++;
+            if (mmc_index_command == 6) {
+                mmc_index_command = 0;
+                mmc_read_address = ((uint32_t)mmc_params[0] << 24) |
+                                   ((uint32_t)mmc_params[1] << 16) |
+                                   ((uint32_t)mmc_params[2] << 8) |
+                                   mmc_params[3];
+                if (sdhc_mode) {
+                    flushWriteBuffer();
+                    disk_read(0, mmc_sector_buf, mmc_read_address, 1);
+                    mmc_sector_buf_addr = mmc_read_address;
+                }
+                mmc_read_index = 0;
+            }
+            break;
+
+        case 0x58: { // CMD24 WRITE_BLOCK
+            #define WRITE_BLOCK_OFFSET 5
+            if (mmc_index_command < 5) {
+                mmc_params[mmc_index_command - 1] = value;
+            }
+            if (mmc_index_command == WRITE_BLOCK_OFFSET) {
+                mmc_write_address = ((uint32_t)mmc_params[0] << 24) |
+                                    ((uint32_t)mmc_params[1] << 16) |
+                                    ((uint32_t)mmc_params[2] << 8) |
+                                    mmc_params[3];
+                mmc_write_index = 0;
+                if (sdhc_mode) {
+                    // Pre-read sector for partial writes; sector_buf_addr = sector number
+                    disk_read(0, mmc_sector_buf, mmc_write_address, 1);
+                    mmc_sector_buf_addr = mmc_write_address;
+                }
+            }
+            // After gap byte and data token, receive 512 data bytes
+            if (mmc_index_command >= WRITE_BLOCK_OFFSET + 2 &&
+                mmc_index_command <= WRITE_BLOCK_OFFSET + 2 + 511) {
+                int byte_idx = mmc_index_command - (WRITE_BLOCK_OFFSET + 2);
+                if (sdhc_mode) {
+                    mmc_sector_buf[byte_idx] = value;
+                    mmc_sector_dirty = true;
+                } else {
+                    writeByte(mmc_write_address + byte_idx, value);
+                }
+            }
+            mmc_index_command++;
+            if (mmc_index_command == WRITE_BLOCK_OFFSET + 2 + 512) {
+                if (sdhc_mode) {
+                    // Write whole sector to SD
+                    disk_write(0, mmc_sector_buf, mmc_write_address, 1);
+                    mmc_sector_dirty = false;
+                } else {
+                    flushWriteBuffer();
+                }
+            }
+            #undef WRITE_BLOCK_OFFSET
+            break;
+        }
+
+        case 0x7A: // CMD58 READ_OCR
+            if (mmc_index_command == 5) {
+                mmc_ocr_index = 0;
+                mmc_index_command = 0;
+            } else {
+                mmc_index_command++;
+            }
+            break;
+
+        default:
+            // Unknown command — ignore parameters
+            break;
+    }
+}
+
+// ============================================================
+// IDE/ATA emulation for DivIDE
+// ============================================================
+
+#define IDE_STATUS_BSY   0x80
+#define IDE_STATUS_DRDY  0x40
+#define IDE_STATUS_DRQ   0x08
+#define IDE_STATUS_ERR   0x01
+#define IDE_ERROR_ABRT   0x04
+#define IDE_ERROR_IDNF   0x10
+#define IDE_LBA_BIT      0x40
+
+uint32_t DivMMC::ide_lba() {
+    if (ide_head & IDE_LBA_BIT) {
+        // LBA mode
+        return ((uint32_t)(ide_head & 0x0F) << 24) |
+               ((uint32_t)ide_cylinder_hi << 16) |
+               ((uint32_t)ide_cylinder_lo << 8) |
+               ide_sector;
+    } else {
+        // CHS mode
+        uint16_t cyl = (ide_cylinder_hi << 8) | ide_cylinder_lo;
+        uint8_t head = ide_head & 0x0F;
+        int d = ide_drive();
+        return ((uint32_t)cyl * ide_heads[d] + head) * ide_sectors[d] + (ide_sector - 1);
+    }
+}
+
+void DivMMC::ide_read_sector() {
+    int d = ide_drive();
+    if (!mmc_file_open[d]) {
+        ide_error = IDE_ERROR_IDNF;
+        ide_status = IDE_STATUS_DRDY | IDE_STATUS_ERR;
+        return;
+    }
+    uint32_t lba = ide_lba();
+    FSIZE_t pos = (FSIZE_t)ide_hdf_data_offset[d] + (FSIZE_t)lba * 512;
+    UINT br;
+    f_lseek(&mmc_file[d], pos);
+    f_read(&mmc_file[d], ide_buffer, 512, &br);
+    if (br < 512) memset(ide_buffer + br, 0xFF, 512 - br);
+    ide_data_index = 0;
+    ide_data_write = false;
+    ide_status = IDE_STATUS_DRDY | IDE_STATUS_DRQ;
+}
+
+void DivMMC::ide_write_sector_done() {
+    int d = ide_drive();
+    if (!mmc_file_open[d]) return;
+    uint32_t lba = ide_lba();
+    FSIZE_t pos = (FSIZE_t)ide_hdf_data_offset[d] + (FSIZE_t)lba * 512;
+    UINT bw;
+    f_lseek(&mmc_file[d], pos);
+    f_write(&mmc_file[d], ide_buffer, 512, &bw);
+    f_sync(&mmc_file[d]);
+}
+
+void DivMMC::ide_execute_command(uint8_t cmd) {
+    ide_error = 0;
+    ide_status = IDE_STATUS_DRDY;
+
+    switch (cmd) {
+        case 0x20: // READ SECTOR (with retry)
+        case 0x21: // READ SECTOR (no retry)
+            ide_read_sector();
+            break;
+
+        case 0x30: // WRITE SECTOR (with retry)
+        case 0x31: // WRITE SECTOR (no retry)
+            ide_data_index = 0;
+            ide_data_write = true;
+            ide_status = IDE_STATUS_DRDY | IDE_STATUS_DRQ;
+            break;
+
+        case 0x91: { // INITIALIZE DEVICE PARAMETERS
+            int d = ide_drive();
+            uint8_t new_heads = (ide_head & 0x0F) + 1;
+            uint8_t new_sectors = ide_sector_count;
+            if (new_heads && new_sectors) {
+                uint32_t total = (uint32_t)ide_cylinders[d] * ide_heads[d] * ide_sectors[d];
+                ide_heads[d] = new_heads;
+                ide_sectors[d] = new_sectors;
+                ide_cylinders[d] = total / (ide_heads[d] * ide_sectors[d]);
+            }
+            break;
+        }
+
+        case 0xEC: { // IDENTIFY DEVICE
+            int d = ide_drive();
+            if (!mmc_file_open[d]) {
+                ide_error = IDE_ERROR_ABRT;
+                ide_status = IDE_STATUS_DRDY | IDE_STATUS_ERR;
+                break;
+            }
+            memset(ide_buffer, 0, 512);
+            memcpy(ide_buffer, ide_identity[d], 106);
+            ide_buffer[106] = 0x07; ide_buffer[107] = 0x00;
+            ide_buffer[108] = ide_cylinders[d] & 0xFF; ide_buffer[109] = ide_cylinders[d] >> 8;
+            ide_buffer[110] = ide_heads[d] & 0xFF; ide_buffer[111] = ide_heads[d] >> 8;
+            ide_buffer[112] = ide_sectors[d] & 0xFF; ide_buffer[113] = ide_sectors[d] >> 8;
+            uint32_t cap = (uint32_t)ide_cylinders[d] * ide_heads[d] * ide_sectors[d];
+            ide_buffer[114] = cap & 0xFF;
+            ide_buffer[115] = (cap >> 8) & 0xFF;
+            ide_buffer[116] = (cap >> 16) & 0xFF;
+            ide_buffer[117] = (cap >> 24) & 0xFF;
+            // Word 60-61: total LBA sectors (same as capacity for now)
+            ide_buffer[120] = cap & 0xFF;
+            ide_buffer[121] = (cap >> 8) & 0xFF;
+            ide_buffer[122] = (cap >> 16) & 0xFF;
+            ide_buffer[123] = (cap >> 24) & 0xFF;
+
+            ide_data_index = 0;
+            ide_data_write = false;
+            ide_sector_count = 0; // prevent read-next-sector
+            ide_status = IDE_STATUS_DRDY | IDE_STATUS_DRQ;
+            break;
+        }
+
+        default:
+            // Unknown command — abort
+            ide_error = IDE_ERROR_ABRT;
+            ide_status = IDE_STATUS_DRDY | IDE_STATUS_ERR;
+            break;
+    }
+}
+
+uint8_t DivMMC::ide_read(uint8_t reg) {
+    switch (reg) {
+        case 0: // Data register (0xA3)
+            if (ide_data_index >= 0 && !ide_data_write) {
+                uint8_t val = ide_buffer[ide_data_index++];
+                if (ide_data_index >= 512) {
+                    ide_data_index = -1;
+                    if (ide_sector_count > 0) {
+                        ide_sector_count--;
+                        if (ide_sector_count > 0) {
+                            // Advance LBA to next sector (with carry through all bytes)
+                            if (ide_head & IDE_LBA_BIT) {
+                                // LBA mode: increment full 28-bit address
+                                ide_sector++;
+                                if (ide_sector == 0) {
+                                    ide_cylinder_lo++;
+                                    if (ide_cylinder_lo == 0) {
+                                        ide_cylinder_hi++;
+                                        if (ide_cylinder_hi == 0)
+                                            ide_head = (ide_head & 0xF0) | ((ide_head + 1) & 0x0F);
+                                    }
+                                }
+                            } else {
+                                // CHS mode: just increment sector
+                                ide_sector++;
+                            }
+                            ide_read_sector();
+                        } else {
+                            ide_status = IDE_STATUS_DRDY;
+                        }
+                    } else {
+                        ide_status = IDE_STATUS_DRDY;
+                    }
+                }
+                return val;
+            }
+            return 0xFF;
+        case 1: return ide_error;           // Error (0xA7)
+        case 2: return ide_sector_count;    // Sector Count (0xAB)
+        case 3: return ide_sector;          // Sector Number (0xAF)
+        case 4: return ide_cylinder_lo;     // Cylinder Low (0xB3)
+        case 5: return ide_cylinder_hi;     // Cylinder High (0xB7)
+        case 6: return ide_head;            // Drive/Head (0xBB)
+        case 7: return ide_status;          // Status (0xBF)
+        default: return 0xFF;
+    }
+}
+
+void DivMMC::ide_write(uint8_t reg, uint8_t value) {
+    switch (reg) {
+        case 0: // Data register (0xA3)
+            if (ide_data_index >= 0 && ide_data_write) {
+                ide_buffer[ide_data_index++] = value;
+                if (ide_data_index >= 512) {
+                    ide_write_sector_done();
+                    ide_data_index = -1;
+                    if (ide_sector_count > 0) {
+                        ide_sector_count--;
+                        if (ide_sector_count > 0) {
+                            // Advance LBA to next sector
+                            if (ide_head & IDE_LBA_BIT) {
+                                ide_sector++;
+                                if (ide_sector == 0) {
+                                    ide_cylinder_lo++;
+                                    if (ide_cylinder_lo == 0) {
+                                        ide_cylinder_hi++;
+                                        if (ide_cylinder_hi == 0)
+                                            ide_head = (ide_head & 0xF0) | ((ide_head + 1) & 0x0F);
+                                    }
+                                }
+                            } else {
+                                ide_sector++;
+                            }
+                            ide_data_index = 0; // ready for next sector
+                        } else {
+                            ide_status = IDE_STATUS_DRDY;
+                        }
+                    } else {
+                        ide_status = IDE_STATUS_DRDY;
+                    }
+                }
+            }
+            break;
+        case 1: ide_feature = value; break;       // Features (0xA7)
+        case 2: ide_sector_count = value; break;  // Sector Count (0xAB)
+        case 3: ide_sector = value; break;        // Sector Number (0xAF)
+        case 4: ide_cylinder_lo = value; break;   // Cylinder Low (0xB3)
+        case 5: ide_cylinder_hi = value; break;   // Cylinder High (0xB7)
+        case 6: ide_head = value; break;          // Drive/Head (0xBB)
+        case 7: ide_execute_command(value); break; // Command (0xBF)
+    }
 }
 
 #endif // !PICO_RP2040
