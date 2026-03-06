@@ -71,11 +71,6 @@ IRAM_ATTR static void _end(rvmWD1793 *wd) {
   wd->retry = 15;
   wd->led = 0;
   wd->control |= kRVMWD177XINTRQ; //TODO: ADD A INTERRUPT HANDLER
-#if !PICO_RP2040
-  if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsUDIFile && wd->track >= 0x40)
-    Debug::log("E T%02x S%02x c%02x st%02x",
-               wd->track, wd->sector, wd->command, wd->status);
-#endif
 }
 
 IRAM_ATTR void _do(rvmWD1793 *wd) {
@@ -165,10 +160,6 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
     }
 
     case kRVMWD177XTypeICheck: {
-#if !PICO_RP2040
-      if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsUDIFile && wd->dsr >= 0x40)
-        Debug::log("chk T%02x dsr%02x dt%d", wd->track, wd->dsr, wd->disk[wd->diskS]->t);
-#endif
       if(wd->track==wd->dsr) {
         wd->state=kRVMWD177XTypeIEnd;
       } else {
@@ -232,10 +223,6 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
     }
 
     case kRVMWD177XTypeIEnd: {
-#if !PICO_RP2040
-      if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsUDIFile && wd->track >= 0x28)
-        Debug::log("T1end T%02x v%d", wd->track, (wd->command & kRVMWD177XVerifyBit) ? 1 : 0);
-#endif
       if(wd->command & kRVMWD177XVerifyBit) {
         //printf("Verify\n");
         if(wd->control & kRVMWD177XHLD) {
@@ -279,7 +266,6 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
       // printf("Waitmark ReadHeader\n");
       wd->stepState=kRVMWD177XStepWaitingMark;
       wd->marka = mark;
-      //
 
       wd->headerI=0xff;
       wd->state=kRVMWD177XReadHeaderBytes;
@@ -432,6 +418,21 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
     }
 
     case kRVMWD177XTypeIICommand: {
+#if !PICO_RP2040
+      if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsFDIFile) {
+          static int t2_cnt = 0;
+          if (t2_cnt < 50)
+              Debug::log("T2C T%02x cmd=%02x sec=%d side=%d",
+                         wd->track, wd->command, wd->sector, wd->side);
+          t2_cnt++;
+      }
+#endif
+
+      // Reset intra-command offset at command start.
+      // Real-time base (CPU T-states) handles inter-command position;
+      // fdiTstates only tracks sector scanning within this command.
+      wd->fdiTstates = 0;
+      wd->fdiMarkerDone = false;
 
       if((wd->command & 0xc0)==0x80) { // Read or Write Sector
 
@@ -455,8 +456,6 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
         // printf("Waitmark ReadHeader\n");
         wd->stepState=kRVMWD177XStepWaitingMark;
         wd->marka = mark;
-        //
-
         wd->headerI=0xff;
         wd->state=kRVMWD177XReadHeaderBytes;
         wd->next=kRVMWD177XReadSectorHeader;
@@ -524,7 +523,8 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
           return;
         }
 
-        if((wd->command & 0x2) && (wd->header[2] & ((wd->command>>3) & 0x1))) {
+        // Side compare: reject if header side != command side (WD1793 spec)
+        if((wd->command & 0x2) && ((wd->header[2] & 1) != ((wd->command>>3) & 1))) {
           wd->state=kRVMWD177XReadHeader;
           _do(wd);
           return;
@@ -532,7 +532,8 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
 
       } else {
 
-          if((wd->command & 0x2) && (wd->header[2] & ((wd->command>>3) & 0x1))) {
+          // Side compare: reject if header side != command side (WD1793 spec)
+          if((wd->command & 0x2) && ((wd->header[2] & 1) != ((wd->command>>3) & 1))) {
             wd->state=kRVMWD177XReadHeader;
             _do(wd);
             return;
@@ -567,12 +568,28 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
             wd->c = sz;
         }
 
+        // FDI: look up CRC error flag for the matched sector
+#if !PICO_RP2040
+        wd->fdiDataCrcError = false;
+        if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsFDIFile) {
+            uint32_t curIdx = wd->disk[wd->diskS]->indx;
+            int matchedSi = -1;
+            for (int si = 0; si < wd->fdiSectorCount; si++) {
+                int diff = (int)curIdx - (int)wd->fdiSectorIdPos[si];
+                if (diff >= -2 && diff <= 10) {
+                    wd->fdiDataCrcError = wd->fdiSectorCrcErr[si];
+                    matchedSi = si;
+                    break;
+                }
+            }
+        }
+#endif
+
         // _waitMark(wd);
         // printf("Waitmark ReadSectorHeader\n");
         wd->stepState=kRVMWD177XStepWaitingMark;
         wd->marka = mark;
         //
-
         if(wd->command & 0x20) {
 
           //printf("Writing Command: %02x Track:%d Sector:%d Size:%llu\n",wd->command,wd->track,wd->sector,wd->c);
@@ -612,10 +629,6 @@ case kRVMWD177XWriteData: {
       // Verificar underrun ANTES de procesar el byte
       if(wd->control & kRVMWD177XDRQ) {
         //printf("Lost data in write - aborting command\n");
-#if !PICO_RP2040
-        if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsUDIFile)
-          Debug::log("LostData T=%02x S=%02x c=%d", wd->track, wd->sector, (int)wd->c);
-#endif
         wd->status|=kRVMWD177XStatusLostData;
         wd->control&=~kRVMWD177XWriting;
         _end(wd);
@@ -691,7 +704,6 @@ case kRVMWD177XWriteData: {
     }
 
     case kRVMWD177XReadDataFlag2: {
-
       if(wd->a==0xf8) {
         wd->status|=kRVMWD177XStatusRecordType;
       } else if(wd->a==0xfb) {
@@ -731,11 +743,14 @@ case kRVMWD177XWriteData: {
       // printf("Read CRC byte: %02x CRC: %04x\n",wd->a,wd->crc);
       if(!--wd->c) { // CRC readed
 
-        // if(wd->crc) {
-        //   wd->status|=kRVMWD177XStatusCRC;
-        // } else {
+#if !PICO_RP2040
+        // FDI: set CRC error status if sector had CRC error flag
+        if (wd->fdiDataCrcError) {
+          wd->status |= kRVMWD177XStatusCRC;
+          wd->fdiDataCrcError = false;
+        } else
+#endif
           wd->status&=~kRVMWD177XStatusCRC;
-        // }
 
         if(wd->command & 0x10) { // Read sector: Multiple record flag on
 
@@ -850,6 +865,11 @@ case kRVMWD177XWriteTrack: {
             } else if (wd->wtrackmark == 3 && wd->data == 0xfb) {
               // printf("Write Sector Data at sector %d\n",wd->wtracksector);
               // wd->wtrackmark=0b1000000000;
+              // For raw format disks (UDI/FDI), indx runs sequentially through the track buffer;
+              // sectdatapos repositioning is only valid for TRD's fixed sector layout.
+#if !PICO_RP2040
+              if (!wd->disk[wd->diskS]->IsUDIFile && !wd->disk[wd->diskS]->IsFDIFile)
+#endif
               wd->disk[wd->diskS]->indx = sectdatapos[wd->wtracksector - 1] + 41;
             } else if (wd->wtrackmark & 0b100000000) {
               wd->wtrackmark++;
@@ -1002,10 +1022,70 @@ IRAM_ATTR void rvmWD1793Step(rvmWD1793 *wd, uint32_t steps) {
         }
         // end _checkIndex
 
+#if !PICO_RP2040
+        // FDI find_marker: ZXMAK2-style direct header bypass.
+        // Instead of positioning indx at A1 bytes for the mark matcher,
+        // directly populate header[] and jump to the sector check state.
+        if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsFDIFile
+            && (wd->state == kRVMWD177XReadHeaderBytes
+                || wd->state == kRVMWD177XReadAddressDataFlag)
+            && wd->marka == mark
+            && wd->fdiSectorCount > 0)
+        {
+            rvmwdDisk *fdisk = wd->disk[wd->diskS];
+            uint32_t trkLen = wd->udiTrackLen;
+            if (trkLen > 0) {
+                uint64_t cpuTs = CPU::global_tstates + CPU::tstates;
+                uint32_t tsInRev = (uint32_t)(cpuTs % 700000ULL);
+                uint32_t basePos = (uint32_t)((uint64_t)tsInRev * trkLen / 700000ULL);
+                uint32_t curPos = (basePos + wd->fdiTstates) % trkLen;
+                uint32_t bestDist = 0xFFFFFFFF;
+                int bestSec = 0;
+                for (int n = 0; n < wd->fdiSectorCount; n++) {
+                    uint32_t idPos = wd->fdiSectorIdPos[n];
+                    uint32_t dist = (idPos >= curPos) ? idPos - curPos
+                                                      : trkLen + idPos - curPos;
+                    if (dist < bestDist) { bestDist = dist; bestSec = n; }
+                }
+                wd->fdiTstates += bestDist;
+
+                uint32_t idPos = wd->fdiSectorIdPos[bestSec];
+                // Populate header directly from MFM buffer: FE C H R N CRC CRC
+                for (int i = 0; i < 7 && (idPos + i) < trkLen; i++)
+                    wd->header[i] = wd->udiTrackBuf[idPos + i];
+                // Position indx past the header to gap before data
+                fdisk->indx = idPos + 7;
+                // Remember CRC error flag for this sector
+                wd->fdiDataCrcError = wd->fdiSectorCrcErr[bestSec];
+
+                {
+                    static int fmb_cnt = 0;
+                    if (fmb_cnt < 100)
+                        Debug::log("FMB T%02x sec=%d R=%d st=%d idx=%d",
+                            wd->track, wd->sector,
+                            (idPos + 3 < trkLen) ? wd->udiTrackBuf[idPos + 3] : -1,
+                            wd->state, (int)fdisk->indx);
+                    fmb_cnt++;
+                }
+                if (wd->state == kRVMWD177XReadHeaderBytes) {
+                    // Read/Write Sector: jump to sector header check
+                    wd->state = wd->next; // kRVMWD177XReadSectorHeader
+                    _do(wd);
+                } else {
+                    // Read Address: position indx at 0xFE so sequential reads
+                    // deliver FE, C, H, R, N, CRC1, CRC2 normally
+                    fdisk->indx = idPos - 1; // will be incremented to idPos on next DiskStep
+                    wd->state = kRVMWD177XReadAddressDataFlag;
+                    _do(wd);
+                }
+                break;
+            }
+        }
+#endif
+
         if((wd->marka & 0xff) == dd) {
           wd->marka >>= 8;
           if(!wd->marka) {
-            // printf("Mark found for Track: %d, Sector: %d, Index: %d!\n",wd->track, wd->sector, wd->disk[wd->diskS]->indx);
             _do(wd);
             if(wd->control & kRVMWD177XWriting) goto write;
           }
@@ -1085,15 +1165,6 @@ IRAM_ATTR void rvmWD1793Step(rvmWD1793 *wd, uint32_t steps) {
 }
 
 IRAM_ATTR void rvmWD1793Write(rvmWD1793 *wd,uint8_t a,uint8_t value) {
-#if !PICO_RP2040
-  if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsUDIFile && wd->track == 0x4b) {
-    static int wr4b_cnt = 0;
-    if (wr4b_cnt < 20) {
-      Debug::log("WR r%d=%02x T%02x S%02x st=%04x", a&3, value, wd->track, wd->sector, wd->status);
-      wr4b_cnt++;
-    }
-  }
-#endif
   switch(a & 0x3) {
 
     case 0: //Command
@@ -1109,12 +1180,6 @@ IRAM_ATTR void rvmWD1793Write(rvmWD1793 *wd,uint8_t a,uint8_t value) {
       // // --- end of patch ---
 
       if ((value & 0xf0) == 0xd0) {
-#if !PICO_RP2040
-        if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsUDIFile && wd->track >= 0x40)
-          Debug::log("FINT %02x T%02x busy=%d st=%04x ctl=%04x",
-                     value, wd->track, (wd->status & kRVMWD177XStatusBusy)?1:0,
-                     wd->status, wd->control);
-#endif
         //Force interrupt
         if(wd->status & kRVMWD177XStatusBusy) {
 
@@ -1154,22 +1219,12 @@ IRAM_ATTR void rvmWD1793Write(rvmWD1793 *wd,uint8_t a,uint8_t value) {
 
       }
 
-#if !PICO_RP2040
-      if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsUDIFile && (wd->status & kRVMWD177XStatusBusy) && wd->track >= 0x40)
-          Debug::log("BUSY! C%02x T%02x S%02x st%02x state=%d",
-                     value, wd->track, wd->sector, wd->status, wd->state);
-#endif
       if(!(wd->status & kRVMWD177XStatusBusy)) {
 
         wd->control &= ~(kRVMWD177XINTRQ|kRVMWD177XFINTRQ);
 
         wd->command = value;
 
-#if !PICO_RP2040
-        if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsUDIFile && wd->track >= 0x40)
-          Debug::log("C%02x T%02x>%02x S%02x s%d",
-                     value, wd->track, wd->data, wd->sector, wd->side);
-#endif
 
         if(wd->disk[wd->diskS]  && (wd->control & (kRVMWD177XPower0 << wd->diskS))) {
 
@@ -1221,7 +1276,14 @@ IRAM_ATTR void rvmWD1793Write(rvmWD1793 *wd,uint8_t a,uint8_t value) {
 
             // Complete Type I (Seek/Step/Restore) immediately — don't wait for step delays.
             // Copy-protected loaders issue the next command before step delays expire.
-            if (!(wd->command & kRVMWD177XTypeI)) {
+            // Skip instant completion for UDI/FDI raw disks — their loaders poll system
+            // register for INTRQ, and instant completion causes INTRQ to be set and cleared
+            // before the poll loop runs.
+            if (!(wd->command & kRVMWD177XTypeI)
+#if !PICO_RP2040
+                && !(wd->disk[wd->diskS] && (wd->disk[wd->diskS]->IsUDIFile || wd->disk[wd->diskS]->IsFDIFile))
+#endif
+            ) {
               while (wd->stepState == kRVMWD177XStepWaiting) {
                 _do(wd);
               }
@@ -1296,16 +1358,6 @@ IRAM_ATTR uint8_t rvmWD1793Read(rvmWD1793 *wd,uint8_t a) {
       }
 
       //printf("Read status: %02x\n",r);
-#if !PICO_RP2040
-      if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsUDIFile && wd->track == 0x4b) {
-        static int st4b_cnt = 0;
-        if (st4b_cnt < 10) {
-          Debug::log("RD_ST T4b st=%02x ctl=%04x step=%d state=%d cnt=%d",
-                     r, wd->control, wd->stepState, wd->state, st4b_cnt);
-          st4b_cnt++;
-        }
-      }
-#endif
       return r;
     case 1: //Track
       return wd->track;
@@ -1335,7 +1387,8 @@ void rvmWD1793Reset(rvmWD1793 *wd) {
 
   wd->c = 0;
   wd->control &= 0xf000;
-  wd->command = wd->sector = wd->data = wd->dsr = 0x0;
+  wd->command = wd->dsr = 0x0;
+  // Note: sector and data registers are NOT cleared by WD1793 hardware reset (MR pin)
   wd->status = kRVMWD177XStatusSetIndex | kRVMWD177XStatusSetTrack0 | kRVMWD177XStatusSetWP;
   wd->track = 0xff;
   wd->led = 0;
@@ -1346,13 +1399,38 @@ void rvmWD1793Reset(rvmWD1793 *wd) {
   // wd->crc=0xffff;
   wd->crc = 0; // Disable CRC. Not needed for Betadisk emulation
   wd->side = wd->diskS = 0;
-  wd->fastmode = Config::trdosFastMode; //(Config::DiskCtrl == 2 || Config::DiskCtrl == 4);
+  // UDI/FDI raw-format disks require fastmode=false (sectdatapos incompatible with raw MFM)
+#if !PICO_RP2040
+  {
+    bool hasRawDisk = false;
+    for (int i = 0; i < 4; i++)
+      if (wd->disk[i] && (wd->disk[i]->IsUDIFile || wd->disk[i]->IsFDIFile))
+        hasRawDisk = true;
+    wd->fastmode = hasRawDisk ? false : Config::trdosFastMode;
+  }
+#else
+  wd->fastmode = Config::trdosFastMode;
+#endif
   wd->sclConverted = false;
 #if !PICO_RP2040
+  // Flush modified UDI track to SD before resetting (avoid data loss)
+  if (wd->udiDirty && wd->udiLoadedCyl >= 0) {
+    rvmwdDisk *disk = wd->disk[wd->diskS];
+    if (disk && disk->IsUDIFile && disk->Diskfile) {
+      int trkIdx = wd->udiLoadedCyl * disk->sides + wd->udiLoadedSide;
+      if (trkIdx >= 0 && trkIdx < 168) {
+        UINT bw;
+        f_lseek(disk->Diskfile, disk->udiTrackOffsets[trkIdx]);
+        f_write(disk->Diskfile, wd->udiTrackBuf, disk->udiTrackLengths[trkIdx], &bw);
+      }
+    }
+  }
   wd->udiLoadedCyl = -1;
   wd->udiLoadedSide = -1;
   wd->udiTrackLen = 0;
   wd->udiDirty = false;
+  wd->fdiTstates = 0;
+  wd->fdiMarkerDone = false;
 #endif
 }
 
@@ -1395,7 +1473,6 @@ bool rvmWD1793InsertDisk(rvmWD1793 *wd, unsigned char UnitNum, std::string Filen
     } else if (std::strncmp(magic,"UDI!",4) == 0) {
         // UDI file
         printf("UDI disk loaded\n");
-        Debug::log("UDI disk loaded unit=%d wp=%d", UnitNum, Config::trdosWriteProtect);
         wd->disk[UnitNum]->IsSCLFile = false;
         wd->disk[UnitNum]->IsUDIFile = true;
         wd->disk[UnitNum]->IsFDIFile = false;
@@ -1582,9 +1659,6 @@ static void udiFlushTrack(rvmWD1793 *wd) {
     UINT bw;
     f_lseek(disk->Diskfile, disk->udiTrackOffsets[trkIdx]);
     f_write(disk->Diskfile, wd->udiTrackBuf, tlen, &bw);
-    Debug::log("udiFlush cyl=%d side=%d tlen=%d bw=%d off=%u",
-               wd->udiLoadedCyl, wd->udiLoadedSide, tlen, bw,
-               (unsigned)disk->udiTrackOffsets[trkIdx]);
     wd->udiDirty = false;
     // CRC32 at end of file not updated — our parser doesn't validate it
 }
@@ -1636,16 +1710,17 @@ void fdiLoadTrack(rvmWD1793 *wd, uint32_t cyl, uint8_t side) {
     }
 
     uint8_t *buf = wd->udiTrackBuf;
+    const int bufSize = sizeof(wd->udiTrackBuf);
     int pos = 0;
 
     // Track header: 80×0x4E gap
-    for (int i = 0; i < 80 && pos < 6400; i++) buf[pos++] = 0x4e;
+    for (int i = 0; i < 80 && pos < bufSize; i++) buf[pos++] = 0x4e;
     // 12×0x00 sync
-    for (int i = 0; i < 12 && pos < 6400; i++) buf[pos++] = 0x00;
+    for (int i = 0; i < 12 && pos < bufSize; i++) buf[pos++] = 0x00;
     // Index mark: 0xC2,0xC2,0xC2,0xFC
-    if (pos < 6396) { buf[pos++] = 0xc2; buf[pos++] = 0xc2; buf[pos++] = 0xc2; buf[pos++] = 0xfc; }
+    if (pos + 4 <= bufSize) { buf[pos++] = 0xc2; buf[pos++] = 0xc2; buf[pos++] = 0xc2; buf[pos++] = 0xfc; }
     // 50×0x4E gap
-    for (int i = 0; i < 50 && pos < 6400; i++) buf[pos++] = 0x4e;
+    for (int i = 0; i < 50 && pos < bufSize; i++) buf[pos++] = 0x4e;
 
     // Read FDI track header
     uint8_t trkHdr[7];
@@ -1664,8 +1739,12 @@ void fdiLoadTrack(rvmWD1793 *wd, uint32_t cyl, uint8_t side) {
         f_read(disk->Diskfile, secHdrs, nsec * 7, &br);
     }
 
+
     // Generate sectors
-    for (int s = 0; s < nsec && pos < 6300; s++) {
+    // Generate sectors
+    int actualSectors = 0;
+    for (int s = 0; s < nsec && pos + 100 < bufSize; s++) {
+        actualSectors = s + 1;
         uint8_t *sh = &secHdrs[s * 7];
         uint8_t secCyl = sh[0];
         uint8_t secHead = sh[1];
@@ -1674,17 +1753,22 @@ void fdiLoadTrack(rvmWD1793 *wd, uint32_t cyl, uint8_t side) {
         uint8_t secFlags = sh[4];
         uint16_t secDataOff = sh[5] | (sh[6] << 8);
 
-        uint16_t secSize = 128 << secSizeCode;
-        if (secSize > 1024) secSize = 1024; // clamp for buffer safety
+        // FDI flags bits 0-5: CRC OK flags (ZXMAK2: any low 6 bits set = good CRC)
+        bool goodCrc = (secFlags & 0x3F) != 0;
+        wd->fdiSectorCrcErr[s] = goodCrc ? 0 : 1;
+
+        uint16_t secSize = 128 << (secSizeCode & 3); // 128, 256, 512, 1024
 
         // Sector header sync: 12×0x00
-        for (int i = 0; i < 12 && pos < 6400; i++) buf[pos++] = 0x00;
+        for (int i = 0; i < 12 && pos < bufSize; i++) buf[pos++] = 0x00;
         // Address mark: 0xA1,0xA1,0xA1,0xFE
-        if (pos < 6396) { buf[pos++] = 0xa1; buf[pos++] = 0xa1; buf[pos++] = 0xa1; buf[pos++] = 0xfe; }
+        if (pos + 4 <= bufSize) { buf[pos++] = 0xa1; buf[pos++] = 0xa1; buf[pos++] = 0xa1;
+            wd->fdiSectorIdPos[s] = pos; // record position of 0xFE
+            buf[pos++] = 0xfe; }
         // ID field: cyl, head, sector, size code
         uint16_t crc = 0xffff;
         crc = fdiCrc16(crc, 0xa1); crc = fdiCrc16(crc, 0xa1); crc = fdiCrc16(crc, 0xa1); crc = fdiCrc16(crc, 0xfe);
-        if (pos < 6396) {
+        if (pos + 6 <= bufSize) {
             buf[pos++] = secCyl;  crc = fdiCrc16(crc, secCyl);
             buf[pos++] = secHead; crc = fdiCrc16(crc, secHead);
             buf[pos++] = secNum;  crc = fdiCrc16(crc, secNum);
@@ -1693,51 +1777,50 @@ void fdiLoadTrack(rvmWD1793 *wd, uint32_t cyl, uint8_t side) {
             buf[pos++] = crc & 0xff;
         }
         // Gap2: 22×0x4E
-        for (int i = 0; i < 22 && pos < 6400; i++) buf[pos++] = 0x4e;
-        // Data sync: 12×0x00
-        for (int i = 0; i < 12 && pos < 6400; i++) buf[pos++] = 0x00;
-
-        // Data mark
+        for (int i = 0; i < 22 && pos < bufSize; i++) buf[pos++] = 0x4e;
+        // No data field if FL_NO_DATA is set (like UnrealSpeccy: data=nullptr, format() skips)
         bool hasData = !(secFlags & 0x40);
-        bool deleted = (secFlags & 0x80);
-        uint8_t dataMark = deleted ? 0xf8 : 0xfb;
-        if (pos < 6396) { buf[pos++] = 0xa1; buf[pos++] = 0xa1; buf[pos++] = 0xa1; buf[pos++] = dataMark; }
-
-        // Data CRC init
-        crc = 0xffff;
-        crc = fdiCrc16(crc, 0xa1); crc = fdiCrc16(crc, 0xa1); crc = fdiCrc16(crc, 0xa1); crc = fdiCrc16(crc, dataMark);
-
-        // Sector data
         if (hasData) {
+            // Data sync: 12×0x00
+            for (int i = 0; i < 12 && pos < bufSize; i++) buf[pos++] = 0x00;
+
+            // Data mark
+            bool deleted = (secFlags & 0x80);
+            uint8_t dataMark = deleted ? 0xf8 : 0xfb;
+            if (pos + 4 <= bufSize) { buf[pos++] = 0xa1; buf[pos++] = 0xa1; buf[pos++] = 0xa1; buf[pos++] = dataMark; }
+
+            // Data CRC init
+            crc = 0xffff;
+            crc = fdiCrc16(crc, 0xa1); crc = fdiCrc16(crc, 0xa1); crc = fdiCrc16(crc, 0xa1); crc = fdiCrc16(crc, dataMark);
+
+            // Sector data
             uint32_t fileDataPos = disk->fdiDataOffset + trkDataOffset + secDataOff;
             uint16_t toRead = secSize;
-            if (pos + toRead > 6400) toRead = 6400 - pos;
+            if (pos + toRead > bufSize) toRead = bufSize - pos;
             f_lseek(disk->Diskfile, fileDataPos);
             f_read(disk->Diskfile, buf + pos, toRead, &br);
             for (int i = 0; i < (int)toRead; i++) {
                 crc = fdiCrc16(crc, buf[pos + i]);
             }
             pos += toRead;
-        } else {
-            for (int i = 0; i < (int)secSize && pos < 6400; i++) {
-                buf[pos++] = 0x00;
-                crc = fdiCrc16(crc, 0x00);
-            }
-        }
 
-        // Data CRC
-        if (pos < 6398) {
-            buf[pos++] = (crc >> 8) & 0xff;
-            buf[pos++] = crc & 0xff;
+            // Data CRC — XOR to produce bad CRC if sector doesn't have "good CRC" flag
+            if (!goodCrc) crc ^= 0xFFFF;
+            if (pos + 2 <= bufSize) {
+                buf[pos++] = (crc >> 8) & 0xff;
+                buf[pos++] = crc & 0xff;
+            }
         }
 
         // Gap3: variable (54 for 256-byte sectors, less for larger)
         int gap3 = (secSizeCode <= 1) ? 54 : 24;
-        for (int i = 0; i < gap3 && pos < 6400; i++) buf[pos++] = 0x4e;
+        for (int i = 0; i < gap3 && pos < bufSize; i++) buf[pos++] = 0x4e;
     }
+    wd->fdiSectorCount = actualSectors;
 
-    // Fill rest with 0x4E
-    while (pos < 6400) buf[pos++] = 0x4e;
+    // Fill rest with 0x4E up to 6250 minimum (standard MFM track length)
+    int minLen = (pos < 6250) ? 6250 : pos;
+    while (pos < minLen) buf[pos++] = 0x4e;
 
     wd->udiTrackLen = pos;
     wd->udiLoadedCyl = (int)cyl;
@@ -1786,8 +1869,22 @@ IRAM_ATTR uint8_t rvmwdDiskStep(rvmWD1793 *wd, uint32_t control) {
 #if !PICO_RP2040
     if (disk->IsUDIFile) {
 
-      // Load track before checking length
-      udiLoadTrack(wd, disk->t, wd->side);
+      // During seek (Type I), don't load track data — only update disk->t and status.
+      // Track will be loaded on first actual data access (Read/Write Sector, etc.)
+      if (seek)
+        return disk->s;
+
+      // Load track before checking length.
+      // Don't reload track if an active command is reading/writing bytes
+      {
+        uint8_t loadSide = wd->side;
+        bool activeCmd = (wd->stepState == kRVMWD177XStepReadByte
+                       || wd->stepState == kRVMWD177XStepWaitingMark
+                       || wd->stepState == kRVMWD177XStepWriteByte);
+        if (activeCmd && wd->udiLoadedCyl == (int)disk->t && wd->udiLoadedSide >= 0)
+            loadSide = (uint8_t)wd->udiLoadedSide;
+        udiLoadTrack(wd, disk->t, loadSide);
+      }
 
       if(disk->indx != 0xffffffff && disk->indx >= wd->udiTrackLen) {
         disk->indx = 0xffffffff;
@@ -1800,9 +1897,6 @@ IRAM_ATTR uint8_t rvmwdDiskStep(rvmWD1793 *wd, uint32_t control) {
       if(control & kRVMwdDiskControlWrite) {
         if (disk->indx < wd->udiTrackLen)
           wd->udiTrackBuf[disk->indx] = control & 0xff;
-        if (!wd->udiDirty)
-          Debug::log("udiWrite first byte=%02x indx=%u cyl=%d side=%d",
-                     control & 0xff, disk->indx, wd->udiLoadedCyl, wd->udiLoadedSide);
         wd->udiDirty = true;
         return 0;
       }
@@ -1818,11 +1912,33 @@ IRAM_ATTR uint8_t rvmwdDiskStep(rvmWD1793 *wd, uint32_t control) {
 
     if (disk->IsFDIFile) {
 
-      // Generate MFM track before checking length
-      fdiLoadTrack(wd, disk->t, wd->side);
+      // During seek, don't generate MFM track data
+      if (seek)
+        return disk->s;
+
+      // Generate MFM track before checking length.
+      // Don't reload track if an active command is reading/writing bytes —
+      // game may change side register mid-command (e.g. ZXF45_O.FDI)
+      {
+        uint8_t loadSide = wd->side;
+        bool activeCmd = (wd->stepState == kRVMWD177XStepReadByte
+                       || wd->stepState == kRVMWD177XStepWaitingMark
+                       || wd->stepState == kRVMWD177XStepWriteByte);
+        if (activeCmd && wd->udiLoadedCyl == (int)disk->t && wd->udiLoadedSide >= 0)
+            loadSide = (uint8_t)wd->udiLoadedSide;
+        fdiLoadTrack(wd, disk->t, loadSide);
+      }
 
       if(disk->indx != 0xffffffff && disk->indx >= wd->udiTrackLen) {
-        disk->indx = 0xffffffff;
+        // Revolution complete — wrap indx using CPU T-states for disk position
+        uint32_t trkLen = wd->udiTrackLen;
+        if (trkLen > 0) {
+          uint64_t cpuTs = CPU::global_tstates + CPU::tstates;
+          uint32_t tsInRev = (uint32_t)(cpuTs % 700000ULL);
+          disk->indx = (uint32_t)((uint64_t)tsInRev * trkLen / 700000ULL);
+        } else {
+          disk->indx = 0;
+        }
         disk->indexDelay = 25;
         return disk->s;
       }
