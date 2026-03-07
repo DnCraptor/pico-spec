@@ -306,18 +306,18 @@ typedef struct
     uint8_t fdd_clicks;  // Pending step clicks count
 
 #if !PICO_RP2040
-    uint8_t udiTrackBuf[12800];  // buffer for current raw UDI/FDI track (FDI may need >6400 for large sectors)
-    uint16_t udiTrackLen;         // length of current track
-    int udiLoadedCyl;             // loaded cylinder (-1 = none)
-    int udiLoadedSide;            // loaded side
-    bool udiDirty;               // track buffer modified, needs flush to file
-    // FDI sector CRC error flags: data start position and error flag per sector
-    uint16_t fdiSectorIdPos[16];   // MFM buffer position of 0xFE address mark
-    uint8_t  fdiSectorCrcErr[16];  // 1 = CRC error in data for this sector
-    uint8_t  fdiSectorCount;       // number of sectors on current FDI track
-    bool fdiDataCrcError;          // set during ReadData if current sector has CRC error
-    uint32_t fdiTstates;           // Byte position counter for FDI disk rotation (ZXMAK2: 'next')
-    bool fdiMarkerDone;            // find_marker already selected sector, bypass mark matching
+    uint8_t diskTrackBuf[12500];  // MFM track buffer for UDI/FDI
+    uint16_t diskTrackLen;        // length of current track
+    int diskLoadedCyl;            // loaded cylinder (-1 = none)
+    int diskLoadedSide;           // loaded side
+    bool diskDirty;              // track buffer modified, needs flush to file
+
+    // FDI find_marker support (ZXMAK2-style)
+    uint32_t fdiSectorIdPos[32];   // byte position of 0xFE in diskTrackBuf per sector
+    uint8_t  fdiSectorCrcErr[32];  // 1 = data CRC error for this sector
+    int      fdiSectorCount;       // sector count on current track
+    uint32_t fdiTstates;           // intra-command byte offset (for find_marker progression)
+    bool     fdiDataCrcError;      // matched sector has CRC error
 #endif
 
 } rvmWD1793;

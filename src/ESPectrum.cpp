@@ -895,6 +895,7 @@ void ESPectrum::reset() {
 }
 
 void ESPectrum::reset(uint8_t romInUse) {
+  Debug::log("Z80 RESET rom=%d pc=%04x sp=%04x", romInUse, Z80::getRegPC(), Z80::getRegSP());
   // Ports
   for (int i = 0; i < 128; i++)
     Ports::port[i] = 0xBF;

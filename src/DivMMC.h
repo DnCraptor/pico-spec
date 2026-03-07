@@ -35,6 +35,7 @@ public:
     static uint8_t *esxdos_rom;   // 8KB ESXDOS ROM (dynamically allocated)
     static uint8_t* bank_ptr[DIVMMC_NUM_BANKS]; // direct pointer per bank (null = swapped out)
 
+    static bool use_psram;            // true = all banks in butter PSRAM (direct pointers)
     static bool rom_loaded;       // ESXDOS ROM successfully loaded from SD
     static bool divsd_mode;       // true = raw SD access (Config::esxdos == 3)
     static bool divide_mode;      // true = DivIDE (IDE/ATA, Config::esxdos == 2)
@@ -97,7 +98,6 @@ private:
     static void buildCSD_real(uint32_t sector_count);
 
     // Bank memory management (butter PSRAM or swap)
-    static bool use_butter;           // true = all banks in butter PSRAM (direct pointers)
     static uint8_t* active_buf[2];    // swap mode: 2 heap buffers for active banks
     static int8_t active_bank[2];     // swap mode: which bank in each buffer (-1 = free)
     static FIL swap_file;

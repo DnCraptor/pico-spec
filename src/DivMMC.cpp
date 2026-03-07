@@ -28,7 +28,7 @@ bool DivMMC::divide_mode = false;
 bool DivMMC::sdhc_mode = false;
 
 // Bank memory management
-bool DivMMC::use_butter = false;
+bool DivMMC::use_psram = false;
 uint8_t* DivMMC::active_buf[2] = {nullptr, nullptr};
 int8_t DivMMC::active_bank[2] = {-1, -1};
 FIL DivMMC::swap_file;
@@ -93,14 +93,14 @@ void DivMMC::init() {
     // Free previous allocations if switching modes or disabling
     if (!enabled) {
         // Cleanup bank memory
-        if (!use_butter) {
+        if (!use_psram) {
             if (swap_open) { f_close(&swap_file); f_unlink("/tmp/divmmc-pico-spec.swap"); swap_open = false; }
             free(active_buf[0]); active_buf[0] = nullptr;
             free(active_buf[1]); active_buf[1] = nullptr;
             active_bank[0] = active_bank[1] = -1;
         }
         memset(bank_ptr, 0, sizeof(bank_ptr));
-        use_butter = false;
+        use_psram = false;
         if (esxdos_rom) { free(esxdos_rom); esxdos_rom = nullptr; }
         rom_loaded = false;
         automap = false;
@@ -115,13 +115,13 @@ void DivMMC::init() {
     size_t butter_free = butter_psram_size() > butter_used ? butter_psram_size() - butter_used : 0;
 
     if (butter_free >= divmmc_total) {
-        use_butter = true;
+        use_psram = true;
         uint8_t* base = PSRAM_DATA + butter_used;
         for (int i = 0; i < DIVMMC_NUM_BANKS; i++)
             bank_ptr[i] = base + i * DIVMMC_BANK_SIZE;
         Debug::log("DivMMC: %d banks in butter PSRAM @ %p", DIVMMC_NUM_BANKS, base);
     } else {
-        use_butter = false;
+        use_psram = false;
         if (!active_buf[0]) active_buf[0] = (uint8_t*)malloc(DIVMMC_BANK_SIZE);
         if (!active_buf[1]) active_buf[1] = (uint8_t*)malloc(DIVMMC_BANK_SIZE);
         if (!active_buf[0] || !active_buf[1]) {
@@ -381,7 +381,7 @@ void DivMMC::buildCSD_real(uint32_t sector_count) {
 
 // Bank memory management
 void DivMMC::clearAllBanks() {
-    if (use_butter) {
+    if (use_psram) {
         // All banks are contiguous in butter PSRAM
         memset(bank_ptr[0], 0, DIVMMC_NUM_BANKS * DIVMMC_BANK_SIZE);
     } else {
