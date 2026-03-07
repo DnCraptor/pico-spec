@@ -39,7 +39,7 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - Contended memory and contended I/O emulation.
 - AY-3-8912 / TurboSound emulation.
 - SAA1099 sound chip emulation (https://en.wikipedia.org/wiki/Philips_SAA1099).
-- External MIDI output via UART (31250 baud) — AY bit-bang and ShamaZX (SAM2695) modes.
+- MIDI support: external UART output (AY bit-bang, ShamaZX) and built-in software synthesizer (RP2350 only).
 - Beeper & Mic emulation (Cobra’s Arc).
 - Dual keyboard support: you can connect two devices: first using PS/2 protocol and second using USB at the same time.
 - PS/2 Joystick emulation (Cursor, Sinclair, Kempston and Fuller).
@@ -114,16 +114,17 @@ It is important to note that for custom ROMs, fast loading of taps can be used, 
 
 Finally, keep in mind that when updating the firmware, you will need to re-flash the custom ROMs afterward, so I recommend leaving the files "48custom.rom" and "128custom.rom" on the card for the custom ROMs you wish to use.
 
-## External MIDI Output
+## MIDI Support
 
-The emulator supports external MIDI output via a UART TX pin at 31250 baud (RP2350 boards only). Enable it in the OSD menu: **Audio → Ext MIDI**.
+The emulator supports MIDI output on RP2350 boards only. Enable it in the OSD menu: **Audio → MIDI**.
 
-Two modes are available:
+Three modes are available:
 
-- **AY** — Decodes bit-bang UART transmitted through AY-3-8912 register 14 (IOPortA, bit 2). Software like [zx-midiplayer](https://github.com/UzixLS/zx-midiplayer) uses this method in "128std" / "TS1" / "TS2" output modes, writing individual bits (0xFE=HIGH, 0xFA=LOW) to form MIDI bytes at 31250 baud. The emulator reconstructs complete bytes from these bit-bang writes and sends them to the UART.
-- **ShamaZX** — Emulates the ShamaZX parallel MIDI interface (SAM2695 synth module). Port 0xA0CF is used for TX data, port 0xA1CF for status (bit 6 = busy). This corresponds to the "ShamaZX" output mode in [zx-midiplayer](https://github.com/UzixLS/zx-midiplayer).
+- **AY** — Decodes bit-bang UART transmitted through AY-3-8912 register 14 (IOPortA, bit 2). Software like [zx-midiplayer](https://github.com/UzixLS/zx-midiplayer) uses this method in "128std" / "TS1" / "TS2" output modes. MIDI bytes are sent to an external synth via UART TX pin at 31250 baud.
+- **ShamaZX** — Emulates the ShamaZX parallel MIDI interface (SAM2695 synth module). Port 0xA0CF is used for TX data, port 0xA1CF for status (bit 6 = busy). This corresponds to the "ShamaZX" output mode in [zx-midiplayer](https://github.com/UzixLS/zx-midiplayer). Output via UART TX pin.
+- **Soft** — Built-in software MIDI synthesizer. No external hardware needed — MIDI is synthesized directly on the RP2350 and mixed into the audio output. Supports 16-voice polyphony, General MIDI program changes, velocity, and channel volume. Works with both AY bit-bang and ShamaZX protocols.
 
-The MIDI TX pin is configured per board in `CMakeLists.txt` (`MIDI_TX_PIN=28`).
+The MIDI TX pin (for AY/ShamaZX modes) is configured per board in `CMakeLists.txt` (`MIDI_TX_PIN=28`).
 
 ## How to build
 ### Windows 10+
