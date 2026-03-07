@@ -723,7 +723,7 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
     "TurboSound\t>\n"\
     "Covox\t>\n"\
     "SAA1099 ON/OFF\t>\n"\
-    "Ext MIDI\t>\n"\
+    "MIDI\t>\n"\
     "Audio Driver\t>\n"
 #define MENU_AUDIO_ES "Audio\n"\
     "AY-3-8912 ON/OFF\t>\n"\
@@ -731,7 +731,7 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
     "TurboSound\t>\n"\
     "Covox\t>\n"\
     "SAA1099 ON/OFF\t>\n"\
-    "Ext MIDI\t>\n"\
+    "MIDI\t>\n"\
     "Controlador de audio\t>\n"
 #endif
 static const char *MENU_AUDIO[2] = { MENU_AUDIO_EN, MENU_AUDIO_ES };
@@ -758,14 +758,16 @@ static const char *MENU_AY48[2] = { "Turned on?\n" , "Turned on?\n"};
 static const char *MENU_SAA1099[2] = { "Turned on?\n" , "Turned on?\n"};
 #define _MIDI_STR(x) #x
 #define _MIDI_XSTR(x) _MIDI_STR(x)
-#define MENU_MIDI_EN "Ext MIDI (P" _MIDI_XSTR(MIDI_TX_PIN) ")\n"\
+#define MENU_MIDI_EN "MIDI (Ext: P" _MIDI_XSTR(MIDI_TX_PIN) ")\n"\
     "OFF     \t[O]\n"\
     "AY      \t[A]\n"\
-    "ShamaZX \t[S]\n"
-#define MENU_MIDI_ES "Ext MIDI (P" _MIDI_XSTR(MIDI_TX_PIN) ")\n"\
+    "ShamaZX \t[S]\n"\
+    "Soft emulation\t[W]\n"
+#define MENU_MIDI_ES "MIDI (Ext: P" _MIDI_XSTR(MIDI_TX_PIN) ")\n"\
     "OFF     \t[O]\n"\
     "AY      \t[A]\n"\
-    "ShamaZX \t[S]\n"
+    "ShamaZX \t[S]\n"\
+    "Soft emulation\t[W]\n"
 static const char *MENU_MIDI[2] = { MENU_MIDI_EN, MENU_MIDI_ES };
 #endif
 

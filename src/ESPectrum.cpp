@@ -66,6 +66,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "DivMMC.h"
 #endif
 #include "Midi.h"
+#include "MidiSynth.h"
 
 using namespace std;
 
@@ -190,6 +191,8 @@ uint32_t ESPectrum::faudbufcntCovox = 0;
 
 #if !PICO_RP2040
 uint8_t ESPectrum::audioBufferPIT[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
+uint8_t ESPectrum::audioBufferMIDI_L[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
+uint8_t ESPectrum::audioBufferMIDI_R[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
 uint32_t ESPectrum::audbufcntPIT = 0;
 uint32_t ESPectrum::faudbufcntPIT = 0;
 uint32_t ESPectrum::audbufcntSAA = 0;
@@ -1632,6 +1635,10 @@ void ESPectrum::loop() {
         {
           saaChip.gen_sound(samplesPerFrame - faudbufcntSAA, faudbufcntSAA);
         }
+        if (Midi::enabled == 3)
+        {
+          MidiSynth::gen_sound(audioBufferMIDI_L, audioBufferMIDI_R, samplesPerFrame);
+        }
 #endif
         for (int i = 0; i < samplesPerFrame; i++)
         {
@@ -1659,6 +1666,11 @@ void ESPectrum::loop() {
             {
               beeper_L += saaChip.SamplebufSAA_L[i];
               beeper_R += saaChip.SamplebufSAA_R[i];
+            }
+            if (Midi::enabled == 3)
+            {
+              beeper_L += audioBufferMIDI_L[i];
+              beeper_R += audioBufferMIDI_R[i];
             }
 #endif
             audioBuffer_L[i] = beeper_L > 255 ? 255 : beeper_L; // Clamp

@@ -593,7 +593,7 @@ void AySound::updIOPortA() {
     // Bit-bang UART decoder: zx-midiplayer uses reg 14 bit 2 as serial TX line
     // 0xFE = HIGH (bit2=1), 0xFA = LOW (bit2=0)
     // Frame: idle(H) → START(L) → D0..D7 (LSB first) → STOP(H)
-    if (Midi::enabled == 1) {
+    if (Midi::enabled == 1 || Midi::enabled == 3) {
         bool line = (regs[14] & 0x04) != 0; // bit 2
 
         if (midi_bitbang_pos == -1) {

@@ -2543,28 +2543,19 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     while (1) {
                                         string midi_menu = MENU_MIDI[Config::lang];
                                         uint8_t prev_midi = Config::midi;
-                                        if (prev_midi == 0) {
-                                            midi_menu.replace(midi_menu.find("[O",0),2,"[*");
-                                            midi_menu.replace(midi_menu.find("[A",0),2,"[ ");
-                                            midi_menu.replace(midi_menu.find("[S",0),2,"[ ");
-                                        } else if (prev_midi == 1) {
-                                            midi_menu.replace(midi_menu.find("[O",0),2,"[ ");
-                                            midi_menu.replace(midi_menu.find("[A",0),2,"[*");
-                                            midi_menu.replace(midi_menu.find("[S",0),2,"[ ");
-                                        } else {
-                                            midi_menu.replace(midi_menu.find("[O",0),2,"[ ");
-                                            midi_menu.replace(midi_menu.find("[A",0),2,"[ ");
-                                            midi_menu.replace(midi_menu.find("[S",0),2,"[*");
-                                        }
+                                        midi_menu.replace(midi_menu.find("[O",0),2, prev_midi == 0 ? "[*" : "[ ");
+                                        midi_menu.replace(midi_menu.find("[A",0),2, prev_midi == 1 ? "[*" : "[ ");
+                                        midi_menu.replace(midi_menu.find("[S",0),2, prev_midi == 2 ? "[*" : "[ ");
+                                        midi_menu.replace(midi_menu.find("[W",0),2, prev_midi == 3 ? "[*" : "[ ");
                                         uint8_t opt2 = menuRun(midi_menu);
                                         if (opt2) {
                                             Config::midi = opt2 - 1;
                                             if (Config::midi != prev_midi) {
+                                                Midi::enabled = prev_midi;
+                                                Midi::deinit();
                                                 Midi::enabled = Config::midi;
                                                 if (Midi::enabled)
                                                     Midi::init();
-                                                else
-                                                    Midi::deinit();
                                                 Config::save();
                                             }
                                             menu_curopt = opt2;

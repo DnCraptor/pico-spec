@@ -153,6 +153,8 @@ set_source_files_properties(src/AySound.cpp PROPERTIES
     COMPILE_FLAGS "-O3 -ffast-math -funroll-loops")
 set_source_files_properties(src/SAASound.cpp PROPERTIES
     COMPILE_FLAGS "-O3 -ffast-math -funroll-loops")
+set_source_files_properties(src/MidiSynth.cpp PROPERTIES
+    COMPILE_FLAGS "-O3 -ffast-math -funroll-loops")
 set_source_files_properties(src/Video.cpp PROPERTIES
     COMPILE_FLAGS "-O3 -funroll-loops")
 # Z80 эмулятор — самый горячий код, критично для производительности

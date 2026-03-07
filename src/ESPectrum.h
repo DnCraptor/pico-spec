@@ -138,6 +138,8 @@ public:
 #endif
     static uint8_t audioBufferFDD[ESP_AUDIO_SAMPLES_PENTAGON];
 #if !PICO_RP2040
+    static uint8_t audioBufferMIDI_L[ESP_AUDIO_SAMPLES_PENTAGON];
+    static uint8_t audioBufferMIDI_R[ESP_AUDIO_SAMPLES_PENTAGON];
     static uint32_t audbufcntPIT;
     static uint32_t faudbufcntPIT;
     static bool SAA_emu;
