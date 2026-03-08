@@ -1746,7 +1746,11 @@ void ESPectrum::loop() {
       VIDEO::flashing ^= 0x80;
 
     // Draw fdd led indicator in top-right corner
-    bool hasFdd = (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) && Tape::tapeStatus != TAPE_LOADING && !DivMMC::enabled;
+    bool hasFdd = (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) && Tape::tapeStatus != TAPE_LOADING
+#if !PICO_RP2040
+        && !DivMMC::enabled
+#endif
+        ;
     if (hasFdd && Config::trdosSoundLed) {
         if (ESPectrum::fdd.led) {
             VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(fdd.led == 2 ? 2 : 1, 1));
