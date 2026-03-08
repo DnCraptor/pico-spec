@@ -55,6 +55,38 @@ static uint32_t irq_inx = 0;
 //функции и константы HDMI
 
 #define BASE_HDMI_CTRL_INX (240)
+
+// Data Island palette indices (for HDMI audio, below control words to avoid overlap)
+#define IDX_DI_PREAMBLE     (220)
+#define IDX_DI_GUARD        (221)
+#define IDX_DI_DATA_BASE    (222)   // 222..237 (16 entries for 32 pixel clocks)
+
+#if !PICO_RP2040
+// HDMI audio state
+#define HDMI_AUDIO_RING_SIZE 1024
+#define HDMI_AUDIO_RING_MASK (HDMI_AUDIO_RING_SIZE - 1)
+static volatile int16_t hdmi_audio_ring_L[HDMI_AUDIO_RING_SIZE];
+static volatile int16_t hdmi_audio_ring_R[HDMI_AUDIO_RING_SIZE];
+static volatile uint32_t hdmi_audio_wr = 0;
+static volatile uint32_t hdmi_audio_rd = 0;
+static bool hdmi_audio_enabled = false;
+
+// Pre-computed conv_color data for DI packets (32 uint64_t = 16 entry pairs each)
+// These are ready to memcpy into conv_color[IDX_DI_DATA_BASE] in ISR
+static uint64_t acr_cc[32];         // ACR packet conv_color entries (static, computed once)
+static uint64_t infoframe_cc[32];   // InfoFrame conv_color entries (static, computed once)
+static uint64_t audio_pkt_cc[32];   // Audio sample packet (double-buffered, produced by pcm_call)
+static volatile bool audio_pkt_ready = false;  // set by producer, cleared by ISR consumer
+
+static uint64_t preamble_entry[2];
+static uint64_t guard_entry[2];
+
+// Forward declarations
+static void __attribute__((noinline)) hdmi_audio_hw_init(void);
+static void hdmi_fill_di_indices_bp(uint8_t *line_buf, int h_sync_bytes, int h_bp_bytes);
+static void hdmi_fill_di_indices_vblank(uint8_t *line_buf, int h_sync_bytes, int line_bytes);
+#endif
+
 //программа конвертации адреса
 
 uint16_t pio_program_instructions_conv_HDMI[] = {
@@ -245,6 +277,8 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
         memset(activ_buf + h_sync, BASE_HDMI_CTRL_INX, h_bp);
         memset(activ_buf, BASE_HDMI_CTRL_INX + 1, h_sync);
         memset(activ_buf + line_sz - h_fp, BASE_HDMI_CTRL_INX, h_fp);
+
+        // Audio sample packets sent in vblank only (h_bp too tight for active lines)
     }
     else {
         int blanking_rest = line_sz - h_sync;
@@ -257,6 +291,30 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
             //ССИ без изображения
             memset(activ_buf + h_sync, BASE_HDMI_CTRL_INX, blanking_rest);
             memset(activ_buf, BASE_HDMI_CTRL_INX + 1, h_sync);
+
+#if !PICO_RP2040
+            if (hdmi_audio_enabled) {
+                // DI packets on specific vblank lines (ISR fires on odd lines only)
+                uint32_t vbl_line = line - mode.v_active;  // offset from start of vblank
+                uint64_t *src = NULL;
+                if (vbl_line == 3) {
+                    src = acr_cc;
+                } else if (vbl_line == 5) {
+                    src = infoframe_cc;
+                } else if (vbl_line == 7 && audio_pkt_ready) {
+                    src = audio_pkt_cc;
+                    audio_pkt_ready = false;
+                }
+                if (src) {
+                    uint64_t *cc64 = (uint64_t *)conv_color;
+                    for (int i = 0; i < 16; i++) {
+                        cc64[(IDX_DI_DATA_BASE + i) * 2]     = src[i * 2];
+                        cc64[(IDX_DI_DATA_BASE + i) * 2 + 1] = src[i * 2 + 1];
+                    }
+                    hdmi_fill_di_indices_vblank(activ_buf, h_sync, line_sz);
+                }
+            }
+#endif
         };
     }
 }
@@ -535,6 +593,9 @@ void graphics_set_palette(uint8_t i, uint32_t color888) {
 #endif
 
     if ((i >= BASE_HDMI_CTRL_INX) && (i != 255)) return; //не записываем "служебные" цвета
+#if !PICO_RP2040
+    if (hdmi_audio_enabled && i >= IDX_DI_PREAMBLE && i <= (IDX_DI_DATA_BASE + 15)) return;
+#endif
 
     uint64_t* conv_color64 = (uint64_t *)conv_color;
     const uint8_t R = (color888 >> 16) & 0xff;
@@ -557,9 +618,275 @@ void graphics_init_hdmi() {
 
     // Palette is initialized centrally by Video.cpp Init()
     hdmi_init();
+
+#if !PICO_RP2040
+    if (hdmi_audio_enabled) {
+        hdmi_audio_hw_init();
+    }
+#endif
 }
 
 void graphics_set_bgcolor_hdmi(uint32_t color888) //определяем зарезервированный цвет в палитре
 {
     graphics_set_palette(255, color888);
 };
+
+// ============================================================
+// HDMI Audio — Data Island encoding (RP2350 only)
+// ============================================================
+#if !PICO_RP2040
+
+// TERC4 encoding table: 4-bit value → 10-bit TMDS-like codeword (HDMI 1.3 spec Table 5-3)
+static const uint16_t terc4_table[16] = {
+    0x29C, 0x263, 0x2E4, 0x2E2, 0x171, 0x11E, 0x18E, 0x13C,
+    0x2CC, 0x139, 0x19B, 0x26B, 0x164, 0x1D6, 0x0D4, 0x133
+};
+
+// BCH ECC for HDMI packets (polynomial x^8+x^4+x^3+x^2+1 = 0x11D)
+static uint8_t hdmi_bch_ecc(const uint8_t *data, int len) {
+    uint8_t ecc = 0;
+    for (int i = 0; i < len; i++) {
+        uint8_t byte = data[i];
+        for (int bit = 0; bit < 8; bit++) {
+            uint8_t fb = ((ecc >> 7) ^ (byte & 1));
+            ecc <<= 1;
+            if (fb) ecc ^= 0x1D;
+            byte >>= 1;
+        }
+    }
+    return ecc;
+}
+
+// ACR parameters: N=4096 for 32kHz, CTS = TMDS_clk * N / (128 * Fs)
+#define HDMI_ACR_N   4096
+#define HDMI_ACR_CTS 25805
+
+// Encode one Data Island pixel clock
+static inline uint64_t hdmi_di_pixel(uint8_t ch0_4bit, uint8_t ch1_4bit, uint8_t ch2_4bit) {
+    return get_ser_diff_data(terc4_table[ch2_4bit], terc4_table[ch1_4bit], terc4_table[ch0_4bit]);
+}
+
+// Build a complete Data Island packet into 32 uint64_t (16 conv_color entry pairs)
+static void hdmi_build_packet(uint64_t *out, const uint8_t header[4],
+                              const uint8_t subpkt[4][8], uint8_t hsync) {
+    uint32_t hdr_bits = header[0] | (header[1] << 8) | (header[2] << 16) | (header[3] << 24);
+
+    uint64_t sp_bits[4];
+    for (int s = 0; s < 4; s++) {
+        sp_bits[s] = 0;
+        for (int b = 0; b < 8; b++) {
+            sp_bits[s] |= ((uint64_t)subpkt[s][b]) << (b * 8);
+        }
+    }
+
+    for (int pc = 0; pc < 32; pc++) {
+        uint8_t hdr_bit = (hdr_bits >> pc) & 1;
+        uint8_t ch0 = (hsync & 1) | (0 << 1) | (hdr_bit << 2) | (0 << 3);
+
+        uint8_t sp0_bit0 = (sp_bits[0] >> (pc * 2)) & 1;
+        uint8_t sp0_bit1 = (sp_bits[0] >> (pc * 2 + 1)) & 1;
+        uint8_t sp2_bit0 = (sp_bits[2] >> (pc * 2)) & 1;
+        uint8_t sp2_bit1 = (sp_bits[2] >> (pc * 2 + 1)) & 1;
+        uint8_t ch1 = sp0_bit0 | (sp0_bit1 << 1) | (sp2_bit0 << 2) | (sp2_bit1 << 3);
+
+        uint8_t sp1_bit0 = (sp_bits[1] >> (pc * 2)) & 1;
+        uint8_t sp1_bit1 = (sp_bits[1] >> (pc * 2 + 1)) & 1;
+        uint8_t sp3_bit0 = (sp_bits[3] >> (pc * 2)) & 1;
+        uint8_t sp3_bit1 = (sp_bits[3] >> (pc * 2 + 1)) & 1;
+        uint8_t ch2 = sp1_bit0 | (sp1_bit1 << 1) | (sp3_bit0 << 2) | (sp3_bit1 << 3);
+
+        int entry_idx = pc / 2;
+        int sub_idx = pc & 1;
+        out[entry_idx * 2 + sub_idx] = hdmi_di_pixel(ch0, ch1, ch2);
+    }
+}
+
+static void hdmi_build_acr_packet(uint8_t hsync) {
+    uint8_t header[4];
+    header[0] = 0x01;  // ACR packet type
+    header[1] = 0x00;
+    header[2] = 0x00;
+    header[3] = hdmi_bch_ecc(header, 3);
+
+    uint8_t subpkt[4][8];
+    memset(subpkt, 0, sizeof(subpkt));
+    // Subpacket 0: CTS[19:0] and N[19:0]
+    uint32_t cts = HDMI_ACR_CTS;
+    uint32_t n = HDMI_ACR_N;
+    // Per HDMI 1.4b table 5-10:
+    subpkt[0][0] = 0;                    // SB0: reserved
+    subpkt[0][1] = (cts >> 16) & 0x0F;  // SB1: CTS[19:16]
+    subpkt[0][2] = (cts >> 8) & 0xFF;   // SB2: CTS[15:8]
+    subpkt[0][3] = (cts >> 0) & 0xFF;   // SB3: CTS[7:0]
+    subpkt[0][4] = (n >> 16) & 0x0F;    // SB4: N[19:16]
+    subpkt[0][5] = (n >> 8) & 0xFF;     // SB5: N[15:8]
+    subpkt[0][6] = (n >> 0) & 0xFF;     // SB6: N[7:0]
+    subpkt[0][7] = hdmi_bch_ecc(subpkt[0], 7);
+    // All 4 subpackets identical per HDMI spec
+    for (int s = 1; s < 4; s++) {
+        memcpy(subpkt[s], subpkt[0], 8);
+    }
+
+    hdmi_build_packet(acr_cc, header, subpkt, hsync);
+}
+
+static void hdmi_build_infoframe_packet(uint8_t hsync) {
+    uint8_t header[4];
+    header[0] = 0x84;  // Audio InfoFrame type
+    header[1] = 0x01;  // version
+    header[2] = 0x0A;  // length = 10
+    header[3] = hdmi_bch_ecc(header, 3);
+
+    uint8_t subpkt[4][8];
+    memset(subpkt, 0, sizeof(subpkt));
+    // Subpacket 0: checksum + audio info
+    // PB0 = checksum: -(sum of HB0..HB2 + PB1..PB10) & 0xFF
+    uint8_t pb1 = 0x01;  // CT=1(LPCM), CC=1(2 channels)
+    uint8_t pb2 = 0x00;  // SS=00, SF=00 (refer to stream header)
+    uint8_t pb4 = 0x00;  // CA=0x00 (FL/FR)
+    uint8_t pb5 = 0x00;  // DM_INH=0, LSV=0
+    int sum = header[0] + header[1] + header[2] + pb1 + pb2 + pb4 + pb5;
+    uint8_t pb0 = (uint8_t)(-(sum) & 0xFF);  // checksum
+    subpkt[0][0] = pb0;
+    subpkt[0][1] = pb1;
+    subpkt[0][2] = pb2;
+    subpkt[0][3] = 0;    // PB3: reserved
+    subpkt[0][4] = pb4;
+    subpkt[0][5] = pb5;
+    subpkt[0][6] = 0;    // PB6
+    subpkt[0][7] = hdmi_bch_ecc(subpkt[0], 7);
+    // Subpacket 1: PB7..PB13 (zeroes)
+    subpkt[1][7] = hdmi_bch_ecc(subpkt[1], 7);
+    // Subpackets 2-3: zeroes
+    for (int s = 2; s < 4; s++) subpkt[s][7] = hdmi_bch_ecc(subpkt[s], 7);
+
+    hdmi_build_packet(infoframe_cc, header, subpkt, hsync);
+}
+
+// Build Audio Sample Packet from ring buffer into audio_pkt_cc
+// Called from pcm_call (non-ISR context on core#1)
+static void hdmi_encode_audio_sample_packet(uint8_t hsync) {
+    uint8_t header[4];
+    header[0] = 0x02;  // Audio Sample packet type
+    header[1] = 0x0F;  // B[3:0]=sample_present (all 4), layout=0
+    header[2] = 0x00;
+    header[3] = hdmi_bch_ecc(header, 3);
+
+    uint8_t subpkt[4][8];
+    uint32_t rd = hdmi_audio_rd;
+    for (int s = 0; s < 4; s++) {
+        int16_t left  = hdmi_audio_ring_L[(rd + s) & HDMI_AUDIO_RING_MASK];
+        int16_t right = hdmi_audio_ring_R[(rd + s) & HDMI_AUDIO_RING_MASK];
+        uint32_t sample_L = ((uint32_t)(uint16_t)left) << 8;
+        uint32_t sample_R = ((uint32_t)(uint16_t)right) << 8;
+        subpkt[s][0] = sample_L & 0xFF;
+        subpkt[s][1] = (sample_L >> 8) & 0xFF;
+        subpkt[s][2] = (sample_L >> 16) & 0xFF;
+        subpkt[s][3] = sample_R & 0xFF;
+        subpkt[s][4] = (sample_R >> 8) & 0xFF;
+        subpkt[s][5] = (sample_R >> 16) & 0xFF;
+        subpkt[s][6] = 0x00;
+        subpkt[s][7] = hdmi_bch_ecc(subpkt[s], 7);
+    }
+
+    hdmi_build_packet(audio_pkt_cc, header, subpkt, hsync);
+    hdmi_audio_rd = rd + 4;
+    audio_pkt_ready = true;
+}
+
+static void hdmi_build_preamble_guard(uint8_t hsync) {
+    // Preamble: CTL0=1, CTL1=0, CTL2=1, CTL3=0 (Data Island preamble)
+    // Ch0: HSYNC + VSYNC=0 → use control character
+    // Ch1: CTL0=1, CTL1=0  Ch2: CTL2=1, CTL3=0
+    const uint16_t b0 = 0b1101010100; // VSYNC=0, HSYNC=0
+    const uint16_t b2 = 0b0101010100; // VSYNC=1, HSYNC=0
+    uint16_t ch0_ctrl = hsync ? b2 : b0;  // ch0 carries sync
+    // Data island preamble: CTL0=1 CTL1=0 → use specific control chars
+    uint16_t ch1_ctrl = 0b0010101011;  // CTL0=1, CTL1=0
+    uint16_t ch2_ctrl = 0b0010101011;  // CTL2=1, CTL3=0
+    preamble_entry[0] = get_ser_diff_data(ch2_ctrl, ch1_ctrl, ch0_ctrl);
+    preamble_entry[1] = preamble_entry[0];
+
+    // Guard band: TERC4 encoded per HDMI spec 5.2.3.3
+    // Ch0: TERC4({HSYNC, VSYNC=0, 1, 1})  Ch1,Ch2: TERC4(4'b0100)
+    uint8_t ch0_gb = (hsync & 1) | (0 << 1) | (1 << 2) | (1 << 3);
+    guard_entry[0] = hdmi_di_pixel(ch0_gb, 0x04, 0x04);
+    guard_entry[1] = guard_entry[0];
+}
+
+// Fill Data Island indices into h_bp region (for 640x480 modes)
+static void __attribute__((noinline)) hdmi_fill_di_indices_bp(uint8_t *line_buf, int h_sync_bytes, int h_bp_bytes) {
+    if (h_bp_bytes < 24) return;
+    uint8_t *bp = line_buf + h_sync_bytes;
+    // [0..1] blanking control (already set)
+    bp[0] = BASE_HDMI_CTRL_INX;
+    bp[1] = BASE_HDMI_CTRL_INX;
+    // [2..5] preamble (4 bytes = 8 TMDS pixels)
+    bp[2] = IDX_DI_PREAMBLE;
+    bp[3] = IDX_DI_PREAMBLE;
+    bp[4] = IDX_DI_PREAMBLE;
+    bp[5] = IDX_DI_PREAMBLE;
+    // [6] leading guard band
+    bp[6] = IDX_DI_GUARD;
+    // [7..22] packet body (16 bytes = 32 TMDS pixels)
+    for (int i = 0; i < 16; i++) {
+        bp[7 + i] = IDX_DI_DATA_BASE + i;
+    }
+    // [23] trailing guard
+    bp[23] = IDX_DI_GUARD;
+}
+
+// Fill Data Island in vblank line
+static void __attribute__((noinline)) hdmi_fill_di_indices_vblank(uint8_t *line_buf, int h_sync_bytes, int line_bytes) {
+    int rest = line_bytes - h_sync_bytes;
+    if (rest < 24) return;
+    uint8_t *bp = line_buf + h_sync_bytes;
+    bp[0] = BASE_HDMI_CTRL_INX;
+    bp[1] = BASE_HDMI_CTRL_INX;
+    bp[2] = IDX_DI_PREAMBLE;
+    bp[3] = IDX_DI_PREAMBLE;
+    bp[4] = IDX_DI_PREAMBLE;
+    bp[5] = IDX_DI_PREAMBLE;
+    bp[6] = IDX_DI_GUARD;
+    for (int i = 0; i < 16; i++) {
+        bp[7 + i] = IDX_DI_DATA_BASE + i;
+    }
+    bp[23] = IDX_DI_GUARD;
+}
+
+static void __attribute__((noinline)) hdmi_audio_hw_init(void) {
+    hdmi_build_preamble_guard(0);
+    hdmi_build_acr_packet(0);
+    hdmi_build_infoframe_packet(0);
+
+    uint64_t *conv_color64 = (uint64_t *)conv_color;
+    conv_color64[IDX_DI_PREAMBLE * 2]     = preamble_entry[0];
+    conv_color64[IDX_DI_PREAMBLE * 2 + 1] = preamble_entry[1];
+    conv_color64[IDX_DI_GUARD * 2]         = guard_entry[0];
+    conv_color64[IDX_DI_GUARD * 2 + 1]     = guard_entry[1];
+
+    hdmi_audio_enabled = true;
+}
+
+void hdmi_audio_init(void) {
+    hdmi_audio_wr = 0;
+    hdmi_audio_rd = 0;
+    memset((void *)hdmi_audio_ring_L, 0, sizeof(hdmi_audio_ring_L));
+    memset((void *)hdmi_audio_ring_R, 0, sizeof(hdmi_audio_ring_R));
+    hdmi_audio_enabled = true;  // flag for graphics_init_hdmi to call hdmi_audio_hw_init
+}
+
+void hdmi_audio_write_sample(int16_t left, int16_t right) {
+    uint32_t wr = hdmi_audio_wr;
+    hdmi_audio_ring_L[wr & HDMI_AUDIO_RING_MASK] = left;
+    hdmi_audio_ring_R[wr & HDMI_AUDIO_RING_MASK] = right;
+    hdmi_audio_wr = wr + 1;
+
+    // Every 4 samples, pre-encode a packet for the DMA ISR to pick up
+    uint32_t avail = (wr + 1) - hdmi_audio_rd;
+    if (avail >= 4 && !audio_pkt_ready) {
+        hdmi_encode_audio_sample_packet(0);
+    }
+}
+
+#endif // !PICO_RP2040

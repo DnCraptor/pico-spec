@@ -9,6 +9,9 @@
 #include "Debug.h"
 #include "LoadWavStream.h"
 #include "PinSerialData_595.h"
+#if !PICO_RP2040
+#include "hdmi.h"
+#endif
 
 // connection is possible 00->00 (external pull down)
 static int test_0000_case(uint32_t pin0, uint32_t pin1, int res) {
@@ -273,6 +276,13 @@ static bool hw_get_bit_LOAD() {
 #endif
 
 void init_sound() {
+#if !PICO_RP2040
+    if (Config::audio_driver == 4) {
+        Debug::log("init_sound: HDMI audio mode");
+        hdmi_audio_init();
+        return;
+    }
+#endif
     if (Config::audio_driver == 3) {
         Init_PWM_175(TSPIN_MODE_GP29);
     } else {
@@ -351,6 +361,15 @@ void pcm_call() {
         return;
     }
     m_let_process_it = false;
+#if !PICO_RP2040
+    if (Config::audio_driver == 4) {
+        if (m_off < m_size) {
+            hdmi_audio_write_sample(buff_L[m_off], buff_R[m_off]);
+            m_off++;
+        }
+        return;
+    }
+#endif
     if (Config::audio_driver == 3) {
 /// TODO:
     }
@@ -395,6 +414,11 @@ void pcm_cleanup(void) {
     m_let_process_it = false;
     cancel_repeating_timer(&m_timer);
     m_timer.delay_us = 0;
+#if !PICO_RP2040
+    if (Config::audio_driver == 4) {
+        return;  // HDMI audio — no hardware to clean up
+    }
+#endif
     if (Config::audio_driver == 3) {
         // TODO:
     } else if (is_i2s_enabled) {
@@ -410,6 +434,14 @@ void pcm_cleanup(void) {
 
 /// size - bytes
 void pcm_setup(int hz) {
+#if !PICO_RP2040
+    if (Config::audio_driver == 4) {
+        // HDMI audio — timer only, no I2S/PWM hardware
+        m_let_process_it = false;
+        add_repeating_timer_us(-1000000 / hz, timer_callback, NULL, &m_timer);
+        return;
+    }
+#endif
     if (Config::audio_driver == 3) {
         // TODO:
     } else if (is_i2s_enabled) {

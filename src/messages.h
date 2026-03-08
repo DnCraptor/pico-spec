@@ -367,7 +367,7 @@ static const char *MENU_IMG_TITLE[2] = { "esxDOS Image\n", "Imagen esxDOS\n" };
 
 static const char *MENU_FASTMODE[2] = { "Fast Mode\n", "Modo rápido\n" };
 static const char *MENU_WRITEPROTECT[2] = { "Write Protect\n", "MProtección contra escritura\n" };
-static const char *MENU_SOUNDLED[2] = { "Disk Sound & LED\n", "Sonido y LED del disco\n" };
+static const char *MENU_SOUNDLED[2] = { "Sound & LED\n", "Sonido y LED\n" };
 static const char *MENU_NMI_TITLE[2] = { "NMI\n", "NMI\n" };
 #define MENU_NMI_EN "NMI\n" "Magic Button\n"
 #define MENU_NMI_ES "NMI\n" "Magic Button\n"
@@ -415,6 +415,8 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
 #define MENU_MAIN_EN \
 	"Volume\n"\
     "Storage\t>\n"\
+    "Audio\t>\n"\
+    "Video\t>\n"\
 	"Machine\t>\n"\
     "Reset\t>\n"\
     "Options\t>\n"\
@@ -425,6 +427,8 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
 #define MENU_MAIN_ES \
     "Volumen\n"\
     "Almacenamiento\t>\n"\
+    "Audio\t>\n"\
+    "Video\t>\n"\
     "Modelo\t>\n"\
     "Resetear\t>\n"\
     "Opciones\t>\n"\
@@ -436,6 +440,8 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
 #define MENU_MAIN_EN \
 	"Volume\n"\
     "Storage\t>\n"\
+    "Audio\t>\n"\
+    "Video\t>\n"\
 	"Machine\t>\n"\
     "Reset\t>\n"\
     "Options\t>\n"\
@@ -445,6 +451,8 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
 #define MENU_MAIN_ES \
     "Volumen\n"\
     "Almacenamiento\t>\n"\
+    "Audio\t>\n"\
+    "Video\t>\n"\
     "Modelo\t>\n"\
     "Resetear\t>\n"\
     "Opciones\t>\n"\
@@ -457,6 +465,8 @@ static const char *MENU_MAIN[2] = { MENU_MAIN_EN, MENU_MAIN_ES };
 #define MENU_MAIN_NO_SD_EN \
 	"Volume\n"\
     "Storage\t>\n"\
+    "Audio\t>\n"\
+    "Video\t>\n"\
 	"Machine\t>\n"\
     "Reset\t>\n"\
     "Options\t>\n"\
@@ -465,6 +475,8 @@ static const char *MENU_MAIN[2] = { MENU_MAIN_EN, MENU_MAIN_ES };
 #define MENU_MAIN_NO_SD_ES \
     "Volumen\n"\
     "Almacenamiento\t>\n"\
+    "Audio\t>\n"\
+    "Video\t>\n"\
     "Modelo\t>\n"\
     "Resetear\t>\n"\
     "Opciones\t>\n"\
@@ -478,8 +490,6 @@ static const char *MENU_MAIN_NO_SD[2] = { MENU_MAIN_NO_SD_EN, MENU_MAIN_NO_SD_ES
     "Preferred ROM\t>\n"\
     "Joystick\t>\n"\
     "Joystick emulation\t>\n"\
-    "Audio\t>\n"\
-    "Video\t>\n"\
     "Other\t>\n"\
     "Language\t>\n"\
 	"Update\t>\n"
@@ -489,8 +499,6 @@ static const char *MENU_MAIN_NO_SD[2] = { MENU_MAIN_NO_SD_EN, MENU_MAIN_NO_SD_ES
     "ROM preferida\t>\n"\
     "Joystick\t>\n"\
     "Emulaci" "\xA2" "n joystick\t>\n"\
-    "Audio\t>\n"\
-    "Video\t>\n"\
     "Otros\t>\n"\
     "Idioma\t>\n"\
 	"Actualizar\t>\n"
@@ -758,16 +766,16 @@ static const char *MENU_AY48[2] = { "Turned on?\n" , "Turned on?\n"};
 static const char *MENU_SAA1099[2] = { "Turned on?\n" , "Turned on?\n"};
 #define _MIDI_STR(x) #x
 #define _MIDI_XSTR(x) _MIDI_STR(x)
-#define MENU_MIDI_EN "MIDI (Ext: P" _MIDI_XSTR(MIDI_TX_PIN) ")\n"\
+#define MENU_MIDI_EN "MIDI(Ext:P" _MIDI_XSTR(MIDI_TX_PIN) ")\n"\
     "OFF     \t[O]\n"\
     "AY      \t[A]\n"\
     "ShamaZX \t[S]\n"\
-    "Soft emulation\t[W]\n"
-#define MENU_MIDI_ES "MIDI (Ext: P" _MIDI_XSTR(MIDI_TX_PIN) ")\n"\
+    "Software\t[W]\n"
+#define MENU_MIDI_ES "MIDI(Ext:P" _MIDI_XSTR(MIDI_TX_PIN) ")\n"\
     "OFF     \t[O]\n"\
     "AY      \t[A]\n"\
     "ShamaZX \t[S]\n"\
-    "Soft emulation\t[W]\n"
+    "Software\t[W]\n"
 static const char *MENU_MIDI[2] = { MENU_MIDI_EN, MENU_MIDI_ES };
 #endif
 
@@ -807,11 +815,13 @@ static const char *MENU_COVOX[2] = { MENU_COVOX_EN, MENU_COVOX_EN };
     "PWM      \t[P]\n"\
     "i2s      \t[I]\n"\
     "AY-3-8910\t[Y]\n"
+	// \"HDMI     \t[H]\n"
 #define MENU_I2S_ES "Controlador de audio\n"\
     "Auto     \t[A]\n"\
     "PWM      \t[P]\n"\
     "i2s      \t[I]\n"\
     "AY-3-8910\t[Y]\n"
+	// \"HDMI     \t[H]\n"
 static const char *MENU_I2S[2] = { MENU_I2S_EN, MENU_I2S_ES };
 
 #define MENU_ALF_JOY_EN "Source\n"\

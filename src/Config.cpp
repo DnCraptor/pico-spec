@@ -446,6 +446,7 @@ void Config::load() {
         if (v == "pwm") Config::audio_driver = 1;
         else if (v == "i2s") Config::audio_driver = 2;
         else if (v == "ay") Config::audio_driver = 3;
+        else if (v == "hdmi") Config::audio_driver = 4;
         nvs_get_str("video_driver", v, sts);
         if (v == "VGA" || v == "vga") video_driver = 1;
         else if (v == "HDMI" || v == "hdmi" || v == "DVI" || v == "dvi") video_driver = 2;
@@ -595,7 +596,8 @@ void Config::save() {
         nvs_set_str(handle,"ulaplus", Config::ulaplus ? "true" : "false");
         #endif
         nvs_set_str(handle,"audio_driver", Config::audio_driver == 0 ? "auto" :
-            (Config::audio_driver == 1) ? "pwm" : ((Config::audio_driver == 2) ? "i2s" : "ay")
+            (Config::audio_driver == 1) ? "pwm" : (Config::audio_driver == 2) ? "i2s" :
+            (Config::audio_driver == 3) ? "ay" : "hdmi"
         );
         nvs_set_str(handle,"video_driver", video_driver == 0 ? "auto" : (video_driver == 1) ? "vga" : "hdmi");
         nvs_set_str(handle,"byte_cobmect_mode", Config::byte_cobmect_mode ? "true" : "false");
