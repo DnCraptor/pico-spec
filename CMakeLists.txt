@@ -39,7 +39,7 @@ endif()
 
 #set(CPU_MHZ 252)
 set(CPU_MHZ 378)
-set (PORT_VERSION "1.2.M")
+set (PORT_VERSION "1.2.N")
 
 # Target board (default: PICO_PC; override with -D flags, e.g. cmake -DMURM2=ON)
 if(NOT MURM AND NOT MURM2 AND NOT PICO_PC AND NOT PICO_DV AND NOT ZERO AND NOT ZERO2)
@@ -156,7 +156,7 @@ set_source_files_properties(src/Video.cpp PROPERTIES
     COMPILE_FLAGS "-O3 -funroll-loops")
 # Z80 эмулятор — самый горячий код, критично для производительности
 set_source_files_properties(src/Z80_JLS.cpp PROPERTIES
-    COMPILE_FLAGS "-O3")
+    COMPILE_FLAGS "-O3 -funroll-loops")
 set_source_files_properties(src/CPU.cpp PROPERTIES
     COMPILE_FLAGS "-O3")
 set_source_files_properties(src/Ports.cpp PROPERTIES
@@ -191,6 +191,7 @@ target_link_libraries(${PROJECT_NAME} PRIVATE
     hardware_timer
     hardware_clocks
     hardware_pwm
+    hardware_uart
     hardware_flash
     hardware_exception
     stdc++
@@ -287,6 +288,7 @@ IF(MURM2)
         BEEPER_PIN=9 #
         PWM_PIN0=10 #
         PWM_PIN1=11
+        MIDI_TX_PIN=22
 
         # SDCARD
         SDCARD_PIN_SPI0_CS=5
@@ -363,6 +365,7 @@ ELSEIF(PICO_PC)
         BEEPER_PIN=26 # not implemented
         PWM_PIN0=27 # R
         PWM_PIN1=28 # L
+        MIDI_TX_PIN=26
 
         # SDCARD
         SDCARD_PIN_SPI0_MISO=4
@@ -406,7 +409,7 @@ ELSEIF(PICO_DV)
         KBD_CLOCK_PIN=0
         KBD_DATA_PIN=1
 
-        LOAD_WAV_PIO=14 # Same place as button A on the board (replacement)
+        LOAD_WAV_PIO=17
 
         CLK_AY_PIN1=21 # not in use
         LATCH_595_PIN=26
@@ -421,6 +424,7 @@ ELSEIF(PICO_DV)
         PWM_PIN0=26 # R
         PWM_PIN1=27 # L
         BEEPER_PIN=28 # not implemented
+        MIDI_TX_PIN=4
 
         # SDCARD
         SDCARD_SPI_BUS=spi1
@@ -542,6 +546,7 @@ ELSEIF(ZERO2)
         PWM_PIN0=10
         PWM_PIN1=11
         BEEPER_PIN=12
+        MIDI_TX_PIN=22
 
         # SDCARD
         SDCARD_SPI_BUS=spi1
@@ -599,6 +604,7 @@ ELSE()
         PWM_PIN0=26 #
         PWM_PIN1=27 #
         BEEPER_PIN=28
+        MIDI_TX_PIN=22
 
         # SDCARD
         SDCARD_PIN_SPI0_CS=5

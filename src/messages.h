@@ -86,6 +86,14 @@ static const char *OSD_GIGASCREEN_OFF[2] = { OSD_GIGASCREEN_OFF_EN,OSD_GIGASCREE
 #define OSD_GIGASCREEN_AUTO_ES "--=[ GIGASCREEN AUTO ]=--"
 static const char *OSD_GIGASCREEN_AUTO[2] = { OSD_GIGASCREEN_AUTO_EN,OSD_GIGASCREEN_AUTO_ES };
 
+#define OSD_COBMECT_ON_EN  "--=[ COBMECT. MODE ON ]=--"
+#define OSD_COBMECT_ON_ES  "--=[ COBMECT. MODE ON ]=--"
+static const char *OSD_COBMECT_ON[2] = { OSD_COBMECT_ON_EN,OSD_COBMECT_ON_ES };
+
+#define OSD_COBMECT_OFF_EN "--=[ COBMECT. MODE OFF ]=--"
+#define OSD_COBMECT_OFF_ES "--=[ COBMECT. MODE OFF ]=--"
+static const char *OSD_COBMECT_OFF[2] = { OSD_COBMECT_OFF_EN,OSD_COBMECT_OFF_ES };
+
 #define OSD_PSNA_NOT_AVAIL "No Persist Snapshot Available"
 #define OSD_PSNA_LOADING "Loading Persist Snapshot"
 #define OSD_PSNA_SAVING  "Saving Persist Snapshot"
@@ -154,6 +162,22 @@ static const char *OSD_FIRMW_UPDATE[2] = { OSD_FIRMW_UPDATE_EN,OSD_FIRMW_UPDATE_
 #define OSD_DLG_SURE_EN "Are you sure?"
 #define OSD_DLG_SURE_ES "\xA8" "Desea continuar?"
 static const char *OSD_DLG_SURE[2] = { OSD_DLG_SURE_EN, OSD_DLG_SURE_ES};
+
+#define OSD_DLG_REBOOT_EN "Reboot the board?"
+#define OSD_DLG_REBOOT_ES "\xA8" "Reiniciar la placa?"
+static const char *OSD_DLG_REBOOT[2] = { OSD_DLG_REBOOT_EN, OSD_DLG_REBOOT_ES};
+
+#define OSD_DLG_LOADDEFAULTS_EN "Load defaults and reboot?"
+#define OSD_DLG_LOADDEFAULTS_ES "\xA8" "Cargar defaults y reiniciar?"
+static const char *OSD_DLG_LOADDEFAULTS[2] = { OSD_DLG_LOADDEFAULTS_EN, OSD_DLG_LOADDEFAULTS_ES};
+
+#define OSD_DLG_USBBOOT_EN "Reboot to USB mode?"
+#define OSD_DLG_USBBOOT_ES "\xA8" "Reiniciar en modo USB?"
+static const char *OSD_DLG_USBBOOT[2] = { OSD_DLG_USBBOOT_EN, OSD_DLG_USBBOOT_ES};
+
+#define OSD_DLG_APPLYREBOOT_EN "Apply and reboot?"
+#define OSD_DLG_APPLYREBOOT_ES "\xA8" "Aplicar y reiniciar?"
+static const char *OSD_DLG_APPLYREBOOT[2] = { OSD_DLG_APPLYREBOOT_EN, OSD_DLG_APPLYREBOOT_ES};
 
 #define OSD_DLG_JOYSAVE_EN "Save changes?"
 #define OSD_DLG_JOYSAVE_ES "\xA8" "Guardar cambios?"
@@ -502,12 +526,18 @@ static const char *MENU_VIDEO[2] = { MENU_VIDEO_EN, MENU_VIDEO_ES };
 #define MENU_VIDEO_MODE_EN \
     "Mode\n"\
     "640x480@60\t[6]\n"\
-    "640x480@50\t[5]\n"
+    "640x480@50\t[5]\n"\
+    "720x480@60\t[H]\n"\
+    "720x576@60!\t[X]\n"\
+    "720x576@50\t[F]\n"
 
 #define MENU_VIDEO_MODE_ES \
     "Modo\n"\
     "640x480@60\t[6]\n"\
-    "640x480@50\t[5]\n"
+    "640x480@50\t[5]\n"\
+    "720x480@60\t[H]\n"\
+    "720x576@60!\t[X]\n"\
+    "720x576@50\t[F]\n"
 
 static const char *MENU_VIDEO_MODE[2] = { MENU_VIDEO_MODE_EN, MENU_VIDEO_MODE_ES };
 
@@ -657,15 +687,17 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
     "AY-3-8912 Stereo\t>\n"\
     "TurboSound\t>\n"\
     "Covox\t>\n"\
-    "Audio Driver\t>\n"\
-    "SAA1099 ON/OFF\t>\n"
+    "SAA1099 ON/OFF\t>\n"\
+    "Ext MIDI\t>\n"\
+    "Audio Driver\t>\n"
 #define MENU_AUDIO_ES "Audio\n"\
     "AY-3-8912 ON/OFF\t>\n"\
     "AY-3-8912 Est" "\x82" "reo\t>\n"\
     "TurboSound\t>\n"\
     "Covox\t>\n"\
-    "Controlador de audio\t>\n"\
-    "SAA1099 ON/OFF\t>\n"
+    "SAA1099 ON/OFF\t>\n"\
+    "Ext MIDI\t>\n"\
+    "Controlador de audio\t>\n"
 #endif
 static const char *MENU_AUDIO[2] = { MENU_AUDIO_EN, MENU_AUDIO_ES };
 
@@ -689,6 +721,15 @@ static const char *MENU_AY48[2] = { "Turned on?\n" , "Turned on?\n"};
 
 #if !PICO_RP2040
 static const char *MENU_SAA1099[2] = { "Turned on?\n" , "Turned on?\n"};
+#define MENU_MIDI_EN "Ext MIDI\n"\
+    "OFF     \t[O]\n"\
+    "AY      \t[A]\n"\
+    "ShamaZX \t[S]\n"
+#define MENU_MIDI_ES "Ext MIDI\n"\
+    "OFF     \t[O]\n"\
+    "AY      \t[A]\n"\
+    "ShamaZX \t[S]\n"
+static const char *MENU_MIDI[2] = { MENU_MIDI_EN, MENU_MIDI_ES };
 #endif
 
 #if !PICO_RP2040

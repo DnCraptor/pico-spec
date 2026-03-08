@@ -259,7 +259,7 @@ static void PWM_init_pin(uint8_t pinN, uint16_t max_lvl) {
 }
 
 #ifdef LOAD_WAV_PIO
-inline static void inInit(uint gpio) {
+void inInit(uint gpio) {
     gpio_init(gpio);
     gpio_set_dir(gpio, GPIO_IN);
     gpio_pull_up(gpio);
@@ -297,23 +297,50 @@ void init_sound() {
         }
     }
 #ifdef LOAD_WAV_PIO
-    //пин ввода звука
-    inInit(LOAD_WAV_PIO);
+    //пин ввода звука (не инициализировать если MIDI использует тот же пин)
+#if !PICO_RP2040
+    if (!Config::midi)
+#endif
+    {
+        inInit(LOAD_WAV_PIO);
+    }
 #endif
 }
 
 #if LOAD_WAV_PIO
 static LoadWavStream* lws = 0;
+static repeating_timer_t m_lws_timer;
+static bool lws_timer_active = false;
+// Use 25000 Hz — must not match HDMI DMA rates (50Hz: 31250, 60Hz: 31500)
+// to avoid phase-lock where DMA (priority 0) systematically delays every tick
+#define LWS_SAMPLE_FREQ 25000
+
+static bool __not_in_flash_func(lws_timer_callback)(repeating_timer_t *rt) {
+    if (lws && Config::real_player) {
+        lws->tick();
+    }
+    return true;
+}
 
 bool pcm_data_in(void) {
     return lws ? lws->get_in_sample() : false;
 }
 // reset input buffer to start on each frame started
 void pwm_audio_in_frame_started(void) {
-    if (!lws) lws = new LoadWavStream();
+    if (!lws) {
+        lws = new LoadWavStream();
+        if (!lws_timer_active) {
+            add_repeating_timer_us(-1000000 / LWS_SAMPLE_FREQ, lws_timer_callback, NULL, &m_lws_timer);
+            lws_timer_active = true;
+        }
+    }
     lws->open_frame();
 }
 void pcm_audio_in_stop(void) {
+    if (lws_timer_active) {
+        cancel_repeating_timer(&m_lws_timer);
+        lws_timer_active = false;
+    }
     if (lws) delete lws;
     lws = 0;
 }
@@ -321,11 +348,6 @@ void pcm_audio_in_stop(void) {
 
 static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core#1?
     m_let_process_it = true;
-#if LOAD_WAV_PIO
-    if (lws && Config::real_player) {
-        lws->tick();
-    }
-#endif
     return true;
 }
 

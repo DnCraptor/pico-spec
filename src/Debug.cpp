@@ -56,7 +56,7 @@ void Debug::log(string data)
     // Лимит 10KB — перезаписываем с начала при переполнении
     FIL* handle = fopen2(nvs.c_str(), FA_WRITE | FA_OPEN_APPEND);
     if (handle) {
-        if (f_size(handle) >= 10240) {
+        if (f_size(handle) >= 51200) {
             fclose2(handle);
             handle = fopen2(nvs.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
             if (!handle) return;

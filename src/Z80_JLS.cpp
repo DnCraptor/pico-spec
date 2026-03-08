@@ -31,6 +31,7 @@
 #include "FileUtils.h"
 #include "OSDMain.h"
 #include "messages.h"
+#include "Debug.h"
 
 
 // #include "Snapshot.h"
@@ -2398,11 +2399,35 @@ void Z80::decodeOpcodebe()
 
     cp(regA);
 
-    if (REG_PC == 0x56b) { // LOAD trap
+    // LOAD trap: CP A in ROM LD-BYTES routine
+    // PC after fetch depends on ROM variant:
+    //   0x056B = Spanish 48K ROM (CP A at 0x056A) -> RET at 0x05E2
+    //   0x056D = Byte 48K ROM    (CP A at 0x056C) -> RET at 0x05E4
+    //   0x057D = Sinclair 48K ROM(CP A at 0x057C) -> RET at 0x0606
+    if (REG_PC == 0x56b || REG_PC == 0x56d || REG_PC == 0x57d) {
 
-        if ((Tape::tapeFileType == TAPE_FTYPE_TAP) && (Tape::tapeFileName != "none")) {
-              if ((Config::flashload) && (Tape::tapeStatus != TAPE_LOADING)) {
-                if (Tape::FlashLoad()) REG_PC = 0x5e2;
+        if ((Tape::tapeFileType == TAPE_FTYPE_TAP || Tape::tapeFileType == TAPE_FTYPE_TZX) && (Tape::tapeFileName != "none")) {
+              // Skip ROM FlashLoad while JJ screen animation is in progress —
+              // the loader's edge detection timeout can briefly return to ROM,
+              // and we must not let ROM FlashLoad consume tape blocks.
+              if (Config::flashload && !Tape::jjScreenAnimating) {
+                // Save return PC before FlashLoad (it doesn't modify REG_PC)
+                uint16_t trapPC = REG_PC;
+                Debug::log("ROM FL: trap=0x%04X blk=%d/%d IX=0x%04X DE=0x%04X A=0x%02X",
+                       trapPC, Tape::tapeCurBlock, Tape::tapeNumBlocks,
+                       getRegIX(), getRegDE(), regA);
+                if (Tape::FlashLoad()) {
+                    // Stop tape if it was auto-started
+                    if (Tape::tapeStatus == TAPE_LOADING) {
+                        Tape::tapeStatus = TAPE_STOPPED;
+                        Tape::tapePhase = TAPE_PHASE_STOPPED;
+                    }
+                    // Jump to RET after CP 0x01 in the active ROM's LD-BYTES
+                    if (trapPC == 0x56d)      REG_PC = 0x5e4; // Byte ROM
+                    else if (trapPC == 0x57d) REG_PC = 0x606; // Sinclair ROM
+                    else                      REG_PC = 0x5e2; // Spanish ROM
+                    Debug::log("ROM FL: OK -> blk=%d PC=0x%04X", Tape::tapeCurBlock, REG_PC);
+                }
             }
         }
     }
@@ -2966,6 +2991,55 @@ void Z80::decodeOpcodef0() /* RET P */
 
 void Z80::decodeOpcodef1() /* POP AF */
 {
+    // Byte ROM LOAD trap: POP AF at 0x0556 (PC=0x0557 after fetch).
+    // Byte ROM has POP AF;RET at 0x0556-0x0557 instead of LD-BYTES entry
+    // (LD-BYTES is at 0x0558 on Byte ROM, shifted 16 bytes earlier).
+    // Two call patterns reach here:
+    //   CALL 0x0556 from ROM: stack has CALL return addr (< 0x4000)
+    //   JP 0x0556 from user code: stack has game entry addr (>= 0x4000)
+    // Both need FlashLoad. After FlashLoad, pop() gives the correct return:
+    //   CALL case: pops CALL return addr → back to ROM caller
+    //   JP case: pops game entry addr → starts game
+    if (REG_PC == 0x557 && Z80Ops::isByte && Config::flashload &&
+        !Tape::jjScreenAnimating &&
+        (Tape::tapeFileType == TAPE_FTYPE_TAP || Tape::tapeFileType == TAPE_FTYPE_TZX) &&
+        Tape::tapeFileName != "none") {
+        // Simulate EX AF,AF': swap A/F with A'/F' so FlashLoad sees flag in A'
+        uint8_t tmpA = regA;       uint8_t tmpAx = REG_Ax;
+        uint8_t tmpF = getFlags(); uint8_t tmpFx = REG_Fx;
+        regA = tmpAx;   REG_Ax = tmpA;
+        setFlags(tmpFx); REG_Fx = tmpF;
+
+        // For JP 0x0556 (e.g. from JJ hidden code), DE may be stale/zero.
+        // FlashLoad uses DE as expected byte count. Set DE to 0xFFFF so
+        // FlashLoad loads the full block (it uses min(DE, blockLen)).
+        uint16_t origDE = getRegDE();
+        uint16_t retOnStack = Z80Ops::peek16(regSP.word);
+        if (retOnStack >= 0x4000) {
+            setRegDE(0xFFFF);
+        }
+
+        Debug::log("POP AF trap: blk=%d/%d IX=0x%04X DE=0x%04X A=0x%02X Ax=0x%02X ret=0x%04X",
+                   Tape::tapeCurBlock, Tape::tapeNumBlocks,
+                   getRegIX(), getRegDE(), regA, REG_Ax, retOnStack);
+        if (Tape::FlashLoad()) {
+            if (Tape::tapeStatus == TAPE_LOADING) {
+                Tape::tapeStatus = TAPE_STOPPED;
+                Tape::tapePhase = TAPE_PHASE_STOPPED;
+            }
+            // Skip POP AF;RET — pop return address from stack.
+            // CALL 0x0556: pops CALL return addr → back to caller
+            // JP 0x0556: pops game entry addr → starts game
+            REG_PC = pop();
+            // Set carry flag = success (standard LD-BYTES convention)
+            carryFlag = true;
+            return;
+        }
+        // FlashLoad failed — restore original A/F and A'/F' and DE
+        REG_Ax = regA;   regA = tmpA;
+        REG_Fx = getFlags(); setFlags(tmpF);
+        setRegDE(origDE);
+    }
     setRegAF(pop());
 }
 

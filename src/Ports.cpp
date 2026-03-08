@@ -51,8 +51,13 @@ visit https://zxespectrum.speccy.org/contacto
 #include "OSDMain.h"
 
 #include "Debug.h"
+#include "Midi.h"
 
-// #pragma GCC optimize("O3")
+// Place hot port functions in SRAM instead of XIP flash
+#undef IRAM_ATTR
+#define IRAM_ATTR __not_in_flash("ports")
+
+#pragma GCC optimize("O3")
 
 // Values calculated for BEEPER, EAR, MIC bit mask (values 0-7)
 // Taken from FPGA values suggested by Rampa
@@ -75,7 +80,7 @@ Ports::PIT8253Channel Ports::pitChannels[3] = {};
 
 uint8_t (*Ports::getFloatBusData)() = &Ports::getFloatBusData48;
 
-uint8_t Ports::getFloatBusData48() {
+IRAM_ATTR uint8_t Ports::getFloatBusData48() {
 
   unsigned int currentTstates = CPU::tstates;
 
@@ -96,7 +101,7 @@ uint8_t Ports::getFloatBusData48() {
   return (VIDEO::grmem[VIDEO::offBmp[line] + hpoffset]);
 }
 
-uint8_t Ports::getFloatBusData128() {
+IRAM_ATTR uint8_t Ports::getFloatBusData128() {
 
   unsigned int currentTstates = CPU::tstates - 1;
 
@@ -159,6 +164,10 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     int delay = MemESP::getByteContention(address);
     VIDEO::Draw(delay, true);
   } else {
+    // // ULA ports (A0=0): ULA always applies contention during display area
+    // // Non-ULA ports (A0=1): contention only if port address maps to contended memory
+    // bool earlyContend = ((address & 0x0001) == 0) ? !Z80Ops::isPentagon : MemESP::ramContended[rambank];
+    // VIDEO::Draw(1, earlyContend); // I/O Contention (Early)
     // Early contention depends on ADDRESS (contended memory?), not port type
     // Wiki: ULA port non-contended addr = N:1,C:3; contended addr = C:1,C:3
     //        Non-ULA contended addr = C:1,C:1,C:1,C:1; non-contended = N:4
@@ -195,19 +204,25 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
           data &= port[row];
       }
     }
-    if (Tape::tapeStatus == TAPE_LOADING) {
-      Tape::Read();
-    }
-    if ((Z80Ops::is48) &&
-        (Config::Issue2)) { // Issue 2 behaviour only on Spectrum 48K
-      if (port254 & 0x18)
+    if (Tape::TapePortRead()) return data;
+    // Turbo loaders at 0xFE00+ write to port254 to set border colors, which
+    // on Issue2 hardware feeds bit3 back into EAR input (bit6), inverting
+    // the tape signal. Bypass port254 feedback for turbo loaders.
+    if (Tape::tapeStatus == TAPE_LOADING && Z80::getRegPC() >= 0xFE00) {
+      if (Tape::tapeEarBit)
         data |= 0x40;
     } else {
-      if (port254 & 0x10)
-        data |= 0x40;
+      if ((Z80Ops::is48) &&
+          (Config::Issue2)) { // Issue 2 behaviour only on Spectrum 48K
+        if (port254 & 0x18)
+          data |= 0x40;
+      } else {
+        if (port254 & 0x10)
+          data |= 0x40;
+      }
+      if (Tape::tapeEarBit)
+        data ^= 0x40;
     }
-    if (Tape::tapeEarBit)
-      data ^= 0x40;
   } else {
     ioContentionLate(MemESP::ramContended[rambank]);
 #ifndef NO_ALF
@@ -229,6 +244,15 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
         return VIDEO::ulaplus_palette[reg & 0x3F];
       else
         return VIDEO::ulaplus_enabled ? 1 : 0;
+    }
+    // ShamaZX MIDI — status read from 0xA1CF
+    // Bit 6 = "receiver full" — reflect real UART FIFO state
+    if (Midi::enabled == 2 && address == 0xA1CF) {
+      return Midi::busy() ? 0x40 : 0x00;
+    }
+    // ShamaZX MIDI — read from 0xA0CF (parallel mode handshake)
+    if (Midi::enabled == 2 && address == 0xA0CF) {
+      return 0x00;
     }
 #endif
     // The default port value is 0xFF.
@@ -345,8 +369,13 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     int delay = MemESP::getByteContention(address);
     VIDEO::Draw(delay, true);
   } else {
-    // Early contention depends on ADDRESS (contended memory?), not port type
-    VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
+    // // Early contention depends on ADDRESS (contended memory?), not port type
+    // VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
+    
+    // ULA ports (A0=0): ULA always applies contention during display area
+    // Non-ULA ports (A0=1): contention only if port address maps to contended memory
+    bool earlyContend = ((address & 0x0001) == 0) ? !Z80Ops::isPentagon : MemESP::ramContended[rambank];
+    VIDEO::Draw(1, earlyContend);
   }
   uint8_t a8 = (address & 0xFF);
   p_states = CPU::tstates;
@@ -400,6 +429,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     if (VIDEO::borderColor != data) {
       VIDEO::brdChange = true;
       if (!Z80Ops::isPentagon)
+        // VIDEO::Draw(0, false); // Flush video rendering without adding contention
         VIDEO::Draw(0, true); // Apply contention to align border change with ULA character cell
       VIDEO::DrawBorder();
       VIDEO::borderColor = data & 0x07;
@@ -506,10 +536,18 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
       ESPectrum::CovoxGetSample();
     }
 #if !PICO_RP2040
+    // ShamaZX MIDI Interface (SAM2695)
+    // 0xA0CF = control port: TX data byte here
+    // 0xA1CF = data port: write 0xFF/0x3F for init, read status (bit 6 = receiver full)
+    if (Midi::enabled == 2 && address == 0xA0CF) {
+      Midi::send(data);
+      return;
+    }
     // SAA1099 Sound Chip
     // Ports: 0x00FF/0x01FF (original), 0x04FF/0x05FF (Light/Middle revisions)
+    //        0x00FE/0x01FE (FPGA48all.tap and some other programs use a8=0xFE)
     // Accessible only when TR-DOS ROM is NOT mapped (DOS/ = 1)
-    if (ESPectrum::SAA_emu && !ESPectrum::trdos && a8 == 0xFF) {
+    if (ESPectrum::SAA_emu && !ESPectrum::trdos && (a8 == 0xFF)) {
       if (address & 0x0100) {
         // Register select (bit 8 set): 0x01FF, 0x05FF, etc.
         // Generate samples before selectRegister — it advances external envelope clock

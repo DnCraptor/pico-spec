@@ -39,6 +39,7 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - Contended memory and contended I/O emulation.
 - AY-3-8912 / TurboSound emulation.
 - SAA1099 sound chip emulation (https://en.wikipedia.org/wiki/Philips_SAA1099).
+- External MIDI output via UART (31250 baud) — AY bit-bang and ShamaZX (SAM2695) modes.
 - Beeper & Mic emulation (Cobra’s Arc).
 - Dual keyboard support: you can connect two devices: first using PS/2 protocol and second using USB at the same time.
 - PS/2 Joystick emulation (Cursor, Sinclair, Kempston and Fuller).
@@ -112,6 +113,42 @@ For the 128K architecture, it can be either 16kb or 32kb. If it's 16kb, the seco
 It is important to note that for custom ROMs, fast loading of taps can be used, but the loading should be started manually, considering the possibility that the "traps" of the ROM loading routine might not work depending on the flashed ROM. For example, with Rodolfo Guerra's ROMs, both loading and recording traps using the SAVE command work perfectly.
 
 Finally, keep in mind that when updating the firmware, you will need to re-flash the custom ROMs afterward, so I recommend leaving the files "48custom.rom" and "128custom.rom" on the card for the custom ROMs you wish to use.
+
+## External MIDI Output
+
+The emulator supports external MIDI output via a UART TX pin at 31250 baud (RP2350 boards only). Enable it in the OSD menu: **Audio → Ext MIDI**.
+
+Two modes are available:
+
+- **AY** — Decodes bit-bang UART transmitted through AY-3-8912 register 14 (IOPortA, bit 2). Software like [zx-midiplayer](https://github.com/UzixLS/zx-midiplayer) uses this method in "128std" / "TS1" / "TS2" output modes, writing individual bits (0xFE=HIGH, 0xFA=LOW) to form MIDI bytes at 31250 baud. The emulator reconstructs complete bytes from these bit-bang writes and sends them to the UART.
+- **ShamaZX** — Emulates the ShamaZX parallel MIDI interface (SAM2695 synth module). Port 0xA0CF is used for TX data, port 0xA1CF for status (bit 6 = busy). This corresponds to the "ShamaZX" output mode in [zx-midiplayer](https://github.com/UzixLS/zx-midiplayer).
+
+### MIDI TX Pin Configuration
+
+The MIDI TX pin is configured per board in `CMakeLists.txt` via `MIDI_TX_PIN`. Default values by board:
+
+| Board | MIDI_TX_PIN |
+|-------|-------------|
+| Murmulator | 22 |
+| Waveshare PiZero | 26 |
+| Pimoroni Pico DV | 4 |
+| Olimex RP2040-PICO-PC | 22 |
+
+**Note:** On Murmulator boards, MIDI TX and real tape input share the same pin (GPIO 22). When MIDI is enabled, real tape loading is disabled. Disable MIDI in the menu to use real tape input.
+
+### Connecting to Raspberry Pi 3/4 as MIDI Host
+
+You can use a Raspberry Pi 3 or 4 as a USB MIDI host with a hardware synth or software synthesizer (e.g. FluidSynth).
+
+**Wiring** (directly, no optocoupler needed for short connections):
+
+```
+RP2350 Board              Raspberry Pi 3/4
+─────────────             ────────────────
+MIDI_TX_PIN  ──────────── GPIO 15 (RXD, pin 10)
++5V          ──────────── +5V (e.g. pin 2)
+GND          ──────────── GND (e.g. pin 6)
+```
 
 ## How to build
 ### Windows 10+

@@ -62,6 +62,7 @@ visit https://zxespectrum.speccy.org/contacto
 
 #include "PinSerialData_595.h"
 #include "Debug.h"
+#include "Midi.h"
 
 using namespace std;
 
@@ -634,6 +635,7 @@ void ESPectrum::setup() {
     mem_desc_t *temp = MemESP::ram;
     MemESP::ram = new mem_desc_t[MEM_PG_CNT + 2];
     memcpy(MemESP::ram, temp, sizeof(mem_desc_t) * 8);
+    Debug::log("setup: after memcpy: ram5=%p ram7=%p", MemESP::ram[5].direct(), MemESP::ram[7].direct());
     MemESP::ram[0].assign_ram(new unsigned char[MEM_PG_SZ], 0, false);
     MemESP::ram[1].assign_ram(new unsigned char[MEM_PG_SZ], 1, false);
     MemESP::ram[2].assign_ram(new unsigned char[MEM_PG_SZ], 2, false);
@@ -649,6 +651,8 @@ void ESPectrum::setup() {
       assign_ram(i);
     }
     Debug::log("setup: ext_ram: all pages done, freeHeap=%u", getFreeHeap());
+    Debug::log("setup: ram5=%p ram7=%p diff=%d", MemESP::ram[5].direct(), MemESP::ram[7].direct(),
+               (int)((uint8_t*)MemESP::ram[7].direct() - (uint8_t*)MemESP::ram[5].direct()));
   } else {
     Debug::log("setup: no ext_ram path, freeHeap=%u", getFreeHeap());
 #if PICO_RP2350
@@ -739,6 +743,8 @@ void ESPectrum::setup() {
     AY_emu = Config::AY48;
 #if !PICO_RP2040
     SAA_emu = Config::SAA1099;
+    Midi::enabled = Config::midi;
+    if (Midi::enabled) Midi::init();
 #endif
 
   if (Config::arch == "48K") {
@@ -833,6 +839,7 @@ void ESPectrum::setup() {
   // Reset cpu
   Debug::log("setup: CPU reset begin");
   CPU::reset();
+  VIDEO::Reset(); // Re-run after CPU::reset() so Z80Ops flags are correct
 
 #if !PICO_RP2040
   // KR580VI53 (8253 PIT) — reset to silent state
@@ -912,8 +919,6 @@ void ESPectrum::reset(uint8_t romInUse) {
 
   MemESP::pagingLock = Config::arch == "48K" ? 1 : 0;
 
-  VIDEO::Reset();
-
   // Init disk controller
   rvmWD1793Reset(&fdd);
 
@@ -942,6 +947,8 @@ void ESPectrum::reset(uint8_t romInUse) {
   AY_emu = Config::AY48;
 #if !PICO_RP2040
     SAA_emu = Config::SAA1099;
+    Midi::enabled = Config::midi;
+    if (Midi::enabled) Midi::init();
 #endif
 
   // Set samples per frame and AY_emu flag depending on arch
@@ -998,6 +1005,8 @@ void ESPectrum::reset(uint8_t romInUse) {
 #endif
 
   CPU::reset();
+
+  VIDEO::Reset();
 
 #if !PICO_RP2040
   // KR580VI53 (8253 PIT) — reset to silent state
@@ -1453,14 +1462,26 @@ uint8_t debug_number = 0;
 //=======================================================================================
 void ESPectrum::loop() {
 
-  // if (AY_emu) {
-  //     int hz = 44100;
-  //     repeating_timer_t timer_audio;
-  //     if (!add_repeating_timer_us(-(1000000/hz), AY_timer_callback, NULL,
-  //     &timer_audio))
-  //     {
-  //     }
-  // }
+  // Check if we're booting into a pending (unconfirmed) video mode
+  // Must be here (not in setup) because HDMI DMA starts on core1 after setup returns
+  {
+      uint8_t pend_hdmi = 0, pend_vga = 0;
+      if (Config::loadPendingVideoMode(pend_hdmi, pend_vga)) {
+          Debug::log("loop: pending video mode found, showing confirmation");
+          sleep_ms(500); // Let HDMI stabilize
+          if (!OSD::videoModeConfirm(15)) {
+              Debug::log("loop: reverting video mode");
+              Config::hdmi_video_mode = pend_hdmi;
+              Config::vga_video_mode = pend_vga;
+              Config::save();
+              Config::clearPendingVideoMode();
+              OSD::esp_hard_reset();
+          } else {
+              Debug::log("loop: video mode confirmed");
+              Config::clearPendingVideoMode();
+          }
+      }
+  }
 
   for (;;) {
     if (debug_number != 0) {
@@ -1526,7 +1547,7 @@ void ESPectrum::loop() {
       }
 #endif
       int32_t t_us = Config::throtling * 1000l;
-      if (!t_us || idle > t_us) {
+      if ((!t_us || idle > t_us) && !(maxSpeed && Tape::tapeStatus == TAPE_LOADING)) {
         // Finish fill of beeper audio buffer (tstate-weighted)
         if (beeperTstatesInSample > 0 && audbufcntover < (uint32_t)samplesPerFrame) {
           // Complete partial sample with constant beeper value
@@ -1553,6 +1574,29 @@ void ESPectrum::loop() {
             overSamplebuf[i] = (prev + curr + 1) >> 1;
             prev = curr;
           }
+        }
+        // Simulate speaker coupling capacitor: attenuate constant (DC) beeper signals.
+        // On real hardware the coupling cap blocks a static EAR output level — only
+        // transitions are audible. When all samples in the buffer are identical (bit
+        // held steady), fade the level out. When the beeper is oscillating (music),
+        // leave the buffer untouched so quality is fully preserved.
+        {
+          static uint32_t dc_fade_q8 = 256u; // Q8 attenuation: 256 = full, 0 = silent
+          uint32_t v0 = overSamplebuf[0];
+          bool is_const = true;
+          for (int i = 1; i < samplesPerFrame; i++)
+            if (overSamplebuf[i] != v0) { is_const = false; break; }
+          if (is_const && v0 > 0) {
+            // Constant non-zero DC — fade to silence over ~10 frames (~200ms)
+            if (dc_fade_q8 >= 26u) dc_fade_q8 -= 26u; else dc_fade_q8 = 0u;
+            uint32_t faded = (v0 * dc_fade_q8) >> 8;
+            for (int i = 0; i < samplesPerFrame; i++)
+              overSamplebuf[i] = faded;
+          } else if (!is_const) {
+            // Oscillating beeper (music) — full amplitude, restore attenuation
+            dc_fade_q8 = 256u;
+          }
+          // is_const && v0 == 0: constant silence — don't reset dc_fade_q8
         }
         if (Config::covox && faudbufcntCovox < samplesPerFrame) {
           uint8_t *sound_buf = audioBufferCovox + faudbufcntCovox;
@@ -1623,7 +1667,7 @@ void ESPectrum::loop() {
             if (Config::aspect_16_9)
               VIDEO::Draw_OSD169 = VIDEO::MainScreen;
             else
-                        VIDEO::Draw_OSD43 = Z80Ops::isPentagon ? VIDEO::BottomBorder_Pentagon :  VIDEO::BottomBorder;
+              VIDEO::Draw_OSD43 = VIDEO::BottomBorder;
             VIDEO::brdnextframe = true;
           }
         }
@@ -1648,7 +1692,7 @@ void ESPectrum::loop() {
           OSD::drawStats();
         } else if (VIDEO::OSD == 2) {
           snprintf(OSD::stats_lin1, sizeof(OSD::stats_lin1),
-                   "CPU: %05d / IDL: %05d ", (int)(ESPectrum::elapsed),
+                   "TST: %05d / IDL: %05d ", CPU::tstates_active,
                    (int)(ESPectrum::idle));
           snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2),
                    "FPS:%6.2f / FND:%6.2f ",
@@ -1658,7 +1702,7 @@ void ESPectrum::loop() {
           OSD::drawStats();
         } else if (VIDEO::OSD == 3) {
           snprintf(OSD::stats_lin1, sizeof(OSD::stats_lin1),
-                   "CPU: %05d / IDL: %05d ", (int)(ESPectrum::elapsed),
+                   "TST: %05d / IDL: %05d ", CPU::tstates_active,
                    (int)(ESPectrum::idle));
           snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2),
                    "ST:%-6sTR:#%02X/SEC:#%02X ",

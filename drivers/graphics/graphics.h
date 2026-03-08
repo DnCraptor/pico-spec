@@ -24,10 +24,19 @@ extern "C" {
 #include "font8x16.h"
 
 typedef struct video_mode_t{
-  int h_total;
-  int h_width;
+  int v_total;
+  int v_active;
   int freq;
-  int vgaPxClk;
+  int pixel_clk;
+  int vsync_start;
+  int vsync_end;
+  int screen_width;
+  int h_sync_bytes;
+  int h_bp_bytes;
+  int h_fp_bytes;
+  int line_bytes;
+  int v_offset;
+  float pio_clk_div; // PIO divider = sys_clk / TMDS_clk, must be integer or half-integer (n/2)
 };
 
 enum graphics_mode_t {

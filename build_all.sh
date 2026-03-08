@@ -43,6 +43,16 @@ SUCCEEDED=""
 OUTPUT_DIR="$SCRIPT_DIR/firmware"
 mkdir -p "$OUTPUT_DIR"
 
+# Clean build directories before building
+for TARGET in $TARGETS; do
+    BUILD_DIR="$SCRIPT_DIR/build-$TARGET"
+    if [ -d "$BUILD_DIR" ]; then
+        echo "Cleaning $BUILD_DIR ..."
+        rm -rf "$BUILD_DIR"
+    fi
+done
+echo ""
+
 for TARGET in $TARGETS; do
     BUILD_DIR="$SCRIPT_DIR/build-$TARGET"
 

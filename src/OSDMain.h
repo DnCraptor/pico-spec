@@ -128,6 +128,7 @@ public:
     static unsigned int ndirs;
 
     static uint8_t msgDialog(string title, string msg);
+    static bool videoModeConfirm(int timeout_sec = 15);
     static void progressDialog(string title, string msg, int percent, int action);
     string inputBox(int x, int y, string text);
     static void joyDialog(void);

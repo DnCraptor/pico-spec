@@ -44,7 +44,11 @@ visit https://zxespectrum.speccy.org/contacto
 #include "psram_spi.h"
 #include "Debug.h"
 
-// #pragma GCC optimize("O3")
+// Place hot CPU functions in SRAM instead of XIP flash
+#undef IRAM_ATTR
+#define IRAM_ATTR __not_in_flash("cpu")
+
+#pragma GCC optimize("O3")
 
 uint32_t CPU::tstates = 0;
 
@@ -53,6 +57,8 @@ uint32_t CPU::tstates_diff = 0;
 
 uint64_t CPU::global_tstates = 0;
 uint32_t CPU::statesInFrame = 0;
+uint32_t CPU::tstates_frame = 0;
+uint32_t CPU::tstates_active = 0;
 uint8_t CPU::latetiming = 0;
 uint8_t CPU::IntStart = 0;
 uint8_t CPU::IntEnd = 0;
@@ -86,15 +92,15 @@ void CPU::updateStatesInFrame() {
     } else if (Config::arch == "P512") {
         statesInFrame = TSTATES_PER_FRAME_PENTAGON;
         IntStart = INT_START_PENTAGON;
-        IntEnd = INT_END_PENTAGON + CPU::latetiming;
+        IntEnd = INT_END_PENTAGON;
     } else if (Config::arch == "P1024") {
         statesInFrame = TSTATES_PER_FRAME_PENTAGON;
         IntStart = INT_START_PENTAGON;
-        IntEnd = INT_END_PENTAGON + CPU::latetiming;
+        IntEnd = INT_END_PENTAGON;
     } else { // if (Config::arch == "Pentagon") - by default
         statesInFrame = TSTATES_PER_FRAME_PENTAGON;
         IntStart = INT_START_PENTAGON;
-        IntEnd = INT_END_PENTAGON + CPU::latetiming;
+        IntEnd = INT_END_PENTAGON;
     }
     uint8_t m = ESPectrum::multiplicator;
     if (m) {
@@ -115,10 +121,7 @@ void CPU::reset() {
     Z80Ops::isALF = (Config::arch == "ALF");
 #endif
     if (Config::arch == "48K") {
-        if (Config::romSet48 == "48Kby")
-        {
-            Z80Ops::isByte = true;
-        }
+        Z80Ops::isByte = (Config::romSet48 == "48Kby");
         Ports::getFloatBusData = &Ports::getFloatBusData48;
         Z80Ops::is48 = true;
         Z80Ops::is128 = false;
@@ -128,10 +131,7 @@ void CPU::reset() {
         // Set emulation loop sync target
         ESPectrum::target = MICROS_PER_FRAME_48;
     } else if (Config::arch == "128K" || Z80Ops::isALF) {
-        if (Config::romSet128 == "128Kby" || Config::romSet128 == "128Kbg")
-        {
-            Z80Ops::isByte = true;
-        }
+        Z80Ops::isByte = (Config::romSet128 == "128Kby" || Config::romSet128 == "128Kbg");
         Ports::getFloatBusData = &Ports::getFloatBusData128;
         Z80Ops::is48 = false;
         Z80Ops::is128 = true;
@@ -141,6 +141,7 @@ void CPU::reset() {
         // Set emulation loop sync target
         ESPectrum::target = MICROS_PER_FRAME_128;
     } else if (Config::arch == "P512") {
+        Z80Ops::isByte = false;
         Z80Ops::is48 = false;
         Z80Ops::is128 = false;
         Z80Ops::isPentagon = true;
@@ -149,6 +150,7 @@ void CPU::reset() {
         // Set emulation loop sync target
         ESPectrum::target = MICROS_PER_FRAME_PENTAGON;
     } else if (Config::arch == "P1024") {
+        Z80Ops::isByte = false;
         Z80Ops::is48 = false;
         Z80Ops::is128 = false;
         Z80Ops::isPentagon = true;
@@ -157,6 +159,7 @@ void CPU::reset() {
         // Set emulation loop sync target
         ESPectrum::target = MICROS_PER_FRAME_PENTAGON;
     } else { // if (Config::arch == "Pentagon") - by default
+        Z80Ops::isByte = false;
         Z80Ops::is48 = false;
         Z80Ops::is128 = false;
         Z80Ops::isPentagon = true;
@@ -204,12 +207,13 @@ IRAM_ATTR void CPU::loop() {
         BREAKPOINTS
     }
     BREAKPOINTS
-    if (!Z80::isHalted()) {
+    bool halted = Z80::isHalted();
+    if (!halted) {
         stFrame = statesInFrame - IntEnd;
         Z80::exec_nocheck();
-        if (stFrame == 0) FlushOnHalt();
+        if (stFrame == 0) { tstates_active = tstates; FlushOnHalt(); halted = true; }
     } else {
-        FlushOnHalt();
+        tstates_active = tstates; FlushOnHalt();
     }
     BREAKPOINTS
     while (tstates < statesInFrame) {
@@ -227,6 +231,8 @@ IRAM_ATTR void CPU::loop() {
     CPU::tstates_diff = CPU::tstates_diff % WD177XSTEPSTATES;
 
     global_tstates += statesInFrame; // increase global Tstates
+    tstates_frame = tstates;
+    if (!halted) tstates_active = tstates_frame; // no HALT this frame: full load
     tstates -= statesInFrame;
 
     CPU::prev_tstates = tstates;
@@ -542,7 +548,7 @@ IRAM_ATTR void Z80Ops::addressOnBus(uint16_t address, int32_t wstates) {
 
 /* Callback to know when the INT signal is active */
 IRAM_ATTR bool Z80Ops::isActiveINT(void) {
-    int tmp = CPU::tstates + CPU::latetiming;
+    int tmp = CPU::tstates + (Z80Ops::isPentagon ? 0 : CPU::latetiming);
     if (tmp >= CPU::statesInFrame) tmp -= CPU::statesInFrame;
     return ((tmp >= CPU::IntStart) && (tmp < CPU::IntEnd));
 }

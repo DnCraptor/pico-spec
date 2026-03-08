@@ -45,7 +45,7 @@ visit https://zxespectrum.speccy.org/contacto
 #define MEM_PG_SZ 0x4000
 #if PICO_RP2350
 // with gigascreen
-#define MEM_REMAIN (11*16*1024)
+#define MEM_REMAIN (14*16*1024)
 #else
 #define MEM_REMAIN (6*16*1024)
 #endif
@@ -173,15 +173,12 @@ public:
 
     static uint8_t romInUse;
 
-    static uint8_t byteMemMode;
-
     static uint8_t readbyte(uint16_t addr);
     static uint16_t readword(uint16_t addr);
     static void writebyte(uint16_t addr, uint8_t data);
     static void writeword(uint16_t addr, uint16_t data);
 
     static int getByteContention(uint16_t addr);
-    //static void UpdateByteMem0000(int ramIndex, int SovmestMode);
 
     inline static void recoverPage0() {
         MemESP::ramCurrent[0] = MemESP::newSRAM ? MemESP::ram[MEM_PG_CNT + MemESP::romLatch].sync(0) :

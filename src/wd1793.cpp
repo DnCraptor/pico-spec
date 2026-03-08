@@ -501,7 +501,7 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
         return;
       }
 
-      if (!wd->fastmode || wd->command & 0x20) {
+      if (!wd->fastmode || (wd->command & 0x20) || wd->sector < 1 || wd->sector > 16) {
 
         if(wd->header[3]!=wd->sector) {
           wd->state=kRVMWD177XReadHeader;
