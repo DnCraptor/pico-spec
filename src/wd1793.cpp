@@ -71,15 +71,6 @@ IRAM_ATTR static void _end(rvmWD1793 *wd) {
   wd->retry = 15;
   wd->led = 0;
   wd->control |= kRVMWD177XINTRQ; //TODO: ADD A INTERRUPT HANDLER
-
-#if !PICO_RP2040
-  // FDI/UDI: enable Type I status evaluation flags for idle state.
-  // Without these, Index/Track0/WP bits are invisible in status reads
-  // after Type II/III commands, causing loaders that poll for index to hang.
-  if (wd->disk[wd->diskS] &&
-      (wd->disk[wd->diskS]->IsFDIFile || wd->disk[wd->diskS]->IsUDIFile))
-    wd->status |= kRVMWD177XStatusSetIndex | kRVMWD177XStatusSetTrack0 | kRVMWD177XStatusSetWP;
-#endif
 }
 
 IRAM_ATTR void _do(rvmWD1793 *wd) {
@@ -1201,14 +1192,6 @@ IRAM_ATTR void rvmWD1793Write(rvmWD1793 *wd,uint8_t a,uint8_t value) {
         }
 #endif
         if(wd->status & kRVMWD177XStatusBusy) {
-
-#if !PICO_RP2040
-          // FDI/UDI: set Type I status flags so idle status reads show Index/Track0/WP
-          if (wd->disk[wd->diskS] &&
-              (wd->disk[wd->diskS]->IsFDIFile || wd->disk[wd->diskS]->IsUDIFile))
-            wd->status = kRVMWD177XStatusSetIndex | kRVMWD177XStatusSetTrack0 | kRVMWD177XStatusSetWP;
-          else
-#endif
             wd->status &= ~kRVMWD177XStatusBusy;
           wd->state = kRVMWD177XNone;
           wd->stepState = kRVMWD177XStepIdle;
