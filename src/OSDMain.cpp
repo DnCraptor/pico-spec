@@ -903,7 +903,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             // Show / hide OnScreen Stats
             {
                 uint8_t mode = VIDEO::OSD & 0x03;
-                bool hasFdd = (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) && Tape::tapeStatus != TAPE_LOADING && !DivMMC::enabled;
+                bool hasFdd = (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) && Tape::tapeStatus != TAPE_LOADING
+#if !PICO_RP2040
+                    && !DivMMC::enabled
+#endif
+                    ;
                 uint8_t maxMode = hasFdd ? 3 : 2;
 
                 if (mode == 0)
