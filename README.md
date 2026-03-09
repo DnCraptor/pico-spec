@@ -122,7 +122,15 @@ Three modes are available:
 
 - **AY** — Decodes bit-bang UART transmitted through AY-3-8912 register 14 (IOPortA, bit 2). Software like [zx-midiplayer](https://github.com/UzixLS/zx-midiplayer) uses this method in "128std" / "TS1" / "TS2" output modes. MIDI bytes are sent to an external synth via UART TX pin at 31250 baud.
 - **ShamaZX** — Emulates the ShamaZX parallel MIDI interface (SAM2695 synth module). Port 0xA0CF is used for TX data, port 0xA1CF for status (bit 6 = busy). This corresponds to the "ShamaZX" output mode in [zx-midiplayer](https://github.com/UzixLS/zx-midiplayer). Output via UART TX pin.
-- **Soft** — Built-in software MIDI synthesizer. No external hardware needed — MIDI is synthesized directly on the RP2350 and mixed into the audio output. Supports 16-voice polyphony, General MIDI program changes, velocity, and channel volume. Works with both AY bit-bang and ShamaZX protocols.
+- **Software** — Built-in software MIDI synthesizer. No external hardware needed — MIDI is synthesized directly on the RP2350 and mixed into the audio output. Supports 16-voice polyphony, General MIDI program changes, velocity, channel volume, expression, pan, and pitch bend. Works with both AY bit-bang and ShamaZX protocols. When Software mode is selected, a **Synth Preset** submenu appears with 8 presets:
+  - **GM** — General MIDI mapping: different waveforms per instrument family (triangle for piano/pipes, saw for strings/bass, square for organs/brass, noise for percussion).
+  - **Piano** — All instruments rendered as triangle wave with natural decay.
+  - **Chiptune** — All square wave with varied duty cycles, no filtering — classic 8-bit sound.
+  - **Strings** — All saw wave, slow attack, long sustain, warm low-pass filter.
+  - **Rock** — Bright and punchy: saw for most instruments, square for organ/brass/reed.
+  - **Organ** — All square wave (75% duty), sustained tone with minimal decay.
+  - **Music Box** — Triangle wave with fast decay and low sustain — delicate and percussive.
+  - **Synth** — All saw wave with medium low-pass filter.
 
 The MIDI TX pin (for AY/ShamaZX modes) is configured per board in `CMakeLists.txt` (`MIDI_TX_PIN=28`).
 

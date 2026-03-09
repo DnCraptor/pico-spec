@@ -200,29 +200,29 @@ void OSD::drawOSD(bool bottom_info) {
             default:                    vmname = "unknown";      break;
         }
         char buf2[41];
-        snprintf(buf2, sizeof(buf2), " Video: %s %s   ",
+        snprintf(buf2, sizeof(buf2), " Video: %s %s  ",
                  (SELECT_VGA ? "VGA" : "HDMI"), vmname);
         bottom_line = buf2;
     }
 #else
 #ifdef TV
-        bottom_line = " Video mode: TV RGBI PAL    ";
+        bottom_line = " Video mode: TV RGBI PAL   ";
 #endif
 #ifdef TVSOFT
-        bottom_line = " Video mode: TV-composite   ";
+        bottom_line = " Video mode: TV-composite  ";
 #endif
 #ifdef TFT
 #ifdef ILI9341
     #if TFT_INV
-        bottom_line = " Video mode: ILI9341I       ";
+        bottom_line = " Video mode: ILI9341I      ";
     #else 
-        bottom_line = " Video mode: ILI9341        ";
+        bottom_line = " Video mode: ILI9341       ";
     #endif
 #else 
     #if TFT_INV
-        bottom_line = " Video mode: ST7789I        ";
+        bottom_line = " Video mode: ST7789I       ";
     #else 
-        bottom_line = " Video mode: ST7789         ";
+        bottom_line = " Video mode: ST7789        ";
     #endif
 #endif
 #endif

@@ -40,7 +40,8 @@ set(NO_ALF 1)
 
 #set(CPU_MHZ 252)
 set(CPU_MHZ 378)
-set (PORT_VERSION "1.2.N")
+set (PORT_VERSION "1.2.N0")
+string(LENGTH "${PORT_VERSION}" PORT_VERSION_LEN)
 
 # Target board (default: PICO_PC; override with -D flags, e.g. cmake -DMURM2=ON)
 if(NOT MURM AND NOT MURM2 AND NOT PICO_PC AND NOT PICO_DV AND NOT ZERO AND NOT ZERO2)
@@ -273,7 +274,7 @@ endif()
 
 IF(MURM2)
     target_compile_definitions(${PROJECT_NAME} PRIVATE
-        PORT_VERSION="${PORT_VERSION}"
+        PORT_VERSION="${PORT_VERSION}" PORT_VERSION_LEN=${PORT_VERSION_LEN}
         MURM2=1
         CPU_MHZ=${CPU_MHZ}
 
@@ -340,7 +341,7 @@ IF(MURM2)
     )
 ELSEIF(PICO_PC)
     target_compile_definitions(${PROJECT_NAME} PRIVATE
-        PORT_VERSION="${PORT_VERSION}"
+        PORT_VERSION="${PORT_VERSION}" PORT_VERSION_LEN=${PORT_VERSION_LEN}
         CPU_MHZ=${CPU_MHZ}
 
         PICO_PC=1
@@ -407,7 +408,7 @@ ELSEIF(PICO_PC)
     )
 ELSEIF(PICO_DV)
     target_compile_definitions(${PROJECT_NAME} PRIVATE
-        PORT_VERSION="${PORT_VERSION}"
+        PORT_VERSION="${PORT_VERSION}" PORT_VERSION_LEN=${PORT_VERSION_LEN}
         CPU_MHZ=${CPU_MHZ}
 
         PICO_DV=1
@@ -471,7 +472,7 @@ ELSEIF(PICO_DV)
 )
 ELSEIF(ZERO)
     target_compile_definitions(${PROJECT_NAME} PRIVATE
-        PORT_VERSION="${PORT_VERSION}"
+        PORT_VERSION="${PORT_VERSION}" PORT_VERSION_LEN=${PORT_VERSION_LEN}
         CPU_MHZ=${CPU_MHZ}
         ZERO=1
 
@@ -530,7 +531,7 @@ ELSEIF(ZERO)
     )
 ELSEIF(ZERO2)
     target_compile_definitions(${PROJECT_NAME} PRIVATE
-        PORT_VERSION="${PORT_VERSION}"
+        PORT_VERSION="${PORT_VERSION}" PORT_VERSION_LEN=${PORT_VERSION_LEN}
         CPU_MHZ=${CPU_MHZ}
         ZERO2=1
 
@@ -590,7 +591,7 @@ ELSEIF(ZERO2)
     )
 ELSE()
     target_compile_definitions(${PROJECT_NAME} PRIVATE
-        PORT_VERSION="${PORT_VERSION}"
+        PORT_VERSION="${PORT_VERSION}" PORT_VERSION_LEN=${PORT_VERSION_LEN}
         CPU_MHZ=${CPU_MHZ}
 
         KBD_CLOCK_PIN=0
