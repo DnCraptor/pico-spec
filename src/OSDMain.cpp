@@ -57,6 +57,10 @@ visit https://zxespectrum.speccy.org/contacto
 #include "audio.h"
 #include "AySound.h"
 #include "Midi.h"
+#include "MidiSynth.h"
+#if !PICO_RP2040
+#include "DivMMC.h"
+#endif
 
 #include <malloc.h>
 
@@ -196,29 +200,29 @@ void OSD::drawOSD(bool bottom_info) {
             default:                    vmname = "unknown";      break;
         }
         char buf2[41];
-        snprintf(buf2, sizeof(buf2), " Video: %s %s   ",
+        snprintf(buf2, sizeof(buf2), " Video: %s %s  ",
                  (SELECT_VGA ? "VGA" : "HDMI"), vmname);
         bottom_line = buf2;
     }
 #else
 #ifdef TV
-        bottom_line = " Video mode: TV RGBI PAL    ";
+        bottom_line = " Video mode: TV RGBI PAL   ";
 #endif
 #ifdef TVSOFT
-        bottom_line = " Video mode: TV-composite   ";
+        bottom_line = " Video mode: TV-composite  ";
 #endif
 #ifdef TFT
 #ifdef ILI9341
     #if TFT_INV
-        bottom_line = " Video mode: ILI9341I       ";
+        bottom_line = " Video mode: ILI9341I      ";
     #else 
-        bottom_line = " Video mode: ILI9341        ";
+        bottom_line = " Video mode: ILI9341       ";
     #endif
 #else 
     #if TFT_INV
-        bottom_line = " Video mode: ST7789I        ";
+        bottom_line = " Video mode: ST7789I       ";
     #else 
-        bottom_line = " Video mode: ST7789         ";
+        bottom_line = " Video mode: ST7789        ";
     #endif
 #endif
 #endif
@@ -417,6 +421,7 @@ string getMenuPrefix() {
 // OSD Main Loop
 void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
 
+
     static uint8_t last_sna_row = 0;
     fabgl::VirtualKeyItem Nextkey;
 
@@ -501,6 +506,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         } else
         if (KeytoESP == fabgl::VK_F10) { // NMI
+#if !PICO_RP2040
+            if (DivMMC::enabled) {
+                // DivMMC NMI: automap at 0x0066 handled by preOpcFetch/postOpcFetch
+                Z80::triggerNMI();
+            } else
+#endif
             if (Z80Ops::isByte) {
                 // ZX Byte: NMI menu with COBMECT mode toggle
                 menu_level = 0;
@@ -546,6 +557,32 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
         }
         else
         if (KeytoESP == fabgl::VK_F11) { // Reset to...
+#if !PICO_RP2040
+            if (DivMMC::enabled) {
+                menu_level = 0;
+                menu_curopt = 1;
+                menu_saverect = true;
+                uint8_t rst_cols = 22;
+                uint16_t rst_w = (rst_cols * OSD_FONT_W) + 2;
+                uint16_t rst_h = (rowCount(MENU_RESETTO_DIVMMC[Config::lang]) * OSD_FONT_H) + 2;
+                uint8_t opt = simpleMenuRun(MENU_RESETTO_DIVMMC[Config::lang],
+                    scrAlignCenterX(rst_w), scrAlignCenterY(rst_h),
+                    rowCount(MENU_RESETTO_DIVMMC[Config::lang]), rst_cols);
+                if (opt == 1) {
+                    // Soft Reset: keep DivMMC RAM (ESXDOS sees 0xAA flag, goes to file browser)
+                    if (Config::ram_file != NO_RAM_FILE) Config::ram_file = NO_RAM_FILE;
+                    Config::last_ram_file = NO_RAM_FILE;
+                    DivMMC::reset();
+                    ESPectrum::reset();
+                } else if (opt == 2) {
+                    // Hard Reset: clear DivMMC RAM (ESXDOS re-initializes from scratch)
+                    if (Config::ram_file != NO_RAM_FILE) Config::ram_file = NO_RAM_FILE;
+                    Config::last_ram_file = NO_RAM_FILE;
+                    DivMMC::init();
+                    ESPectrum::reset();
+                }
+            } else
+#endif
             if (Z80Ops::is48) {
                 // 48K - just reset directly
                 if (Config::ram_file != NO_RAM_FILE) Config::ram_file = NO_RAM_FILE;
@@ -616,6 +653,50 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             }
         }
         else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F6) {
+#if !PICO_RP2040
+            if (DivMMC::enabled) {
+                menu_level = 0;
+                menu_saverect = false;
+                string mFile = fileDialog(FileUtils::IMG_Path, MENU_IMG_TITLE[Config::lang], DISK_IMGFILE, 51, 22);
+                if (mFile != "") {
+                    string fname = FileUtils::IMG_Path + mFile.substr(1);
+                    // Check if selected file is .hdf — offer drive slot selection
+                    bool is_hdf = (fname.size() >= 4 &&
+                        (fname.substr(fname.size() - 4) == ".hdf" || fname.substr(fname.size() - 4) == ".HDF"));
+                    int hdf_slot = 0;
+                    if (is_hdf) {
+                        menu_level = 0;
+                        menu_curopt = 1;
+                        menu_saverect = true;
+                        string drv_menu = "Select Drive\n";
+                        drv_menu += "hd0 (master)\n";
+                        drv_menu += "hd1 (slave)\n";
+                        uint8_t drv_cols = 16;
+                        uint16_t drv_w = (drv_cols * OSD_FONT_W) + 2;
+                        uint16_t drv_h = (3 * OSD_FONT_H) + 2;
+                        uint8_t opt = simpleMenuRun(drv_menu,
+                            scrAlignCenterX(drv_w), scrAlignCenterY(drv_h), 3, drv_cols);
+                        if (opt == 0) is_hdf = false; // cancelled
+                        else hdf_slot = opt - 1; // 0=master, 1=slave
+                    }
+                    if (is_hdf)
+                        Config::esxdos_hdf_image[hdf_slot] = fname;
+                    else if (!is_hdf && fname.size() >= 4 &&
+                        (fname.substr(fname.size() - 4) == ".mmc" || fname.substr(fname.size() - 4) == ".MMC"))
+                        Config::esxdos_mmc_image = fname;
+                    else if (DivMMC::divide_mode)
+                        Config::esxdos_hdf_image[0] = fname;
+                    else
+                        Config::esxdos_mmc_image = fname;
+                    DivMMC::init();
+                    Config::save();
+                    ESPectrum::reset();
+                    if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                    return;
+                }
+                if (VIDEO::OSD) OSD::drawStats();
+            } else
+#endif
             while (1) {
                 menu_level = 0;
                 menu_saverect = false;
@@ -677,9 +758,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     }
 
                     string ext = FileUtils::getLCaseExt(fname);
-                    if (ext == "trd" || ext == "scl") {
-                        printf("Insert TRD/SCL disk %s\n",fname.c_str());
-                        //Debug::log("Insert TRD/SCL disk %s\n",fname.c_str());
+                    if (ext == "trd" || ext == "scl" || ext == "udi" || ext == "fdi") {
+                        printf("Insert disk %s\n",fname.c_str());
                         rvmWD1793InsertDisk(&ESPectrum::fdd, 0, fname);
                     }
                     else
@@ -827,7 +907,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             // Show / hide OnScreen Stats
             {
                 uint8_t mode = VIDEO::OSD & 0x03;
-                bool hasFdd = (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) && Tape::tapeStatus != TAPE_LOADING;
+                bool hasFdd = (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) && Tape::tapeStatus != TAPE_LOADING
+#if !PICO_RP2040
+                    && !DivMMC::enabled
+#endif
+                    ;
                 uint8_t maxMode = hasFdd ? 3 : 2;
 
                 if (mode == 0)
@@ -1000,408 +1084,1143 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 click();
                 return;
             }
-            else if (FileUtils::fsMount && opt == 2) { // Snapshots
+            else if (opt == 2) { // Storage
                 // ***********************************************************************************
-                // SNAPSHOTS MENU
-                // ***********************************************************************************
-                menu_curopt = 1;
-                menu_saverect = true;
-                while(1) {
-                    menu_level = 1;
-                    // Snapshot menu
-                    uint8_t sna_mnu = menuRun(MENU_SNA[Config::lang]);
-                    if (sna_mnu > 0) {
-                        menu_level = 2;
-                        menu_saverect = true;
-                        if (sna_mnu == 1) {
-                            string mFile = fileDialog(FileUtils::SNA_Path, MENU_SNA_TITLE[Config::lang], DISK_SNAFILE, 28, 16);
-                            if (mFile != "") {
-                                Config::save();
-                                mFile.erase(0, 1);
-                                string fname = FileUtils::SNA_Path + mFile;
-                                if(!LoadSnapshot(fname, "", "")) {
-                                    OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
-                                } else {
-                                    Config::ram_file = fname;
-                                    Config::last_ram_file = fname;
-                                }
-                                return;
-                            }
-                        }
-                        else if (sna_mnu == 2) {
-                            // Persist Load
-                            menu_curopt = 1;
-                            menu_saverect = true;
-                            while (1) {
-                                string menuload = MENU_PERSIST_LOAD[Config::lang];
-                                for(int i=1; i <= 10; i++) {
-                                    menuload += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
-                                }
-                                uint8_t opt2 = menuRun(menuload);
-                                if (opt2) {
-                                    if (persistLoad(opt2)) {
-                                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
-                                        return;
-                                    }
-                                    menu_saverect = false;
-                                    menu_curopt = opt2;
-                                } else break;
-                            }
-                        }
-                        else if (sna_mnu == 3) {
-                            // Persist Save
-                            menu_curopt = 1;
-                            menu_saverect = true;
-                            while (1) {
-                                string menusave = MENU_PERSIST_SAVE[Config::lang];
-                                for(int i=1; i <= 10; i++) {
-                                    menusave += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
-                                }
-                                uint8_t opt2 = menuRun(menusave);
-                                if (opt2) {
-                                    if (persistSave(opt2)) {
-                                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
-                                        return;
-                                    }
-                                    menu_saverect = false;
-                                    menu_curopt = opt2;
-                                } else break;
-                            }
-                        }
-                        menu_curopt = sna_mnu;
-                    } else {
-                        menu_curopt = 2;
-                        break;
-                    }
-                }
-            }
-            else if (FileUtils::fsMount && opt == 3 || opt == 2) { // Tape
-                // ***********************************************************************************
-                // TAPE MENU
+                // STORAGE MENU
                 // ***********************************************************************************
                 menu_saverect = true;
                 menu_curopt = 1;
                 while(1) {
                     menu_level = 1;
-                    // Tape menu
-                    uint8_t tap_num = menuRun(FileUtils::fsMount ? MENU_TAPE[Config::lang] : MENU_TAPE_NO_SD[Config::lang]);
-                    if (tap_num > 0) {
-                        if (!FileUtils::fsMount) ++tap_num;
-                        menu_level = 2;
-                        menu_saverect = true;
-                        if (tap_num == 1) {
-                            // menu_curopt = 1;
-                            // Select TAP File
-                            string mFile = fileDialog(FileUtils::TAP_Path, MENU_TAP_TITLE[Config::lang],DISK_TAPFILE,28,16);
-                            if (mFile != "") {
-                                Config::save();
-                                Tape::LoadTape(mFile);
-                                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
-                                return;
-                            }
-                        }
-                        else if (tap_num == 2) {
-                            // Start / Stop .tap reproduction
-                            if (Tape::tapeStatus == TAPE_STOPPED) {
-                                if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
-                                Tape::Play();
-                            } else {
-                                Tape::Stop();
-                                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
-                            }
-                            return;
-                        }
-                        else if (tap_num == 3) {
-                            // Tape Browser
-                            if (Tape::tapeFileName=="none") {
-                                OSD::osdCenteredMsg(OSD_TAPE_SELECT_ERR[Config::lang], LEVEL_WARN);
-                                menu_curopt = 2;
-                                menu_saverect = false;
-                            } else {
-                                menu_level = 0;
-                                menu_saverect = false;
-                                menu_curopt = 1;
-                                // int tBlock = menuTape(Tape::tapeFileName.substr(6,28));
-                                int tBlock = menuTape(Tape::tapeFileName.substr(0,22));
-                                if (tBlock >= 0) {
-                                    Tape::tapeCurBlock = tBlock;
-                                    Tape::Stop();
-                                }
-                                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
-                                return;
-                            }
-                        }
-                        else if (tap_num == 4) {
-                            menu_level = 2;
-                            menu_curopt = 1;
-                            menu_saverect = true;
-                            while (1) {
-                                string Mnustr = MENU_TAPEPLAYER[Config::lang];
-                                Mnustr += MENU_YESNO[Config::lang];
-                                bool prev_opt = Config::tape_player;
-                                if (prev_opt) {
-                                    Mnustr.replace(Mnustr.find("[Y",0),2,"[*");
-                                    Mnustr.replace(Mnustr.find("[N",0),2,"[ ");
-                                } else {
-                                    Mnustr.replace(Mnustr.find("[Y",0),2,"[ ");
-                                    Mnustr.replace(Mnustr.find("[N",0),2,"[*");
-                                }
-                                uint8_t opt2 = menuRun(Mnustr);
-                                if (opt2) {
-                                    if (opt2 == 1)
-                                        Config::tape_player = true;
-                                    else
-                                        Config::tape_player = false;
-
-                                    if (Config::tape_player != prev_opt) {
-                                        if (Config::tape_player) {
-                                            ESPectrum::aud_volume = ESP_VOLUME_MAX;
-                                            pwm_audio_set_volume(ESPectrum::aud_volume);
-                                        }
-                                        Config::save();
-                                    }
-                                    menu_curopt = opt2;
-                                    menu_saverect = false;
-                                } else {
-                                    menu_curopt = FileUtils::fsMount ? 4 : 3;
-                                    menu_level = 1;
-                                    break;
-                                }
-                            }
-                        }
-                        else if (tap_num == 5) {
-                            menu_level = 2;
-                            menu_curopt = 1;
-                            menu_saverect = true;
-                            while (1) {
-                                string Mnustr = MENU_TAPEPLAYER2[Config::lang];
-                                Mnustr += MENU_YESNO[Config::lang];
-                                bool prev_opt = Config::real_player;
-                                if (prev_opt) {
-                                    Mnustr.replace(Mnustr.find("[Y",0),2,"[*");
-                                    Mnustr.replace(Mnustr.find("[N",0),2,"[ ");
-                                } else {
-                                    Mnustr.replace(Mnustr.find("[Y",0),2,"[ ");
-                                    Mnustr.replace(Mnustr.find("[N",0),2,"[*");
-                                }
-                                uint8_t opt2 = menuRun(Mnustr);
-                                if (opt2) {
-                                    Config::real_player = (opt2 == 1);
-                                    if (Config::real_player != prev_opt) {
-                                        if (Tape::tapeStatus == TAPE_LOADING) {  // W/A
-                                            Tape::Stop();
-                                        }
-                                        if (Config::real_player) {
-                                            ESPectrum::aud_volume = ESP_VOLUME_MAX;
-                                            pwm_audio_set_volume(ESPectrum::aud_volume);
-                                        } else {
-#if LOAD_WAV_PIO
-                                            pcm_audio_in_stop();
-#endif
-                                        }
-                                        Config::save();
-                                    }
-                                    menu_curopt = opt2;
-                                    menu_saverect = false;
-                                } else {
-                                    menu_curopt = FileUtils::fsMount ? 5 : 4;
-                                    menu_level = 1;
-                                    break;
-                                }
-                            }
-                        }
-                    } else {
-                        menu_curopt = FileUtils::fsMount ? 3 : 2;
-                        break;
-                    }
-                }
-            }
-            else if (FileUtils::fsMount && opt == 4) { // Betadisk
-                // ***********************************************************************************
-                // BETADISK MENU
-                // ***********************************************************************************
-                menu_saverect = true;
-                menu_curopt = 1;
-                while(1) {
-                    // Betadisk menu
-                    menu_level = 1;
-                    uint8_t dsk_num = menuRun(MENU_BETADISK[Config::lang]);
-                    if (dsk_num > 0 && dsk_num < 5) {
-                        string drvmenu = MENU_BETADRIVE[Config::lang];
-                        drvmenu.replace(drvmenu.find("#",0),1,(string)" " + char(64 + dsk_num));
+                    uint8_t stor_num = menuRun(FileUtils::fsMount ? MENU_STORAGE_MAIN[Config::lang] : MENU_STORAGE_MAIN_NO_SD[Config::lang]);
+                    if (stor_num == 1) { // Tape
                         menu_saverect = true;
                         menu_curopt = 1;
-                        while (1) {
+                        while(1) {
                             menu_level = 2;
-                            uint8_t opt2 = menuRun(drvmenu);
-                            if (opt2 > 0) {
-                                if (opt2 == 1) {
-                                    menu_saverect = true;
-                                    string mFile = fileDialog(FileUtils::DSK_Path, MENU_DSK_TITLE[Config::lang], DISK_DSKFILE, 26, 15);
+                            uint8_t tap_num = menuRun(FileUtils::fsMount ? MENU_TAPE[Config::lang] : MENU_TAPE_NO_SD[Config::lang]);
+                            if (tap_num > 0) {
+                                if (!FileUtils::fsMount) ++tap_num;
+                                menu_level = 3;
+                                menu_saverect = true;
+                                if (tap_num == 1) {
+                                    // Select TAP File
+                                    string mFile = fileDialog(FileUtils::TAP_Path, MENU_TAP_TITLE[Config::lang],DISK_TAPFILE,28,16);
                                     if (mFile != "") {
-                                        mFile.erase(0, 1);
-                                        string fname = FileUtils::DSK_Path + "/" + mFile;
-                                        rvmWD1793InsertDisk(&ESPectrum::fdd, dsk_num - 1, fname);
                                         Config::save();
+                                        Tape::LoadTape(mFile);
+                                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                         return;
                                     }
-                                } else
-                                if (opt2 == 2) {
-                                    wdDiskEject(&ESPectrum::fdd, dsk_num - 1);
-                                    Config::save();
-                                    if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                                }
+                                else if (tap_num == 2) {
+                                    // Start / Stop .tap reproduction
+                                    if (Tape::tapeStatus == TAPE_STOPPED) {
+                                        if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
+                                        Tape::Play();
+                                    } else {
+                                        Tape::Stop();
+                                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                                    }
                                     return;
                                 }
-                            } else {
-                                menu_curopt = dsk_num;
-                                break;
-                            }
-                        }
-                    }
-                    else if (dsk_num == 5) {
-                        menu_level = 2;
-                        menu_curopt = 1;
-                        menu_saverect = true;
-                        while (1) {
-                            string menu = MENU_FASTMODE[Config::lang];
-                            menu += MENU_YESNO[Config::lang];
-                            uint8_t prev = Config::trdosFastMode;
-                            if (prev) {
-                                menu.replace(menu.find("[Y",0),2,"[*");
-                                menu.replace(menu.find("[N",0),2,"[ ");
-                            } else {
-                                menu.replace(menu.find("[Y",0),2,"[ ");
-                                menu.replace(menu.find("[N",0),2,"[*");
-                            }
-                            uint8_t opt2 = menuRun(menu);
-                            if (opt2) {
-                                if (opt2 == 1)
-                                    Config::trdosFastMode = true;
-                                else
-                                    Config::trdosFastMode = false;
-
-                                if (Config::trdosFastMode != prev) {
-                                    ESPectrum::fdd.fastmode = Config::trdosFastMode;
-                                    Config::save();
-                                }
-                                menu_curopt = opt2;
-                                menu_saverect = false;
-                            } else {
-                                menu_curopt = 5;
-                                menu_level = 2;
-                                break;
-                            }
-                        }
-                    }
-                    else if (dsk_num == 6) {
-                        menu_level = 2;
-                        menu_curopt = 1;
-                        menu_saverect = true;
-                        while (1) {
-                            string menu = MENU_WRITEPROTECT[Config::lang];
-                            menu += MENU_YESNO[Config::lang];
-                            uint8_t prev = Config::trdosWriteProtect;
-                            if (prev) {
-                                menu.replace(menu.find("[Y",0),2,"[*");
-                                menu.replace(menu.find("[N",0),2,"[ ");
-                            } else {
-                                menu.replace(menu.find("[Y",0),2,"[ ");
-                                menu.replace(menu.find("[N",0),2,"[*");
-                            }
-                            uint8_t opt2 = menuRun(menu);
-                            if (opt2) {
-                                if (opt2 == 1)
-                                    Config::trdosWriteProtect = true;
-                                else
-                                    Config::trdosWriteProtect = false;
-
-                                if (Config::trdosWriteProtect != prev) {
-                                    for (int i = 0; i < 4; i++)
-                                        if (ESPectrum::fdd.disk[i])
-                                            ESPectrum::fdd.disk[i]->writeprotect = Config::trdosWriteProtect;
-                                    Config::save();
-                                }
-                                menu_curopt = opt2;
-                                menu_saverect = false;
-                            } else {
-                                menu_curopt = 6;
-                                menu_level = 2;
-                                break;
-                            }
-                        }
-                    }
-                    else if (dsk_num == 7) {
-                        menu_level = 2;
-                        menu_curopt = 1;
-                        menu_saverect = true;
-                        while (1) {
-                            string menu = MENU_SOUNDLED[Config::lang];
-                            menu += MENU_YESNO[Config::lang];
-                            uint8_t prev = Config::trdosSoundLed;
-                            if (prev) {
-                                menu.replace(menu.find("[Y",0),2,"[*");
-                                menu.replace(menu.find("[N",0),2,"[ ");
-                            } else {
-                                menu.replace(menu.find("[Y",0),2,"[ ");
-                                menu.replace(menu.find("[N",0),2,"[*");
-                            }
-                            uint8_t opt2 = menuRun(menu);
-                            if (opt2) {
-                                Config::trdosSoundLed = (opt2 == 1);
-                                if (Config::trdosSoundLed != prev)
-                                    Config::save();
-                                menu_curopt = opt2;
-                                menu_saverect = false;
-                            } else {
-                                menu_curopt = 7;
-                                menu_level = 2;
-                                break;
-                            }
-                        }
-                    }
-                    else if (dsk_num == 8) {
-                        menu_level = 2;
-                        menu_curopt = 1;
-                        menu_saverect = true;
-                        while (1) {
-                            string menu = MENU_TRDOS_ROM_TITLE[Config::lang];
-                            menu += MENU_TRDOS_ROM_SEL[Config::lang];
-                            // Mark current selection with [*]
-                            int mpos = -1;
-                            int idx = 0;
-                            while ((mpos = menu.find("[ ]", mpos + 1)) != (int)string::npos) {
-                                if (idx == Config::trdosBios)
-                                    menu.replace(mpos, 3, "[*]");
-                                idx++;
-                            }
-                            uint8_t prev = Config::trdosBios;
-                            uint8_t opt2 = menuRun(menu);
-                            if (opt2) {
-                                Config::trdosBios = opt2 - 1;
-                                if (Config::trdosBios != prev) {
-                                    Config::save();
-                                    switch (Config::trdosBios) {
-                                        case 0: MemESP::rom[4].assign_rom(gb_rom_4_trdos_503); break;
-                                        case 1: MemESP::rom[4].assign_rom(gb_rom_4_trdos_504tm); break;
-                                        default: MemESP::rom[4].assign_rom(gb_rom_4_trdos_505d); break;
+                                else if (tap_num == 3) {
+                                    // Tape Browser
+                                    if (Tape::tapeFileName=="none") {
+                                        OSD::osdCenteredMsg(OSD_TAPE_SELECT_ERR[Config::lang], LEVEL_WARN);
+                                        menu_curopt = 2;
+                                        menu_saverect = false;
+                                    } else {
+                                        menu_level = 0;
+                                        menu_saverect = false;
+                                        menu_curopt = 1;
+                                        int tBlock = menuTape(Tape::tapeFileName.substr(0,22));
+                                        if (tBlock >= 0) {
+                                            Tape::tapeCurBlock = tBlock;
+                                            Tape::Stop();
+                                        }
+                                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                                        return;
                                     }
                                 }
+                                else if (tap_num == 4) {
+                                    menu_level = 3;
+                                    menu_curopt = 1;
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string Mnustr = MENU_TAPEPLAYER[Config::lang];
+                                        Mnustr += MENU_YESNO[Config::lang];
+                                        bool prev_opt = Config::tape_player;
+                                        if (prev_opt) {
+                                            Mnustr.replace(Mnustr.find("[Y",0),2,"[*");
+                                            Mnustr.replace(Mnustr.find("[N",0),2,"[ ");
+                                        } else {
+                                            Mnustr.replace(Mnustr.find("[Y",0),2,"[ ");
+                                            Mnustr.replace(Mnustr.find("[N",0),2,"[*");
+                                        }
+                                        uint8_t opt2 = menuRun(Mnustr);
+                                        if (opt2) {
+                                            if (opt2 == 1)
+                                                Config::tape_player = true;
+                                            else
+                                                Config::tape_player = false;
+
+                                            if (Config::tape_player != prev_opt) {
+                                                if (Config::tape_player) {
+                                                    ESPectrum::aud_volume = ESP_VOLUME_MAX;
+                                                    pwm_audio_set_volume(ESPectrum::aud_volume);
+                                                }
+                                                Config::save();
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = FileUtils::fsMount ? 4 : 3;
+                                            menu_level = 2;
+                                            break;
+                                        }
+                                    }
+                                }
+                                else if (tap_num == 5) {
+                                    menu_level = 3;
+                                    menu_curopt = 1;
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string Mnustr = MENU_TAPEPLAYER2[Config::lang];
+                                        Mnustr += MENU_YESNO[Config::lang];
+                                        bool prev_opt = Config::real_player;
+                                        if (prev_opt) {
+                                            Mnustr.replace(Mnustr.find("[Y",0),2,"[*");
+                                            Mnustr.replace(Mnustr.find("[N",0),2,"[ ");
+                                        } else {
+                                            Mnustr.replace(Mnustr.find("[Y",0),2,"[ ");
+                                            Mnustr.replace(Mnustr.find("[N",0),2,"[*");
+                                        }
+                                        uint8_t opt2 = menuRun(Mnustr);
+                                        if (opt2) {
+                                            Config::real_player = (opt2 == 1);
+                                            if (Config::real_player != prev_opt) {
+                                                if (Tape::tapeStatus == TAPE_LOADING) {  // W/A
+                                                    Tape::Stop();
+                                                }
+                                                if (Config::real_player) {
+                                                    ESPectrum::aud_volume = ESP_VOLUME_MAX;
+                                                    pwm_audio_set_volume(ESPectrum::aud_volume);
+                                                } else {
+#if LOAD_WAV_PIO
+                                                    pcm_audio_in_stop();
+#endif
+                                                }
+                                                Config::save();
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = FileUtils::fsMount ? 5 : 4;
+                                            menu_level = 2;
+                                            break;
+                                        }
+                                    }
+                                }
+                                else if (tap_num == 6) {
+                                    // Fast tape load
+                                    menu_level = 3;
+                                    menu_curopt = 1;
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string flash_menu = MENU_FLASHLOAD[Config::lang];
+                                        flash_menu += MENU_YESNO[Config::lang];
+                                        bool prev_flashload = Config::flashload;
+                                        if (prev_flashload) {
+                                            flash_menu.replace(flash_menu.find("[Y",0),2,"[*");
+                                            flash_menu.replace(flash_menu.find("[N",0),2,"[ ");
+                                        } else {
+                                            flash_menu.replace(flash_menu.find("[Y",0),2,"[ ");
+                                            flash_menu.replace(flash_menu.find("[N",0),2,"[*");
+                                        }
+                                        uint8_t opt2 = menuRun(flash_menu);
+                                        if (opt2) {
+                                            if (opt2 == 1)
+                                                Config::flashload = true;
+                                            else
+                                                Config::flashload = false;
+
+                                            if (Config::flashload != prev_flashload) {
+                                                Config::save();
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = FileUtils::fsMount ? 6 : 5;
+                                            menu_level = 2;
+                                            break;
+                                        }
+                                    }
+                                }
+                                else if (tap_num == 7) {
+                                    // R.G. ROM timings
+                                    menu_level = 3;
+                                    menu_curopt = 1;
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string mnu_str = MENU_RGTIMINGS[Config::lang];
+                                        mnu_str += MENU_YESNO[Config::lang];
+                                        bool prev_opt = Config::tape_timing_rg;
+                                        if (prev_opt) {
+                                            mnu_str.replace(mnu_str.find("[Y",0),2,"[*");
+                                            mnu_str.replace(mnu_str.find("[N",0),2,"[ ");
+                                        } else {
+                                            mnu_str.replace(mnu_str.find("[Y",0),2,"[ ");
+                                            mnu_str.replace(mnu_str.find("[N",0),2,"[*");
+                                        }
+                                        uint8_t opt2 = menuRun(mnu_str);
+                                        if (opt2) {
+                                            if (opt2 == 1)
+                                                Config::tape_timing_rg = true;
+                                            else
+                                                Config::tape_timing_rg = false;
+
+                                            if (Config::tape_timing_rg != prev_opt) {
+                                                Config::save();
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = FileUtils::fsMount ? 7 : 6;
+                                            menu_level = 2;
+                                            break;
+                                        }
+                                    }
+                                }
+                            } else {
+                                menu_curopt = 1;
+                                menu_level = 1;
+                                break;
+                            }
+                        }
+                    }
+                    else if (FileUtils::fsMount && stor_num == 2) { // Betadisk
+                        menu_saverect = true;
+                        menu_curopt = 1;
+                        while(1) {
+                            menu_level = 2;
+                            uint8_t dsk_num = menuRun(MENU_BETADISK[Config::lang]);
+                            if (dsk_num > 0 && dsk_num < 5) {
+                                string drvmenu = MENU_BETADRIVE[Config::lang];
+                                drvmenu.replace(drvmenu.find("#",0),1,(string)" " + char(64 + dsk_num));
+                                menu_saverect = true;
+                                menu_curopt = 1;
+                                while (1) {
+                                    menu_level = 3;
+                                    uint8_t opt2 = menuRun(drvmenu);
+                                    if (opt2 > 0) {
+                                        if (opt2 == 1) {
+                                            menu_saverect = true;
+                                            string mFile = fileDialog(FileUtils::DSK_Path, MENU_DSK_TITLE[Config::lang], DISK_DSKFILE, 26, 15);
+                                            if (mFile != "") {
+                                                mFile.erase(0, 1);
+                                                string fname = FileUtils::DSK_Path + "/" + mFile;
+                                                rvmWD1793InsertDisk(&ESPectrum::fdd, dsk_num - 1, fname);
+                                                Config::save();
+                                                return;
+                                            }
+                                        } else
+                                        if (opt2 == 2) {
+                                            wdDiskEject(&ESPectrum::fdd, dsk_num - 1);
+                                            Config::save();
+                                            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                                            return;
+                                        }
+                                    } else {
+                                        menu_curopt = dsk_num;
+                                        break;
+                                    }
+                                }
+                            }
+                            else if (dsk_num == 5) {
+                                menu_level = 3;
+                                menu_curopt = 1;
+                                menu_saverect = true;
+                                while (1) {
+                                    string menu = MENU_FASTMODE[Config::lang];
+                                    menu += MENU_YESNO[Config::lang];
+                                    uint8_t prev = Config::trdosFastMode;
+                                    if (prev) {
+                                        menu.replace(menu.find("[Y",0),2,"[*");
+                                        menu.replace(menu.find("[N",0),2,"[ ");
+                                    } else {
+                                        menu.replace(menu.find("[Y",0),2,"[ ");
+                                        menu.replace(menu.find("[N",0),2,"[*");
+                                    }
+                                    uint8_t opt2 = menuRun(menu);
+                                    if (opt2) {
+                                        if (opt2 == 1)
+                                            Config::trdosFastMode = true;
+                                        else
+                                            Config::trdosFastMode = false;
+
+                                        if (Config::trdosFastMode != prev) {
+                                            ESPectrum::fdd.fastmode = Config::trdosFastMode;
+                                            Config::save();
+                                        }
+                                        menu_curopt = opt2;
+                                        menu_saverect = false;
+                                    } else {
+                                        menu_curopt = 5;
+                                        menu_level = 2;
+                                        break;
+                                    }
+                                }
+                            }
+                            else if (dsk_num == 6) {
+                                menu_level = 3;
+                                menu_curopt = 1;
+                                menu_saverect = true;
+                                while (1) {
+                                    string menu = MENU_WRITEPROTECT[Config::lang];
+                                    menu += MENU_YESNO[Config::lang];
+                                    uint8_t prev = Config::trdosWriteProtect;
+                                    if (prev) {
+                                        menu.replace(menu.find("[Y",0),2,"[*");
+                                        menu.replace(menu.find("[N",0),2,"[ ");
+                                    } else {
+                                        menu.replace(menu.find("[Y",0),2,"[ ");
+                                        menu.replace(menu.find("[N",0),2,"[*");
+                                    }
+                                    uint8_t opt2 = menuRun(menu);
+                                    if (opt2) {
+                                        if (opt2 == 1)
+                                            Config::trdosWriteProtect = true;
+                                        else
+                                            Config::trdosWriteProtect = false;
+
+                                        if (Config::trdosWriteProtect != prev) {
+                                            for (int i = 0; i < 4; i++)
+                                                if (ESPectrum::fdd.disk[i])
+                                                    ESPectrum::fdd.disk[i]->writeprotect = Config::trdosWriteProtect;
+                                            Config::save();
+                                        }
+                                        menu_curopt = opt2;
+                                        menu_saverect = false;
+                                    } else {
+                                        menu_curopt = 6;
+                                        menu_level = 2;
+                                        break;
+                                    }
+                                }
+                            }
+                            else if (dsk_num == 7) {
+                                menu_level = 3;
+                                menu_curopt = 1;
+                                menu_saverect = true;
+                                while (1) {
+                                    string menu = MENU_SOUNDLED[Config::lang];
+                                    menu += MENU_YESNO[Config::lang];
+                                    uint8_t prev = Config::trdosSoundLed;
+                                    if (prev) {
+                                        menu.replace(menu.find("[Y",0),2,"[*");
+                                        menu.replace(menu.find("[N",0),2,"[ ");
+                                    } else {
+                                        menu.replace(menu.find("[Y",0),2,"[ ");
+                                        menu.replace(menu.find("[N",0),2,"[*");
+                                    }
+                                    uint8_t opt2 = menuRun(menu);
+                                    if (opt2) {
+                                        Config::trdosSoundLed = (opt2 == 1);
+                                        if (Config::trdosSoundLed != prev)
+                                            Config::save();
+                                        menu_curopt = opt2;
+                                        menu_saverect = false;
+                                    } else {
+                                        menu_curopt = 7;
+                                        menu_level = 2;
+                                        break;
+                                    }
+                                }
+                            }
+                            else if (dsk_num == 8) {
+                                menu_level = 3;
+                                menu_curopt = 1;
+                                menu_saverect = true;
+                                while (1) {
+                                    string menu = MENU_TRDOS_ROM_TITLE[Config::lang];
+                                    menu += MENU_TRDOS_ROM_SEL[Config::lang];
+                                    // Mark current selection with [*]
+                                    int mpos = -1;
+                                    int idx = 0;
+                                    while ((mpos = menu.find("[ ]", mpos + 1)) != (int)string::npos) {
+                                        if (idx == Config::trdosBios)
+                                            menu.replace(mpos, 3, "[*]");
+                                        idx++;
+                                    }
+                                    uint8_t prev = Config::trdosBios;
+                                    uint8_t opt2 = menuRun(menu);
+                                    if (opt2) {
+                                        Config::trdosBios = opt2 - 1;
+                                        if (Config::trdosBios != prev) {
+                                            Config::save();
+                                            switch (Config::trdosBios) {
+                                                case 0: MemESP::rom[4].assign_rom(gb_rom_4_trdos_503); break;
+                                                case 1: MemESP::rom[4].assign_rom(gb_rom_4_trdos_504tm); break;
+                                                default: MemESP::rom[4].assign_rom(gb_rom_4_trdos_505d); break;
+                                            }
+                                        }
+                                        menu_curopt = opt2;
+                                        menu_saverect = false;
+                                    } else {
+                                        menu_curopt = 8;
+                                        menu_level = 2;
+                                        break;
+                                    }
+                                }
+                            }
+                            else {
+                                menu_curopt = 2;
+                                menu_level = 1;
+                                break;
+                            }
+                        }
+                    }
+#if !PICO_RP2040
+                    else if (FileUtils::fsMount && stor_num == 3) { // esxDOS
+                        menu_level = 2;
+                        menu_curopt = 1;
+                        menu_saverect = true;
+                        while (1) {
+                            string menu = MENU_ESXDOS_TITLE[Config::lang];
+                            const char* mode_names[] = { "OFF", "DivMMC", "DivIDE", "DivSD" };
+                            for (int i = 0; i < 4; i++) {
+                                menu += (i == Config::esxdos) ? "[*] " : "[ ] ";
+                                menu += mode_names[i];
+                                menu += "\n";
+                            }
+                            uint8_t opt2 = menuRun(menu);
+                            if (opt2) {
+                                uint8_t newval = opt2 - 1;
+                                if (newval != Config::esxdos) {
+                                    Config::esxdos = newval;
+                                    DivMMC::init(); // handles enable/disable, mode switch, cleanup
+                                    if (DivMMC::enabled && !DivMMC::rom_loaded) {
+                                        OSD::osdCenteredMsg("ESXDOS ROM not found", LEVEL_ERROR, 2000);
+                                        Config::esxdos = 0;
+                                        DivMMC::init(); // disable
+                                    }
+                                    Config::save();
+                                    ESPectrum::reset();
+                                    return;
+                                }
                                 menu_curopt = opt2;
                                 menu_saverect = false;
                             } else {
-                                menu_curopt = 8;
-                                menu_level = 2;
+                                menu_curopt = 3;
+                                menu_level = 1;
+                                break;
+                            }
+                        }
+                    }
+#endif
+                    else if (FileUtils::fsMount &&
+#if !PICO_RP2040
+                        stor_num == 4
+#else
+                        stor_num == 3
+#endif
+                    ) { // Snapshot
+                        menu_saverect = true;
+                        menu_curopt = 1;
+                        while(1) {
+                            menu_level = 2;
+                            uint8_t sna_mnu = menuRun(MENU_SNA[Config::lang]);
+                            if (sna_mnu > 0) {
+                                menu_level = 3;
+                                menu_saverect = true;
+                                if (sna_mnu == 1) {
+                                    string mFile = fileDialog(FileUtils::SNA_Path, MENU_SNA_TITLE[Config::lang], DISK_SNAFILE, 28, 16);
+                                    if (mFile != "") {
+                                        Config::save();
+                                        mFile.erase(0, 1);
+                                        string fname = FileUtils::SNA_Path + mFile;
+                                        if(!LoadSnapshot(fname, "", "")) {
+                                            OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
+                                        } else {
+                                            Config::ram_file = fname;
+                                            Config::last_ram_file = fname;
+                                        }
+                                        return;
+                                    }
+                                }
+                                else if (sna_mnu == 2) {
+                                    // Persist Load
+                                    menu_curopt = 1;
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string menuload = MENU_PERSIST_LOAD[Config::lang];
+                                        for(int i=1; i <= 10; i++) {
+                                            menuload += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
+                                        }
+                                        uint8_t opt2 = menuRun(menuload);
+                                        if (opt2) {
+                                            if (persistLoad(opt2)) {
+                                                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                                                return;
+                                            }
+                                            menu_saverect = false;
+                                            menu_curopt = opt2;
+                                        } else break;
+                                    }
+                                }
+                                else if (sna_mnu == 3) {
+                                    // Persist Save
+                                    menu_curopt = 1;
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string menusave = MENU_PERSIST_SAVE[Config::lang];
+                                        for(int i=1; i <= 10; i++) {
+                                            menusave += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
+                                        }
+                                        uint8_t opt2 = menuRun(menusave);
+                                        if (opt2) {
+                                            if (persistSave(opt2)) {
+                                                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                                                return;
+                                            }
+                                            menu_saverect = false;
+                                            menu_curopt = opt2;
+                                        } else break;
+                                    }
+                                }
+                                menu_curopt = sna_mnu;
+                            } else {
+#if !PICO_RP2040
+                                menu_curopt = 4;
+#else
+                                menu_curopt = 3;
+#endif
+                                menu_level = 1;
                                 break;
                             }
                         }
                     }
                     else {
+                        menu_curopt = 2;
+                        break;
+                    }
+                }
+            }
+            else if (opt == 3) { // Audio
+                // ***********************************************************************************
+                // AUDIO MENU
+                // ***********************************************************************************
+                menu_saverect = true;
+                menu_curopt = 1;
+                while (1) {
+                    menu_level = 1;
+                    // Audio
+                    uint8_t options_num = menuRun(MENU_AUDIO[Config::lang]);
+                    if (options_num > 0) {
+                        if (options_num == 1) {
+                            menu_level = 2;
+                            menu_curopt = 1;
+                            menu_saverect = true;
+                            while (1) {
+                                string ay_menu = MENU_AY48[Config::lang];
+                                ay_menu += MENU_YESNO[Config::lang];
+                                bool prev_ay48 = Config::AY48;
+                                if (prev_ay48) {
+                                    ay_menu.replace(ay_menu.find("[Y",0),2,"[*");
+                                    ay_menu.replace(ay_menu.find("[N",0),2,"[ ");
+                                } else {
+                                    ay_menu.replace(ay_menu.find("[Y",0),2,"[ ");
+                                    ay_menu.replace(ay_menu.find("[N",0),2,"[*");
+                                }
+                                uint8_t opt2 = menuRun(ay_menu);
+                                if (opt2) {
+                                    if (opt2 == 1)
+                                        Config::AY48 = true;
+                                    else
+                                        Config::AY48 = false;
+
+                                    if (Config::AY48 != prev_ay48) {
+                                        ESPectrum::AY_emu = Config::AY48;
+                                        Config::save();
+                                    }
+                                    menu_curopt = opt2;
+                                    menu_saverect = false;
+                                } else {
+                                    menu_curopt = 1;
+                                    menu_level = 1;
+                                    break;
+                                }
+                            }
+                        }
+                        else if (options_num == 2) {
+                            menu_level = 2;
+                            menu_curopt = 1;
+                            menu_saverect = true;
+                            while (1) {
+                                string menu = MENU_AY[Config::lang];
+                                uint8_t prev = Config::ayConfig;
+                                if (prev == 0) {
+                                    menu.replace(menu.find("[B",0),2,"[*");
+                                    menu.replace(menu.find("[C",0),2,"[ ");
+                                    menu.replace(menu.find("[M",0),2,"[ ");
+                                } else if (prev == 1) {
+                                    menu.replace(menu.find("[B",0),2,"[ ");
+                                    menu.replace(menu.find("[C",0),2,"[*");
+                                    menu.replace(menu.find("[M",0),2,"[ ");
+                                } else {
+                                    menu.replace(menu.find("[B",0),2,"[ ");
+                                    menu.replace(menu.find("[C",0),2,"[ ");
+                                    menu.replace(menu.find("[M",0),2,"[*");
+                                }
+                                uint8_t opt2 = menuRun(menu);
+                                if (opt2) {
+                                    Config::ayConfig = opt2 - 1;
+                                    if (Config::ayConfig != prev) {
+                                        Config::save();
+                                    }
+                                    menu_curopt = opt2;
+                                    menu_saverect = false;
+                                } else {
+                                    menu_curopt = 2;
+                                    menu_level = 1;
+                                    break;
+                                }
+                            }
+                        }
+                        else if (options_num == 3) {
+                            menu_level = 2;
+                            menu_curopt = 1;
+                            menu_saverect = true;
+                            while (1) {
+                                string menu = MENU_TS[Config::lang];
+                                uint8_t prev = Config::turbosound;
+                                if (prev == 0) {
+                                    menu.replace(menu.find("[F",0),2,"[*");
+                                    menu.replace(menu.find("[N",0),2,"[ ");
+                                    menu.replace(menu.find("[O",0),2,"[ ");
+                                    menu.replace(menu.find("[B",0),2,"[ ");
+                                } else if (prev == 1) {
+                                    menu.replace(menu.find("[F",0),2,"[ ");
+                                    menu.replace(menu.find("[N",0),2,"[*");
+                                    menu.replace(menu.find("[O",0),2,"[ ");
+                                    menu.replace(menu.find("[B",0),2,"[ ");
+                                } else if (prev == 2) {
+                                    menu.replace(menu.find("[F",0),2,"[ ");
+                                    menu.replace(menu.find("[N",0),2,"[ ");
+                                    menu.replace(menu.find("[O",0),2,"[*");
+                                    menu.replace(menu.find("[B",0),2,"[ ");
+                                } else {
+                                    menu.replace(menu.find("[F",0),2,"[ ");
+                                    menu.replace(menu.find("[N",0),2,"[ ");
+                                    menu.replace(menu.find("[O",0),2,"[ ");
+                                    menu.replace(menu.find("[B",0),2,"[*");
+                                }
+                                uint8_t opt2 = menuRun(menu);
+                                if (opt2) {
+                                    Config::turbosound = opt2 - 1;
+                                    if (Config::turbosound != prev) {
+                                        Config::save();
+                                    }
+                                    menu_curopt = opt2;
+                                    menu_saverect = false;
+                                } else {
+                                    menu_curopt = 3;
+                                    menu_level = 1;
+                                    break;
+                                }
+                            }
+                        }
+                        else if (options_num == 4) {
+                            menu_level = 2;
+                            menu_curopt = 1;
+                            menu_saverect = true;
+                            while (1) {
+                                string menu = MENU_COVOX[Config::lang];
+                                uint8_t prev = Config::covox;
+                                if (prev == 0) {
+                                    menu.replace(menu.find("[N",0),2,"[*");
+                                    menu.replace(menu.find("[F",0),2,"[ ");
+                                    menu.replace(menu.find("[D",0),2,"[ ");
+                                } else if (prev == 1) {
+                                    menu.replace(menu.find("[N",0),2,"[ ");
+                                    menu.replace(menu.find("[F",0),2,"[*");
+                                    menu.replace(menu.find("[D",0),2,"[ ");
+                                } else {
+                                    menu.replace(menu.find("[N",0),2,"[ ");
+                                    menu.replace(menu.find("[F",0),2,"[ ");
+                                    menu.replace(menu.find("[D",0),2,"[*");
+                                }
+                                uint8_t opt2 = menuRun(menu);
+                                if (opt2) {
+                                    Config::covox = opt2 - 1;
+                                    if (Config::covox != prev) {
+                                        Config::save();
+                                    }
+                                    menu_curopt = opt2;
+                                    menu_saverect = false;
+                                } else {
+                                    menu_curopt = 4;
+                                    menu_level = 1;
+                                    break;
+                                }
+                            }
+                        }
+#if !PICO_RP2040
+                        else if (options_num == 5) {
+                            menu_level = 2;
+                            menu_curopt = 1;
+                            menu_saverect = true;
+                            while (1) {
+                                string saa_menu = MENU_SAA1099[Config::lang];
+                                saa_menu += MENU_YESNO[Config::lang];
+                                bool prev_saa = Config::SAA1099;
+                                if (prev_saa) {
+                                    saa_menu.replace(saa_menu.find("[Y",0),2,"[*");
+                                    saa_menu.replace(saa_menu.find("[N",0),2,"[ ");
+                                } else {
+                                    saa_menu.replace(saa_menu.find("[Y",0),2,"[ ");
+                                    saa_menu.replace(saa_menu.find("[N",0),2,"[*");
+                                }
+                                uint8_t opt2 = menuRun(saa_menu);
+                                if (opt2) {
+                                    if (opt2 == 1)
+                                        Config::SAA1099 = true;
+                                    else
+                                        Config::SAA1099 = false;
+
+                                    if (Config::SAA1099 != prev_saa) {
+                                        ESPectrum::SAA_emu = Config::SAA1099;
+                                        Config::save();
+                                    }
+                                    menu_curopt = opt2;
+                                    menu_saverect = false;
+                                } else {
+                                    menu_curopt = 5;
+                                    menu_level = 1;
+                                    break;
+                                }
+                            }
+                        }
+                        else if (options_num == 6) {
+                            menu_level = 2;
+                            menu_curopt = 1;
+                            menu_saverect = true;
+                            while (1) {
+                                string midi_menu = MENU_MIDI[Config::lang];
+                                uint8_t prev_midi = Config::midi;
+                                midi_menu.replace(midi_menu.find("[O",0),2, prev_midi == 0 ? "[*" : "[ ");
+                                midi_menu.replace(midi_menu.find("[A",0),2, prev_midi == 1 ? "[*" : "[ ");
+                                midi_menu.replace(midi_menu.find("[S",0),2, prev_midi == 2 ? "[*" : "[ ");
+                                midi_menu.replace(midi_menu.find("[W",0),2, prev_midi == 3 ? "[*" : "[ ");
+                                uint8_t opt2 = menuRun(midi_menu);
+                                if (opt2 >= 1 && opt2 <= 4) {
+                                    Config::midi = opt2 - 1;
+                                    if (Config::midi != prev_midi) {
+                                        Midi::enabled = prev_midi;
+                                        Midi::deinit();
+                                        Midi::enabled = Config::midi;
+                                        if (Midi::enabled)
+                                            Midi::init();
+                                        Config::save();
+                                    }
+                                    // Software selected — open preset submenu
+                                    if (Config::midi == 3) {
+                                        menu_level = 3;
+                                        menu_curopt = 1;
+                                        menu_saverect = true;
+                                        string preset_menu = MENU_MIDI_PRESET[Config::lang];
+                                        static const char preset_marks[] = "GPCSROMY";
+                                        for (int p = 0; p < 8; p++) {
+                                            char mark[3] = { '[', preset_marks[p], '\0' };
+                                            auto pos = preset_menu.find(mark, 0);
+                                            if (pos != string::npos)
+                                                preset_menu.replace(pos, 2, Config::midi_synth_preset == p ? "[*" : "[ ");
+                                        }
+                                        uint8_t opt3 = menuRun(preset_menu);
+                                        if (opt3) {
+                                            Config::midi_synth_preset = opt3 - 1;
+                                            MidiSynth::preset = Config::midi_synth_preset;
+                                            Config::save();
+                                            VIDEO::SaveRect.restore_last();
+                                        }
+                                        menu_level = 2;
+                                        menu_curopt = opt2;
+                                        menu_saverect = false;
+                                    }
+                                    menu_curopt = opt2;
+                                    menu_saverect = false;
+                                } else {
+                                    menu_curopt = 6;
+                                    menu_level = 1;
+                                    break;
+                                }
+                            }
+                        }
+#endif
+                        else if (options_num ==
+#if !PICO_RP2040
+                            7
+#else
+                            5
+#endif
+                        ) {
+                            menu_level = 2;
+                            menu_curopt = 1;
+                            menu_saverect = true;
+                            while (1) {
+                                string menu = MENU_I2S[Config::lang];
+                                uint8_t prev = Config::audio_driver;
+                                menu.replace(menu.find("[A",0),2,prev==0 ? "[*" : "[ ");
+                                menu.replace(menu.find("[P",0),2,prev==1 ? "[*" : "[ ");
+                                menu.replace(menu.find("[I",0),2,prev==2 ? "[*" : "[ ");
+                                menu.replace(menu.find("[Y",0),2,prev==3 ? "[*" : "[ ");
+                                { auto pos = menu.find("[H",0); if (pos != string::npos) menu.replace(pos,2,prev==4 ? "[*" : "[ "); }
+                                uint8_t opt2 = menuRun(menu);
+                                if (opt2) {
+                                    Config::audio_driver = opt2 - 1;
+                                    if (Config::audio_driver != prev) {
+                                        if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
+                                            Config::save();
+                                            esp_hard_reset();
+                                        } else {
+                                            Config::audio_driver = prev;
+                                        }
+                                    }
+                                    menu_curopt = opt2;
+                                    menu_saverect = false;
+                                } else {
+                                    menu_curopt =
+#if !PICO_RP2040
+                                        7;
+#else
+                                        5;
+#endif
+                                    menu_level = 1;
+                                    break;
+                                }
+                            }
+                        }
+                    } else {
+                        menu_curopt = 3;
+                        break;
+                    }
+                }
+            }
+            else if (opt == 4) { // Video
+                // ***********************************************************************************
+                // VIDEO MENU
+                // ***********************************************************************************
+                menu_saverect = true;
+                menu_curopt = 1;
+                while (1) {
+                    menu_level = 1;
+                    // Video
+                    uint8_t options_num = menuRun(MENU_VIDEO[Config::lang]);
+                    if (options_num > 0) {
+                        if (options_num == 1) { // VIDEO MODE
+                            menu_level = 2;
+                            menu_curopt = 1;
+                            menu_saverect = true;
+                            while (1) {
+                                string opt_menu = MENU_VIDEO_MODE[Config::lang];
+#ifdef VGA_HDMI
+                                uint8_t &curVideoMode = SELECT_VGA ? Config::vga_video_mode : Config::hdmi_video_mode;
+#else
+                                uint8_t dummy_vm = 0;
+                                uint8_t &curVideoMode = dummy_vm;
+#endif
+                                // cur_sel maps directly to VM_* enum: 0=640x480@60, 1=640x480@50, 2=720x480@60, 3=720x576@60, 4=720x576@50
+                                uint8_t cur_sel = curVideoMode;
+                                opt_menu.replace(opt_menu.find("[6",0),2, cur_sel == 0 ? "[*" : "[ ");
+                                opt_menu.replace(opt_menu.find("[5",0),2, cur_sel == 1 ? "[*" : "[ ");
+                            #if !PICO_RP2040
+                                opt_menu.replace(opt_menu.find("[H",0),2, cur_sel == 2 ? "[*" : "[ ");
+                                opt_menu.replace(opt_menu.find("[X",0),2, cur_sel == 3 ? "[*" : "[ ");
+                                opt_menu.replace(opt_menu.find("[F",0),2, cur_sel == 4 ? "[*" : "[ ");
+                            #endif
+                                uint8_t opt2 = menuRun(opt_menu);
+                                if (opt2) {
+                                    uint8_t new_vm = opt2 - 1; // opt2 is 1-based, VM_* is 0-based
+                                    if (new_vm != curVideoMode) {
+                                        if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
+                                            Config::savePendingVideoMode();
+                                            curVideoMode = new_vm;
+                                            Config::save();
+                                            esp_hard_reset();
+                                        }
+                                    }
+                                    menu_curopt = opt2;
+                                    menu_saverect = false;
+                                } else {
+                                    menu_curopt = 1;
+                                    menu_level = 1;
+                                    break;
+                                }
+                            }
+                        }
+                        else if (options_num == 2) {
+                            menu_level = 2;
+                            menu_curopt = 1;
+                            menu_saverect = true;
+                            while (1) {
+                                string opt_menu = MENU_RENDER[Config::lang];
+                                uint8_t prev_opt = Config::render;
+                                if (prev_opt) {
+                                    opt_menu.replace(opt_menu.find("[S",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[A",0),2,"[*");
+                                } else {
+                                    opt_menu.replace(opt_menu.find("[S",0),2,"[*");
+                                    opt_menu.replace(opt_menu.find("[A",0),2,"[ ");
+                                }
+                                uint8_t opt2 = menuRun(opt_menu);
+                                if (opt2) {
+                                    if (opt2 == 1)
+                                        Config::render = 0;
+                                    else
+                                        Config::render = 1;
+
+                                    if (Config::render != prev_opt) {
+                                        Config::save();
+
+                                        VIDEO::snow_toggle =
+                                            Config::arch != "P1024" && Config::arch != "Pentagon" && Config::arch != "P512"
+                                             ? Config::render : false;
+
+                                        if (VIDEO::snow_toggle) {
+                                            VIDEO::Draw = &VIDEO::MainScreen_Blank_Snow;
+                                            VIDEO::Draw_Opcode = &VIDEO::MainScreen_Blank_Snow_Opcode;
+                                        } else {
+                                            VIDEO::Draw = &VIDEO::MainScreen_Blank;
+                                            VIDEO::Draw_Opcode = &VIDEO::MainScreen_Blank_Opcode;
+                                        }
+
+                                    }
+                                    menu_curopt = opt2;
+                                    menu_saverect = false;
+                                } else {
+                                    menu_curopt = 2;
+                                    menu_level = 1;
+                                    break;
+                                }
+                            }
+                        }
+                        else if (options_num == 3) {
+                            menu_level = 2;
+                            menu_curopt = 1;
+                            menu_saverect = true;
+                            while (1) {
+
+                                // aspect ratio
+                                string asp_menu = MENU_ASPECT[Config::lang];
+                                bool prev_asp = Config::aspect_16_9;
+                                if (prev_asp) {
+                                    asp_menu.replace(asp_menu.find("[4",0),2,"[ ");
+                                    asp_menu.replace(asp_menu.find("[1",0),2,"[*");
+                                } else {
+                                    asp_menu.replace(asp_menu.find("[4",0),2,"[*");
+                                    asp_menu.replace(asp_menu.find("[1",0),2,"[ ");
+                                }
+                                uint8_t opt2 = menuRun(asp_menu);
+                                if (opt2) {
+                                    /***
+                                    if (opt2 == 1)
+                                        Config::aspect_16_9 = false;
+                                    else
+                                        Config::aspect_16_9 = true;
+                                    */
+                                    if (Config::aspect_16_9 != prev_asp) {
+                                        Config::ram_file = "none";
+                                        Config::save();
+                                        esp_hard_reset();
+                                    }
+
+                                    menu_curopt = opt2;
+                                    menu_saverect = false;
+
+                                } else {
+                                    menu_curopt = 3;
+                                    menu_level = 1;
+                                    break;
+                                }
+                            }
+                        }
+                        else if (options_num == 4) {
+                            menu_level = 2;
+                            menu_curopt = 1;
+                            menu_saverect = true;
+                            while (1) {
+                                string opt_menu = MENU_SCANLINES[Config::lang];
+                                opt_menu += MENU_YESNO[Config::lang];
+                                uint8_t prev_opt = Config::scanlines;
+                                if (prev_opt) {
+                                    opt_menu.replace(opt_menu.find("[Y",0),2,"[*");
+                                    opt_menu.replace(opt_menu.find("[N",0),2,"[ ");
+                                } else {
+                                    opt_menu.replace(opt_menu.find("[Y",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[N",0),2,"[*");
+                                }
+                                uint8_t opt2 = menuRun(opt_menu);
+                                if (opt2) {
+                                    if (opt2 == 1)
+                                        Config::scanlines = 1;
+                                    else
+                                        Config::scanlines = 0;
+
+                                    if (Config::scanlines != prev_opt) {
+                                        if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
+                                            Config::ram_file = "none";
+                                            Config::save();
+                                            esp_hard_reset();
+                                        } else {
+                                            Config::scanlines = prev_opt;
+                                        }
+                                    }
+                                    menu_curopt = opt2;
+                                    menu_saverect = false;
+                                } else {
+                                    menu_curopt = 4;
+                                    menu_level = 1;
+                                    break;
+                                }
+                            }
+                        }
+                        else if (options_num == 5) {
+                            menu_level = 2;
+                            menu_curopt = 1;
+                            menu_saverect = true;
+                            while (1) {
+                                string opt_menu = MENU_VSYNC[Config::lang];
+                                opt_menu += MENU_YESNO[Config::lang];
+                                bool prev_opt = Config::v_sync_enabled;
+                                if (prev_opt) {
+                                    opt_menu.replace(opt_menu.find("[Y",0),2,"[*");
+                                    opt_menu.replace(opt_menu.find("[N",0),2,"[ ");
+                                } else {
+                                    opt_menu.replace(opt_menu.find("[Y",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[N",0),2,"[*");
+                                }
+                                uint8_t opt2 = menuRun(opt_menu);
+                                if (opt2) {
+                                    if (opt2 == 1)
+                                        Config::v_sync_enabled = true;
+                                    else
+                                        Config::v_sync_enabled = false;
+
+                                    if (Config::v_sync_enabled != prev_opt) {
+                                        Config::save();
+                                    }
+                                    menu_curopt = opt2;
+                                    menu_saverect = false;
+                                } else {
+                                    menu_curopt = 5;
+                                    menu_level = 1;
+                                    break;
+                                }
+                            }
+                        }
+                        #if !PICO_RP2040
+                        else if (options_num == 6) {
+                            menu_level = 2;
+                            menu_curopt = 1;
+                            menu_saverect = true;
+                            while (1) {
+                                string opt_menu = MENU_GIGASCREEN[Config::lang];
+                                opt_menu += MENU_YESNO[Config::lang];
+                                bool prev_opt = Config::gigascreen_enabled;
+                                if (prev_opt) {
+                                    opt_menu.replace(opt_menu.find("[Y",0),2,"[*");
+                                    opt_menu.replace(opt_menu.find("[N",0),2,"[ ");
+                                } else {
+                                    opt_menu.replace(opt_menu.find("[Y",0),2,"[ ");
+                                    opt_menu.replace(opt_menu.find("[N",0),2,"[*");
+                                }
+                                uint8_t opt2 = menuRun(opt_menu);
+                                if (opt2) {
+                                    if (opt2 == 1)
+                                        Config::gigascreen_enabled = true;
+                                    else
+                                        Config::gigascreen_enabled = false;
+
+                                    if (Config::gigascreen_enabled != prev_opt) {
+                                        if (Config::gigascreen_enabled) {
+                                            initGigascreenBlendLUT();
+                                            VIDEO::InitPrevBuffer();
+                                            if (!VIDEO::vga.prevFrameBuffer) {
+                                                Config::gigascreen_enabled = false;
+                                                VIDEO::gigascreen_enabled = false;
+                                            }
+                                            if (Config::gigascreen_onoff == 0)
+                                                Config::gigascreen_onoff = 1; // Off->On when enabling
+                                            if (Config::gigascreen_onoff == 1)
+                                                VIDEO::gigascreen_enabled = true;
+                                            else {
+                                                VIDEO::gigascreen_enabled = false;
+                                                VIDEO::gigascreen_auto_countdown = 0;
+                                            }
+                                        } else {
+                                            VIDEO::gigascreen_enabled = false;
+                                            VIDEO::gigascreen_auto_countdown = 0;
+                                        }
+                                        Config::save();
+                                    }
+                                    menu_curopt = opt2;
+                                    menu_saverect = false;
+                                } else {
+                                    menu_curopt = 6;
+                                    menu_level = 1;
+                                    break;
+                                }
+                            }
+                        }
+                        #endif
+                        #if !PICO_RP2040
+                        // ULA+ ON/OFF
+                        else if (options_num == 7) {
+                            menu_level = 2;
+                            menu_curopt = 1;
+                            menu_saverect = true;
+                            while (1) {
+                                string ula_menu = MENU_ULAPLUS[Config::lang];
+                                ula_menu += MENU_YESNO[Config::lang];
+                                bool prev_ula = Config::ulaplus;
+                                if (prev_ula) {
+                                    ula_menu.replace(ula_menu.find("[Y",0),2,"[*");
+                                    ula_menu.replace(ula_menu.find("[N",0),2,"[ ");
+                                } else {
+                                    ula_menu.replace(ula_menu.find("[Y",0),2,"[ ");
+                                    ula_menu.replace(ula_menu.find("[N",0),2,"[*");
+                                }
+                                uint8_t opt2 = menuRun(ula_menu);
+                                if (opt2) {
+                                    if (opt2 == 1)
+                                        Config::ulaplus = true;
+                                    else
+                                        Config::ulaplus = false;
+
+                                    if (Config::ulaplus != prev_ula) {
+                                        if (!Config::ulaplus && VIDEO::ulaplus_enabled) {
+                                            VIDEO::ulaPlusDisable();
+                                        }
+                                        Config::save();
+                                    }
+                                    menu_curopt = opt2;
+                                    menu_saverect = false;
+                                } else {
+                                    menu_curopt = 7;
+                                    menu_level = 1;
+                                    break;
+                                }
+                            }
+                        }
+                        #endif
+                    } else {
                         menu_curopt = 4;
                         break;
                     }
                 }
             }
-            else if (FileUtils::fsMount && opt == 5 || opt == 3) { // Machine
+            else if (opt == 5) { // Machine
                 // ***********************************************************************************
                 // MACHINE MENU
                 // ***********************************************************************************
@@ -1685,8 +2504,46 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_saverect = false;
                                 } else {
                                     menu_curopt = 1;
-                                    menu_level = 2;
-                                    break;
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string midi_menu = MENU_MIDI[Config::lang];
+                                        uint8_t prev_midi = Config::midi;
+                                        if (prev_midi == 0) {
+                                            midi_menu.replace(midi_menu.find("[O",0),2,"[*");
+                                            midi_menu.replace(midi_menu.find("[A",0),2,"[ ");
+                                            midi_menu.replace(midi_menu.find("[S",0),2,"[ ");
+                                        } else if (prev_midi == 1) {
+                                            midi_menu.replace(midi_menu.find("[O",0),2,"[ ");
+                                            midi_menu.replace(midi_menu.find("[A",0),2,"[*");
+                                            midi_menu.replace(midi_menu.find("[S",0),2,"[ ");
+                                        } else {
+                                            midi_menu.replace(midi_menu.find("[O",0),2,"[ ");
+                                            midi_menu.replace(midi_menu.find("[A",0),2,"[ ");
+                                            midi_menu.replace(midi_menu.find("[S",0),2,"[*");
+                                        }
+                                        uint8_t opt2 = menuRun(midi_menu);
+                                        if (opt2) {
+                                            Config::midi = opt2 - 1;
+                                            if (Config::midi != prev_midi) {
+                                                Midi::enabled = Config::midi;
+                                                if (Midi::enabled)
+                                                    Midi::init();
+                                                else {
+                                                    Midi::deinit();
+#ifdef LOAD_WAV_PIO
+                                                    inInit(LOAD_WAV_PIO);
+#endif
+                                                }
+                                                Config::save();
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = 6;
+                                            menu_level = 2;
+                                            break;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -1755,12 +2612,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         menu_curopt = arch_num;
                         menu_saverect = false;
                     } else {
-                        menu_curopt = FileUtils::fsMount ? 5 : 3;
+                        menu_curopt = 5;
                         break;
                     }
                 }
             }
-            else if (FileUtils::fsMount && opt == 6 || opt == 4) { // Reset
+            else if (opt == 6) { // Reset
                 // ***********************************************************************************
                 // RESET MENU
                 // ***********************************************************************************
@@ -1810,12 +2667,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                             esp_hard_reset();
                         }
                     } else {
-                        menu_curopt = FileUtils::fsMount ? 6 : 4;
+                        menu_curopt = 6;
                         break;
                     }
                 }
             }
-            else if (FileUtils::fsMount && opt == 7 || opt == 5) { // Options
+            else if (opt == 7) { // Options
                 // ***********************************************************************************
                 // OPTIONS MENU
                 // ***********************************************************************************
@@ -1826,90 +2683,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     // Options menu
                     uint8_t options_num = menuRun(MENU_OPTIONS[Config::lang]);
                     if (options_num == 1) {
-                        menu_level = 2;
-                        menu_curopt = 1;
-                        menu_saverect = true;
-                        while (1) {
-                            string stor_menu = MENU_STORAGE[Config::lang];
-                            uint8_t opt2 = menuRun(stor_menu);
-                            if (opt2) {
-                                if (opt2 == 1) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string flash_menu = MENU_FLASHLOAD[Config::lang];
-                                        flash_menu += MENU_YESNO[Config::lang];
-                                        bool prev_flashload = Config::flashload;
-                                        if (prev_flashload) {
-                                            flash_menu.replace(flash_menu.find("[Y",0),2,"[*");
-                                            flash_menu.replace(flash_menu.find("[N",0),2,"[ ");
-                                        } else {
-                                            flash_menu.replace(flash_menu.find("[Y",0),2,"[ ");
-                                            flash_menu.replace(flash_menu.find("[N",0),2,"[*");
-                                        }
-                                        uint8_t opt2 = menuRun(flash_menu);
-                                        if (opt2) {
-                                            if (opt2 == 1)
-                                                Config::flashload = true;
-                                            else
-                                                Config::flashload = false;
-
-                                            if (Config::flashload != prev_flashload) {
-                                                Config::save();
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 1;
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                }
-                                else if (opt2 == 2) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string mnu_str = MENU_RGTIMINGS[Config::lang];
-                                        mnu_str += MENU_YESNO[Config::lang];
-                                        bool prev_opt = Config::tape_timing_rg;
-                                        if (prev_opt) {
-                                            mnu_str.replace(mnu_str.find("[Y",0),2,"[*");
-                                            mnu_str.replace(mnu_str.find("[N",0),2,"[ ");
-                                        } else {
-                                            mnu_str.replace(mnu_str.find("[Y",0),2,"[ ");
-                                            mnu_str.replace(mnu_str.find("[N",0),2,"[*");
-                                        }
-                                        uint8_t opt2 = menuRun(mnu_str);
-                                        if (opt2) {
-                                            if (opt2 == 1)
-                                                Config::tape_timing_rg = true;
-                                            else
-                                                Config::tape_timing_rg = false;
-
-                                            if (Config::tape_timing_rg != prev_opt) {
-                                                Config::save();
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 1;
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                }
-                                menu_curopt = opt2;
-                                menu_saverect = false;
-                            } else {
-                                menu_curopt = 1;
-                                break;
-                            }
-                        }
-                    }
-                    else if (options_num == 2) {
                         menu_level = 2;
                         menu_curopt = 1;
                         menu_saverect = true;
@@ -1987,12 +2760,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 menu_saverect = false;
 
                             } else {
-                                menu_curopt = 2;
+                                menu_curopt = 1;
                                 break;
                             }
                         }
                     }
-                    else if (options_num == 3) {
+                    else if (options_num == 2) {
                         menu_level = 2;
                         menu_curopt = 1;
                         menu_saverect = true;
@@ -2229,619 +3002,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 menu_curopt = opt2;
                                 menu_saverect = false;
                             } else {
-                                menu_curopt = 3;
+                                menu_curopt = 2;
                                 break;
                             }
                         }
                     }
-                    else if (options_num == 6) {
-                        menu_level = 2;
-                        menu_curopt = 1;
-                        menu_saverect = true;
-                        while (1) {
-                            // Audio
-                            uint8_t options_num = menuRun(MENU_AUDIO[Config::lang]);
-                            if (options_num > 0) {
-                                if (options_num == 1) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string ay_menu = MENU_AY48[Config::lang];
-                                        ay_menu += MENU_YESNO[Config::lang];
-                                        bool prev_ay48 = Config::AY48;
-                                        if (prev_ay48) {
-                                            ay_menu.replace(ay_menu.find("[Y",0),2,"[*");
-                                            ay_menu.replace(ay_menu.find("[N",0),2,"[ ");
-                                        } else {
-                                            ay_menu.replace(ay_menu.find("[Y",0),2,"[ ");
-                                            ay_menu.replace(ay_menu.find("[N",0),2,"[*");
-                                        }
-                                        uint8_t opt2 = menuRun(ay_menu);
-                                        if (opt2) {
-                                            if (opt2 == 1)
-                                                Config::AY48 = true;
-                                            else
-                                                Config::AY48 = false;
-
-                                            if (Config::AY48 != prev_ay48) {
-                                                ESPectrum::AY_emu = Config::AY48;
-                                                Config::save();
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 1;
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                }
-                                else if (options_num == 2) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string menu = MENU_AY[Config::lang];
-                                        uint8_t prev = Config::ayConfig;
-                                        if (prev == 0) {
-                                            menu.replace(menu.find("[B",0),2,"[*");
-                                            menu.replace(menu.find("[C",0),2,"[ ");
-                                            menu.replace(menu.find("[M",0),2,"[ ");
-                                        } else if (prev == 1) {
-                                            menu.replace(menu.find("[B",0),2,"[ ");
-                                            menu.replace(menu.find("[C",0),2,"[*");
-                                            menu.replace(menu.find("[M",0),2,"[ ");
-                                        } else {
-                                            menu.replace(menu.find("[B",0),2,"[ ");
-                                            menu.replace(menu.find("[C",0),2,"[ ");
-                                            menu.replace(menu.find("[M",0),2,"[*");
-                                        }
-                                        uint8_t opt2 = menuRun(menu);
-                                        if (opt2) {
-                                            Config::ayConfig = opt2 - 1;
-                                            if (Config::ayConfig != prev) {
-                                                Config::save();
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 2;
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                }
-                                else if (options_num == 3) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string menu = MENU_TS[Config::lang];
-                                        uint8_t prev = Config::turbosound;
-                                        if (prev == 0) {
-                                            menu.replace(menu.find("[F",0),2,"[*");
-                                            menu.replace(menu.find("[N",0),2,"[ ");
-                                            menu.replace(menu.find("[O",0),2,"[ ");
-                                            menu.replace(menu.find("[B",0),2,"[ ");
-                                        } else if (prev == 1) {
-                                            menu.replace(menu.find("[F",0),2,"[ ");
-                                            menu.replace(menu.find("[N",0),2,"[*");
-                                            menu.replace(menu.find("[O",0),2,"[ ");
-                                            menu.replace(menu.find("[B",0),2,"[ ");
-                                        } else if (prev == 2) {
-                                            menu.replace(menu.find("[F",0),2,"[ ");
-                                            menu.replace(menu.find("[N",0),2,"[ ");
-                                            menu.replace(menu.find("[O",0),2,"[*");
-                                            menu.replace(menu.find("[B",0),2,"[ ");
-                                        } else {
-                                            menu.replace(menu.find("[F",0),2,"[ ");
-                                            menu.replace(menu.find("[N",0),2,"[ ");
-                                            menu.replace(menu.find("[O",0),2,"[ ");
-                                            menu.replace(menu.find("[B",0),2,"[*");
-                                        }
-                                        uint8_t opt2 = menuRun(menu);
-                                        if (opt2) {
-                                            Config::turbosound = opt2 - 1;
-                                            if (Config::turbosound != prev) {
-                                                Config::save();
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 3;
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                }
-                                else if (options_num == 4) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string menu = MENU_COVOX[Config::lang];
-                                        uint8_t prev = Config::covox;
-                                        if (prev == 0) {
-                                            menu.replace(menu.find("[N",0),2,"[*");
-                                            menu.replace(menu.find("[F",0),2,"[ ");
-                                            menu.replace(menu.find("[D",0),2,"[ ");
-                                        } else if (prev == 1) {
-                                            menu.replace(menu.find("[N",0),2,"[ ");
-                                            menu.replace(menu.find("[F",0),2,"[*");
-                                            menu.replace(menu.find("[D",0),2,"[ ");
-                                        } else {
-                                            menu.replace(menu.find("[N",0),2,"[ ");
-                                            menu.replace(menu.find("[F",0),2,"[ ");
-                                            menu.replace(menu.find("[D",0),2,"[*");
-                                        }
-                                        uint8_t opt2 = menuRun(menu);
-                                        if (opt2) {
-                                            Config::covox = opt2 - 1;
-                                            if (Config::covox != prev) {
-                                                Config::save();
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 4;
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                }
-#if !PICO_RP2040
-                                else if (options_num == 5) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string saa_menu = MENU_SAA1099[Config::lang];
-                                        saa_menu += MENU_YESNO[Config::lang];
-                                        bool prev_saa = Config::SAA1099;
-                                        if (prev_saa) {
-                                            saa_menu.replace(saa_menu.find("[Y",0),2,"[*");
-                                            saa_menu.replace(saa_menu.find("[N",0),2,"[ ");
-                                        } else {
-                                            saa_menu.replace(saa_menu.find("[Y",0),2,"[ ");
-                                            saa_menu.replace(saa_menu.find("[N",0),2,"[*");
-                                        }
-                                        uint8_t opt2 = menuRun(saa_menu);
-                                        if (opt2) {
-                                            if (opt2 == 1)
-                                                Config::SAA1099 = true;
-                                            else
-                                                Config::SAA1099 = false;
-
-                                            if (Config::SAA1099 != prev_saa) {
-                                                ESPectrum::SAA_emu = Config::SAA1099;
-                                                Config::save();
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 5;
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                }
-                                else if (options_num == 6) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string midi_menu = MENU_MIDI[Config::lang];
-                                        uint8_t prev_midi = Config::midi;
-                                        if (prev_midi == 0) {
-                                            midi_menu.replace(midi_menu.find("[O",0),2,"[*");
-                                            midi_menu.replace(midi_menu.find("[A",0),2,"[ ");
-                                            midi_menu.replace(midi_menu.find("[S",0),2,"[ ");
-                                        } else if (prev_midi == 1) {
-                                            midi_menu.replace(midi_menu.find("[O",0),2,"[ ");
-                                            midi_menu.replace(midi_menu.find("[A",0),2,"[*");
-                                            midi_menu.replace(midi_menu.find("[S",0),2,"[ ");
-                                        } else {
-                                            midi_menu.replace(midi_menu.find("[O",0),2,"[ ");
-                                            midi_menu.replace(midi_menu.find("[A",0),2,"[ ");
-                                            midi_menu.replace(midi_menu.find("[S",0),2,"[*");
-                                        }
-                                        uint8_t opt2 = menuRun(midi_menu);
-                                        if (opt2) {
-                                            Config::midi = opt2 - 1;
-                                            if (Config::midi != prev_midi) {
-                                                Midi::enabled = Config::midi;
-                                                if (Midi::enabled)
-                                                    Midi::init();
-                                                else {
-                                                    Midi::deinit();
-#ifdef LOAD_WAV_PIO
-                                                    inInit(LOAD_WAV_PIO);
-#endif
-                                                }
-                                                Config::save();
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 6;
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                }
-#endif
-                                else if (options_num ==
-#if !PICO_RP2040
-                                    7
-#else
-                                    5
-#endif
-                                ) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string menu = MENU_I2S[Config::lang];
-                                        uint8_t prev = Config::audio_driver;
-                                        if (prev == 0) {
-                                            menu.replace(menu.find("[A",0),2,"[*");
-                                            menu.replace(menu.find("[P",0),2,"[ ");
-                                            menu.replace(menu.find("[I",0),2,"[ ");
-                                            menu.replace(menu.find("[Y",0),2,"[ ");
-                                        } else if (prev == 1) {
-                                            menu.replace(menu.find("[A",0),2,"[ ");
-                                            menu.replace(menu.find("[P",0),2,"[*");
-                                            menu.replace(menu.find("[I",0),2,"[ ");
-                                            menu.replace(menu.find("[Y",0),2,"[ ");
-                                        } else if (prev == 2) {
-                                            menu.replace(menu.find("[A",0),2,"[ ");
-                                            menu.replace(menu.find("[P",0),2,"[ ");
-                                            menu.replace(menu.find("[I",0),2,"[*");
-                                            menu.replace(menu.find("[Y",0),2,"[ ");
-                                        } else {
-                                            menu.replace(menu.find("[A",0),2,"[ ");
-                                            menu.replace(menu.find("[P",0),2,"[ ");
-                                            menu.replace(menu.find("[I",0),2,"[ ");
-                                            menu.replace(menu.find("[Y",0),2,"[*");
-                                        }
-                                        uint8_t opt2 = menuRun(menu);
-                                        if (opt2) {
-                                            Config::audio_driver = opt2 - 1;
-                                            if (Config::audio_driver != prev) {
-                                                if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
-                                                    Config::save();
-                                                    esp_hard_reset();
-                                                } else {
-                                                    Config::audio_driver = prev;
-                                                }
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt =
-#if !PICO_RP2040
-                                                7;
-#else
-                                                5;
-#endif
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                }
-                            } else {
-                                menu_curopt = 6;
-                                break;
-                            }
-                        }
-                    }
-                    else if (options_num == 7) {
-
-                        menu_level = 2;
-                        menu_curopt = 1;
-                        menu_saverect = true;
-                        while (1) {
-                            // Video
-                            uint8_t options_num = menuRun(MENU_VIDEO[Config::lang]);
-                            if (options_num > 0) {
-                                if (options_num == 1) { // VIDEO MODE
-                                    menu_level = 3;
-                                    menu_curopt = 1;
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string opt_menu = MENU_VIDEO_MODE[Config::lang];
-#ifdef VGA_HDMI
-                                        uint8_t &curVideoMode = SELECT_VGA ? Config::vga_video_mode : Config::hdmi_video_mode;
-#else
-                                        uint8_t dummy_vm = 0;
-                                        uint8_t &curVideoMode = dummy_vm;
-#endif
-                                        // cur_sel maps directly to VM_* enum: 0=640x480@60, 1=640x480@50, 2=720x480@60, 3=720x576@60, 4=720x576@50
-                                        uint8_t cur_sel = curVideoMode;
-                                        opt_menu.replace(opt_menu.find("[6",0),2, cur_sel == 0 ? "[*" : "[ ");
-                                        opt_menu.replace(opt_menu.find("[5",0),2, cur_sel == 1 ? "[*" : "[ ");
-                                        opt_menu.replace(opt_menu.find("[H",0),2, cur_sel == 2 ? "[*" : "[ ");
-                                        opt_menu.replace(opt_menu.find("[X",0),2, cur_sel == 3 ? "[*" : "[ ");
-                                        opt_menu.replace(opt_menu.find("[F",0),2, cur_sel == 4 ? "[*" : "[ ");
-                                        uint8_t opt2 = menuRun(opt_menu);
-                                        if (opt2) {
-                                            uint8_t new_vm = opt2 - 1; // opt2 is 1-based, VM_* is 0-based
-                                            if (new_vm != curVideoMode) {
-                                                if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
-                                                    Config::savePendingVideoMode();
-                                                    curVideoMode = new_vm;
-                                                    Config::save();
-                                                    esp_hard_reset();
-                                                }
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 1;
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                }
-                                else if (options_num == 2) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string opt_menu = MENU_RENDER[Config::lang];
-                                        uint8_t prev_opt = Config::render;
-                                        if (prev_opt) {
-                                            opt_menu.replace(opt_menu.find("[S",0),2,"[ ");
-                                            opt_menu.replace(opt_menu.find("[A",0),2,"[*");
-                                        } else {
-                                            opt_menu.replace(opt_menu.find("[S",0),2,"[*");
-                                            opt_menu.replace(opt_menu.find("[A",0),2,"[ ");
-                                        }
-                                        uint8_t opt2 = menuRun(opt_menu);
-                                        if (opt2) {
-                                            if (opt2 == 1)
-                                                Config::render = 0;
-                                            else
-                                                Config::render = 1;
-
-                                            if (Config::render != prev_opt) {
-                                                Config::save();
-
-                                                VIDEO::snow_toggle =
-                                                    Config::arch != "P1024" && Config::arch != "Pentagon" && Config::arch != "P512"
-                                                     ? Config::render : false;
-
-                                                if (VIDEO::snow_toggle) {
-                                                    VIDEO::Draw = &VIDEO::MainScreen_Blank_Snow;
-                                                    VIDEO::Draw_Opcode = &VIDEO::MainScreen_Blank_Snow_Opcode;
-                                                } else {
-                                                    VIDEO::Draw = &VIDEO::MainScreen_Blank;
-                                                    VIDEO::Draw_Opcode = &VIDEO::MainScreen_Blank_Opcode;
-                                                }
-
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 2;
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                }
-                                else if (options_num == 3) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;
-                                    menu_saverect = true;
-                                    while (1) {
-
-                                        // aspect ratio
-                                        string asp_menu = MENU_ASPECT[Config::lang];
-                                        bool prev_asp = Config::aspect_16_9;
-                                        if (prev_asp) {
-                                            asp_menu.replace(asp_menu.find("[4",0),2,"[ ");
-                                            asp_menu.replace(asp_menu.find("[1",0),2,"[*");
-                                        } else {
-                                            asp_menu.replace(asp_menu.find("[4",0),2,"[*");
-                                            asp_menu.replace(asp_menu.find("[1",0),2,"[ ");
-                                        }
-                                        uint8_t opt2 = menuRun(asp_menu);
-                                        if (opt2) {
-                                            /***
-                                            if (opt2 == 1)
-                                                Config::aspect_16_9 = false;
-                                            else
-                                                Config::aspect_16_9 = true;
-                                            */
-                                            if (Config::aspect_16_9 != prev_asp) {
-                                                Config::ram_file = "none";
-                                                Config::save();
-                                                esp_hard_reset();
-                                            }
-
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-
-                                        } else {
-                                            menu_curopt = 3;
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                }
-                                else if (options_num == 4) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string opt_menu = MENU_SCANLINES[Config::lang];
-                                        opt_menu += MENU_YESNO[Config::lang];
-                                        uint8_t prev_opt = Config::scanlines;
-                                        if (prev_opt) {
-                                            opt_menu.replace(opt_menu.find("[Y",0),2,"[*");
-                                            opt_menu.replace(opt_menu.find("[N",0),2,"[ ");
-                                        } else {
-                                            opt_menu.replace(opt_menu.find("[Y",0),2,"[ ");
-                                            opt_menu.replace(opt_menu.find("[N",0),2,"[*");
-                                        }
-                                        uint8_t opt2 = menuRun(opt_menu);
-                                        if (opt2) {
-                                            if (opt2 == 1)
-                                                Config::scanlines = 1;
-                                            else
-                                                Config::scanlines = 0;
-
-                                            if (Config::scanlines != prev_opt) {
-                                                if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
-                                                    Config::ram_file = "none";
-                                                    Config::save();
-                                                    esp_hard_reset();
-                                                } else {
-                                                    Config::scanlines = prev_opt;
-                                                }
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 4;
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                }
-                                else if (options_num == 5) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string opt_menu = MENU_VSYNC[Config::lang];
-                                        opt_menu += MENU_YESNO[Config::lang];
-                                        bool prev_opt = Config::v_sync_enabled;
-                                        if (prev_opt) {
-                                            opt_menu.replace(opt_menu.find("[Y",0),2,"[*");
-                                            opt_menu.replace(opt_menu.find("[N",0),2,"[ ");
-                                        } else {
-                                            opt_menu.replace(opt_menu.find("[Y",0),2,"[ ");
-                                            opt_menu.replace(opt_menu.find("[N",0),2,"[*");
-                                        }
-                                        uint8_t opt2 = menuRun(opt_menu);
-                                        if (opt2) {
-                                            if (opt2 == 1)
-                                                Config::v_sync_enabled = true;
-                                            else
-                                                Config::v_sync_enabled = false;
-
-                                            if (Config::v_sync_enabled != prev_opt) {
-                                                Config::save();
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 5;
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                }
-                                #if !PICO_RP2040
-                                else if (options_num == 6) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string opt_menu = MENU_GIGASCREEN[Config::lang];
-                                        opt_menu += MENU_YESNO[Config::lang];
-                                        bool prev_opt = Config::gigascreen_enabled;
-                                        if (prev_opt) {
-                                            opt_menu.replace(opt_menu.find("[Y",0),2,"[*");
-                                            opt_menu.replace(opt_menu.find("[N",0),2,"[ ");
-                                        } else {
-                                            opt_menu.replace(opt_menu.find("[Y",0),2,"[ ");
-                                            opt_menu.replace(opt_menu.find("[N",0),2,"[*");
-                                        }
-                                        uint8_t opt2 = menuRun(opt_menu);
-                                        if (opt2) {
-                                            if (opt2 == 1)
-                                                Config::gigascreen_enabled = true;
-                                            else
-                                                Config::gigascreen_enabled = false;
-
-                                            if (Config::gigascreen_enabled != prev_opt) {
-                                                if (Config::gigascreen_enabled) {
-                                                    initGigascreenBlendLUT();
-                                                    VIDEO::InitPrevBuffer();
-                                                    if (Config::gigascreen_onoff == 0)
-                                                        Config::gigascreen_onoff = 1; // Off→On when enabling
-                                                    if (Config::gigascreen_onoff == 1)
-                                                        VIDEO::gigascreen_enabled = true;
-                                                    else {
-                                                        VIDEO::gigascreen_enabled = false;
-                                                        VIDEO::gigascreen_auto_countdown = 0;
-                                                    }
-                                                } else {
-                                                    VIDEO::gigascreen_enabled = false;
-                                                    VIDEO::gigascreen_auto_countdown = 0;
-                                                }
-                                                Config::save();
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 6;
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                }
-                                #endif
-                                #if !PICO_RP2040
-                                // ULA+ ON/OFF
-                                else if (options_num == 7) {
-                                    menu_level = 3;
-                                    menu_curopt = 1;
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string ula_menu = MENU_ULAPLUS[Config::lang];
-                                        ula_menu += MENU_YESNO[Config::lang];
-                                        bool prev_ula = Config::ulaplus;
-                                        if (prev_ula) {
-                                            ula_menu.replace(ula_menu.find("[Y",0),2,"[*");
-                                            ula_menu.replace(ula_menu.find("[N",0),2,"[ ");
-                                        } else {
-                                            ula_menu.replace(ula_menu.find("[Y",0),2,"[ ");
-                                            ula_menu.replace(ula_menu.find("[N",0),2,"[*");
-                                        }
-                                        uint8_t opt2 = menuRun(ula_menu);
-                                        if (opt2) {
-                                            if (opt2 == 1)
-                                                Config::ulaplus = true;
-                                            else
-                                                Config::ulaplus = false;
-
-                                            if (Config::ulaplus != prev_ula) {
-                                                if (!Config::ulaplus && VIDEO::ulaplus_enabled) {
-                                                    VIDEO::ulaPlusDisable();
-                                                }
-                                                Config::save();
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 7;
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                }
-                                #endif
-                            } else {
-                                menu_curopt = 7;
-                                break;
-                            }
-                        }
-                    }
-                    else if (options_num == 4) {
+                    else if (options_num == 3) {
                         menu_level = 2;
                         menu_curopt = 1;
                         menu_saverect = true;
@@ -2870,13 +3036,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                 return;
                             } else {
-                                menu_curopt = 4;
+                                menu_curopt = 3;
                                 menu_level = 1;
                                 break;
                             }
                         }
                     }
-                    else if (options_num == 5) {
+                    else if (options_num == 4) {
                         menu_level = 2;
                         menu_curopt = 1;
                         menu_saverect = true;
@@ -3028,12 +3194,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     }
                                 }
                             } else {
-                                menu_curopt = 5;
+                                menu_curopt = 4;
                                 break;
                             }
                         }
                     }
-                    else if (options_num == 9) {
+                    else if (options_num == 6) {
                         menu_level = 2;
                         menu_curopt = 1;
                         menu_saverect = true;
@@ -3062,12 +3228,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 menu_curopt = opt2;
                                 menu_saverect = false;
                             } else {
-                                menu_curopt = 9;
+                                menu_curopt = 6;
                                 break;
                             }
                         }
                     }
-                    else if (options_num == 8) {
+                    else if (options_num == 5) {
                         menu_level = 2;
                         menu_curopt = 1;
                         menu_saverect = true;
@@ -3293,11 +3459,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     }
                                 }
                             } else {
-                                menu_curopt = 8;
+                                menu_curopt = 5;
                                 break;
                             }
                         }
-                    } else if (options_num == 10) {
+                    } else if (options_num == 7) {
                         menu_level = 2;
                         menu_curopt = 1;
                         menu_saverect = true;
@@ -3329,17 +3495,17 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_saverect = false;
                                 }
                             } else {
-                                menu_curopt = 10;
+                                menu_curopt = 7;
                                 break;
                             }
                         }
                     } else {
-                        menu_curopt = FileUtils::fsMount ? 7 : 5;
+                        menu_curopt = 7;
                         break;
                     }
                 }
             }
-            else if (FileUtils::fsMount && opt == 8 || opt == 6) { // Debug
+            else if (opt == 8) { // Debug
                 // DEBUG MENU
                 menu_saverect = true;
                 menu_curopt = 1;
@@ -3378,12 +3544,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
                     } else {
-                        menu_curopt = FileUtils::fsMount ? 8 : 6;
+                        menu_curopt = 8;
                         break;
                     }
                 }
             }
-            else if (FileUtils::fsMount && opt == 9 || opt == 7) { // Help
+            else if (opt == 9) { // Help
                 // Help
                 drawOSD(true);
                 osdAt(2, 0);
@@ -3403,7 +3569,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                 return;
             }
-            else if (FileUtils::fsMount && opt == 10 || opt == 8) { // About
+            else if (opt == 10) { // About
                 // About
                 // Protect OSD area from Z80 video renderer overwrite
                 bool about_osd_enabled = (VIDEO::OSD != 0);
@@ -3589,7 +3755,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                             TFT_FLAGS = prev_flags;
                         }
                     } else {
-                        menu_curopt = 11;
+                        menu_curopt = 9;
                         break;
                     }
                 }
@@ -5095,12 +5261,11 @@ extern "C" uint8_t linkVGA01;
 extern "C" uint8_t link_i2s_code;
 
 extern char __HeapLimit;
+extern "C" void *sbrk(intptr_t incr);
 
 size_t getFreeHeap(void) {
-    char* current = (char*)malloc(1024);
-    size_t res = (size_t)(&__HeapLimit - current);
-    free(current);
-    return res;
+    char *brk = (char *)sbrk(0);
+    return (brk < &__HeapLimit) ? (size_t)(&__HeapLimit - brk) : 0;
 }
 
 void OSD::HWInfo() {
@@ -5130,7 +5295,7 @@ void OSD::HWInfo() {
     textout += (rp2350a ? "A " : "B ") +  to_string(cpu_hz) + " MHz\n"
         " Chip cores     : 2\n"
         " Chip RAM       : 520 KB\n"
-        " Free RAM (Exp) : ";
+        " Free RAM       : ";
 #else
     string textout =
         " Chip model     : RP2040 " + to_string(cpu_hz) + " MHz\n"
@@ -5179,7 +5344,9 @@ void OSD::HWInfo() {
         VIDEO::vga.print(buf);
     }
     #endif
-    if (Config::audio_driver == 3) {
+    if (Config::audio_driver == 4) {
+        snprintf(buf, 128, " Audio mode     : HDMI\n");
+    } else if (Config::audio_driver == 3) {
         snprintf(buf, 128, " Audio mode     : AY-3-8910\n");
     } else {
         snprintf(buf, 128, " Audio mode     : %s [%02Xh] %s\n",
@@ -5215,6 +5382,15 @@ void OSD::HWInfo() {
         );
     }
     VIDEO::vga.print(buf);
+#if !PICO_RP2040
+    if (DivMMC::enabled) {
+        const char* mode_names[] = { "OFF", "DivMMC", "DivIDE", "DivSD" };
+        const char* mem_type = DivMMC::use_psram ? "PSRAM" : "swap";
+        snprintf(buf, 128, " %-15s: 128K+8K [%s]\n",
+            mode_names[Config::esxdos], mem_type);
+        VIDEO::vga.print(buf);
+    }
+#endif
 
     snprintf(buf, 128, "\n" \
                        " Built at %s %s\n" \

@@ -41,6 +41,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Config.h"
 #include "VGA/VGA8Bit.h"
 #include <list>
+#include <vector>
 
 #define SPEC_W 256
 #define SPEC_H 192
@@ -99,13 +100,14 @@ visit https://zxespectrum.speccy.org/contacto
 
 class SaveRectT {
   std::list<size_t> offsets;
+  std::vector<uint8_t> ram_buf; // RAM fallback when no SD card
 public:
   SaveRectT() : offsets() {
     offsets.push_back(0);
   }
   void save(int16_t x, int16_t y, int16_t w, int16_t h);
   void restore_last();
-  void clear() { offsets.clear(); offsets.push_back(0); }
+  void clear() { offsets.clear(); offsets.push_back(0); ram_buf.clear(); }
   void store_ram(const void* p, size_t sz);
   void restore_ram(void* p, size_t sz);
 };

@@ -27,45 +27,13 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 // Each entry is uint32_t with 4 packed palette indices
 static unsigned int* AluByte[16];
 
-// Runtime-generated AluBytes: pure palette indices, no sync bits
-// Single set (no longer need two copies for different sync polarities)
-static unsigned int AluBytesStd[16][256];
+// Precalculated standard Spectrum AluBytes table (in flash)
+extern "C" const unsigned int AluBytesStd_flash[16][256];
 
-// Generate standard Spectrum AluBytes table
-// Palette indices: 0-7 = normal colors, 8-15 = bright colors
+// Point AluByte[] to the flash table
 static inline void initAluBytes() {
-    for (int nibble = 0; nibble < 16; nibble++) {
-        for (int att = 0; att < 256; att++) {
-            // Extract ink/paper/bright from attribute byte
-            // bit 7 = flash (handled by bitmap inversion at runtime)
-            // bit 6 = bright
-            // bits 5:3 = paper color
-            // bits 2:0 = ink color
-            uint8_t ink_code = att & 0x07;
-            uint8_t paper_code = (att >> 3) & 0x07;
-            uint8_t bright = (att >> 6) & 1;
-
-            uint8_t ink_idx = ink_code + bright * 8;
-            uint8_t paper_idx = paper_code + bright * 8;
-
-            uint8_t px[2] = { paper_idx, ink_idx };
-
-            // Pack 4 pixels into uint32_t
-            // Nibble bit mapping (MSB first = leftmost pixel):
-            //   bit 3 → byte 2 (x=0), bit 2 → byte 3 (x=1),
-            //   bit 1 → byte 0 (x=2), bit 0 → byte 1 (x=3)
-            // This accounts for x^2 byte-swap in frame buffer
-            AluBytesStd[nibble][att] =
-                px[(nibble >> 1) & 1]        |
-                (px[nibble & 1]       << 8)  |
-                (px[(nibble >> 3) & 1] << 16)|
-                (px[(nibble >> 2) & 1] << 24);
-        }
-    }
-
-    // Point AluByte[] to the standard table
     for (int n = 0; n < 16; n++)
-        AluByte[n] = AluBytesStd[n];
+        AluByte[n] = (unsigned int*)AluBytesStd_flash[n];
 }
 
 #endif // VIDPRECALC_h

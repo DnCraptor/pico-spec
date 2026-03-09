@@ -33,6 +33,7 @@ bool     Config::AY48 = true;
 #if !PICO_RP2040
 bool     Config::SAA1099 = false;
 uint8_t  Config::midi = 0;
+uint8_t  Config::midi_synth_preset = 0;
 #endif
 bool     Config::Issue2 = true;
 bool     Config::flashload = true;
@@ -81,6 +82,11 @@ bool     Config::trdosFastMode = false;
 bool     Config::trdosWriteProtect = true;
 bool     Config::trdosSoundLed = false;
 uint8_t  Config::trdosBios = 2; // Default: 5.05D
+#if !PICO_RP2040
+uint8_t  Config::esxdos = 0;
+string   Config::esxdos_mmc_image = "";
+string   Config::esxdos_hdf_image[2] = {"", ""};
+#endif
 
 uint8_t Config::scanlines = 0;
 uint8_t Config::render = 0;
@@ -198,6 +204,9 @@ void Config::requestMachine(string newArch, string newRomSet)
     }
 }
 
+// RAM fallback for Config when no SD card
+static string nvs_ram_buf;
+
 static bool nvs_get_str(const char* key, string& v, const vector<string>& sts) {
     string k = key; k += '=';
     for(const string& s: sts) {
@@ -292,14 +301,29 @@ extern "C" uint8_t TFT_FLAGS;
 extern "C" uint8_t TFT_INVERSION;
 #endif
 
+// Parse NVS data from a raw string into vector of lines
+static void nvs_parse_lines(const string& data, vector<string>& sts) {
+    string s;
+    for (char c : data) {
+        if (c == '\n') {
+            sts.push_back(s);
+            s.clear();
+        } else {
+            s += c;
+        }
+    }
+    if (!s.empty()) sts.push_back(s);
+}
+
 // Read config from FS
 void Config::load() {
-    string nvs = MOUNT_POINT_SD STORAGE_NVS;
-    FIL* handle = fopen2(nvs.c_str(), FA_READ);
-    if (!handle) {
-        return;
-    } else {
-        vector<string> sts;
+    vector<string> sts;
+    if (FileUtils::fsMount) {
+        string nvs = MOUNT_POINT_SD STORAGE_NVS;
+        FIL* handle = fopen2(nvs.c_str(), FA_READ);
+        if (!handle) {
+            return;
+        }
         UINT br;
         char c;
         string s;
@@ -316,6 +340,12 @@ void Config::load() {
             }
         }
         fclose2(handle);
+    } else if (!nvs_ram_buf.empty()) {
+        nvs_parse_lines(nvs_ram_buf, sts);
+    } else {
+        return;
+    }
+    {
 
         #if TFT
         nvs_get_u8("TFT_FLAGS", TFT_FLAGS, sts);
@@ -339,6 +369,7 @@ void Config::load() {
 #if !PICO_RP2040
         nvs_get_b("SAA1099", SAA1099, sts);
         nvs_get_u8("midi", midi, sts);
+        nvs_get_u8("midipreset", midi_synth_preset, sts);
 #endif
         nvs_get_b("Issue2", Issue2, sts);
         nvs_get_b("flashload", flashload, sts);
@@ -386,11 +417,20 @@ void Config::load() {
         nvs_get_b("trdosWriteProtect", trdosWriteProtect, sts);
         nvs_get_b("trdosSoundLed", trdosSoundLed, sts);
         nvs_get_u8("trdosBios", trdosBios, sts);
+#if !PICO_RP2040
+        nvs_get_u8("esxdos", esxdos, sts);
+        // Migrate old bool key
+        { bool old_divmmc = false; nvs_get_b("divmmc", old_divmmc, sts); if (old_divmmc && esxdos == 0) esxdos = 1; }
+        nvs_get_str("esxdos_mmc", esxdos_mmc_image, sts);
+        nvs_get_str("esxdos_hdf", esxdos_hdf_image[0], sts);
+        nvs_get_str("esxdos_hd1", esxdos_hdf_image[1], sts);
+#endif
         nvs_get_str("SNA_Path", FileUtils::SNA_Path, sts);
         nvs_get_str("TAP_Path", FileUtils::TAP_Path, sts);
         nvs_get_str("DSK_Path", FileUtils::DSK_Path, sts);
         nvs_get_str("ROM_Path", FileUtils::ROM_Path, sts);
-        for (size_t i = 0; i < 4; ++i) {
+        nvs_get_str("IMG_Path", FileUtils::IMG_Path, sts);
+        for (size_t i = 0; i < 5; ++i) {
             DISK_FTYPE& ft = FileUtils::fileTypes[i];
             const string s = "fileTypes" + to_string(i);
             nvs_get_i((s + ".begin_row").c_str(), ft.begin_row, sts);
@@ -424,6 +464,11 @@ void Config::load() {
         nvs_get_b("gigascreen_enabled", gigascreen_enabled, sts);
         nvs_get_u8("gigascreen_onoff", gigascreen_onoff, sts);
         #endif
+        #if PICO_RP2040
+        // RP2040 can't handle 720x modes — not enough RAM for framebuffer
+        if (hdmi_video_mode >= VM_720x480_60) hdmi_video_mode = VM_640x480_60;
+        if (vga_video_mode >= VM_720x480_60) vga_video_mode = VM_640x480_60;
+        #endif
         #if !PICO_RP2040
         nvs_get_b("ulaplus", ulaplus, sts);
         #endif
@@ -432,6 +477,7 @@ void Config::load() {
         if (v == "pwm") Config::audio_driver = 1;
         else if (v == "i2s") Config::audio_driver = 2;
         else if (v == "ay") Config::audio_driver = 3;
+        else if (v == "hdmi") Config::audio_driver = 4;
         nvs_get_str("video_driver", v, sts);
         if (v == "VGA" || v == "vga") video_driver = 1;
         else if (v == "HDMI" || v == "hdmi" || v == "DVI" || v == "dvi") video_driver = 2;
@@ -446,139 +492,152 @@ void Config::load() {
     }
 }
 
-static void nvs_set_str(FIL* handle, const char* name, const char* val) {
-    UINT btw;
-    f_write(handle, name, strlen(name), &btw);
-    f_write(handle, "=", 1, &btw);
-    f_write(handle, val, strlen(val), &btw);
-    f_write(handle, "\n", 1, &btw);
+static void nvs_set_str(string& buf, const char* name, const char* val) {
+    buf += name;
+    buf += '=';
+    buf += val;
+    buf += '\n';
 }
-static void nvs_set_i(FIL* handle, const char* name, int val) {
-    string v = to_string(val);
-    nvs_set_str(handle, name, v.c_str());
+static void nvs_set_i(string& buf, const char* name, int val) {
+    nvs_set_str(buf, name, to_string(val).c_str());
 }
-static void nvs_set_i8(FIL* handle, const char* name, int8_t val) {
-    string v = to_string(val);
-    nvs_set_str(handle, name, v.c_str());
+static void nvs_set_i8(string& buf, const char* name, int8_t val) {
+    nvs_set_str(buf, name, to_string(val).c_str());
 }
-static void nvs_set_u8(FIL* handle, const char* name, uint8_t val) {
-    string v = to_string(val);
-    nvs_set_str(handle, name, v.c_str());
+static void nvs_set_u8(string& buf, const char* name, uint8_t val) {
+    nvs_set_str(buf, name, to_string(val).c_str());
 }
-static void nvs_set_u16(FIL* handle, const char* name, uint16_t val) {
-    string v = to_string(val);
-    nvs_set_str(handle, name, v.c_str());
+static void nvs_set_u16(string& buf, const char* name, uint16_t val) {
+    nvs_set_str(buf, name, to_string(val).c_str());
 }
-static void nvs_set_sc(FIL* handle, const char* name, signed char val) {
-    string v = to_string(val);
-    nvs_set_str(handle, name, v.c_str());
+static void nvs_set_sc(string& buf, const char* name, signed char val) {
+    nvs_set_str(buf, name, to_string(val).c_str());
 }
 
 // Dump actual config to FS
 void Config::save() {
-    if (!FileUtils::fsMount) return;
-    string nvs = MOUNT_POINT_SD STORAGE_NVS;
-    FIL* handle = fopen2(nvs.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
-    if (handle) {
-        #if TFT
-        nvs_set_u8(handle,"TFT_FLAGS", TFT_FLAGS);
-        nvs_set_u8(handle,"TFT_INVERSION", TFT_INVERSION);
-        #endif
-        nvs_set_str(handle,"arch",arch.c_str());
-        nvs_set_str(handle,"romSet",romSet.c_str());
-        nvs_set_str(handle,"romSet48",romSet48.c_str());
-        nvs_set_str(handle,"romSet128",romSet128.c_str());
-        nvs_set_str(handle,"romSetPent",romSetPent.c_str());
-        nvs_set_str(handle,"romSetP512",romSetP512.c_str());
-        nvs_set_str(handle,"romSetP1M",romSetP1M.c_str());
-        nvs_set_str(handle,"pref_arch",pref_arch.c_str());
-        nvs_set_str(handle,"pref_romSet_48",pref_romSet_48.c_str());
-        nvs_set_str(handle,"pref_romSet_128",pref_romSet_128.c_str());
-        nvs_set_str(handle,"pref_romSetPent",pref_romSetPent.c_str());
-        nvs_set_str(handle,"pref_romSetP512",pref_romSetP512.c_str());
-        nvs_set_str(handle,"pref_romSetP1M",pref_romSetP1M.c_str());
-        nvs_set_str(handle,"ram",ram_file.c_str());
-        nvs_set_str(handle,"slog",slog_on ? "true" : "false");
-///        nvs_set_str(handle,"sdstorage", FileUtils::MountPoint);
-///        nvs_set_str(handle,"asp169",aspect_16_9 ? "true" : "false");
-        nvs_set_u8(handle,"language", Config::lang);
-        nvs_set_str(handle,"AY48", AY48 ? "true" : "false");
+    string buf;
+    buf.reserve(2048);
+    #if TFT
+    nvs_set_u8(buf,"TFT_FLAGS", TFT_FLAGS);
+    nvs_set_u8(buf,"TFT_INVERSION", TFT_INVERSION);
+    #endif
+    nvs_set_str(buf,"arch",arch.c_str());
+    nvs_set_str(buf,"romSet",romSet.c_str());
+    nvs_set_str(buf,"romSet48",romSet48.c_str());
+    nvs_set_str(buf,"romSet128",romSet128.c_str());
+    nvs_set_str(buf,"romSetPent",romSetPent.c_str());
+    nvs_set_str(buf,"romSetP512",romSetP512.c_str());
+    nvs_set_str(buf,"romSetP1M",romSetP1M.c_str());
+    nvs_set_str(buf,"pref_arch",pref_arch.c_str());
+    nvs_set_str(buf,"pref_romSet_48",pref_romSet_48.c_str());
+    nvs_set_str(buf,"pref_romSet_128",pref_romSet_128.c_str());
+    nvs_set_str(buf,"pref_romSetPent",pref_romSetPent.c_str());
+    nvs_set_str(buf,"pref_romSetP512",pref_romSetP512.c_str());
+    nvs_set_str(buf,"pref_romSetP1M",pref_romSetP1M.c_str());
+    nvs_set_str(buf,"ram",ram_file.c_str());
+    nvs_set_str(buf,"slog",slog_on ? "true" : "false");
+///        nvs_set_str(buf,"sdstorage", FileUtils::MountPoint);
+///        nvs_set_str(buf,"asp169",aspect_16_9 ? "true" : "false");
+    nvs_set_u8(buf,"language", Config::lang);
+    nvs_set_str(buf,"AY48", AY48 ? "true" : "false");
 #if !PICO_RP2040
-        nvs_set_str(handle,"SAA1099", SAA1099 ? "true" : "false");
-        nvs_set_u8(handle,"midi", midi);
+    nvs_set_str(buf,"SAA1099", SAA1099 ? "true" : "false");
+    nvs_set_u8(buf,"midi", midi);
+    nvs_set_u8(buf,"midipreset", midi_synth_preset);
 #endif
-        nvs_set_u8(handle,"ayConfig", Config::ayConfig);
-        nvs_set_u8(handle,"turbosound", Config::turbosound);
-        nvs_set_u8(handle,"covox", Config::covox);
-        nvs_set_str(handle,"Issue2", Issue2 ? "true" : "false");
-        nvs_set_str(handle,"flashload", flashload ? "true" : "false");
-        nvs_set_str(handle,"tape_player", tape_player ? "true" : "false");
-        nvs_set_str(handle,"real_player", real_player ? "true" : "false");
-        nvs_set_str(handle,"rightSpace", rightSpace ? "true" : "false");
-        nvs_set_str(handle,"wasd", wasd ? "true" : "false");
-        nvs_set_str(handle,"tape_timing_rg",tape_timing_rg ? "true" : "false");
-        nvs_set_u16(handle,"breakPoint", Config::breakPoint);
-        nvs_set_u16(handle,"portReadBP", Config::portReadBP);
-        nvs_set_u16(handle,"portWriteBP", Config::portWriteBP);
-        nvs_set_str(handle,"enableBreakPoint", enableBreakPoint ? "true" : "false");
-        nvs_set_str(handle,"enablePortReadBP", enablePortReadBP ? "true" : "false");
-        nvs_set_str(handle,"enablePortWriteBP", enablePortWriteBP ? "true" : "false");
-        nvs_set_u8(handle,"joystick", Config::joystick);
-        // Write joystick definition
-        for (int n = 0; n < 12; ++n) {
-            char joykey[16];
-            snprintf(joykey, 16, "joydef%02u", n);
-            nvs_set_u16(handle, joykey, Config::joydef[n]);
-        }
-        nvs_set_u8(handle,"AluTiming",Config::AluTiming);
-        nvs_set_u8(handle,"joy2cursor",Config::joy2cursor);
-        nvs_set_u8(handle,"secondJoy",Config::secondJoy);
-        nvs_set_u8(handle,"kempstonPort",Config::kempstonPort);
-#if !defined(PICO_RP2040)
-        nvs_set_u8(handle,"throtling2",Config::throtling);
-#else
-        nvs_set_u8(handle,"throtling1",Config::throtling);
-#endif
-        nvs_set_str(handle,"CursorAsJoy", CursorAsJoy ? "true" : "false");
-        nvs_set_str(handle,"trdosFastMode", trdosFastMode ? "true" : "false");
-        nvs_set_str(handle,"trdosWriteProtect", trdosWriteProtect ? "true" : "false");
-        nvs_set_str(handle,"trdosSoundLed", trdosSoundLed ? "true" : "false");
-        nvs_set_u8(handle,"trdosBios", trdosBios);
-        nvs_set_str(handle,"SNA_Path",FileUtils::SNA_Path.c_str());
-        nvs_set_str(handle,"TAP_Path",FileUtils::TAP_Path.c_str());
-        nvs_set_str(handle,"DSK_Path",FileUtils::DSK_Path.c_str());
-        nvs_set_str(handle,"ROM_Path",FileUtils::ROM_Path.c_str());
-        for (size_t i = 0; i < 4; ++i) {
-            const DISK_FTYPE& ft = FileUtils::fileTypes[i];
-            string s = "fileTypes" + to_string(i);
-            nvs_set_i(handle, (s + ".begin_row").c_str(), ft.begin_row);
-            nvs_set_i(handle, (s + ".focus").c_str(), ft.focus);
-            nvs_set_u8(handle, (s + ".fdMode").c_str(), ft.fdMode);
-            nvs_set_str(handle, (s + ".fileSearch").c_str(), ft.fileSearch.c_str());
-            s = "drive" + to_string(i);
-            nvs_set_str(handle, (s + ".file").c_str(), ESPectrum::fdd.disk[i] ? ESPectrum::fdd.disk[i]->fname.c_str() : "");
-        }
-        nvs_set_u8(handle,"scanlines",Config::scanlines);
-        nvs_set_u8(handle,"render",Config::render);
-        nvs_set_str(handle,"TABasfire1", TABasfire1 ? "true" : "false");
-        nvs_set_str(handle,"StartMsg", StartMsg ? "true" : "false");
-        nvs_set_sc(handle,"AudVolume", ESPectrum::aud_volume);
-        nvs_set_u8(handle,"hdmi_vmode",Config::hdmi_video_mode);
-        nvs_set_u8(handle,"vga_vmode",Config::vga_video_mode);
-        nvs_set_str(handle,"v_sync_enabled", Config::v_sync_enabled ? "true" : "false");
-        nvs_set_str(handle,"gigascreen_enabled", Config::gigascreen_enabled ? "true" : "false");
-        nvs_set_u8(handle,"gigascreen_onoff", Config::gigascreen_onoff);
-        #if !PICO_RP2040
-        nvs_set_str(handle,"ulaplus", Config::ulaplus ? "true" : "false");
-        #endif
-        nvs_set_str(handle,"audio_driver", Config::audio_driver == 0 ? "auto" :
-            (Config::audio_driver == 1) ? "pwm" : ((Config::audio_driver == 2) ? "i2s" : "ay")
-        );
-        nvs_set_str(handle,"video_driver", video_driver == 0 ? "auto" : (video_driver == 1) ? "vga" : "hdmi");
-        nvs_set_str(handle,"byte_cobmect_mode", Config::byte_cobmect_mode ? "true" : "false");
-        nvs_set_i(handle,"MEM_PG_CNT", MEM_PG_CNT);
-        fclose2(handle);
+    nvs_set_u8(buf,"ayConfig", Config::ayConfig);
+    nvs_set_u8(buf,"turbosound", Config::turbosound);
+    nvs_set_u8(buf,"covox", Config::covox);
+    nvs_set_str(buf,"Issue2", Issue2 ? "true" : "false");
+    nvs_set_str(buf,"flashload", flashload ? "true" : "false");
+    nvs_set_str(buf,"tape_player", tape_player ? "true" : "false");
+    nvs_set_str(buf,"real_player", real_player ? "true" : "false");
+    nvs_set_str(buf,"rightSpace", rightSpace ? "true" : "false");
+    nvs_set_str(buf,"wasd", wasd ? "true" : "false");
+    nvs_set_str(buf,"tape_timing_rg",tape_timing_rg ? "true" : "false");
+    nvs_set_u16(buf,"breakPoint", Config::breakPoint);
+    nvs_set_u16(buf,"portReadBP", Config::portReadBP);
+    nvs_set_u16(buf,"portWriteBP", Config::portWriteBP);
+    nvs_set_str(buf,"enableBreakPoint", enableBreakPoint ? "true" : "false");
+    nvs_set_str(buf,"enablePortReadBP", enablePortReadBP ? "true" : "false");
+    nvs_set_str(buf,"enablePortWriteBP", enablePortWriteBP ? "true" : "false");
+    nvs_set_u8(buf,"joystick", Config::joystick);
+    // Write joystick definition
+    for (int n = 0; n < 12; ++n) {
+        char joykey[16];
+        snprintf(joykey, 16, "joydef%02u", n);
+        nvs_set_u16(buf, joykey, Config::joydef[n]);
     }
+    nvs_set_u8(buf,"AluTiming",Config::AluTiming);
+    nvs_set_u8(buf,"joy2cursor",Config::joy2cursor);
+    nvs_set_u8(buf,"secondJoy",Config::secondJoy);
+    nvs_set_u8(buf,"kempstonPort",Config::kempstonPort);
+#if !defined(PICO_RP2040)
+    nvs_set_u8(buf,"throtling2",Config::throtling);
+#else
+    nvs_set_u8(buf,"throtling1",Config::throtling);
+#endif
+    nvs_set_str(buf,"CursorAsJoy", CursorAsJoy ? "true" : "false");
+    nvs_set_str(buf,"trdosFastMode", trdosFastMode ? "true" : "false");
+    nvs_set_str(buf,"trdosWriteProtect", trdosWriteProtect ? "true" : "false");
+    nvs_set_str(buf,"trdosSoundLed", trdosSoundLed ? "true" : "false");
+    nvs_set_u8(buf,"trdosBios", trdosBios);
+#if !PICO_RP2040
+    nvs_set_u8(buf,"esxdos", esxdos);
+    nvs_set_str(buf,"esxdos_mmc", esxdos_mmc_image.c_str());
+    nvs_set_str(buf,"esxdos_hdf", esxdos_hdf_image[0].c_str());
+    nvs_set_str(buf,"esxdos_hd1", esxdos_hdf_image[1].c_str());
+#endif
+    nvs_set_str(buf,"SNA_Path",FileUtils::SNA_Path.c_str());
+    nvs_set_str(buf,"TAP_Path",FileUtils::TAP_Path.c_str());
+    nvs_set_str(buf,"DSK_Path",FileUtils::DSK_Path.c_str());
+    nvs_set_str(buf,"ROM_Path",FileUtils::ROM_Path.c_str());
+    nvs_set_str(buf,"IMG_Path",FileUtils::IMG_Path.c_str());
+    for (size_t i = 0; i < 5; ++i) {
+        const DISK_FTYPE& ft = FileUtils::fileTypes[i];
+        string s = "fileTypes" + to_string(i);
+        nvs_set_i(buf, (s + ".begin_row").c_str(), ft.begin_row);
+        nvs_set_i(buf, (s + ".focus").c_str(), ft.focus);
+        nvs_set_u8(buf, (s + ".fdMode").c_str(), ft.fdMode);
+        nvs_set_str(buf, (s + ".fileSearch").c_str(), ft.fileSearch.c_str());
+        if (i < 4) {
+            s = "drive" + to_string(i);
+            nvs_set_str(buf, (s + ".file").c_str(), ESPectrum::fdd.disk[i] ? ESPectrum::fdd.disk[i]->fname.c_str() : "");
+        }
+    }
+    nvs_set_u8(buf,"scanlines",Config::scanlines);
+    nvs_set_u8(buf,"render",Config::render);
+    nvs_set_str(buf,"TABasfire1", TABasfire1 ? "true" : "false");
+    nvs_set_str(buf,"StartMsg", StartMsg ? "true" : "false");
+    nvs_set_sc(buf,"AudVolume", ESPectrum::aud_volume);
+    nvs_set_u8(buf,"hdmi_vmode",Config::hdmi_video_mode);
+    nvs_set_u8(buf,"vga_vmode",Config::vga_video_mode);
+    nvs_set_str(buf,"v_sync_enabled", Config::v_sync_enabled ? "true" : "false");
+    nvs_set_str(buf,"gigascreen_enabled", Config::gigascreen_enabled ? "true" : "false");
+    nvs_set_u8(buf,"gigascreen_onoff", Config::gigascreen_onoff);
+    #if !PICO_RP2040
+    nvs_set_str(buf,"ulaplus", Config::ulaplus ? "true" : "false");
+    #endif
+    nvs_set_str(buf,"audio_driver", Config::audio_driver == 0 ? "auto" :
+        (Config::audio_driver == 1) ? "pwm" : (Config::audio_driver == 2) ? "i2s" :
+        (Config::audio_driver == 3) ? "ay" : "hdmi"
+    );
+    nvs_set_str(buf,"video_driver", video_driver == 0 ? "auto" : (video_driver == 1) ? "vga" : "hdmi");
+    nvs_set_str(buf,"byte_cobmect_mode", Config::byte_cobmect_mode ? "true" : "false");
+    nvs_set_i(buf,"MEM_PG_CNT", MEM_PG_CNT);
+
+    if (FileUtils::fsMount) {
+        string nvs = MOUNT_POINT_SD STORAGE_NVS;
+        FIL* handle = fopen2(nvs.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
+        if (handle) {
+            UINT bw;
+            f_write(handle, buf.c_str(), buf.size(), &bw);
+            fclose2(handle);
+        }
+    }
+    // Always keep in RAM (for session persistence without SD)
+    nvs_ram_buf = std::move(buf);
     // printf("Config saved OK\n");
 }
 
@@ -586,10 +645,13 @@ void Config::save() {
 
 void Config::savePendingVideoMode() {
     if (!FileUtils::fsMount) return;
+    string buf;
+    nvs_set_u8(buf, "hdmi_vmode", Config::hdmi_video_mode);
+    nvs_set_u8(buf, "vga_vmode", Config::vga_video_mode);
     FIL* handle = fopen2(VMODE_PENDING_FILE, FA_WRITE | FA_CREATE_ALWAYS);
     if (handle) {
-        nvs_set_u8(handle, "hdmi_vmode", Config::hdmi_video_mode);
-        nvs_set_u8(handle, "vga_vmode", Config::vga_video_mode);
+        UINT bw;
+        f_write(handle, buf.c_str(), buf.size(), &bw);
         fclose2(handle);
     }
 }

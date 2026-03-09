@@ -298,7 +298,7 @@ unsigned short OSD::menuRun(string new_menu) {
                     if (menu_level != 0) {
                         // Restore backbuffer data
                         VIDEO::SaveRect.restore_last();
-                        menu_saverect = false;                        
+                        menu_saverect = false;
                     }
                     click();
                     return 0;
@@ -749,11 +749,9 @@ int OSD::menuTape(string title) {
                     return (begin_row + focus - 2);
                 } else if (is_back(Menukey.vk)) {
                     f_lseek(&Tape::tape, tapeBckPos);
-                    if (menu_level!=0) {
-                        // Restore backbuffer data
-                        VIDEO::SaveRect.restore_last();
-                        menu_saverect = false;
-                    }
+                    // Restore backbuffer data
+                    VIDEO::SaveRect.restore_last();
+                    menu_saverect = false;
                     click();
                     return -1;
                 }

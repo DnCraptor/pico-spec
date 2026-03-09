@@ -3,6 +3,7 @@
 #if !PICO_RP2040
 
 #include "Config.h"
+#include "MidiSynth.h"
 #include <hardware/uart.h>
 #include <hardware/gpio.h>
 
@@ -27,6 +28,12 @@ uint8_t Midi::enabled = 0;
 bool Midi::hw_initialized = false;
 
 void Midi::init() {
+    if (enabled == 3) {
+        // Software synth — no UART needed
+        MidiSynth::init();
+        return;
+    }
+
     if (hw_initialized) return;
 
     uart_init(MIDI_UART, MIDI_BAUD);
@@ -38,6 +45,11 @@ void Midi::init() {
 }
 
 void Midi::deinit() {
+    if (enabled == 3) {
+        MidiSynth::reset();
+        return;
+    }
+
     if (!hw_initialized) return;
     uart_deinit(MIDI_UART);
     gpio_deinit(MIDI_TX_PIN);
@@ -47,12 +59,17 @@ void Midi::deinit() {
 // Non-blocking send: write to UART TX FIFO if space available, else drop.
 // The ShamaZX driver polls busy() before calling, so drops shouldn't happen.
 void __not_in_flash("midi") Midi::send(uint8_t b) {
+    if (enabled == 3) {
+        MidiSynth::feedByte(b);
+        return;
+    }
     if (uart_is_writable(MIDI_UART))
         uart_get_hw(MIDI_UART)->dr = b;
 }
 
 // Check if UART TX FIFO is full (maps to SAM2695 "receiver full" bit 6)
 bool __not_in_flash("midi") Midi::busy() {
+    if (enabled == 3) return false; // software synth is never busy
     return !uart_is_writable(MIDI_UART);
 }
 

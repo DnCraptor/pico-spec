@@ -34,6 +34,7 @@ visit https://zxespectrum.speccy.org/contacto
 */
 
 #include "Video.h"
+#include "Debug.h"
 #include "Tape.h"
 #include "FileUtils.h"
 #include "VidPrecalc.h"
@@ -419,7 +420,7 @@ void VIDEO::ulaPlusDisable() {
         initGigascreenBlendLUT();
 
     for (int n = 0; n < 16; n++)
-        AluByte[n] = AluBytesStd[n];
+        AluByte[n] = (unsigned int*)AluBytesStd_flash[n];
     brd = border32[borderColor];
     brdChange = true;
 }
@@ -489,6 +490,11 @@ void VIDEO::Init() {
         VIDEO::gigascreen_auto_countdown = 0;
         initGigascreenBlendLUT(); // Pre-compute blend palette entries
         InitPrevBuffer();   // For Gigascreen (needed for both On and Auto modes)
+        if (!vga.prevFrameBuffer) {
+            // Not enough memory — disable gigascreen
+            Config::gigascreen_enabled = false;
+            VIDEO::gigascreen_enabled = false;
+        }
     }
 
 ///    SaveRect = (uint32_t *) SAVE_RECT; ///heap_caps_malloc(0x9000, MALLOC_CAP_INTERNAL | MALLOC_CAP_32BIT);
@@ -694,9 +700,20 @@ void VIDEO::Reset() {
 #endif
 }
 
+extern size_t getFreeHeap(void);
+
 void VIDEO::InitPrevBuffer() {
-    if (!vga.prevFrameBuffer)
+    if (!vga.prevFrameBuffer) {
+        // Each line = xres bytes, need (yres+1) lines + pointer array
+        size_t needed = (size_t)(vga.yres + 1) * (vga.xres + sizeof(void*)) + 4096;
+        size_t avail = getFreeHeap();
+        if (avail < needed) {
+            Debug::log("InitPrevBuffer: not enough heap (%u < %u)", (unsigned)avail, (unsigned)needed);
+            return;
+        }
         vga.prevFrameBuffer = vga.allocateFrameBuffer();
+    }
+    if (!vga.prevFrameBuffer) return;
     const int h = VIDEO::vga.yres;
     const size_t lineBytes = (size_t)VIDEO::vga.xres;
     for (int y = 0; y < h; ++y) {
@@ -1576,6 +1593,20 @@ void SaveRectT::save(int16_t x, int16_t y, int16_t w, int16_t h) {
         }
         f_close(&f);
         offsets.push_back(off);
+    } else {
+        // RAM fallback when no SD card
+        size_t need = 8 + (size_t)w * h;
+        ram_buf.resize(off + need);
+        uint8_t *p = ram_buf.data() + off;
+        memcpy(p, &x, 2); p += 2;
+        memcpy(p, &y, 2); p += 2;
+        memcpy(p, &w, 2); p += 2;
+        memcpy(p, &h, 2); p += 2;
+        for (size_t line = y; line < y + h; ++line) {
+            memcpy(p, VIDEO::vga.frameBuffer[line] + x, w);
+            p += w;
+        }
+        offsets.push_back(off + need);
     }
 }
 void SaveRectT::restore_last() {
@@ -1630,6 +1661,19 @@ void SaveRectT::restore_last() {
             f_read(&f, VIDEO::vga.frameBuffer[line] + x, w, &br);
         }
         f_close(&f);
+    } else if (off < ram_buf.size()) {
+        // RAM fallback when no SD card
+        uint8_t *p = ram_buf.data() + off;
+        memcpy(&x, p, 2); p += 2;
+        memcpy(&y, p, 2); p += 2;
+        memcpy(&w, p, 2); p += 2;
+        memcpy(&h, p, 2); p += 2;
+        if (!w || !h) return;
+        for (size_t line = y; line < y + h; ++line) {
+            memcpy(VIDEO::vga.frameBuffer[line] + x, p, w);
+            p += w;
+        }
+        ram_buf.resize(off); // shrink
     }
     if (offsets.empty()) {
         offsets.push_back(0);

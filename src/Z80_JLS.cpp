@@ -32,6 +32,9 @@
 #include "OSDMain.h"
 #include "messages.h"
 #include "Debug.h"
+#if !PICO_RP2040
+#include "DivMMC.h"
+#endif
 
 
 // #include "Snapshot.h"
@@ -40,10 +43,20 @@
 
 uint8_t page;
 
+#if !PICO_RP2040
+#define PEEK8(result,address) \
+ page = address >> 14; \
+ VIDEO::Draw(3,MemESP::ramContended[page]); \
+ if (page == 0 && MemESP::divmmc_mapped) \
+     result = ((address) < 0x2000) ? MemESP::page0_lo[address] : MemESP::page0_hi[(address) & 0x1FFF]; \
+ else \
+     result = MemESP::ramCurrent[page][address & 0x3fff];
+#else
 #define PEEK8(result,address) \
  page = address >> 14; \
  VIDEO::Draw(3,MemESP::ramContended[page]); \
  result = MemESP::ramCurrent[page][address & 0x3fff];
+#endif
 
 // miembros estáticos
 
@@ -946,6 +959,10 @@ IRAM_ATTR void Z80::check_trdos() {
         return;
     }
 
+#if !PICO_RP2040
+    if (DivMMC::enabled) return; // DivMMC automap handled in fetchOpcode/exec_nocheck
+#endif
+
     if (ESPectrum::trdos == true || Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) {
 
         if (!ESPectrum::trdos) {
@@ -1080,8 +1097,18 @@ void Z80::doNMI(void) {
 
     activeNMI = false;
     lastFlagQ = false;
+#if !PICO_RP2040
+    // ZEsarUX approach: reset DivMMC state before NMI so automap trap at 0x0066
+    // fires correctly. Without this, if automap is already ON, preOpcFetch
+    // won't set trap_after (it checks !automap) and 0x0066 reads C9=RET from
+    // ESXDOS ROM instead of F5=PUSH AF from Spectrum ROM.
+    if (DivMMC::enabled) {
+        DivMMC::conmem = false;
+        DivMMC::automap = false;
+        DivMMC::applyMapping();
+    }
+#endif
     nmi();
-    // printf("NMI!\n");
 
 }
 
@@ -1200,6 +1227,19 @@ IRAM_ATTR void Z80::exec_nocheck() {
 
         uint8_t pg = REG_PCh >> 6;
         VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
+#if !PICO_RP2040
+        if (DivMMC::enabled) {
+            DivMMC::preOpcFetch(REG_PC);
+            // Fetch opcode from currently mapped memory
+            pg = REG_PCh >> 6; // re-read in case 0x3Dxx instant map changed it
+            if (pg == 0 && MemESP::divmmc_mapped) {
+                opCode = (REG_PC < 0x2000) ? MemESP::page0_lo[REG_PC] : MemESP::page0_hi[REG_PC & 0x1FFF];
+            } else {
+                opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+            }
+            DivMMC::postOpcFetch();
+        } else
+#endif
         opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
 
         regR++;
