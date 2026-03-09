@@ -2504,8 +2504,46 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_saverect = false;
                                 } else {
                                     menu_curopt = 1;
-                                    menu_level = 2;
-                                    break;
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string midi_menu = MENU_MIDI[Config::lang];
+                                        uint8_t prev_midi = Config::midi;
+                                        if (prev_midi == 0) {
+                                            midi_menu.replace(midi_menu.find("[O",0),2,"[*");
+                                            midi_menu.replace(midi_menu.find("[A",0),2,"[ ");
+                                            midi_menu.replace(midi_menu.find("[S",0),2,"[ ");
+                                        } else if (prev_midi == 1) {
+                                            midi_menu.replace(midi_menu.find("[O",0),2,"[ ");
+                                            midi_menu.replace(midi_menu.find("[A",0),2,"[*");
+                                            midi_menu.replace(midi_menu.find("[S",0),2,"[ ");
+                                        } else {
+                                            midi_menu.replace(midi_menu.find("[O",0),2,"[ ");
+                                            midi_menu.replace(midi_menu.find("[A",0),2,"[ ");
+                                            midi_menu.replace(midi_menu.find("[S",0),2,"[*");
+                                        }
+                                        uint8_t opt2 = menuRun(midi_menu);
+                                        if (opt2) {
+                                            Config::midi = opt2 - 1;
+                                            if (Config::midi != prev_midi) {
+                                                Midi::enabled = Config::midi;
+                                                if (Midi::enabled)
+                                                    Midi::init();
+                                                else {
+                                                    Midi::deinit();
+#ifdef LOAD_WAV_PIO
+                                                    inInit(LOAD_WAV_PIO);
+#endif
+                                                }
+                                                Config::save();
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = 6;
+                                            menu_level = 2;
+                                            break;
+                                        }
+                                    }
                                 }
                             }
                         }
