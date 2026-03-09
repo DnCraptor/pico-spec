@@ -2503,6 +2503,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_curopt = opt2;
                                     menu_saverect = false;
                                 } else {
+#if !PICO_RP2040
                                     menu_curopt = 1;
                                     menu_saverect = true;
                                     while (1) {
@@ -2544,6 +2545,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             break;
                                         }
                                     }
+#else
+                                    menu_curopt = 1;
+                                    menu_level = 2;
+                                    break;
+#endif
                                 }
                             }
                         }
