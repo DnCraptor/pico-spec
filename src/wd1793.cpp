@@ -980,6 +980,8 @@ IRAM_ATTR void rvmWD1793Step(rvmWD1793 *wd, uint32_t steps) {
 
       case kRVMWD177XStepIdle:{
 
+        wd->led = 0;
+
         if(wd->retry && (pd & kRVMwdDiskOutIndex) && (s & kRVMwdDiskOutIndex)) {
           wd->retry--;
           if(!wd->retry) {
@@ -992,7 +994,7 @@ IRAM_ATTR void rvmWD1793Step(rvmWD1793 *wd, uint32_t steps) {
 
       case kRVMWD177XStepWaiting: {
 
-        if ((wd->track == 0 || wd->track == 0xff) && wd->sector == 0) {
+        if ((wd->track == 0 && wd->sector == 0) || wd->track == 0xff ) {
           wd->led = 0;
           wd->fdd_clicks = 0;
         }

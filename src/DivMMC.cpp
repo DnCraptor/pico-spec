@@ -29,8 +29,13 @@ bool DivMMC::sdhc_mode = false;
 
 // Bank memory management
 bool DivMMC::use_psram = false;
-uint8_t* DivMMC::active_buf[2] = {nullptr, nullptr};
-int8_t DivMMC::active_bank[2] = {-1, -1};
+int8_t DivMMC::hi_slot = -1;
+int8_t DivMMC::lo_slot = -1;
+uint8_t* DivMMC::active_buf[DIVMMC_CACHE_SLOTS] = {};
+int8_t DivMMC::active_bank[DIVMMC_CACHE_SLOTS] = {};
+bool DivMMC::slot_dirty[DIVMMC_CACHE_SLOTS] = {};
+uint8_t DivMMC::slot_lru[DIVMMC_CACHE_SLOTS] = {};
+uint8_t DivMMC::lru_clock = 0;
 FIL DivMMC::swap_file;
 bool DivMMC::swap_open = false;
 
@@ -95,13 +100,14 @@ void DivMMC::init() {
         // Cleanup bank memory
         if (!use_psram) {
             if (swap_open) { f_close(&swap_file); f_unlink("/tmp/divmmc-pico-spec.swap"); swap_open = false; }
-            free(active_buf[0]); active_buf[0] = nullptr;
-            free(active_buf[1]); active_buf[1] = nullptr;
-            active_bank[0] = active_bank[1] = -1;
+            for (int i = 0; i < DIVMMC_CACHE_SLOTS; i++) {
+                free(active_buf[i]); active_buf[i] = nullptr;
+                active_bank[i] = -1;
+            }
         }
         memset(bank_ptr, 0, sizeof(bank_ptr));
         use_psram = false;
-        if (esxdos_rom) { free(esxdos_rom); esxdos_rom = nullptr; }
+        esxdos_rom = nullptr;
         rom_loaded = false;
         automap = false;
         conmem = false;
@@ -122,50 +128,47 @@ void DivMMC::init() {
         Debug::log("DivMMC: %d banks in butter PSRAM @ %p", DIVMMC_NUM_BANKS, base);
     } else {
         use_psram = false;
-        if (!active_buf[0]) active_buf[0] = (uint8_t*)malloc(DIVMMC_BANK_SIZE);
-        if (!active_buf[1]) active_buf[1] = (uint8_t*)malloc(DIVMMC_BANK_SIZE);
-        if (!active_buf[0] || !active_buf[1]) {
-            free(active_buf[0]); active_buf[0] = nullptr;
-            free(active_buf[1]); active_buf[1] = nullptr;
+        // Allocate as many cache slots as possible (minimum 2)
+        int allocated = 0;
+        for (int i = 0; i < DIVMMC_CACHE_SLOTS; i++) {
+            if (!active_buf[i]) active_buf[i] = (uint8_t*)malloc(DIVMMC_BANK_SIZE);
+            if (active_buf[i]) allocated++;
+            active_bank[i] = -1;
+            slot_dirty[i] = false;
+            slot_lru[i] = 0;
+        }
+        lru_clock = 0;
+        if (allocated < 2) {
+            for (int i = 0; i < DIVMMC_CACHE_SLOTS; i++) {
+                free(active_buf[i]); active_buf[i] = nullptr;
+            }
             enabled = false; return;
         }
         if (!swap_open) {
             f_unlink("/tmp/divmmc-pico-spec.swap");
             FRESULT fr = f_open(&swap_file, "/tmp/divmmc-pico-spec.swap", FA_READ | FA_WRITE | FA_CREATE_ALWAYS);
             if (fr != FR_OK) {
-                free(active_buf[0]); active_buf[0] = nullptr;
-                free(active_buf[1]); active_buf[1] = nullptr;
+                for (int i = 0; i < DIVMMC_CACHE_SLOTS; i++) {
+                    free(active_buf[i]); active_buf[i] = nullptr;
+                }
                 enabled = false; return;
             }
             swap_open = true;
         }
         memset(bank_ptr, 0, sizeof(bank_ptr));
-        active_bank[0] = active_bank[1] = -1;
-        Debug::log("DivMMC: %d banks via swap file", DIVMMC_NUM_BANKS);
+        Debug::log("DivMMC: %d banks via swap file (%d cache slots)", DIVMMC_NUM_BANKS, allocated);
     }
     clearAllBanks();
 
-    if (!esxdos_rom) {
-        esxdos_rom = (uint8_t *)malloc(DIVMMC_ROM_SIZE);
-        if (!esxdos_rom) { enabled = false; return; }
-    }
-
-    // Select ROM and image file based on mode
-    const unsigned char* rom_src;
+    // Point ROM directly to flash (no heap allocation needed)
     const char* mode_name;
-
     if (Config::esxdos == 2) {
-        rom_src = gb_rom_esxide;
+        esxdos_rom = (uint8_t *)gb_rom_esxide;
         mode_name = "DivIDE";
-    } else if (divsd_mode) {
-        rom_src = gb_rom_esxdos;
-        mode_name = "DivSD";
     } else {
-        rom_src = gb_rom_esxdos;
-        mode_name = "DivMMC";
+        esxdos_rom = (uint8_t *)gb_rom_esxdos;
+        mode_name = divsd_mode ? "DivSD" : "DivMMC";
     }
-
-    memcpy(esxdos_rom, rom_src, DIVMMC_ROM_SIZE);
     rom_loaded = true;
     Debug::log("%s ROM verify: %02X %02X %02X %02X %02X %02X %02X @ %p",
         mode_name, esxdos_rom[0], esxdos_rom[1], esxdos_rom[2], esxdos_rom[3],
@@ -201,6 +204,8 @@ void DivMMC::init() {
         Debug::log("OCR: %02X %02X %02X %02X %02X", mmc_ocr[0], mmc_ocr[1], mmc_ocr[2], mmc_ocr[3], mmc_ocr[4]);
     } else if (divide_mode && enabled) {
         sdhc_mode = false;
+        // Reset OCR to non-SDHC (DivIDE uses IDE not SPI, but keep clean state)
+        mmc_ocr[0] = 5; mmc_ocr[1] = 0; mmc_ocr[2] = 0; mmc_ocr[3] = 0; mmc_ocr[4] = 0;
         // DivIDE: open HDF images (hd0=master, hd1=slave)
         const char* defaults[2] = {"/esxdos.hdf", ""};
         for (int d = 0; d < 2; d++) {
@@ -225,6 +230,9 @@ void DivMMC::init() {
         if (mmc_file_open[0]) buildCSD();
     } else if (enabled) {
         sdhc_mode = false;
+        // Reset OCR to standard capacity (non-SDHC) — DivSD sets CCS=1 which
+        // would confuse ESXDOS into using sector addressing for .mmc images
+        mmc_ocr[0] = 5; mmc_ocr[1] = 0; mmc_ocr[2] = 0; mmc_ocr[3] = 0; mmc_ocr[4] = 0;
         // DivMMC: open .mmc image
         const char* default_path = "/esxdos.mmc";
         const char* image_path = Config::esxdos_mmc_image.empty() ? default_path : Config::esxdos_mmc_image.c_str();
@@ -321,9 +329,24 @@ void DivMMC::applyMapping() {
         materialize(b);
         MemESP::page0_hi = bank_ptr[b];
         MemESP::divmmc_mapped = true;
+        // Track slot indices for dirty marking
+        if (!use_psram) {
+            hi_slot = -1;
+            lo_slot = -1;
+            for (int i = 0; i < DIVMMC_CACHE_SLOTS; i++) {
+                if (active_bank[i] == b) hi_slot = i;
+                if (mapram && active_bank[i] == 3) lo_slot = i;
+            }
+            MemESP::divmmc_hi_dirty = (hi_slot >= 0) ? &slot_dirty[hi_slot] : nullptr;
+            MemESP::divmmc_lo_dirty = (lo_slot >= 0) ? &slot_dirty[lo_slot] : nullptr;
+        }
     } else {
         MemESP::divmmc_mapped = false;
         MemESP::recoverPage0();
+        hi_slot = -1;
+        lo_slot = -1;
+        MemESP::divmmc_hi_dirty = nullptr;
+        MemESP::divmmc_lo_dirty = nullptr;
     }
 }
 
@@ -386,9 +409,13 @@ void DivMMC::clearAllBanks() {
         memset(bank_ptr[0], 0, DIVMMC_NUM_BANKS * DIVMMC_BANK_SIZE);
     } else {
         // Clear active buffers
-        if (active_buf[0]) memset(active_buf[0], 0, DIVMMC_BANK_SIZE);
-        if (active_buf[1]) memset(active_buf[1], 0, DIVMMC_BANK_SIZE);
-        active_bank[0] = active_bank[1] = -1;
+        for (int i = 0; i < DIVMMC_CACHE_SLOTS; i++) {
+            if (active_buf[i]) memset(active_buf[i], 0, DIVMMC_BANK_SIZE);
+            active_bank[i] = -1;
+            slot_dirty[i] = false;
+            slot_lru[i] = 0;
+        }
+        lru_clock = 0;
         memset(bank_ptr, 0, sizeof(bank_ptr));
         // Zero the swap file
         if (swap_open) {
@@ -402,28 +429,59 @@ void DivMMC::clearAllBanks() {
     }
 }
 
+void DivMMC::touch(int slot) {
+    slot_lru[slot] = ++lru_clock;
+}
+
+int DivMMC::find_victim(uint8_t exclude_bank) {
+    // Find free slot first
+    for (int i = 0; i < DIVMMC_CACHE_SLOTS; i++) {
+        if (!active_buf[i]) continue; // not allocated
+        if (active_bank[i] == -1) return i;
+    }
+    // Find LRU slot, excluding the given bank
+    int best = -1;
+    uint8_t best_lru = 255;
+    for (int i = 0; i < DIVMMC_CACHE_SLOTS; i++) {
+        if (!active_buf[i]) continue;
+        if (active_bank[i] == exclude_bank) continue;
+        if (best == -1 || slot_lru[i] < best_lru) {
+            best = i;
+            best_lru = slot_lru[i];
+        }
+    }
+    return best;
+}
+
 void DivMMC::evict(int slot) {
     if (active_bank[slot] < 0) return;
-    UINT bw;
-    f_lseek(&swap_file, (FSIZE_t)active_bank[slot] * DIVMMC_BANK_SIZE);
-    f_write(&swap_file, active_buf[slot], DIVMMC_BANK_SIZE, &bw);
+    // Only write back if dirty
+    if (slot_dirty[slot]) {
+        UINT bw;
+        f_lseek(&swap_file, (FSIZE_t)active_bank[slot] * DIVMMC_BANK_SIZE);
+        f_write(&swap_file, active_buf[slot], DIVMMC_BANK_SIZE, &bw);
+        slot_dirty[slot] = false;
+    }
     bank_ptr[active_bank[slot]] = nullptr;
     active_bank[slot] = -1;
 }
 
 void DivMMC::materialize(uint8_t bank_idx) {
-    if (bank_ptr[bank_idx]) return; // already available (butter mode always)
-
-    // Find free slot or pick eviction victim
-    int slot = -1;
-    if (active_bank[0] == -1) slot = 0;
-    else if (active_bank[1] == -1) slot = 1;
-    else {
-        // Don't evict the other needed bank
-        uint8_t cur = bank & (DIVMMC_NUM_BANKS - 1);
-        uint8_t other_needed = (bank_idx == cur) ? 3 : cur;
-        slot = (active_bank[0] == other_needed) ? 1 : 0;
+    if (use_psram) return; // butter mode: always available
+    if (bank_ptr[bank_idx]) {
+        // Already cached — find slot and touch LRU
+        for (int i = 0; i < DIVMMC_CACHE_SLOTS; i++) {
+            if (active_bank[i] == bank_idx) { touch(i); break; }
+        }
+        return;
     }
+
+    // Find slot: prefer free, then LRU (excluding the other needed bank)
+    uint8_t cur = bank & (DIVMMC_NUM_BANKS - 1);
+    uint8_t other_needed = (bank_idx == cur) ? 3 : cur;
+    int slot = find_victim(other_needed);
+    if (slot < 0) return; // shouldn't happen
+
     evict(slot);
 
     // Load from swap
@@ -432,6 +490,8 @@ void DivMMC::materialize(uint8_t bank_idx) {
     f_read(&swap_file, active_buf[slot], DIVMMC_BANK_SIZE, &br);
     bank_ptr[bank_idx] = active_buf[slot];
     active_bank[slot] = bank_idx;
+    slot_dirty[slot] = false;
+    touch(slot);
 }
 
 // Read a byte from image/SD, using sector cache

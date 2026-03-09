@@ -253,6 +253,10 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 )
 ENDIF()
 
+if(NO_ALF)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE NO_ALF=1)
+endif()
+
 IF(KBDUSB)
     add_subdirectory(drivers/ps2kbd)
     target_link_libraries(${PROJECT_NAME} PRIVATE ps2kbd)

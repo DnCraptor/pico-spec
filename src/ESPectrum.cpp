@@ -669,14 +669,22 @@ void ESPectrum::setup() {
 #else
 // page 0 is not supported without virtual memory on RP2040
 #endif
+    // Pages 1-3 are essential (minimum for 48K)
     MemESP::ram[1].assign_ram(new unsigned char[MEM_PG_SZ], 1, false);
     MemESP::ram[2].assign_ram(new unsigned char[MEM_PG_SZ], 2, false);
     MemESP::ram[3].assign_ram(new unsigned char[MEM_PG_SZ], 3, false);
-    MemESP::ram[4].assign_ram(new unsigned char[MEM_PG_SZ], 4, false);
+    ram_pages += 3;
+    // Pages 4,6 only if enough heap remains for framebuffer
+    if (getFreeHeap() >= MEM_PG_SZ + MEM_REMAIN) {
+        MemESP::ram[4].assign_ram(new unsigned char[MEM_PG_SZ], 4, false);
+        ++ram_pages;
+    }
     // 5 - static (video RAM)
-    MemESP::ram[6].assign_ram(new unsigned char[MEM_PG_SZ], 6, false);
+    if (getFreeHeap() >= MEM_PG_SZ + MEM_REMAIN) {
+        MemESP::ram[6].assign_ram(new unsigned char[MEM_PG_SZ], 6, false);
+        ++ram_pages;
+    }
     // 7 - static (video RAM)
-    ram_pages += 5;
     Debug::log("setup: no ext_ram: pages done, freeHeap=%u", getFreeHeap());
   }
   // Load romset
@@ -945,14 +953,16 @@ void ESPectrum::reset(uint8_t romInUse) {
 
   // Empty audio buffers
   memset(overSamplebuf, 0, sizeof(overSamplebuf));
-  memset(audioBuffer_L, 0, sizeof(audioBuffer_L));
-  memset(audioBuffer_R, 0, sizeof(audioBuffer_R));
+  memset(audioBuffer_L, 128, sizeof(audioBuffer_L));
+  memset(audioBuffer_R, 128, sizeof(audioBuffer_R));
   memset(audioBufferCovox, 0, sizeof(audioBufferCovox));
   memset(chip0.SamplebufAY_L, 0, sizeof(chip0.SamplebufAY_L));
   memset(chip1.SamplebufAY_R, 0, sizeof(chip1.SamplebufAY_R));
 #if !PICO_RP2040
   memset(saaChip.SamplebufSAA_L, 0, sizeof(saaChip.SamplebufSAA_L));
   memset(saaChip.SamplebufSAA_R, 0, sizeof(saaChip.SamplebufSAA_R));
+  memset(audioBufferMIDI_L, 128, sizeof(audioBufferMIDI_L));
+  memset(audioBufferMIDI_R, 128, sizeof(audioBufferMIDI_R));
 #endif
   lastCovoxVal = lastaudioBit = 0;
 
@@ -989,8 +999,15 @@ void ESPectrum::reset(uint8_t romInUse) {
 
   audioCOVOXDivider = audioAYDivider;
 
-  init_sound();
-  pcm_setup(Audio_freq);
+  // Skip audio hardware re-init on reset — sample rate never changes (always 31250),
+  // and i2s_deinit/i2s_init causes a click on I2S DAC.
+  // init_sound() + pcm_setup() are called once from setup().
+  static bool audio_initialized = false;
+  if (!audio_initialized) {
+    init_sound();
+    pcm_setup(Audio_freq);
+    audio_initialized = true;
+  }
 
   if (Config::tape_player) {
     AY_emu = false; // Disable AY emulation if tape player mode is set
@@ -1669,12 +1686,16 @@ void ESPectrum::loop() {
             }
             if (Midi::enabled == 3)
             {
-              beeper_L += audioBufferMIDI_L[i];
-              beeper_R += audioBufferMIDI_R[i];
+              // MIDI outputs unsigned 0..255 center 128; convert to signed
+              beeper_L += (int)audioBufferMIDI_L[i] - 128;
+              beeper_R += (int)audioBufferMIDI_R[i] - 128;
             }
 #endif
-            audioBuffer_L[i] = beeper_L > 255 ? 255 : beeper_L; // Clamp
-            audioBuffer_R[i] = beeper_R > 255 ? 255 : beeper_R; // Clamp
+            // Shift to 128-centered output (DAC treats 128 as silence)
+            beeper_L += 128;
+            beeper_R += 128;
+            audioBuffer_L[i] = beeper_L < 0 ? 0 : (beeper_L > 255 ? 255 : beeper_L);
+            audioBuffer_R[i] = beeper_R < 0 ? 0 : (beeper_R > 255 ? 255 : beeper_R);
         }
       }
     }

@@ -10,6 +10,7 @@
 #define DIVMMC_ROM_SIZE  0x2000   // 8KB ESXDOS ROM
 #define DIVMMC_BANK_SIZE 0x2000   // 8KB per bank
 #define DIVMMC_NUM_BANKS 16       // 16 banks = 128KB RAM
+#define DIVMMC_CACHE_SLOTS 3      // swap mode: number of cached bank buffers
 
 // DivMMC automap trap addresses (M1 cycle entry points)
 #define DIVMMC_TRAP_0000 0x0000
@@ -36,6 +37,8 @@ public:
     static uint8_t* bank_ptr[DIVMMC_NUM_BANKS]; // direct pointer per bank (null = swapped out)
 
     static bool use_psram;            // true = all banks in butter PSRAM (direct pointers)
+    static int8_t hi_slot;            // swap mode: slot index of page0_hi bank (-1 if none)
+    static int8_t lo_slot;            // swap mode: slot index of page0_lo bank (-1 if none)
     static bool rom_loaded;       // ESXDOS ROM successfully loaded from SD
     static bool divsd_mode;       // true = raw SD access (Config::esxdos == 3)
     static bool divide_mode;      // true = DivIDE (IDE/ATA, Config::esxdos == 2)
@@ -44,6 +47,8 @@ public:
     static void init();           // Load ROM, open .mmc/.hdf image
     static void reset();          // Reset state
     static void applyMapping();   // Update page0 pointers based on state
+    static inline void markHiDirty() { if (hi_slot >= 0) slot_dirty[hi_slot] = true; }
+    static inline void markLoDirty() { if (lo_slot >= 0) slot_dirty[lo_slot] = true; }
 
     // SD/SPI protocol emulation (DivMMC/DivSD)
     static void mmc_cs(uint8_t value);    // Port 0xE7 write: chip select
@@ -98,12 +103,17 @@ private:
     static void buildCSD_real(uint32_t sector_count);
 
     // Bank memory management (butter PSRAM or swap)
-    static uint8_t* active_buf[2];    // swap mode: 2 heap buffers for active banks
-    static int8_t active_bank[2];     // swap mode: which bank in each buffer (-1 = free)
+    static uint8_t* active_buf[DIVMMC_CACHE_SLOTS];
+    static int8_t active_bank[DIVMMC_CACHE_SLOTS];
+    static bool slot_dirty[DIVMMC_CACHE_SLOTS];
+    static uint8_t slot_lru[DIVMMC_CACHE_SLOTS]; // LRU counter (higher = more recently used)
+    static uint8_t lru_clock;
     static FIL swap_file;
     static bool swap_open;
     static void materialize(uint8_t bank_idx);
     static void evict(int slot);
+    static void touch(int slot);
+    static int find_victim(uint8_t exclude_bank);
     static void clearAllBanks();
 
     // IDE/ATA state (DivIDE)

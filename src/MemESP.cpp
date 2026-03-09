@@ -267,5 +267,7 @@ uint8_t MemESP::romInUse = 0;
 uint8_t* MemESP::page0_lo = nullptr;
 uint8_t* MemESP::page0_hi = nullptr;
 bool MemESP::divmmc_mapped = false;
+bool* MemESP::divmmc_hi_dirty = nullptr;
+bool* MemESP::divmmc_lo_dirty = nullptr;
 #endif
 

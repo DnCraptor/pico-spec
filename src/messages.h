@@ -470,6 +470,7 @@ static const char *MENU_MAIN[2] = { MENU_MAIN_EN, MENU_MAIN_ES };
 	"Machine\t>\n"\
     "Reset\t>\n"\
     "Options\t>\n"\
+    "Debug\t>\n"\
     "Help\n"\
     "About\n"
 #define MENU_MAIN_NO_SD_ES \
@@ -480,6 +481,7 @@ static const char *MENU_MAIN[2] = { MENU_MAIN_EN, MENU_MAIN_ES };
     "Modelo\t>\n"\
     "Resetear\t>\n"\
     "Opciones\t>\n"\
+    "Depurar\t>\n"\
     "Ayuda\n"\
     "Acerca de\n"
 static const char *MENU_MAIN_NO_SD[2] = { MENU_MAIN_NO_SD_EN, MENU_MAIN_NO_SD_ES };
@@ -573,6 +575,17 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 #endif
 static const char *MENU_VIDEO[2] = { MENU_VIDEO_EN, MENU_VIDEO_ES };
 
+#if PICO_RP2040
+#define MENU_VIDEO_MODE_EN \
+    "Mode\n"\
+    "640x480@60\t[6]\n"\
+    "640x480@50\t[5]\n"
+
+#define MENU_VIDEO_MODE_ES \
+    "Modo\n"\
+    "640x480@60\t[6]\n"\
+    "640x480@50\t[5]\n"
+#else
 #define MENU_VIDEO_MODE_EN \
     "Mode\n"\
     "640x480@60\t[6]\n"\
@@ -588,6 +601,7 @@ static const char *MENU_VIDEO[2] = { MENU_VIDEO_EN, MENU_VIDEO_ES };
     "720x480@60\t[H]\n"\
     "720x576@60!\t[X]\n"\
     "720x576@50\t[F]\n"
+#endif
 
 static const char *MENU_VIDEO_MODE[2] = { MENU_VIDEO_MODE_EN, MENU_VIDEO_MODE_ES };
 
@@ -777,6 +791,17 @@ static const char *MENU_SAA1099[2] = { "Turned on?\n" , "Turned on?\n"};
     "ShamaZX \t[S]\n"\
     "Software\t[W]\n"
 static const char *MENU_MIDI[2] = { MENU_MIDI_EN, MENU_MIDI_ES };
+#define MENU_MIDI_PRESET_EN "Synth Preset\n"\
+    "GM       \t[G]\n"\
+    "Piano    \t[P]\n"\
+    "Chiptune \t[C]\n"\
+    "Strings  \t[S]\n"\
+    "Rock     \t[R]\n"\
+    "Organ    \t[O]\n"\
+    "Music Box\t[M]\n"\
+    "Synth    \t[Y]\n"
+#define MENU_MIDI_PRESET_ES MENU_MIDI_PRESET_EN
+static const char *MENU_MIDI_PRESET[2] = { MENU_MIDI_PRESET_EN, MENU_MIDI_PRESET_ES };
 #endif
 
 #if !PICO_RP2040

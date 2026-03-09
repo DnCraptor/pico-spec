@@ -45,7 +45,7 @@ visit https://zxespectrum.speccy.org/contacto
 #define MEM_PG_SZ 0x4000
 #if PICO_RP2350
 // with gigascreen
-#define MEM_REMAIN (14*16*1024)
+#define MEM_REMAIN (16*16*1024)
 #else
 #define MEM_REMAIN (6*16*1024)
 #endif
@@ -177,6 +177,8 @@ public:
     static uint8_t* page0_lo;      // 0x0000-0x1FFF when DivMMC mapped
     static uint8_t* page0_hi;      // 0x2000-0x3FFF when DivMMC mapped
     static bool divmmc_mapped;     // DivMMC memory currently visible at page 0
+    static bool* divmmc_hi_dirty;  // swap mode: points to slot_dirty[] for page0_hi slot
+    static bool* divmmc_lo_dirty;  // swap mode: points to slot_dirty[] for page0_lo slot
 #endif
 
     static uint8_t readbyte(uint16_t addr);
@@ -229,13 +231,19 @@ inline void MemESP::writebyte(uint16_t addr, uint8_t data)
 #if !PICO_RP2040
     if (page == 0 && divmmc_mapped) {
         if (addr < 0x2000) {
-            // 0x0000-0x1FFF: writable only when MAPRAM (RAM bank 3)
-            // ROM is read-only
-            if (page0_lo >= (uint8_t*)0x11000000)
+            // 0x0000-0x1FFF: writable only when MAPRAM (RAM bank)
+            // In PSRAM mode: page0_lo >= 0x11000000 means PSRAM bank
+            // In swap mode: divmmc_lo_dirty != null means heap bank (MAPRAM)
+            if (divmmc_lo_dirty) {
                 page0_lo[addr] = data;
+                *divmmc_lo_dirty = true;
+            } else if (page0_lo >= (uint8_t*)0x11000000) {
+                page0_lo[addr] = data;
+            }
         } else {
             // 0x2000-0x3FFF: always RAM bank, writable
             page0_hi[addr & 0x1FFF] = data;
+            if (divmmc_hi_dirty) *divmmc_hi_dirty = true;
         }
         return;
     }

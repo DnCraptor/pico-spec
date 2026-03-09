@@ -57,6 +57,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "audio.h"
 #include "AySound.h"
 #include "Midi.h"
+#include "MidiSynth.h"
 #if !PICO_RP2040
 #include "DivMMC.h"
 #endif
@@ -689,6 +690,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         Config::esxdos_mmc_image = fname;
                     DivMMC::init();
                     Config::save();
+                    ESPectrum::reset();
+                    if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                    return;
                 }
                 if (VIDEO::OSD) OSD::drawStats();
             } else
@@ -1503,6 +1507,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     }
                                     Config::save();
                                     ESPectrum::reset();
+                                    return;
                                 }
                                 menu_curopt = opt2;
                                 menu_saverect = false;
@@ -1809,7 +1814,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 midi_menu.replace(midi_menu.find("[S",0),2, prev_midi == 2 ? "[*" : "[ ");
                                 midi_menu.replace(midi_menu.find("[W",0),2, prev_midi == 3 ? "[*" : "[ ");
                                 uint8_t opt2 = menuRun(midi_menu);
-                                if (opt2) {
+                                if (opt2 >= 1 && opt2 <= 4) {
                                     Config::midi = opt2 - 1;
                                     if (Config::midi != prev_midi) {
                                         Midi::enabled = prev_midi;
@@ -1818,6 +1823,30 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         if (Midi::enabled)
                                             Midi::init();
                                         Config::save();
+                                    }
+                                    // Software selected — open preset submenu
+                                    if (Config::midi == 3) {
+                                        menu_level = 3;
+                                        menu_curopt = 1;
+                                        menu_saverect = true;
+                                        string preset_menu = MENU_MIDI_PRESET[Config::lang];
+                                        static const char preset_marks[] = "GPCSROMY";
+                                        for (int p = 0; p < 8; p++) {
+                                            char mark[3] = { '[', preset_marks[p], '\0' };
+                                            auto pos = preset_menu.find(mark, 0);
+                                            if (pos != string::npos)
+                                                preset_menu.replace(pos, 2, Config::midi_synth_preset == p ? "[*" : "[ ");
+                                        }
+                                        uint8_t opt3 = menuRun(preset_menu);
+                                        if (opt3) {
+                                            Config::midi_synth_preset = opt3 - 1;
+                                            MidiSynth::preset = Config::midi_synth_preset;
+                                            Config::save();
+                                            VIDEO::SaveRect.restore_last();
+                                        }
+                                        menu_level = 2;
+                                        menu_curopt = opt2;
+                                        menu_saverect = false;
                                     }
                                     menu_curopt = opt2;
                                     menu_saverect = false;
@@ -1846,7 +1875,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 menu.replace(menu.find("[P",0),2,prev==1 ? "[*" : "[ ");
                                 menu.replace(menu.find("[I",0),2,prev==2 ? "[*" : "[ ");
                                 menu.replace(menu.find("[Y",0),2,prev==3 ? "[*" : "[ ");
-                                menu.replace(menu.find("[H",0),2,prev==4 ? "[*" : "[ ");
+                                { auto pos = menu.find("[H",0); if (pos != string::npos) menu.replace(pos,2,prev==4 ? "[*" : "[ "); }
                                 uint8_t opt2 = menuRun(menu);
                                 if (opt2) {
                                     Config::audio_driver = opt2 - 1;
@@ -1905,9 +1934,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 uint8_t cur_sel = curVideoMode;
                                 opt_menu.replace(opt_menu.find("[6",0),2, cur_sel == 0 ? "[*" : "[ ");
                                 opt_menu.replace(opt_menu.find("[5",0),2, cur_sel == 1 ? "[*" : "[ ");
+                            #if !PICO_RP2040
                                 opt_menu.replace(opt_menu.find("[H",0),2, cur_sel == 2 ? "[*" : "[ ");
                                 opt_menu.replace(opt_menu.find("[X",0),2, cur_sel == 3 ? "[*" : "[ ");
                                 opt_menu.replace(opt_menu.find("[F",0),2, cur_sel == 4 ? "[*" : "[ ");
+                            #endif
                                 uint8_t opt2 = menuRun(opt_menu);
                                 if (opt2) {
                                     uint8_t new_vm = opt2 - 1; // opt2 is 1-based, VM_* is 0-based
@@ -5192,12 +5223,11 @@ extern "C" uint8_t linkVGA01;
 extern "C" uint8_t link_i2s_code;
 
 extern char __HeapLimit;
+extern "C" void *sbrk(intptr_t incr);
 
 size_t getFreeHeap(void) {
-    char* current = (char*)malloc(1024);
-    size_t res = (size_t)(&__HeapLimit - current);
-    free(current);
-    return res;
+    char *brk = (char *)sbrk(0);
+    return (brk < &__HeapLimit) ? (size_t)(&__HeapLimit - brk) : 0;
 }
 
 void OSD::HWInfo() {
@@ -5227,7 +5257,7 @@ void OSD::HWInfo() {
     textout += (rp2350a ? "A " : "B ") +  to_string(cpu_hz) + " MHz\n"
         " Chip cores     : 2\n"
         " Chip RAM       : 520 KB\n"
-        " Free RAM (Exp) : ";
+        " Free RAM       : ";
 #else
     string textout =
         " Chip model     : RP2040 " + to_string(cpu_hz) + " MHz\n"

@@ -100,14 +100,16 @@ inline void fclose(FIL& f) {
 
 void FileUtils::initFileSystem() {
     SDReady = mountSDCard();
-    f_mkdir("/tmp");
-    f_mkdir(MOUNT_POINT_SD);
-    f_mkdir(MOUNT_POINT_SD DISK_ROM_DIR);
-    f_mkdir(MOUNT_POINT_SD DISK_SNA_DIR);
-    f_mkdir(MOUNT_POINT_SD DISK_TAP_DIR);
-    f_mkdir(MOUNT_POINT_SD DISK_DSK_DIR);
-    f_mkdir(MOUNT_POINT_SD DISK_SCR_DIR);
-    f_mkdir(MOUNT_POINT_SD DISK_PSNA_DIR);
+    if (SDReady) {
+        f_mkdir("/tmp");
+        f_mkdir(MOUNT_POINT_SD);
+        f_mkdir(MOUNT_POINT_SD DISK_ROM_DIR);
+        f_mkdir(MOUNT_POINT_SD DISK_SNA_DIR);
+        f_mkdir(MOUNT_POINT_SD DISK_TAP_DIR);
+        f_mkdir(MOUNT_POINT_SD DISK_DSK_DIR);
+        f_mkdir(MOUNT_POINT_SD DISK_SCR_DIR);
+        f_mkdir(MOUNT_POINT_SD DISK_PSNA_DIR);
+    }
 }
 
 static FATFS fs;
