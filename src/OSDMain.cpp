@@ -1959,6 +1959,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             Config::save();
                                             VIDEO::changeMode();
                                         }
+                                        // Exit OSD after mode switch
+                                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                                        return;
                                     }
                                     menu_curopt = opt2;
                                     menu_saverect = false;
@@ -2087,6 +2090,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             Config::save();
                                             VIDEO::changeMode();
                                         }
+                                        // Exit OSD after mode switch
+                                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                                        return;
                                     }
                                     menu_curopt = opt2;
                                     menu_saverect = false;

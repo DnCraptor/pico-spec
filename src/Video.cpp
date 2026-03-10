@@ -508,20 +508,7 @@ static void freeFrameBuffer(void **fb) {
 
 #ifdef VGA_HDMI
 void VIDEO::changeMode() {
-    // 1. Invalidate old SaveRect data (points into old framebuffer)
-    SaveRect.clear();
-
-    // 2. Null out frameBuffer FIRST — getLineBuffer() checks for null
-    auto oldFB = vga.frameBuffer;
-    auto oldPrev = vga.prevFrameBuffer;
-    vga.frameBuffer = nullptr;
-    vga.prevFrameBuffer = nullptr;
-
-    // 3. Free old framebuffers
-    freeFrameBuffer((void**)oldFB);
-    freeFrameBuffer((void**)oldPrev);
-
-    // 4. Determine new VGA Mode index (same logic as Init())
+    // 1. Determine new VGA Mode index (same logic as Init())
     int Mode;
     if (VIDEO::isFullBorder288()) {
         Mode = 22;
@@ -532,25 +519,90 @@ void VIDEO::changeMode() {
         Mode += Config::scanlines;
     }
 
-    // 5. Update vga dimensions
-    vga.mode = Mode;
-    OSD::scrW = vidmodes[Mode][vmodeproperties::hRes];
-    OSD::scrH = (vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv]) >> Config::scanlines;
-    vga.xres = OSD::scrW;
-    vga.yres = OSD::scrH;
+    int newW = vidmodes[Mode][vmodeproperties::hRes];
+    int newH = (vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv]) >> Config::scanlines;
 
-    // 6. Allocate new framebuffer
-    vga.frameBuffer = vga.allocateFrameBuffer();
+    bool sameDims = (vga.frameBuffer && vga.xres == newW && vga.yres == newH);
 
-    // 7. Update driver buffer dimensions + reinit HDMI
+    // 2. Free prevFrameBuffer (Gigascreen) — always freed, re-created later if needed
+    if (vga.prevFrameBuffer) {
+        auto oldPrev = vga.prevFrameBuffer;
+        vga.prevFrameBuffer = nullptr;
+        freeFrameBuffer((void**)oldPrev);
+    }
+
+    if (sameDims) {
+        // 3a. Same dimensions — reuse existing framebuffer, no alloc/free needed
+        vga.mode = Mode;
+        OSD::scrW = newW;
+        OSD::scrH = newH;
+    } else {
+        // 3b. Different dimensions — null out, free old, alloc new
+        auto oldFB = vga.frameBuffer;
+        vga.frameBuffer = nullptr;  // getLineBuffer() checks for null
+
+        vga.mode = Mode;
+        OSD::scrW = newW;
+        OSD::scrH = newH;
+        vga.xres = newW;
+        vga.yres = newH;
+
+        freeFrameBuffer((void**)oldFB);
+        vga.frameBuffer = vga.allocateFrameBuffer();
+
+        // Fill with border color
+        if (vga.frameBuffer) {
+            int stride = (vga.xres + 3) & ~3;
+            memset(vga.frameBuffer[0], zxColor(borderColor, 0), vga.yres * stride);
+        }
+        SaveRect.clear();
+    }
+
+    // 7. Update video_mode BEFORE reinit (hdmi_init reads it via get_video_mode())
+    if (SELECT_VGA) {
+        switch (Config::vga_video_mode) {
+            case Config::VM_640x480_50:
+                if (Config::arch == "48K") video_mode = 2;
+                else if (Config::arch == "128K" || Config::arch == "ALF") video_mode = 3;
+                else video_mode = 1;
+                break;
+            case Config::VM_720x480_60: video_mode = 7; break;
+            case Config::VM_720x576_60: video_mode = 8; break;
+            case Config::VM_720x576_50:
+                if (Config::arch == "48K") video_mode = 5;
+                else if (Config::arch == "128K" || Config::arch == "ALF") video_mode = 6;
+                else video_mode = 4;
+                break;
+            default: video_mode = 0; break;
+        }
+    } else {
+        switch (Config::hdmi_video_mode) {
+            case Config::VM_640x480_60: video_mode = 0; break;
+            case Config::VM_640x480_50:
+                if (Config::arch == "48K") video_mode = 2;
+                else if (Config::arch == "128K") video_mode = 3;
+                else video_mode = 1;
+                break;
+            case Config::VM_720x480_60: video_mode = 7; break;
+            case Config::VM_720x576_60: video_mode = 8; break;
+            case Config::VM_720x576_50:
+                if (Config::arch == "48K") video_mode = 5;
+                else if (Config::arch == "128K" || Config::arch == "ALF") video_mode = 6;
+                else video_mode = 4;
+                break;
+            default: video_mode = 0; break;
+        }
+    }
+
+    // 8. Update driver buffer dimensions + reinit HDMI (executed on core1)
     graphics_set_buffer(NULL, vga.xres, vga.yres);
     hdmi_reinit();
 
-    // 8. Recalculate border timing + precalc tables
+    // 9. Recalculate border timing + precalc tables
     VIDEO::Reset();
     precalcborder32();
 
-    // 9. Gigascreen: reallocate prevFrameBuffer if enabled
+    // 10. Gigascreen: reallocate prevFrameBuffer if enabled
     if (Config::gigascreen_enabled) {
         InitPrevBuffer();
         if (!vga.prevFrameBuffer) {
