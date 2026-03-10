@@ -257,13 +257,6 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
     case kRVMWD177XReadHeader: {
 
       if(!wd->retry) {
-#if !PICO_RP2040
-        if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsFDIFile) {
-          static int rto = 0;
-          if (rto < 50) Debug::log("RSH TIMEOUT trk=%d sec=%d side=%d", wd->track, wd->sector, wd->side);
-          rto++;
-        }
-#endif
         wd->status|=kRVMWD177XStatusSeek;
         _end(wd);
         return;
@@ -426,14 +419,6 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
 
     case kRVMWD177XTypeIICommand: {
 #if !PICO_RP2040
-      if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsFDIFile) {
-          static int t2_cnt = 0;
-          if (t2_cnt < 200)
-              Debug::log("T2C trk=%d cmd=%02x s=%d side=%d",
-                  wd->track, wd->command, wd->sector, wd->side);
-          t2_cnt++;
-      }
-      // Reset intra-command offset for find_marker progression
       if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsFDIFile)
           wd->fdiTstates = 0;
 #endif
@@ -696,15 +681,6 @@ case kRVMWD177XWriteData: {
       } else if(wd->a==0xfb) {
         wd->status&=~kRVMWD177XStatusRecordType;
       } else {
-#if !PICO_RP2040
-        if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsFDIFile) {
-          static int df_cnt = 0;
-          if (df_cnt < 50)
-            Debug::log("DMARK MISS trk=%d s=%d a=%02x indx=%d",
-                wd->track, wd->sector, wd->a, wd->disk[wd->diskS]->indx);
-          df_cnt++;
-        }
-#endif
         wd->state=kRVMWD177XTypeIICommand;
         _do(wd);
         wd->stepState=kRVMWD177XNone;
@@ -1020,6 +996,17 @@ IRAM_ATTR void rvmWD1793Step(rvmWD1793 *wd, uint32_t steps) {
         // end _checkIndex
 
 #if !PICO_RP2040
+        // FDI: empty track (0 sectors) — report Record Not Found immediately
+        // instead of spinning for 5 full revolutions (~5 seconds).
+        if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsFDIFile
+            && wd->state == kRVMWD177XReadHeaderBytes
+            && wd->fdiSectorCount == 0)
+        {
+            wd->status |= kRVMWD177XStatusSeek; // bit 4 = Record Not Found (Type II)
+            _end(wd);
+            break;
+        }
+
         // FDI find_marker: find nearest sector header ahead of current disk->indx.
         // Uses actual MFM buffer position (not CPU T-states) for compatibility
         // with the incremental indx++ model used in rvmwdDiskStep.
@@ -1061,15 +1048,6 @@ IRAM_ATTR void rvmWD1793Step(rvmWD1793 *wd, uint32_t steps) {
                     wd->header[i] = wd->diskTrackBuf[idPos + i];
                 fdisk->indx = idPos + 7; // position past header
                 wd->fdiDataCrcError = wd->fdiSectorCrcErr[bestSec];
-
-                {
-                    static int fm_ok = 0;
-                    if (wd->header[3] == wd->sector && fm_ok < 500) {
-                        Debug::log("FM OK trk=%d s=%d indx=%d",
-                            wd->track, wd->sector, curPos);
-                        fm_ok++;
-                    }
-                }
 
                 if (wd->state == kRVMWD177XReadHeaderBytes) {
                     wd->state = wd->next; // → kRVMWD177XReadSectorHeader
@@ -1183,16 +1161,6 @@ IRAM_ATTR void rvmWD1793Write(rvmWD1793 *wd,uint8_t a,uint8_t value) {
 
       if ((value & 0xf0) == 0xd0) {
         //Force interrupt
-#if !PICO_RP2040
-        if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsFDIFile) {
-          static int fi_cnt = 0;
-          if (fi_cnt < 100)
-            Debug::log("FI cmd=%02x busy=%d trk=%d cond=%x",
-                value, (wd->status & kRVMWD177XStatusBusy) ? 1 : 0,
-                wd->track, value & 0xf);
-          fi_cnt++;
-        }
-#endif
         if(wd->status & kRVMWD177XStatusBusy) {
             wd->status &= ~kRVMWD177XStatusBusy;
           wd->state = kRVMWD177XNone;
@@ -1276,14 +1244,6 @@ IRAM_ATTR void rvmWD1793Write(rvmWD1793 *wd,uint8_t a,uint8_t value) {
           } else {
 
             //Type I
-#if !PICO_RP2040
-            if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsFDIFile) {
-              static int t1_cnt = 0;
-              if (t1_cnt < 100)
-                Debug::log("T1C cmd=%02x trk=%d side=%d", value, wd->track, wd->side);
-              t1_cnt++;
-            }
-#endif
             // Clear DRQ (mirrors UnrealSpeccy S_TYPE1_CMD: status &= ~WDS_DRQ, rqs=0)
             wd->control &= ~kRVMWD177XDRQ;
             wd->status = kRVMWD177XStatusSetIndex | kRVMWD177XStatusSetTrack0 | kRVMWD177XStatusSetWP | kRVMWD177XStatusBusy;
@@ -1964,8 +1924,10 @@ IRAM_ATTR uint8_t rvmwdDiskStep(rvmWD1793 *wd, uint32_t control) {
 
       {
         uint8_t loadSide = wd->side;
+        // Preserve the loaded track buffer only during actual data transfer
+        // (ReadByte/WriteByte). During WaitingMark (mark search), always use
+        // wd->side so a side change is detected and the correct track is loaded.
         bool activeCmd = (wd->stepState == kRVMWD177XStepReadByte
-                       || wd->stepState == kRVMWD177XStepWaitingMark
                        || wd->stepState == kRVMWD177XStepWriteByte);
         if (activeCmd && wd->diskLoadedCyl == (int)disk->t && wd->diskLoadedSide >= 0)
             loadSide = (uint8_t)wd->diskLoadedSide;
