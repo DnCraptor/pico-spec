@@ -200,9 +200,10 @@ unsigned short OSD::menuRun(string new_menu) {
         y = 8;
     } else {
         x = (Config::aspect_16_9 ? 24 : 8) + (60 * menu_level);
+        if (x + w > scrW) x = scrW - w;
         if (menu_saverect) {
             y += (8 + (8 * menu_prevopt));
-            if (y + h >= 240) y = 240 - h;
+            if (y + h >= scrH) y = scrH - h;
             prev_y[menu_level] = y;
         } else {
             y = prev_y[menu_level];

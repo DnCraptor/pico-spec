@@ -308,6 +308,10 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
     w = (cols * OSD_FONT_W) + 2;
     h = ((mf_rows + 1) * OSD_FONT_H) + 2;
 
+    // Clamp position to screen boundaries
+    if (x + w > scrW) x = scrW - w;
+    if (y + h > scrH) y = scrH - h;
+
     DIR f_dir;
     bool res = f_opendir(&f_dir, fdir.c_str()) == FR_OK;
     if (!res) {
