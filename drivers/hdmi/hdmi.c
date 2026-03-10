@@ -584,6 +584,10 @@ static inline bool hdmi_init() {
 extern void vga_set_palette_entry(uint8_t i, uint32_t color888);
 #endif
 
+void hdmi_reinit() {
+    hdmi_init();
+}
+
 void graphics_set_palette(uint8_t i, uint32_t color888) {
     palette[i] = color888 & 0x00ffffff;
 

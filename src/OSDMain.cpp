@@ -431,21 +431,27 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             if (KeytoESP == fabgl::VK_HOME) { // HDMI 60Hz
                 uint8_t &vm = SELECT_VGA ? Config::vga_video_mode : Config::hdmi_video_mode;
                 if (vm == Config::VM_640x480_60) return;
-                if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
-                    Config::savePendingVideoMode();
-                    vm = Config::VM_640x480_60;
+                uint8_t saved_vm = vm;
+                vm = Config::VM_640x480_60;
+                Config::save();
+                VIDEO::changeMode();
+                if (!videoModeConfirm(10)) {
+                    vm = saved_vm;
                     Config::save();
-                    esp_hard_reset();
+                    VIDEO::changeMode();
                 }
             } else
             if (KeytoESP == fabgl::VK_END) { // HDMI 50Hz
                 uint8_t &vm = SELECT_VGA ? Config::vga_video_mode : Config::hdmi_video_mode;
                 if (vm == Config::VM_640x480_50) return;
-                if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
-                    Config::savePendingVideoMode();
-                    vm = Config::VM_640x480_50;
+                uint8_t saved_vm = vm;
+                vm = Config::VM_640x480_50;
+                Config::save();
+                VIDEO::changeMode();
+                if (!videoModeConfirm(10)) {
+                    vm = saved_vm;
                     Config::save();
-                    esp_hard_reset();
+                    VIDEO::changeMode();
                 }
             }
             // if (KeytoESP == fabgl::VK_PAGEDOWN) {
@@ -1943,11 +1949,15 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 if (opt2) {
                                     uint8_t new_vm = opt2 - 1; // opt2 is 1-based, VM_* is 0-based
                                     if (new_vm != curVideoMode) {
-                                        if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
-                                            Config::savePendingVideoMode();
-                                            curVideoMode = new_vm;
+                                        uint8_t saved_vm = curVideoMode;
+                                        curVideoMode = new_vm;
+                                        Config::save();
+                                        VIDEO::changeMode();
+                                        if (!videoModeConfirm(10)) {
+                                            // Rollback
+                                            curVideoMode = saved_vm;
                                             Config::save();
-                                            esp_hard_reset();
+                                            VIDEO::changeMode();
                                         }
                                     }
                                     menu_curopt = opt2;
@@ -2068,12 +2078,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         Config::scanlines = 0;
 
                                     if (Config::scanlines != prev_opt) {
-                                        if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
+                                        Config::ram_file = "none";
+                                        Config::save();
+                                        VIDEO::changeMode();
+                                        if (!videoModeConfirm(10)) {
+                                            Config::scanlines = prev_opt;
                                             Config::ram_file = "none";
                                             Config::save();
-                                            esp_hard_reset();
-                                        } else {
-                                            Config::scanlines = prev_opt;
+                                            VIDEO::changeMode();
                                         }
                                     }
                                     menu_curopt = opt2;

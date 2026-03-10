@@ -49,6 +49,8 @@ visit https://zxespectrum.speccy.org/contacto
 #include "psram_spi.h"
 extern "C" void graphics_set_palette(uint8_t i, uint32_t color888);
 extern "C" void vga_set_palette_entry_solid(uint8_t i, uint32_t color888);
+extern "C" void graphics_set_buffer(uint8_t* buffer, uint16_t width, uint16_t height);
+extern "C" void hdmi_reinit(void);
 
 // Place hot video functions in SRAM instead of XIP flash
 #undef IRAM_ATTR
@@ -497,6 +499,67 @@ void VIDEO::Init() {
         }
     }
 }
+
+static void freeFrameBuffer(void **fb) {
+    if (!fb) return;
+    free(fb[0]);  // contiguous data block allocated by heap_caps_malloc
+    free(fb);     // pointer array allocated by malloc
+}
+
+#ifdef VGA_HDMI
+void VIDEO::changeMode() {
+    // 1. Invalidate old SaveRect data (points into old framebuffer)
+    SaveRect.clear();
+
+    // 2. Null out frameBuffer FIRST — getLineBuffer() checks for null
+    auto oldFB = vga.frameBuffer;
+    auto oldPrev = vga.prevFrameBuffer;
+    vga.frameBuffer = nullptr;
+    vga.prevFrameBuffer = nullptr;
+
+    // 3. Free old framebuffers
+    freeFrameBuffer((void**)oldFB);
+    freeFrameBuffer((void**)oldPrev);
+
+    // 4. Determine new VGA Mode index (same logic as Init())
+    int Mode;
+    if (VIDEO::isFullBorder288()) {
+        Mode = 22;
+    } else if (VIDEO::isFullBorder240()) {
+        Mode = 23;
+    } else {
+        Mode = Config::aspect_16_9 ? 2 : 0;
+        Mode += Config::scanlines;
+    }
+
+    // 5. Update vga dimensions
+    vga.mode = Mode;
+    OSD::scrW = vidmodes[Mode][vmodeproperties::hRes];
+    OSD::scrH = (vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv]) >> Config::scanlines;
+    vga.xres = OSD::scrW;
+    vga.yres = OSD::scrH;
+
+    // 6. Allocate new framebuffer
+    vga.frameBuffer = vga.allocateFrameBuffer();
+
+    // 7. Update driver buffer dimensions + reinit HDMI
+    graphics_set_buffer(NULL, vga.xres, vga.yres);
+    hdmi_reinit();
+
+    // 8. Recalculate border timing + precalc tables
+    VIDEO::Reset();
+    precalcborder32();
+
+    // 9. Gigascreen: reallocate prevFrameBuffer if enabled
+    if (Config::gigascreen_enabled) {
+        InitPrevBuffer();
+        if (!vga.prevFrameBuffer) {
+            Config::gigascreen_enabled = false;
+            VIDEO::gigascreen_enabled = false;
+        }
+    }
+}
+#endif
 
 void VIDEO::Reset() {
 

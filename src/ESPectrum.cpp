@@ -1509,7 +1509,11 @@ void ESPectrum::loop() {
               Config::vga_video_mode = pend_vga;
               Config::save();
               Config::clearPendingVideoMode();
+#ifdef VGA_HDMI
+              VIDEO::changeMode();
+#else
               OSD::esp_hard_reset();
+#endif
           } else {
               Debug::log("loop: video mode confirmed");
               Config::clearPendingVideoMode();

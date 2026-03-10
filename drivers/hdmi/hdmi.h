@@ -38,6 +38,9 @@ void hdmi_audio_init(void);
 void hdmi_audio_write_sample(int16_t left, int16_t right);
 #endif
 
+// Hot video mode reinit (reuses existing PIO/DMA resources)
+void hdmi_reinit(void);
+
 // TODO: Сделать настраиваемо
 static const uint8_t textmode_palette[16] = {
     200, 201, 202, 203, 204, 205, 206, 207, 208, 209, 210, 211, 212, 213, 214, 215
