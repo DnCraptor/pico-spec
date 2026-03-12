@@ -88,6 +88,7 @@ public:
     static bool hasTAPextension(string filename);
     static bool hasTZXextension(string filename);
     static bool hasWAVextension(string filename);
+    static bool hasPZXextension(string filename);
     static bool hasMP3extension(string filename);
 
     static void deleteFilesWithExtension(const char *folder_path, const char *extension);

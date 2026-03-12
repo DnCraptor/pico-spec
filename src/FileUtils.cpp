@@ -62,8 +62,12 @@ string FileUtils::ROM_Path = "/";
 string FileUtils::IMG_Path = "/";
 DISK_FTYPE FileUtils::fileTypes[5] = {
     {".sna,.SNA,.z80,.Z80,.p,.P",2,2,0,""},
-    {".tap,.TAP,.tzx,.TZX,.wav,.WAV,.mp3,.MP3",2,2,0,""},
+    {".tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3",2,2,0,""},
+#if PICO_RP2040
+    {".trd,.TRD,.scl,.SCL",2,2,0,""},
+#else
     {".trd,.TRD,.scl,.SCL,.udi,.UDI,.fdi,.FDI",2,2,0,""},
+#endif
     {".rom,.ROM,.bin,.BIN",2,2,0,""},
     {".mmc,.MMC,.hdf,.HDF",2,2,0,""}
 };
@@ -156,6 +160,13 @@ bool FileUtils::hasTZXextension(string filename)
 {
     if (filename.substr(filename.size()-4,4) == ".tzx") return true;
     if (filename.substr(filename.size()-4,4) == ".TZX") return true;
+    return false;
+}
+
+bool FileUtils::hasPZXextension(string filename)
+{
+    if (filename.substr(filename.size()-4,4) == ".pzx") return true;
+    if (filename.substr(filename.size()-4,4) == ".PZX") return true;
     return false;
 }
 

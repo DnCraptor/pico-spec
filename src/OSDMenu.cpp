@@ -579,6 +579,8 @@ void OSD::tapemenuRedraw(string title) {
             if (i > Tape::tapeNumBlocks) break;
             if (Tape::tapeFileType == TAPE_FTYPE_TAP)
                 menu += Tape::tapeBlockReadData(i);
+            else if (Tape::tapeFileType == TAPE_FTYPE_PZX)
+                menu += Tape::pzxBlockReadData(i);
             else
                 menu += Tape::tzxBlockReadData(i);
         }

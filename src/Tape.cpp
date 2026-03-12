@@ -337,6 +337,39 @@ void Tape::LoadTape(string mFile) {
         // Read and analyze tzx file
         Tape::TZX_Open(mFile);
         ESPectrum::TapeNameScroller = 0;
+    } else if (FileUtils::hasPZXextension(mFile)) {
+        string keySel = mFile.substr(0,1);
+        mFile.erase(0, 1);
+        // Flashload .pzx if needed
+        if ((keySel == "R") && (Config::flashload) && (Config::arch != "ALF") &&
+             (Config::romSet != "ZX81+") && (Config::romSet != "48Kcs") && (Config::romSet != "128Kcs")
+        ) {
+                OSD::osdCenteredMsg(OSD_TAPE_FLASHLOAD, LEVEL_INFO, 100);
+                uint8_t OSDprev = VIDEO::OSD;
+                if (Z80Ops::is48)
+                    FileZ80::loader48();
+                else
+                    FileZ80::loader128();
+                MemESP::writebyte(0x5C78,rand() % 256);
+                MemESP::writebyte(0x5C79,rand() % 256);
+
+                if (Config::ram_file != NO_RAM_FILE) {
+                    Config::ram_file = NO_RAM_FILE;
+                }
+                Config::last_ram_file = NO_RAM_FILE;
+
+                if (OSDprev) {
+                    VIDEO::OSD = OSDprev;
+                    if (Config::aspect_16_9)
+                        VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
+                    else
+                        VIDEO::Draw_OSD43 = VIDEO::BottomBorder_OSD;
+                    ESPectrum::TapeNameScroller = 0;
+                }
+        }
+        Tape::Stop();
+        Tape::PZX_Open(mFile);
+        ESPectrum::TapeNameScroller = 0;
     }
     else {
         OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR, LEVEL_WARN);
@@ -969,6 +1002,7 @@ void Tape::Play() {
     }
 
     if (VIDEO::OSD) VIDEO::OSD = 1;
+    pzxFlashCont = false;
 
     // Prepare current block to play
     switch(tapeFileType) {
@@ -979,6 +1013,10 @@ void Tape::Play() {
         case TAPE_FTYPE_TZX:
             tapePlayOffset = CalcTZXBlockPos(tapeCurBlock);
             GetBlock = &TZX_GetBlock;
+            break;
+        case TAPE_FTYPE_PZX:
+            tapePlayOffset = CalcPZXBlockPos(tapeCurBlock);
+            GetBlock = &PZX_GetBlock;
             break;
         case TAPE_FTYPE_WAV:
             tapePlayOffset = tapeStart;
@@ -1037,11 +1075,13 @@ void Tape::TAP_GetBlock() {
 }
 
 void Tape::Stop() {
+    Debug::log("Tape::Stop() pc=0x%04X sp=0x%04X blk=%d/%d type=%d", Z80::getRegPC(), Z80::getRegSP(), tapeCurBlock, tapeNumBlocks, tapeFileType);
     OSD::osdCenteredMsg("Tape loading is stopped", LEVEL_INFO, 100);
     tapeEarBit = 0;
     tapeStatus = TAPE_STOPPED;
     tapePhase = TAPE_PHASE_STOPPED;
     tapeAutoPlay = false;
+    pzxFlashCont = false;
     if (VIDEO::OSD) {
         VIDEO::OSD = 2;
     }
@@ -1503,8 +1543,13 @@ IRAM_ATTR void Tape::Read() {
                     tapebufByteCount++;
                     if (tapebufByteCount == tapeBlockLen) {
                         if (tapeBlkPauseLen == 0) {
-                            tapeCurBlock++;
-                            GetBlock();
+                            if (tapeFileType == TAPE_FTYPE_PZX && pzxTailLen > 0) {
+                                tapePhase = TAPE_PHASE_TAIL;
+                                tapeNext = pzxTailLen;
+                            } else {
+                                tapeCurBlock++;
+                                GetBlock();
+                            }
                         } else {
                             tapePhase=TAPE_PHASE_TAIL;
                             tapeNext=TAPE_PHASE_TAIL_LEN;
@@ -1541,7 +1586,91 @@ IRAM_ATTR void Tape::Read() {
                     tapebufByteCount += 2;
                 }
                 break;
+            case TAPE_PHASE_PZX_PULS:
+                tapeEarBit ^= 1;
+                pzxPulseRep--;
+                // Read next pulse entry when current one exhausted
+                while (pzxPulseRep == 0) {
+                    if ((uint32_t)f_tell(tape) >= pzxPulseBlockEnd) {
+                        // End of PULS block
+                        tapeCurBlock++;
+                        GetBlock();
+                        goto pzx_puls_done;
+                    }
+                    // Decode next PULS entry
+                    uint16_t w;
+                    pzxPulseRep = 1;
+                    w = readByteFile(tape) | (readByteFile(tape) << 8);
+                    if (w > 0x8000) {
+                        pzxPulseRep = w & 0x7FFF;
+                        w = readByteFile(tape) | (readByteFile(tape) << 8);
+                    }
+                    if (w >= 0x8000) {
+                        pzxPulseDur = ((uint32_t)(w & 0x7FFF) << 16) | (readByteFile(tape) | (readByteFile(tape) << 8));
+                    } else {
+                        pzxPulseDur = w;
+                    }
+                    if (pzxPulseDur == 0) {
+                        // Zero-duration: toggle for odd count, consume entry
+                        if (pzxPulseRep & 1) tapeEarBit ^= 1;
+                        pzxPulseRep = 0; // loop will read next entry
+                        continue;
+                    }
+                }
+                tapeNext = pzxPulseDur;
+                pzx_puls_done:
+                break;
+
+            case TAPE_PHASE_PZX_DATA: {
+                // Multi-pulse symbol playback for PZX DATA blocks
+                tapeEarBit ^= 1;
+                uint16_t* seq;
+                uint8_t pN;
+                // Determine which symbol we're in based on current bit
+                if (tapeCurByte & tapeBitMask) {
+                    seq = pzxS1; pN = pzxP1;
+                } else {
+                    seq = pzxS0; pN = pzxP0;
+                }
+                pzxCurSymPulse++;
+                if (pzxCurSymPulse < pN) {
+                    tapeNext = seq[pzxCurSymPulse];
+                } else {
+                    // Symbol complete, advance to next bit
+                    pzxBitCount--;
+                    if (pzxBitCount == 0) {
+                        // All bits done, output tail pulse
+                        if (pzxTailLen == 0) {
+                            tapeCurBlock++;
+                            GetBlock();
+                        } else {
+                            tapeEarBit ^= 1;
+                            tapePhase = TAPE_PHASE_TAIL;
+                            tapeBlkPauseLen = 0;
+                            tapeNext = pzxTailLen;
+                        }
+                        break;
+                    }
+                    // Next bit
+                    tapeBitMask >>= 1;
+                    if (tapeBitMask == 0) {
+                        tapeBitMask = 0x80;
+                        tapeCurByte = readByteFile(tape);
+                    }
+                    // Start new symbol
+                    if (tapeCurByte & tapeBitMask) {
+                        seq = pzxS1; pN = pzxP1;
+                    } else {
+                        seq = pzxS0; pN = pzxP0;
+                    }
+                    pzxCurSymPulse = 0;
+                    tapeNext = seq[0];
+                }
+                break;
+            }
+
             case TAPE_PHASE_END:
+                Debug::log("TAPE_END pc=0x%04X sp=0x%04X type=%d", Z80::getRegPC(), Z80::getRegSP(), tapeFileType);
                 tapeEarBit = 1;
                 tapeCurBlock = 0;
                 Stop();
@@ -1723,6 +1852,181 @@ bool Tape::FlashLoad() {
 
         Z80::setRegIX(addr);
         Z80::setRegDE(nBytes - (blockLen - 2));
+
+        return true;
+    }
+
+    if (tapeFileType == TAPE_FTYPE_PZX) {
+        FIL* tape = &Tape::tape;
+        int savedBlock = tapeCurBlock;
+        FSIZE_t savedPos = f_tell(tape);
+        // Skip non-DATA blocks to find next DATA block
+        while (tapeCurBlock < tapeNumBlocks) {
+            CalcPZXBlockPos(tapeCurBlock);
+            uint32_t tag, size;
+            PZX_BlockLen(tag, size);
+            if (tag == 0x41544144) break; // "DATA" in LE
+            tapeCurBlock++;
+        }
+        if (tapeCurBlock >= tapeNumBlocks) {
+            tapeCurBlock = savedBlock;
+            f_lseek(tape, savedPos);
+            return false;
+        }
+        // Re-seek and read DATA block header
+        CalcPZXBlockPos(tapeCurBlock);
+        uint32_t tag, size;
+        PZX_BlockLen(tag, size);
+        uint32_t count_field = readByteFile(tape) | (readByteFile(tape) << 8) |
+                               (readByteFile(tape) << 16) | (readByteFile(tape) << 24);
+        uint32_t bitCount = count_field & 0x7FFFFFFF;
+        uint16_t tailLen = readByteFile(tape) | (readByteFile(tape) << 8);
+        uint8_t p0 = readByteFile(tape);
+        uint8_t p1 = readByteFile(tape);
+        // Check if standard encoding suitable for flash load
+        if (p0 != 2 || p1 != 2) {
+            tapeCurBlock = savedBlock;
+            f_lseek(tape, savedPos);
+            return false;
+        }
+        // Read pulse sequences
+        uint16_t s0 = readByteFile(tape) | (readByteFile(tape) << 8);
+        readByteFile(tape); readByteFile(tape); // s0[1] (same as s0[0] for standard)
+        uint16_t s1 = readByteFile(tape) | (readByteFile(tape) << 8);
+        readByteFile(tape); readByteFile(tape); // s1[1]
+        // Now at data bytes
+        uint16_t blockLen = (bitCount + 7) / 8;
+        uint8_t tapeFlag = readByteFile(tape);
+
+        if (Z80::getRegAx() != tapeFlag) {
+            Z80::setFlags(0x00);
+            Z80::setRegA(Z80::getRegAx() ^ tapeFlag);
+            if (tapeCurBlock < (tapeNumBlocks - 1)) {
+                tapeCurBlock++;
+            } else {
+                tapeCurBlock = 0;
+                f_lseek(tape, 0);
+            }
+            return true;
+        }
+
+        int nBytes = Z80::getRegDE();
+
+        // If DATA block has more data than ROM requested, the extra data
+        // is for a custom loader. Don't flash-load — let the whole block
+        // play in real mode so ROM and custom loader read seamlessly.
+        if (blockLen - 1 > nBytes + 1) {
+            tapeCurBlock = savedBlock;
+            f_lseek(tape, savedPos);
+            // Start tape in real mode so ROM LD-BYTES can read edges.
+            // Can't return false (tape stays stopped, ROM at pc<0x4000
+            // won't trigger auto-start). Instead, start playing and
+            // let ROM trap fall through to normal LD-BYTES execution.
+            Play();
+            return false;
+        }
+
+        Z80::setRegA(tapeFlag);
+
+        int count = 0;
+        int addr = Z80::getRegIX();
+
+        int addr2 = addr & 0x3fff;
+        uint8_t page = addr >> 14;
+
+        // Limit read to what ROM requested or block has (minus flag)
+        int readLen = nBytes < (blockLen - 1) ? nBytes : (blockLen - 1);
+
+        if ((addr2 + readLen) <= MEM_PG_SZ) {
+            UINT br;
+            uint8_t* p = MemESP::ramCurrent[page];
+            if ( p < (uint8_t*)0x11000000 || (page == 0 && !MemESP::page0ram) ) {
+                f_lseek(tape, f_tell(tape) + readLen);
+            } else {
+                f_read(tape, &p[addr2], readLen, &br);
+            }
+            while (count < readLen) {
+                Z80::Xor(MemESP::readbyte(addr));
+                addr = (addr + 1) & 0xffff;
+                count++;
+            }
+        } else {
+            int chunk1 = MEM_PG_SZ - addr2;
+            int chunkrest = readLen;
+            do {
+                if (chunk1 > chunkrest) chunk1 = chunkrest;
+                if ((page > 0) && (page < 4)) {
+                    UINT br;
+                    f_read(tape, &MemESP::ramCurrent[page][addr2], chunk1, &br);
+                    for (int i=0; i < chunk1; i++) {
+                        Z80::Xor(MemESP::readbyte(addr));
+                        addr = (addr + 1) & 0xffff;
+                        count++;
+                    }
+                } else {
+                    for (int i=0; i < chunk1; i++) {
+                        Z80::Xor(readByteFile(tape));
+                        addr = (addr + 1) & 0xffff;
+                        count++;
+                    }
+                }
+                addr2 = 0;
+                chunkrest -= chunk1;
+                chunk1 = chunkrest > MEM_PG_SZ ? MEM_PG_SZ : chunkrest;
+                page++;
+            } while (chunkrest > 0);
+        }
+
+        // Checksum: read next byte (parity) and verify
+        if (nBytes > (blockLen - 2)) {
+            Z80::setFlags(0x50);
+        } else {
+            Z80::Xor(readByteFile(tape));
+            Z80::Cp(0x01);
+        }
+
+        Z80::setRegIX(addr);
+        Z80::setRegDE(nBytes > (blockLen - 2) ? nBytes - (blockLen - 2) : 0);
+
+        // Check if DATA block has remaining data after what ROM loaded
+        // (happens when PZX packs multiple tape segments into one DATA block)
+        int totalConsumed = 1 + readLen; // flag + data bytes read
+        if (nBytes <= (blockLen - 2)) totalConsumed++; // checksum byte also read
+        int remainBytes = blockLen - totalConsumed;
+
+        if (remainBytes > 0) {
+            // Set up real-mode continuation for remaining data
+            // (e.g. custom loader reads rest via port 0xFE)
+            uint8_t lastBits = bitCount & 7;
+            pzxS0[0] = pzxS0[1] = s0;
+            pzxS1[0] = pzxS1[1] = s1;
+            pzxP0 = 2; pzxP1 = 2;
+            pzxTailLen = tailLen;
+            tapeBit0PulseLen = s0;
+            tapeBit1PulseLen = s1;
+            tapebufByteCount = 0;
+            tapeBlockLen = remainBytes;
+            tapeLastByteUsedBits = lastBits ? lastBits : 8;
+            tapeBitMask = 0x80;
+            tapeEndBitMask = 0x80;
+            if (remainBytes == 1 && tapeLastByteUsedBits < 8)
+                tapeEndBitMask >>= tapeLastByteUsedBits;
+            tapeBlkPauseLen = 0;
+            tapeCurByte = readByteFile(tape);
+            tapeEarBit = (count_field >> 31) & 1;
+            tapePhase = TAPE_PHASE_DATA1;
+            tapeNext = tapeCurByte & tapeBitMask ? tapeBit1PulseLen : tapeBit0PulseLen;
+            pzxFlashCont = true; // auto-start will activate without calling Play()
+
+        } else {
+            // Full block consumed
+            if (tapeCurBlock < (tapeNumBlocks - 1)) {
+                tapeCurBlock++;
+            } else {
+                tapeCurBlock = 0;
+                f_lseek(tape, 0);
+            }
+        }
 
         return true;
     }
@@ -2168,7 +2472,11 @@ bool Tape::TapePortRead() {
         }
         // ROM is waiting for pilot tone while tape is in inter-block pause
         // (e.g. long TZX pause). Skip the pause and start the next block.
-        if (tapePhase == TAPE_PHASE_PAUSE) {
+        // For PZX: only allow pause-skip when in ROM (pc < 0x4000),
+        // because PZX PAUS blocks between turbo sections must play out
+        // fully — turbo loaders rely on these pauses for initialization.
+        if (tapePhase == TAPE_PHASE_PAUSE &&
+            (tapeFileType != TAPE_FTYPE_PZX || pc < 0x4000)) {
             if (pc == loopPC) {
                 if (++loopCount > 200) {
                     loopCount = 0;
@@ -2203,6 +2511,21 @@ bool Tape::TapePortRead() {
         // During JJ screen animation (tape stopped path), call every port read
         if (isJJCandidate && jjScreenAnimating && pc >= 0xFE00) {
             JJFlashLoad();
+            return false;
+        }
+        // PZX FlashLoad partial continuation: tape data is set up, just
+        // needs to start playing. Activate after 200 polls (same as auto-start)
+        // but skip Play() to preserve the DATA1 phase and file position.
+        if (pzxFlashCont && pc >= 0x4000) {
+            if (pc == loopPC) {
+                if (++loopCount > 200) {
+                    loopCount = 0;
+                    pzxFlashCont = false;
+                    tapeStatus = TAPE_LOADING;
+                    tapeStart = CPU::global_tstates + CPU::tstates;
+                    Read();
+                }
+            } else { loopPC = pc; loopCount = 1; }
             return false;
         }
         if (pc == loopPC) {

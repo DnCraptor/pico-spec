@@ -566,6 +566,8 @@ void Tape::TZX_GetBlock() {
 
         }
 
+        Debug::log("TZX GetBlk %d/%d ID=0x%02X ear=%d", tapeCurBlock, tapeNumBlocks, tapeCurByte, tapeEarBit);
+
         switch (tapeCurByte) {
 
             case 0x10: // Standard Speed Data
