@@ -1,0 +1,69 @@
+MK_ORIG.FDI Structure
+=====================
+
+FDI Header:
+  Cylinders: 79, Sides: 2, DataOffset: 0x2B67
+
+=== Cyl 0 Side 0: trkDataOff=0x0000, numSectors=7 ===
+  [ 0] C=0 H=0 R= 1 N=1 flags=0x02 secDataOff=0x0000 size=256
+  [ 1] C=0 H=0 R= 2 N=1 flags=0x02 secDataOff=0x0100 size=256
+  [ 2] C=0 H=0 R= 9 N=2 flags=0x04 secDataOff=0x0200 size=512
+  [ 3] C=0 H=0 R=12 N=1 flags=0x02 secDataOff=0x0400 size=256
+  [ 4] C=0 H=0 R=13 N=1 flags=0x02 secDataOff=0x0500 size=256
+  [ 5] C=0 H=0 R=14 N=1 flags=0x02 secDataOff=0x0600 size=256
+  [ 6] C=0 H=0 R=15 N=1 flags=0x02 secDataOff=0x0700 size=256
+
+=== Cyl 0 Side 1: trkDataOff=0x0800, numSectors=9 ===
+  [ 0] C=0 H=1 R= 1 N=2 flags=0x04 secDataOff=0x0000 size=512
+  [ 1] C=0 H=1 R= 2 N=2 flags=0x04 secDataOff=0x0200 size=512
+  [ 2] C=0 H=1 R= 3 N=2 flags=0x04 secDataOff=0x0400 size=512
+  [ 3] C=0 H=1 R= 4 N=2 flags=0x04 secDataOff=0x0600 size=512
+  [ 4] C=0 H=1 R= 5 N=2 flags=0x04 secDataOff=0x0800 size=512
+  [ 5] C=0 H=1 R= 6 N=2 flags=0x04 secDataOff=0x0A00 size=512
+  [ 6] C=0 H=1 R= 7 N=2 flags=0x04 secDataOff=0x0C00 size=512
+  [ 7] C=0 H=1 R= 8 N=2 flags=0x04 secDataOff=0x0E00 size=512
+  [ 8] C=0 H=1 R= 9 N=2 flags=0x04 secDataOff=0x1000 size=512
+
+=== Cyl 1 Side 0: trkDataOff=0x1A00, numSectors=9 ===
+  [ 0] C=1 H=0 R=231 N=2 flags=0x04 secDataOff=0x0000 size=512
+  [ 1] C=1 H=0 R=232 N=2 flags=0x04 secDataOff=0x0200 size=512
+  [ 2] C=1 H=0 R=233 N=2 flags=0x04 secDataOff=0x0400 size=512
+  [ 3] C=1 H=0 R=234 N=2 flags=0x04 secDataOff=0x0600 size=512
+  [ 4] C=1 H=0 R=235 N=2 flags=0x04 secDataOff=0x0800 size=512
+  [ 5] C=1 H=0 R=236 N=2 flags=0x04 secDataOff=0x0A00 size=512
+  [ 6] C=1 H=0 R=237 N=2 flags=0x04 secDataOff=0x0C00 size=512
+  [ 7] C=1 H=0 R=238 N=2 flags=0x04 secDataOff=0x0E00 size=512
+  [ 8] C=1 H=0 R=239 N=2 flags=0x04 secDataOff=0x1000 size=512
+
+=== Cyl 1 Side 1: trkDataOff=0x2C00, numSectors=9 ===
+  [ 0] C=1 H=1 R=231 N=2 flags=0x04 secDataOff=0x0000 size=512
+  [ 1] C=1 H=1 R=232 N=2 flags=0x04 secDataOff=0x0200 size=512
+  [ 2] C=1 H=1 R=233 N=2 flags=0x04 secDataOff=0x0400 size=512
+  [ 3] C=1 H=1 R=234 N=2 flags=0x04 secDataOff=0x0600 size=512
+  [ 4] C=1 H=1 R=235 N=2 flags=0x04 secDataOff=0x0800 size=512
+  [ 5] C=1 H=1 R=236 N=2 flags=0x04 secDataOff=0x0A00 size=512
+  [ 6] C=1 H=1 R=237 N=2 flags=0x04 secDataOff=0x0C00 size=512
+  [ 7] C=1 H=1 R=238 N=2 flags=0x04 secDataOff=0x0E00 size=512
+  [ 8] C=1 H=1 R=239 N=2 flags=0x04 secDataOff=0x1000 size=512
+
+TR-DOS Catalog (R=1):
+  [ 0] "WHO THE " N param=5845 len= 8276 sects= 63 sec=32 trk= 50
+  [ 1] "416000DE" N param=2020 len= 8224 sects= 32 sec=32 trk= 32
+  [ 2] "     241" 5 param=3030 len=21296 sects= 76 sec=89 trk= 32
+  [ 3] "        "   param=2020 len=13362 sects= 49 sec=52 trk= 57
+  [ 4] "99POWER " O param=2046 len=19539 sects= 89 sec=32 trk= 32
+  [ 5] " 1214913" s param=796C len=27936 sects= 97 sec=110 trk=105
+  [ 6] "ac     0" 9 param=3131 len=12849 sects= 55 sec=118 trk=105
+  [ 7] "c       "   param=2020 len= 8224 sects= 48 sec=57 trk= 48
+  [ 8] "9283IWAM" O param=4F54 len= 8224 sects= 32 sec=32 trk= 32
+  [ 9] "   11090" 3 param=5333 len=20565 sects= 69 sec=82 trk= 32
+  [10] "DEN     "   param=3031 len=14384 sects= 56 sec=55 trk= 49
+  [11] "I'm DEN "   param=2020 len= 8224 sects= 32 sec=32 trk= 48
+  [12] "607359ki" c param=206B len=25965 sects= 32 sec=32 trk= 32
+  [13] "     070" 5 param=3238 len=   57 sects=  0 sec= 0 trk=  0
+  [14] "........" 0x00 param=0000 len=    0 sects=  0 sec= 0 trk=  0
+  [15] "........" 0x00 param=0000 len=    0 sects=  0 sec= 0 trk=  0
+
+SIS (R=9, bytes 0xE0-0xFF):
+  00E0: 5C 25 22 93 9B D1 51 C4 03 BC 53 FC 85 D9 73 50  \%"...Q...S...sP
+  00F0: 1F 23 42 25 D9 C2 41 82 2C 98 F7 B0 F7 99 83 85  .#B%..A.,.......

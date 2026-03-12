@@ -1,0 +1,21 @@
+MKOMBSVV.fdi Structure
+======================
+
+FDI Header:
+  Cylinders: 83, Sides: 2, DataOffset: 0x3315
+
+=== Cyl 0 Side 0: trkDataOff=0x0000, numSectors=8 ===
+  [ 0] C=0 H=0 R=107 N=1 flags=0x02 secDataOff=0x0000 size=256
+  [ 1] C=0 H=0 R=  1 N=1 flags=0x02 secDataOff=0x0100 size=256
+  [ 2] C=0 H=0 R=  2 N=1 flags=0x02 secDataOff=0x0200 size=256
+  [ 3] C=0 H=0 R=  9 N=2 flags=0x04 secDataOff=0x0300 size=512
+  [ 4] C=0 H=0 R= 12 N=1 flags=0x02 secDataOff=0x0500 size=256
+  [ 5] C=0 H=0 R= 13 N=1 flags=0x02 secDataOff=0x0600 size=256
+  [ 6] C=0 H=0 R= 14 N=1 flags=0x02 secDataOff=0x0700 size=256
+  [ 7] C=0 H=0 R= 15 N=1 flags=0x02 secDataOff=0x0800 size=256
+
+Notes:
+  - Very similar to MK_ORIG.FDI (Mortal Kombat SVV version)
+  - Track 0 side 0: 8 sectors (not 16), mixed N=1/N=2, unusual R=107
+  - Catalog R=1: ASCII text (not real filenames), custom bootloader
+  - Custom format, not standard TR-DOS

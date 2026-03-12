@@ -1,0 +1,81 @@
+GALLOWS.FDI Structure
+=====================
+
+FDI Header:
+  Cylinders: 83, Sides: 2, DataOffset: 0x3323
+
+=== Cyl 0 Side 0: trkDataOff=0x0000, numSectors=16 ===
+  [ 0] C=0 H=0 R= 1 N=1 flags=0x02 secDataOff=0x0000 size=256
+  [ 1] C=0 H=0 R= 2 N=1 flags=0x02 secDataOff=0x0100 size=256
+  [ 2] C=0 H=0 R= 3 N=1 flags=0x02 secDataOff=0x0200 size=256
+  [ 3] C=0 H=0 R= 4 N=1 flags=0x02 secDataOff=0x0300 size=256
+  [ 4] C=0 H=0 R= 5 N=1 flags=0x02 secDataOff=0x0400 size=256
+  [ 5] C=0 H=0 R= 6 N=1 flags=0x02 secDataOff=0x0500 size=256
+  [ 6] C=0 H=0 R= 7 N=1 flags=0x02 secDataOff=0x0600 size=256
+  [ 7] C=0 H=0 R= 8 N=1 flags=0x02 secDataOff=0x0700 size=256
+  [ 8] C=0 H=0 R= 9 N=1 flags=0x02 secDataOff=0x0800 size=256
+  [ 9] C=0 H=0 R=10 N=1 flags=0x02 secDataOff=0x0900 size=256
+  [10] C=0 H=0 R=11 N=1 flags=0x02 secDataOff=0x0A00 size=256
+  [11] C=0 H=0 R=12 N=1 flags=0x02 secDataOff=0x0B00 size=256
+  [12] C=0 H=0 R=13 N=1 flags=0x02 secDataOff=0x0C00 size=256
+  [13] C=0 H=0 R=14 N=1 flags=0x02 secDataOff=0x0D00 size=256
+  [14] C=0 H=0 R=15 N=1 flags=0x02 secDataOff=0x0E00 size=256
+  [15] C=0 H=0 R=16 N=1 flags=0x02 secDataOff=0x0F00 size=256
+
+=== Cyl 0 Side 1: trkDataOff=0x1000, numSectors=10 ===
+  [ 0] C=0 H=1 R= 1 N=2 flags=0x04 secDataOff=0x0000 size=512
+  [ 1] C=0 H=1 R= 2 N=2 flags=0x04 secDataOff=0x0200 size=512
+  [ 2] C=0 H=1 R= 3 N=2 flags=0x04 secDataOff=0x0400 size=512
+  [ 3] C=0 H=1 R= 4 N=2 flags=0x04 secDataOff=0x0600 size=512
+  [ 4] C=0 H=1 R= 5 N=2 flags=0x04 secDataOff=0x0800 size=512
+  [ 5] C=0 H=1 R= 6 N=2 flags=0x04 secDataOff=0x0A00 size=512
+  [ 6] C=0 H=1 R= 7 N=2 flags=0x04 secDataOff=0x0C00 size=512
+  [ 7] C=0 H=1 R= 8 N=2 flags=0x04 secDataOff=0x0E00 size=512
+  [ 8] C=0 H=1 R= 9 N=2 flags=0x04 secDataOff=0x1000 size=512
+  [ 9] C=0 H=1 R=10 N=2 flags=0x04 secDataOff=0x1200 size=512
+
+=== Cyl 1 Side 0: trkDataOff=0x2400, numSectors=10 ===
+  [ 0] C=1 H=0 R= 1 N=2 flags=0x04 secDataOff=0x0000 size=512
+  [ 1] C=1 H=0 R= 2 N=2 flags=0x04 secDataOff=0x0200 size=512
+  [ 2] C=1 H=0 R= 3 N=2 flags=0x04 secDataOff=0x0400 size=512
+  [ 3] C=1 H=0 R= 4 N=2 flags=0x04 secDataOff=0x0600 size=512
+  [ 4] C=1 H=0 R= 5 N=2 flags=0x04 secDataOff=0x0800 size=512
+  [ 5] C=1 H=0 R= 6 N=2 flags=0x04 secDataOff=0x0A00 size=512
+  [ 6] C=1 H=0 R= 7 N=2 flags=0x04 secDataOff=0x0C00 size=512
+  [ 7] C=1 H=0 R= 8 N=2 flags=0x04 secDataOff=0x0E00 size=512
+  [ 8] C=1 H=0 R= 9 N=2 flags=0x04 secDataOff=0x1000 size=512
+  [ 9] C=1 H=0 R=10 N=2 flags=0x04 secDataOff=0x1200 size=512
+
+=== Cyl 1 Side 1: trkDataOff=0x3800, numSectors=10 ===
+  [ 0] C=1 H=1 R= 1 N=2 flags=0x04 secDataOff=0x0000 size=512
+  [ 1] C=1 H=1 R= 2 N=2 flags=0x04 secDataOff=0x0200 size=512
+  [ 2] C=1 H=1 R= 3 N=2 flags=0x04 secDataOff=0x0400 size=512
+  [ 3] C=1 H=1 R= 4 N=2 flags=0x04 secDataOff=0x0600 size=512
+  [ 4] C=1 H=1 R= 5 N=2 flags=0x04 secDataOff=0x0800 size=512
+  [ 5] C=1 H=1 R= 6 N=2 flags=0x04 secDataOff=0x0A00 size=512
+  [ 6] C=1 H=1 R= 7 N=2 flags=0x04 secDataOff=0x0C00 size=512
+  [ 7] C=1 H=1 R= 8 N=2 flags=0x04 secDataOff=0x0E00 size=512
+  [ 8] C=1 H=1 R= 9 N=2 flags=0x04 secDataOff=0x1000 size=512
+  [ 9] C=1 H=1 R=10 N=2 flags=0x04 secDataOff=0x1200 size=512
+
+TR-DOS Catalog (R=1):
+  [ 0] "boot    " B param=0195 len=    0 sects=246 sec=10 trk=  0
+  [ 1] "Hi to   " C param=0000 len=    0 sects=  0 sec= 0 trk=  0
+  [ 2] "  YOU   " C param=0000 len=    0 sects=  0 sec= 0 trk=  0
+  [ 3] "How like" C param=0000 len=    0 sects=  0 sec= 0 trk=  0
+  [ 4] "you this" C param=0000 len=    0 sects=  0 sec= 0 trk=  0
+  [ 5] "game ..." C param=0000 len=    0 sects=  0 sec= 0 trk=  0
+  [ 6] " :-)))  " C param=0000 len=    0 sects=  0 sec= 0 trk=  0
+  [ 7] "We think" C param=0000 len=    0 sects=  0 sec= 0 trk=  0
+  [ 8] "you fine" C param=0000 len=    0 sects=  0 sec= 0 trk=  0
+  [ 9] "........" C param=0000 len=    0 sects=  0 sec= 0 trk=  0
+  [10] "Please -" C param=0000 len=    0 sects=  0 sec= 0 trk=  0
+  [11] "don't   " C param=0000 len=    0 sects=  0 sec= 0 trk=  0
+  [12] "crack me" C param=0000 len=    0 sects=  0 sec= 0 trk=  0
+  [13] " :-[]   " C param=0000 len=    0 sects=  0 sec= 0 trk=  0
+  [14] "BUT IF  " C param=0000 len=    0 sects=  0 sec= 0 trk=  0
+  [15] "you can " C param=0000 len=    0 sects=  0 sec= 0 trk=  0
+
+SIS (R=9, bytes 0xE0-0xFF):
+  00E0: 09 00 00 16 1F 00 0A 10 00 00 00 00 00 00 00 00  ................
+  00F0: 00 00 00 00 00 47 61 6C 6C 6F 77 73 21 00 00 00  .....Gallows!...
