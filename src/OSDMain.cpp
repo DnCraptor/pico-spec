@@ -5256,6 +5256,9 @@ string OSD::rowGet(string menu, unsigned short row) {
             last = i + 1;
         }
     }
+    if (count == row && last < menu.length()) {
+        return menu.substr(last);
+    }
     return "<Unknown menu row>";
 }
 // inline static uint32_t get_cpu_flash_size(void) {

@@ -1075,7 +1075,6 @@ void Tape::TAP_GetBlock() {
 }
 
 void Tape::Stop() {
-    Debug::log("Tape::Stop() pc=0x%04X sp=0x%04X blk=%d/%d type=%d", Z80::getRegPC(), Z80::getRegSP(), tapeCurBlock, tapeNumBlocks, tapeFileType);
     OSD::osdCenteredMsg("Tape loading is stopped", LEVEL_INFO, 100);
     tapeEarBit = 0;
     tapeStatus = TAPE_STOPPED;
@@ -1332,8 +1331,6 @@ IRAM_ATTR void Tape::Read() {
 
                                 tapePhase = TAPE_PHASE_GDB_DATA;
 
-                                // printf("PULSE%d %d Flags: %d\n",tapeEarBit,tapeNext,(int)SymDefTable[GDBsymbol].SymbolFlags);
-
                                 // printf("Curbit: %d, GDBSymbol: %d, Flags: %d, tapeNext: %d\n",(int)curBit,(int)GDBsymbol,(int)(SymDefTable[GDBsymbol].SymbolFlags & 0x3),(int)tapeNext);
 
                             } else {
@@ -1440,7 +1437,6 @@ IRAM_ATTR void Tape::Read() {
                         delete[] SymDefTable;
 
                         if (tapeBlkPauseLen == 0) {
-
                             if (tapeCurByte == 0x13) tapeEarBit ^= 1; // This is needed for Basil, maybe for others (next block == Pulse sequence)
                             // if (tapeCurByte != 0x19) tapeEarBit ^= 1; // This is needed for Basil, maybe for others (next block != GDB)
 
@@ -1670,7 +1666,6 @@ IRAM_ATTR void Tape::Read() {
             }
 
             case TAPE_PHASE_END:
-                Debug::log("TAPE_END pc=0x%04X sp=0x%04X type=%d", Z80::getRegPC(), Z80::getRegSP(), tapeFileType);
                 tapeEarBit = 1;
                 tapeCurBlock = 0;
                 Stop();

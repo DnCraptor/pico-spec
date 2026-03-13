@@ -59,6 +59,16 @@ inline void rewind(FIL& f) {
 }
 size_t fread(uint8_t* v, size_t sz1, size_t sz2, FIL& f);
 
+// PZX block tags (4 ASCII bytes, little-endian)
+enum PZXTag : uint32_t {
+    PZX_PZXT = 0x54585A50, // "PZXT" - header
+    PZX_PULS = 0x534C5550, // "PULS" - pulse sequence
+    PZX_DATA = 0x41544144, // "DATA" - data block
+    PZX_PAUS = 0x53554150, // "PAUS" - pause
+    PZX_BRWS = 0x53575242, // "BRWS" - browse point
+    PZX_STOP = 0x504F5453, // "STOP" - stop tape
+};
+
 // PZX static variable definitions
 uint16_t Tape::pzxPulseRep = 0;
 uint32_t Tape::pzxPulseDur = 0;
@@ -108,7 +118,7 @@ void Tape::PZX_Open(string name) {
     // Check PZX header: first block must be "PZXT"
     uint32_t tag, size;
     PZX_BlockLen(tag, size);
-    if (tag != 0x54585A50) { // "PZXT" in LE: 'P'=0x50, 'Z'=0x5A, 'X'=0x58, 'T'=0x54
+    if (tag != PZX_PZXT) {
         OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR, LEVEL_ERROR);
         fclose(tape);
         tapeFileType = TAPE_FTYPE_EMPTY;
@@ -189,9 +199,13 @@ void Tape::PZX_GetBlock() {
 
     for (;;) {
         if (tapeCurBlock >= tapeNumBlocks) {
-            // Emit a final edge + short pause so loaders waiting for
-            // the next edge can finish processing the last bit.
-            tapeEarBit ^= 1;
+            // End of tape: emit a short pause then stop.
+            // Note: do NOT toggle tapeEarBit here. Unlike TZX GDB_DATA which
+            // does not toggle ear on its final callback (curGDBPulse==npd path),
+            // PZX DATA2 always toggles ear — so the last DATA2 toggle already
+            // provides the edge that loaders need to finish the last bit.
+            // An additional toggle here would cancel it out (net zero change),
+            // making the edge invisible to edge-detecting loaders.
             tapePhase = TAPE_PHASE_END;
             tapeNext = 7000;
             return;
@@ -204,17 +218,13 @@ void Tape::PZX_GetBlock() {
         uint32_t blockDataStart = f_tell(tape);
         uint32_t blockEnd = blockDataStart + size;
 
-        // Convert tag to ASCII for logging
-        char tstr[5] = {(char)(tag&0xFF),(char)((tag>>8)&0xFF),(char)((tag>>16)&0xFF),(char)((tag>>24)&0xFF),0};
-        Debug::log("PZX GetBlk %d/%d %s sz=%lu ear=%d", tapeCurBlock, tapeNumBlocks, tstr, size, tapeEarBit);
-
         switch (tag) {
-            case 0x54585A50: // "PZXT" - header (can appear mid-file for concatenated PZX)
+            case PZX_PZXT:
                 // Skip to next block
                 fseek(tape, blockEnd, SEEK_SET);
                 break;
 
-            case 0x534C5550: { // "PULS"
+            case PZX_PULS: {
                 // Initial level for PULS block is low
                 tapeEarBit = 0;
                 pzxPulseBlockEnd = blockEnd;
@@ -249,7 +259,7 @@ void Tape::PZX_GetBlock() {
                 break;
             }
 
-            case 0x41544144: { // "DATA"
+            case PZX_DATA: {
                 uint32_t count_field = readByteFile(tape) | (readByteFile(tape) << 8) |
                                        (readByteFile(tape) << 16) | (readByteFile(tape) << 24);
                 pzxBitCount = count_field & 0x7FFFFFFF;
@@ -273,8 +283,6 @@ void Tape::PZX_GetBlock() {
 
                 // Set initial ear bit
                 tapeEarBit = initialLevel;
-
-                Debug::log("PZX DATA bits=%lu tail=%d p0=%d p1=%d s0=%d s1=%d init=%d", pzxBitCount, pzxTailLen, pzxP0, pzxP1, pzxS0[0], pzxS1[0], initialLevel);
 
                 // Check if standard 2-pulse encoding - can use existing DATA1/DATA2 phases
                 if (pzxP0 == 2 && pzxP1 == 2 && pzxBitCount > 0) {
@@ -319,7 +327,7 @@ void Tape::PZX_GetBlock() {
                 return;
             }
 
-            case 0x53554150: { // "PAUS"
+            case PZX_PAUS: {
                 uint32_t dur_field = readByteFile(tape) | (readByteFile(tape) << 8) |
                                      (readByteFile(tape) << 16) | (readByteFile(tape) << 24);
                 uint32_t duration = dur_field & 0x7FFFFFFF;
@@ -338,11 +346,11 @@ void Tape::PZX_GetBlock() {
                 return;
             }
 
-            case 0x53575242: // "BRWS" - browse point (metadata, skip)
+            case PZX_BRWS:
                 fseek(tape, blockEnd, SEEK_SET);
                 break;
 
-            case 0x504F5453: { // "STOP"
+            case PZX_STOP: {
                 uint16_t flags = 0;
                 if (size >= 2)
                     flags = readByteFile(tape) | (readByteFile(tape) << 8);
@@ -396,24 +404,24 @@ string Tape::pzxBlockReadData(int Blocknum) {
     tagStr[3] = (tag >> 24) & 0xFF;
     tagStr[4] = 0;
 
-    if (tag == 0x54585A50) { // PZXT
+    if (tag == PZX_PZXT) {
         blktype = "Header       ";
-    } else if (tag == 0x534C5550) { // PULS
+    } else if (tag == PZX_PULS) {
         blktype = "Pulse seq    ";
-    } else if (tag == 0x41544144) { // DATA
+    } else if (tag == PZX_DATA) {
         blktype = "Data         ";
         // Read bit count to show data length
         uint32_t count_field = readByteFile(tp) | (readByteFile(tp) << 8) |
                                (readByteFile(tp) << 16) | (readByteFile(tp) << 24);
         tapeBlkLen = ((count_field & 0x7FFFFFFF) + 7) / 8;
-    } else if (tag == 0x53554150) { // PAUS
+    } else if (tag == PZX_PAUS) {
         blktype = "Pause        ";
         uint32_t dur = readByteFile(tp) | (readByteFile(tp) << 8) |
                        (readByteFile(tp) << 16) | (readByteFile(tp) << 24);
         tapeBlkLen = (dur & 0x7FFFFFFF) / 3500; // show in ms
-    } else if (tag == 0x53575242) { // BRWS
+    } else if (tag == PZX_BRWS) {
         blktype = "Browse       ";
-    } else if (tag == 0x504F5453) { // STOP
+    } else if (tag == PZX_STOP) {
         blktype = "Stop tape    ";
     } else {
         blktype = tagStr;
