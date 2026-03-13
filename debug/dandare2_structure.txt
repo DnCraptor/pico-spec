@@ -1,0 +1,981 @@
+================================================================================
+Dan Dare 2 - Mekon's Revenge: TZX vs PZX Block Structure Comparison
+================================================================================
+TZX file: /home/drew/github/pico-spec/debug/Dan Dare 2 - Mekon's Revenge.tzx (57333 bytes)
+PZX file: /home/drew/github/pico-spec/debug/Dan Dare 2 - Mekon's Revenge.pzx (57448 bytes)
+TZX version: 1.20
+PZX version: 1.0
+PZX info: ["Dan Dare 2 - Mekon's Revenge", 'Publisher', 'Virgin', 'Author', 'Gang of Five (Andy Green, Martin Wheeler)', 'Year', '1988', 'Protection', 'Speedlock Associates', 'Comment', 'TZXed by Mikie from the CSW supplied by Andy Barker.']
+
+================================================================================
+PART 1: TZX STRUCTURE
+================================================================================
+Total blocks: 18
+
+Block   0: ID=0x32 (Archive Info)
+  Archive info, 164 bytes
+
+Block   1: ID=0x10 (Standard Speed Data)
+  Pause: 977 ms
+  Data length: 19 bytes
+  Flag byte: 0x00
+  First 16 bytes: 00 00 44 41 4E 20 44 41 52 45 20 32 C7 02 00 00
+
+Block   2: ID=0x10 (Standard Speed Data)
+  Pause: 4282 ms
+  Data length: 713 bytes
+  Flag byte: 0xFF
+  First 16 bytes: FF 00 00 37 00 10 00 11 00 F9 C0 28 28 BE 32 33
+
+Block   3: ID=0x19 (Generalized Data Block)
+  Pause: 2 ms
+  TOTP (pilot entries): 10
+  NPP (max pilot pulses/sym): 2
+  ASP (pilot symbol count): 6
+  TOTD (data symbols total): 44288
+  NPD (max data pulses/sym): 2
+  ASD (data symbol count): 2
+  Data byte count: 5536
+  Bits per data symbol: 1
+  Pilot symbol definitions (6):
+    Sym 0: flags=0, pulses=[2168, 0]
+    Sym 1: flags=0, pulses=[693, 693]
+    Sym 2: flags=0, pulses=[1420, 1420]
+    Sym 3: flags=0, pulses=[2100, 2100]
+    Sym 4: flags=0, pulses=[555, 555]
+    Sym 5: flags=0, pulses=[1110, 1110]
+  Pilot PRLE entries (10):
+    sym_idx=0, repeat=1599, sym_pulses=[2168, 0], total_pulses=3198
+    sym_idx=1, repeat=2, sym_pulses=[693, 693], total_pulses=4
+    sym_idx=2, repeat=1, sym_pulses=[1420, 1420], total_pulses=2
+    sym_idx=3, repeat=1, sym_pulses=[2100, 2100], total_pulses=2
+    sym_idx=2, repeat=1, sym_pulses=[1420, 1420], total_pulses=2
+    sym_idx=1, repeat=1, sym_pulses=[693, 693], total_pulses=2
+    sym_idx=5, repeat=3, sym_pulses=[1110, 1110], total_pulses=6
+    sym_idx=4, repeat=1, sym_pulses=[555, 555], total_pulses=2
+    sym_idx=5, repeat=1, sym_pulses=[1110, 1110], total_pulses=2
+    sym_idx=4, repeat=1, sym_pulses=[555, 555], total_pulses=2
+  Total pilot pulse count: 3222
+  Data symbol definitions (2):
+    Sym 0: flags=0, pulses=[555, 555]
+    Sym 1: flags=0, pulses=[1110, 1110]
+  First 16 data bytes: 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72
+
+Block   4: ID=0x19 (Generalized Data Block)
+  Pause: 6987 ms
+  TOTP (pilot entries): 10
+  NPP (max pilot pulses/sym): 2
+  ASP (pilot symbol count): 6
+  TOTD (data symbols total): 30408
+  NPD (max data pulses/sym): 2
+  ASD (data symbol count): 2
+  Data byte count: 3801
+  Bits per data symbol: 1
+  Pilot symbol definitions (6):
+    Sym 0: flags=0, pulses=[2168, 0]
+    Sym 1: flags=0, pulses=[693, 693]
+    Sym 2: flags=0, pulses=[1420, 1420]
+    Sym 3: flags=0, pulses=[2100, 2100]
+    Sym 4: flags=0, pulses=[555, 555]
+    Sym 5: flags=0, pulses=[1110, 1110]
+  Pilot PRLE entries (10):
+    sym_idx=0, repeat=1599, sym_pulses=[2168, 0], total_pulses=3198
+    sym_idx=1, repeat=2, sym_pulses=[693, 693], total_pulses=4
+    sym_idx=2, repeat=1, sym_pulses=[1420, 1420], total_pulses=2
+    sym_idx=3, repeat=1, sym_pulses=[2100, 2100], total_pulses=2
+    sym_idx=2, repeat=1, sym_pulses=[1420, 1420], total_pulses=2
+    sym_idx=1, repeat=1, sym_pulses=[693, 693], total_pulses=2
+    sym_idx=5, repeat=3, sym_pulses=[1110, 1110], total_pulses=6
+    sym_idx=4, repeat=1, sym_pulses=[555, 555], total_pulses=2
+    sym_idx=5, repeat=1, sym_pulses=[1110, 1110], total_pulses=2
+    sym_idx=4, repeat=1, sym_pulses=[555, 555], total_pulses=2
+  Total pilot pulse count: 3222
+  Data symbol definitions (2):
+    Sym 0: flags=0, pulses=[555, 555]
+    Sym 1: flags=0, pulses=[1110, 1110]
+  First 16 data bytes: 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72
+
+Block   5: ID=0x19 (Generalized Data Block)
+  Pause: 1776 ms
+  TOTP (pilot entries): 10
+  NPP (max pilot pulses/sym): 2
+  ASP (pilot symbol count): 6
+  TOTD (data symbols total): 144
+  NPD (max data pulses/sym): 2
+  ASD (data symbol count): 2
+  Data byte count: 18
+  Bits per data symbol: 1
+  Pilot symbol definitions (6):
+    Sym 0: flags=0, pulses=[2168, 0]
+    Sym 1: flags=0, pulses=[693, 693]
+    Sym 2: flags=0, pulses=[1420, 1420]
+    Sym 3: flags=0, pulses=[2100, 2100]
+    Sym 4: flags=0, pulses=[555, 555]
+    Sym 5: flags=0, pulses=[1110, 1110]
+  Pilot PRLE entries (10):
+    sym_idx=0, repeat=1599, sym_pulses=[2168, 0], total_pulses=3198
+    sym_idx=1, repeat=2, sym_pulses=[693, 693], total_pulses=4
+    sym_idx=2, repeat=1, sym_pulses=[1420, 1420], total_pulses=2
+    sym_idx=3, repeat=3, sym_pulses=[2100, 2100], total_pulses=6
+    sym_idx=2, repeat=1, sym_pulses=[1420, 1420], total_pulses=2
+    sym_idx=1, repeat=1, sym_pulses=[693, 693], total_pulses=2
+    sym_idx=5, repeat=3, sym_pulses=[1110, 1110], total_pulses=6
+    sym_idx=4, repeat=1, sym_pulses=[555, 555], total_pulses=2
+    sym_idx=5, repeat=1, sym_pulses=[1110, 1110], total_pulses=2
+    sym_idx=4, repeat=1, sym_pulses=[555, 555], total_pulses=2
+  Total pilot pulse count: 3226
+  Data symbol definitions (2):
+    Sym 0: flags=0, pulses=[555, 555]
+    Sym 1: flags=0, pulses=[1110, 1110]
+  First 16 data bytes: CF DC 33 DD 4F C1 C2 CF C0 12 AD CD C6 C1 DD CF
+
+Block   6: ID=0x21 (Group Start)
+  Group name: "Speedlock Associates"
+
+Block   7: ID=0x19 (Generalized Data Block)
+  Pause: 0 ms
+  TOTP (pilot entries): 10
+  NPP (max pilot pulses/sym): 2
+  ASP (pilot symbol count): 6
+  TOTD (data symbols total): 49152
+  NPD (max data pulses/sym): 2
+  ASD (data symbol count): 2
+  Data byte count: 6144
+  Bits per data symbol: 1
+  Pilot symbol definitions (6):
+    Sym 0: flags=0, pulses=[2168, 0]
+    Sym 1: flags=0, pulses=[693, 693]
+    Sym 2: flags=0, pulses=[1420, 1420]
+    Sym 3: flags=0, pulses=[2100, 2100]
+    Sym 4: flags=0, pulses=[555, 555]
+    Sym 5: flags=0, pulses=[1110, 1110]
+  Pilot PRLE entries (10):
+    sym_idx=0, repeat=1599, sym_pulses=[2168, 0], total_pulses=3198
+    sym_idx=1, repeat=2, sym_pulses=[693, 693], total_pulses=4
+    sym_idx=2, repeat=1, sym_pulses=[1420, 1420], total_pulses=2
+    sym_idx=3, repeat=3, sym_pulses=[2100, 2100], total_pulses=6
+    sym_idx=2, repeat=1, sym_pulses=[1420, 1420], total_pulses=2
+    sym_idx=1, repeat=1, sym_pulses=[693, 693], total_pulses=2
+    sym_idx=5, repeat=3, sym_pulses=[1110, 1110], total_pulses=6
+    sym_idx=4, repeat=1, sym_pulses=[555, 555], total_pulses=2
+    sym_idx=5, repeat=1, sym_pulses=[1110, 1110], total_pulses=2
+    sym_idx=4, repeat=1, sym_pulses=[555, 555], total_pulses=2
+  Total pilot pulse count: 3226
+  Data symbol definitions (2):
+    Sym 0: flags=0, pulses=[555, 555]
+    Sym 1: flags=0, pulses=[1110, 1110]
+  First 16 data bytes: 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72
+
+Block   8: ID=0x19 (Generalized Data Block)
+  Pause: 0 ms
+  TOTP (pilot entries): 3
+  NPP (max pilot pulses/sym): 1
+  ASP (pilot symbol count): 2
+  TOTD (data symbols total): 6144
+  NPD (max data pulses/sym): 2
+  ASD (data symbol count): 2
+  Data byte count: 768
+  Bits per data symbol: 1
+  Pilot symbol definitions (2):
+    Sym 0: flags=0, pulses=[855]
+    Sym 1: flags=0, pulses=[1710]
+  Pilot PRLE entries (3):
+    sym_idx=0, repeat=10, sym_pulses=[855], total_pulses=10
+    sym_idx=1, repeat=22, sym_pulses=[1710], total_pulses=22
+    sym_idx=0, repeat=10, sym_pulses=[855], total_pulses=10
+  Total pilot pulse count: 42
+  Data symbol definitions (2):
+    Sym 0: flags=0, pulses=[555, 555]
+    Sym 1: flags=0, pulses=[1110, 1110]
+  First 16 data bytes: F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4
+
+Block   9: ID=0x19 (Generalized Data Block)
+  Pause: 0 ms
+  TOTP (pilot entries): 3
+  NPP (max pilot pulses/sym): 1
+  ASP (pilot symbol count): 2
+  TOTD (data symbols total): 206848
+  NPD (max data pulses/sym): 2
+  ASD (data symbol count): 2
+  Data byte count: 25856
+  Bits per data symbol: 1
+  Pilot symbol definitions (2):
+    Sym 0: flags=0, pulses=[855]
+    Sym 1: flags=0, pulses=[1710]
+  Pilot PRLE entries (3):
+    sym_idx=0, repeat=10, sym_pulses=[855], total_pulses=10
+    sym_idx=1, repeat=22, sym_pulses=[1710], total_pulses=22
+    sym_idx=0, repeat=10, sym_pulses=[855], total_pulses=10
+  Total pilot pulse count: 42
+  Data symbol definitions (2):
+    Sym 0: flags=0, pulses=[555, 555]
+    Sym 1: flags=0, pulses=[1110, 1110]
+  First 16 data bytes: DF DF DF DF DF DF DF DF DF DF DF DF DF DF DF DF
+
+Block  10: ID=0x19 (Generalized Data Block)
+  Pause: 0 ms
+  TOTP (pilot entries): 3
+  NPP (max pilot pulses/sym): 1
+  ASP (pilot symbol count): 2
+  TOTD (data symbols total): 16
+  NPD (max data pulses/sym): 2
+  ASD (data symbol count): 2
+  Data byte count: 2
+  Bits per data symbol: 1
+  Pilot symbol definitions (2):
+    Sym 0: flags=0, pulses=[855]
+    Sym 1: flags=0, pulses=[1710]
+  Pilot PRLE entries (3):
+    sym_idx=0, repeat=10, sym_pulses=[855], total_pulses=10
+    sym_idx=1, repeat=22, sym_pulses=[1710], total_pulses=22
+    sym_idx=0, repeat=10, sym_pulses=[855], total_pulses=10
+  Total pilot pulse count: 42
+  Data symbol definitions (2):
+    Sym 0: flags=0, pulses=[555, 555]
+    Sym 1: flags=0, pulses=[1110, 1110]
+  First 16 data bytes: 30 1B
+
+Block  11: ID=0x19 (Generalized Data Block)
+  Pause: 0 ms
+  TOTP (pilot entries): 3
+  NPP (max pilot pulses/sym): 1
+  ASP (pilot symbol count): 2
+  TOTD (data symbols total): 32
+  NPD (max data pulses/sym): 2
+  ASD (data symbol count): 2
+  Data byte count: 4
+  Bits per data symbol: 1
+  Pilot symbol definitions (2):
+    Sym 0: flags=0, pulses=[855]
+    Sym 1: flags=0, pulses=[1710]
+  Pilot PRLE entries (3):
+    sym_idx=0, repeat=10, sym_pulses=[855], total_pulses=10
+    sym_idx=1, repeat=22, sym_pulses=[1710], total_pulses=22
+    sym_idx=0, repeat=10, sym_pulses=[855], total_pulses=10
+  Total pilot pulse count: 42
+  Data symbol definitions (2):
+    Sym 0: flags=0, pulses=[555, 555]
+    Sym 1: flags=0, pulses=[1110, 1110]
+  First 16 data bytes: 65 4E F2 1D
+
+Block  12: ID=0x19 (Generalized Data Block)
+  Pause: 0 ms
+  TOTP (pilot entries): 3
+  NPP (max pilot pulses/sym): 1
+  ASP (pilot symbol count): 2
+  TOTD (data symbols total): 320
+  NPD (max data pulses/sym): 2
+  ASD (data symbol count): 2
+  Data byte count: 40
+  Bits per data symbol: 1
+  Pilot symbol definitions (2):
+    Sym 0: flags=0, pulses=[855]
+    Sym 1: flags=0, pulses=[1710]
+  Pilot PRLE entries (3):
+    sym_idx=0, repeat=10, sym_pulses=[855], total_pulses=10
+    sym_idx=1, repeat=22, sym_pulses=[1710], total_pulses=22
+    sym_idx=0, repeat=10, sym_pulses=[855], total_pulses=10
+  Total pilot pulse count: 42
+  Data symbol definitions (2):
+    Sym 0: flags=0, pulses=[555, 555]
+    Sym 1: flags=0, pulses=[1110, 1110]
+  First 16 data bytes: 27 A7 24 59 57 27 CA 24 BB 57 27 27 27 27 27 27
+
+Block  13: ID=0x19 (Generalized Data Block)
+  Pause: 0 ms
+  TOTP (pilot entries): 3
+  NPP (max pilot pulses/sym): 1
+  ASP (pilot symbol count): 2
+  TOTD (data symbols total): 106496
+  NPD (max data pulses/sym): 2
+  ASD (data symbol count): 2
+  Data byte count: 13312
+  Bits per data symbol: 1
+  Pilot symbol definitions (2):
+    Sym 0: flags=0, pulses=[855]
+    Sym 1: flags=0, pulses=[1710]
+  Pilot PRLE entries (3):
+    sym_idx=0, repeat=10, sym_pulses=[855], total_pulses=10
+    sym_idx=1, repeat=22, sym_pulses=[1710], total_pulses=22
+    sym_idx=0, repeat=10, sym_pulses=[855], total_pulses=10
+  Total pilot pulse count: 42
+  Data symbol definitions (2):
+    Sym 0: flags=0, pulses=[555, 555]
+    Sym 1: flags=0, pulses=[1110, 1110]
+  First 16 data bytes: F1 0A 0A 0A F1 82 82 82 F1 0A 0A 0A F1 02 02 02
+
+Block  14: ID=0x19 (Generalized Data Block)
+  Pause: 0 ms
+  TOTP (pilot entries): 3
+  NPP (max pilot pulses/sym): 1
+  ASP (pilot symbol count): 2
+  TOTD (data symbols total): 960
+  NPD (max data pulses/sym): 2
+  ASD (data symbol count): 2
+  Data byte count: 120
+  Bits per data symbol: 1
+  Pilot symbol definitions (2):
+    Sym 0: flags=0, pulses=[855]
+    Sym 1: flags=0, pulses=[1710]
+  Pilot PRLE entries (3):
+    sym_idx=0, repeat=10, sym_pulses=[855], total_pulses=10
+    sym_idx=1, repeat=22, sym_pulses=[1710], total_pulses=22
+    sym_idx=0, repeat=10, sym_pulses=[855], total_pulses=10
+  Total pilot pulse count: 42
+  Data symbol definitions (2):
+    Sym 0: flags=0, pulses=[555, 555]
+    Sym 1: flags=0, pulses=[1110, 1110]
+  First 16 data bytes: 46 27 86 26 8E CF A5 35 8A AC 78 50 AF F6 47 2D
+
+Block  15: ID=0x19 (Generalized Data Block)
+  Pause: 0 ms
+  TOTP (pilot entries): 3
+  NPP (max pilot pulses/sym): 1
+  ASP (pilot symbol count): 2
+  TOTD (data symbols total): 256
+  NPD (max data pulses/sym): 2
+  ASD (data symbol count): 2
+  Data byte count: 32
+  Bits per data symbol: 1
+  Pilot symbol definitions (2):
+    Sym 0: flags=0, pulses=[855]
+    Sym 1: flags=0, pulses=[1710]
+  Pilot PRLE entries (3):
+    sym_idx=0, repeat=10, sym_pulses=[855], total_pulses=10
+    sym_idx=1, repeat=22, sym_pulses=[1710], total_pulses=22
+    sym_idx=0, repeat=10, sym_pulses=[855], total_pulses=10
+  Total pilot pulse count: 42
+  Data symbol definitions (2):
+    Sym 0: flags=0, pulses=[555, 555]
+    Sym 1: flags=0, pulses=[1110, 1110]
+  First 16 data bytes: 61 3F 25 76 40 27 EC 1B 27 23 22 46 61 83 32 8D
+
+Block  16: ID=0x19 (Generalized Data Block)
+  Pause: 0 ms
+  TOTP (pilot entries): 3
+  NPP (max pilot pulses/sym): 1
+  ASP (pilot symbol count): 2
+  TOTD (data symbols total): 48
+  NPD (max data pulses/sym): 2
+  ASD (data symbol count): 2
+  Data byte count: 6
+  Bits per data symbol: 1
+  Pilot symbol definitions (2):
+    Sym 0: flags=0, pulses=[855]
+    Sym 1: flags=0, pulses=[1710]
+  Pilot PRLE entries (3):
+    sym_idx=0, repeat=10, sym_pulses=[855], total_pulses=10
+    sym_idx=1, repeat=22, sym_pulses=[1710], total_pulses=22
+    sym_idx=0, repeat=10, sym_pulses=[855], total_pulses=10
+  Total pilot pulse count: 42
+  Data symbol definitions (2):
+    Sym 0: flags=0, pulses=[555, 555]
+    Sym 1: flags=0, pulses=[1110, 1110]
+  First 16 data bytes: 26 01 7C 24 1C A7
+
+Block  17: ID=0x22 (Group End)
+  (no data)
+
+================================================================================
+PART 2: PZX STRUCTURE
+================================================================================
+Total blocks (after PZXT header): 36
+
+Block   0: PULS  size=8
+  Entries (3):
+    [ 0] repeat=8063, duration=2168 T
+    [ 1] repeat=1, duration=667 T
+    [ 2] repeat=1, duration=735 T
+  Total real pulses: 8065
+  Total T-states: 17481986
+  Zero-duration toggle count: 0
+
+Block   1: DATA  size=35
+  Bit count: 152
+  Byte count: 19
+  Tail length: 945 T
+  Initial level: 1
+  p0=2, p1=2
+  s0=[855, 855]
+  s1=[1710, 1710]
+  First 16 data bytes: 00 00 44 41 4E 20 44 41 52 45 20 32 C7 02 00 00
+
+Block   2: PAUS  size=4
+  Duration: 3419500 T-states (977.0 ms at 3.5MHz)
+  Initial level: 0
+
+Block   3: PULS  size=8
+  Entries (3):
+    [ 0] repeat=3223, duration=2168 T
+    [ 1] repeat=1, duration=667 T
+    [ 2] repeat=1, duration=735 T
+  Total real pulses: 3225
+  Total T-states: 6988866
+  Zero-duration toggle count: 0
+
+Block   4: DATA  size=729
+  Bit count: 5704
+  Byte count: 713
+  Tail length: 945 T
+  Initial level: 1
+  p0=2, p1=2
+  s0=[855, 855]
+  s1=[1710, 1710]
+  First 16 data bytes: FF 00 00 37 00 10 00 11 00 F9 C0 28 28 BE 32 33
+
+Block   5: PAUS  size=4
+  Duration: 14987000 T-states (4282.0 ms at 3.5MHz)
+  Initial level: 0
+
+Block   6: PULS  size=40
+  Entries (10):
+    [ 0] repeat=1599, duration=2168 T
+    [ 1] repeat=4, duration=693 T
+    [ 2] repeat=2, duration=1420 T
+    [ 3] repeat=2, duration=2100 T
+    [ 4] repeat=2, duration=1420 T
+    [ 5] repeat=2, duration=693 T
+    [ 6] repeat=6, duration=1110 T
+    [ 7] repeat=2, duration=555 T
+    [ 8] repeat=2, duration=1110 T
+    [ 9] repeat=2, duration=555 T
+  Total real pulses: 1623
+  Total T-states: 3491770
+  Zero-duration toggle count: 0
+
+Block   7: DATA  size=5552
+  Bit count: 44288
+  Byte count: 5536
+  Tail length: 3500 T
+  Initial level: 1
+  p0=2, p1=2
+  s0=[555, 555]
+  s1=[1110, 1110]
+  First 16 data bytes: 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72
+
+Block   8: PAUS  size=4
+  Duration: 7000 T-states (2.0 ms at 3.5MHz)
+  Initial level: 0
+
+Block   9: PULS  size=40
+  Entries (10):
+    [ 0] repeat=1599, duration=2168 T
+    [ 1] repeat=4, duration=693 T
+    [ 2] repeat=2, duration=1420 T
+    [ 3] repeat=2, duration=2100 T
+    [ 4] repeat=2, duration=1420 T
+    [ 5] repeat=2, duration=693 T
+    [ 6] repeat=6, duration=1110 T
+    [ 7] repeat=2, duration=555 T
+    [ 8] repeat=2, duration=1110 T
+    [ 9] repeat=2, duration=555 T
+  Total real pulses: 1623
+  Total T-states: 3491770
+  Zero-duration toggle count: 0
+
+Block  10: DATA  size=3817
+  Bit count: 30408
+  Byte count: 3801
+  Tail length: 3500 T
+  Initial level: 1
+  p0=2, p1=2
+  s0=[555, 555]
+  s1=[1110, 1110]
+  First 16 data bytes: 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72
+
+Block  11: PAUS  size=4
+  Duration: 24454500 T-states (6987.0 ms at 3.5MHz)
+  Initial level: 0
+
+Block  12: PULS  size=40
+  Entries (10):
+    [ 0] repeat=1599, duration=2168 T
+    [ 1] repeat=4, duration=693 T
+    [ 2] repeat=2, duration=1420 T
+    [ 3] repeat=6, duration=2100 T
+    [ 4] repeat=2, duration=1420 T
+    [ 5] repeat=2, duration=693 T
+    [ 6] repeat=6, duration=1110 T
+    [ 7] repeat=2, duration=555 T
+    [ 8] repeat=2, duration=1110 T
+    [ 9] repeat=2, duration=555 T
+  Total real pulses: 1627
+  Total T-states: 3500170
+  Zero-duration toggle count: 0
+
+Block  13: DATA  size=34
+  Bit count: 144
+  Byte count: 18
+  Tail length: 3500 T
+  Initial level: 1
+  p0=2, p1=2
+  s0=[555, 555]
+  s1=[1110, 1110]
+  First 16 data bytes: CF DC 33 DD 4F C1 C2 CF C0 12 AD CD C6 C1 DD CF
+
+Block  14: PAUS  size=4
+  Duration: 6216000 T-states (1776.0 ms at 3.5MHz)
+  Initial level: 0
+
+Block  15: BRWS  size=20
+  Text: "Speedlock Associates"
+
+Block  16: PULS  size=40
+  Entries (10):
+    [ 0] repeat=1599, duration=2168 T
+    [ 1] repeat=4, duration=693 T
+    [ 2] repeat=2, duration=1420 T
+    [ 3] repeat=6, duration=2100 T
+    [ 4] repeat=2, duration=1420 T
+    [ 5] repeat=2, duration=693 T
+    [ 6] repeat=6, duration=1110 T
+    [ 7] repeat=2, duration=555 T
+    [ 8] repeat=2, duration=1110 T
+    [ 9] repeat=2, duration=555 T
+  Total real pulses: 1627
+  Total T-states: 3500170
+  Zero-duration toggle count: 0
+
+Block  17: DATA  size=6160
+  Bit count: 49152
+  Byte count: 6144
+  Tail length: 0 T
+  Initial level: 1
+  p0=2, p1=2
+  s0=[555, 555]
+  s1=[1110, 1110]
+  First 16 data bytes: 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72
+
+Block  18: PULS  size=14
+  Entries (4):
+    [ 0] repeat=1, duration=0 T
+    [ 1] repeat=10, duration=855 T
+    [ 2] repeat=22, duration=1710 T
+    [ 3] repeat=10, duration=855 T
+  Total real pulses: 43
+  Total T-states: 54720
+  Zero-duration toggle count: 1
+
+Block  19: DATA  size=784
+  Bit count: 6144
+  Byte count: 768
+  Tail length: 0 T
+  Initial level: 1
+  p0=2, p1=2
+  s0=[555, 555]
+  s1=[1110, 1110]
+  First 16 data bytes: F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4
+
+Block  20: PULS  size=14
+  Entries (4):
+    [ 0] repeat=1, duration=0 T
+    [ 1] repeat=10, duration=855 T
+    [ 2] repeat=22, duration=1710 T
+    [ 3] repeat=10, duration=855 T
+  Total real pulses: 43
+  Total T-states: 54720
+  Zero-duration toggle count: 1
+
+Block  21: DATA  size=25872
+  Bit count: 206848
+  Byte count: 25856
+  Tail length: 0 T
+  Initial level: 1
+  p0=2, p1=2
+  s0=[555, 555]
+  s1=[1110, 1110]
+  First 16 data bytes: DF DF DF DF DF DF DF DF DF DF DF DF DF DF DF DF
+
+Block  22: PULS  size=14
+  Entries (4):
+    [ 0] repeat=1, duration=0 T
+    [ 1] repeat=10, duration=855 T
+    [ 2] repeat=22, duration=1710 T
+    [ 3] repeat=10, duration=855 T
+  Total real pulses: 43
+  Total T-states: 54720
+  Zero-duration toggle count: 1
+
+Block  23: DATA  size=18
+  Bit count: 16
+  Byte count: 2
+  Tail length: 0 T
+  Initial level: 1
+  p0=2, p1=2
+  s0=[555, 555]
+  s1=[1110, 1110]
+  First 16 data bytes: 30 1B
+
+Block  24: PULS  size=14
+  Entries (4):
+    [ 0] repeat=1, duration=0 T
+    [ 1] repeat=10, duration=855 T
+    [ 2] repeat=22, duration=1710 T
+    [ 3] repeat=10, duration=855 T
+  Total real pulses: 43
+  Total T-states: 54720
+  Zero-duration toggle count: 1
+
+Block  25: DATA  size=20
+  Bit count: 32
+  Byte count: 4
+  Tail length: 0 T
+  Initial level: 1
+  p0=2, p1=2
+  s0=[555, 555]
+  s1=[1110, 1110]
+  First 16 data bytes: 65 4E F2 1D
+
+Block  26: PULS  size=14
+  Entries (4):
+    [ 0] repeat=1, duration=0 T
+    [ 1] repeat=10, duration=855 T
+    [ 2] repeat=22, duration=1710 T
+    [ 3] repeat=10, duration=855 T
+  Total real pulses: 43
+  Total T-states: 54720
+  Zero-duration toggle count: 1
+
+Block  27: DATA  size=56
+  Bit count: 320
+  Byte count: 40
+  Tail length: 0 T
+  Initial level: 1
+  p0=2, p1=2
+  s0=[555, 555]
+  s1=[1110, 1110]
+  First 16 data bytes: 27 A7 24 59 57 27 CA 24 BB 57 27 27 27 27 27 27
+
+Block  28: PULS  size=14
+  Entries (4):
+    [ 0] repeat=1, duration=0 T
+    [ 1] repeat=10, duration=855 T
+    [ 2] repeat=22, duration=1710 T
+    [ 3] repeat=10, duration=855 T
+  Total real pulses: 43
+  Total T-states: 54720
+  Zero-duration toggle count: 1
+
+Block  29: DATA  size=13328
+  Bit count: 106496
+  Byte count: 13312
+  Tail length: 0 T
+  Initial level: 1
+  p0=2, p1=2
+  s0=[555, 555]
+  s1=[1110, 1110]
+  First 16 data bytes: F1 0A 0A 0A F1 82 82 82 F1 0A 0A 0A F1 02 02 02
+
+Block  30: PULS  size=14
+  Entries (4):
+    [ 0] repeat=1, duration=0 T
+    [ 1] repeat=10, duration=855 T
+    [ 2] repeat=22, duration=1710 T
+    [ 3] repeat=10, duration=855 T
+  Total real pulses: 43
+  Total T-states: 54720
+  Zero-duration toggle count: 1
+
+Block  31: DATA  size=136
+  Bit count: 960
+  Byte count: 120
+  Tail length: 0 T
+  Initial level: 1
+  p0=2, p1=2
+  s0=[555, 555]
+  s1=[1110, 1110]
+  First 16 data bytes: 46 27 86 26 8E CF A5 35 8A AC 78 50 AF F6 47 2D
+
+Block  32: PULS  size=14
+  Entries (4):
+    [ 0] repeat=1, duration=0 T
+    [ 1] repeat=10, duration=855 T
+    [ 2] repeat=22, duration=1710 T
+    [ 3] repeat=10, duration=855 T
+  Total real pulses: 43
+  Total T-states: 54720
+  Zero-duration toggle count: 1
+
+Block  33: DATA  size=48
+  Bit count: 256
+  Byte count: 32
+  Tail length: 0 T
+  Initial level: 1
+  p0=2, p1=2
+  s0=[555, 555]
+  s1=[1110, 1110]
+  First 16 data bytes: 61 3F 25 76 40 27 EC 1B 27 23 22 46 61 83 32 8D
+
+Block  34: PULS  size=14
+  Entries (4):
+    [ 0] repeat=1, duration=0 T
+    [ 1] repeat=10, duration=855 T
+    [ 2] repeat=22, duration=1710 T
+    [ 3] repeat=10, duration=855 T
+  Total real pulses: 43
+  Total T-states: 54720
+  Zero-duration toggle count: 1
+
+Block  35: DATA  size=22
+  Bit count: 48
+  Byte count: 6
+  Tail length: 0 T
+  Initial level: 1
+  p0=2, p1=2
+  s0=[555, 555]
+  s1=[1110, 1110]
+  First 16 data bytes: 26 01 7C 24 1C A7
+
+================================================================================
+PART 3: BLOCK MAPPING (TZX -> PZX)
+================================================================================
+
+Data-carrying blocks: TZX=15, PZX=15
+
+--- Data Block Pair 0 ---
+TZX Block 1: ID=0x10 (Standard Speed Data)
+  Data: 19 bytes, first 16: 00 00 44 41 4E 20 44 41 52 45 20 32 C7 02 00 00
+  Standard block pilot: 8063 pulses (2168 T each)
+  Pause: 977 ms
+PZX Block 1: DATA
+  Data: 19 bytes, first 16: 00 00 44 41 4E 20 44 41 52 45 20 32 C7 02 00 00
+  Preceding PULS blocks: [0], total pulses: 8065
+  Following PAUS block 2: 977.0 ms
+  DATA MATCH (first 16): YES
+  DATA MATCH (full): YES
+  PAUSE: TZX=977 ms, PZX=977.0 ms
+
+--- Data Block Pair 1 ---
+TZX Block 2: ID=0x10 (Standard Speed Data)
+  Data: 713 bytes, first 16: FF 00 00 37 00 10 00 11 00 F9 C0 28 28 BE 32 33
+  Standard block pilot: 3223 pulses (2168 T each)
+  Pause: 4282 ms
+PZX Block 4: DATA
+  Data: 713 bytes, first 16: FF 00 00 37 00 10 00 11 00 F9 C0 28 28 BE 32 33
+  Preceding PULS blocks: [3], total pulses: 3225
+  Following PAUS block 5: 4282.0 ms
+  DATA MATCH (first 16): YES
+  DATA MATCH (full): YES
+  PAUSE: TZX=4282 ms, PZX=4282.0 ms
+
+--- Data Block Pair 2 ---
+TZX Block 3: ID=0x19 (Generalized Data Block)
+  Data: 5536 bytes, first 16: 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72
+  GDB pilot: 3222 total pulses
+  Pause: 2 ms
+PZX Block 7: DATA
+  Data: 5536 bytes, first 16: 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72
+  Preceding PULS blocks: [6], total pulses: 1623
+  Following PAUS block 8: 2.0 ms
+  DATA MATCH (first 16): YES
+  DATA MATCH (full): YES
+  PAUSE: TZX=2 ms, PZX=2.0 ms
+
+--- Data Block Pair 3 ---
+TZX Block 4: ID=0x19 (Generalized Data Block)
+  Data: 3801 bytes, first 16: 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72
+  GDB pilot: 3222 total pulses
+  Pause: 6987 ms
+PZX Block 10: DATA
+  Data: 3801 bytes, first 16: 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72
+  Preceding PULS blocks: [9], total pulses: 1623
+  Following PAUS block 11: 6987.0 ms
+  DATA MATCH (first 16): YES
+  DATA MATCH (full): YES
+  PAUSE: TZX=6987 ms, PZX=6987.0 ms
+
+--- Data Block Pair 4 ---
+TZX Block 5: ID=0x19 (Generalized Data Block)
+  Data: 18 bytes, first 16: CF DC 33 DD 4F C1 C2 CF C0 12 AD CD C6 C1 DD CF
+  GDB pilot: 3226 total pulses
+  Pause: 1776 ms
+PZX Block 13: DATA
+  Data: 18 bytes, first 16: CF DC 33 DD 4F C1 C2 CF C0 12 AD CD C6 C1 DD CF
+  Preceding PULS blocks: [12], total pulses: 1627
+  Following PAUS block 14: 1776.0 ms
+  DATA MATCH (first 16): YES
+  DATA MATCH (full): YES
+  PAUSE: TZX=1776 ms, PZX=1776.0 ms
+
+--- Data Block Pair 5 ---
+TZX Block 7: ID=0x19 (Generalized Data Block)
+  Data: 6144 bytes, first 16: 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72
+  GDB pilot: 3226 total pulses
+  Pause: 0 ms
+PZX Block 17: DATA
+  Data: 6144 bytes, first 16: 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72 72
+  Preceding PULS blocks: [16], total pulses: 1627
+  DATA MATCH (first 16): YES
+  DATA MATCH (full): YES
+  PAUSE: TZX=0 ms, PZX=0.0 ms
+
+--- Data Block Pair 6 ---
+TZX Block 8: ID=0x19 (Generalized Data Block)
+  Data: 768 bytes, first 16: F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4
+  GDB pilot: 42 total pulses
+  Pause: 0 ms
+PZX Block 19: DATA
+  Data: 768 bytes, first 16: F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4 F4
+  Preceding PULS blocks: [18], total pulses: 43
+  DATA MATCH (first 16): YES
+  DATA MATCH (full): YES
+  PAUSE: TZX=0 ms, PZX=0.0 ms
+
+--- Data Block Pair 7 ---
+TZX Block 9: ID=0x19 (Generalized Data Block)
+  Data: 25856 bytes, first 16: DF DF DF DF DF DF DF DF DF DF DF DF DF DF DF DF
+  GDB pilot: 42 total pulses
+  Pause: 0 ms
+PZX Block 21: DATA
+  Data: 25856 bytes, first 16: DF DF DF DF DF DF DF DF DF DF DF DF DF DF DF DF
+  Preceding PULS blocks: [20], total pulses: 43
+  DATA MATCH (first 16): YES
+  DATA MATCH (full): YES
+  PAUSE: TZX=0 ms, PZX=0.0 ms
+
+--- Data Block Pair 8 ---
+TZX Block 10: ID=0x19 (Generalized Data Block)
+  Data: 2 bytes, first 16: 30 1B
+  GDB pilot: 42 total pulses
+  Pause: 0 ms
+PZX Block 23: DATA
+  Data: 2 bytes, first 16: 30 1B
+  Preceding PULS blocks: [22], total pulses: 43
+  DATA MATCH (first 16): YES
+  DATA MATCH (full): YES
+  PAUSE: TZX=0 ms, PZX=0.0 ms
+
+--- Data Block Pair 9 ---
+TZX Block 11: ID=0x19 (Generalized Data Block)
+  Data: 4 bytes, first 16: 65 4E F2 1D
+  GDB pilot: 42 total pulses
+  Pause: 0 ms
+PZX Block 25: DATA
+  Data: 4 bytes, first 16: 65 4E F2 1D
+  Preceding PULS blocks: [24], total pulses: 43
+  DATA MATCH (first 16): YES
+  DATA MATCH (full): YES
+  PAUSE: TZX=0 ms, PZX=0.0 ms
+
+--- Data Block Pair 10 ---
+TZX Block 12: ID=0x19 (Generalized Data Block)
+  Data: 40 bytes, first 16: 27 A7 24 59 57 27 CA 24 BB 57 27 27 27 27 27 27
+  GDB pilot: 42 total pulses
+  Pause: 0 ms
+PZX Block 27: DATA
+  Data: 40 bytes, first 16: 27 A7 24 59 57 27 CA 24 BB 57 27 27 27 27 27 27
+  Preceding PULS blocks: [26], total pulses: 43
+  DATA MATCH (first 16): YES
+  DATA MATCH (full): YES
+  PAUSE: TZX=0 ms, PZX=0.0 ms
+
+--- Data Block Pair 11 ---
+TZX Block 13: ID=0x19 (Generalized Data Block)
+  Data: 13312 bytes, first 16: F1 0A 0A 0A F1 82 82 82 F1 0A 0A 0A F1 02 02 02
+  GDB pilot: 42 total pulses
+  Pause: 0 ms
+PZX Block 29: DATA
+  Data: 13312 bytes, first 16: F1 0A 0A 0A F1 82 82 82 F1 0A 0A 0A F1 02 02 02
+  Preceding PULS blocks: [28], total pulses: 43
+  DATA MATCH (first 16): YES
+  DATA MATCH (full): YES
+  PAUSE: TZX=0 ms, PZX=0.0 ms
+
+--- Data Block Pair 12 ---
+TZX Block 14: ID=0x19 (Generalized Data Block)
+  Data: 120 bytes, first 16: 46 27 86 26 8E CF A5 35 8A AC 78 50 AF F6 47 2D
+  GDB pilot: 42 total pulses
+  Pause: 0 ms
+PZX Block 31: DATA
+  Data: 120 bytes, first 16: 46 27 86 26 8E CF A5 35 8A AC 78 50 AF F6 47 2D
+  Preceding PULS blocks: [30], total pulses: 43
+  DATA MATCH (first 16): YES
+  DATA MATCH (full): YES
+  PAUSE: TZX=0 ms, PZX=0.0 ms
+
+--- Data Block Pair 13 ---
+TZX Block 15: ID=0x19 (Generalized Data Block)
+  Data: 32 bytes, first 16: 61 3F 25 76 40 27 EC 1B 27 23 22 46 61 83 32 8D
+  GDB pilot: 42 total pulses
+  Pause: 0 ms
+PZX Block 33: DATA
+  Data: 32 bytes, first 16: 61 3F 25 76 40 27 EC 1B 27 23 22 46 61 83 32 8D
+  Preceding PULS blocks: [32], total pulses: 43
+  DATA MATCH (first 16): YES
+  DATA MATCH (full): YES
+  PAUSE: TZX=0 ms, PZX=0.0 ms
+
+--- Data Block Pair 14 ---
+TZX Block 16: ID=0x19 (Generalized Data Block)
+  Data: 6 bytes, first 16: 26 01 7C 24 1C A7
+  GDB pilot: 42 total pulses
+  Pause: 0 ms
+PZX Block 35: DATA
+  Data: 6 bytes, first 16: 26 01 7C 24 1C A7
+  Preceding PULS blocks: [34], total pulses: 43
+  DATA MATCH (first 16): YES
+  DATA MATCH (full): YES
+  PAUSE: TZX=0 ms, PZX=0.0 ms
+
+================================================================================
+PART 4: KEY DIFFERENCES
+================================================================================
+
+TZX block type counts: {'0x32': 1, '0x10': 2, '0x19': 13, '0x21': 1, '0x22': 1}
+PZX block type counts: {'PULS': 15, 'DATA': 15, 'PAUS': 5, 'BRWS': 1}
+
+
+GDB blocks found: 13 (complex encoding, may differ in pilot representation)
+  TZX Block 3: 44288 data symbols, 3222 pilot pulses
+  TZX Block 4: 30408 data symbols, 3222 pilot pulses
+  TZX Block 5: 144 data symbols, 3226 pilot pulses
+  TZX Block 7: 49152 data symbols, 3226 pilot pulses
+  TZX Block 8: 6144 data symbols, 42 pilot pulses
+  TZX Block 9: 206848 data symbols, 42 pilot pulses
+  TZX Block 10: 16 data symbols, 42 pilot pulses
+  TZX Block 11: 32 data symbols, 42 pilot pulses
+  TZX Block 12: 320 data symbols, 42 pilot pulses
+  TZX Block 13: 106496 data symbols, 42 pilot pulses
+  TZX Block 14: 960 data symbols, 42 pilot pulses
+  TZX Block 15: 256 data symbols, 42 pilot pulses
+  TZX Block 16: 48 data symbols, 42 pilot pulses
+
+Pilot pulse count analysis:
+TZX GDB counts pilot pulses as TOTP * pulses_per_symbol (including zero-duration half-pulses).
+PZX PULS counts actual pulse entries (excluding zero-duration toggles from real pulse count).
+
+  Pair  0: TZX pilot=8063 (standard 0x10, flag=0x00), PZX PULS=8065 (zero-toggles=0) << DIFFERENCE (delta=-2)
+  Pair  1: TZX pilot=3223 (standard 0x10, flag=0xFF), PZX PULS=3225 (zero-toggles=0) << DIFFERENCE (delta=-2)
+  Pair  2: TZX pilot=3222 (GDB 0x19, TOTP=10), PZX PULS=1623 (zero-toggles=0) << DIFFERENCE (delta=1599)
+    GDB sym0 has zero-dur pulse: [2168, 0], repeat=1599
+    TZX counts 1599*2=3198 pulses; PZX counts 1599 real + 1 zero-dur toggle
+  Pair  3: TZX pilot=3222 (GDB 0x19, TOTP=10), PZX PULS=1623 (zero-toggles=0) << DIFFERENCE (delta=1599)
+    GDB sym0 has zero-dur pulse: [2168, 0], repeat=1599
+    TZX counts 1599*2=3198 pulses; PZX counts 1599 real + 1 zero-dur toggle
+  Pair  4: TZX pilot=3226 (GDB 0x19, TOTP=10), PZX PULS=1627 (zero-toggles=0) << DIFFERENCE (delta=1599)
+    GDB sym0 has zero-dur pulse: [2168, 0], repeat=1599
+    TZX counts 1599*2=3198 pulses; PZX counts 1599 real + 1 zero-dur toggle
+  Pair  5: TZX pilot=3226 (GDB 0x19, TOTP=10), PZX PULS=1627 (zero-toggles=0) << DIFFERENCE (delta=1599)
+    GDB sym0 has zero-dur pulse: [2168, 0], repeat=1599
+    TZX counts 1599*2=3198 pulses; PZX counts 1599 real + 1 zero-dur toggle
+  Pair  6: TZX pilot=42 (GDB 0x19, TOTP=3), PZX PULS=43 (zero-toggles=1) << DIFFERENCE (delta=-1)
+  Pair  7: TZX pilot=42 (GDB 0x19, TOTP=3), PZX PULS=43 (zero-toggles=1) << DIFFERENCE (delta=-1)
+  Pair  8: TZX pilot=42 (GDB 0x19, TOTP=3), PZX PULS=43 (zero-toggles=1) << DIFFERENCE (delta=-1)
+  Pair  9: TZX pilot=42 (GDB 0x19, TOTP=3), PZX PULS=43 (zero-toggles=1) << DIFFERENCE (delta=-1)
+  Pair 10: TZX pilot=42 (GDB 0x19, TOTP=3), PZX PULS=43 (zero-toggles=1) << DIFFERENCE (delta=-1)
+  Pair 11: TZX pilot=42 (GDB 0x19, TOTP=3), PZX PULS=43 (zero-toggles=1) << DIFFERENCE (delta=-1)
+  Pair 12: TZX pilot=42 (GDB 0x19, TOTP=3), PZX PULS=43 (zero-toggles=1) << DIFFERENCE (delta=-1)
+  Pair 13: TZX pilot=42 (GDB 0x19, TOTP=3), PZX PULS=43 (zero-toggles=1) << DIFFERENCE (delta=-1)
+  Pair 14: TZX pilot=42 (GDB 0x19, TOTP=3), PZX PULS=43 (zero-toggles=1) << DIFFERENCE (delta=-1)
+
+Standard block (0x10) note: PZX PULS includes 2 sync pulses (667T + 735T) that TZX
+encodes implicitly in the 0x10 block format. So PZX pilot count = TZX pilot + 2 sync.
+
+GDB block (0x19) note: TZX pilot symbol 0 typically has [2168, 0] (2 pulses per symbol),
+so TOTP * 2 includes zero-duration half-pulses. PZX PULS encodes the 1599 real 2168T pulses
+separately from the remaining pilot sequence entries, without zero-duration inflation.
+The actual waveform is equivalent -- just counted differently.
+
+Tail pulse note: PZX DATA blocks in the Speedlock section (blocks 17-35) have tail=0,
+while TZX GDB blocks 8-16 also have pause=0. The first GDB blocks (3-5) have non-zero
+pause which maps to PZX PAUS blocks with matching duration.

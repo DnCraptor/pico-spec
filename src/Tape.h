@@ -49,6 +49,7 @@ using namespace std;
 #define TAPE_FTYPE_TZX 2
 #define TAPE_FTYPE_WAV 3
 #define TAPE_FTYPE_MP3 4
+#define TAPE_FTYPE_PZX 5
 
 // Tape status definitions
 #define TAPE_STOPPED 0
@@ -79,6 +80,8 @@ using namespace std;
 #define TAPE_PHASE_TAIL_LEN_GDB 945
 
 #define TAPE_PHASE_END 16
+#define TAPE_PHASE_PZX_PULS 17
+#define TAPE_PHASE_PZX_DATA 18
 
 // Tape sync phases lenght in microseconds
 #define TAPE_SYNC_LEN 2168 // 620 microseconds for 2168 tStates (48K)
@@ -215,9 +218,12 @@ public:
     static void Save();
 
     static uint32_t CalcTapBlockPos(int block);
-    static uint32_t CalcTZXBlockPos(int block);    
+    static uint32_t CalcTZXBlockPos(int block);
+    static uint32_t CalcPZXBlockPos(int block);
     static string tapeBlockReadData(int Blocknum);
-    static string tzxBlockReadData(int Blocknum);    
+    static string tzxBlockReadData(int Blocknum);
+    static string pzxBlockReadData(int Blocknum);
+    static bool pzxFlashCont;         // FlashLoad partial -> real-mode continuation pending
 
 private:
 
@@ -233,6 +239,10 @@ private:
     static void TZX_GetBlock();
     static void TZX_BlockLen(TZXBlock &blockdata);
 
+    static void PZX_Open(string name);
+    static void PZX_GetBlock();
+    static void PZX_BlockLen(uint32_t &tag, uint32_t &size);
+
     static int inflateCSW(int blocknumber, long startPos, long data_length);
 
     // Tape timing values
@@ -241,6 +251,8 @@ private:
     static uint16_t tapeSync2Len;
     static uint16_t tapeBit0PulseLen; // lenght of pulse for bit 0
     static uint16_t tapeBit1PulseLen; // lenght of pulse for bit 1
+    static uint16_t tapeBit0PulseLen2; // 2nd pulse for bit 0 (PZX asymmetric)
+    static uint16_t tapeBit1PulseLen2; // 2nd pulse for bit 1 (PZX asymmetric)
     static uint16_t tapeHdrLong;  // Header sync lenght in pulses
     static uint16_t tapeHdrShort; // Data sync lenght in pulses
     static uint32_t tapeBlkPauseLen; 
@@ -280,8 +292,21 @@ private:
     static uint8_t GDBsymbol;    
     static uint8_t nb; 
     static uint8_t curBit;       
-    static bool GDBEnd;     
+    static bool GDBEnd;
     static Symdef* SymDefTable;
+
+    // PZX vars
+    static uint16_t pzxPulseRep;      // remaining repeat count for current PULS entry
+    static uint32_t pzxPulseDur;      // current pulse duration
+    static uint32_t pzxPulseBlockEnd; // file offset of end of current PULS block
+    static uint16_t pzxS0[256];       // pulse sequence for bit 0
+    static uint16_t pzxS1[256];       // pulse sequence for bit 1
+    static uint8_t pzxP0;             // number of pulses for bit 0
+    static uint8_t pzxP1;             // number of pulses for bit 1
+    static uint8_t pzxCurSymPulse;    // current pulse index within symbol
+    static uint32_t pzxBitCount;      // remaining bits in DATA block
+    static uint16_t pzxTailLen;       // tail pulse duration
+    static uint32_t pzxDataBlockEnd;  // file offset of end of DATA block data
 
 };
 

@@ -314,7 +314,7 @@ typedef struct
 
     // FDI find_marker support (ZXMAK2-style)
     uint32_t fdiSectorIdPos[32];   // byte position of 0xFE in diskTrackBuf per sector
-    uint8_t  fdiSectorCrcErr[32];  // 1 = data CRC error for this sector
+    uint8_t  fdiSectorFlags[32];   // bit0 = data CRC error, bit1 = no data area (flags & 0x40)
     int      fdiSectorCount;       // sector count on current track
     uint32_t fdiTstates;           // intra-command byte offset (for find_marker progression)
     bool     fdiDataCrcError;      // matched sector has CRC error

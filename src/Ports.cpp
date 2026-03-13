@@ -47,6 +47,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "pwm_audio.h"
 #include "roms.h"
 #include "wd1793.h"
+#include "Debug.h"
 
 #include "OSDMain.h"
 

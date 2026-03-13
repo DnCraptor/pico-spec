@@ -32,6 +32,8 @@
 #include "OSDMain.h"
 #include "messages.h"
 #include "Debug.h"
+#include "ESPectrum.h"
+#include "wd1793.h"
 #if !PICO_RP2040
 #include "DivMMC.h"
 #endif
@@ -2446,7 +2448,7 @@ void Z80::decodeOpcodebe()
     //   0x057D = Sinclair 48K ROM(CP A at 0x057C) -> RET at 0x0606
     if (REG_PC == 0x56b || REG_PC == 0x56d || REG_PC == 0x57d) {
 
-        if ((Tape::tapeFileType == TAPE_FTYPE_TAP || Tape::tapeFileType == TAPE_FTYPE_TZX) && (Tape::tapeFileName != "none")) {
+        if ((Tape::tapeFileType == TAPE_FTYPE_TAP || Tape::tapeFileType == TAPE_FTYPE_TZX || Tape::tapeFileType == TAPE_FTYPE_PZX) && (Tape::tapeFileName != "none")) {
               // Skip ROM FlashLoad while JJ screen animation is in progress —
               // the loader's edge detection timeout can briefly return to ROM,
               // and we must not let ROM FlashLoad consume tape blocks.
@@ -2457,10 +2459,13 @@ void Z80::decodeOpcodebe()
                        trapPC, Tape::tapeCurBlock, Tape::tapeNumBlocks,
                        getRegIX(), getRegDE(), regA);
                 if (Tape::FlashLoad()) {
-                    // Stop tape if it was auto-started
+                    // Stop tape if it was auto-started.
+                    // Preserve tapePhase if pzxFlashCont is set (partial PZX load
+                    // set up DATA1 phase for real-mode continuation by auto-start).
                     if (Tape::tapeStatus == TAPE_LOADING) {
                         Tape::tapeStatus = TAPE_STOPPED;
-                        Tape::tapePhase = TAPE_PHASE_STOPPED;
+                        if (!Tape::pzxFlashCont)
+                            Tape::tapePhase = TAPE_PHASE_STOPPED;
                     }
                     // Jump to RET after CP 0x01 in the active ROM's LD-BYTES
                     if (trapPC == 0x56d)      REG_PC = 0x5e4; // Byte ROM
@@ -3042,7 +3047,7 @@ void Z80::decodeOpcodef1() /* POP AF */
     //   JP case: pops game entry addr → starts game
     if (REG_PC == 0x557 && Z80Ops::isByte && Config::flashload &&
         !Tape::jjScreenAnimating &&
-        (Tape::tapeFileType == TAPE_FTYPE_TAP || Tape::tapeFileType == TAPE_FTYPE_TZX) &&
+        (Tape::tapeFileType == TAPE_FTYPE_TAP || Tape::tapeFileType == TAPE_FTYPE_TZX || Tape::tapeFileType == TAPE_FTYPE_PZX) &&
         Tape::tapeFileName != "none") {
         // Simulate EX AF,AF': swap A/F with A'/F' so FlashLoad sees flag in A'
         uint8_t tmpA = regA;       uint8_t tmpAx = REG_Ax;
@@ -3065,7 +3070,8 @@ void Z80::decodeOpcodef1() /* POP AF */
         if (Tape::FlashLoad()) {
             if (Tape::tapeStatus == TAPE_LOADING) {
                 Tape::tapeStatus = TAPE_STOPPED;
-                Tape::tapePhase = TAPE_PHASE_STOPPED;
+                if (!Tape::pzxFlashCont)
+                    Tape::tapePhase = TAPE_PHASE_STOPPED;
             }
             // Skip POP AF;RET — pop return address from stack.
             // CALL 0x0556: pops CALL return addr → back to caller
@@ -5980,6 +5986,7 @@ void Z80::decodeED(void) {
         { /* RETI */
             ffIFF1 = ffIFF2;
             REG_PC = REG_WZ = pop();
+            check_trdos();
             break;
         }
         case 0x45:

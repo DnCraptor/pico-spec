@@ -1,0 +1,89 @@
+ZXF1_O.FDI Structure
+====================
+
+FDI Header:
+  Cylinders: 83, Sides: 2, DataOffset: 0x3EFA
+
+=== Cyl 0 Side 0: trkDataOff=0x0000, numSectors=16 ===
+  [ 0] C=0 H=0 R= 1 N=1 flags=0x02 secDataOff=0x0000 size=256
+  [ 1] C=0 H=0 R= 2 N=1 flags=0x02 secDataOff=0x0100 size=256
+  [ 2] C=0 H=0 R= 3 N=1 flags=0x02 secDataOff=0x0200 size=256
+  [ 3] C=0 H=0 R= 4 N=1 flags=0x02 secDataOff=0x0300 size=256
+  [ 4] C=0 H=0 R= 5 N=1 flags=0x02 secDataOff=0x0400 size=256
+  [ 5] C=0 H=0 R= 6 N=1 flags=0x02 secDataOff=0x0500 size=256
+  [ 6] C=0 H=0 R= 7 N=1 flags=0x02 secDataOff=0x0600 size=256
+  [ 7] C=0 H=0 R= 8 N=1 flags=0x02 secDataOff=0x0700 size=256
+  [ 8] C=0 H=0 R= 9 N=1 flags=0x02 secDataOff=0x0800 size=256
+  [ 9] C=0 H=0 R=10 N=1 flags=0x02 secDataOff=0x0900 size=256
+  [10] C=0 H=0 R=11 N=1 flags=0x02 secDataOff=0x0A00 size=256
+  [11] C=0 H=0 R=12 N=1 flags=0x02 secDataOff=0x0B00 size=256
+  [12] C=0 H=0 R=13 N=1 flags=0x02 secDataOff=0x0C00 size=256
+  [13] C=0 H=0 R=14 N=1 flags=0x02 secDataOff=0x0D00 size=256
+  [14] C=0 H=0 R=15 N=1 flags=0x02 secDataOff=0x0E00 size=256
+  [15] C=0 H=0 R=16 N=1 flags=0x02 secDataOff=0x0F00 size=256
+
+=== Cyl 0 Side 1: trkDataOff=0x1000, numSectors=16 ===
+  [ 0] C=0 H=1 R=16 N=1 flags=0x02 secDataOff=0x0000 size=256
+  [ 1] C=0 H=1 R= 1 N=1 flags=0x02 secDataOff=0x0100 size=256
+  [ 2] C=0 H=1 R= 2 N=1 flags=0x02 secDataOff=0x0200 size=256
+  [ 3] C=0 H=1 R= 3 N=1 flags=0x02 secDataOff=0x0300 size=256
+  [ 4] C=0 H=1 R= 4 N=1 flags=0x02 secDataOff=0x0400 size=256
+  [ 5] C=0 H=1 R= 5 N=1 flags=0x02 secDataOff=0x0500 size=256
+  [ 6] C=0 H=1 R= 6 N=1 flags=0x02 secDataOff=0x0600 size=256
+  [ 7] C=0 H=1 R= 7 N=1 flags=0x02 secDataOff=0x0700 size=256
+  [ 8] C=0 H=1 R= 8 N=1 flags=0x02 secDataOff=0x0800 size=256
+  [ 9] C=0 H=1 R= 9 N=1 flags=0x02 secDataOff=0x0900 size=256
+  [10] C=0 H=1 R=10 N=1 flags=0x02 secDataOff=0x0A00 size=256
+  [11] C=0 H=1 R=11 N=1 flags=0x02 secDataOff=0x0B00 size=256
+  [12] C=0 H=1 R=12 N=1 flags=0x02 secDataOff=0x0C00 size=256
+  [13] C=0 H=1 R=13 N=1 flags=0x02 secDataOff=0x0D00 size=256
+  [14] C=0 H=1 R=14 N=1 flags=0x02 secDataOff=0x0E00 size=256
+  [15] C=0 H=1 R=15 N=1 flags=0x02 secDataOff=0x0F00 size=256
+
+=== Cyl 1 Side 0: trkDataOff=0x2000, numSectors=11 ===
+  [ 0] C=1 H=1 R= 1 N=2 flags=0x04 secDataOff=0x0000 size=512
+  [ 1] C=1 H=1 R= 2 N=2 flags=0x04 secDataOff=0x0200 size=512
+  [ 2] C=1 H=1 R= 3 N=2 flags=0x04 secDataOff=0x0400 size=512
+  [ 3] C=1 H=1 R= 4 N=2 flags=0x04 secDataOff=0x0600 size=512
+  [ 4] C=1 H=1 R= 5 N=2 flags=0x04 secDataOff=0x0800 size=512
+  [ 5] C=1 H=1 R=11 N=3 flags=0x48 secDataOff=0x0A00 size=1024
+  [ 6] C=1 H=1 R= 6 N=2 flags=0x04 secDataOff=0x0A00 size=512
+  [ 7] C=1 H=1 R= 7 N=2 flags=0x04 secDataOff=0x0C00 size=512
+  [ 8] C=1 H=1 R= 8 N=2 flags=0x04 secDataOff=0x0E00 size=512
+  [ 9] C=1 H=1 R= 9 N=2 flags=0x04 secDataOff=0x1000 size=512
+  [10] C=1 H=1 R=10 N=3 flags=0x48 secDataOff=0x1200 size=1024
+
+=== Cyl 1 Side 1: trkDataOff=0x3200, numSectors=11 ===
+  [ 0] C=1 H=0 R= 1 N=2 flags=0x04 secDataOff=0x0000 size=512
+  [ 1] C=1 H=0 R= 2 N=2 flags=0x04 secDataOff=0x0200 size=512
+  [ 2] C=1 H=0 R= 3 N=2 flags=0x04 secDataOff=0x0400 size=512
+  [ 3] C=1 H=0 R= 4 N=2 flags=0x04 secDataOff=0x0600 size=512
+  [ 4] C=1 H=0 R= 5 N=2 flags=0x04 secDataOff=0x0800 size=512
+  [ 5] C=1 H=0 R=11 N=3 flags=0x48 secDataOff=0x0A00 size=1024
+  [ 6] C=1 H=0 R= 6 N=2 flags=0x04 secDataOff=0x0A00 size=512
+  [ 7] C=1 H=0 R= 7 N=2 flags=0x04 secDataOff=0x0C00 size=512
+  [ 8] C=1 H=0 R= 8 N=2 flags=0x04 secDataOff=0x0E00 size=512
+  [ 9] C=1 H=0 R= 9 N=2 flags=0x04 secDataOff=0x1000 size=512
+  [10] C=1 H=0 R=10 N=3 flags=0x48 secDataOff=0x1200 size=1024
+
+TR-DOS Catalog (R=1):
+  [ 0] "boot    " B param=036A len=  874 sects=  4 sec= 0 trk=  1
+  [ 1] "NLO-2   " B param=0212 len=  530 sects=149 sec= 0 trk= 87
+  [ 2] "nlo_2   " C param=0000 len=    0 sects=121 sec= 5 trk= 96
+  [ 3] "ZX-STAGd" B param=0042 len=   60 sects=155 sec=14 trk=103
+  [ 4] "OI! DEMO" B param=0029 len=   41 sects=  1 sec= 9 trk=113
+  [ 5] "oi! demo" C param=6978 len= 9565 sects= 38 sec=10 trk=113
+  [ 6] "KOL.DEMO" B param=0080 len=  128 sects=105 sec= 0 trk=116
+  [ 7] "DIZZY7  " B param=00A7 len=  167 sects=159 sec= 9 trk=122
+  [ 8] "LSEDITOR" B param=3B09 len=14961 sects= 60 sec= 8 trk=132
+  [ 9] "windows " C param=EE48 len=  199 sects=  1 sec= 4 trk=136
+  [10] "rus.fnt " C param=2020 len=  768 sects=  3 sec= 5 trk=136
+  [11] "find    " C param=F230 len=   47 sects=  1 sec= 8 trk=136
+  [12] "print   " C param=EA60 len=  742 sects=  3 sec= 9 trk=136
+  [13] "LINES   " B param=00D7 len=  215 sects=  1 sec=12 trk=136
+  [14] "LIN1    " C param=C000 len= 6912 sects= 27 sec=13 trk=136
+  [15] "LINES   " C param=C350 len= 5182 sects= 21 sec= 8 trk=138
+
+SIS (R=9, bytes 0xE0-0xFF):
+  00E0: 00 00 A0 16 80 00 00 10 00 00 20 20 20 20 20 20  ..........      
+  00F0: 20 20 20 00 00 5A 58 2D 46 4F 52 4D 41 54 2E B1     ..ZX-FORMAT..

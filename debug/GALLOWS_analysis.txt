@@ -1,0 +1,60 @@
+GALLOWS.FDI Analysis
+====================
+
+FDI Header: 83 cyls, 2 sides, DataOffset=0x3323
+
+Disk Geometry:
+  Cyl 0 Side 0: 16 sectors N=1 (256 bytes) - TR-DOS system track
+  Cyl 0/S1 .. Cyl 79: 10 sectors N=2 (512 bytes) - data
+  Cyl 80-82 both sides: 16 sectors N=1 (256 bytes)
+
+SIS (Sector 9, cyl 0 side 0):
+  Disk type: 0x16 = DS/80 (double-sided, 80 tracks)
+  Files: 31
+  Free sectors: 2560
+  Label: "Gallows!"
+
+TR-DOS Catalog:
+  boot B param=0195 len=0 sects=246 sec=10 trk=0
+
+Boot Loading Sequence (from debug.log):
+  1. TR-DOS ROM calibration: Restore, seek to 32, back to 0
+  2. Read catalog/SIS: sec=9, sec=1 on cyl 0 side 0
+  3. Read boot BASIC: sec=11..16 on cyl 0 side 0 (6 × 256 = 1536 bytes)
+  4. BASIC auto-runs (line 405) → encrypted/obfuscated code
+  5. Custom code via TR-DOS ROM seeks to cyl 75 (data=75!)
+  6. Reads sec=3 on cyl 75 side=0 (N=2, 512 bytes)
+  7. WD1793 goes IDLE, screen stays black
+
+Key Finding - Side Bug:
+  TR-DOS ROM seek routine at 0x2F3A-0x2F57:
+    - Reads (0x5C00) & 0x08 to determine if disk is single/double sided
+    - If bit 3 = 0: divides track by 2 for cylinder, uses remainder for side
+    - If bit 3 = 1: uses track directly as cylinder (single-sided mode)
+
+  Log shows data=75 in Seek command → ROM did NOT divide by 2
+  → (0x5C00) & 0x08 must be non-zero
+  → TR-DOS thinks disk is single-sided despite SIS saying DS/80 (0x16)
+
+TR-DOS ROM 5.05d Key Addresses:
+  0x2F3A-0x2F64: Seek routine (handles side selection for DS disks)
+  0x2F59: INTRQ wait loop (IN A,(FF) / AND 80 / JR Z)
+  0x3D98: Restore command (LD A,08 / OUT (1F),A)
+  0x3ECB: Read Address command (C0)
+  0x3F20-0x3F5F: Read Sector entry point
+  0x3FD5-0x3FEE: Read Sector byte loop (uses INI - reads ALL bytes until INTRQ)
+    - NOTE: TR-DOS ROM correctly handles N=2 sectors!
+    - Loop reads until WD1793 signals command complete (INTRQ)
+    - Does NOT hardcode 256-byte count
+  0x3DFD: Delay subroutine
+
+Boot BASIC Structure:
+  R=10: all zeros (256 bytes)
+  R=11: BASIC line 0 (text: "OHH,ya,if you crack it,write me leter !")
+  R=11+: BASIC line 1 (encrypted/obfuscated machine code)
+  R=12..16: more encrypted data + ROM text fragments
+
+  Machine code at ~0x5D3D:
+    DI / LD R,A / XOR A / OUT (FE),A
+    Memory clear loop 0x5B00 downward
+    XOR decryption loop using R-register: decrypts 310 bytes at 0x5ECF

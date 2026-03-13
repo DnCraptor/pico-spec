@@ -291,8 +291,14 @@ IRAM_ATTR uint8_t Z80Ops::peek8(uint16_t address) {
 }
 
 // Fetch opcode from RAM (NON +2A/3 version)
+#if DEBUG
+uint16_t dbg_last_pc = 0;
+#endif
 IRAM_ATTR uint8_t Z80Ops::fetchOpcode() {
     uint16_t pc = Z80::getRegPC();
+#if DEBUG
+    dbg_last_pc = pc;
+#endif
     uint8_t pg = pc >> 14;
     VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
 #if !PICO_RP2040
