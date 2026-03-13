@@ -351,7 +351,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
             size_t crc = 0;
             if (fdir.size() > 1) {
                 ++ndirs;
-                crc += ::crc("  ..");
+                crc += ::crc(string(2, DIR_MARKER) + "..");
             }
             while (f_readdir(&f_dir, &fileInfo) == FR_OK && fileInfo.fname[0] != '\0') {
                 if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
@@ -362,7 +362,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                 if (fname.compare(0,1,".") != 0) {
                         if (fileInfo.fattrib & AM_DIR) {
                             ++ndirs;
-                            crc += ::crc(char(32) + fname);
+                            crc += ::crc(char(DIR_MARKER) + fname);
                         }
                         else {
                             ++elements; // Count elements in dir
@@ -376,7 +376,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
             if (rcrc != crc) { // reindex
                 filenames.unlink();
                 if (fdir.size() > 1) {
-                    filenames.push("  ..");
+                    filenames.push(string(2, DIR_MARKER) + "..");
                 }
                 f_opendir(&f_dir, fdir.c_str());
                 OSD::progressDialog(OSD_FILE_INDEXING[Config::lang], OSD_FILE_INDEXING_1[Config::lang], 5, 1);
@@ -389,7 +389,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                     string fname = fileInfo.fname;
                     if (fname.compare(0,1,".") != 0) {
                             if (fileInfo.fattrib & AM_DIR) {
-                                filenames.push(char(32) + fname);
+                                filenames.push(char(DIR_MARKER) + fname);
                             }
                             else {
                                 filenames.push(fname);
@@ -583,13 +583,12 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         }                  
                     } else if (is_enter_fd(Menukey.vk)) {
                         string filedir = rowGet(menu, FileUtils::fileTypes[ftype].focus);
-                        if (filedir[0] == ASCII_SPC) {
-                            if (filedir[1] == ASCII_SPC) {
+                        if (filedir[0] == DIR_MARKER) {
+                            if (filedir[1] == DIR_MARKER) {
                                 fdir.pop_back();
                                 fdir = fdir.substr(0,fdir.find_last_of("/") + 1);
                             } else {
                                 filedir.erase(0,1);
-                                trim(filedir);
                                 fdir = fdir + filedir + "/";
                             }
                             FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
@@ -670,7 +669,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                     while(pos < filenames.size()) {
                         std::string s = filenames[pos++];
                         strncpy(buf, s.c_str(), sizeof(buf));
-                        if (buf[0] == ASCII_SPC) {
+                        if (buf[0] == DIR_MARKER) {
                             foundcount++;
                         } else {
                             for(int i = 0; i < strlen(buf); ++i) {
@@ -729,7 +728,7 @@ void OSD::fd_Redraw(string title, string fdir, uint8_t ftype, const vector<strin
             while (1) {
                 if (pos >= filenames.size()) break;
                 strncpy(buf, filenames[pos++].c_str(), 128);
-                if (buf[0] == ASCII_SPC) {
+                if (buf[0] == DIR_MARKER) {
                     if (i >= FileUtils::fileTypes[ftype].begin_row) {
                         menu += buf;
                         menu += '\n';
@@ -780,8 +779,16 @@ void OSD::fd_PrintRow(uint8_t virtual_row_num, uint8_t line_type, const vector<s
     uint8_t margin;
 
     string line = rowGet(menu, virtual_row_num);
-    
-    bool isDir = (line[0] == ASCII_SPC);
+
+    if (line.empty() || line == "<Unknown menu row>") {
+        // Row beyond end of file list — print blank line
+        VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
+        menuAt(virtual_row_num, 0);
+        VIDEO::vga.print(std::string(cols, ' ').c_str());
+        return;
+    }
+
+    bool isDir = (line[0] == DIR_MARKER);
     bool isExc = false;
     if (!isDir) {
         size_t fpos = line.find_last_of(".");
@@ -796,7 +803,9 @@ void OSD::fd_PrintRow(uint8_t virtual_row_num, uint8_t line_type, const vector<s
         }
     }
 
-    trim(line);
+    // Remove DIR_MARKER prefix before display, preserve spaces in filenames
+    while (!line.empty() && line[0] == (char)DIR_MARKER) line.erase(0, 1);
+    rtrim(line);
 
     switch (line_type) {
     case IS_TITLE:
