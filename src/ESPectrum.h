@@ -136,7 +136,9 @@ public:
 #if !PICO_RP2040
     static uint8_t audioBufferPIT[ESP_AUDIO_SAMPLES_PENTAGON];
 #endif
+#if !PICO_RP2040
     static uint8_t audioBufferFDD[ESP_AUDIO_SAMPLES_PENTAGON];
+#endif
 #if !PICO_RP2040
     static uint8_t audioBufferMIDI_L[ESP_AUDIO_SAMPLES_PENTAGON];
     static uint8_t audioBufferMIDI_R[ESP_AUDIO_SAMPLES_PENTAGON];

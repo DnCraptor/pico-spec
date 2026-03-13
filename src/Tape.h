@@ -50,6 +50,7 @@ using namespace std;
 #define TAPE_FTYPE_WAV 3
 #define TAPE_FTYPE_MP3 4
 #define TAPE_FTYPE_PZX 5
+#define PZX_MAX_PULSES 16  // max pulses per symbol in PZX DATA block
 
 // Tape status definitions
 #define TAPE_STOPPED 0
@@ -299,8 +300,8 @@ private:
     static uint16_t pzxPulseRep;      // remaining repeat count for current PULS entry
     static uint32_t pzxPulseDur;      // current pulse duration
     static uint32_t pzxPulseBlockEnd; // file offset of end of current PULS block
-    static uint16_t pzxS0[256];       // pulse sequence for bit 0
-    static uint16_t pzxS1[256];       // pulse sequence for bit 1
+    static uint16_t pzxS0[PZX_MAX_PULSES]; // pulse sequence for bit 0
+    static uint16_t pzxS1[PZX_MAX_PULSES]; // pulse sequence for bit 1
     static uint8_t pzxP0;             // number of pulses for bit 0
     static uint8_t pzxP1;             // number of pulses for bit 1
     static uint8_t pzxCurSymPulse;    // current pulse index within symbol

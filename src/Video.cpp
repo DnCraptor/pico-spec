@@ -442,7 +442,7 @@ void VIDEO::vgataskinit(void *unused) {
 }
 
 ///TaskHandle_t VIDEO::videoTaskHandle;
-static __aligned(4) uint8_t SAVE_RECT[0x9000] = {0};
+
 
 void VIDEO::Init() {
     int Mode;
@@ -496,9 +496,6 @@ void VIDEO::Init() {
             VIDEO::gigascreen_enabled = false;
         }
     }
-
-///    SaveRect = (uint32_t *) SAVE_RECT; ///heap_caps_malloc(0x9000, MALLOC_CAP_INTERNAL | MALLOC_CAP_32BIT);
-
 }
 
 void VIDEO::Reset() {

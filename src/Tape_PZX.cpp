@@ -73,8 +73,8 @@ enum PZXTag : uint32_t {
 uint16_t Tape::pzxPulseRep = 0;
 uint32_t Tape::pzxPulseDur = 0;
 uint32_t Tape::pzxPulseBlockEnd = 0;
-uint16_t Tape::pzxS0[256];
-uint16_t Tape::pzxS1[256];
+uint16_t Tape::pzxS0[PZX_MAX_PULSES];
+uint16_t Tape::pzxS1[PZX_MAX_PULSES];
 uint8_t Tape::pzxP0 = 0;
 uint8_t Tape::pzxP1 = 0;
 uint8_t Tape::pzxCurSymPulse = 0;
@@ -264,6 +264,8 @@ void Tape::PZX_GetBlock() {
                 pzxTailLen = readByteFile(tape) | (readByteFile(tape) << 8);
                 pzxP0 = readByteFile(tape);
                 pzxP1 = readByteFile(tape);
+                if (pzxP0 > PZX_MAX_PULSES) pzxP0 = PZX_MAX_PULSES;
+                if (pzxP1 > PZX_MAX_PULSES) pzxP1 = PZX_MAX_PULSES;
 
                 // Read pulse sequences
                 for (int i = 0; i < pzxP0; i++)

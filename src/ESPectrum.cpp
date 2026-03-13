@@ -200,7 +200,9 @@ uint32_t ESPectrum::faudbufcntSAA = 0;
 bool ESPectrum::SAA_emu = false;
 #endif
 
+#if !PICO_RP2040
 uint8_t ESPectrum::audioBufferFDD[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
+#endif
 int ESPectrum::lastaudioBit = 0;
 int ESPectrum::lastCovoxVal = 0;
 int ESPectrum::faudioBit = 0;
@@ -1410,6 +1412,7 @@ __not_in_flash("audio") void ESPectrum::PITGetSample() {
 #endif
 
 void ESPectrum::FDDGenSound() {
+#if !PICO_RP2040
     memset(audioBufferFDD, 0, samplesPerFrame);
     uint8_t clicks = fdd.fdd_clicks;
     fdd.fdd_clicks = 0;
@@ -1434,6 +1437,9 @@ void ESPectrum::FDDGenSound() {
             audioBufferFDD[i] = (fdd_lfsr & 0xF);
         }
     }
+#else
+    fdd.fdd_clicks = 0;
+#endif
 }
 
 // === Таймер ===
@@ -1658,9 +1664,9 @@ void ESPectrum::loop() {
 #endif
         for (int i = 0; i < samplesPerFrame; i++)
         {
-          int beeper_L = overSamplebuf[i] + audioBufferCovox[i] + audioBufferFDD[i]
+          int beeper_L = overSamplebuf[i] + audioBufferCovox[i]
 #if !PICO_RP2040
-                         + audioBufferPIT[i]
+                         + audioBufferFDD[i] + audioBufferPIT[i]
 #endif
               ;
           int beeper_R = beeper_L;

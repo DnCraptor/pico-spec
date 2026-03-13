@@ -5310,7 +5310,7 @@ void OSD::HWInfo() {
         " Chip model     : RP2040 " + to_string(cpu_hz) + " MHz\n"
         " Chip cores     : 2\n"
         " Chip RAM       : 264 KB\n"
-        " Free RAM (Exp) : ";
+        " Free RAM       : ";
 #endif
     textout += to_string(free_heap/1024) + " KB\n";
     VIDEO::vga.print(textout.c_str());
