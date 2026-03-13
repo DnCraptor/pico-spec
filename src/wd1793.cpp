@@ -257,10 +257,6 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
     case kRVMWD177XReadHeader: {
 
       if(!wd->retry) {
-#if DEBUG
-        if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsFDIFile)
-          Debug::log("FDI RNF trk=%d sec=%d side=%d", wd->track, wd->sector, wd->side);
-#endif
         wd->status|=kRVMWD177XStatusSeek;
         _end(wd);
         return;
@@ -435,10 +431,6 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
             _end(wd);
             return;
           }
-#if DEBUG
-          if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsFDIFile)
-            Debug::log("FDI WR trk=%d sec=%d side=%d", wd->track, wd->sector, wd->side);
-#endif
         } else {
         }
         wd->retry=5; //5 retrys

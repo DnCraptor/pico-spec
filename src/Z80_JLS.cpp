@@ -2455,9 +2455,6 @@ void Z80::decodeOpcodebe()
               if (Config::flashload && !Tape::jjScreenAnimating) {
                 // Save return PC before FlashLoad (it doesn't modify REG_PC)
                 uint16_t trapPC = REG_PC;
-                Debug::log("ROM FL: trap=0x%04X blk=%d/%d IX=0x%04X DE=0x%04X A=0x%02X",
-                       trapPC, Tape::tapeCurBlock, Tape::tapeNumBlocks,
-                       getRegIX(), getRegDE(), regA);
                 if (Tape::FlashLoad()) {
                     // Stop tape if it was auto-started.
                     // Preserve tapePhase if pzxFlashCont is set (partial PZX load
@@ -2471,7 +2468,6 @@ void Z80::decodeOpcodebe()
                     if (trapPC == 0x56d)      REG_PC = 0x5e4; // Byte ROM
                     else if (trapPC == 0x57d) REG_PC = 0x606; // Sinclair ROM
                     else                      REG_PC = 0x5e2; // Spanish ROM
-                    Debug::log("ROM FL: OK -> blk=%d PC=0x%04X", Tape::tapeCurBlock, REG_PC);
                 }
             }
         }
@@ -3059,14 +3055,6 @@ void Z80::decodeOpcodef1() /* POP AF */
         // FlashLoad uses DE as expected byte count. Set DE to 0xFFFF so
         // FlashLoad loads the full block (it uses min(DE, blockLen)).
         uint16_t origDE = getRegDE();
-        uint16_t retOnStack = Z80Ops::peek16(regSP.word);
-        if (retOnStack >= 0x4000) {
-            setRegDE(0xFFFF);
-        }
-
-        Debug::log("POP AF trap: blk=%d/%d IX=0x%04X DE=0x%04X A=0x%02X Ax=0x%02X ret=0x%04X",
-                   Tape::tapeCurBlock, Tape::tapeNumBlocks,
-                   getRegIX(), getRegDE(), regA, REG_Ax, retOnStack);
         if (Tape::FlashLoad()) {
             if (Tape::tapeStatus == TAPE_LOADING) {
                 Tape::tapeStatus = TAPE_STOPPED;
