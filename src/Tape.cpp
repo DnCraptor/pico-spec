@@ -52,7 +52,6 @@ using namespace std;
 #include "messages.h"
 #include "Z80_JLS/z80.h"
 #include "pwm_audio.h"
-#include "Debug.h"
 
 #include "music_file.h"
 
@@ -84,6 +83,8 @@ uint16_t Tape::tapeSync1Len;
 uint16_t Tape::tapeSync2Len;
 uint16_t Tape::tapeBit0PulseLen; // lenght of pulse for bit 0
 uint16_t Tape::tapeBit1PulseLen; // lenght of pulse for bit 1
+uint16_t Tape::tapeBit0PulseLen2; // 2nd pulse for bit 0 (PZX asymmetric)
+uint16_t Tape::tapeBit1PulseLen2; // 2nd pulse for bit 1 (PZX asymmetric)
 uint16_t Tape::tapeHdrLong;  // Header sync lenght in pulses
 uint16_t Tape::tapeHdrShort; // Data sync lenght in pulses
 uint32_t Tape::tapeBlkPauseLen; 
@@ -880,9 +881,11 @@ void Tape::TAP_Open(string name) {
         tapeSync2Len = TAPE_SYNC2_LEN_RG;
         tapeBit0PulseLen = TAPE_BIT0_PULSELEN_RG;
         tapeBit1PulseLen = TAPE_BIT1_PULSELEN_RG;
+        tapeBit0PulseLen2 = TAPE_BIT0_PULSELEN_RG;
+        tapeBit1PulseLen2 = TAPE_BIT1_PULSELEN_RG;
         tapeHdrLong = TAPE_HDR_LONG_RG;
         tapeHdrShort = TAPE_HDR_SHORT_RG;
-        tapeBlkPauseLen = TAPE_BLK_PAUSELEN_RG; 
+        tapeBlkPauseLen = TAPE_BLK_PAUSELEN_RG;
 
     } else {
 
@@ -891,6 +894,8 @@ void Tape::TAP_Open(string name) {
         tapeSync2Len = TAPE_SYNC2_LEN;
         tapeBit0PulseLen = TAPE_BIT0_PULSELEN;
         tapeBit1PulseLen = TAPE_BIT1_PULSELEN;
+        tapeBit0PulseLen2 = TAPE_BIT0_PULSELEN;
+        tapeBit1PulseLen2 = TAPE_BIT1_PULSELEN;
         tapeHdrLong = TAPE_HDR_LONG;
         tapeHdrShort = TAPE_HDR_SHORT;
         tapeBlkPauseLen = TAPE_BLK_PAUSELEN; 
@@ -1530,6 +1535,7 @@ IRAM_ATTR void Tape::Read() {
             case TAPE_PHASE_DATA1:
                 tapeEarBit ^= 1;
                 tapePhase=TAPE_PHASE_DATA2;
+                tapeNext = tapeCurByte & tapeBitMask ? tapeBit1PulseLen2 : tapeBit0PulseLen2;
                 break;
             case TAPE_PHASE_DATA2:
                 tapeEarBit ^= 1;
@@ -1886,9 +1892,9 @@ bool Tape::FlashLoad() {
         }
         // Read pulse sequences
         uint16_t s0 = readByteFile(tape) | (readByteFile(tape) << 8);
-        readByteFile(tape); readByteFile(tape); // s0[1] (same as s0[0] for standard)
+        uint16_t s0b = readByteFile(tape) | (readByteFile(tape) << 8);
         uint16_t s1 = readByteFile(tape) | (readByteFile(tape) << 8);
-        readByteFile(tape); readByteFile(tape); // s1[1]
+        uint16_t s1b = readByteFile(tape) | (readByteFile(tape) << 8);
         // Now at data bytes
         uint16_t blockLen = (bitCount + 7) / 8;
         uint8_t tapeFlag = readByteFile(tape);
@@ -1993,12 +1999,14 @@ bool Tape::FlashLoad() {
             // Set up real-mode continuation for remaining data
             // (e.g. custom loader reads rest via port 0xFE)
             uint8_t lastBits = bitCount & 7;
-            pzxS0[0] = pzxS0[1] = s0;
-            pzxS1[0] = pzxS1[1] = s1;
+            pzxS0[0] = s0; pzxS0[1] = s0b;
+            pzxS1[0] = s1; pzxS1[1] = s1b;
             pzxP0 = 2; pzxP1 = 2;
             pzxTailLen = tailLen;
             tapeBit0PulseLen = s0;
             tapeBit1PulseLen = s1;
+            tapeBit0PulseLen2 = s0b;
+            tapeBit1PulseLen2 = s1b;
             tapebufByteCount = 0;
             tapeBlockLen = remainBytes;
             tapeLastByteUsedBits = lastBits ? lastBits : 8;
@@ -2470,17 +2478,24 @@ bool Tape::TapePortRead() {
         // For PZX: only allow pause-skip when in ROM (pc < 0x4000),
         // because PZX PAUS blocks between turbo sections must play out
         // fully — turbo loaders rely on these pauses for initialization.
+        // Allow pause-skip for short pauses (ROM loader waiting for next block).
+        // Don't skip long pauses (>1000ms) — they're intentional gaps for BASIC
+        // code to run between loading stages (e.g. Hollywood Poker 1817ms gap).
         if (tapePhase == TAPE_PHASE_PAUSE &&
-            (tapeFileType != TAPE_FTYPE_PZX || pc < 0x4000)) {
+            (tapeFileType != TAPE_FTYPE_PZX || pc < 0x4000) &&
+            tapeBlkPauseLen <= 3500000) { // 3500000 T = 1000ms
             if (pc == loopPC) {
                 if (++loopCount > 200) {
                     loopCount = 0;
                     tapeCurBlock++;
                     Play();
                     Read();
-                    // Stop immediately if next block is PURETONE and we're not in a loader
+                    // Stop immediately if next block is pilot/sync tone and we're not in a loader.
+                    // Turbo autostart will resume Play() when the loader starts polling.
+                    // Skip if pc is in ROM LD-EDGE area (custom loaders call CALL 0x05E7)
                     if (!isCerikopikCandidate && !isJJCandidate &&
-                        pc < 0xFE00 && tapePhase == TAPE_PHASE_PURETONE) {
+                        pc < 0xFE00 && !(pc >= 0x05E3 && pc <= 0x05F5) &&
+                        tapePhase == TAPE_PHASE_PURETONE) {
                         tapeStatus = TAPE_STOPPED;
                         tapePhase = TAPE_PHASE_STOPPED;
                         tapeEarBit = 0;
@@ -2492,11 +2507,14 @@ bool Tape::TapePortRead() {
         loopPC = 0; loopCount = 0;
         Read();
         // If tape advanced into a turbo pilot block (PureTone) while non-turbo
-        // code is running (pc < 0xFE00, flashload OFF): stop the tape.
-        // Turbo autostart will resume Play() from this block when the turbo
-        // loader at 0xFE00 starts polling — PureTone will play from the start.
+        // code is running: stop the tape. Turbo autostart will resume Play()
+        // from this block when the turbo loader starts polling.
+        // Skip if pc is in ROM LD-EDGE area (0x05E3-0x05F5) — custom loaders
+        // like Hollywood Poker call ROM LD-EDGE-1/2 (CALL 0x05E7) and pc lands
+        // in ROM while the actual loader is at 0xFF80+.
         if (!isCerikopikCandidate && !isJJCandidate &&
-            pc < 0xFE00 && tapePhase == TAPE_PHASE_PURETONE) {
+            pc < 0xFE00 && !(pc >= 0x05E3 && pc <= 0x05F5) &&
+            tapePhase == TAPE_PHASE_PURETONE) {
             tapeStatus = TAPE_STOPPED;
             tapePhase = TAPE_PHASE_STOPPED;
             tapeEarBit = 0;
@@ -2538,10 +2556,12 @@ bool Tape::TapePortRead() {
                     tapeAutoPlay = true;
                     Play();
                     Read();
-                } else if (tapeCurBlock > 0 && pc >= 0x4000) {
+                } else if (tapeCurBlock > 0 && (pc >= 0x4000 || (pc >= 0x05E3 && pc <= 0x05F5))) {
                     // Generic auto-start for other custom loaders.
                     // Skip when tapeCurBlock==0: tape finished (all blocks loaded).
                     // Skip when pc < 0x4000: ROM/BASIC keyboard scan — not a loader.
+                    // Exception: ROM LD-EDGE area (0x05E3-0x05F5) — custom loaders
+                    // like Hollywood Poker call CALL 0x05E7 for edge detection.
                     tapeAutoPlay = true;
                     Play();
                     Read();

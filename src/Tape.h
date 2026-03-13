@@ -251,6 +251,8 @@ private:
     static uint16_t tapeSync2Len;
     static uint16_t tapeBit0PulseLen; // lenght of pulse for bit 0
     static uint16_t tapeBit1PulseLen; // lenght of pulse for bit 1
+    static uint16_t tapeBit0PulseLen2; // 2nd pulse for bit 0 (PZX asymmetric)
+    static uint16_t tapeBit1PulseLen2; // 2nd pulse for bit 1 (PZX asymmetric)
     static uint16_t tapeHdrLong;  // Header sync lenght in pulses
     static uint16_t tapeHdrShort; // Data sync lenght in pulses
     static uint32_t tapeBlkPauseLen; 

@@ -579,6 +579,8 @@ void Tape::TZX_GetBlock() {
                     tapeSync2Len = TAPE_SYNC2_LEN_RG;
                     tapeBit0PulseLen = TAPE_BIT0_PULSELEN_RG;
                     tapeBit1PulseLen = TAPE_BIT1_PULSELEN_RG;
+                    tapeBit0PulseLen2 = TAPE_BIT0_PULSELEN_RG;
+                    tapeBit1PulseLen2 = TAPE_BIT1_PULSELEN_RG;
                     tapeHdrLong = TAPE_HDR_LONG_RG;
                     tapeHdrShort = TAPE_HDR_SHORT_RG;
                 } else {
@@ -587,6 +589,8 @@ void Tape::TZX_GetBlock() {
                     tapeSync2Len = TAPE_SYNC2_LEN;
                     tapeBit0PulseLen = TAPE_BIT0_PULSELEN;
                     tapeBit1PulseLen = TAPE_BIT1_PULSELEN;
+                    tapeBit0PulseLen2 = TAPE_BIT0_PULSELEN;
+                    tapeBit1PulseLen2 = TAPE_BIT1_PULSELEN;
                     tapeHdrLong = TAPE_HDR_LONG;
                     tapeHdrShort = TAPE_HDR_SHORT;
                 }
@@ -616,6 +620,8 @@ void Tape::TZX_GetBlock() {
                 tapeSync2Len = readByteFile(tape) | (readByteFile(tape) << 8);
                 tapeBit0PulseLen = readByteFile(tape) | (readByteFile(tape) << 8);
                 tapeBit1PulseLen = readByteFile(tape) | (readByteFile(tape) << 8);
+                tapeBit0PulseLen2 = tapeBit0PulseLen;
+                tapeBit1PulseLen2 = tapeBit1PulseLen;
                 tapeHdrPulses = readByteFile(tape) | (readByteFile(tape) << 8);
                 tapeLastByteUsedBits = readByteFile(tape);
                 tapeBlkPauseLen = (readByteFile(tape) | (readByteFile(tape) << 8)) * 3500;                
@@ -669,6 +675,8 @@ void Tape::TZX_GetBlock() {
 
                 tapeBit0PulseLen = readByteFile(tape) | (readByteFile(tape) << 8);
                 tapeBit1PulseLen = readByteFile(tape) | (readByteFile(tape) << 8);
+                tapeBit0PulseLen2 = tapeBit0PulseLen;
+                tapeBit1PulseLen2 = tapeBit1PulseLen;
                 tapeLastByteUsedBits=readByteFile(tape);
                 tapeBlkPauseLen = (readByteFile(tape) | (readByteFile(tape) << 8)) * 3500;                
 

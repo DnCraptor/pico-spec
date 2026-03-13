@@ -1253,7 +1253,15 @@ IRAM_ATTR void VIDEO::EndFrame() {
     tstateDraw = tStatesScreen;
 
     static uint8_t skipCnt = 0;
+    static bool wasMaxSpeed = false;
     bool skipFrame = ESPectrum::maxSpeed && (++skipCnt & 63);
+    if (!ESPectrum::maxSpeed && wasMaxSpeed) {
+        // Exiting maxSpeed: fill entire framebuffer border with current color
+        uint8_t border = brd & 0xFF;
+        for (int y = 0; y < (int)vga.yres; y++)
+            memset(vga.frameBuffer[y], border, vga.xres);
+    }
+    wasMaxSpeed = ESPectrum::maxSpeed;
     if (skipFrame) {
         // Skip rendering: 1/1024 frames during tape loading, 1/256 otherwise
         Draw = VIDEO::snow_toggle ? &Blank_Snow : &Blank;

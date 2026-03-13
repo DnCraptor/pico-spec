@@ -199,13 +199,9 @@ void Tape::PZX_GetBlock() {
 
     for (;;) {
         if (tapeCurBlock >= tapeNumBlocks) {
-            // End of tape: emit a short pause then stop.
-            // Note: do NOT toggle tapeEarBit here. Unlike TZX GDB_DATA which
-            // does not toggle ear on its final callback (curGDBPulse==npd path),
-            // PZX DATA2 always toggles ear — so the last DATA2 toggle already
-            // provides the edge that loaders need to finish the last bit.
-            // An additional toggle here would cancel it out (net zero change),
-            // making the edge invisible to edge-detecting loaders.
+            // Emit a final edge + short pause so loaders waiting for
+            // the next edge can finish processing the last bit.
+            tapeEarBit ^= 1;
             tapePhase = TAPE_PHASE_END;
             tapeNext = 7000;
             return;
@@ -225,7 +221,7 @@ void Tape::PZX_GetBlock() {
                 break;
 
             case PZX_PULS: {
-                // Initial level for PULS block is low
+                // Initial pulse level is low.
                 tapeEarBit = 0;
                 pzxPulseBlockEnd = blockEnd;
 
@@ -286,8 +282,10 @@ void Tape::PZX_GetBlock() {
 
                 // Check if standard 2-pulse encoding - can use existing DATA1/DATA2 phases
                 if (pzxP0 == 2 && pzxP1 == 2 && pzxBitCount > 0) {
-                    tapeBit0PulseLen = pzxS0[0]; // Both pulses same for standard
+                    tapeBit0PulseLen = pzxS0[0];
                     tapeBit1PulseLen = pzxS1[0];
+                    tapeBit0PulseLen2 = pzxS0[1];
+                    tapeBit1PulseLen2 = pzxS1[1];
 
                     // Calculate data bytes
                     tapebufByteCount = 0;
