@@ -365,6 +365,15 @@ void graphics_set_mode(enum graphics_mode_t mode) {
     }
 }
 
+void vga_reinit() {
+    // Update VGA sync parameters from current video_mode.
+    // PIO clkdiv and DMA line_size are identical across all VGA modes,
+    // so only vsync line numbers need updating.
+    struct video_mode_t mode = graphics_get_video_mode(get_video_mode());
+    line_VS_begin = mode.vsync_start;
+    line_VS_end = mode.vsync_end;
+}
+
 void graphics_set_buffer(uint8_t* buffer, const uint16_t width, const uint16_t height) {
     graphics_buffer_width = width;
     graphics_buffer_height = height;

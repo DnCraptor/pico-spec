@@ -589,6 +589,13 @@ static volatile bool hdmi_reinit_pending = false;
 static volatile bool hdmi_reinit_done = false;
 
 void hdmi_reinit() {
+    // Stop DMA channels from core0 so the DMA IRQ stops firing.
+    // This frees core1 from back-to-back ISR calls, allowing its
+    // main loop to reach hdmi_poll_reinit().
+    dma_hw->abort = (1u << dma_chan_ctrl) | (1u << dma_chan)
+                  | (1u << dma_chan_pal_conv) | (1u << dma_chan_pal_conv_ctrl);
+    while (dma_hw->abort) tight_loop_contents();
+
     // Signal core1 to do the reinit (IRQ handler must be registered on core1)
     hdmi_reinit_done = false;
     __dmb();

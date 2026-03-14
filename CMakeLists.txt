@@ -417,7 +417,7 @@ ELSEIF(PICO_DV)
         KBD_CLOCK_PIN=0
         KBD_DATA_PIN=1
 
-        LOAD_WAV_PIO=17
+        LOAD_WAV_PIO=20
 
         CLK_AY_PIN1=21 # not in use
         LATCH_595_PIN=26

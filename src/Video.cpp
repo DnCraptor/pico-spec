@@ -51,6 +51,7 @@ extern "C" void graphics_set_palette(uint8_t i, uint32_t color888);
 extern "C" void vga_set_palette_entry_solid(uint8_t i, uint32_t color888);
 extern "C" void graphics_set_buffer(uint8_t* buffer, uint16_t width, uint16_t height);
 extern "C" void hdmi_reinit(void);
+extern "C" void vga_reinit(void);
 
 // Place hot video functions in SRAM instead of XIP flash
 #undef IRAM_ATTR
@@ -531,34 +532,11 @@ void VIDEO::changeMode() {
         freeFrameBuffer((void**)oldPrev);
     }
 
-    if (sameDims) {
-        // 3a. Same dimensions — reuse existing framebuffer, no alloc/free needed
-        vga.mode = Mode;
-        OSD::scrW = newW;
-        OSD::scrH = newH;
-    } else {
-        // 3b. Different dimensions — null out, free old, alloc new
-        auto oldFB = vga.frameBuffer;
-        vga.frameBuffer = nullptr;  // getLineBuffer() checks for null
+    // 3. Null out frameBuffer so DMA handler returns early (getLineBuffer checks null)
+    auto oldFB = vga.frameBuffer;
+    vga.frameBuffer = nullptr;
 
-        vga.mode = Mode;
-        OSD::scrW = newW;
-        OSD::scrH = newH;
-        vga.xres = newW;
-        vga.yres = newH;
-
-        freeFrameBuffer((void**)oldFB);
-        vga.frameBuffer = vga.allocateFrameBuffer();
-
-        // Fill with border color
-        if (vga.frameBuffer) {
-            int stride = (vga.xres + 3) & ~3;
-            memset(vga.frameBuffer[0], zxColor(borderColor, 0), vga.yres * stride);
-        }
-        SaveRect.clear();
-    }
-
-    // 7. Update video_mode BEFORE reinit (hdmi_init reads it via get_video_mode())
+    // 4. Update video_mode BEFORE reinit (hdmi_init reads it via get_video_mode())
     if (SELECT_VGA) {
         switch (Config::vga_video_mode) {
             case Config::VM_640x480_50:
@@ -594,15 +572,46 @@ void VIDEO::changeMode() {
         }
     }
 
-    // 8. Update driver buffer dimensions + reinit HDMI (executed on core1)
-    graphics_set_buffer(NULL, vga.xres, vga.yres);
-    hdmi_reinit();
+    // 5. Update driver buffer dimensions + reinit video output
+    vga.mode = Mode;
+    vga.xres = newW;
+    vga.yres = newH;
+    OSD::scrW = newW;
+    OSD::scrH = newH;
+    graphics_set_buffer(NULL, newW, newH);
+    if (SELECT_VGA) {
+        // VGA: PIO clkdiv and line_size are identical across all modes.
+        // Only vsync line numbers need updating.
+        vga_reinit();
+    } else {
+        // HDMI: abort DMA from core0, then signal core1 to run hdmi_init()
+        hdmi_reinit();
+    }
 
-    // 9. Recalculate border timing + precalc tables
+    // 6. Allocate new framebuffer (HDMI DMA is now running with new mode, FB is null → blank output)
+    if (sameDims) {
+        // Same dimensions — reuse existing framebuffer
+        vga.frameBuffer = oldFB;
+    } else {
+        freeFrameBuffer((void**)oldFB);
+        vga.frameBuffer = vga.allocateFrameBuffer();
+        SaveRect.clear();
+    }
+
+    // 7. Recalculate border timing + precalc tables (preserve border color)
+    uint8_t savedBorderColor = borderColor;
     VIDEO::Reset();
+    borderColor = savedBorderColor;
+    brd = border32[borderColor];
     precalcborder32();
 
-    // 10. Gigascreen: reallocate prevFrameBuffer if enabled
+    // 8. Repaint framebuffer with current border color
+    if (vga.frameBuffer) {
+        int stride = (vga.xres + 3) & ~3;
+        memset(vga.frameBuffer[0], zxColor(borderColor, 0), vga.yres * stride);
+    }
+
+    // 9. Gigascreen: reallocate prevFrameBuffer if enabled
     if (Config::gigascreen_enabled) {
         InitPrevBuffer();
         if (!vga.prevFrameBuffer) {
