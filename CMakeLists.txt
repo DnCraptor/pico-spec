@@ -31,16 +31,17 @@ option(ZERO2 "RP2350-PiZero" OFF)
 #set(m1p2launcher ON)
 
 # Display output (default: VGA_HDMI; override with -D flags, e.g. cmake -DSOFTTV=ON)
-if(NOT VGA_HDMI AND NOT SOFTTV AND NOT TFT AND NOT ILI9341 AND NOT TV)
-    set(VGA_HDMI ON)
+if(NOT VGA_HDMI AND NOT SOFTTV AND NOT TFT AND NOT ILI9341 AND NOT TV AND NOT DVI_A)
+    set(DVI_A ON)
 endif()
 #set(TFT_INV 0)
 #set(TFT_INV 1)
 set(NO_ALF 1)
 
 #set(CPU_MHZ 252)
-set(CPU_MHZ 378)
-set (PORT_VERSION "1.2.N1")
+#set(CPU_MHZ 378)
+set(CPU_MHZ 504)
+set (PORT_VERSION "1.2.M")
 string(LENGTH "${PORT_VERSION}" PORT_VERSION_LEN)
 
 # Target board (default: PICO_PC; override with -D flags, e.g. cmake -DMURM2=ON)
@@ -127,6 +128,7 @@ add_subdirectory(drivers/tv)
 add_subdirectory(drivers/tv-software)
 add_subdirectory(drivers/graphics)
 add_subdirectory(drivers/psram)
+add_subdirectory(drivers/libdvi)
 
 #target_compile_definitions(${PROJECT_NAME} PRIVATE VGA)
 
@@ -325,7 +327,7 @@ IF(MURM2)
 
         # HDMI 8 pins starts from pin:
         HDMI_BASE_PIN=12
-
+        DVI_DEFAULT_SERIAL_CONFIG=murmulator2_cfg
 
         # TFT
         TFT_CS_PIN=12
@@ -402,6 +404,7 @@ ELSEIF(PICO_PC)
 
         # HDMI 8 pins starts from pin:
         HDMI_BASE_PIN=12
+        DVI_DEFAULT_SERIAL_CONFIG=Olimex_RP2040_PICO_PC_cfg
 
         DEFAULT_THROTTLING=0
         PICO_DEFAULT_LED_PIN=25
@@ -464,6 +467,7 @@ ELSEIF(PICO_DV)
 
         # HDMI 8 pins starts from pin:
         HDMI_BASE_PIN=6
+        DVI_DEFAULT_SERIAL_CONFIG=TODO
 
         DEFAULT_THROTTLING=0
         PICO_DEFAULT_LED_PIN=25
@@ -523,6 +527,7 @@ ELSEIF(ZERO)
 
         # HDMI 8 pins starts from pin:
         HDMI_BASE_PIN=22
+        DVI_DEFAULT_SERIAL_CONFIG=waveshare_rp2040_pizero_hdmi_cfg
 
         DEFAULT_THROTTLING=0
         PICO_RP2040=1
@@ -585,6 +590,7 @@ ELSEIF(ZERO2)
 
         # HDMI 8 pins starts from pin:
         HDMI_BASE_PIN=32
+        DVI_DEFAULT_SERIAL_CONFIG=waveshare_rp2350_pizero_hdmi_cfg
 
 #        PICO_DEFAULT_LED_PIN=25
         DEFAULT_THROTTLING=0
@@ -641,6 +647,7 @@ ELSE()
 
         # HDMI 8 pins starts from pin:
         HDMI_BASE_PIN=6
+        DVI_DEFAULT_SERIAL_CONFIG=murmulator_cfg
 
         # TFT
         TFT_CS_PIN=6
@@ -677,6 +684,14 @@ ELSEIF(SOFTTV)
 	target_compile_definitions(${PROJECT_NAME} PRIVATE SOFTTV)
 	target_link_libraries(${PROJECT_NAME} PRIVATE tv-software)
 	SET(BUILD_NAME "${BUILD_NAME}-TV-SOFT")
+ELSEIF(DVI_A)
+	target_compile_definitions(${PROJECT_NAME} PRIVATE
+        DVI_A=1
+        DVI_VERTICAL_REPEAT=1
+        PICO_CORE1_STACK_SIZE=0x200
+    )
+	target_link_libraries(${PROJECT_NAME} PRIVATE libdvi)
+	SET(BUILD_NAME "${BUILD_NAME}-DVIa")
 ELSE()
     target_link_libraries(${PROJECT_NAME} PRIVATE hdmi)
     target_link_libraries(${PROJECT_NAME} PRIVATE vga-nextgen)
