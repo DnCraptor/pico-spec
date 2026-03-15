@@ -59,11 +59,17 @@ string FileUtils::SNA_Path = "/";
 string FileUtils::TAP_Path = "/";
 string FileUtils::DSK_Path = "/";
 string FileUtils::ROM_Path = "/";
-DISK_FTYPE FileUtils::fileTypes[4] = {
+string FileUtils::IMG_Path = "/";
+DISK_FTYPE FileUtils::fileTypes[5] = {
     {".sna,.SNA,.z80,.Z80,.p,.P",2,2,0,""},
-    {".tap,.TAP,.tzx,.TZX,.wav,.WAV,.mp3,.MP3",2,2,0,""},
+    {".tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3",2,2,0,""},
+#if PICO_RP2040
     {".trd,.TRD,.scl,.SCL",2,2,0,""},
-    {".rom,.ROM,.bin,.BIN",2,2,0,""}
+#else
+    {".trd,.TRD,.scl,.SCL,.udi,.UDI,.fdi,.FDI",2,2,0,""},
+#endif
+    {".rom,.ROM,.bin,.BIN",2,2,0,""},
+    {".mmc,.MMC,.hdf,.HDF",2,2,0,""}
 };
 
 string toLower(const std::string& str) {
@@ -98,14 +104,16 @@ inline void fclose(FIL& f) {
 
 void FileUtils::initFileSystem() {
     SDReady = mountSDCard();
-    f_mkdir("/tmp");
-    f_mkdir(MOUNT_POINT_SD);
-    f_mkdir(MOUNT_POINT_SD DISK_ROM_DIR);
-    f_mkdir(MOUNT_POINT_SD DISK_SNA_DIR);
-    f_mkdir(MOUNT_POINT_SD DISK_TAP_DIR);
-    f_mkdir(MOUNT_POINT_SD DISK_DSK_DIR);
-    f_mkdir(MOUNT_POINT_SD DISK_SCR_DIR);
-    f_mkdir(MOUNT_POINT_SD DISK_PSNA_DIR);
+    if (SDReady) {
+        f_mkdir("/tmp");
+        f_mkdir(MOUNT_POINT_SD);
+        f_mkdir(MOUNT_POINT_SD DISK_ROM_DIR);
+        f_mkdir(MOUNT_POINT_SD DISK_SNA_DIR);
+        f_mkdir(MOUNT_POINT_SD DISK_TAP_DIR);
+        f_mkdir(MOUNT_POINT_SD DISK_DSK_DIR);
+        f_mkdir(MOUNT_POINT_SD DISK_SCR_DIR);
+        f_mkdir(MOUNT_POINT_SD DISK_PSNA_DIR);
+    }
 }
 
 static FATFS fs;
@@ -152,6 +160,13 @@ bool FileUtils::hasTZXextension(string filename)
 {
     if (filename.substr(filename.size()-4,4) == ".tzx") return true;
     if (filename.substr(filename.size()-4,4) == ".TZX") return true;
+    return false;
+}
+
+bool FileUtils::hasPZXextension(string filename)
+{
+    if (filename.substr(filename.size()-4,4) == ".pzx") return true;
+    if (filename.substr(filename.size()-4,4) == ".PZX") return true;
     return false;
 }
 

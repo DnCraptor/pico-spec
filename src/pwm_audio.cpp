@@ -9,6 +9,9 @@
 #include "Debug.h"
 #include "LoadWavStream.h"
 #include "PinSerialData_595.h"
+#if !PICO_RP2040
+#include "hdmi.h"
+#endif
 
 // connection is possible 00->00 (external pull down)
 static int test_0000_case(uint32_t pin0, uint32_t pin1, int res) {
@@ -225,8 +228,9 @@ esp_err_t pwm_audio_write(
 ) {
     int16_t volume = vol;
     for (size_t i = 0; i < len; ++i) {
-        buff_L[i] = (((int16_t)bufL[i]) << 7) * volume / VOLUME_0DB;
-        buff_R[i] = (((int16_t)bufR[i]) << 7) * volume / VOLUME_0DB;
+        // Convert from unsigned 128-centered to signed 0-centered DAC output
+        buff_L[i] = ((int16_t)(bufL[i] - 128) << 8) * volume / VOLUME_0DB;
+        buff_R[i] = ((int16_t)(bufR[i] - 128) << 8) * volume / VOLUME_0DB;
     }
     m_off = 0;
     m_size = len;
@@ -273,6 +277,13 @@ static bool hw_get_bit_LOAD() {
 #endif
 
 void init_sound() {
+#if !PICO_RP2040
+    if (Config::audio_driver == 4) {
+        Debug::log("init_sound: HDMI audio mode");
+        hdmi_audio_init();
+        return;
+    }
+#endif
     if (Config::audio_driver == 3) {
         Init_PWM_175(TSPIN_MODE_GP29);
     } else {
@@ -356,15 +367,29 @@ void pcm_call() {
         return;
     }
     m_let_process_it = false;
+#if !PICO_RP2040
+    if (Config::audio_driver == 4) {
+        if (m_off < m_size) {
+            hdmi_audio_write_sample(buff_L[m_off], buff_R[m_off]);
+            m_off++;
+        } else {
+            hdmi_audio_write_sample(0, 0);
+        }
+        return;
+    }
+#endif
     if (Config::audio_driver == 3) {
 /// TODO:
     }
     else if (is_i2s_enabled) {
-        static int16_t v32[2];
+        int16_t v32[2];
         if (m_off < m_size) {
             v32[0] = *(buff_R + m_off);
             v32[1] = *(buff_L + m_off);
             ++m_off;
+        } else {
+            v32[0] = 0;
+            v32[1] = 0;
         }
         i2s_write(&i2s_config, v32, 1);
         // i2s_dma_write(&i2s_config, v32);
@@ -388,7 +413,10 @@ void pcm_call() {
             outR = (uint16_t)xR >> 8;
             err_R = (int16_t)(xR - ((int32_t)outR << 8));
         } else {
-            return;
+            // Buffer exhausted — output silence (0x80 = midpoint)
+            // to avoid PWM stuck at last non-zero level causing clicks
+            outL = 0x80;
+            outR = 0x80;
         }
         pwm_set_gpio_level(PWM_PIN0, outR); // Право
         pwm_set_gpio_level(PWM_PIN1, outL); // Лево
@@ -400,6 +428,11 @@ void pcm_cleanup(void) {
     m_let_process_it = false;
     cancel_repeating_timer(&m_timer);
     m_timer.delay_us = 0;
+#if !PICO_RP2040
+    if (Config::audio_driver == 4) {
+        return;  // HDMI audio — no hardware to clean up
+    }
+#endif
     if (Config::audio_driver == 3) {
         // TODO:
     } else if (is_i2s_enabled) {
@@ -415,6 +448,17 @@ void pcm_cleanup(void) {
 
 /// size - bytes
 void pcm_setup(int hz) {
+    // Flush output buffer so pcm_call() outputs silence until new data arrives
+    m_size = 0;
+    m_off = 0;
+#if !PICO_RP2040
+    if (Config::audio_driver == 4) {
+        // HDMI audio — timer only, no I2S/PWM hardware
+        m_let_process_it = false;
+        add_repeating_timer_us(-1000000 / hz, timer_callback, NULL, &m_timer);
+        return;
+    }
+#endif
     if (Config::audio_driver == 3) {
         // TODO:
     } else if (is_i2s_enabled) {

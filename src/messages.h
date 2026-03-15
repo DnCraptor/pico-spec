@@ -42,7 +42,11 @@ visit https://zxespectrum.speccy.org/contacto
 #define MSG_SAVE_CONFIG "Saving config file"
 #define MSG_VGA_INIT "Initializing VGA"
 
+#if PORT_VERSION_LEN <= 5
+#define EMU_VERSION " v1.2/" PORT_VERSION "  "
+#else
 #define EMU_VERSION " v1.2/" PORT_VERSION " "
+#endif
 
 // Error
 #define ERROR_TITLE "  !!!   ERROR - CLIVE MEDITATION   !!!  "
@@ -55,12 +59,20 @@ visit https://zxespectrum.speccy.org/contacto
 
 // OSD
 #if !defined(PICO_RP2040)
-#define OSD_TITLE  " ESPectrum v.1.2 (RP2350 port v." PORT_VERSION ")  "
+  #if PORT_VERSION_LEN <= 5
+    #define OSD_TITLE  " ESPectrum v.1.2 (RP2350 port v." PORT_VERSION ")  "
+  #else
+    #define OSD_TITLE  " ESPectrum v.1.2 (RP2350 port v." PORT_VERSION ") "
+  #endif
 #else
-#define OSD_TITLE  " ESPectrum v.1.2 (RP2040 port v." PORT_VERSION ")  "
+  #if PORT_VERSION_LEN <= 5
+    #define OSD_TITLE  " ESPectrum v.1.2 (RP2040 port v." PORT_VERSION ")  "
+  #else
+    #define OSD_TITLE  " ESPectrum v.1.2 (RP2040 port v." PORT_VERSION ") "
+  #endif
 #endif
 // #define OSD_BOTTOM " SCIENCE LEADS TO PROGRESS              "
-#define OSD_BOTTOM " Murmulator port by MikeV73 " EMU_VERSION
+#define OSD_BOTTOM " Murmulator port by MikeV73" EMU_VERSION
 
 #define OSD_PAUSE_EN "--=[ PAUSED ]=--"
 #define OSD_PAUSE_ES "--=[EN PAUSA]=--"
@@ -269,31 +281,75 @@ static const char *MENU_SNA[2] = { MENU_SNA_EN, MENU_SNA_ES };
     "Play/Stop\t(F6)  \n"\
     "Tape browser\t(F7)  \n"\
 	"Player mode\t>\n"\
-	"Real sound-in\t>\n"
+	"Real sound-in\t>\n"\
+	"Fast tape load\t>\n"\
+	"R.G. ROM timings\t>\n"
 #define MENU_TAPE_ES \
     "Casete\n"\
     "Elegir (TAP)\t(F5) >\n"\
     "Play/Stop\t(F6)  \n"\
     "Navegador cinta\t(F7)  \n"\
 	"Modo reproductor\t>\n"\
-	"Modo de sonido real\t>\n"
+	"Modo de sonido real\t>\n"\
+	"Carga rapida cinta\t>\n"\
+	"Timings ROM R.G.\t>\n"
 static const char *MENU_TAPE[2] = { MENU_TAPE_EN, MENU_TAPE_ES };
 #define MENU_TAPE_NO_SD_EN \
     "Tape menu\n"\
     "Play/Stop\t(F6)  \n"\
     "Tape browser\t(F7)  \n"\
 	"Player mode\t>\n"\
-	"Real sound-in\t>\n"
+	"Real sound-in\t>\n"\
+	"Fast tape load\t>\n"\
+	"R.G. ROM timings\t>\n"
 #define MENU_TAPE_NO_SD_ES \
     "Casete\n"\
     "Play/Stop\t(F6)  \n"\
     "Navegador cinta\t(F7)  \n"\
 	"Modo reproductor\t>\n"\
-	"Modo de sonido real\t>\n"
+	"Modo de sonido real\t>\n"\
+	"Carga rapida cinta\t>\n"\
+	"Timings ROM R.G.\t>\n"
 static const char *MENU_TAPE_NO_SD[2] = { MENU_TAPE_NO_SD_EN, MENU_TAPE_NO_SD_ES };
 
 static const char *MENU_TAPEPLAYER[2] = { "Player mode\n", "Modo reproductor\n" };
 static const char *MENU_TAPEPLAYER2[2] = { "Real input\n", "Entrada real\n" };
+
+#if !PICO_RP2040
+#define MENU_STORAGE_MAIN_EN \
+    "Storage\n"\
+    "Tape\t>\n"\
+    "Betadisk\t>\n"\
+    "esxDOS\t>\n"\
+    "Snapshot\t>\n"
+#define MENU_STORAGE_MAIN_ES \
+    "Almacenamiento\n"\
+    "Casete\t>\n"\
+    "Betadisk\t>\n"\
+    "esxDOS\t>\n"\
+    "Snapshots\t>\n"
+static const char *MENU_STORAGE_MAIN[2] = { MENU_STORAGE_MAIN_EN, MENU_STORAGE_MAIN_ES };
+#else
+#define MENU_STORAGE_MAIN_EN \
+    "Storage\n"\
+    "Tape\t>\n"\
+    "Betadisk\t>\n"\
+    "Snapshot\t>\n"
+#define MENU_STORAGE_MAIN_ES \
+    "Almacenamiento\n"\
+    "Casete\t>\n"\
+    "Betadisk\t>\n"\
+    "Snapshots\t>\n"
+static const char *MENU_STORAGE_MAIN[2] = { MENU_STORAGE_MAIN_EN, MENU_STORAGE_MAIN_ES };
+#endif
+
+#define MENU_STORAGE_MAIN_NO_SD_EN \
+    "Storage\n"\
+    "Tape\t>\n"
+#define MENU_STORAGE_MAIN_NO_SD_ES \
+    "Almacenamiento\n"\
+    "Casete\t>\n"
+static const char *MENU_STORAGE_MAIN_NO_SD[2] = { MENU_STORAGE_MAIN_NO_SD_EN, MENU_STORAGE_MAIN_NO_SD_ES };
 
 #define MENU_BETADISK_EN \
     "Drives\n"\
@@ -316,10 +372,14 @@ static const char *MENU_TAPEPLAYER2[2] = { "Real input\n", "Entrada real\n" };
 	"Sonido y LED del disco\t>\n"\
 	"ROM\t>\n"
 static const char *MENU_BETADISK[2] = { MENU_BETADISK_EN,MENU_BETADISK_ES };
+#if !PICO_RP2040
+static const char *MENU_ESXDOS_TITLE[2] = { "esxDOS\n", "esxDOS\n" };
+static const char *MENU_IMG_TITLE[2] = { "esxDOS Image\n", "Imagen esxDOS\n" };
+#endif
 
 static const char *MENU_FASTMODE[2] = { "Fast Mode\n", "Modo rápido\n" };
 static const char *MENU_WRITEPROTECT[2] = { "Write Protect\n", "MProtección contra escritura\n" };
-static const char *MENU_SOUNDLED[2] = { "Disk Sound & LED\n", "Sonido y LED del disco\n" };
+static const char *MENU_SOUNDLED[2] = { "Sound & LED\n", "Sonido y LED\n" };
 static const char *MENU_NMI_TITLE[2] = { "NMI\n", "NMI\n" };
 #define MENU_NMI_EN "NMI\n" "Magic Button\n"
 #define MENU_NMI_ES "NMI\n" "Magic Button\n"
@@ -329,6 +389,10 @@ static const char *MENU_NMI_SEL[2] = { MENU_NMI_EN, MENU_NMI_ES };
 #define MENU_RESETTO_128_EN "Reset to\n" "128K\n" "48K\n"
 #define MENU_RESETTO_128_ES "Resetear a\n" "128K\n" "48K\n"
 static const char *MENU_RESETTO_128[2] = { MENU_RESETTO_128_EN, MENU_RESETTO_128_ES };
+
+#define MENU_RESETTO_DIVMMC_EN "Reset\n" "Soft Reset\n" "Hard Reset\n"
+#define MENU_RESETTO_DIVMMC_ES "Reset\n" "Soft Reset\n" "Hard Reset\n"
+static const char *MENU_RESETTO_DIVMMC[2] = { MENU_RESETTO_DIVMMC_EN, MENU_RESETTO_DIVMMC_ES };
 
 #define MENU_RESETTO_PENT_EN "Reset to\n" "TR-DOS\n" "128K\n" "48K\n"
 #define MENU_RESETTO_PENT_ES "Resetear a\n" "TR-DOS\n" "128K\n" "48K\n"
@@ -362,9 +426,9 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
 #if TFT
 #define MENU_MAIN_EN \
 	"Volume\n"\
-    "Snapshot\t>\n"\
-    "Tape\t>\n"\
-    "Betadisk\t>\n"\
+    "Storage\t>\n"\
+    "Audio\t>\n"\
+    "Video\t>\n"\
 	"Machine\t>\n"\
     "Reset\t>\n"\
     "Options\t>\n"\
@@ -374,9 +438,9 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
 	"TFT\t>\n"
 #define MENU_MAIN_ES \
     "Volumen\n"\
-	"Snapshots\t>\n"\
-    "Casete\t>\n"\
-    "Betadisk\t>\n"\
+    "Almacenamiento\t>\n"\
+    "Audio\t>\n"\
+    "Video\t>\n"\
     "Modelo\t>\n"\
     "Resetear\t>\n"\
     "Opciones\t>\n"\
@@ -387,9 +451,9 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
 #else
 #define MENU_MAIN_EN \
 	"Volume\n"\
-    "Snapshot\t>\n"\
-    "Tape\t>\n"\
-    "Betadisk\t>\n"\
+    "Storage\t>\n"\
+    "Audio\t>\n"\
+    "Video\t>\n"\
 	"Machine\t>\n"\
     "Reset\t>\n"\
     "Options\t>\n"\
@@ -398,9 +462,9 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
     "About\n"
 #define MENU_MAIN_ES \
     "Volumen\n"\
-	"Snapshots\t>\n"\
-    "Casete\t>\n"\
-    "Betadisk\t>\n"\
+    "Almacenamiento\t>\n"\
+    "Audio\t>\n"\
+    "Video\t>\n"\
     "Modelo\t>\n"\
     "Resetear\t>\n"\
     "Opciones\t>\n"\
@@ -412,43 +476,43 @@ static const char *MENU_MAIN[2] = { MENU_MAIN_EN, MENU_MAIN_ES };
 
 #define MENU_MAIN_NO_SD_EN \
 	"Volume\n"\
-    "Tape\t>\n"\
+    "Storage\t>\n"\
+    "Audio\t>\n"\
+    "Video\t>\n"\
 	"Machine\t>\n"\
     "Reset\t>\n"\
     "Options\t>\n"\
+    "Debug\t>\n"\
     "Help\n"\
     "About\n"
 #define MENU_MAIN_NO_SD_ES \
     "Volumen\n"\
-    "Casete\t>\n"\
+    "Almacenamiento\t>\n"\
+    "Audio\t>\n"\
+    "Video\t>\n"\
     "Modelo\t>\n"\
     "Resetear\t>\n"\
     "Opciones\t>\n"\
+    "Depurar\t>\n"\
     "Ayuda\n"\
     "Acerca de\n"
 static const char *MENU_MAIN_NO_SD[2] = { MENU_MAIN_NO_SD_EN, MENU_MAIN_NO_SD_ES };
 
 #define MENU_OPTIONS_EN \
     "Options menu\n"\
-    "Storage\t>\n"\
     "Preferred Machine\t>\n"\
     "Preferred ROM\t>\n"\
     "Joystick\t>\n"\
     "Joystick emulation\t>\n"\
-    "Audio\t>\n"\
-    "Video\t>\n"\
     "Other\t>\n"\
     "Language\t>\n"\
 	"Update\t>\n"
 #define MENU_OPTIONS_ES \
     "Menu opciones\n"\
-    "Almacenamiento\t>\n"\
     "Modelo preferido\t>\n"\
     "ROM preferida\t>\n"\
     "Joystick\t>\n"\
     "Emulaci" "\xA2" "n joystick\t>\n"\
-    "Audio\t>\n"\
-    "Video\t>\n"\
     "Otros\t>\n"\
     "Idioma\t>\n"\
 	"Actualizar\t>\n"
@@ -523,6 +587,17 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 #endif
 static const char *MENU_VIDEO[2] = { MENU_VIDEO_EN, MENU_VIDEO_ES };
 
+#if PICO_RP2040
+#define MENU_VIDEO_MODE_EN \
+    "Mode\n"\
+    "640x480@60\t[6]\n"\
+    "640x480@50\t[5]\n"
+
+#define MENU_VIDEO_MODE_ES \
+    "Modo\n"\
+    "640x480@60\t[6]\n"\
+    "640x480@50\t[5]\n"
+#else
 #define MENU_VIDEO_MODE_EN \
     "Mode\n"\
     "640x480@60\t[6]\n"\
@@ -538,6 +613,7 @@ static const char *MENU_VIDEO[2] = { MENU_VIDEO_EN, MENU_VIDEO_ES };
     "720x480@60\t[H]\n"\
     "720x576@60!\t[X]\n"\
     "720x576@50\t[F]\n"
+#endif
 
 static const char *MENU_VIDEO_MODE[2] = { MENU_VIDEO_MODE_EN, MENU_VIDEO_MODE_ES };
 
@@ -650,13 +726,6 @@ static const char *MENU_PERSIST_SAVE[2] = { MENU_PERSIST_SAVE_EN, MENU_PERSIST_S
     "Cargar snapshot\n"
 static const char *MENU_PERSIST_LOAD[2] = { MENU_PERSIST_LOAD_EN, MENU_PERSIST_LOAD_ES };
 
-#define MENU_STORAGE_EN "Storage\n"\
-    "Fast tape load\t>\n"\
-    "R.G. ROM timings\t>\n"
-#define MENU_STORAGE_ES "Almacenamiento\n"\
-    "Carga rapida cinta\t>\n"\
-    "Timings ROM R.G.\t>\n"
-static const char *MENU_STORAGE[2] = { MENU_STORAGE_EN, MENU_STORAGE_ES };
 
 #define MENU_YESNO_EN "Yes\t[Y]\n"\
     "No\t[N]\n"
@@ -688,7 +757,7 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
     "TurboSound\t>\n"\
     "Covox\t>\n"\
     "SAA1099 ON/OFF\t>\n"\
-    "Ext MIDI\t>\n"\
+    "MIDI\t>\n"\
     "Audio Driver\t>\n"
 #define MENU_AUDIO_ES "Audio\n"\
     "AY-3-8912 ON/OFF\t>\n"\
@@ -696,7 +765,7 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
     "TurboSound\t>\n"\
     "Covox\t>\n"\
     "SAA1099 ON/OFF\t>\n"\
-    "Ext MIDI\t>\n"\
+    "MIDI\t>\n"\
     "Controlador de audio\t>\n"
 #endif
 static const char *MENU_AUDIO[2] = { MENU_AUDIO_EN, MENU_AUDIO_ES };
@@ -721,15 +790,30 @@ static const char *MENU_AY48[2] = { "Turned on?\n" , "Turned on?\n"};
 
 #if !PICO_RP2040
 static const char *MENU_SAA1099[2] = { "Turned on?\n" , "Turned on?\n"};
-#define MENU_MIDI_EN "Ext MIDI\n"\
+#define _MIDI_STR(x) #x
+#define _MIDI_XSTR(x) _MIDI_STR(x)
+#define MENU_MIDI_EN "MIDI(Ext:P" _MIDI_XSTR(MIDI_TX_PIN) ")\n"\
     "OFF     \t[O]\n"\
     "AY      \t[A]\n"\
-    "ShamaZX \t[S]\n"
-#define MENU_MIDI_ES "Ext MIDI\n"\
+    "ShamaZX \t[S]\n"\
+    "Software\t[W]\n"
+#define MENU_MIDI_ES "MIDI(Ext:P" _MIDI_XSTR(MIDI_TX_PIN) ")\n"\
     "OFF     \t[O]\n"\
     "AY      \t[A]\n"\
-    "ShamaZX \t[S]\n"
+    "ShamaZX \t[S]\n"\
+    "Software\t[W]\n"
 static const char *MENU_MIDI[2] = { MENU_MIDI_EN, MENU_MIDI_ES };
+#define MENU_MIDI_PRESET_EN "Synth Preset\n"\
+    "GM       \t[G]\n"\
+    "Piano    \t[P]\n"\
+    "Chiptune \t[C]\n"\
+    "Strings  \t[S]\n"\
+    "Rock     \t[R]\n"\
+    "Organ    \t[O]\n"\
+    "Music Box\t[M]\n"\
+    "Synth    \t[Y]\n"
+#define MENU_MIDI_PRESET_ES MENU_MIDI_PRESET_EN
+static const char *MENU_MIDI_PRESET[2] = { MENU_MIDI_PRESET_EN, MENU_MIDI_PRESET_ES };
 #endif
 
 #if !PICO_RP2040
@@ -768,11 +852,13 @@ static const char *MENU_COVOX[2] = { MENU_COVOX_EN, MENU_COVOX_EN };
     "PWM      \t[P]\n"\
     "i2s      \t[I]\n"\
     "AY-3-8910\t[Y]\n"
+	// \"HDMI     \t[H]\n"
 #define MENU_I2S_ES "Controlador de audio\n"\
     "Auto     \t[A]\n"\
     "PWM      \t[P]\n"\
     "i2s      \t[I]\n"\
     "AY-3-8910\t[Y]\n"
+	// \"HDMI     \t[H]\n"
 static const char *MENU_I2S[2] = { MENU_I2S_EN, MENU_I2S_ES };
 
 #define MENU_ALF_JOY_EN "Source\n"\

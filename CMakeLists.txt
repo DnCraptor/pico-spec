@@ -36,10 +36,12 @@ if(NOT VGA_HDMI AND NOT SOFTTV AND NOT TFT AND NOT ILI9341 AND NOT TV)
 endif()
 #set(TFT_INV 0)
 #set(TFT_INV 1)
+set(NO_ALF 1)
 
 #set(CPU_MHZ 252)
 set(CPU_MHZ 378)
-set (PORT_VERSION "1.2.N")
+set (PORT_VERSION "1.2.N1")
+string(LENGTH "${PORT_VERSION}" PORT_VERSION_LEN)
 
 # Target board (default: PICO_PC; override with -D flags, e.g. cmake -DMURM2=ON)
 if(NOT MURM AND NOT MURM2 AND NOT PICO_PC AND NOT PICO_DV AND NOT ZERO AND NOT ZERO2)
@@ -152,6 +154,8 @@ set_source_files_properties(src/AySound.cpp PROPERTIES
     COMPILE_FLAGS "-O3 -ffast-math -funroll-loops")
 set_source_files_properties(src/SAASound.cpp PROPERTIES
     COMPILE_FLAGS "-O3 -ffast-math -funroll-loops")
+set_source_files_properties(src/MidiSynth.cpp PROPERTIES
+    COMPILE_FLAGS "-O3 -ffast-math -funroll-loops")
 set_source_files_properties(src/Video.cpp PROPERTIES
     COMPILE_FLAGS "-O3 -funroll-loops")
 # Z80 эмулятор — самый горячий код, критично для производительности
@@ -250,6 +254,10 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
 )
 ENDIF()
 
+if(NO_ALF)
+    target_compile_definitions(${PROJECT_NAME} PRIVATE NO_ALF=1)
+endif()
+
 IF(KBDUSB)
     add_subdirectory(drivers/ps2kbd)
     target_link_libraries(${PROJECT_NAME} PRIVATE ps2kbd)
@@ -266,7 +274,7 @@ endif()
 
 IF(MURM2)
     target_compile_definitions(${PROJECT_NAME} PRIVATE
-        PORT_VERSION="${PORT_VERSION}"
+        PORT_VERSION="${PORT_VERSION}" PORT_VERSION_LEN=${PORT_VERSION_LEN}
         MURM2=1
         CPU_MHZ=${CPU_MHZ}
 
@@ -333,7 +341,7 @@ IF(MURM2)
     )
 ELSEIF(PICO_PC)
     target_compile_definitions(${PROJECT_NAME} PRIVATE
-        PORT_VERSION="${PORT_VERSION}"
+        PORT_VERSION="${PORT_VERSION}" PORT_VERSION_LEN=${PORT_VERSION_LEN}
         CPU_MHZ=${CPU_MHZ}
 
         PICO_PC=1
@@ -400,7 +408,7 @@ ELSEIF(PICO_PC)
     )
 ELSEIF(PICO_DV)
     target_compile_definitions(${PROJECT_NAME} PRIVATE
-        PORT_VERSION="${PORT_VERSION}"
+        PORT_VERSION="${PORT_VERSION}" PORT_VERSION_LEN=${PORT_VERSION_LEN}
         CPU_MHZ=${CPU_MHZ}
 
         PICO_DV=1
@@ -464,7 +472,7 @@ ELSEIF(PICO_DV)
 )
 ELSEIF(ZERO)
     target_compile_definitions(${PROJECT_NAME} PRIVATE
-        PORT_VERSION="${PORT_VERSION}"
+        PORT_VERSION="${PORT_VERSION}" PORT_VERSION_LEN=${PORT_VERSION_LEN}
         CPU_MHZ=${CPU_MHZ}
         ZERO=1
 
@@ -523,7 +531,7 @@ ELSEIF(ZERO)
     )
 ELSEIF(ZERO2)
     target_compile_definitions(${PROJECT_NAME} PRIVATE
-        PORT_VERSION="${PORT_VERSION}"
+        PORT_VERSION="${PORT_VERSION}" PORT_VERSION_LEN=${PORT_VERSION_LEN}
         CPU_MHZ=${CPU_MHZ}
         ZERO2=1
 
@@ -583,7 +591,7 @@ ELSEIF(ZERO2)
     )
 ELSE()
     target_compile_definitions(${PROJECT_NAME} PRIVATE
-        PORT_VERSION="${PORT_VERSION}"
+        PORT_VERSION="${PORT_VERSION}" PORT_VERSION_LEN=${PORT_VERSION_LEN}
         CPU_MHZ=${CPU_MHZ}
 
         KBD_CLOCK_PIN=0

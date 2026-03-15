@@ -32,6 +32,11 @@
 #include "OSDMain.h"
 #include "messages.h"
 #include "Debug.h"
+#include "ESPectrum.h"
+#include "wd1793.h"
+#if !PICO_RP2040
+#include "DivMMC.h"
+#endif
 
 
 // #include "Snapshot.h"
@@ -40,10 +45,20 @@
 
 uint8_t page;
 
+#if !PICO_RP2040
+#define PEEK8(result,address) \
+ page = address >> 14; \
+ VIDEO::Draw(3,MemESP::ramContended[page]); \
+ if (page == 0 && MemESP::divmmc_mapped) \
+     result = ((address) < 0x2000) ? MemESP::page0_lo[address] : MemESP::page0_hi[(address) & 0x1FFF]; \
+ else \
+     result = MemESP::ramCurrent[page][address & 0x3fff];
+#else
 #define PEEK8(result,address) \
  page = address >> 14; \
  VIDEO::Draw(3,MemESP::ramContended[page]); \
  result = MemESP::ramCurrent[page][address & 0x3fff];
+#endif
 
 // miembros estáticos
 
@@ -946,6 +961,10 @@ IRAM_ATTR void Z80::check_trdos() {
         return;
     }
 
+#if !PICO_RP2040
+    if (DivMMC::enabled) return; // DivMMC automap handled in fetchOpcode/exec_nocheck
+#endif
+
     if (ESPectrum::trdos == true || Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) {
 
         if (!ESPectrum::trdos) {
@@ -1080,8 +1099,18 @@ void Z80::doNMI(void) {
 
     activeNMI = false;
     lastFlagQ = false;
+#if !PICO_RP2040
+    // ZEsarUX approach: reset DivMMC state before NMI so automap trap at 0x0066
+    // fires correctly. Without this, if automap is already ON, preOpcFetch
+    // won't set trap_after (it checks !automap) and 0x0066 reads C9=RET from
+    // ESXDOS ROM instead of F5=PUSH AF from Spectrum ROM.
+    if (DivMMC::enabled) {
+        DivMMC::conmem = false;
+        DivMMC::automap = false;
+        DivMMC::applyMapping();
+    }
+#endif
     nmi();
-    // printf("NMI!\n");
 
 }
 
@@ -1200,6 +1229,19 @@ IRAM_ATTR void Z80::exec_nocheck() {
 
         uint8_t pg = REG_PCh >> 6;
         VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
+#if !PICO_RP2040
+        if (DivMMC::enabled) {
+            DivMMC::preOpcFetch(REG_PC);
+            // Fetch opcode from currently mapped memory
+            pg = REG_PCh >> 6; // re-read in case 0x3Dxx instant map changed it
+            if (pg == 0 && MemESP::divmmc_mapped) {
+                opCode = (REG_PC < 0x2000) ? MemESP::page0_lo[REG_PC] : MemESP::page0_hi[REG_PC & 0x1FFF];
+            } else {
+                opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
+            }
+            DivMMC::postOpcFetch();
+        } else
+#endif
         opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
 
         regR++;
@@ -2406,27 +2448,26 @@ void Z80::decodeOpcodebe()
     //   0x057D = Sinclair 48K ROM(CP A at 0x057C) -> RET at 0x0606
     if (REG_PC == 0x56b || REG_PC == 0x56d || REG_PC == 0x57d) {
 
-        if ((Tape::tapeFileType == TAPE_FTYPE_TAP || Tape::tapeFileType == TAPE_FTYPE_TZX) && (Tape::tapeFileName != "none")) {
+        if ((Tape::tapeFileType == TAPE_FTYPE_TAP || Tape::tapeFileType == TAPE_FTYPE_TZX || Tape::tapeFileType == TAPE_FTYPE_PZX) && (Tape::tapeFileName != "none")) {
               // Skip ROM FlashLoad while JJ screen animation is in progress —
               // the loader's edge detection timeout can briefly return to ROM,
               // and we must not let ROM FlashLoad consume tape blocks.
               if (Config::flashload && !Tape::jjScreenAnimating) {
                 // Save return PC before FlashLoad (it doesn't modify REG_PC)
                 uint16_t trapPC = REG_PC;
-                Debug::log("ROM FL: trap=0x%04X blk=%d/%d IX=0x%04X DE=0x%04X A=0x%02X",
-                       trapPC, Tape::tapeCurBlock, Tape::tapeNumBlocks,
-                       getRegIX(), getRegDE(), regA);
                 if (Tape::FlashLoad()) {
-                    // Stop tape if it was auto-started
+                    // Stop tape if it was auto-started.
+                    // Preserve tapePhase if pzxFlashCont is set (partial PZX load
+                    // set up DATA1 phase for real-mode continuation by auto-start).
                     if (Tape::tapeStatus == TAPE_LOADING) {
                         Tape::tapeStatus = TAPE_STOPPED;
-                        Tape::tapePhase = TAPE_PHASE_STOPPED;
+                        if (!Tape::pzxFlashCont)
+                            Tape::tapePhase = TAPE_PHASE_STOPPED;
                     }
                     // Jump to RET after CP 0x01 in the active ROM's LD-BYTES
                     if (trapPC == 0x56d)      REG_PC = 0x5e4; // Byte ROM
                     else if (trapPC == 0x57d) REG_PC = 0x606; // Sinclair ROM
                     else                      REG_PC = 0x5e2; // Spanish ROM
-                    Debug::log("ROM FL: OK -> blk=%d PC=0x%04X", Tape::tapeCurBlock, REG_PC);
                 }
             }
         }
@@ -3002,7 +3043,7 @@ void Z80::decodeOpcodef1() /* POP AF */
     //   JP case: pops game entry addr → starts game
     if (REG_PC == 0x557 && Z80Ops::isByte && Config::flashload &&
         !Tape::jjScreenAnimating &&
-        (Tape::tapeFileType == TAPE_FTYPE_TAP || Tape::tapeFileType == TAPE_FTYPE_TZX) &&
+        (Tape::tapeFileType == TAPE_FTYPE_TAP || Tape::tapeFileType == TAPE_FTYPE_TZX || Tape::tapeFileType == TAPE_FTYPE_PZX) &&
         Tape::tapeFileName != "none") {
         // Simulate EX AF,AF': swap A/F with A'/F' so FlashLoad sees flag in A'
         uint8_t tmpA = regA;       uint8_t tmpAx = REG_Ax;
@@ -3014,18 +3055,11 @@ void Z80::decodeOpcodef1() /* POP AF */
         // FlashLoad uses DE as expected byte count. Set DE to 0xFFFF so
         // FlashLoad loads the full block (it uses min(DE, blockLen)).
         uint16_t origDE = getRegDE();
-        uint16_t retOnStack = Z80Ops::peek16(regSP.word);
-        if (retOnStack >= 0x4000) {
-            setRegDE(0xFFFF);
-        }
-
-        Debug::log("POP AF trap: blk=%d/%d IX=0x%04X DE=0x%04X A=0x%02X Ax=0x%02X ret=0x%04X",
-                   Tape::tapeCurBlock, Tape::tapeNumBlocks,
-                   getRegIX(), getRegDE(), regA, REG_Ax, retOnStack);
         if (Tape::FlashLoad()) {
             if (Tape::tapeStatus == TAPE_LOADING) {
                 Tape::tapeStatus = TAPE_STOPPED;
-                Tape::tapePhase = TAPE_PHASE_STOPPED;
+                if (!Tape::pzxFlashCont)
+                    Tape::tapePhase = TAPE_PHASE_STOPPED;
             }
             // Skip POP AF;RET — pop return address from stack.
             // CALL 0x0556: pops CALL return addr → back to caller
@@ -5940,6 +5974,7 @@ void Z80::decodeED(void) {
         { /* RETI */
             ffIFF1 = ffIFF2;
             REG_PC = REG_WZ = pop();
+            check_trdos();
             break;
         }
         case 0x45:

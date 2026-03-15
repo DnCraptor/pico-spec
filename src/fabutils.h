@@ -1628,6 +1628,8 @@ inline bool isGUI(VirtualKey value)
 #define ASCII_SPC   0x20   // Space
 #define ASCII_DEL   0x7F   // Delete
 
+#define DIR_MARKER  0x01   // Directory marker in file browser lists
+
 
 } // end of namespace
 

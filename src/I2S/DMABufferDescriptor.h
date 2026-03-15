@@ -32,67 +32,25 @@ class DMABufferDescriptor /// : protected lldesc_t
 
 	static void **allocateDMABufferArray(int count, int bytes, bool clear = true, unsigned long clearValue = 0)
 	{
-		if (count == 288) {
-			// 288, 720x576 full border mode (need +1 safety line for border rendering)
-			void **arr = (void **)malloc(289 * sizeof(void *));
-			if(!arr)
-				ERROR("Not enough DMA memory");
-			for (int i = 0; i < 289; i++)
-			{
-				arr[i] = DMABufferDescriptor::allocateBuffer(bytes, true, clearValue);
-				if(!arr[i])
-					ERROR("Not enough DMA memory");
-			}
-			return arr;
-		}
-		if (count == 240) {
-			// 240, 720x480 half border mode (need +1 safety line for border rendering)
-			void **arr = (void **)malloc(241 * sizeof(void *));
-			if(!arr)
-				ERROR("Not enough DMA memory");
-			for (int i = 0; i < 241; i++)
-			{
-				arr[i] = DMABufferDescriptor::allocateBuffer(bytes, true, clearValue);
-				if(!arr[i])
-					ERROR("Not enough DMA memory");
-			}
-			return arr;
-		}
-		if (count == 480) {
-			// 480, fake scanlines mode
-			void **arr = (void **)malloc(241 * sizeof(void *));
-			if(!arr)
-				ERROR("Not enough DMA memory");
-			for (int i = 0; i < 241; i++)
-			{
-				arr[i] = DMABufferDescriptor::allocateBuffer(bytes, true, clearValue);
-				if(!arr[i])
-					ERROR("Not enough DMA memory");
-			}
-			return arr;
-		}
-		if (count == 400) {
-			// 400, fake scanlines mode
-			void **arr = (void **)malloc(201 * sizeof(void *));
-			if(!arr)
-				ERROR("Not enough DMA memory");
-			for (int i = 0; i < 201; i++)
-			{
-				arr[i] = DMABufferDescriptor::allocateBuffer(bytes, true, clearValue);
-				if(!arr[i])
-					ERROR("Not enough DMA memory");
-			}
-			return arr;
-		}
-		void **arr = (void **)malloc(count * sizeof(void *));
-		if(!arr)
+		int lines;
+		if (count == 288) lines = 289;       // 720x576 full border (+1 safety)
+		else if (count == 240) lines = 241;  // 720x480 half border (+1 safety)
+		else if (count == 480) lines = 241;  // fake scanlines
+		else if (count == 400) lines = 201;  // fake scanlines
+		else lines = count;
+
+		int stride = (bytes + 3) & 0xfffffffc;
+		void **arr = (void **)malloc(lines * sizeof(void *));
+		if (!arr)
 			ERROR("Not enough DMA memory");
-		for (int i = 0; i < count; i++)
-		{
-			arr[i] = DMABufferDescriptor::allocateBuffer(bytes, true, clearValue);
-			if(!arr[i])
-				ERROR("Not enough DMA memory");
-		}
+		uint8_t *block = (uint8_t *)heap_caps_malloc(lines * stride, MALLOC_CAP_DMA);
+		if (!block)
+			ERROR("Not enough DMA memory");
+		if (clear)
+			for (int i = 0; i < lines * stride / 4; i++)
+				((unsigned long *)block)[i] = clearValue;
+		for (int i = 0; i < lines; i++)
+			arr[i] = block + i * stride;
 		return arr;
 	}
 /**

@@ -1,0 +1,48 @@
+ZXF45_O.FDI Structure
+=====================
+
+FDI Header:
+  Cylinders: 83, Sides: 2, DataOffset: 0x3672
+
+=== Cyl 0 Side 0: trkDataOff=0x0000, numSectors=16 ===
+  [ 0] C=0 H=0 R= 1 N=1 flags=0x02 secDataOff=0x0000 size=256
+  [ 1] C=0 H=0 R= 2 N=1 flags=0x02 secDataOff=0x0100 size=256
+  [ 2] C=0 H=0 R= 3 N=1 flags=0x02 secDataOff=0x0200 size=256
+  [ 3] C=0 H=0 R= 4 N=1 flags=0x02 secDataOff=0x0300 size=256
+  [ 4] C=0 H=0 R= 5 N=1 flags=0x02 secDataOff=0x0400 size=256
+  [ 5] C=0 H=0 R= 6 N=1 flags=0x02 secDataOff=0x0500 size=256
+  [ 6] C=0 H=0 R= 7 N=1 flags=0x02 secDataOff=0x0600 size=256
+  [ 7] C=0 H=0 R= 8 N=1 flags=0x02 secDataOff=0x0700 size=256
+  [ 8] C=0 H=0 R= 9 N=1 flags=0x02 secDataOff=0x0800 size=256  <-- SIS
+  [ 9] C=0 H=0 R=10 N=1 flags=0x02 secDataOff=0x0900 size=256  <-- boot data start
+  [10] C=0 H=0 R=11 N=1 flags=0x02 secDataOff=0x0A00 size=256
+  [11] C=0 H=0 R=12 N=1 flags=0x02 secDataOff=0x0B00 size=256
+  [12] C=0 H=0 R=13 N=1 flags=0x02 secDataOff=0x0C00 size=256
+  [13] C=0 H=0 R=14 N=1 flags=0x02 secDataOff=0x0D00 size=256
+  [14] C=0 H=0 R=15 N=1 flags=0x02 secDataOff=0x0E00 size=256
+  [15] C=0 H=0 R=16 N=1 flags=0x02 secDataOff=0x0F00 size=256
+
+=== Cyl 0 Side 1: trkDataOff=0x1000, numSectors=5 ===
+  [ 0] C=0 H=1 R= 0 N=3 flags=0x08 secDataOff=0x0000 size=1024
+  [ 1] C=0 H=1 R= 1 N=3 flags=0x08 secDataOff=0x0400 size=1024
+  [ 2] C=0 H=1 R= 2 N=3 flags=0x08 secDataOff=0x0800 size=1024
+  [ 3] C=0 H=1 R= 3 N=3 flags=0x08 secDataOff=0x0C00 size=1024
+  [ 4] C=0xA4 H=0x42 R=0xF7 N=0xF7 flags=0x08 secDataOff=0x1000  <-- SPArker protection sector
+
+TR-DOS Catalog (sector R=1):
+  [ 0] "boot    " B param=0395(917) len=0 sects=0 sec=9 trk=0
+  [ 1] "ILLUSION" B param=00CC len=204 sects=1 sec=0 trk=68
+  [ 2] "DATA3   " C param=6000 len=11955 sects=47 sec=1 trk=68
+  ...
+  [15] "TIGER   " C param=7E9B len=6912 sects=27 sec=6 trk=141
+
+Boot file notes:
+  - len=0, sects=0: boot marker with zero explicit data length
+  - param=917 (0x0395): BASIC start line, but ROM may use it as byte count
+  - 917 bytes = ceil(917/256) = 4 sectors (R=10,11,12,13)
+  - Sector R=10 starts with: "ZX-FORMAT 4.5 (C)XL-DESIGN I..."
+  - Code is designed for PROG=0x5CCB (48K), but Pentagon 128K has PROG=0x5E3C
+
+Sector R=10 data (boot code start):
+  00 00 76 01 5A 58 2D 46 4F 52 4D 41 54 20 34 2E
+  35 20 28 43 29 58 4C 2D 44 45 53 49 47 4E 20 49

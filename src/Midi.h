@@ -11,7 +11,7 @@ public:
     static void send(uint8_t b);
     static bool busy();
 
-    static uint8_t enabled;  // 0=Off, 1=AY bitbang, 2=ShamaZX
+    static uint8_t enabled;  // 0=Off, 1=AY bitbang, 2=ShamaZX, 3=Soft Synth
 
 private:
     static bool hw_initialized;

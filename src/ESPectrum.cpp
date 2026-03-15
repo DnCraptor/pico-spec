@@ -62,7 +62,11 @@ visit https://zxespectrum.speccy.org/contacto
 
 #include "PinSerialData_595.h"
 #include "Debug.h"
+#if !PICO_RP2040
+#include "DivMMC.h"
+#endif
 #include "Midi.h"
+#include "MidiSynth.h"
 
 using namespace std;
 
@@ -187,6 +191,8 @@ uint32_t ESPectrum::faudbufcntCovox = 0;
 
 #if !PICO_RP2040
 uint8_t ESPectrum::audioBufferPIT[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
+uint8_t ESPectrum::audioBufferMIDI_L[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
+uint8_t ESPectrum::audioBufferMIDI_R[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
 uint32_t ESPectrum::audbufcntPIT = 0;
 uint32_t ESPectrum::faudbufcntPIT = 0;
 uint32_t ESPectrum::audbufcntSAA = 0;
@@ -194,7 +200,9 @@ uint32_t ESPectrum::faudbufcntSAA = 0;
 bool ESPectrum::SAA_emu = false;
 #endif
 
+#if !PICO_RP2040
 uint8_t ESPectrum::audioBufferFDD[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
+#endif
 int ESPectrum::lastaudioBit = 0;
 int ESPectrum::lastCovoxVal = 0;
 int ESPectrum::faudioBit = 0;
@@ -663,14 +671,22 @@ void ESPectrum::setup() {
 #else
 // page 0 is not supported without virtual memory on RP2040
 #endif
+    // Pages 1-3 are essential (minimum for 48K)
     MemESP::ram[1].assign_ram(new unsigned char[MEM_PG_SZ], 1, false);
     MemESP::ram[2].assign_ram(new unsigned char[MEM_PG_SZ], 2, false);
     MemESP::ram[3].assign_ram(new unsigned char[MEM_PG_SZ], 3, false);
-    MemESP::ram[4].assign_ram(new unsigned char[MEM_PG_SZ], 4, false);
+    ram_pages += 3;
+    // Pages 4,6 only if enough heap remains for framebuffer
+    if (getFreeHeap() >= MEM_PG_SZ + MEM_REMAIN) {
+        MemESP::ram[4].assign_ram(new unsigned char[MEM_PG_SZ], 4, false);
+        ++ram_pages;
+    }
     // 5 - static (video RAM)
-    MemESP::ram[6].assign_ram(new unsigned char[MEM_PG_SZ], 6, false);
+    if (getFreeHeap() >= MEM_PG_SZ + MEM_REMAIN) {
+        MemESP::ram[6].assign_ram(new unsigned char[MEM_PG_SZ], 6, false);
+        ++ram_pages;
+    }
     // 7 - static (video RAM)
-    ram_pages += 5;
     Debug::log("setup: no ext_ram: pages done, freeHeap=%u", getFreeHeap());
   }
   // Load romset
@@ -707,6 +723,11 @@ void ESPectrum::setup() {
   MemESP::pagingLock = Config::arch == "48K" ? 1 : 0;
 
   ///    if (Config::slog_on) showMemInfo("RAM Initialized");
+
+#if !PICO_RP2040
+  // Always init DivMMC (load ROM) so it's ready if user enables from OSD later
+  DivMMC::init();
+#endif
 
   //=======================================================================================
   // VIDEO
@@ -933,14 +954,16 @@ void ESPectrum::reset(uint8_t romInUse) {
 
   // Empty audio buffers
   memset(overSamplebuf, 0, sizeof(overSamplebuf));
-  memset(audioBuffer_L, 0, sizeof(audioBuffer_L));
-  memset(audioBuffer_R, 0, sizeof(audioBuffer_R));
+  memset(audioBuffer_L, 128, sizeof(audioBuffer_L));
+  memset(audioBuffer_R, 128, sizeof(audioBuffer_R));
   memset(audioBufferCovox, 0, sizeof(audioBufferCovox));
   memset(chip0.SamplebufAY_L, 0, sizeof(chip0.SamplebufAY_L));
   memset(chip1.SamplebufAY_R, 0, sizeof(chip1.SamplebufAY_R));
 #if !PICO_RP2040
   memset(saaChip.SamplebufSAA_L, 0, sizeof(saaChip.SamplebufSAA_L));
   memset(saaChip.SamplebufSAA_R, 0, sizeof(saaChip.SamplebufSAA_R));
+  memset(audioBufferMIDI_L, 128, sizeof(audioBufferMIDI_L));
+  memset(audioBufferMIDI_R, 128, sizeof(audioBufferMIDI_R));
 #endif
   lastCovoxVal = lastaudioBit = 0;
 
@@ -977,8 +1000,15 @@ void ESPectrum::reset(uint8_t romInUse) {
 
   audioCOVOXDivider = audioAYDivider;
 
-  init_sound();
-  pcm_setup(Audio_freq);
+  // Skip audio hardware re-init on reset — sample rate never changes (always 31250),
+  // and i2s_deinit/i2s_init causes a click on I2S DAC.
+  // init_sound() + pcm_setup() are called once from setup().
+  static bool audio_initialized = false;
+  if (!audio_initialized) {
+    init_sound();
+    pcm_setup(Audio_freq);
+    audio_initialized = true;
+  }
 
   if (Config::tape_player) {
     AY_emu = false; // Disable AY emulation if tape player mode is set
@@ -1382,6 +1412,7 @@ __not_in_flash("audio") void ESPectrum::PITGetSample() {
 #endif
 
 void ESPectrum::FDDGenSound() {
+#if !PICO_RP2040
     memset(audioBufferFDD, 0, samplesPerFrame);
     uint8_t clicks = fdd.fdd_clicks;
     fdd.fdd_clicks = 0;
@@ -1406,6 +1437,9 @@ void ESPectrum::FDDGenSound() {
             audioBufferFDD[i] = (fdd_lfsr & 0xF);
         }
     }
+#else
+    fdd.fdd_clicks = 0;
+#endif
 }
 
 // === Таймер ===
@@ -1513,6 +1547,7 @@ void ESPectrum::loop() {
     beeperTstatesInSample = 0;
 
     CPU::loop();
+
 
     // Профилирование AY (только для отладки - закомментируйте после)
     // static uint64_t ay_total = 0, ay_count = 0;
@@ -1622,12 +1657,16 @@ void ESPectrum::loop() {
         {
           saaChip.gen_sound(samplesPerFrame - faudbufcntSAA, faudbufcntSAA);
         }
+        if (Midi::enabled == 3)
+        {
+          MidiSynth::gen_sound(audioBufferMIDI_L, audioBufferMIDI_R, samplesPerFrame);
+        }
 #endif
         for (int i = 0; i < samplesPerFrame; i++)
         {
-          int beeper_L = overSamplebuf[i] + audioBufferCovox[i] + audioBufferFDD[i]
+          int beeper_L = overSamplebuf[i] + audioBufferCovox[i]
 #if !PICO_RP2040
-                         + audioBufferPIT[i]
+                         + audioBufferFDD[i] + audioBufferPIT[i]
 #endif
               ;
           int beeper_R = beeper_L;
@@ -1650,9 +1689,18 @@ void ESPectrum::loop() {
               beeper_L += saaChip.SamplebufSAA_L[i];
               beeper_R += saaChip.SamplebufSAA_R[i];
             }
+            if (Midi::enabled == 3)
+            {
+              // MIDI outputs unsigned 0..255 center 128; convert to signed
+              beeper_L += (int)audioBufferMIDI_L[i] - 128;
+              beeper_R += (int)audioBufferMIDI_R[i] - 128;
+            }
 #endif
-            audioBuffer_L[i] = beeper_L > 255 ? 255 : beeper_L; // Clamp
-            audioBuffer_R[i] = beeper_R > 255 ? 255 : beeper_R; // Clamp
+            // Shift to 128-centered output (DAC treats 128 as silence)
+            beeper_L += 128;
+            beeper_R += 128;
+            audioBuffer_L[i] = beeper_L < 0 ? 0 : (beeper_L > 255 ? 255 : beeper_L);
+            audioBuffer_R[i] = beeper_R < 0 ? 0 : (beeper_R > 255 ? 255 : beeper_R);
         }
       }
     }
@@ -1724,7 +1772,11 @@ void ESPectrum::loop() {
       VIDEO::flashing ^= 0x80;
 
     // Draw fdd led indicator in top-right corner
-    bool hasFdd = (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) && Tape::tapeStatus != TAPE_LOADING;
+    bool hasFdd = (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) && Tape::tapeStatus != TAPE_LOADING
+#if !PICO_RP2040
+        && !DivMMC::enabled
+#endif
+        ;
     if (hasFdd && Config::trdosSoundLed) {
         if (ESPectrum::fdd.led) {
             VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(fdd.led == 2 ? 2 : 1, 1));

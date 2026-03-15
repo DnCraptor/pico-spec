@@ -53,6 +53,7 @@ using namespace std;
 #define DISK_TAPFILE 1
 #define DISK_DSKFILE 2
 #define DISK_ROMFILE 3
+#define DISK_IMGFILE 4
 
 struct DISK_FTYPE {
     string fileExts;
@@ -87,6 +88,7 @@ public:
     static bool hasTAPextension(string filename);
     static bool hasTZXextension(string filename);
     static bool hasWAVextension(string filename);
+    static bool hasPZXextension(string filename);
     static bool hasMP3extension(string filename);
 
     static void deleteFilesWithExtension(const char *folder_path, const char *extension);
@@ -98,8 +100,9 @@ public:
     static string TAP_Path; // Current TAP path on the SD
     static string DSK_Path; // Current DSK path on the SD
     static string ROM_Path; // Current DSK path on the SD
+    static string IMG_Path; // Current MMC/HDF image path on the SD
 
-    static DISK_FTYPE fileTypes[4];
+    static DISK_FTYPE fileTypes[5];
 
 private:
     friend class Config;

@@ -39,12 +39,13 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - Contended memory and contended I/O emulation.
 - AY-3-8912 / TurboSound emulation.
 - SAA1099 sound chip emulation (https://en.wikipedia.org/wiki/Philips_SAA1099).
-- External MIDI output via UART (31250 baud) — AY bit-bang and ShamaZX (SAM2695) modes.
+- MIDI support: external UART output (AY bit-bang, ShamaZX) and built-in software synthesizer (RP2350 only).
 - Beeper & Mic emulation (Cobra’s Arc).
 - Dual keyboard support: you can connect two devices: first using PS/2 protocol and second using USB at the same time.
 - PS/2 Joystick emulation (Cursor, Sinclair, Kempston and Fuller).
 - Two real joysticks support (Up to 8 button joysticks).
-- Emulation of Betadisk interface with four drives and TRD (read and write) and SCL (read only) support. Fast and tealtime modes.
+- Emulation of Betadisk interface with four drives and TRD (read and write), SCL (read only), UDI and FDI (read only, partial) support. Fast and realtime modes.
+- esxDOS support (DivMMC, DivIDE, DivSD) — [esxdos.org](https://esxdos.org/index.html).
 - FDD activity LED indicator and mechanical head click/seek sound emulation (optional, toggled via Betadisk menu).
 - Realtime (with OSD) TZX and TAP file loading.
 - Flashload of TAP files.
@@ -114,14 +115,23 @@ It is important to note that for custom ROMs, fast loading of taps can be used, 
 
 Finally, keep in mind that when updating the firmware, you will need to re-flash the custom ROMs afterward, so I recommend leaving the files "48custom.rom" and "128custom.rom" on the card for the custom ROMs you wish to use.
 
-## External MIDI Output
+## MIDI Support
 
-The emulator supports external MIDI output via a UART TX pin at 31250 baud (RP2350 boards only). Enable it in the OSD menu: **Audio → Ext MIDI**.
+The emulator supports MIDI output on RP2350 boards only. Enable it in the OSD menu: **Audio → MIDI**.
 
-Two modes are available:
+Three modes are available:
 
-- **AY** — Decodes bit-bang UART transmitted through AY-3-8912 register 14 (IOPortA, bit 2). Software like [zx-midiplayer](https://github.com/UzixLS/zx-midiplayer) uses this method in "128std" / "TS1" / "TS2" output modes, writing individual bits (0xFE=HIGH, 0xFA=LOW) to form MIDI bytes at 31250 baud. The emulator reconstructs complete bytes from these bit-bang writes and sends them to the UART.
-- **ShamaZX** — Emulates the ShamaZX parallel MIDI interface (SAM2695 synth module). Port 0xA0CF is used for TX data, port 0xA1CF for status (bit 6 = busy). This corresponds to the "ShamaZX" output mode in [zx-midiplayer](https://github.com/UzixLS/zx-midiplayer).
+- **AY** — Decodes bit-bang UART transmitted through AY-3-8912 register 14 (IOPortA, bit 2). Software like [zx-midiplayer](https://github.com/UzixLS/zx-midiplayer) uses this method in "128std" / "TS1" / "TS2" output modes. MIDI bytes are sent to an external synth via UART TX pin at 31250 baud.
+- **ShamaZX** — Emulates the ShamaZX parallel MIDI interface (SAM2695 synth module). Port 0xA0CF is used for TX data, port 0xA1CF for status (bit 6 = busy). This corresponds to the "ShamaZX" output mode in [zx-midiplayer](https://github.com/UzixLS/zx-midiplayer). Output via UART TX pin.
+- **Software** — Built-in software MIDI synthesizer. No external hardware needed — MIDI is synthesized directly on the RP2350 and mixed into the audio output. Supports 16-voice polyphony, General MIDI program changes, velocity, channel volume, expression, pan, and pitch bend. Works with both AY bit-bang and ShamaZX protocols. When Software mode is selected, a **Synth Preset** submenu appears with 8 presets:
+  - **GM** — General MIDI mapping: different waveforms per instrument family (triangle for piano/pipes, saw for strings/bass, square for organs/brass, noise for percussion).
+  - **Piano** — All instruments rendered as triangle wave with natural decay.
+  - **Chiptune** — All square wave with varied duty cycles, no filtering — classic 8-bit sound.
+  - **Strings** — All saw wave, slow attack, long sustain, warm low-pass filter.
+  - **Rock** — Bright and punchy: saw for most instruments, square for organ/brass/reed.
+  - **Organ** — All square wave (75% duty), sustained tone with minimal decay.
+  - **Music Box** — Triangle wave with fast decay and low sustain — delicate and percussive.
+  - **Synth** — All saw wave with medium low-pass filter.
 
 ### MIDI TX Pin Configuration
 

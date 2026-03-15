@@ -47,11 +47,16 @@ visit https://zxespectrum.speccy.org/contacto
 #include "pwm_audio.h"
 #include "roms.h"
 #include "wd1793.h"
+#include "Debug.h"
 
 #include "OSDMain.h"
 
-#include "Debug.h"
 #include "Midi.h"
+#if !PICO_RP2040
+#include "DivMMC.h"
+#include "hardware/gpio.h"
+#include "sdcard.h"
+#endif
 
 // Place hot port functions in SRAM instead of XIP flash
 #undef IRAM_ATTR
@@ -247,17 +252,52 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     }
     // ShamaZX MIDI — status read from 0xA1CF
     // Bit 6 = "receiver full" — reflect real UART FIFO state
-    if (Midi::enabled == 2 && address == 0xA1CF) {
+    // enabled 2=ShamaZX HW, 3=Soft Synth (both use ShamaZX ports)
+    if (Midi::enabled >= 2 && address == 0xA1CF) {
       return Midi::busy() ? 0x40 : 0x00;
     }
     // ShamaZX MIDI — read from 0xA0CF (parallel mode handshake)
-    if (Midi::enabled == 2 && address == 0xA0CF) {
+    if (Midi::enabled >= 2 && address == 0xA0CF) {
       return 0x00;
     }
 #endif
     // The default port value is 0xFF.
     data = 0xff;
-    if (ESPectrum::trdos) {
+
+#if !PICO_RP2040
+    if (DivMMC::enabled) {
+      uint8_t lo = address & 0xFF;
+      if (lo == 0xE3) {
+        // Control register read
+        return (DivMMC::conmem ? 0x80 : 0) | (DivMMC::mapram ? 0x40 : 0) | DivMMC::bank;
+      }
+      if (DivMMC::divide_mode) {
+        // DivIDE: IDE/ATA ports
+        if ((lo & 0xE3) == 0xA3) {
+          uint8_t reg = (lo >> 2) & 0x07;
+          return DivMMC::ide_read(reg);
+        }
+      } else {
+        // DivMMC/DivSD: SPI ports
+        if (lo == 0xEB) {
+          return DivMMC::mmc_read();
+        }
+        if (lo == 0xE7) {
+          return 0xFF;
+        }
+      }
+    }
+#endif
+
+    // Beta-128 ports: accessible when TR-DOS ROM is paged in,
+    // or when a raw-format disk (UDI/FDI) is inserted (copy-protected loaders
+    // access WD1793 ports from RAM with TR-DOS ROM paged out)
+    if (ESPectrum::trdos
+#if !PICO_RP2040
+        || (ESPectrum::fdd.disk[ESPectrum::fdd.diskS] &&
+            (ESPectrum::fdd.disk[ESPectrum::fdd.diskS]->IsUDIFile || ESPectrum::fdd.disk[ESPectrum::fdd.diskS]->IsFDIFile))
+#endif
+    ) {
 
       uint8_t dat;
 
@@ -539,7 +579,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     // ShamaZX MIDI Interface (SAM2695)
     // 0xA0CF = control port: TX data byte here
     // 0xA1CF = data port: write 0xFF/0x3F for init, read status (bit 6 = receiver full)
-    if (Midi::enabled == 2 && address == 0xA0CF) {
+    if (Midi::enabled >= 2 && address == 0xA0CF) {
       Midi::send(data);
       return;
     }
@@ -587,6 +627,38 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
       ioContentionLate(MemESP::ramContended[rambank]);
       return;
     }
+#if !PICO_RP2040
+    if (DivMMC::enabled) {
+      uint8_t lo = address & 0xFF;
+      if (lo == 0xE3) {
+        // Control register write
+        DivMMC::bank = data & (DIVMMC_NUM_BANKS - 1);
+        if (data & 0x40) DivMMC::mapram = true; // Sticky!
+        DivMMC::conmem = (data & 0x80) != 0;
+        DivMMC::applyMapping();
+        return;
+      }
+      if (DivMMC::divide_mode) {
+        // DivIDE: IDE/ATA ports (mask 0xE3 = xxxx xxxx 101r rr11)
+        if ((lo & 0xE3) == 0xA3) {
+          uint8_t reg = (lo >> 2) & 0x07; // extract rrr bits
+          DivMMC::ide_write(reg, data);
+          return;
+        }
+      } else {
+        // DivMMC/DivSD: SPI ports
+        if (lo == 0xEB) {
+          DivMMC::mmc_write(data);
+          return;
+        }
+        if (lo == 0xE7) {
+          DivMMC::mmc_cs(data);
+          return;
+        }
+      }
+    }
+#endif
+
     // Check if TRDOS Rom is mapped.
     if (ESPectrum::trdos) {
 

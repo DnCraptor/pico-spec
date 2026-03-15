@@ -200,9 +200,10 @@ unsigned short OSD::menuRun(string new_menu) {
         y = 8;
     } else {
         x = (Config::aspect_16_9 ? 24 : 8) + (60 * menu_level);
+        if (x + w > scrW) x = scrW - w;
         if (menu_saverect) {
             y += (8 + (8 * menu_prevopt));
-            if (y + h >= 240) y = 240 - h;
+            if (y + h >= scrH) y = scrH - h;
             prev_y[menu_level] = y;
         } else {
             y = prev_y[menu_level];
@@ -298,7 +299,7 @@ unsigned short OSD::menuRun(string new_menu) {
                     if (menu_level != 0) {
                         // Restore backbuffer data
                         VIDEO::SaveRect.restore_last();
-                        menu_saverect = false;                        
+                        menu_saverect = false;
                     }
                     click();
                     return 0;
@@ -578,6 +579,8 @@ void OSD::tapemenuRedraw(string title) {
             if (i > Tape::tapeNumBlocks) break;
             if (Tape::tapeFileType == TAPE_FTYPE_TAP)
                 menu += Tape::tapeBlockReadData(i);
+            else if (Tape::tapeFileType == TAPE_FTYPE_PZX)
+                menu += Tape::pzxBlockReadData(i);
             else
                 menu += Tape::tzxBlockReadData(i);
         }
@@ -749,11 +752,9 @@ int OSD::menuTape(string title) {
                     return (begin_row + focus - 2);
                 } else if (is_back(Menukey.vk)) {
                     f_lseek(&Tape::tape, tapeBckPos);
-                    if (menu_level!=0) {
-                        // Restore backbuffer data
-                        VIDEO::SaveRect.restore_last();
-                        menu_saverect = false;
-                    }
+                    // Restore backbuffer data
+                    VIDEO::SaveRect.restore_last();
+                    menu_saverect = false;
                     click();
                     return -1;
                 }
