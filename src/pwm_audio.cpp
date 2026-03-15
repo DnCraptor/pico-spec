@@ -392,7 +392,9 @@ void __not_in_flash_func(pcm_call)() {
             v32[1] = 0;
         }
         i2s_write(&i2s_config, v32, 1);
+        #if DVI_A
         hdmi_audio_write_sample(v32[1], v32[0]);
+        #endif
         // i2s_dma_write(&i2s_config, v32);
     } else {
         int16_t L = 0;
@@ -423,7 +425,9 @@ void __not_in_flash_func(pcm_call)() {
         }
         pwm_set_gpio_level(PWM_PIN0, outR); // Право
         pwm_set_gpio_level(PWM_PIN1, outL); // Лево
+        #if DVI_A
         hdmi_audio_write_sample(L, R);
+        #endif
     }
     return;
 }

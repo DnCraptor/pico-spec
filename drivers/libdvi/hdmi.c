@@ -13,7 +13,12 @@ struct repeating_timer audio_timer;
 #define FRAME_WIDTH 640
 #define FRAME_HEIGHT 240
 
+static int16_t R = 0, L = 0;
+
+void pcm_call(void);
+
 bool __not_in_flash_func(audio_timer_callback)(struct repeating_timer *t) {
+    pcm_call();
 	while(true) {
 		int size = get_write_size(&dvi0.audio_ring, false);
 		if (size == 0) return true;
@@ -21,8 +26,8 @@ bool __not_in_flash_func(audio_timer_callback)(struct repeating_timer *t) {
 		audio_sample_t sample;
 		static uint sample_count = 0;
 		for (int cnt = 0; cnt < size; cnt++) {
-			sample.channels[0] = 0; //commodore_argentina[sample_count % commodore_argentina_len] << 8;
-			sample.channels[1] = 0; // commodore_argentina[(sample_count+1024) % commodore_argentina_len] << 8;
+			sample.channels[0] = R;
+			sample.channels[1] = L;
 			*audio_ptr++ = sample;
 			sample_count = sample_count + 1;
 		}
@@ -31,29 +36,12 @@ bool __not_in_flash_func(audio_timer_callback)(struct repeating_timer *t) {
 }
 
 void hdmi_audio_init(void) {
-	// HDMI Audio related
-	dvi_get_blank_settings(&dvi0)->top    = 4 * 0;
-	dvi_get_blank_settings(&dvi0)->bottom = 4 * 0;
-	dvi_audio_sample_buffer_set(&dvi0, audio_buffer, AUDIO_BUFFER_SIZE);
-	dvi_set_audio_freq(&dvi0, 44100, 28000, 6272);
-//	add_repeating_timer_ms(-2, audio_timer_callback, NULL, &audio_timer);
+    //
 }
 
 void __not_in_flash_func(hdmi_audio_write_sample)(int16_t left, int16_t right) {
-	while(true) {
-		int size = get_write_size(&dvi0.audio_ring, false);
-		if (size == 0) return;
-		audio_sample_t *audio_ptr = get_write_pointer(&dvi0.audio_ring);
-		audio_sample_t sample;
-		static uint sample_count = 0;
-		for (int cnt = 0; cnt < size; cnt++) {
-			sample.channels[0] = right;
-			sample.channels[1] = left;
-			*audio_ptr++ = sample;
-			sample_count = sample_count + 1;
-		}
-		increase_write_pointer(&dvi0.audio_ring, size);
-	}
+    L = left;
+    R = right;
 }
 
 static const uint32_t palB[16] = {
@@ -145,6 +133,12 @@ void graphics_init0(void) {
 	dvi0.ser_cfg = DVI_DEFAULT_SERIAL_CONFIG;
 	dvi_init(&dvi0, next_striped_spin_lock_num(), next_striped_spin_lock_num());
 	hw_set_bits(&bus_ctrl_hw->priority, BUSCTRL_BUS_PRIORITY_PROC1_BITS);
+	// HDMI Audio related
+	dvi_get_blank_settings(&dvi0)->top    = 4 * 0;
+	dvi_get_blank_settings(&dvi0)->bottom = 4 * 0;
+	dvi_audio_sample_buffer_set(&dvi0, audio_buffer, AUDIO_BUFFER_SIZE);
+	dvi_set_audio_freq(&dvi0, 44100, 28000, 6272);
+	add_repeating_timer_ms(-2, audio_timer_callback, NULL, &audio_timer);
 }
 
 void graphics_init(void) {

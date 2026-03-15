@@ -831,7 +831,6 @@ void __scratch_x("render") render_core() {
         #if DVI_A
         for (uint32_t line = 0; line < (480 / DVI_VERTICAL_REPEAT); ++line) {
             dvi_line(line);
-            pcm_call();
         }
         ESPectrum_vsync();
         #else

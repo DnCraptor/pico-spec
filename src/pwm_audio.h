@@ -5,7 +5,7 @@ void pcm_setup(int hz);
 void pcm_cleanup(void);
 typedef volatile int16_t* (*pcm_end_callback_t)(volatile size_t* size);
 // internal call on core#1
-void pcm_call();
+extern "C" void pcm_call();
 bool pcm_data_in(void);
 void pwm_audio_in_frame_started(void);
 #if LOAD_WAV_PIO
