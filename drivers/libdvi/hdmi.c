@@ -172,7 +172,6 @@ void __not_in_flash_func(dvi_line)(uint32_t line) {
     queue_remove_blocking(&dvi0.q_tmds_free, &tmdsbuf);
     uint32_t* pali = (uint32_t*)pal;
     for (int plane = 0; plane < 3; ++plane, pali += 256) {
-        uint8_t* srci = src;
         uint32_t* target = tmdsbuf + plane * (FRAME_WIDTH / DVI_SYMBOLS_PER_WORD);
         for (uint x = 0; x < 320; ++x) {
             *target++ = pali[src[x ^ 2]];
