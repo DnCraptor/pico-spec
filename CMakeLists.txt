@@ -41,12 +41,12 @@ set(NO_ALF 1)
 #set(CPU_MHZ 252)
 #set(CPU_MHZ 378)
 set(CPU_MHZ 504)
-set (PORT_VERSION "1.2.M")
+set (PORT_VERSION "1.2.o")
 string(LENGTH "${PORT_VERSION}" PORT_VERSION_LEN)
 
 # Target board (default: PICO_PC; override with -D flags, e.g. cmake -DMURM2=ON)
 if(NOT MURM AND NOT MURM2 AND NOT PICO_PC AND NOT PICO_DV AND NOT ZERO AND NOT ZERO2)
-    set(MURM2 ON)
+    set(MURM ON)
 endif()
 
 set(KBDUSB ON)
@@ -65,9 +65,6 @@ IF(ZERO2)
 elseif(ZERO)
     set(PICO_BOARD pico)
     set(CPU_MHZ 252)
-elseif(MURM AND NOT MURM_P2)
-    set(PICO_BOARD pico)
-    set(PICO_PLATFORM rp2040)
 else()
     set(PICO_BOARD pico2)
     set(PICO_PLATFORM rp2350-arm-s)
@@ -687,7 +684,7 @@ ELSEIF(SOFTTV)
 ELSEIF(DVI_A)
 	target_compile_definitions(${PROJECT_NAME} PRIVATE
         DVI_A=1
-        DVI_VERTICAL_REPEAT=1
+        DVI_VERTICAL_REPEAT=2
         PICO_CORE1_STACK_SIZE=0x200
     )
 	target_link_libraries(${PROJECT_NAME} PRIVATE libdvi)

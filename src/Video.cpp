@@ -58,12 +58,12 @@ extern "C" void vga_set_palette_entry_solid(uint8_t i, uint32_t color888);
 
 VGA8Bit VIDEO::vga;
 
-extern "C" uint8_t* getLineBuffer(int line) {
+extern "C" uint8_t* __not_in_flash_func(getLineBuffer)(int line) {
     if (!VIDEO::vga.frameBuffer) return 0;
     return (uint8_t*)VIDEO::vga.frameBuffer[line];
 }
 
-extern "C" void ESPectrum_vsync() {
+extern "C" void __not_in_flash_func(ESPectrum_vsync)() {
     ESPectrum::v_sync = true;
 }
 

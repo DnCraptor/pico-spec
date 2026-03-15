@@ -442,7 +442,7 @@ void graphics_set_palette(const uint8_t i, const uint32_t color888) {
 
 uint8_t linkVGA01;
 void graphics_init_hdmi();
-void graphics_init() {
+void (graphics_init) {
     if (video_driver == 0) {
         #if defined(ZERO) || defined(ZERO2) || defined(PICO_DV)
             SELECT_VGA = linkVGA01 == 0x1F;

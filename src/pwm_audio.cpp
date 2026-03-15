@@ -362,7 +362,7 @@ static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core
     return true;
 }
 
-void pcm_call() {
+void __not_in_flash_func(pcm_call)() {
     if (!m_let_process_it) {
         return;
     }
@@ -392,8 +392,11 @@ void pcm_call() {
             v32[1] = 0;
         }
         i2s_write(&i2s_config, v32, 1);
+        hdmi_audio_write_sample(v32[1], v32[0]);
         // i2s_dma_write(&i2s_config, v32);
     } else {
+        int16_t L = 0;
+        int16_t R = 0;
         uint16_t outL = 0;
         uint16_t outR = 0;
         if (m_off < m_size) {
@@ -401,14 +404,14 @@ void pcm_call() {
             // quantization error from previous sample is fed forward,
             // pushing PWM quantization noise to ultrasonic frequencies
             static int16_t err_L = 0, err_R = 0;
-            int16_t* b_L = buff_L + m_off;
-            int16_t* b_R = buff_R + m_off;
+            int16_t L = buff_L[m_off];
+            int16_t R = buff_R[m_off];
             ++m_off;
-            int32_t xL = ((int32_t)*b_L) + 0x8000 + err_L;
+            int32_t xL = ((int32_t)L) + 0x8000 + err_L;
             if (xL < 0) xL = 0; else if (xL > 0xFFFF) xL = 0xFFFF;
             outL = (uint16_t)xL >> 8;
             err_L = (int16_t)(xL - ((int32_t)outL << 8));
-            int32_t xR = ((int32_t)*b_R) + 0x8000 + err_R;
+            int32_t xR = ((int32_t)R) + 0x8000 + err_R;
             if (xR < 0) xR = 0; else if (xR > 0xFFFF) xR = 0xFFFF;
             outR = (uint16_t)xR >> 8;
             err_R = (int16_t)(xR - ((int32_t)outR << 8));
@@ -420,6 +423,7 @@ void pcm_call() {
         }
         pwm_set_gpio_level(PWM_PIN0, outR); // Право
         pwm_set_gpio_level(PWM_PIN1, outL); // Лево
+        hdmi_audio_write_sample(L, R);
     }
     return;
 }

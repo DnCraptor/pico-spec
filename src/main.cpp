@@ -815,6 +815,11 @@ void repeat_me_for_input() {
 #endif
 }
 
+#if DVI_A
+#include "hdmi.h"
+extern "C" void ESPectrum_vsync();
+#endif
+
 void __scratch_x("render") render_core() {
     multicore_lockout_victim_init();
     graphics_init();
@@ -823,7 +828,15 @@ void __scratch_x("render") render_core() {
     graphics_set_flashmode(true, false);
     sem_acquire_blocking(&vga_start_semaphore);
     while (true) {
+        #if DVI_A
+        for (uint32_t line = 0; line < (480 / DVI_VERTICAL_REPEAT); ++line) {
+            dvi_line(line);
+            pcm_call();
+        }
+        ESPectrum_vsync();
+        #else
         pcm_call();
+        #endif
         tight_loop_contents();
     }
     __unreachable();
@@ -1095,7 +1108,9 @@ int main() {
     if (butter_psram_size() == 0 || psram_pin != PSRAM_PIN_SCK) {
 #endif
     #ifndef MURM2
+        #ifndef DVI_A // may be conflict on pio0
         init_psram();
+        #endif
     #endif
 #if PICO_RP2350
     }
@@ -1110,6 +1125,10 @@ int main() {
     Debug::log("main: testPins begin");
     linkVGA01 = testPins(VGA_BASE_PIN, VGA_BASE_PIN + 1);
     Debug::log("main: testPins=%02X", linkVGA01);
+    #endif
+
+    #if DVI_A
+    graphics_init0();
     #endif
 
     Debug::log("main: before ESPectrum::setup()");
@@ -1157,7 +1176,6 @@ int main() {
 //         }
 //     }
 // #endif
-
     sem_init(&vga_start_semaphore, 0, 1);
     multicore_launch_core1(render_core);
     sem_release(&vga_start_semaphore);

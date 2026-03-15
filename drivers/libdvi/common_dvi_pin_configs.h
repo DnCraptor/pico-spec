@@ -8,7 +8,7 @@
 #include "dvi_serialiser.h"
 
 #ifndef DVI_DEFAULT_SERIAL_CONFIG
-#define DVI_DEFAULT_SERIAL_CONFIG pico_sock_cfg
+#define DVI_DEFAULT_SERIAL_CONFIG murmulator_cfg
 #endif
 
 #ifndef DVI_DEFAULT_PIO_INST
