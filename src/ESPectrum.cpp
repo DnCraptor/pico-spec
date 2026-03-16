@@ -711,6 +711,15 @@ void ESPectrum::setup() {
   MemESP::ramCurrent[2] = MemESP::ram[2].sync(2);
   MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync(3);
 
+  // Pre-load STS 7.5 into RAM bank 7 at offset 0x1B00 (= 0xDB00 - 0xC000)
+  // Gluk ROM writes 0x47 to port 0x7FFD selecting bank 7 for page 3, then
+  // installs its service monitor there. We pre-populate it so STS is ready.
+  // ALASM (0x8000) is loaded by Gluk after boot — ram[2] must stay clean.
+  if (Config::romSet == "128Kpg" || Config::romSet == "128Kbg") {
+      uint8_t* page3 = MemESP::ram[7].direct();
+      if (page3) memcpy(page3 + 0x1B00, gb_rom_sts75, sizeof(gb_rom_sts75));
+  }
+
   MemESP::ramContended[0] = false;
   MemESP::ramContended[1] = Config::arch == "P1024" || Config::arch == "P512" ||
                                     Config::arch == "Pentagon"
@@ -930,6 +939,12 @@ void ESPectrum::reset(uint8_t romInUse) {
   MemESP::ramCurrent[1] = MemESP::ram[5].direct();
   MemESP::ramCurrent[2] = MemESP::ram[2].sync(2);
   MemESP::ramCurrent[3] = MemESP::ram[0].sync(3);
+
+  // Re-load STS 7.5 into RAM bank 7 at offset 0x1B00 (= 0xDB00 - 0xC000)
+  if (Config::romSet == "128Kpg" || Config::romSet == "128Kbg") {
+      uint8_t* page3 = MemESP::ram[7].direct();
+      if (page3) memcpy(page3 + 0x1B00, gb_rom_sts75, sizeof(gb_rom_sts75));
+  }
 
   MemESP::ramContended[0] = false;
   MemESP::ramContended[1] = Config::arch == "P1024" || Config::arch == "P512" ||
@@ -1647,15 +1662,8 @@ void ESPectrum::loop() {
 #endif
         if (Config::trdosSoundLed) FDDGenSound();
         if (AY_emu && faudbufcntAY < samplesPerFrame) {
-          if (Tape::tapeStatus == TAPE_LOADING) {
-              memset(chip0.SamplebufAY_L, 0, sizeof(chip0.SamplebufAY_L));
-              memset(chip0.SamplebufAY_R, 0, sizeof(chip0.SamplebufAY_R));
-              memset(chip1.SamplebufAY_L, 0, sizeof(chip1.SamplebufAY_L));
-              memset(chip1.SamplebufAY_R, 0, sizeof(chip1.SamplebufAY_R));
-          } else {
-              if(Config::turbosound != 0 || AySound::selected_chip == 0) chip0.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
-              if(Config::turbosound != 0 || AySound::selected_chip == 1) chip1.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
-          }
+            if(Config::turbosound != 0 || AySound::selected_chip == 0) chip0.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
+            if(Config::turbosound != 0 || AySound::selected_chip == 1) chip1.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
         }
 #if !PICO_RP2040
         if (SAA_emu && faudbufcntSAA < samplesPerFrame)
