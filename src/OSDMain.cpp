@@ -956,7 +956,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 ESPectrum::aud_volume--;
                 pwm_audio_set_volume(ESPectrum::aud_volume);
                 Config::aud_volume = ESPectrum::aud_volume;
-                Config::save();
+                ESPectrum::vol_changed = true;
             }
             unsigned short x, y;
             if (Config::aspect_16_9) {
@@ -997,7 +997,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 ESPectrum::aud_volume++;
                 pwm_audio_set_volume(ESPectrum::aud_volume);
                 Config::aud_volume = ESPectrum::aud_volume;
-                Config::save();
+                ESPectrum::vol_changed = true;
             }
             unsigned short x, y;
             if (Config::aspect_16_9) {

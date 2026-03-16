@@ -179,6 +179,7 @@ uint8_t ESPectrum::audioBuffer_R[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
 uint8_t ESPectrum::audioBufferCovox[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
 uint32_t ESPectrum::overSamplebuf[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
 signed char ESPectrum::aud_volume = ESP_VOLUME_DEFAULT;
+bool ESPectrum::vol_changed = false;
 // signed char ESPectrum::aud_volume = ESP_VOLUME_MAX; // For .tap player test
 
 uint32_t ESPectrum::audbufcnt = 0;
@@ -1721,6 +1722,10 @@ void ESPectrum::loop() {
         // printf("Vol. OSD out -> Framecnt: %d\n", VIDEO::framecnt);
         if (VIDEO::framecnt >= 100) {
           VIDEO::OSD &= 0xfb;
+          if (ESPectrum::vol_changed) {
+            ESPectrum::vol_changed = false;
+            Config::save();
+          }
           if (VIDEO::OSD == 0) {
             if (Config::aspect_16_9)
               VIDEO::Draw_OSD169 = VIDEO::MainScreen;
