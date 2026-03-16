@@ -4654,7 +4654,13 @@ static void saveDumpToFile(uint16_t addr_from, uint16_t addr_to) {
     f_write(f, line, strlen(line), &bw);
 
     snprintf(line, sizeof(line), "pagingLock: %d  page0ram: %d  newSRAM: %d  divmmc: %d\n",
-        MemESP::pagingLock, MemESP::page0ram, MemESP::newSRAM, MemESP::divmmc_mapped);
+        MemESP::pagingLock, MemESP::page0ram, MemESP::newSRAM,
+#if !PICO_RP2040
+        MemESP::divmmc_mapped
+#else
+        0
+#endif
+    );
     f_write(f, line, strlen(line), &bw);
 
     snprintf(line, sizeof(line), "TR-DOS: %s  TR-DOS BIOS: %d\n",

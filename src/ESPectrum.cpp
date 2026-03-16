@@ -1678,9 +1678,9 @@ void ESPectrum::loop() {
 #endif
         for (int i = 0; i < samplesPerFrame; i++)
         {
-          int beeper_L = overSamplebuf[i] + audioBufferCovox[i] + audioBufferFDD[i]
+          int beeper_L = overSamplebuf[i] + audioBufferCovox[i]
 #if !PICO_RP2040
-                         + audioBufferPIT[i]
+                         + audioBufferFDD[i] + audioBufferPIT[i]
 #endif
               ;
           int beeper_R = beeper_L;
