@@ -1525,6 +1525,14 @@ static void Select_Update_Border() {
 
 IRAM_ATTR void VIDEO::TopBorder_Blank() {
     if (CPU::tstates >= tStatesBorder) {
+        static bool brd_logged = false;
+        if (!brd_logged) {
+            brd_logged = true;
+            Debug::log("BRD: yres=%d step=%d end=%d end1=%d ret=%d lin_end=%d/%d start=%d isFB=%d is169=%d tsBrd=%d tsLine=%d fb=%p",
+                (int)vga.yres, brdcol_step, brdcol_end, brdcol_end1, brdcol_retrace,
+                lin_end, lin_end2, brdcol_start, isFullBorder, is169,
+                tStatesBorder, tStatesPerLine, vga.frameBuffer);
+        }
         Select_Update_Border();
         brdcol_cnt = brdcol_start;
         brdlin_cnt = 0;

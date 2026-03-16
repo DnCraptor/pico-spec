@@ -73,6 +73,8 @@ public:
     static void initFileSystem();
     static bool mountSDCard();
     static void unmountSDCard();
+    static bool checkSDCard();
+    static bool remountSD();
     // static String         getAllFilesFrom(const String path);
     // static void           listAllFiles();
     // static void           sanitizeFilename(String filename); // in-place

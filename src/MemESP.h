@@ -41,6 +41,8 @@ visit https://zxespectrum.speccy.org/contacto
 #include "ff.h"
 #include "roms.h"
 #include "Debug.h"
+#include "Config.h"
+#include "CPU.h"
 
 #define MEM_PG_SZ 0x4000
 #if PICO_RP2350
@@ -212,6 +214,8 @@ inline int MemESP::getByteContention(uint16_t addr) {
 }
 
 inline uint8_t MemESP::readbyte(uint16_t addr) {
+    if (Config::numMemReadBP > 0 && Config::hasBreakPoint(addr, Config::BP_MEM_READ))
+        CPU::portBasedBP = true;
     uint8_t page = addr >> 14;
 #if !PICO_RP2040
     if (page == 0 && divmmc_mapped) {
@@ -227,6 +231,8 @@ inline uint16_t MemESP::readword(uint16_t addr) {
 
 inline void MemESP::writebyte(uint16_t addr, uint8_t data)
 {
+    if (Config::numMemWriteBP > 0 && Config::hasBreakPoint(addr, Config::BP_MEM_WRITE))
+        CPU::portBasedBP = true;
     uint8_t page = addr >> 14;
 #if !PICO_RP2040
     if (page == 0 && divmmc_mapped) {

@@ -48,6 +48,14 @@ visit https://zxespectrum.speccy.org/contacto
 #include "OSDMain.h"
 #include "roms.h"
 #include "Video.h"
+#include "Tape.h"
+#include "wd1793.h"
+#include "sdcard.h"
+#if !PICO_RP2040
+#include "DivMMC.h"
+#endif
+
+extern "C" void mem_swap_reopen(void);
 
 using namespace std;
 
@@ -125,6 +133,62 @@ bool FileUtils::mountSDCard() {
 
 void FileUtils::unmountSDCard() {
     f_unmount("SD");
+}
+
+bool FileUtils::checkSDCard() {
+    if (!fsMount) return false;
+    FILINFO fno;
+    return f_stat(MOUNT_POINT_SD, &fno) == FR_OK;
+}
+
+bool FileUtils::remountSD() {
+    // Unmount FatFS and force full SD card reinit
+    f_mount(NULL, "SD", 0);
+    disk_invalidate();
+    if (!mountSDCard()) return false;
+
+    // Reopen WD1793 disk image files
+    rvmWD1793 &wd = ESPectrum::fdd;
+    for (int i = 0; i < 4; i++) {
+        if (wd.disk[i] && wd.disk[i]->Diskfile && !wd.disk[i]->fname.empty()) {
+            FSIZE_t pos = f_tell(wd.disk[i]->Diskfile);
+            fclose2(wd.disk[i]->Diskfile);
+            wd.disk[i]->Diskfile = fopen2(wd.disk[i]->fname.c_str(), FA_READ | FA_WRITE);
+            if (wd.disk[i]->Diskfile) f_lseek(wd.disk[i]->Diskfile, pos);
+        }
+    }
+
+    // Reopen tape file
+    if (Tape::tapeStatus != TAPE_STOPPED && !Tape::tapeFileName.empty()) {
+        FSIZE_t pos = f_tell(&Tape::tape);
+        f_close(&Tape::tape);
+        string fname = FileUtils::TAP_Path + Tape::tapeFileName;
+        if (f_open(&Tape::tape, fname.c_str(), FA_READ) == FR_OK) {
+            f_lseek(&Tape::tape, pos);
+        }
+    }
+
+    // Reopen CSW temp block if open
+    if (Tape::cswBlock.obj.fs) {
+        FSIZE_t pos = f_tell(&Tape::cswBlock);
+        f_close(&Tape::cswBlock);
+        // CSW temp files are in /tmp/.cswXXXX.tmp, try to reopen at same position
+        // The file was already decompressed before debug, so it's still on SD
+        char cswName[24];
+        snprintf(cswName, sizeof(cswName), "/tmp/.csw%04d.tmp", Tape::tapeCurBlock);
+        if (f_open(&Tape::cswBlock, cswName, FA_READ) == FR_OK) {
+            f_lseek(&Tape::cswBlock, pos);
+        }
+    }
+
+    // Reopen MemESP swap file
+    mem_swap_reopen();
+
+#if !PICO_RP2040
+    DivMMC::reopenFiles();
+#endif
+
+    return true;
 }
 
 bool FileUtils::hasSNAextension(string filename)

@@ -95,12 +95,78 @@ public:
     static bool     tape_timing_rg;
     static bool     rightSpace;
     static bool     wasd;
-    static uint16_t breakPoint;
-    static uint16_t portReadBP;
-    static uint16_t portWriteBP;
-    static bool     enableBreakPoint;
-    static bool     enablePortReadBP;
-    static bool     enablePortWriteBP;
+    enum BPType : uint8_t { BP_PC=0, BP_PORT_READ=1, BP_PORT_WRITE=2, BP_MEM_WRITE=3, BP_MEM_READ=4, BP_NONE=0xFF };
+    struct BreakPoint { uint16_t addr; BPType type; };
+    static constexpr int MAX_BREAKPOINTS = 20;
+    static BreakPoint breakPoints[MAX_BREAKPOINTS];
+    static int numBreakPoints;
+    // Per-type cached counts for fast-path skip
+    static int numPcBP;
+    static int numPortReadBP;
+    static int numPortWriteBP;
+    static int numMemWriteBP;
+    static int numMemReadBP;
+    static void recountBP() {
+        numBreakPoints = numPcBP = numPortReadBP = numPortWriteBP = numMemWriteBP = numMemReadBP = 0;
+        for (int i = 0; i < MAX_BREAKPOINTS; i++) {
+            if (breakPoints[i].type == BP_NONE) continue;
+            numBreakPoints++;
+            switch (breakPoints[i].type) {
+                case BP_PC: numPcBP++; break;
+                case BP_PORT_READ: numPortReadBP++; break;
+                case BP_PORT_WRITE: numPortWriteBP++; break;
+                case BP_MEM_WRITE: numMemWriteBP++; break;
+                case BP_MEM_READ: numMemReadBP++; break;
+                default: break;
+            }
+        }
+    }
+    static bool hasBreakPoint(uint16_t addr, BPType type) {
+        for (int i = 0; i < MAX_BREAKPOINTS; i++)
+            if (breakPoints[i].addr == addr && breakPoints[i].type == type) return true;
+        return false;
+    }
+    // Legacy: check any BP_PC at addr
+    static bool hasBreakPoint(uint16_t addr) { return hasBreakPoint(addr, BP_PC); }
+    static bool addBreakPoint(uint16_t addr, BPType type) {
+        if (hasBreakPoint(addr, type)) return false;
+        for (int i = 0; i < MAX_BREAKPOINTS; i++) {
+            if (breakPoints[i].type == BP_NONE) {
+                breakPoints[i] = {addr, type};
+                recountBP();
+                return true;
+            }
+        }
+        return false;
+    }
+    static bool addBreakPoint(uint16_t addr) { return addBreakPoint(addr, BP_PC); }
+    static bool removeBreakPoint(uint16_t addr, BPType type) {
+        for (int i = 0; i < MAX_BREAKPOINTS; i++) {
+            if (breakPoints[i].addr == addr && breakPoints[i].type == type) {
+                breakPoints[i] = {0xFFFF, BP_NONE};
+                recountBP();
+                return true;
+            }
+        }
+        return false;
+    }
+    static bool removeBreakPoint(uint16_t addr) { return removeBreakPoint(addr, BP_PC); }
+    static void removeBreakPointAt(int idx) {
+        if (idx >= 0 && idx < MAX_BREAKPOINTS) {
+            breakPoints[idx] = {0xFFFF, BP_NONE};
+            recountBP();
+        }
+    }
+    static const char* bpTypeName(BPType t) {
+        switch(t) {
+            case BP_PC: return "PC";
+            case BP_PORT_READ: return "PR";
+            case BP_PORT_WRITE: return "PW";
+            case BP_MEM_WRITE: return "MW";
+            case BP_MEM_READ: return "MR";
+            default: return "??";
+        }
+    }
     static uint8_t  joystick;
     static uint16_t joydef[12];
     static uint8_t  AluTiming;

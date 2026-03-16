@@ -281,6 +281,38 @@ void DivMMC::init() {
     reset();
 }
 
+void DivMMC::reopenFiles() {
+    if (!enabled) return;
+    // Reopen MMC/HDF image files
+    for (int d = 0; d < 2; d++) {
+        if (mmc_file_open[d]) {
+            FSIZE_t pos = f_tell(&mmc_file[d]);
+            f_close(&mmc_file[d]);
+            const char* path;
+            if (enabled == 2 || enabled == 3) { // DivIDE/DivSD
+                const char* defaults[] = {"/esxdos.hdf", ""};
+                path = Config::esxdos_hdf_image[d].empty() ? defaults[d] : Config::esxdos_hdf_image[d].c_str();
+            } else {
+                path = Config::esxdos_mmc_image.empty() ? "/esxdos.mmc" : Config::esxdos_mmc_image.c_str();
+            }
+            if (path[0] && f_open(&mmc_file[d], path, FA_READ | FA_WRITE) == FR_OK) {
+                f_lseek(&mmc_file[d], pos);
+            } else if (path[0] && f_open(&mmc_file[d], path, FA_READ) == FR_OK) {
+                f_lseek(&mmc_file[d], pos);
+            } else {
+                mmc_file_open[d] = false;
+            }
+        }
+    }
+    // Reopen swap file
+    if (swap_open) {
+        f_close(&swap_file);
+        if (f_open(&swap_file, "/tmp/divmmc-pico-spec.swap", FA_READ | FA_WRITE) != FR_OK) {
+            swap_open = false;
+        }
+    }
+}
+
 void DivMMC::reset() {
     automap = false;
     trap_after = false;
@@ -684,6 +716,12 @@ uint8_t DivMMC::mmc_read() {
             }
             return 0xFF;
 
+        case 0x77: // CMD55 APP_CMD (prefix for ACMD)
+            return 0; // R1 = ready
+
+        case 0x69: // ACMD41 SD_SEND_OP_COND
+            return 0; // R1 = ready (card initialized)
+
         case 0x7A: // CMD58 READ_OCR
             if (mmc_ocr_index >= 0) {
                 if (mmc_ocr_index == 0) value = 0xFF;
@@ -842,6 +880,15 @@ void DivMMC::mmc_write(uint8_t value) {
             break;
         }
 
+        case 0x77: // CMD55 APP_CMD (prefix for ACMD)
+        case 0x69: // ACMD41 SD_SEND_OP_COND
+            if (mmc_index_command == 5) {
+                mmc_index_command = 0;
+            } else {
+                mmc_index_command++;
+            }
+            break;
+
         case 0x7A: // CMD58 READ_OCR
             if (mmc_index_command == 5) {
                 mmc_ocr_index = 0;
@@ -852,7 +899,12 @@ void DivMMC::mmc_write(uint8_t value) {
             break;
 
         default:
-            // Unknown command — ignore parameters
+            // Unknown command — consume 5 parameter bytes then reset
+            if (mmc_index_command >= 5) {
+                mmc_index_command = 0;
+            } else {
+                mmc_index_command++;
+            }
             break;
     }
 }

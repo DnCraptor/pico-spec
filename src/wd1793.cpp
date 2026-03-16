@@ -33,6 +33,8 @@ THE SOFTWARE.
 #include "Config.h"
 #include "CPU.h"
 
+static bool sclConvertToTRD(rvmWD1793 *wd);
+
 // #pragma GCC optimize("O3")
 
 //Step rates
@@ -426,12 +428,15 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
       if((wd->command & 0xc0)==0x80) { // Read or Write Sector
 
         if(wd->command & 0x20) { // Write Sector
+          // Convert SCL to TRD on first write attempt
+          if(wd->disk[wd->diskS]->IsSCLFile && !wd->disk[wd->diskS]->writeprotect)
+            sclConvertToTRD(wd);
           if(wd->disk[wd->diskS]->writeprotect) {
             wd->status|=kRVMWD177XStatusProtected;
             _end(wd);
             return;
           }
-        } else {
+        } else { // Read Sector
         }
         wd->retry=5; //5 retrys
 
@@ -455,7 +460,9 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
         _do(wd);
 
       } else if((wd->command & 0xf0)==0xf0) { // Write Track
-
+        // Convert SCL to TRD on first write attempt
+        if(wd->disk[wd->diskS]->IsSCLFile && !wd->disk[wd->diskS]->writeprotect)
+          sclConvertToTRD(wd);
         if(wd->disk[wd->diskS]->writeprotect) {
           wd->status|=kRVMWD177XStatusProtected;
           _end(wd);
@@ -1233,7 +1240,6 @@ IRAM_ATTR void rvmWD1793Write(rvmWD1793 *wd,uint8_t a,uint8_t value) {
           //Issue command
           if(wd->command & kRVMWD177XTypeI) {
 
-            // printf("TYPE II,III or IV COMMAND: %02x TRACK: %02x SECTOR %02x SIDE %02x\n",wd->command,wd->track,wd->sector, wd->side);
 
             //Type II, III, IV kRVMWD177XTypeIISetHead
             if((wd->command & 0xc0)==0x80 || (wd->command & 0xfb)==0xc0 || (wd->command & 0xfb)==0xf0 || (wd->command & 0xfb)==0xe0) {
@@ -1357,7 +1363,6 @@ IRAM_ATTR uint8_t rvmWD1793Read(rvmWD1793 *wd,uint8_t a) {
         r|=kRVMWD177XStatusNotReady;
       }
 
-      //printf("Read status: %02x\n",r);
       return r;
     case 1: //Track
       return wd->track;
@@ -1472,7 +1477,8 @@ bool rvmWD1793InsertDisk(rvmWD1793 *wd, unsigned char UnitNum, std::string Filen
         wd->disk[UnitNum]->IsUDIFile = false;
         wd->disk[UnitNum]->IsFDIFile = false;
 #endif
-        wd->disk[UnitNum]->writeprotect = 1; // SCL files are read only
+        wd->disk[UnitNum]->fname = Filename;
+        wd->disk[UnitNum]->writeprotect = Config::trdosWriteProtect;
         wd->fastmode = Config::trdosFastMode;
         diskType = 0x16;
 
@@ -1961,8 +1967,6 @@ IRAM_ATTR uint8_t rvmwdDiskStep(rvmWD1793 *wd, uint32_t control) {
     if(control & kRVMwdDiskControlWrite) {
       const uint8_t wr = control & 0xff;
       UINT bw;
-      //Debug::led_blink();
-      //fwrite(&wr,1,1,disk->Diskfile);
       f_write(disk->Diskfile, &wr, 1, &bw);
       disk->cursectbuf[disk->cursectbufpos] = wr;
       return 0;
@@ -2107,9 +2111,6 @@ IRAM_ATTR uint8_t rvmwdDiskStep(rvmWD1793 *wd, uint32_t control) {
 
           if(control & kRVMwdDiskControlWrite) {
             uint8_t wr = control & 0xff;
-            // fseek(disk->Diskfile,seekptr,SEEK_SET);
-            //fwrite(&wr,1,1,disk->Diskfile);
-            //Debug::led_blink();
             UINT bw;
             f_lseek(disk->Diskfile,seekptr);
             f_write(disk->Diskfile, &wr,1,&bw);
@@ -2240,4 +2241,83 @@ void SCLtoTRD(rvmwdDisk *d, unsigned char* track0) {
 
     d->sclDataOffset =  (9 + (numberOfFiles * 14)) - 4096;
 
+}
+
+// Convert SCL disk to TRD file on first write attempt.
+// Creates a .trd file alongside the .scl, copies all data, and switches the disk handle.
+static bool sclConvertToTRD(rvmWD1793 *wd) {
+    rvmwdDisk *disk = wd->disk[wd->diskS];
+    if (!disk || !disk->IsSCLFile || !disk->Diskfile) return false;
+
+    // Ensure Track0 is populated
+    if (!wd->sclConverted) {
+        SCLtoTRD(disk, wd->Track0);
+        wd->sclConverted = true;
+    }
+
+    // Build .trd filename from .scl filename
+    std::string trdName = disk->fname;
+    size_t dotPos = trdName.rfind('.');
+    if (dotPos != std::string::npos)
+        trdName = trdName.substr(0, dotPos);
+    trdName += ".trd";
+
+    // Create TRD file
+    Debug::log("SCL->TRD: creating %s", trdName.c_str());
+    FIL *trdFile = fopen2(trdName.c_str(), FA_CREATE_ALWAYS | FA_READ | FA_WRITE);
+    if (!trdFile) {
+        Debug::log("SCL->TRD: fopen2 failed");
+        return false;
+    }
+
+    UINT bw;
+    uint8_t zeroBuf[256];
+    memset(zeroBuf, 0, 256);
+
+    // Write track 0 side 0: 16 sectors from Track0 (first 4096 bytes = 16 * 256)
+    f_write(trdFile, wd->Track0, 2304, &bw);
+    // Pad remaining sectors of track 0 (sectors 9..15 are already in Track0 as zeros,
+    // but Track0 is only 2304 bytes = 9 sectors; pad to 16 sectors = 4096 bytes)
+    for (int s = 9; s < 16; s++)
+        f_write(trdFile, zeroBuf, 256, &bw);
+
+    // Copy remaining data from SCL using same seek formula as rvmwdDiskStep
+    // TRD layout: [T0S0: 16*256][T0S1: 16*256][T1S0: 16*256][T1S1: 16*256]...
+    uint8_t secBuf[256];
+    int totalTracks = disk->tracks + 1;
+    int sclFileSize = (int)f_size(disk->Diskfile);
+    for (int trk = 0; trk < totalTracks; trk++) {
+        for (int side = 0; side < disk->sides; side++) {
+            for (int sec = 0; sec < 16; sec++) {
+                // Skip track 0 side 0 — already written from Track0
+                if (trk == 0 && side == 0) continue;
+                int seekptr = (trk << (11 + disk->sides)) + (side << 12) + (sec << 8) + disk->sclDataOffset;
+                if (seekptr >= 0 && seekptr < sclFileSize) {
+                    UINT br;
+                    f_lseek(disk->Diskfile, seekptr);
+                    f_read(disk->Diskfile, secBuf, 256, &br);
+                    if (br < 256) memset(secBuf + br, 0, 256 - br);
+                } else {
+                    memset(secBuf, 0, 256);
+                }
+                // TRD file offset for this sector
+                uint32_t trdOffset = (trk * disk->sides + side) * 16 * 256 + sec * 256;
+                f_lseek(trdFile, trdOffset);
+                f_write(trdFile, secBuf, 256, &bw);
+            }
+        }
+    }
+
+    // Flush TRD to SD card
+    f_sync(trdFile);
+
+    // Close SCL, switch to TRD
+    f_close(disk->Diskfile);
+    disk->Diskfile = trdFile;
+    disk->IsSCLFile = false;
+    disk->sclDataOffset = 0;
+    disk->fname = trdName;
+
+    Debug::log("SCL->TRD: done, size=%d", (int)f_size(trdFile));
+    return true;
 }

@@ -42,12 +42,13 @@ volatile bool Config::real_player = false;
 bool     Config::tape_timing_rg = false; // Rodolfo Guerra ROMs tape timings
 bool     Config::rightSpace = true;
 bool     Config::wasd = true;
-uint16_t Config::breakPoint = 0xFFFF;
-uint16_t Config::portReadBP = 0xFFFF;
-uint16_t Config::portWriteBP = 0xFFFF;
-bool Config::enableBreakPoint = false;
-bool Config::enablePortReadBP = false;
-bool Config::enablePortWriteBP = false;
+Config::BreakPoint Config::breakPoints[Config::MAX_BREAKPOINTS];
+int Config::numBreakPoints = 0;
+int Config::numPcBP = 0;
+int Config::numPortReadBP = 0;
+int Config::numPortWriteBP = 0;
+int Config::numMemWriteBP = 0;
+int Config::numMemReadBP = 0;
 
 uint8_t  Config::joystick = JOY_KEMPSTON;
 uint16_t Config::joydef[12] = {
@@ -375,12 +376,43 @@ void Config::load() {
         nvs_get_b("flashload", flashload, sts);
         nvs_get_b("rightSpace", rightSpace, sts);
         nvs_get_b("wasd", wasd, sts);
-        nvs_get_u16("breakPoint", breakPoint, sts);
-        nvs_get_u16("portReadBP", portReadBP, sts);
-        nvs_get_u16("portWriteBP", portWriteBP, sts);
-        nvs_get_b("enableBreakPoint", enableBreakPoint, sts);
-        nvs_get_b("enablePortReadBP", enablePortReadBP, sts);
-        nvs_get_b("enablePortWriteBP", enablePortWriteBP, sts);
+        // Load typed breakpoints array
+        for (int i = 0; i < MAX_BREAKPOINTS; i++) {
+            breakPoints[i] = {0xFFFF, BP_NONE};
+            char key[16];
+            snprintf(key, sizeof(key), "bp%d", i);
+            nvs_get_u16(key, breakPoints[i].addr, sts);
+            uint8_t t = BP_NONE;
+            snprintf(key, sizeof(key), "bpt%d", i);
+            nvs_get_u8(key, t, sts);
+            breakPoints[i].type = (BPType)t;
+            if (breakPoints[i].type == BP_NONE) breakPoints[i].addr = 0xFFFF;
+        }
+        // Migrate old single breakPoint
+        {
+            bool anyLoaded = false;
+            for (int i = 0; i < MAX_BREAKPOINTS; i++)
+                if (breakPoints[i].type != BP_NONE) { anyLoaded = true; break; }
+            if (!anyLoaded) {
+                uint16_t oldBP = 0xFFFF; bool oldEnable = false;
+                nvs_get_u16("breakPoint", oldBP, sts);
+                nvs_get_b("enableBreakPoint", oldEnable, sts);
+                if (oldEnable && oldBP != 0xFFFF)
+                    breakPoints[0] = {oldBP, BP_PC};
+                // Migrate old port BPs
+                uint16_t oldPR = 0xFFFF, oldPW = 0xFFFF;
+                bool oldPRe = false, oldPWe = false;
+                nvs_get_u16("portReadBP", oldPR, sts);
+                nvs_get_b("enablePortReadBP", oldPRe, sts);
+                if (oldPRe && oldPR != 0xFFFF)
+                    breakPoints[1] = {oldPR, BP_PORT_READ};
+                nvs_get_u16("portWriteBP", oldPW, sts);
+                nvs_get_b("enablePortWriteBP", oldPWe, sts);
+                if (oldPWe && oldPW != 0xFFFF)
+                    breakPoints[2] = {oldPW, BP_PORT_WRITE};
+            }
+        }
+        recountBP();
         nvs_get_b("tape_player", tape_player, sts);
         bool b; nvs_get_b("real_player", b, sts);
 #if LOAD_WAV_PIO
@@ -556,12 +588,14 @@ void Config::save() {
     nvs_set_str(buf,"rightSpace", rightSpace ? "true" : "false");
     nvs_set_str(buf,"wasd", wasd ? "true" : "false");
     nvs_set_str(buf,"tape_timing_rg",tape_timing_rg ? "true" : "false");
-    nvs_set_u16(buf,"breakPoint", Config::breakPoint);
-    nvs_set_u16(buf,"portReadBP", Config::portReadBP);
-    nvs_set_u16(buf,"portWriteBP", Config::portWriteBP);
-    nvs_set_str(buf,"enableBreakPoint", enableBreakPoint ? "true" : "false");
-    nvs_set_str(buf,"enablePortReadBP", enablePortReadBP ? "true" : "false");
-    nvs_set_str(buf,"enablePortWriteBP", enablePortWriteBP ? "true" : "false");
+    // Save typed breakpoints array
+    for (int i = 0; i < MAX_BREAKPOINTS; i++) {
+        char key[16];
+        snprintf(key, sizeof(key), "bp%d", i);
+        nvs_set_u16(buf, key, breakPoints[i].addr);
+        snprintf(key, sizeof(key), "bpt%d", i);
+        nvs_set_u8(buf, key, (uint8_t)breakPoints[i].type);
+    }
     nvs_set_u8(buf,"joystick", Config::joystick);
     // Write joystick definition
     for (int n = 0; n < 12; ++n) {

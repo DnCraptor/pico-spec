@@ -158,7 +158,7 @@ inline static size_t extendedZxRamPages() {
 
 IRAM_ATTR uint8_t Ports::input(uint16_t address) {
   uint8_t data;
-  if (address == Config::portReadBP && Config::enablePortReadBP)
+  if (Config::numPortReadBP > 0 && Config::hasBreakPoint(address, Config::BP_PORT_READ))
     CPU::portBasedBP = true;
   uint8_t rambank = address >> 14;
   p_states = CPU::tstates;
@@ -399,7 +399,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
 
 IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
   int Audiobit;
-  if (address == Config::portWriteBP && Config::enablePortWriteBP)
+  if (Config::numPortWriteBP > 0 && Config::hasBreakPoint(address, Config::BP_PORT_WRITE))
     CPU::portBasedBP = true;
   uint8_t rambank = address >> 14;
 
