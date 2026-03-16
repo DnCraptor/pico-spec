@@ -36,6 +36,10 @@ visit https://zxespectrum.speccy.org/contacto
 #ifndef ESPECTRUM_MESSAGES_h
 #define ESPECTRUM_MESSAGES_h
 
+// Stringify helper for embedding compile-time constants in menu strings
+#define _PIN_STR(x) #x
+#define _PIN_XSTR(x) _PIN_STR(x)
+
 // General
 #define MSG_LOADING_SNA "Loading SNA file"
 #define MSG_LOADING_Z80 "Loading Z80 file"
@@ -313,7 +317,7 @@ static const char *MENU_TAPE[2] = { MENU_TAPE_EN, MENU_TAPE_ES };
 static const char *MENU_TAPE_NO_SD[2] = { MENU_TAPE_NO_SD_EN, MENU_TAPE_NO_SD_ES };
 
 static const char *MENU_TAPEPLAYER[2] = { "Player mode\n", "Modo reproductor\n" };
-static const char *MENU_TAPEPLAYER2[2] = { "Real input\n", "Entrada real\n" };
+static const char *MENU_TAPEPLAYER2[2] = { "Input (P" _PIN_XSTR(LOAD_WAV_PIO) ")\n", "Entrada (P" _PIN_XSTR(LOAD_WAV_PIO) ")\n" };
 
 #if !PICO_RP2040
 #define MENU_STORAGE_MAIN_EN \
@@ -789,14 +793,12 @@ static const char *MENU_AY48[2] = { "Turned on?\n" , "Turned on?\n"};
 
 #if !PICO_RP2040
 static const char *MENU_SAA1099[2] = { "Turned on?\n" , "Turned on?\n"};
-#define _MIDI_STR(x) #x
-#define _MIDI_XSTR(x) _MIDI_STR(x)
-#define MENU_MIDI_EN "MIDI(Ext:P" _MIDI_XSTR(MIDI_TX_PIN) ")\n"\
+#define MENU_MIDI_EN "MIDI(Ext:P" _PIN_XSTR(MIDI_TX_PIN) ")\n"\
     "OFF     \t[O]\n"\
     "AY      \t[A]\n"\
     "ShamaZX \t[S]\n"\
     "Software\t[W]\n"
-#define MENU_MIDI_ES "MIDI(Ext:P" _MIDI_XSTR(MIDI_TX_PIN) ")\n"\
+#define MENU_MIDI_ES "MIDI(Ext:P" _PIN_XSTR(MIDI_TX_PIN) ")\n"\
     "OFF     \t[O]\n"\
     "AY      \t[A]\n"\
     "ShamaZX \t[S]\n"\

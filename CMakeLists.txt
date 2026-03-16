@@ -432,7 +432,7 @@ ELSEIF(PICO_DV)
         PWM_PIN0=26 # R
         PWM_PIN1=27 # L
         BEEPER_PIN=28 # not implemented
-        MIDI_TX_PIN=4
+        MIDI_TX_PIN=21
 
         # SDCARD
         SDCARD_SPI_BUS=spi1
