@@ -134,9 +134,10 @@ public:
     static void joyDialog(void);
     static void pokeDialog();
     static void jumpToDialog();
-    static void portReadBPDialog();
-    static void portWriteBPDialog();
     static void BPDialog();
+    static void BPListDialog();
+    static bool dumpRangeDialog(uint16_t &from, uint16_t &to);
+    static void memSearchDialog();
     static uint32_t addressDialog(uint16_t addr, const char* title);
 
     // Rows
@@ -221,5 +222,7 @@ static inline std::string trim_copy(std::string s) {
 #define is_enter(vk) (vk == fabgl::VK_MENU_RIGHT || vk == fabgl::VK_MENU_ENTER)
 #define is_enter_fd(vk) (vk == fabgl::VK_MENU_ENTER)
 #define is_return(vk) (vk == fabgl::VK_MENU_ENTER)
+
+void flushKbd();
 
 #endif // ESPECTRUM_OSD_H

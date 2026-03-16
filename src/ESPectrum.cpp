@@ -954,16 +954,14 @@ void ESPectrum::reset(uint8_t romInUse) {
 
   // Empty audio buffers
   memset(overSamplebuf, 0, sizeof(overSamplebuf));
-  memset(audioBuffer_L, 128, sizeof(audioBuffer_L));
-  memset(audioBuffer_R, 128, sizeof(audioBuffer_R));
+  memset(audioBuffer_L, 0, sizeof(audioBuffer_L));
+  memset(audioBuffer_R, 0, sizeof(audioBuffer_R));
   memset(audioBufferCovox, 0, sizeof(audioBufferCovox));
   memset(chip0.SamplebufAY_L, 0, sizeof(chip0.SamplebufAY_L));
   memset(chip1.SamplebufAY_R, 0, sizeof(chip1.SamplebufAY_R));
 #if !PICO_RP2040
   memset(saaChip.SamplebufSAA_L, 0, sizeof(saaChip.SamplebufSAA_L));
   memset(saaChip.SamplebufSAA_R, 0, sizeof(saaChip.SamplebufSAA_R));
-  memset(audioBufferMIDI_L, 128, sizeof(audioBufferMIDI_L));
-  memset(audioBufferMIDI_R, 128, sizeof(audioBufferMIDI_R));
 #endif
   lastCovoxVal = lastaudioBit = 0;
 
@@ -1000,15 +998,8 @@ void ESPectrum::reset(uint8_t romInUse) {
 
   audioCOVOXDivider = audioAYDivider;
 
-  // Skip audio hardware re-init on reset — sample rate never changes (always 31250),
-  // and i2s_deinit/i2s_init causes a click on I2S DAC.
-  // init_sound() + pcm_setup() are called once from setup().
-  static bool audio_initialized = false;
-  if (!audio_initialized) {
-    init_sound();
-    pcm_setup(Audio_freq);
-    audio_initialized = true;
-  }
+  init_sound();
+  pcm_setup(Audio_freq);
 
   if (Config::tape_player) {
     AY_emu = false; // Disable AY emulation if tape player mode is set
@@ -1087,7 +1078,7 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
   bool j[10] = {true, true, true, true, true, true, true, true, true, true};
   bool jShift = true;
 
-  if ((Config::enableBreakPoint && Config::breakPoint == Z80::getRegPC()) ||
+  if ((Config::numPcBP > 0 && Config::hasBreakPoint(Z80::getRegPC(), Config::BP_PC)) ||
       CPU::portBasedBP) {
     int64_t osd_start = esp_timer_get_time();
     OSD::osdDebug();
@@ -1509,7 +1500,11 @@ void ESPectrum::loop() {
               Config::vga_video_mode = pend_vga;
               Config::save();
               Config::clearPendingVideoMode();
+#ifdef VGA_HDMI
+              VIDEO::changeMode();
+#else
               OSD::esp_hard_reset();
+#endif
           } else {
               Debug::log("loop: video mode confirmed");
               Config::clearPendingVideoMode();
@@ -1600,38 +1595,40 @@ void ESPectrum::loop() {
         while (audbufcntover < (uint32_t)samplesPerFrame) {
           overSamplebuf[audbufcntover++] = faudioBit;
         }
-        // Smooth beeper buffer: causal 2-tap (1-1)/2
-        // Reduces PWM jitter from non-integer tstates/sample (128K: 113.45)
-        {
-          uint32_t prev = overSamplebuf[0];
-          for (int i = 1; i < samplesPerFrame; i++) {
-            uint32_t curr = overSamplebuf[i];
-            overSamplebuf[i] = (prev + curr + 1) >> 1;
-            prev = curr;
+        if (Tape::tapeStatus != TAPE_LOADING) {
+          // Smooth beeper buffer: causal 2-tap (1-1)/2
+          // Reduces PWM jitter from non-integer tstates/sample (128K: 113.45)
+          {
+            uint32_t prev = overSamplebuf[0];
+            for (int i = 1; i < samplesPerFrame; i++) {
+              uint32_t curr = overSamplebuf[i];
+              overSamplebuf[i] = (prev + curr + 1) >> 1;
+              prev = curr;
+            }
           }
-        }
-        // Simulate speaker coupling capacitor: attenuate constant (DC) beeper signals.
-        // On real hardware the coupling cap blocks a static EAR output level — only
-        // transitions are audible. When all samples in the buffer are identical (bit
-        // held steady), fade the level out. When the beeper is oscillating (music),
-        // leave the buffer untouched so quality is fully preserved.
-        {
-          static uint32_t dc_fade_q8 = 256u; // Q8 attenuation: 256 = full, 0 = silent
-          uint32_t v0 = overSamplebuf[0];
-          bool is_const = true;
-          for (int i = 1; i < samplesPerFrame; i++)
-            if (overSamplebuf[i] != v0) { is_const = false; break; }
-          if (is_const && v0 > 0) {
-            // Constant non-zero DC — fade to silence over ~10 frames (~200ms)
-            if (dc_fade_q8 >= 26u) dc_fade_q8 -= 26u; else dc_fade_q8 = 0u;
-            uint32_t faded = (v0 * dc_fade_q8) >> 8;
-            for (int i = 0; i < samplesPerFrame; i++)
-              overSamplebuf[i] = faded;
-          } else if (!is_const) {
-            // Oscillating beeper (music) — full amplitude, restore attenuation
-            dc_fade_q8 = 256u;
+          // Simulate speaker coupling capacitor: attenuate constant (DC) beeper signals.
+          // On real hardware the coupling cap blocks a static EAR output level — only
+          // transitions are audible. When all samples in the buffer are identical (bit
+          // held steady), fade the level out. When the beeper is oscillating (music),
+          // leave the buffer untouched so quality is fully preserved.
+          {
+            static uint32_t dc_fade_q8 = 256u; // Q8 attenuation: 256 = full, 0 = silent
+            uint32_t v0 = overSamplebuf[0];
+            bool is_const = true;
+            for (int i = 1; i < samplesPerFrame; i++)
+              if (overSamplebuf[i] != v0) { is_const = false; break; }
+            if (is_const && v0 > 0) {
+              // Constant non-zero DC — fade to silence over ~10 frames (~200ms)
+              if (dc_fade_q8 >= 26u) dc_fade_q8 -= 26u; else dc_fade_q8 = 0u;
+              uint32_t faded = (v0 * dc_fade_q8) >> 8;
+              for (int i = 0; i < samplesPerFrame; i++)
+                overSamplebuf[i] = faded;
+            } else if (!is_const) {
+              // Oscillating beeper (music) — full amplitude, restore attenuation
+              dc_fade_q8 = 256u;
+            }
+            // is_const && v0 == 0: constant silence — don't reset dc_fade_q8
           }
-          // is_const && v0 == 0: constant silence — don't reset dc_fade_q8
         }
         if (Config::covox && faudbufcntCovox < samplesPerFrame) {
           uint8_t *sound_buf = audioBufferCovox + faudbufcntCovox;
@@ -1649,24 +1646,41 @@ void ESPectrum::loop() {
 #endif
         if (Config::trdosSoundLed) FDDGenSound();
         if (AY_emu && faudbufcntAY < samplesPerFrame) {
+          if (Tape::tapeStatus == TAPE_LOADING) {
+              memset(chip0.SamplebufAY_L, 0, sizeof(chip0.SamplebufAY_L));
+              memset(chip0.SamplebufAY_R, 0, sizeof(chip0.SamplebufAY_R));
+              memset(chip1.SamplebufAY_L, 0, sizeof(chip1.SamplebufAY_L));
+              memset(chip1.SamplebufAY_R, 0, sizeof(chip1.SamplebufAY_R));
+          } else {
               if(Config::turbosound != 0 || AySound::selected_chip == 0) chip0.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
               if(Config::turbosound != 0 || AySound::selected_chip == 1) chip1.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
+          }
         }
 #if !PICO_RP2040
         if (SAA_emu && faudbufcntSAA < samplesPerFrame)
         {
-          saaChip.gen_sound(samplesPerFrame - faudbufcntSAA, faudbufcntSAA);
+          if (Tape::tapeStatus == TAPE_LOADING) {
+            memset(saaChip.SamplebufSAA_L, 0, sizeof(saaChip.SamplebufSAA_L));
+            memset(saaChip.SamplebufSAA_R, 0, sizeof(saaChip.SamplebufSAA_R));
+          } else {
+            saaChip.gen_sound(samplesPerFrame - faudbufcntSAA, faudbufcntSAA);
+          }
         }
         if (Midi::enabled == 3)
         {
-          MidiSynth::gen_sound(audioBufferMIDI_L, audioBufferMIDI_R, samplesPerFrame);
+          if (Tape::tapeStatus == TAPE_LOADING) {
+            memset(audioBufferMIDI_L, 0, samplesPerFrame);
+            memset(audioBufferMIDI_R, 0, samplesPerFrame);
+          } else {
+            MidiSynth::gen_sound(audioBufferMIDI_L, audioBufferMIDI_R, samplesPerFrame);
+          }
         }
 #endif
         for (int i = 0; i < samplesPerFrame; i++)
         {
-          int beeper_L = overSamplebuf[i] + audioBufferCovox[i]
+          int beeper_L = overSamplebuf[i] + audioBufferCovox[i] + audioBufferFDD[i]
 #if !PICO_RP2040
-                         + audioBufferFDD[i] + audioBufferPIT[i]
+                         + audioBufferPIT[i]
 #endif
               ;
           int beeper_R = beeper_L;
@@ -1691,16 +1705,12 @@ void ESPectrum::loop() {
             }
             if (Midi::enabled == 3)
             {
-              // MIDI outputs unsigned 0..255 center 128; convert to signed
-              beeper_L += (int)audioBufferMIDI_L[i] - 128;
-              beeper_R += (int)audioBufferMIDI_R[i] - 128;
+              beeper_L += audioBufferMIDI_L[i];
+              beeper_R += audioBufferMIDI_R[i];
             }
 #endif
-            // Shift to 128-centered output (DAC treats 128 as silence)
-            beeper_L += 128;
-            beeper_R += 128;
-            audioBuffer_L[i] = beeper_L < 0 ? 0 : (beeper_L > 255 ? 255 : beeper_L);
-            audioBuffer_R[i] = beeper_R < 0 ? 0 : (beeper_R > 255 ? 255 : beeper_R);
+            audioBuffer_L[i] = beeper_L > 255 ? 255 : beeper_L; // Clamp
+            audioBuffer_R[i] = beeper_R > 255 ? 255 : beeper_R; // Clamp
         }
       }
     }

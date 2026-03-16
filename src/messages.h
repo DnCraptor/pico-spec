@@ -36,6 +36,10 @@ visit https://zxespectrum.speccy.org/contacto
 #ifndef ESPECTRUM_MESSAGES_h
 #define ESPECTRUM_MESSAGES_h
 
+// Stringify helper for embedding compile-time constants in menu strings
+#define _PIN_STR(x) #x
+#define _PIN_XSTR(x) _PIN_STR(x)
+
 // General
 #define MSG_LOADING_SNA "Loading SNA file"
 #define MSG_LOADING_Z80 "Loading Z80 file"
@@ -313,7 +317,7 @@ static const char *MENU_TAPE[2] = { MENU_TAPE_EN, MENU_TAPE_ES };
 static const char *MENU_TAPE_NO_SD[2] = { MENU_TAPE_NO_SD_EN, MENU_TAPE_NO_SD_ES };
 
 static const char *MENU_TAPEPLAYER[2] = { "Player mode\n", "Modo reproductor\n" };
-static const char *MENU_TAPEPLAYER2[2] = { "Real input\n", "Entrada real\n" };
+static const char *MENU_TAPEPLAYER2[2] = { "Input (P" _PIN_XSTR(LOAD_WAV_PIO) ")\n", "Entrada (P" _PIN_XSTR(LOAD_WAV_PIO) ")\n" };
 
 #if !PICO_RP2040
 #define MENU_STORAGE_MAIN_EN \
@@ -674,10 +678,9 @@ static const char *MENU_RESET[2] = { MENU_RESET_EN, MENU_RESET_ES };
 
 #define MENU_DEBUG_EN \
     "Debug Menu\n"\
-    "Port read BP  (ALT+F3)\n"\
-    "Port write BP (ALT+F4)\n"\
     "Debug dialog  (ALT+F5)\n"\
     "BreakPoint    (ALT+F7)\n"\
+    "BP List     (ALT+F7+A)\n"\
     "Jump to       (ALT+F8)\n"\
     "Input Poke    (ALT+F9)\n"\
 	"Trigger NMI   (ALT+F10)\n"
@@ -790,14 +793,12 @@ static const char *MENU_AY48[2] = { "Turned on?\n" , "Turned on?\n"};
 
 #if !PICO_RP2040
 static const char *MENU_SAA1099[2] = { "Turned on?\n" , "Turned on?\n"};
-#define _MIDI_STR(x) #x
-#define _MIDI_XSTR(x) _MIDI_STR(x)
-#define MENU_MIDI_EN "MIDI(Ext:P" _MIDI_XSTR(MIDI_TX_PIN) ")\n"\
+#define MENU_MIDI_EN "MIDI(Ext:P" _PIN_XSTR(MIDI_TX_PIN) ")\n"\
     "OFF     \t[O]\n"\
     "AY      \t[A]\n"\
     "ShamaZX \t[S]\n"\
     "Software\t[W]\n"
-#define MENU_MIDI_ES "MIDI(Ext:P" _MIDI_XSTR(MIDI_TX_PIN) ")\n"\
+#define MENU_MIDI_ES "MIDI(Ext:P" _PIN_XSTR(MIDI_TX_PIN) ")\n"\
     "OFF     \t[O]\n"\
     "AY      \t[A]\n"\
     "ShamaZX \t[S]\n"\
@@ -1484,17 +1485,20 @@ static const char *AboutMsg[2][9] = {
 
 #define OSD_DBG_HELP_EN \
     " [Space]      Step CPU\n"\
-    " [ALT+Space]  Step over CALL operation\n"\
+    " [ALT+Space]  Step over CALL\n"\
+    " [Enter]      Go to address (view)\n"\
     " [Esc]        Exit\n"\
+    " [ALT+F1]     Search memory\n"\
+    " [F3]         Search next\n"\
     " [F1]         This Help\n"\
     " [F2]         Show memory dump\n"\
-    " [F3]         Port read breakpoint\n"\
-    " [F4]         Port write breakpoint\n"\
-    " [F5]         Breakpoint current line\n"\
-    " [F7]         Breakpoint editor\n"\
-    " [F8]         Jump to address\n"\
-    " [F9]         Poke dialog\n"\
-	" [F10]        Trigger NMI\n"\
+    " [ALT+F2]     Save dump to file\n"\
+    " [F5]         Toggle PC breakpoint\n"\
+    " [F7]         Add breakpoint (type)\n"\
+    " [ALT+F7]     Breakpoint list\n"\
+    " [Tab]        Code/Memory/Regs\n"\
+    " [F8]         Set PC to address\n"\
+    " [ALT+F9]     Show full screen\n"\
     " [F11-F12]    Load / Save snapshot\n"\
     " [+]          Shift up screen\n"\
     " [-]          Shift down screen\n"\

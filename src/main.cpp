@@ -815,6 +815,10 @@ void repeat_me_for_input() {
 #endif
 }
 
+#ifdef VGA_HDMI
+extern "C" void hdmi_poll_reinit(void);
+#endif
+
 void __scratch_x("render") render_core() {
     multicore_lockout_victim_init();
     graphics_init();
@@ -823,6 +827,9 @@ void __scratch_x("render") render_core() {
     graphics_set_flashmode(true, false);
     sem_acquire_blocking(&vga_start_semaphore);
     while (true) {
+#ifdef VGA_HDMI
+        hdmi_poll_reinit();
+#endif
         pcm_call();
         tight_loop_contents();
     }

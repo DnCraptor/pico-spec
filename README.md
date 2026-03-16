@@ -44,11 +44,11 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - Dual keyboard support: you can connect two devices: first using PS/2 protocol and second using USB at the same time.
 - PS/2 Joystick emulation (Cursor, Sinclair, Kempston and Fuller).
 - Two real joysticks support (Up to 8 button joysticks).
-- Emulation of Betadisk interface with four drives and TRD (read and write), SCL (read only), UDI and FDI (read only, partial) support. Fast and realtime modes.
+- Emulation of Betadisk interface with four drives and TRD, SCL, UDI and FDI (read and write) support. Fast and realtime modes.
 - esxDOS support (DivMMC, DivIDE, DivSD) — [esxdos.org](https://esxdos.org/index.html).
 - FDD activity LED indicator and mechanical head click/seek sound emulation (optional, toggled via Betadisk menu).
-- Realtime (with OSD) TZX and TAP file loading.
-- Flashload of TAP files.
+- Realtime (with OSD) TZX, TAP and PZX file loading.
+- Flashload of TZX/TAP/PZX files (standard loaders only).
 - Rodolfo Guerra's ROMs fast load routines support with on the fly standard speed blocks translation.
 - TAP file saving to SD card.
 - SNA and Z80 snapshot loading.
