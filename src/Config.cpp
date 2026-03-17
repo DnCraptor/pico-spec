@@ -462,7 +462,8 @@ void Config::load() {
         nvs_get_str("DSK_Path", FileUtils::DSK_Path, sts);
         nvs_get_str("ROM_Path", FileUtils::ROM_Path, sts);
         nvs_get_str("IMG_Path", FileUtils::IMG_Path, sts);
-        for (size_t i = 0; i < 5; ++i) {
+        nvs_get_str("ALL_Path", FileUtils::ALL_Path, sts);
+        for (size_t i = 0; i < 6; ++i) {
             DISK_FTYPE& ft = FileUtils::fileTypes[i];
             const string s = "fileTypes" + to_string(i);
             nvs_get_i((s + ".begin_row").c_str(), ft.begin_row, sts);
@@ -628,7 +629,8 @@ void Config::save() {
     nvs_set_str(buf,"DSK_Path",FileUtils::DSK_Path.c_str());
     nvs_set_str(buf,"ROM_Path",FileUtils::ROM_Path.c_str());
     nvs_set_str(buf,"IMG_Path",FileUtils::IMG_Path.c_str());
-    for (size_t i = 0; i < 5; ++i) {
+    nvs_set_str(buf,"ALL_Path",FileUtils::ALL_Path.c_str());
+    for (size_t i = 0; i < 6; ++i) {
         const DISK_FTYPE& ft = FileUtils::fileTypes[i];
         string s = "fileTypes" + to_string(i);
         nvs_set_i(buf, (s + ".begin_row").c_str(), ft.begin_row);

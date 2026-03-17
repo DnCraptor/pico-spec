@@ -1089,12 +1089,63 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
         else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F5) {
             menu_level = 0;
             menu_saverect = false;
-            string mFile = fileDialog(FileUtils::TAP_Path, MENU_TAP_TITLE[Config::lang],DISK_TAPFILE,51,22);
+            string mFile = fileDialog(FileUtils::ALL_Path, MENU_ALL_TITLE[Config::lang], DISK_ALLFILE, 51, 22);
             if (mFile != "") {
-                if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
-                Config::save();
-                Tape::LoadTape(mFile);
-                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                string fname = FileUtils::ALL_Path + mFile.substr(1);
+                string ext = FileUtils::getLCaseExt(fname);
+
+                if (ext == "tap" || ext == "tzx" || ext == "pzx" || ext == "wav" || ext == "mp3") {
+                    // Tape — sync TAP_Path since Tape::LoadTape() uses it internally
+                    FileUtils::TAP_Path = FileUtils::ALL_Path;
+                    if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
+                    Config::save();
+                    Tape::LoadTape(mFile);
+                    if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                }
+                else if (ext == "trd" || ext == "scl" || ext == "udi" || ext == "fdi") {
+                    // Disk into Drive A — check machine compatibility
+                    if (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) {
+                        FileUtils::DSK_Path = FileUtils::ALL_Path;
+                        if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
+                        Config::save();
+                        rvmWD1793InsertDisk(&ESPectrum::fdd, 0, fname);
+                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                    } else {
+                        OSD::osdCenteredMsg(OSD_DSK_NEEDS_PENTAGON[Config::lang], LEVEL_WARN);
+                    }
+                }
+                else if (ext == "sna" || ext == "z80" || ext == "p") {
+                    // Snapshot
+                    FileUtils::SNA_Path = FileUtils::ALL_Path;
+                    if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
+                    Config::save();
+                    if (!LoadSnapshot(fname, "", "")) {
+                        OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
+                    } else {
+                        Config::ram_file = fname;
+                        Config::last_ram_file = fname;
+                    }
+                    if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                }
+#if !PICO_RP2040
+                else if (ext == "mmc" || ext == "hdf") {
+                    // DivMMC/DivIDE image
+                    if (DivMMC::enabled) {
+                        FileUtils::IMG_Path = FileUtils::ALL_Path;
+                        if (ext == "hdf")
+                            Config::esxdos_hdf_image[0] = fname; // master (hd0)
+                        else
+                            Config::esxdos_mmc_image = fname;
+                        if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
+                        DivMMC::init();
+                        Config::save();
+                        ESPectrum::reset();
+                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                    } else {
+                        OSD::osdCenteredMsg(OSD_IMG_NEEDS_ESXDOS[Config::lang], LEVEL_WARN);
+                    }
+                }
+#endif
             }
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
         }

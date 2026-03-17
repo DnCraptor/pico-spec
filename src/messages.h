@@ -267,6 +267,18 @@ static const char *MENU_DSK_TITLE[2] = { MENU_DSK_TITLE_EN,MENU_DSK_TITLE_ES };
 #define MENU_ROM_TITLE_ES "Elija ROM"
 static const char *MENU_ROM_TITLE[2] = { MENU_ROM_TITLE_EN,MENU_ROM_TITLE_ES };
 
+#define MENU_ALL_TITLE_EN "Open File"
+#define MENU_ALL_TITLE_ES "Abrir fichero"
+static const char *MENU_ALL_TITLE[2] = { MENU_ALL_TITLE_EN,MENU_ALL_TITLE_ES };
+
+#define OSD_DSK_NEEDS_PENTAGON_EN "  Disk needs Pentagon mode  "
+#define OSD_DSK_NEEDS_PENTAGON_ES " Disco requiere modo Pentagon "
+static const char *OSD_DSK_NEEDS_PENTAGON[2] = { OSD_DSK_NEEDS_PENTAGON_EN,OSD_DSK_NEEDS_PENTAGON_ES };
+
+#define OSD_IMG_NEEDS_ESXDOS_EN "  Enable esxDOS first  "
+#define OSD_IMG_NEEDS_ESXDOS_ES " Active esxDOS primero "
+static const char *OSD_IMG_NEEDS_ESXDOS[2] = { OSD_IMG_NEEDS_ESXDOS_EN,OSD_IMG_NEEDS_ESXDOS_ES };
+
 #define MENU_SNA_EN \
     "Snapshot menu\n"\
     "Load (SNA,Z80,P)\t(F2) >\n"\
@@ -1398,7 +1410,7 @@ static const char *AboutMsg[2][9] = {
     " [F1]         Main menu\n"\
     " [F2]         Load (SNA,Z80,P)\n"\
     " [F3-F4]      Load / Save snapshot\n"\
-    " [F5]         Select tape file\n"\
+    " [F5]         Open file\n"\
     " [F6]         Play/Stop tape\n"\
     " [F7]         Tape browser\n"\
     " [F8]         CPU / Tape load stats\n"\
@@ -1420,7 +1432,7 @@ static const char *AboutMsg[2][9] = {
     " [F1]         Menu principal\n"\
     " [F2]         Cargar (SNA,Z80,P)\n"\
     " [F3-F4]      Cargar / Guardar snapshot\n"\
-    " [F5]         Elegir archivo de cinta\n"\
+    " [F5]         Abrir fichero\n"\
     " [F6]         Play/Stop cinta\n"\
     " [F7]         Explorador cinta\n"\
     " [F8]         Status CPU / Carga cinta\n"\
@@ -1442,7 +1454,7 @@ static const char *AboutMsg[2][9] = {
     " [F1]         Main menu\n"\
     " [F2]         Load (SNA,Z80,P)\n"\
     " [F3-F4]      Load / Save snapshot\n"\
-    " [F5]         Select tape file\n"\
+    " [F5]         Open file\n"\
     " [F6]         Play/Stop tape\n"\
     " [F7]         Tape browser\n"\
     " [F8]         CPU / Tape load stats\n"\
@@ -1464,7 +1476,7 @@ static const char *AboutMsg[2][9] = {
     " [F1]         Menu principal\n"\
     " [F2]         Cargar (SNA,Z80,P)\n"\
     " [F3-F4]      Cargar / Guardar snapshot\n"\
-    " [F5]         Elegir archivo de cinta\n"\
+    " [F5]         Abrir fichero\n"\
     " [F6]         Play/Stop cinta\n"\
     " [F7]         Explorador cinta\n"\
     " [F8]         Status CPU / Carga cinta\n"\
