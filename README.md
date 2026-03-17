@@ -53,6 +53,7 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - TAP file saving to SD card.
 - SNA and Z80 snapshot loading.
 - Snapshot saving and loading.
+- ZIP archive support: browse, extract, load and delete files inside ZIP archives.
 - Complete file navigation system with autoindexing, folder support and search functions.
 - Complete OSD menu in two languages: English & Spanish.
 - BMP screen capture to SD Card (thanks David Crespo 😉).
@@ -75,7 +76,7 @@ You can flash the binaries directly to the board: [Releases](https://github.com/
 - F2 Load (SNA,Z80,P)
 - F3 Load custom snapshot
 - F4 Save customn snapshot
-- F5 Select TAP file
+- F5 Load file (TAP, TZX, PZX, TRD, SCL, UDI, FDI, SNA, Z80, MMC, HDF, DSK, ZIP)
 - F6 Play/Stop tape
 - F7 Tape Browser
 - F8 CPU / Tape load stats ( [CPU] microsecs per CPU cycle, [IDL] idle microsecs, [FPS] Frames per second, [FND] FPS w/no delay applied )
