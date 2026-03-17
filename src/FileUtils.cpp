@@ -80,9 +80,9 @@ DISK_FTYPE FileUtils::fileTypes[6] = {
     {".rom,.ROM,.bin,.BIN",2,2,0,""},
     {".mmc,.MMC,.hdf,.HDF",2,2,0,""},
 #if PICO_RP2040
-    {".sna,.SNA,.z80,.Z80,.p,.P,.tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3,.trd,.TRD,.scl,.SCL",2,2,0,""}
+    {".sna,.SNA,.z80,.Z80,.p,.P,.tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3,.trd,.TRD,.scl,.SCL,.zip,.ZIP",2,2,0,""}
 #else
-    {".sna,.SNA,.z80,.Z80,.p,.P,.tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3,.trd,.TRD,.scl,.SCL,.udi,.UDI,.fdi,.FDI,.mmc,.MMC,.hdf,.HDF",2,2,0,""}
+    {".sna,.SNA,.z80,.Z80,.p,.P,.tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3,.trd,.TRD,.scl,.SCL,.udi,.UDI,.fdi,.FDI,.mmc,.MMC,.hdf,.HDF,.zip,.ZIP",2,2,0,""}
 #endif
 };
 
@@ -251,6 +251,14 @@ bool FileUtils::hasMP3extension(string filename)
 {
     if (filename.substr(filename.size()-4,4) == ".mp3") return true;
     if (filename.substr(filename.size()-4,4) == ".MP3") return true;
+    return false;
+}
+
+bool FileUtils::hasZIPextension(string filename)
+{
+    if (filename.size() < 4) return false;
+    if (filename.substr(filename.size()-4,4) == ".zip") return true;
+    if (filename.substr(filename.size()-4,4) == ".ZIP") return true;
     return false;
 }
 

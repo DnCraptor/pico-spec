@@ -48,6 +48,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Snapshot.h"
 #include "MemESP.h"
 #include "Tape.h"
+#include "ZipExtract.h"
 #include "pwm_audio.h"
 #include "Z80_JLS/z80.h"
 #include "roms.h"
@@ -1037,7 +1038,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             // Persist Load
             if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             while (1) {
-                menu_footer = Config::lang ? "R-Renombrar  Del-Borrar" : "R-Rename  Del-Remove";
+                menu_footer = Config::lang ? "F6: Renombrar  F8: Borrar" : "F6: Rename  F8: Remove";
                 uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_LOAD[Config::lang], 40));
                 if (opt2) {
                     if (menu_del_pressed) {
@@ -1062,7 +1063,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             menu_curopt = 1;
             if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             while (1) {
-                menu_footer = Config::lang ? "R-Renombrar  Del-Borrar" : "R-Rename  Del-Remove";
+                menu_footer = Config::lang ? "F6: Renombrar  F8: Borrar" : "F6: Rename  F8: Remove";
                 uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_SAVE[Config::lang], 40));
                 if (opt2) {
                     if (menu_del_pressed) {
@@ -1089,14 +1090,56 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
         else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F5) {
             menu_level = 0;
             menu_saverect = false;
-            string mFile = fileDialog(FileUtils::ALL_Path, MENU_ALL_TITLE[Config::lang], DISK_ALLFILE, 51, 22);
+            string mFile;
+            string fname;
+            string ext;
+            bool fromZip = false;
+
+            // Loop to allow re-opening fileDialog after ZIP cancel
+            f5_retry:
+            mFile = fileDialog(FileUtils::ALL_Path, MENU_ALL_TITLE[Config::lang], DISK_ALLFILE, 51, 22);
             if (mFile != "") {
-                string fname = FileUtils::ALL_Path + mFile.substr(1);
-                string ext = FileUtils::getLCaseExt(fname);
+                // X prefix = extract ZIP to current folder
+                if (mFile[0] == 'X') {
+                    fname = FileUtils::ALL_Path + mFile.substr(1);
+                    OSD::osdCenteredMsg(OSD_ZIP_EXTRACTING[Config::lang], LEVEL_INFO, 0);
+                    int count = ZipExtract::extractAll(fname, FileUtils::ALL_Path);
+                    if (count > 0) {
+                        char msg[40];
+                        snprintf(msg, sizeof(msg), " Extracted %d file(s) ", count);
+                        OSD::osdCenteredMsg(msg, LEVEL_INFO, 1000);
+                    } else {
+                        OSD::osdCenteredMsg(OSD_ZIP_ERR[Config::lang], LEVEL_WARN);
+                    }
+                    goto f5_retry;
+                }
+                fname = FileUtils::ALL_Path + mFile.substr(1);
+                ext = FileUtils::getLCaseExt(fname);
+                fromZip = false;
+
+                // ZIP archive — extract and replace fname/ext/mFile
+                if (ext == "zip") {
+                    string zipFname = ZipExtract::extract(fname, DISK_ALLFILE);
+                    if (zipFname.empty()) {
+                        OSD::osdCenteredMsg(OSD_ZIP_ERR[Config::lang], LEVEL_WARN);
+                        if (VIDEO::OSD) OSD::drawStats();
+                        return;
+                    }
+                    if (zipFname == "\x1b") {
+                        // User cancelled ZIP selection — reopen file dialog
+                        goto f5_retry;
+                    }
+                    fname = zipFname;
+                    ext = FileUtils::getLCaseExt(fname);
+                    // Reconstruct mFile with prefix for Tape::LoadTape compatibility
+                    string zipBase = fname.substr(fname.rfind('/') + 1);
+                    mFile = mFile.substr(0, 1) + zipBase;
+                    fromZip = true;
+                }
 
                 if (ext == "tap" || ext == "tzx" || ext == "pzx" || ext == "wav" || ext == "mp3") {
-                    // Tape — sync TAP_Path since Tape::LoadTape() uses it internally
-                    FileUtils::TAP_Path = FileUtils::ALL_Path;
+                    // Tape — sync TAP_Path: /tmp/ for ZIP, ALL_Path for normal files
+                    FileUtils::TAP_Path = fromZip ? "/tmp/" : FileUtils::ALL_Path;
                     if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
                     Config::save();
                     Tape::LoadTape(mFile);
@@ -1105,7 +1148,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 else if (ext == "trd" || ext == "scl" || ext == "udi" || ext == "fdi") {
                     // Disk into Drive A — check machine compatibility
                     if (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) {
-                        FileUtils::DSK_Path = FileUtils::ALL_Path;
+                        if (!fromZip) FileUtils::DSK_Path = FileUtils::ALL_Path;
                         if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
                         Config::save();
                         rvmWD1793InsertDisk(&ESPectrum::fdd, 0, fname);
@@ -1116,12 +1159,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 }
                 else if (ext == "sna" || ext == "z80" || ext == "p") {
                     // Snapshot
-                    FileUtils::SNA_Path = FileUtils::ALL_Path;
+                    if (!fromZip) FileUtils::SNA_Path = FileUtils::ALL_Path;
                     if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
                     Config::save();
                     if (!LoadSnapshot(fname, "", "")) {
                         OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
-                    } else {
+                    } else if (!fromZip) {
                         Config::ram_file = fname;
                         Config::last_ram_file = fname;
                     }
@@ -1828,7 +1871,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_curopt = 1;
                                     menu_saverect = true;
                                     while (1) {
-                                        menu_footer = Config::lang ? "R-Renombrar  Del-Borrar" : "R-Rename  Del-Remove";
+                                        menu_footer = Config::lang ? "F6: Renombrar  F8: Borrar" : "F6: Rename  F8: Remove";
                 uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_LOAD[Config::lang], 10));
                                         if (opt2) {
                                             if (menu_del_pressed) {
@@ -1857,7 +1900,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_curopt = 1;
                                     menu_saverect = true;
                                     while (1) {
-                                        menu_footer = Config::lang ? "R-Renombrar  Del-Borrar" : "R-Rename  Del-Remove";
+                                        menu_footer = Config::lang ? "F6: Renombrar  F8: Borrar" : "F6: Rename  F8: Remove";
                 uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_SAVE[Config::lang], 10));
                                         if (opt2) {
                                             if (menu_del_pressed) {
@@ -5847,7 +5890,7 @@ c:
             if (FileUtils::fsMount && Nextkey.vk == fabgl::VK_F11) {
                 // Persist Load
                 while (1) {
-                    menu_footer = Config::lang ? "R-Renombrar  Del-Borrar" : "R-Rename  Del-Remove";
+                    menu_footer = Config::lang ? "F6: Renombrar  F8: Borrar" : "F6: Rename  F8: Remove";
                 uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_LOAD[Config::lang], 40));
                     if (opt2) {
                         if (menu_del_pressed) {
@@ -5864,7 +5907,7 @@ c:
             else if (FileUtils::fsMount && Nextkey.vk == fabgl::VK_F12) {
                 // Persist Save
                 while (1) {
-                    menu_footer = Config::lang ? "R-Renombrar  Del-Borrar" : "R-Rename  Del-Remove";
+                    menu_footer = Config::lang ? "F6: Renombrar  F8: Borrar" : "F6: Rename  F8: Remove";
                 uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_SAVE[Config::lang], 40));
                     if (opt2) {
                         if (menu_del_pressed) {

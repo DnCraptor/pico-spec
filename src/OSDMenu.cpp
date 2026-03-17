@@ -310,14 +310,14 @@ unsigned short OSD::menuRun(string new_menu) {
                     menu_rename_pressed = false;
                     menu_footer = "";
                     return menu_prevopt;
-                } else if (Menukey.vk == fabgl::VK_DELETE) {
+                } else if (Menukey.vk == fabgl::VK_F8 || Menukey.vk == fabgl::VK_DELETE) {
                     click();
                     menu_prevopt = menuRealRowFor(focus);
                     menu_del_pressed = true;
                     menu_rename_pressed = false;
                     menu_footer = "";
                     return menu_prevopt;
-                } else if (Menukey.vk == fabgl::VK_r || Menukey.vk == fabgl::VK_R) {
+                } else if (Menukey.vk == fabgl::VK_F6) {
                     click();
                     menu_prevopt = menuRealRowFor(focus);
                     menu_del_pressed = false;

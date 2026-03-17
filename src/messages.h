@@ -279,6 +279,18 @@ static const char *OSD_DSK_NEEDS_PENTAGON[2] = { OSD_DSK_NEEDS_PENTAGON_EN,OSD_D
 #define OSD_IMG_NEEDS_ESXDOS_ES " Active esxDOS primero "
 static const char *OSD_IMG_NEEDS_ESXDOS[2] = { OSD_IMG_NEEDS_ESXDOS_EN,OSD_IMG_NEEDS_ESXDOS_ES };
 
+#define OSD_ZIP_ERR_EN " No supported file in ZIP "
+#define OSD_ZIP_ERR_ES " No hay archivo en ZIP "
+static const char *OSD_ZIP_ERR[2] = { OSD_ZIP_ERR_EN,OSD_ZIP_ERR_ES };
+
+#define OSD_ZIP_EXTRACTING_EN "    Extracting...    "
+#define OSD_ZIP_EXTRACTING_ES "    Extrayendo...    "
+static const char *OSD_ZIP_EXTRACTING[2] = { OSD_ZIP_EXTRACTING_EN,OSD_ZIP_EXTRACTING_ES };
+
+#define OSD_FILE_DELETE_TITLE_EN "Delete?"
+#define OSD_FILE_DELETE_TITLE_ES "Borrar?"
+static const char *OSD_FILE_DELETE_TITLE[2] = { OSD_FILE_DELETE_TITLE_EN,OSD_FILE_DELETE_TITLE_ES };
+
 #define MENU_SNA_EN \
     "Snapshot menu\n"\
     "Load (SNA,Z80,P)\t(F2) >\n"\
