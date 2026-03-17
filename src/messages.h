@@ -279,6 +279,10 @@ static const char *OSD_DSK_NEEDS_PENTAGON[2] = { OSD_DSK_NEEDS_PENTAGON_EN,OSD_D
 #define OSD_IMG_NEEDS_ESXDOS_ES " Active esxDOS primero "
 static const char *OSD_IMG_NEEDS_ESXDOS[2] = { OSD_IMG_NEEDS_ESXDOS_EN,OSD_IMG_NEEDS_ESXDOS_ES };
 
+#define OSD_DSK_WRITE_PROTECT_EN "  Disk is write protected  "
+#define OSD_DSK_WRITE_PROTECT_ES " Disco protegido contra escritura "
+static const char *OSD_DSK_WRITE_PROTECT[2] = { OSD_DSK_WRITE_PROTECT_EN,OSD_DSK_WRITE_PROTECT_ES };
+
 #define OSD_ZIP_ERR_EN " No supported file in ZIP "
 #define OSD_ZIP_ERR_ES " No hay archivo en ZIP "
 static const char *OSD_ZIP_ERR[2] = { OSD_ZIP_ERR_EN,OSD_ZIP_ERR_ES };

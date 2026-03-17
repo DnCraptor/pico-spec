@@ -32,6 +32,8 @@ THE SOFTWARE.
 #include "Debug.h"
 #include "Config.h"
 #include "CPU.h"
+#include "OSDMain.h"
+#include "messages.h"
 
 static bool sclConvertToTRD(rvmWD1793 *wd);
 
@@ -433,6 +435,7 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
             sclConvertToTRD(wd);
           if(wd->disk[wd->diskS]->writeprotect) {
             wd->status|=kRVMWD177XStatusProtected;
+            OSD::osdCenteredMsg(OSD_DSK_WRITE_PROTECT[Config::lang], LEVEL_WARN);
             _end(wd);
             return;
           }
@@ -465,6 +468,7 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
           sclConvertToTRD(wd);
         if(wd->disk[wd->diskS]->writeprotect) {
           wd->status|=kRVMWD177XStatusProtected;
+          OSD::osdCenteredMsg(OSD_DSK_WRITE_PROTECT[Config::lang], LEVEL_WARN);
           _end(wd);
           return;
         }
