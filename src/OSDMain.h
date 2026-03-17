@@ -128,6 +128,7 @@ public:
     static unsigned int ndirs;
 
     static uint8_t msgDialog(string title, string msg);
+    static string inlineTextEdit(int ex, int ey, int maxlen, string text);
     static bool videoModeConfirm(int timeout_sec = 15);
     static void progressDialog(string title, string msg, int percent, int action);
     string inputBox(int x, int y, string text);
@@ -162,6 +163,9 @@ public:
     static uint16_t y;                        // Y horizontal position
     static uint16_t prev_y[5];                // Y prev. position
     static unsigned short menu_prevopt;
+    static bool menu_del_pressed;         // Set by menuRun when Del pressed on a row
+    static bool menu_rename_pressed;      // Set by menuRun when R pressed on a row
+    static string menu_footer;            // Optional hint line drawn below menu (cleared after each menuRun)
     static string menu;                   // Menu string
     static unsigned short begin_row;      // First real displayed row
     static uint8_t focus;                    // Focused virtual row
