@@ -97,6 +97,22 @@ void DivMMC::init() {
 
     // Free previous allocations if switching modes or disabling
     if (!enabled) {
+        // Flush pending writes and unmap before freeing memory
+        flushWriteBuffer();
+        automap = false;
+        conmem = false;
+        mapram = false;
+        applyMapping(); // clears divmmc_mapped, restores page0
+
+        // Close open image files
+        for (int d = 0; d < 2; d++) {
+            if (mmc_file_open[d]) {
+                f_close(&mmc_file[d]);
+                mmc_file_open[d] = false;
+                mmc_file_size[d] = 0;
+            }
+        }
+
         // Cleanup bank memory
         if (!use_psram) {
             if (swap_open) { f_close(&swap_file); f_unlink("/tmp/divmmc-pico-spec.swap"); swap_open = false; }
@@ -109,9 +125,6 @@ void DivMMC::init() {
         use_psram = false;
         esxdos_rom = nullptr;
         rom_loaded = false;
-        automap = false;
-        conmem = false;
-        mapram = false;
         return;
     }
 
