@@ -867,6 +867,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 string mFile = fileDialog(FileUtils::IMG_Path, MENU_IMG_TITLE[Config::lang], DISK_IMGFILE, 51, 22);
                 if (mFile != "") {
                     string fname = FileUtils::IMG_Path + mFile.substr(1);
+                    if (FileUtils::getLCaseExt(fname) == "zip") {
+                        string zipFname = ZipExtract::extract(fname, DISK_IMGFILE);
+                        if (zipFname.empty()) OSD::osdCenteredMsg(OSD_ZIP_ERR[Config::lang], LEVEL_WARN);
+                        else if (zipFname != "\x1b") fname = zipFname;
+                        else fname.clear();
+                    }
+                    if (fname.empty()) { if (VIDEO::OSD) OSD::drawStats(); }
+                    else {
                     // Check if selected file is .hdf — offer drive slot selection
                     bool is_hdf = (fname.size() >= 4 &&
                         (fname.substr(fname.size() - 4) == ".hdf" || fname.substr(fname.size() - 4) == ".HDF"));
@@ -900,6 +908,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     ESPectrum::reset();
                     if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                     return;
+                    } // else (zip ok)
                 }
                 if (VIDEO::OSD) OSD::drawStats();
             } else
@@ -965,6 +974,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     }
 
                     string ext = FileUtils::getLCaseExt(fname);
+                    if (ext == "zip") {
+                        string zipFname = ZipExtract::extract(fname, DISK_DSKFILE);
+                        if (zipFname.empty()) { OSD::osdCenteredMsg(OSD_ZIP_ERR[Config::lang], LEVEL_WARN); continue; }
+                        if (zipFname == "\x1b") continue;
+                        fname = zipFname;
+                        ext = FileUtils::getLCaseExt(fname);
+                    }
                     if (ext == "trd" || ext == "scl" || ext == "udi" || ext == "fdi") {
                         printf("Insert disk %s\n",fname.c_str());
                         rvmWD1793InsertDisk(&ESPectrum::fdd, 0, fname);
@@ -1024,11 +1040,19 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 Config::save();
                 mFile.erase(0, 1);
                 string fname = FileUtils::SNA_Path + mFile;
-                if(!LoadSnapshot(fname, "", "")) {
-                    OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
+                if (FileUtils::getLCaseExt(fname) == "zip") {
+                    string zipFname = ZipExtract::extract(fname, DISK_SNAFILE);
+                    if (zipFname.empty()) { OSD::osdCenteredMsg(OSD_ZIP_ERR[Config::lang], LEVEL_WARN); }
+                    else if (zipFname != "\x1b") fname = zipFname;
+                    else fname.clear();
                 }
-                Config::ram_file = fname;
-                Config::last_ram_file = fname;
+                if (!fname.empty()) {
+                    if(!LoadSnapshot(fname, "", "")) {
+                        OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
+                    }
+                    Config::ram_file = fname;
+                    Config::last_ram_file = fname;
+                }
             }
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
         }
@@ -1424,6 +1448,16 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     // Select TAP File
                                     string mFile = fileDialog(FileUtils::TAP_Path, MENU_TAP_TITLE[Config::lang],DISK_TAPFILE,28,16);
                                     if (mFile != "") {
+                                        string fname = FileUtils::TAP_Path + mFile.substr(1);
+                                        if (FileUtils::getLCaseExt(fname) == "zip") {
+                                            string zipFname = ZipExtract::extract(fname, DISK_TAPFILE);
+                                            if (zipFname.empty()) { OSD::osdCenteredMsg(OSD_ZIP_ERR[Config::lang], LEVEL_WARN); break; }
+                                            if (zipFname == "\x1b") break;
+                                            fname = zipFname;
+                                            string zipBase = fname.substr(fname.rfind('/') + 1);
+                                            mFile = mFile.substr(0, 1) + zipBase;
+                                            FileUtils::TAP_Path = "/tmp/";
+                                        }
                                         Config::save();
                                         Tape::LoadTape(mFile);
                                         if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
@@ -1637,6 +1671,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             if (mFile != "") {
                                                 mFile.erase(0, 1);
                                                 string fname = FileUtils::DSK_Path + "/" + mFile;
+                                                if (FileUtils::getLCaseExt(fname) == "zip") {
+                                                    string zipFname = ZipExtract::extract(fname, DISK_DSKFILE);
+                                                    if (zipFname.empty()) { OSD::osdCenteredMsg(OSD_ZIP_ERR[Config::lang], LEVEL_WARN); break; }
+                                                    if (zipFname == "\x1b") break;
+                                                    fname = zipFname;
+                                                }
                                                 rvmWD1793InsertDisk(&ESPectrum::fdd, dsk_num - 1, fname);
                                                 Config::save();
                                                 return;
@@ -1857,6 +1897,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         Config::save();
                                         mFile.erase(0, 1);
                                         string fname = FileUtils::SNA_Path + mFile;
+                                        if (FileUtils::getLCaseExt(fname) == "zip") {
+                                            string zipFname = ZipExtract::extract(fname, DISK_SNAFILE);
+                                            if (zipFname.empty()) { OSD::osdCenteredMsg(OSD_ZIP_ERR[Config::lang], LEVEL_WARN); break; }
+                                            if (zipFname == "\x1b") break;
+                                            fname = zipFname;
+                                        }
                                         if(!LoadSnapshot(fname, "", "")) {
                                             OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
                                         } else {

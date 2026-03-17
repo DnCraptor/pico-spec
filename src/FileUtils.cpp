@@ -70,15 +70,15 @@ string FileUtils::ROM_Path = "/";
 string FileUtils::IMG_Path = "/";
 string FileUtils::ALL_Path = "/";
 DISK_FTYPE FileUtils::fileTypes[6] = {
-    {".sna,.SNA,.z80,.Z80,.p,.P",2,2,0,""},
-    {".tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3",2,2,0,""},
+    {".sna,.SNA,.z80,.Z80,.p,.P,.zip,.ZIP",2,2,0,""},
+    {".tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3,.zip,.ZIP",2,2,0,""},
 #if PICO_RP2040
-    {".trd,.TRD,.scl,.SCL",2,2,0,""},
+    {".trd,.TRD,.scl,.SCL,.zip,.ZIP",2,2,0,""},
 #else
-    {".trd,.TRD,.scl,.SCL,.udi,.UDI,.fdi,.FDI",2,2,0,""},
+    {".trd,.TRD,.scl,.SCL,.udi,.UDI,.fdi,.FDI,.zip,.ZIP",2,2,0,""},
 #endif
     {".rom,.ROM,.bin,.BIN",2,2,0,""},
-    {".mmc,.MMC,.hdf,.HDF",2,2,0,""},
+    {".mmc,.MMC,.hdf,.HDF,.zip,.ZIP",2,2,0,""},
 #if PICO_RP2040
     {".sna,.SNA,.z80,.Z80,.p,.P,.tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3,.trd,.TRD,.scl,.SCL,.zip,.ZIP",2,2,0,""}
 #else
