@@ -192,7 +192,7 @@ unsigned short OSD::menuRun(string new_menu) {
 
     // Size
     w = (cols * OSD_FONT_W) + 2;
-    h = (virtual_rows * OSD_FONT_H) + 2;
+    h = (virtual_rows * OSD_FONT_H) + 2 + (!menu_footer.empty() ? OSD_FONT_H : 0);
 
     // Position
     if (menu_level == 0) {
@@ -212,8 +212,20 @@ unsigned short OSD::menuRun(string new_menu) {
 
     WindowDraw(); // Draw menu outline
 
+    // Draw footer hint line if set
+    if (!menu_footer.empty()) {
+        int fy = y + 1 + virtual_rows * OSD_FONT_H;
+        VIDEO::vga.fillRect(x + 1, fy, w - 2, OSD_FONT_H, zxColor(5, 1));
+        VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
+        VIDEO::vga.setCursor(x + OSD_FONT_W, fy);
+        string fs = menu_footer;
+        if ((int)fs.length() > cols - 2) fs = fs.substr(0, cols - 2);
+        while ((int)fs.length() < cols - 2) fs += ' ';
+        VIDEO::vga.print(fs.c_str());
+    }
+
     begin_row = 1;
-    focus = menu_curopt;        
+    focus = menu_curopt;
     last_begin_row = last_focus = 0;
 
     menuRedraw(); // Draw menu content
@@ -294,6 +306,23 @@ unsigned short OSD::menuRun(string new_menu) {
                 } else if (is_enter(Menukey.vk)) {
                     click();
                     menu_prevopt = menuRealRowFor(focus);
+                    menu_del_pressed = false;
+                    menu_rename_pressed = false;
+                    menu_footer = "";
+                    return menu_prevopt;
+                } else if (Menukey.vk == fabgl::VK_DELETE) {
+                    click();
+                    menu_prevopt = menuRealRowFor(focus);
+                    menu_del_pressed = true;
+                    menu_rename_pressed = false;
+                    menu_footer = "";
+                    return menu_prevopt;
+                } else if (Menukey.vk == fabgl::VK_r || Menukey.vk == fabgl::VK_R) {
+                    click();
+                    menu_prevopt = menuRealRowFor(focus);
+                    menu_del_pressed = false;
+                    menu_rename_pressed = true;
+                    menu_footer = "";
                     return menu_prevopt;
                 } else if (is_back(Menukey.vk)) {
                     if (menu_level != 0) {
@@ -302,6 +331,7 @@ unsigned short OSD::menuRun(string new_menu) {
                         menu_saverect = false;
                     }
                     click();
+                    menu_footer = "";
                     return 0;
                 }
             }

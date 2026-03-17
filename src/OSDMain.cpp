@@ -107,6 +107,9 @@ unsigned short OSD::last_begin_row = 0; // To check for changes
 uint8_t OSD::menu_level = 0;
 bool OSD::menu_saverect = false;
 unsigned short OSD::menu_curopt = 1;
+bool OSD::menu_del_pressed = false;
+bool OSD::menu_rename_pressed = false;
+string OSD::menu_footer = "";
 
 unsigned short OSD::scrW = 320;
 unsigned short OSD::scrH = 240;
@@ -119,6 +122,61 @@ unsigned short OSD::scrAlignCenterX(unsigned short pixel_width) { return (scrW /
 
 // // Y origin to center an element with pixel_height
 unsigned short OSD::scrAlignCenterY(unsigned short pixel_height) { return (scrH / 2) - (pixel_height / 2); }
+
+// Inline text editor — edits text directly at pixel position (ex, ey) in the current window.
+// Draws each character individually; cursor shown as highlighted block under current char.
+// Returns entered string on Enter, "\x1B" on Escape, "" if Enter pressed with empty field.
+// Ignores VK_MENU_* synthetic events to avoid double-fires from kbdExtraMapping.
+string OSD::inlineTextEdit(int ex, int ey, int maxlen, string text) {
+    auto Kbd = ESPectrum::PS2Controller.keyboard();
+    // Drain any keys still in the queue (e.g. the Enter that triggered the save action)
+    { fabgl::VirtualKeyItem drain; while (Kbd->virtualKeyAvailable()) Kbd->getNextVirtualKey(&drain); }
+    VIDEO::vga.setFont(Font6x8);
+
+    auto redraw = [&]() {
+        string display = text;
+        // Pad to maxlen with spaces
+        while ((int)display.length() < maxlen) display += ' ';
+        int cur = (int)text.length();
+        for (int p = 0; p < maxlen; p++) {
+            bool isCursor = (p == cur && cur < maxlen) || (p == maxlen - 1 && cur >= maxlen);
+            if (isCursor)
+                VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(1, 1));
+            else
+                VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
+            VIDEO::vga.setCursor(ex + p * OSD_FONT_W, ey);
+            char ch[2] = { display[p], 0 };
+            VIDEO::vga.print(ch);
+        }
+    };
+
+    redraw();
+
+    while (1) {
+        while (!Kbd->virtualKeyAvailable()) sleep_ms(5);
+        fabgl::VirtualKeyItem ek;
+        Kbd->getNextVirtualKey(&ek);
+        if (!ek.down) continue;
+        // Skip synthetic VK_MENU_* events
+        if (ek.vk >= fabgl::VK_MENU_UP && ek.vk <= fabgl::VK_MENU_BS) continue;
+        if (ek.vk == fabgl::VK_RETURN || ek.vk == fabgl::VK_KP_ENTER) return text;
+        if (ek.vk == fabgl::VK_ESCAPE) return "\x1B";
+        if (ek.vk == fabgl::VK_BACKSPACE) {
+            if (!text.empty()) { text.pop_back(); redraw(); }
+        } else if (ek.ASCII >= 32 && ek.ASCII < 127) {
+            if ((int)text.length() < maxlen) {
+                char c = ek.ASCII;
+                if (c >= 'A' && c <= 'Z') {
+                    bool shift = Kbd->isVKDown(fabgl::VK_LSHIFT) || Kbd->isVKDown(fabgl::VK_RSHIFT);
+                    bool caps = Kbd->isVKDown(fabgl::VK_CAPSLOCK);
+                    if (!shift && !caps) c = c - 'A' + 'a';
+                }
+                text += c;
+                redraw();
+            }
+        }
+    }
+}
 
 uint8_t OSD::osdMaxRows() { return (OSD_H - (OSD_MARGIN * 2)) / OSD_FONT_H; }
 uint8_t OSD::osdMaxCols() { return (OSD_W - (OSD_MARGIN * 2)) / OSD_FONT_W; }
@@ -303,7 +361,149 @@ void OSD::clearStats() {
     }
 }
 
-static bool persistSave(uint8_t slotnumber)
+// Forward-declare the local f_gets wrapper (defined further below)
+static void f_gets(char* b, size_t sz, FIL& f);
+// Forward-declare slotInlineEdit (defined further below)
+static string slotInlineEdit(uint8_t opt2, const string& current);
+
+
+// Get the base name (no extension) of the currently loaded tape or disk
+static string getDefaultSnapshotName() {
+    // Try tape first
+    if (Tape::tapeFileName != "none" && !Tape::tapeFileName.empty()) {
+        string name = Tape::tapeFileName;
+        // Strip directory
+        size_t sl = name.rfind('/');
+        if (sl != string::npos) name = name.substr(sl + 1);
+        // Strip extension
+        size_t dot = name.rfind('.');
+        if (dot != string::npos) name = name.substr(0, dot);
+        if (!name.empty()) return name;
+    }
+    // Try disk drive 0
+    if (ESPectrum::fdd.disk[0] && !ESPectrum::fdd.disk[0]->fname.empty()) {
+        string name = ESPectrum::fdd.disk[0]->fname;
+        size_t sl = name.rfind('/');
+        if (sl != string::npos) name = name.substr(sl + 1);
+        size_t dot = name.rfind('.');
+        if (dot != string::npos) name = name.substr(0, dot);
+        if (!name.empty()) return name;
+    }
+    return "";
+}
+
+// Read slot name (3rd line) from .esp info file.
+// Returns "" if slot file doesn't exist, "\x01" if file exists but has no name.
+static string getSlotName(uint8_t slotnumber) {
+    char persistfinfo[sizeof(DISK_PSNA_FILE) + 7];
+    sprintf(persistfinfo, DISK_PSNA_FILE "%u.esp", slotnumber);
+    string finfo = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfinfo;
+    FIL* f = fopen2(finfo.c_str(), FA_READ);
+    if (!f) return "";
+    char buf[64];
+    // Skip arch line
+    f_gets(buf, sizeof(buf), *f);
+    // Skip romset line
+    f_gets(buf, sizeof(buf), *f);
+    // Read name line
+    buf[0] = 0;
+    f_gets(buf, sizeof(buf), *f);
+    fclose2(f);
+    if (buf[0] == 0) return "\x01";  // file exists, no name stored
+    return string(buf);
+}
+
+// Delete both .sna and .esp files for a slot
+static void persistDelete(uint8_t slotnumber) {
+    char persistfname[sizeof(DISK_PSNA_FILE) + 7];
+    char persistfinfo[sizeof(DISK_PSNA_FILE) + 7];
+    sprintf(persistfname, DISK_PSNA_FILE "%u.sna", slotnumber);
+    sprintf(persistfinfo, DISK_PSNA_FILE "%u.esp", slotnumber);
+    string fsna  = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfname;
+    string finfo = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfinfo;
+    f_unlink(fsna.c_str());
+    f_unlink(finfo.c_str());
+}
+
+// Confirm and delete slot; returns true if deleted
+static bool persistDeleteConfirm(uint8_t slotnumber) {
+    string name = getSlotName(slotnumber);
+    if (name.empty()) return false;  // already empty, nothing to do
+    char buf[8];
+    sprintf(buf, "#%02u", slotnumber);
+    string displayName = (name == "\x01") ? "[No Name]" : name;
+    string msg = string(buf) + " " + displayName + "?";
+    if (OSD::msgDialog(Config::lang ? "Borrar ranura" : "Delete slot", msg) != DLG_YES) return false;
+    persistDelete(slotnumber);
+    return true;
+}
+
+// Rename slot: inline-edit the name in the menu row, rewrite .esp file
+static void persistRename(uint8_t slotnumber, uint8_t opt2) {
+    string name = getSlotName(slotnumber);
+    if (name.empty()) return;  // slot is empty, nothing to rename
+    string newName = slotInlineEdit(opt2, name == "\x01" ? "" : name);
+    if (newName == "\x1B") return;  // Esc = cancel
+
+    char persistfinfo[sizeof(DISK_PSNA_FILE) + 7];
+    sprintf(persistfinfo, DISK_PSNA_FILE "%u.esp", slotnumber);
+    string finfo = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfinfo;
+
+    // Read existing arch + romset lines
+    FIL* f = fopen2(finfo.c_str(), FA_READ);
+    if (!f) return;
+    char arch[64], romset[64];
+    f_gets(arch, sizeof(arch), *f);
+    f_gets(romset, sizeof(romset), *f);
+    fclose2(f);
+
+    // Rewrite with new name
+    f = fopen2(finfo.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
+    if (!f) return;
+    fputs((string(arch) + "\n" + string(romset) + "\n" + newName + "\n").c_str(), *f);
+    fclose2(f);
+}
+
+// Build slot menu label: "#NN - Name" or "#NN - [Empty]", padded to fixed width
+static string slotLabel(uint8_t i) {
+    char buf[8];
+    sprintf(buf, "#%02u - ", i);
+    string name = getSlotName(i);
+    if (name.empty()) name = "[Empty]";
+    else if (name == "\x01") name = "[No Name]";
+    if (name.length() > 20) name = name.substr(0, 20);
+    // Pad to fixed 20 chars so menu width never changes between redraws
+    while (name.length() < 20) name += ' ';
+    return string(buf) + name;
+}
+
+// Build a slot menu string for given count of slots (title is first line)
+static string buildSlotMenu(const char* title, uint8_t count) {
+    string menu = title;
+    for (uint8_t i = 1; i <= count; i++) {
+        menu += slotLabel(i) + "\n";
+    }
+    return menu;
+}
+
+// Inline-edit the name for slot opt2 directly inside the already-drawn menu row.
+// "#NN - " is 6 chars; row margin is 1 space on left. Name field = 20 chars.
+// Returns the new name, or "" if cancelled.
+static string slotInlineEdit(uint8_t opt2, const string& current) {
+    // Virtual row = opt2 - begin_row + 1  (begin_row is 1-based real row of first visible line)
+    uint8_t vrow = (uint8_t)(opt2 - OSD::begin_row + 1);
+    // Pixel position of the name field: x + 1 space margin + 6 chars of "#NN - "
+    int ex = OSD::x + (1 + 6) * OSD_FONT_W;
+    int ey = OSD::y + 1 + vrow * OSD_FONT_H;
+    // Strip trailing spaces from current name
+    string name = current;
+    while (!name.empty() && name.back() == ' ') name.pop_back();
+    if (name == "[No Name]" || name == "[Empty]") name = "";
+    return OSD::inlineTextEdit(ex, ey, 20, name);
+}
+
+
+static bool persistSave(uint8_t slotnumber, uint8_t opt2)
 {
     FILINFO stat_buf;
     char persistfname[sizeof(DISK_PSNA_FILE) + 7];
@@ -312,12 +512,22 @@ static bool persistSave(uint8_t slotnumber)
     sprintf(persistfinfo, DISK_PSNA_FILE "%u.esp", slotnumber);
     string finfo = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfinfo;
 
+    string slotName;
+
     // Slot isn't void
     if (f_stat(finfo.c_str(), &stat_buf) == FR_OK) {
         string title = OSD_PSNA_SAVE[Config::lang];
         string msg = OSD_PSNA_EXISTS[Config::lang];
         uint8_t res = OSD::msgDialog(title, msg);
         if (res != DLG_YES) return false;
+        slotName = getSlotName(slotnumber);
+        if (slotName == "\x01") slotName = "";
+    } else {
+        // Empty slot: inline-edit name pre-filled with tape/disk name
+        string defaultName = getDefaultSnapshotName();
+        slotName = slotInlineEdit(opt2, defaultName);
+        if (slotName == "\x1B") return false;  // Esc = cancel save
+        if (slotName.empty()) slotName = defaultName;  // Enter on empty = use default
     }
 
     OSD::osdCenteredMsg(OSD_PSNA_SAVING, LEVEL_INFO, 500);
@@ -328,7 +538,7 @@ static bool persistSave(uint8_t slotnumber)
         OSD::osdCenteredMsg(finfo + " - unable to open", LEVEL_ERROR, 5000);
         return false;
     }
-    fputs((Config::arch + "\n" + Config::romSet + "\n").c_str(), *f);    // Put architecture and romset on info file
+    fputs((Config::arch + "\n" + Config::romSet + "\n" + slotName + "\n").c_str(), *f);
     fclose2(f);
 
     string fsna = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfname;
@@ -825,14 +1035,24 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             menu_level = 0;
             menu_curopt = 1;
             // Persist Load
-            string menuload = MENU_PERSIST_LOAD[Config::lang];
-            for(int i = 1; i <= 40; ++i) {
-                menuload += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
-            }
             if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
-            uint8_t opt2 = menuRun(menuload);
-            if (opt2) {
-                persistLoad(opt2);
+            while (1) {
+                menu_footer = Config::lang ? "R-Renombrar  Del-Borrar" : "R-Rename  Del-Remove";
+                uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_LOAD[Config::lang], 40));
+                if (opt2) {
+                    if (menu_del_pressed) {
+                        persistDeleteConfirm(opt2);
+                        menu_curopt = opt2;
+                        continue;
+                    }
+                    if (menu_rename_pressed) {
+                        persistRename(opt2, opt2);
+                        menu_curopt = opt2;
+                        continue;
+                    }
+                    persistLoad(opt2);
+                    break;
+                } else break;
             }
             if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         }
@@ -842,13 +1062,20 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             menu_curopt = 1;
             if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             while (1) {
-                string menusave = MENU_PERSIST_SAVE[Config::lang];
-                for(int i = 1; i <= 40; ++i) {
-                    menusave += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
-                }
-                uint8_t opt2 = menuRun(menusave);
+                menu_footer = Config::lang ? "R-Renombrar  Del-Borrar" : "R-Rename  Del-Remove";
+                uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_SAVE[Config::lang], 40));
                 if (opt2) {
-                    if (persistSave(opt2)) {
+                    if (menu_del_pressed) {
+                        persistDeleteConfirm(opt2);
+                        menu_curopt = opt2;
+                        continue;
+                    }
+                    if (menu_rename_pressed) {
+                        persistRename(opt2, opt2);
+                        menu_curopt = opt2;
+                        continue;
+                    }
+                    if (persistSave(opt2, opt2)) {
                         if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
                     }
@@ -1550,12 +1777,21 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_curopt = 1;
                                     menu_saverect = true;
                                     while (1) {
-                                        string menuload = MENU_PERSIST_LOAD[Config::lang];
-                                        for(int i=1; i <= 10; i++) {
-                                            menuload += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
-                                        }
-                                        uint8_t opt2 = menuRun(menuload);
+                                        menu_footer = Config::lang ? "R-Renombrar  Del-Borrar" : "R-Rename  Del-Remove";
+                uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_LOAD[Config::lang], 10));
                                         if (opt2) {
+                                            if (menu_del_pressed) {
+                                                persistDeleteConfirm(opt2);
+                                                menu_saverect = false;
+                                                menu_curopt = opt2;
+                                                continue;
+                                            }
+                                            if (menu_rename_pressed) {
+                                                persistRename(opt2, opt2);
+                                                menu_saverect = false;
+                                                menu_curopt = opt2;
+                                                continue;
+                                            }
                                             if (persistLoad(opt2)) {
                                                 if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                                 return;
@@ -1570,13 +1806,22 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_curopt = 1;
                                     menu_saverect = true;
                                     while (1) {
-                                        string menusave = MENU_PERSIST_SAVE[Config::lang];
-                                        for(int i=1; i <= 10; i++) {
-                                            menusave += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
-                                        }
-                                        uint8_t opt2 = menuRun(menusave);
+                                        menu_footer = Config::lang ? "R-Renombrar  Del-Borrar" : "R-Rename  Del-Remove";
+                uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_SAVE[Config::lang], 10));
                                         if (opt2) {
-                                            if (persistSave(opt2)) {
+                                            if (menu_del_pressed) {
+                                                persistDeleteConfirm(opt2);
+                                                menu_saverect = false;
+                                                menu_curopt = opt2;
+                                                continue;
+                                            }
+                                            if (menu_rename_pressed) {
+                                                persistRename(opt2, opt2);
+                                                menu_saverect = false;
+                                                menu_curopt = opt2;
+                                                continue;
+                                            }
+                                            if (persistSave(opt2, opt2)) {
                                                 if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                                 return;
                                             }
@@ -5550,25 +5795,35 @@ c:
             } else
             if (FileUtils::fsMount && Nextkey.vk == fabgl::VK_F11) {
                 // Persist Load
-                string menuload = MENU_PERSIST_LOAD[Config::lang];
-                for(int i = 1; i <= 40; ++i) {
-                    menuload += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
-                }
-                uint8_t opt2 = menuRun(menuload);
-                if (opt2) {
-                    persistLoad(opt2);
+                while (1) {
+                    menu_footer = Config::lang ? "R-Renombrar  Del-Borrar" : "R-Rename  Del-Remove";
+                uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_LOAD[Config::lang], 40));
+                    if (opt2) {
+                        if (menu_del_pressed) {
+                            persistDeleteConfirm(opt2);
+                            menu_curopt = opt2;
+                            continue;
+                        }
+                        persistLoad(opt2);
+                    }
+                    break;
                 }
                 goto c;
             }
             else if (FileUtils::fsMount && Nextkey.vk == fabgl::VK_F12) {
                 // Persist Save
-                string menusave = MENU_PERSIST_SAVE[Config::lang];
-                for(int i = 1; i <= 40; ++i) {
-                    menusave += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
-                }
-                uint8_t opt2 = menuRun(menusave);
-                if (opt2) {
-                    persistSave(opt2);
+                while (1) {
+                    menu_footer = Config::lang ? "R-Renombrar  Del-Borrar" : "R-Rename  Del-Remove";
+                uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_SAVE[Config::lang], 40));
+                    if (opt2) {
+                        if (menu_del_pressed) {
+                            persistDeleteConfirm(opt2);
+                            menu_curopt = opt2;
+                            continue;
+                        }
+                        if (persistSave(opt2, opt2)) break;
+                        menu_curopt = opt2;
+                    } else break;
                 }
                 goto c;
             }
@@ -7934,6 +8189,11 @@ uint32_t OSD::addressDialog(uint16_t addr, const char* title) {
                 if (dlg_Objects2[curObject].Name == "Ok" || dlg_Objects2[curObject].objType == DLG_OBJ_INPUT) {
                     string s = dlgValues[0];
                     trim(s);
+                    if (s.empty()) {
+                        click();
+                        flushKbd();
+                        return 0x00010001;
+                    }
                     addr = stoul(s, nullptr, 16);
                     click();
                     flushKbd();
@@ -8110,7 +8370,7 @@ void OSD::BPDialog() {
         else if (key.vk == fabgl::VK_DOWN) { if (sel < nItems - 1) sel++; }
         else if (key.vk == fabgl::VK_RETURN || key.vk == fabgl::VK_KP_ENTER) {
             VIDEO::SaveRect.restore_last();
-            uint32_t address = addressDialog(0xFFFF, titles[sel]);
+            uint32_t address = addressDialog(Z80::getRegPC(), titles[sel]);
             if (address == 0x00010000 || address == 0x00010001) return;
             Config::addBreakPoint(address, types[sel]);
             Config::save();
