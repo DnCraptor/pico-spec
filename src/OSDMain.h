@@ -97,7 +97,7 @@ public:
     static void osdCenteredMsg(string msg, uint8_t warn_level, uint16_t millispause);
 
     static void osdDump();
-    static void osdDebug();
+    static void osdDebug(uint16_t gotoAddr = 0xFFFF);
 
     // Menu
     static unsigned short menuRealRowFor(uint8_t virtual_row_num);
@@ -136,7 +136,7 @@ public:
     static void pokeDialog();
     static void jumpToDialog();
     static void BPDialog();
-    static void BPListDialog();
+    static uint16_t BPListDialog();
     static bool dumpRangeDialog(uint16_t &from, uint16_t &to);
     static void memSearchDialog();
     static uint32_t addressDialog(uint16_t addr, const char* title);

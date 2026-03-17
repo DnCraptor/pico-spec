@@ -51,6 +51,7 @@ using namespace std;
 #include "Z80_JLS/z80.h"
 #include "Tape.h"
 #include "ZipExtract.h"
+#include "FileInfo.h"
 
 #include "ff.h"
 
@@ -452,7 +453,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                 if (ftype == DISK_ALLFILE && !FileUtils::fileTypes[ftype].fdMode) {
                     menuAt(mfrows + (Config::aspect_16_9 ? 0 : 1), 1);
                     VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(5, 0));
-                    VIDEO::vga.print("F3:Find F4:Unzip F7:View F8:Del");
+                    VIDEO::vga.print("F3:Find F4:Unzip F7:View F8:Delete");
                 }
 
                 if (ESPectrum::readKbd(&Menukey)) {
@@ -474,13 +475,16 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         click();
                         continue;
                     }
-                    // F7 on a ZIP file = view ZIP contents
+                    // F7 = view file info (F5 dialog only)
                     if (Menukey.vk == fabgl::VK_F7 && ftype == DISK_ALLFILE) {
                         string filedir = rowGet(menu, FileUtils::fileTypes[ftype].focus);
-                        if (filedir[0] != DIR_MARKER && FileUtils::hasZIPextension(filedir)) {
+                        if (filedir[0] != DIR_MARKER) {
                             rtrim(filedir);
                             string fullpath = fdir + filedir;
-                            ZipExtract::viewInfo(fullpath);
+                            if (FileUtils::hasZIPextension(filedir))
+                                ZipExtract::viewInfo(fullpath);
+                            else
+                                FileInfo::viewInfo(fullpath);
                             fd_Redraw(title, fdir, ftype, filexts);
                         }
                         click();
@@ -558,7 +562,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             menuAt(mfrows + (Config::aspect_16_9 ? 0 : 1), 1);
                             VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(5, 0));
                             if (ftype == DISK_ALLFILE)
-                                VIDEO::vga.print("F3:Find F4:Unzip F7:View F8:Del");
+                                VIDEO::vga.print("F3:Find F4:Unzip F7:View F8:Delete");
                             else
                                 VIDEO::vga.print("      " "          ");
                             if (FileUtils::fileTypes[ftype].fileSearch != "") {

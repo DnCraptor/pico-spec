@@ -699,7 +699,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
         }
         else if (KeytoESP == fabgl::VK_F7) {
             if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
-            BPListDialog();
+            uint16_t bpAddr = BPListDialog();
+            if (bpAddr != 0xFFFF) osdDebug(bpAddr);
             if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         } else
         if (KeytoESP == fabgl::VK_F8) {
@@ -3921,7 +3922,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
                     } else if (opt2 == 3) {
-                        BPListDialog();
+                        { uint16_t bpAddr = BPListDialog();
+                        if (bpAddr != 0xFFFF) osdDebug(bpAddr); }
                         if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
                     } else if (opt2 == 4) {
@@ -5375,14 +5377,14 @@ static int instrLen(uint16_t addr) {
     return 1;
 }
 
-void OSD::osdDebug() {
+void OSD::osdDebug(uint16_t gotoAddr) {
     const unsigned short h = OSD_FONT_H * 26;
     const unsigned short y = scrAlignCenterY(h);
-    const unsigned short w = OSD_FONT_W * 46;
+    const unsigned short w = OSD_FONT_W * 50;
     const unsigned short x = scrAlignCenterX(w);
 
     VIDEO::SaveRect.save(x - 1, y - 1, w + 2, h + 2);
-    char buf[32];
+    char buf[40];
     int ii = 3;
     int cursor_row = 3; // cursor starts at PC line
     uint32_t t1 = 0;
@@ -5395,20 +5397,25 @@ void OSD::osdDebug() {
     int memCursorRow = 0;
     int memCursorCol = 0; // 0-3 = byte index
     uint16_t memViewAddr = Z80::getRegPC();
-    int xi_right = x + 28 * OSD_FONT_W;
+    int xi_right = x + 32 * OSD_FONT_W;
     int pagesCursorRow = 0; // 0=PAGE0, 1=PAGE3, 2=VIDEO, 3=PAGING LOCK
     bool memAsciiMode = false;
+    bool gotoApplied = false;
+    bool redrawCode = true;
+    bool redrawMem = true;
+    bool redrawRight = true;
+    bool redrawTitle = true;
 
 c:
     sleep_ms(5);
     // Set font
     VIDEO::vga.setFont(Font6x8);
 
-    // Boarder
+    if (redrawTitle) {
+    // Border + title bar; full content bg only on first draw
     VIDEO::vga.rect(x, y, w, h, zxColor(0, 0));
-
     VIDEO::vga.fillRect(x + 1, y + 1, w - 2, OSD_FONT_H, zxColor(0,0));
-    VIDEO::vga.fillRect(x + 1, y + 1 + OSD_FONT_H, w - 2, h - OSD_FONT_H - 2, zxColor(7,1));
+    VIDEO::vga.fillRect(x + 1, y + 1 + OSD_FONT_H, w - 2, h - OSD_FONT_H - 2, zxColor(7, 1));
 
     // Title with section indicator
     VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(0, 0));
@@ -5427,206 +5434,141 @@ c:
         }
         rb_paint_x += 5;
     }
+    } // redrawTitle
 
     uint16_t pc = Z80::getRegPC();
+    // Apply gotoAddr: set ii so that gotoAddr appears on current cursor_row
+    if (gotoAddr != 0xFFFF && !gotoApplied) {
+        ii = (int16_t)(pc - gotoAddr) + cursor_row;
+        gotoApplied = true;
+    }
+    const int CODE_LINES = 18;
+    const int MEM_LINES = 4;
     int i = 0;
     int xi = x + 1;
-    int pci_skip = 0;
-    int nn = 0;
-    int n = 0;
-    int d = 0;
-    bool ED = false;
-    bool CB = false;
-    bool IX = false;
-    bool IY = false;
-    bool ICB = false;
-    std::string mem;
-    const int CODE_LINES = 19;
-    const int MEM_LINES = 4;
     uint16_t line_addr[CODE_LINES];
+    int regStartRow = 0;
+  if (redrawCode) {
+    uint16_t pci = pc - ii; // starting address for line 0
+    std::string mem;
     for (; i < CODE_LINES; ++i) {
-        uint16_t pci = pc + i + pci_skip - ii;
         line_addr[i] = pci;
-        uint8_t bi = MemESP::readbyte(pci);
-        uint8_t b1 = MemESP::readbyte(pci + 1);
+        int len = instrLen(pci);
+        uint8_t bytes[4];
+        for (int b = 0; b < len && b < 4; b++)
+            bytes[b] = MemESP::readbyte(pci + b);
         int yi = y + (i + 1) * OSD_FONT_H + 2;
-        // Highlight: red ink for PC, blue bg for cursor (full-width when Code active)
+        // Highlight: red ink for PC, cyan bg for cursor
         bool isCursor = (i == cursor_row && activeSection == 0);
         if (pci == pc && isCursor)
-            VIDEO::vga.setTextColor(zxColor(2, 1), zxColor(1, 0));
+            VIDEO::vga.setTextColor(zxColor(2, 1), zxColor(5, 0));
         else if (pci == pc)
             VIDEO::vga.setTextColor(zxColor(2, 1), zxColor(7, 1));
         else if (isCursor)
-            VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(1, 0));
+            VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(5, 0));
         else
             VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
         if (isCursor)
-            VIDEO::vga.fillRect(xi, yi, xi_right - xi - OSD_FONT_W, OSD_FONT_H, zxColor(1, 0));
+            VIDEO::vga.fillRect(xi, yi, xi_right - xi - OSD_FONT_W, OSD_FONT_H, zxColor(5, 0));
+        else
+            VIDEO::vga.fillRect(xi, yi, xi_right - xi - OSD_FONT_W, OSD_FONT_H, zxColor(7, 1));
         VIDEO::vga.setCursor(xi, yi);
-        if (ICB) {
-            int8_t b1b = b1;
-            snprintf(buf, 32, b1b >= 0 ? " %04X %02X +%d(d)" : " %04X %02X %d(d)", pci, bi, b1b);
-            d = 0;
-            nn = 1;
-            ICB = false;
+
+        // Build hex bytes string (up to 4 bytes, 8 chars + trailing space)
+        char hexbytes[10];
+        int hpos = 0;
+        for (int b = 0; b < len && b < 4; b++) {
+            snprintf(hexbytes + hpos, 3, "%02X", bytes[b]);
+            hpos += 2;
         }
-        else if (IX || IY) {
-            snprintf(buf, 32, " %04X %02X", pci, bi);
-            IX = false;
-            IY = false;
-        }
-        else if (!CB && !ED && nn == 0 && n == 0 && d == 0 || pci == pc) {
-            ED = bi == 0xED;
-            CB = bi == 0xCB;
-            IX = bi == 0xDD;
-            IY = bi == 0xFD;
-            if (IX || IY) {
-                ICB = b1 == 0xCB;
-                if (ICB) {
-                    mem = mnemCB[MemESP::readbyte(pci + 3)];
-                    auto sp = mem.find(" ");
-                    if (sp != string::npos) mem.replace(sp, 1, " (IX+d),");
-                } else {
-                    mem = mnemIX(b1);
-                }
-                auto pos = mem.find(",(HL)");
-                if (pos != string::npos)
-                    mem.replace(pos, 5, " ");
-                if (mem.length() > 12)
-                    mem = mem.substr(0, 12);
-                if (IY) {
-                    auto ixp = mem.find("IX");
-                    if (ixp != string::npos) mem.replace(ixp, 2, "IY");
-                }
-            } else if (CB) {
-                mem = mnemCB[b1];
-            } else if (ED) {
-                mem = mnemED(b1);
+        while (hpos < 9) hexbytes[hpos++] = ' ';
+        hexbytes[9] = 0;
+
+        // Get mnemonic with resolved operands
+        uint8_t bi = bytes[0];
+        bool isED = (bi == 0xED);
+        bool isCB = (bi == 0xCB);
+        bool isIX = (bi == 0xDD);
+        bool isIY = (bi == 0xFD);
+        if (isIX || isIY) {
+            uint8_t b1 = bytes[1];
+            if (b1 == 0xCB) {
+                mem = mnemCB[bytes[3]];
+                auto sp = mem.find(" ");
+                if (sp != string::npos) mem.replace(sp, 1, isIY ? " (IY+d)," : " (IX+d),");
             } else {
-                mem = mnem[bi];
+                mem = mnemIX(b1);
             }
-            const char* memc = mem.c_str();
-            if (strstr(memc, "nn") != 0 || strstr(memc, "(nn)") != 0) {
-                d = 0;
-                n = 0;
-                nn = 2;
-            } else if (strstr(memc, "n") != 0 || strstr(memc, "(n)") != 0) {
-                d = 0;
-                n = 1;
-                nn = 0;
-            } else if (strstr(memc, "d") != 0) {
-                d = 1;
-                n = 0;
-                nn = 0;
-            } else {
-                d = 0;
-                n = 0;
-                nn = 0;
+            auto pos = mem.find(",(HL)");
+            if (pos != string::npos) mem.replace(pos, 5, " ");
+            if (isIY) {
+                auto ixp = mem.find("IX");
+                if (ixp != string::npos) mem.replace(ixp, 2, "IY");
             }
-            // Replace operand placeholders with actual values
-            if (nn == 2) {
-                int off = (ED || IX || IY) ? 2 : 1;
-                uint16_t addr = MemESP::readbyte(pci + off) | (MemESP::readbyte(pci + off + 1) << 8);
-                char tmp[5];
-                snprintf(tmp, sizeof(tmp), "%04X", addr);
-                auto p = mem.find("nn");
-                if (p != string::npos) mem.replace(p, 2, tmp);
-            } else if (n == 1) {
-                int off = (ED || IX || IY) ? 2 : 1;
-                uint8_t val = MemESP::readbyte(pci + off);
-                char tmp[3];
-                snprintf(tmp, sizeof(tmp), "%02X", val);
-                auto p = mem.find("n");
-                if (p != string::npos) mem.replace(p, 1, tmp);
-            } else if (d == 1) {
-                bool isIXIY = IX || IY;
-                int off = isIXIY ? 2 : 1;
-                int8_t disp = (int8_t)MemESP::readbyte(pci + off);
-                char tmp[8];
-                if (isIXIY) {
-                    // IX/IY displacement: signed decimal, replace "+d" with "+3" or "-5"
-                    snprintf(tmp, sizeof(tmp), "%+d", disp);
-                    auto p = mem.find("+d");
-                    if (p != string::npos) mem.replace(p, 2, tmp);
-                } else {
-                    // JR/DJNZ: show target address
-                    uint16_t target = pci + 2 + disp;
-                    snprintf(tmp, sizeof(tmp), "%04X", target);
-                    auto p = mem.find("d");
-                    if (p != string::npos) mem.replace(p, 1, tmp);
-                }
-            }
-            memc = mem.c_str();
-            // Skip operand bytes in listing since values are now in mnemonic
-            bool prefixSubOpcodeSkipped = false;
-            if (nn == 2) {
-                pci_skip += (ED || IX || IY) ? 3 : 2;
-                prefixSubOpcodeSkipped = (ED || IX || IY);
-                nn = 0;
-            } else if (n == 1) {
-                pci_skip += (ED || IX || IY) ? 2 : 1;
-                prefixSubOpcodeSkipped = (ED || IX || IY);
-                n = 0;
-            } else if (d == 1) {
-                if (ICB) {
-                    pci_skip += 3; // CB + displacement + op byte
-                    ICB = false;
-                } else {
-                    pci_skip += (IX || IY) ? 2 : 1;
-                }
-                prefixSubOpcodeSkipped = (IX || IY);
-                d = 0;
-            }
-            // Skip sub-opcode byte for prefix instructions (displayed on mnemonic line)
-            bool isPrefix = ED || CB || (IX || IY);
-            if (isPrefix && !prefixSubOpcodeSkipped) {
-                pci_skip += 1;
-            }
-            if (ED) ED = false;
-            if (CB) CB = false;
-            if (IX || IY) { IX = false; IY = false; }
-            if (isPrefix) {
-                snprintf(buf, 32, "%c%04X %02X%02X %s", pci == pc ? '*' : ' ', pci, bi, b1, memc);
-            } else {
-                snprintf(buf, 32, "%c%04X %02X   %s", pci == pc ? '*' : ' ', pci, bi, memc);
-            }
-        } else if (d == 1) {
-            int8_t bib = bi;
-            snprintf(buf, 32, bib >= 0 ? " %04X %02X +%d(d)" : " %04X %02X %d(d)", pci, bi, bib);
-            --d;
-        } else if (n == 1) {
-            snprintf(buf, 32, " %04X    %02X", pci, bi);
-            --n;
-        } else if (nn == 2 && !ED) {
-            snprintf(buf, 32, " %04X %02X %02X%02X", pci, bi, b1, bi);
-            --nn;
+        } else if (isCB) {
+            mem = mnemCB[bytes[1]];
+        } else if (isED) {
+            mem = mnemED(bytes[1]);
         } else {
-            snprintf(buf, 32, " %04X %02X", pci, bi);
-            if (ED) ED = false;
-            else if (CB) CB = false;
-            else --nn;
+            mem = mnem[bi];
         }
+        // Replace operand placeholders
+        const char* memc = mem.c_str();
+        if (strstr(memc, "nn") != 0) {
+            int off = (isED || isIX || isIY) ? 2 : 1;
+            uint16_t addr = MemESP::readbyte(pci + off) | (MemESP::readbyte(pci + off + 1) << 8);
+            char tmp[5]; snprintf(tmp, sizeof(tmp), "%04X", addr);
+            auto p = mem.find("nn");
+            if (p != string::npos) mem.replace(p, 2, tmp);
+        } else if (strstr(memc, "n") != 0) {
+            int off = (isED || isIX || isIY) ? 2 : 1;
+            uint8_t val = MemESP::readbyte(pci + off);
+            char tmp[3]; snprintf(tmp, sizeof(tmp), "%02X", val);
+            auto p = mem.find("n");
+            if (p != string::npos) mem.replace(p, 1, tmp);
+        } else if (strstr(memc, "d") != 0) {
+            bool ixiy = isIX || isIY;
+            int off = ixiy ? 2 : 1;
+            int8_t disp = (int8_t)MemESP::readbyte(pci + off);
+            char tmp[8];
+            if (ixiy) {
+                snprintf(tmp, sizeof(tmp), "%+d", disp);
+                auto p = mem.find("+d");
+                if (p != string::npos) mem.replace(p, 2, tmp);
+            } else {
+                uint16_t target = pci + 2 + disp;
+                snprintf(tmp, sizeof(tmp), "%04X", target);
+                auto p = mem.find("d");
+                if (p != string::npos) mem.replace(p, 1, tmp);
+            }
+        }
+        if (mem.length() > 15) mem = mem.substr(0, 15);
+        snprintf(buf, 40, "%c%04X %s%-15s", pci == pc ? '*' : ' ', pci, hexbytes, mem.c_str());
         VIDEO::vga.print(buf);
         if (Config::numPcBP > 0 && Config::hasBreakPoint(pci, Config::BP_PC)) {
             VIDEO::vga.circle(xi+3, yi+3, 3, zxColor(2, 0));
         }
+        pci += len;
     }
 
+  } // redrawCode
+
+  if (redrawMem) {
     // === MEMORY DUMP (bottom of left panel, 4 rows) ===
     int memBytesPerRow = memAsciiMode ? 20 : 8;
     {
-        int memStartRow = CODE_LINES + 1;
-        int sy = y + (CODE_LINES + 1) * OSD_FONT_H + 2;
+        int memStartRow = CODE_LINES + 2;
+        int sy = y + (CODE_LINES + 2) * OSD_FONT_H + 2;
         VIDEO::vga.setTextColor(zxColor(5, 0), zxColor(7, 1));
         VIDEO::vga.setCursor(x + 1, sy);
-        VIDEO::vga.print(memAsciiMode ? "-Memory (ASCII)-----------" : "-Memory (HEX)-------------");
-        int xi_mem = x + 1;
+        VIDEO::vga.print(memAsciiMode ? "-Memory (ASCII)---------------" : "-Memory (HEX)-----------------");
+        int xi_mem = x + 1 + OSD_FONT_W;
         for (int row = 0; row < MEM_LINES; row++) {
             int yi = y + (memStartRow + 1 + row) * OSD_FONT_H + 2;
             uint16_t addr = (memViewAddr + row * memBytesPerRow) & 0xFFFF;
             bool isRow = (row == memCursorRow && activeSection == 1);
             if (isRow)
-                VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(1, 0));
+                VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(5, 0));
             else
                 VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
             VIDEO::vga.setCursor(xi_mem, yi);
@@ -5639,7 +5581,7 @@ c:
                     if (isRow && col == memCursorCol)
                         VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(2, 0));
                     else if (isRow)
-                        VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(1, 0));
+                        VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(5, 0));
                     else
                         VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
                     char ch = (val >= 32 && val < 127) ? val : '.';
@@ -5665,7 +5607,7 @@ c:
                     if (isRow && col == memCursorCol)
                         VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(2, 0));
                     else if (isRow)
-                        VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(1, 0));
+                        VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(5, 0));
                     else
                         VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
                     // Print 2 hex chars
@@ -5675,7 +5617,7 @@ c:
                     // Print space separator after every 2 bytes
                     if (col % 2 == 1 && col < 7) {
                         if (isRow)
-                            VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(1, 0));
+                            VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(5, 0));
                         else
                             VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
                         VIDEO::vga.print(" ");
@@ -5688,12 +5630,14 @@ c:
             }
         }
     }
+  } // redrawMem
 
+  if (redrawRight) {
     // === RIGHT PANEL ===
     VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
     i = 0;
     xi = xi_right;
-    int regStartRow; // saved for Enter handler
+    // regStartRow set for Enter handler
 
     // --- PAGES header (row 0) + 4 data rows (1-4) ---
     VIDEO::vga.setTextColor(zxColor(5, 0), zxColor(7, 1));
@@ -5715,7 +5659,7 @@ c:
             int yi = y + (i + 1) * OSD_FONT_H + 2;
             bool isCur = (r == pagesCursorRow && activeSection == 2);
             if (isCur)
-                VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(1, 0));
+                VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(5, 0));
             else
                 VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
             VIDEO::vga.setCursor(xi, yi);
@@ -5730,7 +5674,7 @@ c:
     {
         int regsNeeded = 12; // 1 header + 4 paired + 4 single + IR + Tstates + BP
         int available = CODE_LINES - i; // rows from current i to CODE_LINES
-        int pad = (available - regsNeeded) / 2;
+        int pad = (available - regsNeeded) / 2 + 1;
         if (pad > 0) i += pad;
     }
     VIDEO::vga.setTextColor(zxColor(5, 0), zxColor(7, 1));
@@ -5756,17 +5700,17 @@ c:
             VIDEO::vga.setCursor(xi, yi);
             // Main part
             if (isCur && !regAltSet)
-                VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(1, 0));
+                VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(5, 0));
             else
                 VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
-            snprintf(buf, 10, "%-3s %04X ", paired[r].name, paired[r].get());
+            snprintf(buf, 10, "%-2s %04X ", paired[r].name, paired[r].get());
             VIDEO::vga.print(buf);
             // Alt part
             if (isCur && regAltSet)
-                VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(1, 0));
+                VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(5, 0));
             else
                 VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
-            snprintf(buf, 10, "%-3s%04X ", paired[r].altName, paired[r].getAlt());
+            snprintf(buf, 10, "%-3s %04X ", paired[r].altName, paired[r].getAlt());
             VIDEO::vga.print(buf);
             i++;
         }
@@ -5787,11 +5731,11 @@ c:
             int regIdx = 4 + r;
             bool isCur = (regCursorRow == regIdx && activeSection == 3);
             if (isCur)
-                VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(1, 0));
+                VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(5, 0));
             else
                 VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
             VIDEO::vga.setCursor(xi, yi);
-            snprintf(buf, 32, "%-3s %04X         ", singles[r].name, singles[r].get());
+            snprintf(buf, 32, "%-2s %04X         ", singles[r].name, singles[r].get());
             buf[17] = 0;
             VIDEO::vga.print(buf);
             i++;
@@ -5802,7 +5746,7 @@ c:
             int yi = y + (i + 1) * OSD_FONT_H + 2;
             bool isCur = (regCursorRow == 8 && activeSection == 3);
             if (isCur)
-                VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(1, 0));
+                VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(5, 0));
             else
                 VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
             VIDEO::vga.setCursor(xi, yi);
@@ -5821,14 +5765,14 @@ c:
 
         if (Config::numBreakPoints > 0) {
             VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-            snprintf(buf, 32, "BP:%d             ", Config::numBreakPoints);
+            snprintf(buf, 32, "BP(s):%d          ", Config::numBreakPoints);
             buf[17] = 0;
             VIDEO::vga.print(buf);
         } else ++i;
     }
 
-    // --- FLAGS header (aligned with Memory header = row CODE_LINES) ---
-    i = CODE_LINES; // force alignment with Memory separator
+    // --- FLAGS header (aligned with Memory header = row CODE_LINES+1) ---
+    i = CODE_LINES + 1; // force alignment with Memory separator
     VIDEO::vga.setTextColor(zxColor(5, 0), zxColor(7, 1));
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
     VIDEO::vga.print("-Flags-----------");
@@ -5850,6 +5794,13 @@ c:
     ++i;
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
     VIDEO::vga.print("F1 - Debug help  ");
+  } // redrawRight
+
+    // Reset redraw flags (default: redraw all on next goto c)
+    redrawCode = true;
+    redrawMem = true;
+    redrawRight = true;
+    redrawTitle = false; // title/border only on first draw
 
     // Wait for a key
     fabgl::VirtualKeyItem Nextkey;
@@ -5883,7 +5834,8 @@ c:
             } else
             if (Nextkey.vk == fabgl::VK_F7) {
                 if (alt) {
-                    BPListDialog();
+                    uint16_t bpAddr = BPListDialog();
+                    if (bpAddr != 0xFFFF) { gotoAddr = bpAddr; gotoApplied = false; }
                 } else {
                     BPDialog();
                 }
@@ -5931,6 +5883,7 @@ c:
                 }
                 alt = false;
                 VIDEO::SaveRect.save(x - 1, y - 1, w + 2, h + 2);
+                redrawTitle = true;
                 goto c;
             } else
             if (FileUtils::fsMount && Nextkey.vk == fabgl::VK_F11) {
@@ -5969,6 +5922,7 @@ c:
             }
             if (Nextkey.vk == fabgl::VK_TAB) {
                 activeSection = (activeSection + 1) % 4;
+                redrawTitle = true;
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_UP) {
@@ -5984,11 +5938,14 @@ c:
                     }
                 } else if (activeSection == 2) {
                     if (pagesCursorRow > 0) pagesCursorRow--;
+                    redrawCode = false; redrawMem = false;
                 } else if (activeSection == 1) {
                     if (memCursorRow > 0) memCursorRow--;
                     else memViewAddr = (memViewAddr - (memAsciiMode ? 20 : 8)) & 0xFFFF;
+                    redrawCode = false; redrawRight = false;
                 } else if (activeSection == 3) {
                     if (regCursorRow > 0) regCursorRow--;
+                    redrawCode = false; redrawMem = false;
                 }
                 goto c;
             } else
@@ -5998,17 +5955,20 @@ c:
                     else ii -= instrLen(pc - ii);
                 } else if (activeSection == 2) {
                     if (pagesCursorRow < 3) pagesCursorRow++;
+                    redrawCode = false; redrawMem = false;
                 } else if (activeSection == 1) {
                     if (memCursorRow < MEM_LINES - 1) memCursorRow++;
                     else memViewAddr = (memViewAddr + (memAsciiMode ? 20 : 8)) & 0xFFFF;
+                    redrawCode = false; redrawRight = false;
                 } else if (activeSection == 3) {
                     if (regCursorRow < 8) regCursorRow++;
+                    redrawCode = false; redrawMem = false;
                 }
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_LEFT) {
                 if (activeSection == 2) {
-                    // Pages: cycle value left
+                    // Pages: cycle value left — affects code view (ROM/bank switch)
                     if (pagesCursorRow == 0) { // PAGE0: ROM
                         if (MemESP::romInUse > 0) MemESP::romInUse--;
                         MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse].direct();
@@ -6022,14 +5982,16 @@ c:
                     }
                 } else if (activeSection == 1) {
                     if (memCursorCol > 0) memCursorCol--;
+                    redrawCode = false; redrawRight = false;
                 } else if (activeSection == 3) {
                     regAltSet = !regAltSet;
+                    redrawCode = false; redrawMem = false;
                 }
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_RIGHT) {
                 if (activeSection == 2) {
-                    // Pages: cycle value right
+                    // Pages: cycle value right — affects code view (ROM/bank switch)
                     if (pagesCursorRow == 0) {
                         if (MemESP::romInUse < 3) MemESP::romInUse++;
                         MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse].direct();
@@ -6043,8 +6005,10 @@ c:
                     }
                 } else if (activeSection == 1) {
                     if (memCursorCol < (memAsciiMode ? 19 : 7)) memCursorCol++;
+                    redrawCode = false; redrawRight = false;
                 } else if (activeSection == 3) {
                     regAltSet = !regAltSet;
+                    redrawCode = false; redrawMem = false;
                 }
                 goto c;
             } else
@@ -6055,12 +6019,12 @@ c:
             } else
             if (Nextkey.vk == fabgl::VK_PAGEUP) {
                 if (activeSection == 0) ii += CODE_LINES;
-                else if (activeSection == 1) memViewAddr = (memViewAddr - MEM_LINES * (memAsciiMode ? 20 : 8)) & 0xFFFF;
+                else if (activeSection == 1) { memViewAddr = (memViewAddr - MEM_LINES * (memAsciiMode ? 20 : 8)) & 0xFFFF; redrawCode = false; redrawRight = false; }
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_PAGEDOWN) {
                 if (activeSection == 0) ii -= CODE_LINES;
-                else if (activeSection == 1) memViewAddr = (memViewAddr + MEM_LINES * (memAsciiMode ? 20 : 8)) & 0xFFFF;
+                else if (activeSection == 1) { memViewAddr = (memViewAddr + MEM_LINES * (memAsciiMode ? 20 : 8)) & 0xFFFF; redrawCode = false; redrawRight = false; }
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_T && alt) {
@@ -6125,6 +6089,7 @@ c:
                     }
                     sleep_ms(5);
                 }
+                redrawTitle = true;
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_RETURN || Nextkey.vk == fabgl::VK_KP_ENTER) {
@@ -6166,13 +6131,14 @@ c:
                 };
 
                 if (activeSection == 0) {
-                    // Code: inline address edit
+                    // Code: inline address edit — jump to entered address
                     char hexbuf[5];
                     snprintf(hexbuf, 5, "%04X", line_addr[cursor_row]);
                     int addr_x = x + 1 + OSD_FONT_W;
                     int addr_y = y + (cursor_row + 1) * OSD_FONT_H + 2;
                     if (inlineHexEdit(addr_x, addr_y, hexbuf, 4)) {
-                        ii = pc - parseHex(hexbuf, 4) + cursor_row;
+                        gotoAddr = parseHex(hexbuf, 4);
+                        gotoApplied = false;
                     }
                 } else if (activeSection == 1) {
                     // Memory: inline byte edit (left panel, below code)
@@ -6180,8 +6146,8 @@ c:
                     uint16_t addr = (memViewAddr + memCursorRow * bpr + memCursorCol) & 0xFFFF;
                     char hexbuf[3];
                     snprintf(hexbuf, 3, "%02X", MemESP::readbyte(addr));
-                    int xi_mem = x + 1;
-                    int memStartRow = CODE_LINES + 1;
+                    int xi_mem = x + 1 + OSD_FONT_W;
+                    int memStartRow = CODE_LINES + 2;
                     int ccx = memAsciiMode
                         ? (5 + memCursorCol)
                         : (5 + memCursorCol * 2 + (memCursorCol / 2));
@@ -6221,12 +6187,13 @@ c:
                         snprintf(hexbuf, 5, "%04X", ri.get());
                         int rrow = regStartRow + regCursorRow;
                         int ey = y + (rrow + 1) * OSD_FONT_H + 2;
-                        // For paired regs (0-3): main value at col 4, alt value at col 13
+                        // For paired regs (0-3): main "%-2s %04X " (val at col 3), alt "%-3s %04X " (val at col 8+4=12)
+                        // For singles (4-7): "%-2s %04X" (val at col 3)
                         int ex;
                         if (regCursorRow < 4 && regAltSet)
-                            ex = xi_right + 12 * OSD_FONT_W; // after "AF'": 3 chars name no space
+                            ex = xi_right + (8 + 4) * OSD_FONT_W; // after main(8) + "AF' "(4)
                         else
-                            ex = xi_right + 4 * OSD_FONT_W;  // after "AF ": 3+1 chars
+                            ex = xi_right + 3 * OSD_FONT_W;  // after "AF "(3)
                         if (inlineHexEdit(ex, ey, hexbuf, 4)) {
                             ri.set(parseHex(hexbuf, 4));
                         }
@@ -8371,7 +8338,7 @@ uint32_t OSD::addressDialog(uint16_t addr, const char* title) {
     return 0x00010000;
 }
 
-void OSD::BPListDialog() {
+uint16_t OSD::BPListDialog() {
     // Collect active breakpoint indices
     int bpIdx[Config::MAX_BREAKPOINTS];
     int count = 0;
@@ -8390,18 +8357,18 @@ void OSD::BPListDialog() {
             }
     };
     rebuild();
-    if (count == 0) return;
+    if (count == 0) return 0xFFFF;
 
     int maxVisible = 10;
     int visible = count < maxVisible ? count : maxVisible;
     const unsigned short h = (visible + 2) * OSD_FONT_H + 4;
-    const unsigned short w = OSD_FONT_W * 26 + 2;
+    const unsigned short w = OSD_FONT_W * 28 + 2;
     const unsigned short x = scrAlignCenterX(w);
     const unsigned short y = scrAlignCenterY(h);
 
     int cursor = 0;
     int scroll = 0;
-    char buf[32];
+    char buf[34];
 
     VIDEO::vga.setFont(Font6x8);
     VIDEO::SaveRect.save(x - 1, y - 1, w + 2, h + 2);
@@ -8413,7 +8380,7 @@ void OSD::BPListDialog() {
 
         VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(0, 0));
         VIDEO::vga.setCursor(x + OSD_FONT_W + 1, y + 1);
-        snprintf(buf, 32, "BP [%d/%d] DEL=rm", count, Config::MAX_BREAKPOINTS);
+        snprintf(buf, sizeof(buf), "BP(s) [%d/%d] DEL=rm", count, Config::MAX_BREAKPOINTS);
         VIDEO::vga.print(buf);
 
         for (int i = 0; i < visible; i++) {
@@ -8428,11 +8395,11 @@ void OSD::BPListDialog() {
             if (bp.type == Config::BP_PC) {
                 char mn[13];
                 disasmAt(bp.addr, mn, 13);
-                snprintf(buf, 32, "%s %04X %-12s", Config::bpTypeName(bp.type), bp.addr, mn);
+                snprintf(buf, sizeof(buf), "#%02d %s %04X %-12s", scroll + i + 1, Config::bpTypeName(bp.type), bp.addr, mn);
             } else {
-                snprintf(buf, 32, "%s %04X             ", Config::bpTypeName(bp.type), bp.addr);
+                snprintf(buf, sizeof(buf), "#%02d %s %04X             ", scroll + i + 1, Config::bpTypeName(bp.type), bp.addr);
             }
-            buf[24] = 0;
+            buf[28] = 0;
             VIDEO::vga.print(buf);
         }
 
@@ -8457,12 +8424,21 @@ void OSD::BPListDialog() {
                 if (cursor > 0) cursor--;
                 else if (scroll > 0) scroll--;
             }
-        } else if (key.vk == fabgl::VK_ESCAPE || key.vk == fabgl::VK_RETURN) {
+        } else if (key.vk == fabgl::VK_RETURN) {
+            auto &bp = Config::breakPoints[bpIdx[scroll + cursor]];
+            if (bp.type == Config::BP_PC) {
+                Config::save();
+                VIDEO::SaveRect.restore_last();
+                return bp.addr;
+            }
+            break;
+        } else if (key.vk == fabgl::VK_ESCAPE) {
             break;
         }
     }
     Config::save();
     VIDEO::SaveRect.restore_last();
+    return 0xFFFF;
 }
 
 void OSD::BPDialog() {
