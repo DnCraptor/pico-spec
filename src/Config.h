@@ -96,7 +96,7 @@ public:
     static bool     rightSpace;
     static bool     wasd;
     enum BPType : uint8_t { BP_PC=0, BP_PORT_READ=1, BP_PORT_WRITE=2, BP_MEM_WRITE=3, BP_MEM_READ=4, BP_NONE=0xFF };
-    struct BreakPoint { uint16_t addr; BPType type; };
+    struct BreakPoint { uint16_t addr = 0xFFFF; BPType type = BP_NONE; };
     static constexpr int MAX_BREAKPOINTS = 20;
     static BreakPoint breakPoints[MAX_BREAKPOINTS];
     static int numBreakPoints;
