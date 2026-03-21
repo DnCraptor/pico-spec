@@ -2328,6 +2328,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         uint8_t saved_vm = curVideoMode;
                                         curVideoMode = new_vm;
                                         Config::save();
+#ifdef VGA_HDMI
                                         VIDEO::changeMode();
                                         if (!videoModeConfirm(10)) {
                                             // Rollback
@@ -2335,6 +2336,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             Config::save();
                                             VIDEO::changeMode();
                                         }
+#endif
                                         // Exit OSD after mode switch
                                         if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                         return;
@@ -2459,6 +2461,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     if (Config::scanlines != prev_opt) {
                                         Config::ram_file = "none";
                                         Config::save();
+#ifdef VGA_HDMI
                                         VIDEO::changeMode();
                                         if (!videoModeConfirm(10)) {
                                             Config::scanlines = prev_opt;
@@ -2466,6 +2469,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             Config::save();
                                             VIDEO::changeMode();
                                         }
+#endif
                                         // Exit OSD after mode switch
                                         if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                         return;
