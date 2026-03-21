@@ -40,7 +40,7 @@ set(NO_ALF 1)
 
 #set(CPU_MHZ 252)
 set(CPU_MHZ 378)
-set (PORT_VERSION "1.2.N1")
+set (PORT_VERSION "1.2.N2")
 string(LENGTH "${PORT_VERSION}" PORT_VERSION_LEN)
 
 # Target board (default: PICO_PC; override with -D flags, e.g. cmake -DMURM2=ON)
@@ -417,7 +417,7 @@ ELSEIF(PICO_DV)
         KBD_CLOCK_PIN=0
         KBD_DATA_PIN=1
 
-        LOAD_WAV_PIO=17
+        LOAD_WAV_PIO=20
 
         CLK_AY_PIN1=21 # not in use
         LATCH_595_PIN=26
@@ -432,7 +432,7 @@ ELSEIF(PICO_DV)
         PWM_PIN0=26 # R
         PWM_PIN1=27 # L
         BEEPER_PIN=28 # not implemented
-        MIDI_TX_PIN=4
+        MIDI_TX_PIN=21
 
         # SDCARD
         SDCARD_SPI_BUS=spi1

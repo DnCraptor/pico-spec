@@ -48,6 +48,7 @@ visit https://zxespectrum.speccy.org/contacto
 
 #include "romByte48k.h"
 #include "romGluk.h"
+#include "roms/romSTS75.h"
 
 #ifndef NO_ALF
 extern "C" unsigned char gb_rom_Alf_cart[];

@@ -48,6 +48,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Snapshot.h"
 #include "MemESP.h"
 #include "Tape.h"
+#include "ZipExtract.h"
 #include "pwm_audio.h"
 #include "Z80_JLS/z80.h"
 #include "roms.h"
@@ -107,6 +108,9 @@ unsigned short OSD::last_begin_row = 0; // To check for changes
 uint8_t OSD::menu_level = 0;
 bool OSD::menu_saverect = false;
 unsigned short OSD::menu_curopt = 1;
+bool OSD::menu_del_pressed = false;
+bool OSD::menu_rename_pressed = false;
+string OSD::menu_footer = "";
 
 unsigned short OSD::scrW = 320;
 unsigned short OSD::scrH = 240;
@@ -119,6 +123,61 @@ unsigned short OSD::scrAlignCenterX(unsigned short pixel_width) { return (scrW /
 
 // // Y origin to center an element with pixel_height
 unsigned short OSD::scrAlignCenterY(unsigned short pixel_height) { return (scrH / 2) - (pixel_height / 2); }
+
+// Inline text editor — edits text directly at pixel position (ex, ey) in the current window.
+// Draws each character individually; cursor shown as highlighted block under current char.
+// Returns entered string on Enter, "\x1B" on Escape, "" if Enter pressed with empty field.
+// Ignores VK_MENU_* synthetic events to avoid double-fires from kbdExtraMapping.
+string OSD::inlineTextEdit(int ex, int ey, int maxlen, string text) {
+    auto Kbd = ESPectrum::PS2Controller.keyboard();
+    // Drain any keys still in the queue (e.g. the Enter that triggered the save action)
+    { fabgl::VirtualKeyItem drain; while (Kbd->virtualKeyAvailable()) Kbd->getNextVirtualKey(&drain); }
+    VIDEO::vga.setFont(Font6x8);
+
+    auto redraw = [&]() {
+        string display = text;
+        // Pad to maxlen with spaces
+        while ((int)display.length() < maxlen) display += ' ';
+        int cur = (int)text.length();
+        for (int p = 0; p < maxlen; p++) {
+            bool isCursor = (p == cur && cur < maxlen) || (p == maxlen - 1 && cur >= maxlen);
+            if (isCursor)
+                VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(1, 1));
+            else
+                VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
+            VIDEO::vga.setCursor(ex + p * OSD_FONT_W, ey);
+            char ch[2] = { display[p], 0 };
+            VIDEO::vga.print(ch);
+        }
+    };
+
+    redraw();
+
+    while (1) {
+        while (!Kbd->virtualKeyAvailable()) sleep_ms(5);
+        fabgl::VirtualKeyItem ek;
+        Kbd->getNextVirtualKey(&ek);
+        if (!ek.down) continue;
+        // Skip synthetic VK_MENU_* events
+        if (ek.vk >= fabgl::VK_MENU_UP && ek.vk <= fabgl::VK_MENU_BS) continue;
+        if (ek.vk == fabgl::VK_RETURN || ek.vk == fabgl::VK_KP_ENTER) return text;
+        if (ek.vk == fabgl::VK_ESCAPE) return "\x1B";
+        if (ek.vk == fabgl::VK_BACKSPACE) {
+            if (!text.empty()) { text.pop_back(); redraw(); }
+        } else if (ek.ASCII >= 32 && ek.ASCII < 127) {
+            if ((int)text.length() < maxlen) {
+                char c = ek.ASCII;
+                if (c >= 'A' && c <= 'Z') {
+                    bool shift = Kbd->isVKDown(fabgl::VK_LSHIFT) || Kbd->isVKDown(fabgl::VK_RSHIFT);
+                    bool caps = Kbd->isVKDown(fabgl::VK_CAPSLOCK);
+                    if (!shift && !caps) c = c - 'A' + 'a';
+                }
+                text += c;
+                redraw();
+            }
+        }
+    }
+}
 
 uint8_t OSD::osdMaxRows() { return (OSD_H - (OSD_MARGIN * 2)) / OSD_FONT_H; }
 uint8_t OSD::osdMaxCols() { return (OSD_W - (OSD_MARGIN * 2)) / OSD_FONT_W; }
@@ -303,7 +362,149 @@ void OSD::clearStats() {
     }
 }
 
-static bool persistSave(uint8_t slotnumber)
+// Forward-declare the local f_gets wrapper (defined further below)
+static void f_gets(char* b, size_t sz, FIL& f);
+// Forward-declare slotInlineEdit (defined further below)
+static string slotInlineEdit(uint8_t opt2, const string& current);
+
+
+// Get the base name (no extension) of the currently loaded tape or disk
+static string getDefaultSnapshotName() {
+    // Try tape first
+    if (Tape::tapeFileName != "none" && !Tape::tapeFileName.empty()) {
+        string name = Tape::tapeFileName;
+        // Strip directory
+        size_t sl = name.rfind('/');
+        if (sl != string::npos) name = name.substr(sl + 1);
+        // Strip extension
+        size_t dot = name.rfind('.');
+        if (dot != string::npos) name = name.substr(0, dot);
+        if (!name.empty()) return name;
+    }
+    // Try disk drive 0
+    if (ESPectrum::fdd.disk[0] && !ESPectrum::fdd.disk[0]->fname.empty()) {
+        string name = ESPectrum::fdd.disk[0]->fname;
+        size_t sl = name.rfind('/');
+        if (sl != string::npos) name = name.substr(sl + 1);
+        size_t dot = name.rfind('.');
+        if (dot != string::npos) name = name.substr(0, dot);
+        if (!name.empty()) return name;
+    }
+    return "";
+}
+
+// Read slot name (3rd line) from .esp info file.
+// Returns "" if slot file doesn't exist, "\x01" if file exists but has no name.
+static string getSlotName(uint8_t slotnumber) {
+    char persistfinfo[sizeof(DISK_PSNA_FILE) + 7];
+    sprintf(persistfinfo, DISK_PSNA_FILE "%u.esp", slotnumber);
+    string finfo = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfinfo;
+    FIL* f = fopen2(finfo.c_str(), FA_READ);
+    if (!f) return "";
+    char buf[64];
+    // Skip arch line
+    f_gets(buf, sizeof(buf), *f);
+    // Skip romset line
+    f_gets(buf, sizeof(buf), *f);
+    // Read name line
+    buf[0] = 0;
+    f_gets(buf, sizeof(buf), *f);
+    fclose2(f);
+    if (buf[0] == 0) return "\x01";  // file exists, no name stored
+    return string(buf);
+}
+
+// Delete both .sna and .esp files for a slot
+static void persistDelete(uint8_t slotnumber) {
+    char persistfname[sizeof(DISK_PSNA_FILE) + 7];
+    char persistfinfo[sizeof(DISK_PSNA_FILE) + 7];
+    sprintf(persistfname, DISK_PSNA_FILE "%u.sna", slotnumber);
+    sprintf(persistfinfo, DISK_PSNA_FILE "%u.esp", slotnumber);
+    string fsna  = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfname;
+    string finfo = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfinfo;
+    f_unlink(fsna.c_str());
+    f_unlink(finfo.c_str());
+}
+
+// Confirm and delete slot; returns true if deleted
+static bool persistDeleteConfirm(uint8_t slotnumber) {
+    string name = getSlotName(slotnumber);
+    if (name.empty()) return false;  // already empty, nothing to do
+    char buf[8];
+    sprintf(buf, "#%02u", slotnumber);
+    string displayName = (name == "\x01") ? "[No Name]" : name;
+    string msg = string(buf) + " " + displayName + "?";
+    if (OSD::msgDialog(Config::lang ? "Borrar ranura" : "Delete slot", msg) != DLG_YES) return false;
+    persistDelete(slotnumber);
+    return true;
+}
+
+// Rename slot: inline-edit the name in the menu row, rewrite .esp file
+static void persistRename(uint8_t slotnumber, uint8_t opt2) {
+    string name = getSlotName(slotnumber);
+    if (name.empty()) return;  // slot is empty, nothing to rename
+    string newName = slotInlineEdit(opt2, name == "\x01" ? "" : name);
+    if (newName == "\x1B") return;  // Esc = cancel
+
+    char persistfinfo[sizeof(DISK_PSNA_FILE) + 7];
+    sprintf(persistfinfo, DISK_PSNA_FILE "%u.esp", slotnumber);
+    string finfo = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfinfo;
+
+    // Read existing arch + romset lines
+    FIL* f = fopen2(finfo.c_str(), FA_READ);
+    if (!f) return;
+    char arch[64], romset[64];
+    f_gets(arch, sizeof(arch), *f);
+    f_gets(romset, sizeof(romset), *f);
+    fclose2(f);
+
+    // Rewrite with new name
+    f = fopen2(finfo.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
+    if (!f) return;
+    fputs((string(arch) + "\n" + string(romset) + "\n" + newName + "\n").c_str(), *f);
+    fclose2(f);
+}
+
+// Build slot menu label: "#NN - Name" or "#NN - [Empty]", padded to fixed width
+static string slotLabel(uint8_t i) {
+    char buf[8];
+    sprintf(buf, "#%02u - ", i);
+    string name = getSlotName(i);
+    if (name.empty()) name = "[Empty]";
+    else if (name == "\x01") name = "[No Name]";
+    if (name.length() > 20) name = name.substr(0, 20);
+    // Pad to fixed 20 chars so menu width never changes between redraws
+    while (name.length() < 20) name += ' ';
+    return string(buf) + name;
+}
+
+// Build a slot menu string for given count of slots (title is first line)
+static string buildSlotMenu(const char* title, uint8_t count) {
+    string menu = title;
+    for (uint8_t i = 1; i <= count; i++) {
+        menu += slotLabel(i) + "\n";
+    }
+    return menu;
+}
+
+// Inline-edit the name for slot opt2 directly inside the already-drawn menu row.
+// "#NN - " is 6 chars; row margin is 1 space on left. Name field = 20 chars.
+// Returns the new name, or "" if cancelled.
+static string slotInlineEdit(uint8_t opt2, const string& current) {
+    // Virtual row = opt2 - begin_row + 1  (begin_row is 1-based real row of first visible line)
+    uint8_t vrow = (uint8_t)(opt2 - OSD::begin_row + 1);
+    // Pixel position of the name field: x + 1 space margin + 6 chars of "#NN - "
+    int ex = OSD::x + (1 + 6) * OSD_FONT_W;
+    int ey = OSD::y + 1 + vrow * OSD_FONT_H;
+    // Strip trailing spaces from current name
+    string name = current;
+    while (!name.empty() && name.back() == ' ') name.pop_back();
+    if (name == "[No Name]" || name == "[Empty]") name = "";
+    return OSD::inlineTextEdit(ex, ey, 20, name);
+}
+
+
+static bool persistSave(uint8_t slotnumber, uint8_t opt2)
 {
     FILINFO stat_buf;
     char persistfname[sizeof(DISK_PSNA_FILE) + 7];
@@ -312,12 +513,22 @@ static bool persistSave(uint8_t slotnumber)
     sprintf(persistfinfo, DISK_PSNA_FILE "%u.esp", slotnumber);
     string finfo = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfinfo;
 
+    string slotName;
+
     // Slot isn't void
     if (f_stat(finfo.c_str(), &stat_buf) == FR_OK) {
         string title = OSD_PSNA_SAVE[Config::lang];
         string msg = OSD_PSNA_EXISTS[Config::lang];
         uint8_t res = OSD::msgDialog(title, msg);
         if (res != DLG_YES) return false;
+        slotName = getSlotName(slotnumber);
+        if (slotName == "\x01") slotName = "";
+    } else {
+        // Empty slot: inline-edit name pre-filled with tape/disk name
+        string defaultName = getDefaultSnapshotName();
+        slotName = slotInlineEdit(opt2, defaultName);
+        if (slotName == "\x1B") return false;  // Esc = cancel save
+        if (slotName.empty()) slotName = defaultName;  // Enter on empty = use default
     }
 
     OSD::osdCenteredMsg(OSD_PSNA_SAVING, LEVEL_INFO, 500);
@@ -328,7 +539,7 @@ static bool persistSave(uint8_t slotnumber)
         OSD::osdCenteredMsg(finfo + " - unable to open", LEVEL_ERROR, 5000);
         return false;
     }
-    fputs((Config::arch + "\n" + Config::romSet + "\n").c_str(), *f);    // Put architecture and romset on info file
+    fputs((Config::arch + "\n" + Config::romSet + "\n" + slotName + "\n").c_str(), *f);
     fclose2(f);
 
     string fsna = FileUtils::MountPoint + DISK_PSNA_DIR + "/" + persistfname;
@@ -431,21 +642,27 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             if (KeytoESP == fabgl::VK_HOME) { // HDMI 60Hz
                 uint8_t &vm = SELECT_VGA ? Config::vga_video_mode : Config::hdmi_video_mode;
                 if (vm == Config::VM_640x480_60) return;
-                if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
-                    Config::savePendingVideoMode();
-                    vm = Config::VM_640x480_60;
+                uint8_t saved_vm = vm;
+                vm = Config::VM_640x480_60;
+                Config::save();
+                VIDEO::changeMode();
+                if (!videoModeConfirm(10)) {
+                    vm = saved_vm;
                     Config::save();
-                    esp_hard_reset();
+                    VIDEO::changeMode();
                 }
             } else
             if (KeytoESP == fabgl::VK_END) { // HDMI 50Hz
                 uint8_t &vm = SELECT_VGA ? Config::vga_video_mode : Config::hdmi_video_mode;
                 if (vm == Config::VM_640x480_50) return;
-                if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
-                    Config::savePendingVideoMode();
-                    vm = Config::VM_640x480_50;
+                uint8_t saved_vm = vm;
+                vm = Config::VM_640x480_50;
+                Config::save();
+                VIDEO::changeMode();
+                if (!videoModeConfirm(10)) {
+                    vm = saved_vm;
                     Config::save();
-                    esp_hard_reset();
+                    VIDEO::changeMode();
                 }
             }
             // if (KeytoESP == fabgl::VK_PAGEDOWN) {
@@ -475,24 +692,15 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             }
             CPU::updateStatesInFrame();
         } else
-        if (KeytoESP == fabgl::VK_F3) {
-            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
-            portReadBPDialog();
-            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
-        } else
-        if (KeytoESP == fabgl::VK_F4) {
-            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
-            portWriteBPDialog();
-            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
-        }
-        else if (KeytoESP == fabgl::VK_F5) {
+        if (KeytoESP == fabgl::VK_F5) {
             if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             osdDebug();
             if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         }
         else if (KeytoESP == fabgl::VK_F7) {
             if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
-            BPDialog();
+            uint16_t bpAddr = BPListDialog();
+            if (bpAddr != 0xFFFF) osdDebug(bpAddr);
             if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         } else
         if (KeytoESP == fabgl::VK_F8) {
@@ -660,6 +868,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 string mFile = fileDialog(FileUtils::IMG_Path, MENU_IMG_TITLE[Config::lang], DISK_IMGFILE, 51, 22);
                 if (mFile != "") {
                     string fname = FileUtils::IMG_Path + mFile.substr(1);
+                    if (FileUtils::getLCaseExt(fname) == "zip") {
+                        string zipFname = ZipExtract::extract(fname, DISK_IMGFILE);
+                        if (zipFname.empty()) OSD::osdCenteredMsg(OSD_ZIP_ERR[Config::lang], LEVEL_WARN);
+                        else if (zipFname != "\x1b") fname = zipFname;
+                        else fname.clear();
+                    }
+                    if (fname.empty()) { if (VIDEO::OSD) OSD::drawStats(); }
+                    else {
                     // Check if selected file is .hdf — offer drive slot selection
                     bool is_hdf = (fname.size() >= 4 &&
                         (fname.substr(fname.size() - 4) == ".hdf" || fname.substr(fname.size() - 4) == ".HDF"));
@@ -693,6 +909,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     ESPectrum::reset();
                     if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                     return;
+                    } // else (zip ok)
                 }
                 if (VIDEO::OSD) OSD::drawStats();
             } else
@@ -758,6 +975,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     }
 
                     string ext = FileUtils::getLCaseExt(fname);
+                    if (ext == "zip") {
+                        string zipFname = ZipExtract::extract(fname, DISK_DSKFILE);
+                        if (zipFname.empty()) { OSD::osdCenteredMsg(OSD_ZIP_ERR[Config::lang], LEVEL_WARN); continue; }
+                        if (zipFname == "\x1b") continue;
+                        fname = zipFname;
+                        ext = FileUtils::getLCaseExt(fname);
+                    }
                     if (ext == "trd" || ext == "scl" || ext == "udi" || ext == "fdi") {
                         printf("Insert disk %s\n",fname.c_str());
                         rvmWD1793InsertDisk(&ESPectrum::fdd, 0, fname);
@@ -817,11 +1041,19 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 Config::save();
                 mFile.erase(0, 1);
                 string fname = FileUtils::SNA_Path + mFile;
-                if(!LoadSnapshot(fname, "", "")) {
-                    OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
+                if (FileUtils::getLCaseExt(fname) == "zip") {
+                    string zipFname = ZipExtract::extract(fname, DISK_SNAFILE);
+                    if (zipFname.empty()) { OSD::osdCenteredMsg(OSD_ZIP_ERR[Config::lang], LEVEL_WARN); }
+                    else if (zipFname != "\x1b") fname = zipFname;
+                    else fname.clear();
                 }
-                Config::ram_file = fname;
-                Config::last_ram_file = fname;
+                if (!fname.empty()) {
+                    if(!LoadSnapshot(fname, "", "")) {
+                        OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
+                    }
+                    Config::ram_file = fname;
+                    Config::last_ram_file = fname;
+                }
             }
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
         }
@@ -829,14 +1061,24 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             menu_level = 0;
             menu_curopt = 1;
             // Persist Load
-            string menuload = MENU_PERSIST_LOAD[Config::lang];
-            for(int i = 1; i <= 40; ++i) {
-                menuload += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
-            }
             if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
-            uint8_t opt2 = menuRun(menuload);
-            if (opt2) {
-                persistLoad(opt2);
+            while (1) {
+                menu_footer = Config::lang ? "F6: Renombrar  F8: Borrar" : "F6: Rename  F8: Remove";
+                uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_LOAD[Config::lang], 40));
+                if (opt2) {
+                    if (menu_del_pressed) {
+                        persistDeleteConfirm(opt2);
+                        menu_curopt = opt2;
+                        continue;
+                    }
+                    if (menu_rename_pressed) {
+                        persistRename(opt2, opt2);
+                        menu_curopt = opt2;
+                        continue;
+                    }
+                    persistLoad(opt2);
+                    break;
+                } else break;
             }
             if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         }
@@ -846,13 +1088,20 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             menu_curopt = 1;
             if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             while (1) {
-                string menusave = MENU_PERSIST_SAVE[Config::lang];
-                for(int i = 1; i <= 40; ++i) {
-                    menusave += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
-                }
-                uint8_t opt2 = menuRun(menusave);
+                menu_footer = Config::lang ? "F6: Renombrar  F8: Borrar" : "F6: Rename  F8: Remove";
+                uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_SAVE[Config::lang], 40));
                 if (opt2) {
-                    if (persistSave(opt2)) {
+                    if (menu_del_pressed) {
+                        persistDeleteConfirm(opt2);
+                        menu_curopt = opt2;
+                        continue;
+                    }
+                    if (menu_rename_pressed) {
+                        persistRename(opt2, opt2);
+                        menu_curopt = opt2;
+                        continue;
+                    }
+                    if (persistSave(opt2, opt2)) {
                         if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
                     }
@@ -866,12 +1115,105 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
         else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F5) {
             menu_level = 0;
             menu_saverect = false;
-            string mFile = fileDialog(FileUtils::TAP_Path, MENU_TAP_TITLE[Config::lang],DISK_TAPFILE,51,22);
+            string mFile;
+            string fname;
+            string ext;
+            bool fromZip = false;
+
+            // Loop to allow re-opening fileDialog after ZIP cancel
+            f5_retry:
+            mFile = fileDialog(FileUtils::ALL_Path, MENU_ALL_TITLE[Config::lang], DISK_ALLFILE, 51, 22);
             if (mFile != "") {
-                if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
-                Config::save();
-                Tape::LoadTape(mFile);
-                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                // X prefix = extract ZIP to current folder
+                if (mFile[0] == 'X') {
+                    fname = FileUtils::ALL_Path + mFile.substr(1);
+                    OSD::osdCenteredMsg(OSD_ZIP_EXTRACTING[Config::lang], LEVEL_INFO, 0);
+                    int count = ZipExtract::extractAll(fname, FileUtils::ALL_Path);
+                    if (count > 0) {
+                        char msg[40];
+                        snprintf(msg, sizeof(msg), " Extracted %d file(s) ", count);
+                        OSD::osdCenteredMsg(msg, LEVEL_INFO, 1000);
+                    } else {
+                        OSD::osdCenteredMsg(OSD_ZIP_ERR[Config::lang], LEVEL_WARN);
+                    }
+                    goto f5_retry;
+                }
+                fname = FileUtils::ALL_Path + mFile.substr(1);
+                ext = FileUtils::getLCaseExt(fname);
+                fromZip = false;
+
+                // ZIP archive — extract and replace fname/ext/mFile
+                if (ext == "zip") {
+                    string zipFname = ZipExtract::extract(fname, DISK_ALLFILE);
+                    if (zipFname.empty()) {
+                        OSD::osdCenteredMsg(OSD_ZIP_ERR[Config::lang], LEVEL_WARN);
+                        if (VIDEO::OSD) OSD::drawStats();
+                        return;
+                    }
+                    if (zipFname == "\x1b") {
+                        // User cancelled ZIP selection — reopen file dialog
+                        goto f5_retry;
+                    }
+                    fname = zipFname;
+                    ext = FileUtils::getLCaseExt(fname);
+                    // Reconstruct mFile with prefix for Tape::LoadTape compatibility
+                    string zipBase = fname.substr(fname.rfind('/') + 1);
+                    mFile = mFile.substr(0, 1) + zipBase;
+                    fromZip = true;
+                }
+
+                if (ext == "tap" || ext == "tzx" || ext == "pzx" || ext == "wav" || ext == "mp3") {
+                    // Tape — sync TAP_Path: /tmp/ for ZIP, ALL_Path for normal files
+                    FileUtils::TAP_Path = fromZip ? "/tmp/" : FileUtils::ALL_Path;
+                    if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
+                    Config::save();
+                    Tape::LoadTape(mFile);
+                    if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                }
+                else if (ext == "trd" || ext == "scl" || ext == "udi" || ext == "fdi") {
+                    // Disk into Drive A — check machine compatibility
+                    if (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) {
+                        if (!fromZip) FileUtils::DSK_Path = FileUtils::ALL_Path;
+                        if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
+                        Config::save();
+                        rvmWD1793InsertDisk(&ESPectrum::fdd, 0, fname);
+                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                    } else {
+                        OSD::osdCenteredMsg(OSD_DSK_NEEDS_PENTAGON[Config::lang], LEVEL_WARN);
+                    }
+                }
+                else if (ext == "sna" || ext == "z80" || ext == "p") {
+                    // Snapshot
+                    if (!fromZip) FileUtils::SNA_Path = FileUtils::ALL_Path;
+                    if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
+                    Config::save();
+                    if (!LoadSnapshot(fname, "", "")) {
+                        OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
+                    } else if (!fromZip) {
+                        Config::ram_file = fname;
+                        Config::last_ram_file = fname;
+                    }
+                    if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                }
+#if !PICO_RP2040
+                else if (ext == "mmc" || ext == "hdf") {
+                    // DivMMC/DivIDE image
+                    if (DivMMC::enabled) {
+                        FileUtils::IMG_Path = FileUtils::ALL_Path;
+                        if (ext == "hdf")
+                            Config::esxdos_hdf_image[0] = fname; // master (hd0)
+                        else
+                            Config::esxdos_mmc_image = fname;
+                        if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
+                        DivMMC::init();
+                        Config::save();
+                        ESPectrum::reset();
+                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                    } else {
+                        OSD::osdCenteredMsg(OSD_IMG_NEEDS_ESXDOS[Config::lang], LEVEL_WARN);
+                    }
+                }
+#endif
             }
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
         }
@@ -960,7 +1302,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 ESPectrum::aud_volume--;
                 pwm_audio_set_volume(ESPectrum::aud_volume);
                 Config::aud_volume = ESPectrum::aud_volume;
-                Config::save();
+                ESPectrum::vol_changed = true;
             }
             unsigned short x, y;
             if (Config::aspect_16_9) {
@@ -1001,7 +1343,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 ESPectrum::aud_volume++;
                 pwm_audio_set_volume(ESPectrum::aud_volume);
                 Config::aud_volume = ESPectrum::aud_volume;
-                Config::save();
+                ESPectrum::vol_changed = true;
             }
             unsigned short x, y;
             if (Config::aspect_16_9) {
@@ -1107,6 +1449,16 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     // Select TAP File
                                     string mFile = fileDialog(FileUtils::TAP_Path, MENU_TAP_TITLE[Config::lang],DISK_TAPFILE,28,16);
                                     if (mFile != "") {
+                                        string fname = FileUtils::TAP_Path + mFile.substr(1);
+                                        if (FileUtils::getLCaseExt(fname) == "zip") {
+                                            string zipFname = ZipExtract::extract(fname, DISK_TAPFILE);
+                                            if (zipFname.empty()) { OSD::osdCenteredMsg(OSD_ZIP_ERR[Config::lang], LEVEL_WARN); break; }
+                                            if (zipFname == "\x1b") break;
+                                            fname = zipFname;
+                                            string zipBase = fname.substr(fname.rfind('/') + 1);
+                                            mFile = mFile.substr(0, 1) + zipBase;
+                                            FileUtils::TAP_Path = "/tmp/";
+                                        }
                                         Config::save();
                                         Tape::LoadTape(mFile);
                                         if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
@@ -1320,6 +1672,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             if (mFile != "") {
                                                 mFile.erase(0, 1);
                                                 string fname = FileUtils::DSK_Path + "/" + mFile;
+                                                if (FileUtils::getLCaseExt(fname) == "zip") {
+                                                    string zipFname = ZipExtract::extract(fname, DISK_DSKFILE);
+                                                    if (zipFname.empty()) { OSD::osdCenteredMsg(OSD_ZIP_ERR[Config::lang], LEVEL_WARN); break; }
+                                                    if (zipFname == "\x1b") break;
+                                                    fname = zipFname;
+                                                }
                                                 rvmWD1793InsertDisk(&ESPectrum::fdd, dsk_num - 1, fname);
                                                 Config::save();
                                                 return;
@@ -1540,6 +1898,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         Config::save();
                                         mFile.erase(0, 1);
                                         string fname = FileUtils::SNA_Path + mFile;
+                                        if (FileUtils::getLCaseExt(fname) == "zip") {
+                                            string zipFname = ZipExtract::extract(fname, DISK_SNAFILE);
+                                            if (zipFname.empty()) { OSD::osdCenteredMsg(OSD_ZIP_ERR[Config::lang], LEVEL_WARN); break; }
+                                            if (zipFname == "\x1b") break;
+                                            fname = zipFname;
+                                        }
                                         if(!LoadSnapshot(fname, "", "")) {
                                             OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
                                         } else {
@@ -1554,12 +1918,21 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_curopt = 1;
                                     menu_saverect = true;
                                     while (1) {
-                                        string menuload = MENU_PERSIST_LOAD[Config::lang];
-                                        for(int i=1; i <= 10; i++) {
-                                            menuload += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
-                                        }
-                                        uint8_t opt2 = menuRun(menuload);
+                                        menu_footer = Config::lang ? "F6: Renombrar  F8: Borrar" : "F6: Rename  F8: Remove";
+                uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_LOAD[Config::lang], 10));
                                         if (opt2) {
+                                            if (menu_del_pressed) {
+                                                persistDeleteConfirm(opt2);
+                                                menu_saverect = false;
+                                                menu_curopt = opt2;
+                                                continue;
+                                            }
+                                            if (menu_rename_pressed) {
+                                                persistRename(opt2, opt2);
+                                                menu_saverect = false;
+                                                menu_curopt = opt2;
+                                                continue;
+                                            }
                                             if (persistLoad(opt2)) {
                                                 if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                                 return;
@@ -1574,13 +1947,22 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_curopt = 1;
                                     menu_saverect = true;
                                     while (1) {
-                                        string menusave = MENU_PERSIST_SAVE[Config::lang];
-                                        for(int i=1; i <= 10; i++) {
-                                            menusave += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
-                                        }
-                                        uint8_t opt2 = menuRun(menusave);
+                                        menu_footer = Config::lang ? "F6: Renombrar  F8: Borrar" : "F6: Rename  F8: Remove";
+                uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_SAVE[Config::lang], 10));
                                         if (opt2) {
-                                            if (persistSave(opt2)) {
+                                            if (menu_del_pressed) {
+                                                persistDeleteConfirm(opt2);
+                                                menu_saverect = false;
+                                                menu_curopt = opt2;
+                                                continue;
+                                            }
+                                            if (menu_rename_pressed) {
+                                                persistRename(opt2, opt2);
+                                                menu_saverect = false;
+                                                menu_curopt = opt2;
+                                                continue;
+                                            }
+                                            if (persistSave(opt2, opt2)) {
                                                 if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                                 return;
                                             }
@@ -1943,12 +2325,19 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 if (opt2) {
                                     uint8_t new_vm = opt2 - 1; // opt2 is 1-based, VM_* is 0-based
                                     if (new_vm != curVideoMode) {
-                                        if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
-                                            Config::savePendingVideoMode();
-                                            curVideoMode = new_vm;
+                                        uint8_t saved_vm = curVideoMode;
+                                        curVideoMode = new_vm;
+                                        Config::save();
+                                        VIDEO::changeMode();
+                                        if (!videoModeConfirm(10)) {
+                                            // Rollback
+                                            curVideoMode = saved_vm;
                                             Config::save();
-                                            esp_hard_reset();
+                                            VIDEO::changeMode();
                                         }
+                                        // Exit OSD after mode switch
+                                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                                        return;
                                     }
                                     menu_curopt = opt2;
                                     menu_saverect = false;
@@ -2068,13 +2457,18 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         Config::scanlines = 0;
 
                                     if (Config::scanlines != prev_opt) {
-                                        if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
+                                        Config::ram_file = "none";
+                                        Config::save();
+                                        VIDEO::changeMode();
+                                        if (!videoModeConfirm(10)) {
+                                            Config::scanlines = prev_opt;
                                             Config::ram_file = "none";
                                             Config::save();
-                                            esp_hard_reset();
-                                        } else {
-                                            Config::scanlines = prev_opt;
+                                            VIDEO::changeMode();
                                         }
+                                        // Exit OSD after mode switch
+                                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                                        return;
                                     }
                                     menu_curopt = opt2;
                                     menu_saverect = false;
@@ -3520,32 +3914,27 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     // Debug
                     uint8_t opt2 = menuRun(MENU_DEBUG_EN);
                     if (opt2 == 1) {
-                        portReadBPDialog();
-                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
-                        return;
-                    }
-                    else if (opt2 == 2) {
-                        portWriteBPDialog();
-                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
-                        return;
-                    }
-                    else if (opt2 == 3) {
                         OSD::osdDebug();
                         if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
-                    } else if (opt2 == 4) {
+                    } else if (opt2 == 2) {
                         BPDialog();
                         if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
-                    } else if (opt2 == 5) {
+                    } else if (opt2 == 3) {
+                        { uint16_t bpAddr = BPListDialog();
+                        if (bpAddr != 0xFFFF) osdDebug(bpAddr); }
+                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                        return;
+                    } else if (opt2 == 4) {
                         jumpToDialog();
                         if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
-                    } else if (opt2 == 6) {
+                    } else if (opt2 == 5) {
                         pokeDialog();
                         if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
-                    } else if (opt2 == 7) {
+                    } else if (opt2 == 6) {
                         Z80::triggerNMI();
                         if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
@@ -4628,6 +5017,150 @@ const char* mnemCB[256] = {
 /// TODO:
 static uint16_t dump_pc = 0;
 
+static void saveDumpToFile(uint16_t addr_from, uint16_t addr_to) {
+    string fname = string(MOUNT_POINT_SD) + "/dump.log";
+    FIL* f = fopen2(fname.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
+    if (!f) return;
+
+    char line[128];
+    UINT bw;
+
+    // Separator
+    f_write(f, "========================================\n", 41, &bw);
+
+    // Timestamp
+    snprintf(line, sizeof(line), "Dump: #%04X - #%04X\n", addr_from, addr_to);
+    f_write(f, line, strlen(line), &bw);
+
+    // Machine info
+    snprintf(line, sizeof(line), "Arch: %s  RomSet: %s\n", Config::arch.c_str(), Config::romSet.c_str());
+    f_write(f, line, strlen(line), &bw);
+
+    snprintf(line, sizeof(line), "ROM in use: %d  romLatch: %d  bankLatch: %d  videoLatch: %d\n",
+        MemESP::romInUse, MemESP::romLatch, MemESP::bankLatch, MemESP::videoLatch);
+    f_write(f, line, strlen(line), &bw);
+
+    snprintf(line, sizeof(line), "pagingLock: %d  page0ram: %d  newSRAM: %d  divmmc: %d\n",
+        MemESP::pagingLock, MemESP::page0ram, MemESP::newSRAM,
+#if !PICO_RP2040
+        MemESP::divmmc_mapped
+#else
+        0
+#endif
+    );
+    f_write(f, line, strlen(line), &bw);
+
+    snprintf(line, sizeof(line), "TR-DOS: %s  TR-DOS BIOS: %d\n",
+        ESPectrum::trdos ? "on" : "off", Config::trdosBios);
+    f_write(f, line, strlen(line), &bw);
+
+    // Registers
+    f_write(f, "--- Registers ---\n", 18, &bw);
+
+    snprintf(line, sizeof(line), "AF=%04X  BC=%04X  DE=%04X  HL=%04X\n",
+        Z80::getRegAF(), Z80::getRegBC(), Z80::getRegDE(), Z80::getRegHL());
+    f_write(f, line, strlen(line), &bw);
+
+    snprintf(line, sizeof(line), "AF'=%04X BC'=%04X DE'=%04X HL'=%04X\n",
+        Z80::getRegAFx(), Z80::getRegBCx(), Z80::getRegDEx(), Z80::getRegHLx());
+    f_write(f, line, strlen(line), &bw);
+
+    snprintf(line, sizeof(line), "IX=%04X  IY=%04X  SP=%04X  PC=%04X\n",
+        Z80::getRegIX(), Z80::getRegIY(), Z80::getRegSP(), Z80::getRegPC());
+    f_write(f, line, strlen(line), &bw);
+
+    snprintf(line, sizeof(line), "I=%02X R=%02X  IM=%d  IFF1=%d IFF2=%d  Halted=%d\n",
+        Z80::getRegI(), Z80::getRegR(), Z80::getIntMode(),
+        Z80::isIFF1(), Z80::isIFF2(), Z80::isHalted());
+    f_write(f, line, strlen(line), &bw);
+
+    // Flags
+    uint8_t fl = Z80::getRegAF() & 0xFF;
+    snprintf(line, sizeof(line), "Flags: S=%d Z=%d H=%d P=%d N=%d C=%d\n",
+        (fl >> 7) & 1, (fl >> 6) & 1, (fl >> 4) & 1,
+        (fl >> 2) & 1, (fl >> 1) & 1, fl & 1);
+    f_write(f, line, strlen(line), &bw);
+
+    // Stack top 8 words
+    f_write(f, "--- Stack (top 8) ---\n", 22, &bw);
+    uint16_t sp = Z80::getRegSP();
+    for (int i = 0; i < 8; i++) {
+        uint16_t addr = sp + i * 2;
+        uint16_t val = MemESP::readbyte(addr) | (MemESP::readbyte(addr + 1) << 8);
+        snprintf(line, sizeof(line), "  SP+%02X [%04X] = %04X\n", i * 2, addr, val);
+        f_write(f, line, strlen(line), &bw);
+    }
+
+    snprintf(line, sizeof(line), "CPU T-states: %u  statesInFrame: %u\n",
+        CPU::tstates, CPU::statesInFrame);
+    f_write(f, line, strlen(line), &bw);
+
+    // TR-DOS / WD1793 state
+    f_write(f, "--- TR-DOS / WD1793 ---\n", 24, &bw);
+    rvmWD1793 &wd = ESPectrum::fdd;
+    snprintf(line, sizeof(line), "TR-DOS: %s  BIOS: %d  fastmode: %d  writeprotect: %d\n",
+        ESPectrum::trdos ? "on" : "off", Config::trdosBios,
+        Config::trdosFastMode, Config::trdosWriteProtect);
+    f_write(f, line, strlen(line), &bw);
+
+    snprintf(line, sizeof(line), "WD1793: cmd=%02X status=%04X track=%d sector=%d data=%02X\n",
+        wd.command, wd.status, wd.track, wd.sector, wd.data);
+    f_write(f, line, strlen(line), &bw);
+
+    snprintf(line, sizeof(line), "  drive=%d side=%d dsr=%d led=%d retry=%d\n",
+        wd.diskS, wd.side, wd.dsr, wd.led, wd.retry);
+    f_write(f, line, strlen(line), &bw);
+
+    snprintf(line, sizeof(line), "  state=%u stepState=%u control=%04X\n",
+        wd.state, wd.stepState, wd.control);
+    f_write(f, line, strlen(line), &bw);
+
+    for (int d = 0; d < 4; d++) {
+        if (wd.disk[d]) {
+            snprintf(line, sizeof(line), "  Disk%d: trk=%u sides=%d wp=%d %s%s\n",
+                d, wd.disk[d]->tracks, wd.disk[d]->sides,
+                wd.disk[d]->writeprotect,
+                wd.disk[d]->IsSCLFile ? "[SCL] " : "",
+                wd.disk[d]->fname.c_str());
+            f_write(f, line, strlen(line), &bw);
+        }
+    }
+
+    // Memory dump
+    f_write(f, "--- Memory dump ---\n", 20, &bw);
+
+    uint32_t from = addr_from;
+    uint32_t to = addr_to;
+    if (to < from) to += 0x10000; // wrap around
+
+    for (uint32_t a = from & 0xFFF0; a <= to; a += 16) {
+        uint16_t addr = a & 0xFFFF;
+        int n = snprintf(line, sizeof(line),
+            "%04X: %02X %02X %02X %02X %02X %02X %02X %02X  %02X %02X %02X %02X %02X %02X %02X %02X  |",
+            addr,
+            MemESP::readbyte(addr+0),  MemESP::readbyte(addr+1),
+            MemESP::readbyte(addr+2),  MemESP::readbyte(addr+3),
+            MemESP::readbyte(addr+4),  MemESP::readbyte(addr+5),
+            MemESP::readbyte(addr+6),  MemESP::readbyte(addr+7),
+            MemESP::readbyte(addr+8),  MemESP::readbyte(addr+9),
+            MemESP::readbyte(addr+10), MemESP::readbyte(addr+11),
+            MemESP::readbyte(addr+12), MemESP::readbyte(addr+13),
+            MemESP::readbyte(addr+14), MemESP::readbyte(addr+15));
+        // ASCII representation
+        for (int j = 0; j < 16; j++) {
+            uint8_t ch = MemESP::readbyte((addr + j) & 0xFFFF);
+            line[n++] = (ch >= 0x20 && ch < 0x7F) ? ch : '.';
+        }
+        line[n++] = '|';
+        line[n++] = '\n';
+        line[n] = 0;
+        f_write(f, line, n, &bw);
+    }
+
+    f_write(f, "\n", 1, &bw);
+    fclose2(f);
+}
+
 void OSD::osdDump() {
     const unsigned short h = OSD_FONT_H * 22;
     const unsigned short y = scrAlignCenterY(h);
@@ -4698,14 +5231,29 @@ c:
 
     fabgl::VirtualKeyItem Nextkey;
     auto Kbd = ESPectrum::PS2Controller.keyboard();
+    bool alt = false;
     while (1) {
         sleep_ms(5);
         if (Kbd->virtualKeyAvailable()) {
             Kbd->getNextVirtualKey(&Nextkey);
+            if (Nextkey.vk == fabgl::VK_LALT || Nextkey.vk == fabgl::VK_RALT) {
+                alt = Nextkey.down;
+            }
             if (!Nextkey.down) continue;
             if (Nextkey.vk == fabgl::VK_ESCAPE) {
                 break;
             }
+            if (alt && Nextkey.vk == fabgl::VK_F2 && FileUtils::fsMount) {
+                // Remount SD if needed (card may have been swapped)
+                if (!FileUtils::checkSDCard()) FileUtils::remountSD();
+                // Save memory dump to file
+                uint32_t addr_from = addressDialog(dump_pc, "Dump from");
+                if (addr_from > 0xFFFF) goto c;
+                uint32_t addr_to = addressDialog((addr_from + 0xFF) & 0xFFFF, "Dump to");
+                if (addr_to > 0xFFFF) goto c;
+                saveDumpToFile((uint16_t)addr_from, (uint16_t)addr_to);
+                goto c;
+            } else
             if (Nextkey.vk == fabgl::VK_KP_MINUS || Nextkey.vk == fabgl::VK_UP) {
                 dump_pc -= 16;
                 goto c;
@@ -4738,6 +5286,72 @@ c:
     VIDEO::SaveRect.restore_last();
 }
 
+static uint32_t memSearchResultAddr = 0x10000; // >0xFFFF = no result
+static string memSearchHex;
+static uint16_t memSearchLastFound = 0;
+static uint32_t memDoSearch(uint16_t startAddr);
+
+// Disassemble instruction at addr into out buffer (max maxlen chars)
+static void disasmAt(uint16_t addr, char* out, int maxlen) {
+    uint8_t b = MemESP::readbyte(addr);
+    std::string m;
+    int off = 1; // offset to first operand byte
+    bool isIY = false;
+    if (b == 0xDD || b == 0xFD) {
+        isIY = (b == 0xFD);
+        uint8_t b1 = MemESP::readbyte(addr + 1);
+        if (b1 == 0xCB) {
+            m = mnemCB[MemESP::readbyte(addr + 3)];
+            auto sp = m.find(" ");
+            if (sp != std::string::npos) m.replace(sp, 1, isIY ? " (IY+d)," : " (IX+d),");
+            off = 2;
+        } else {
+            m = mnemIX(b1);
+            if (isIY) { auto p = m.find("IX"); if (p != std::string::npos) m.replace(p, 2, "IY"); }
+            off = 2;
+        }
+    } else if (b == 0xED) {
+        m = mnemED(MemESP::readbyte(addr + 1));
+        off = 2;
+    } else if (b == 0xCB) {
+        m = mnemCB[MemESP::readbyte(addr + 1)];
+        off = 2;
+    } else {
+        m = mnem[b];
+    }
+    // Substitute operands
+    auto pnn = m.find("nn");
+    if (pnn != std::string::npos) {
+        uint16_t val = MemESP::readbyte(addr + off) | (MemESP::readbyte(addr + off + 1) << 8);
+        char tmp[5]; snprintf(tmp, 5, "%04X", val);
+        m.replace(pnn, 2, tmp);
+    } else {
+        auto pd = m.find("+d");
+        if (pd != std::string::npos) {
+            int8_t disp = (int8_t)MemESP::readbyte(addr + off);
+            char tmp[8]; snprintf(tmp, 8, "%+d", disp);
+            m.replace(pd, 2, tmp);
+        } else {
+            auto pn = m.find("n");
+            if (pn != std::string::npos) {
+                uint8_t val = MemESP::readbyte(addr + off);
+                char tmp[3]; snprintf(tmp, 3, "%02X", val);
+                m.replace(pn, 1, tmp);
+            } else {
+                auto pe = m.find("d");
+                if (pe != std::string::npos) {
+                    int8_t disp = (int8_t)MemESP::readbyte(addr + off);
+                    uint16_t target = addr + 2 + disp; // JR/DJNZ are always 2 bytes
+                    char tmp[5]; snprintf(tmp, 5, "%04X", target);
+                    m.replace(pe, 1, tmp);
+                }
+            }
+        }
+    }
+    strncpy(out, m.c_str(), maxlen - 1);
+    out[maxlen - 1] = 0;
+}
+
 static int instrLen(uint16_t addr) {
     uint8_t b = MemESP::readbyte(addr);
     if (b == 0xDD || b == 0xFD) {
@@ -4763,35 +5377,52 @@ static int instrLen(uint16_t addr) {
     return 1;
 }
 
-void OSD::osdDebug() {
-    const unsigned short h = OSD_FONT_H * 22;
+void OSD::osdDebug(uint16_t gotoAddr) {
+    const unsigned short h = OSD_FONT_H * 26;
     const unsigned short y = scrAlignCenterY(h);
-    const unsigned short w = OSD_FONT_W * 46;
+    const unsigned short w = OSD_FONT_W * 50;
     const unsigned short x = scrAlignCenterX(w);
 
     VIDEO::SaveRect.save(x - 1, y - 1, w + 2, h + 2);
-    char buf[32];
+    char buf[40];
     int ii = 3;
+    int cursor_row = 3; // cursor starts at PC line
     uint32_t t1 = 0;
     uint32_t t2 = 0;
     uint32_t T1 = 0;
     uint32_t T2 = 0;
+    int activeSection = 0; // 0=Code, 1=Pages, 2=Memory, 3=Registers
+    int regCursorRow = 0;
+    bool regAltSet = false;
+    int memCursorRow = 0;
+    int memCursorCol = 0; // 0-3 = byte index
+    uint16_t memViewAddr = Z80::getRegPC();
+    int xi_right = x + 32 * OSD_FONT_W;
+    int pagesCursorRow = 0; // 0=PAGE0, 1=PAGE3, 2=VIDEO, 3=PAGING LOCK
+    bool memAsciiMode = false;
+    bool gotoApplied = false;
+    bool redrawCode = true;
+    bool redrawMem = true;
+    bool redrawRight = true;
+    bool redrawTitle = true;
 
 c:
     sleep_ms(5);
     // Set font
     VIDEO::vga.setFont(Font6x8);
 
-    // Boarder
+    if (redrawTitle) {
+    // Border + title bar; full content bg only on first draw
     VIDEO::vga.rect(x, y, w, h, zxColor(0, 0));
-
     VIDEO::vga.fillRect(x + 1, y + 1, w - 2, OSD_FONT_H, zxColor(0,0));
-    VIDEO::vga.fillRect(x + 1, y + 1 + OSD_FONT_H, w - 2, h - OSD_FONT_H - 2, zxColor(7,1));
+    VIDEO::vga.fillRect(x + 1, y + 1 + OSD_FONT_H, w - 2, h - OSD_FONT_H - 2, zxColor(7, 1));
 
-    // Title
+    // Title with section indicator
     VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(0, 0));
     VIDEO::vga.setCursor(x + OSD_FONT_W + 1, y + 1);
-    VIDEO::vga.print(Config::lang ? "Depurar" : "Debug");
+    const char* secNames[] = {"Code", "Memory", "Pages", "Regs"};
+    snprintf(buf, 32, "Debug [%s]", secNames[activeSection]);
+    VIDEO::vga.print(buf);
 
     // Rainbow
     unsigned short rb_y = y + 8;
@@ -4803,271 +5434,373 @@ c:
         }
         rb_paint_x += 5;
     }
+    } // redrawTitle
 
-    VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
     uint16_t pc = Z80::getRegPC();
+    // Apply gotoAddr: set ii so that gotoAddr appears on current cursor_row
+    if (gotoAddr != 0xFFFF && !gotoApplied) {
+        ii = (int16_t)(pc - gotoAddr) + cursor_row;
+        gotoApplied = true;
+    }
+    const int CODE_LINES = 18;
+    const int MEM_LINES = 4;
     int i = 0;
     int xi = x + 1;
-    int pci_skip = 0;
-    int nn = 0;
-    int n = 0;
-    int d = 0;
-    bool ED = false;
-    bool CB = false;
-    bool IX = false;
-    bool IY = false;
-    bool ICB = false;
+    uint16_t line_addr[CODE_LINES];
+    int regStartRow = 0;
+  if (redrawCode) {
+    uint16_t pci = pc - ii; // starting address for line 0
     std::string mem;
-    for (; i < 20; ++i) {
-        uint16_t pci = pc + i + pci_skip - ii;
-        uint8_t bi = MemESP::readbyte(pci);
-        uint8_t b1 = MemESP::readbyte(pci + 1);
+    for (; i < CODE_LINES; ++i) {
+        line_addr[i] = pci;
+        int len = instrLen(pci);
+        uint8_t bytes[4];
+        for (int b = 0; b < len && b < 4; b++)
+            bytes[b] = MemESP::readbyte(pci + b);
         int yi = y + (i + 1) * OSD_FONT_H + 2;
+        // Highlight: red ink for PC, cyan bg for cursor
+        bool isCursor = (i == cursor_row && activeSection == 0);
+        if (pci == pc && isCursor)
+            VIDEO::vga.setTextColor(zxColor(2, 1), zxColor(5, 0));
+        else if (pci == pc)
+            VIDEO::vga.setTextColor(zxColor(2, 1), zxColor(7, 1));
+        else if (isCursor)
+            VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(5, 0));
+        else
+            VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
+        if (isCursor)
+            VIDEO::vga.fillRect(xi, yi, xi_right - xi - OSD_FONT_W, OSD_FONT_H, zxColor(5, 0));
+        else
+            VIDEO::vga.fillRect(xi, yi, xi_right - xi - OSD_FONT_W, OSD_FONT_H, zxColor(7, 1));
         VIDEO::vga.setCursor(xi, yi);
-        if (ICB) {
-            int8_t b1b = b1;
-            snprintf(buf, 32, b1b >= 0 ? " %04X %02X +%d(d)" : " %04X %02X %d(d)", pci, bi, b1b);
-            d = 0;
-            nn = 1;
-            ICB = false;
+
+        // Build hex bytes string (up to 4 bytes, 8 chars + trailing space)
+        char hexbytes[10];
+        int hpos = 0;
+        for (int b = 0; b < len && b < 4; b++) {
+            snprintf(hexbytes + hpos, 3, "%02X", bytes[b]);
+            hpos += 2;
         }
-        else if (IX || IY) {
-            snprintf(buf, 32, " %04X %02X", pci, bi);
-            IX = false;
-            IY = false;
-        }
-        else if (!CB && !ED && nn == 0 && n == 0 && d == 0 || pci == pc) {
-            ED = bi == 0xED;
-            CB = bi == 0xCB;
-            IX = bi == 0xDD;
-            IY = bi == 0xFD;
-            if (IX || IY) {
-                ICB = b1 == 0xCB;
-                if (ICB) {
-                    mem = mnemCB[MemESP::readbyte(pci + 3)];
-                    mem.replace(mem.find(" ", 0), 1, " (IX+d),");
-                } else {
-                    mem = mnemIX(b1);
-                }
-                auto pos = mem.find(",(HL)", 0);
-                if (pos != string::npos)
-                    mem.replace(pos, 4, " ");
-                if (mem.length() > 12)
-                    mem = mem.substr(0, 12);
-                if (IY) {
-                    mem.replace(mem.find("IX",0),2,"IY");
-                }
-            } else if (CB) {
-                mem = mnemCB[b1];
-            } else if (ED) {
-                mem = mnemED(b1);
+        while (hpos < 9) hexbytes[hpos++] = ' ';
+        hexbytes[9] = 0;
+
+        // Get mnemonic with resolved operands
+        uint8_t bi = bytes[0];
+        bool isED = (bi == 0xED);
+        bool isCB = (bi == 0xCB);
+        bool isIX = (bi == 0xDD);
+        bool isIY = (bi == 0xFD);
+        if (isIX || isIY) {
+            uint8_t b1 = bytes[1];
+            if (b1 == 0xCB) {
+                mem = mnemCB[bytes[3]];
+                auto sp = mem.find(" ");
+                if (sp != string::npos) mem.replace(sp, 1, isIY ? " (IY+d)," : " (IX+d),");
             } else {
-                mem = mnem[bi];
+                mem = mnemIX(b1);
             }
-            const char* memc = mem.c_str();
-            if (strstr(memc, "nn") != 0 || strstr(memc, "(nn)") != 0) {
-                d = 0;
-                n = 0;
-                nn = 2;
-            } else if (strstr(memc, "n") != 0 || strstr(memc, "(n)") != 0) {
-                d = 0;
-                n = 1;
-                nn = 0;
-            } else if (strstr(memc, "d") != 0) {
-                d = 1;
-                n = 0;
-                nn = 0;
-            } else {
-                d = 0;
-                n = 0;
-                nn = 0;
+            auto pos = mem.find(",(HL)");
+            if (pos != string::npos) mem.replace(pos, 5, " ");
+            if (isIY) {
+                auto ixp = mem.find("IX");
+                if (ixp != string::npos) mem.replace(ixp, 2, "IY");
             }
-            // Replace operand placeholders with actual values
-            if (nn == 2) {
-                int off = (ED || IX || IY) ? 2 : 1;
-                uint16_t addr = MemESP::readbyte(pci + off) | (MemESP::readbyte(pci + off + 1) << 8);
-                char tmp[5];
-                snprintf(tmp, sizeof(tmp), "%04X", addr);
-                auto p = mem.find("nn");
-                if (p != string::npos) mem.replace(p, 2, tmp);
-            } else if (n == 1) {
-                int off = (ED || IX || IY) ? 2 : 1;
-                uint8_t val = MemESP::readbyte(pci + off);
-                char tmp[3];
-                snprintf(tmp, sizeof(tmp), "%02X", val);
-                auto p = mem.find("n");
-                if (p != string::npos) mem.replace(p, 1, tmp);
-            } else if (d == 1) {
-                bool isIXIY = IX || IY;
-                int off = isIXIY ? 2 : 1;
-                int8_t disp = (int8_t)MemESP::readbyte(pci + off);
-                char tmp[8];
-                if (isIXIY) {
-                    // IX/IY displacement: signed decimal, replace "+d" with "+3" or "-5"
-                    snprintf(tmp, sizeof(tmp), "%+d", disp);
-                    auto p = mem.find("+d");
-                    if (p != string::npos) mem.replace(p, 2, tmp);
-                } else {
-                    // JR/DJNZ: show target address
-                    uint16_t target = pci + 2 + disp;
-                    snprintf(tmp, sizeof(tmp), "%04X", target);
-                    auto p = mem.find("d");
-                    if (p != string::npos) mem.replace(p, 1, tmp);
-                }
-            }
-            memc = mem.c_str();
-            // Skip operand bytes in listing since values are now in mnemonic
-            bool prefixSubOpcodeSkipped = false;
-            if (nn == 2) {
-                pci_skip += (ED || IX || IY) ? 3 : 2;
-                prefixSubOpcodeSkipped = (ED || IX || IY);
-                nn = 0;
-            } else if (n == 1) {
-                pci_skip += (ED || IX || IY) ? 2 : 1;
-                prefixSubOpcodeSkipped = (ED || IX || IY);
-                n = 0;
-            } else if (d == 1) {
-                if (ICB) {
-                    pci_skip += 3; // CB + displacement + op byte
-                    ICB = false;
-                } else {
-                    pci_skip += (IX || IY) ? 2 : 1;
-                }
-                prefixSubOpcodeSkipped = (IX || IY);
-                d = 0;
-            }
-            // Skip sub-opcode byte for prefix instructions (displayed on mnemonic line)
-            bool isPrefix = ED || CB || (IX || IY);
-            if (isPrefix && !prefixSubOpcodeSkipped) {
-                pci_skip += 1;
-            }
-            if (ED) ED = false;
-            if (CB) CB = false;
-            if (IX || IY) { IX = false; IY = false; }
-            if (isPrefix) {
-                snprintf(buf, 32, "%c%04X %02X%02X %s", pci == pc ? '*' : ' ', pci, bi, b1, memc);
-            } else {
-                snprintf(buf, 32, "%c%04X %02X   %s", pci == pc ? '*' : ' ', pci, bi, memc);
-            }
-        } else if (d == 1) {
-            int8_t bib = bi;
-            snprintf(buf, 32, bib >= 0 ? " %04X %02X +%d(d)" : " %04X %02X %d(d)", pci, bi, bib);
-            --d;
-        } else if (n == 1) {
-            snprintf(buf, 32, " %04X    %02X", pci, bi);
-            --n;
-        } else if (nn == 2 && !ED) {
-            snprintf(buf, 32, " %04X %02X %02X%02X", pci, bi, b1, bi);
-            --nn;
+        } else if (isCB) {
+            mem = mnemCB[bytes[1]];
+        } else if (isED) {
+            mem = mnemED(bytes[1]);
         } else {
-            snprintf(buf, 32, " %04X %02X", pci, bi);
-            if (ED) ED = false;
-            else if (CB) CB = false;
-            else --nn;
+            mem = mnem[bi];
         }
+        // Replace operand placeholders
+        const char* memc = mem.c_str();
+        if (strstr(memc, "nn") != 0) {
+            int off = (isED || isIX || isIY) ? 2 : 1;
+            uint16_t addr = MemESP::readbyte(pci + off) | (MemESP::readbyte(pci + off + 1) << 8);
+            char tmp[5]; snprintf(tmp, sizeof(tmp), "%04X", addr);
+            auto p = mem.find("nn");
+            if (p != string::npos) mem.replace(p, 2, tmp);
+        } else if (strstr(memc, "n") != 0) {
+            int off = (isED || isIX || isIY) ? 2 : 1;
+            uint8_t val = MemESP::readbyte(pci + off);
+            char tmp[3]; snprintf(tmp, sizeof(tmp), "%02X", val);
+            auto p = mem.find("n");
+            if (p != string::npos) mem.replace(p, 1, tmp);
+        } else if (strstr(memc, "d") != 0) {
+            bool ixiy = isIX || isIY;
+            int off = ixiy ? 2 : 1;
+            int8_t disp = (int8_t)MemESP::readbyte(pci + off);
+            char tmp[8];
+            if (ixiy) {
+                snprintf(tmp, sizeof(tmp), "%+d", disp);
+                auto p = mem.find("+d");
+                if (p != string::npos) mem.replace(p, 2, tmp);
+            } else {
+                uint16_t target = pci + 2 + disp;
+                snprintf(tmp, sizeof(tmp), "%04X", target);
+                auto p = mem.find("d");
+                if (p != string::npos) mem.replace(p, 1, tmp);
+            }
+        }
+        if (mem.length() > 15) mem = mem.substr(0, 15);
+        snprintf(buf, 40, "%c%04X %s%-15s", pci == pc ? '*' : ' ', pci, hexbytes, mem.c_str());
         VIDEO::vga.print(buf);
-        if (Config::enableBreakPoint && Config::breakPoint == pci) {
+        if (Config::numPcBP > 0 && Config::hasBreakPoint(pci, Config::BP_PC)) {
             VIDEO::vga.circle(xi+3, yi+3, 3, zxColor(2, 0));
         }
+        pci += len;
     }
+
+  } // redrawCode
+
+  if (redrawMem) {
+    // === MEMORY DUMP (bottom of left panel, 4 rows) ===
+    int memBytesPerRow = memAsciiMode ? 20 : 8;
+    {
+        int memStartRow = CODE_LINES + 2;
+        int sy = y + (CODE_LINES + 2) * OSD_FONT_H + 2;
+        VIDEO::vga.setTextColor(zxColor(5, 0), zxColor(7, 1));
+        VIDEO::vga.setCursor(x + 1, sy);
+        VIDEO::vga.print(memAsciiMode ? "-Memory (ASCII)---------------" : "-Memory (HEX)-----------------");
+        int xi_mem = x + 1 + OSD_FONT_W;
+        for (int row = 0; row < MEM_LINES; row++) {
+            int yi = y + (memStartRow + 1 + row) * OSD_FONT_H + 2;
+            uint16_t addr = (memViewAddr + row * memBytesPerRow) & 0xFFFF;
+            bool isRow = (row == memCursorRow && activeSection == 1);
+            if (isRow)
+                VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(5, 0));
+            else
+                VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
+            VIDEO::vga.setCursor(xi_mem, yi);
+            snprintf(buf, 32, "%04X ", addr);
+            VIDEO::vga.print(buf);
+            if (memAsciiMode) {
+                // ASCII: 20 chars per row (4+1+20 = 25 cols)
+                for (int col = 0; col < memBytesPerRow; col++) {
+                    uint8_t val = MemESP::readbyte((addr + col) & 0xFFFF);
+                    if (isRow && col == memCursorCol)
+                        VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(2, 0));
+                    else if (isRow)
+                        VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(5, 0));
+                    else
+                        VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
+                    char ch = (val >= 32 && val < 127) ? val : '.';
+                    char s[2] = {ch, 0};
+                    VIDEO::vga.print(s);
+                }
+                // Clear rest
+                VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
+                VIDEO::vga.print("  ");
+            } else {
+                // HEX: 8 bytes per row, format: BBBB BBBB BBBB BBBB
+                // First pass: build full string, print with row color
+                uint8_t vals[8];
+                char line[24];
+                for (int col = 0; col < 8; col++)
+                    vals[col] = MemESP::readbyte((addr + col) & 0xFFFF);
+                snprintf(line, 24, "%02X%02X %02X%02X %02X%02X %02X%02X",
+                    vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], vals[6], vals[7]);
+                // Print char by char, highlighting cursor byte
+                VIDEO::vga.setCursor(xi_mem + 5 * OSD_FONT_W, yi);
+                int charIdx = 0;
+                for (int col = 0; col < 8; col++) {
+                    if (isRow && col == memCursorCol)
+                        VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(2, 0));
+                    else if (isRow)
+                        VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(5, 0));
+                    else
+                        VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
+                    // Print 2 hex chars
+                    char s[3] = {line[charIdx], line[charIdx+1], 0};
+                    VIDEO::vga.print(s);
+                    charIdx += 2;
+                    // Print space separator after every 2 bytes
+                    if (col % 2 == 1 && col < 7) {
+                        if (isRow)
+                            VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(5, 0));
+                        else
+                            VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
+                        VIDEO::vga.print(" ");
+                        charIdx++; // skip space in line
+                    }
+                }
+                // Clear trailing
+                VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
+                VIDEO::vga.print("  ");
+            }
+        }
+    }
+  } // redrawMem
+
+  if (redrawRight) {
+    // === RIGHT PANEL ===
+    VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
     i = 0;
-    xi = x + 28 * OSD_FONT_W;
+    xi = xi_right;
+    // regStartRow set for Enter handler
+
+    // --- PAGES header (row 0) + 4 data rows (1-4) ---
+    VIDEO::vga.setTextColor(zxColor(5, 0), zxColor(7, 1));
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    if (MemESP::ramCurrent[0] < (uint8_t*)0x11000000)
-        snprintf(buf, 32, "PAGE0 -> ROM#%d", MemESP::romInUse);
-    else if (MemESP::newSRAM)
-        snprintf(buf, 32, "PAGE0 -> SRAM#%d", MemESP::romLatch);
-    else
-        snprintf(buf, 32, "PAGE0 -> RAM#0");
-    VIDEO::vga.print(buf);
-
-    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    snprintf(buf, 32, "PAGE3 -> RAM#%d", MemESP::bankLatch);
-    VIDEO::vga.print(buf);
-
-    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    snprintf(buf, 32, "VIDEO -> RAM#%d", MemESP::videoLatch ? 7 : 5);
-    VIDEO::vga.print(buf);
-
-    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    snprintf(buf, 32, "PAGING LOCK %s", MemESP::pagingLock ? "true" : "false");
-    VIDEO::vga.print(buf);
-
-    ++i;
-
-    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    snprintf(buf, 32, "AF %04X AFx%04X", Z80::getRegAF(), Z80::getRegAFx());
-    VIDEO::vga.print(buf);
-
-    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    snprintf(buf, 32, "BC %04X BCx%04X", Z80::getRegBC(), Z80::getRegBCx());
-    VIDEO::vga.print(buf);
-
-    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    snprintf(buf, 32, "HL %04X HLx%04X", Z80::getRegHL(), Z80::getRegHLx());
-    VIDEO::vga.print(buf);
-
-    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    snprintf(buf, 32, "DE %04X DEx%04X", Z80::getRegDE(), Z80::getRegDEx());
-    VIDEO::vga.print(buf);
-
-    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    snprintf(buf, 32, "IX %04X IY %04X", Z80::getRegIX(), Z80::getRegIY());
-    VIDEO::vga.print(buf);
-
-    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    snprintf(buf, 32, "IR %02X%02X IM %d", Z80::getRegI(), Z80::getRegR(), Z80::getIntMode());
-    VIDEO::vga.print(buf);
-
-    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    snprintf(buf, 32, "SP %04X %dT", Z80::getRegSP(), T2 - T1);
-    VIDEO::vga.print(buf);
-
-    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    snprintf(buf, 32, "PC %04X %dus", Z80::getRegPC(), t2 - t1);
-    VIDEO::vga.print(buf);
-
-    if (!Config::enableBreakPoint)
-        ++i;
-    else {
-        VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-        snprintf(buf, 32, "BP %04X", Config::breakPoint);
-        VIDEO::vga.print(buf);
-    }
-    if (Config::enablePortReadBP && Config::enablePortWriteBP) {
-        VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-        snprintf(buf, 32, "BPP R%04X W%04X", Config::portReadBP, Config::portWriteBP);
-        VIDEO::vga.print(buf);
-    } else if (Config::enablePortWriteBP) {
-        VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-        snprintf(buf, 32, "BPP       W%04X", Config::portWriteBP);
-        VIDEO::vga.print(buf);
-    } else if (Config::enablePortReadBP) {
-        VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-        snprintf(buf, 32, "BPP R%04X      ", Config::portReadBP);
-        VIDEO::vga.print(buf);
-    } else {
-        ++i;
+    VIDEO::vga.print("-Pages-----------");
+    {
+        char pb0[20], pb1[20], pb2[20], pb3[20];
+        if (MemESP::ramCurrent[0] < (uint8_t*)0x11000000)
+            snprintf(pb0, 20, "PAGE0 -> ROM#%d", MemESP::romInUse);
+        else if (MemESP::newSRAM)
+            snprintf(pb0, 20, "PAGE0 -> SRAM#%d", MemESP::romLatch);
+        else
+            snprintf(pb0, 20, "PAGE0 -> RAM#0");
+        snprintf(pb1, 20, "PAGE3 -> RAM#%d", MemESP::bankLatch);
+        snprintf(pb2, 20, "VIDEO -> RAM#%d", MemESP::videoLatch ? 7 : 5);
+        snprintf(pb3, 20, "LOCK %s", MemESP::pagingLock ? "true" : "false");
+        const char* pageLabels[] = { pb0, pb1, pb2, pb3 };
+        for (int r = 0; r < 4; r++) {
+            int yi = y + (i + 1) * OSD_FONT_H + 2;
+            bool isCur = (r == pagesCursorRow && activeSection == 2);
+            if (isCur)
+                VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(5, 0));
+            else
+                VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
+            VIDEO::vga.setCursor(xi, yi);
+            snprintf(buf, 32, "%-17s", pageLabels[r]);
+            buf[17] = 0;
+            VIDEO::vga.print(buf);
+            i++;
+        }
     }
 
+    // --- REGS header --- centered between Pages (end row 4) and Flags (row CODE_LINES)
+    {
+        int regsNeeded = 12; // 1 header + 4 paired + 4 single + IR + Tstates + BP
+        int available = CODE_LINES - i; // rows from current i to CODE_LINES
+        int pad = (available - regsNeeded) / 2 + 1;
+        if (pad > 0) i += pad;
+    }
+    VIDEO::vga.setTextColor(zxColor(5, 0), zxColor(7, 1));
+    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+    VIDEO::vga.print("-Regs------------");
+    regStartRow = i; // first data row index
+    {
+        // Paired registers: show main and alt together
+        // Format: "AF 5F88 AF'C011" = 15 chars, fits in 18
+        struct PairedReg {
+            const char* name; const char* altName;
+            uint16_t (*get)(); uint16_t (*getAlt)();
+        };
+        PairedReg paired[] = {
+            {"AF", "AF'", Z80::getRegAF, Z80::getRegAFx},
+            {"BC", "BC'", Z80::getRegBC, Z80::getRegBCx},
+            {"HL", "HL'", Z80::getRegHL, Z80::getRegHLx},
+            {"DE", "DE'", Z80::getRegDE, Z80::getRegDEx},
+        };
+        for (int r = 0; r < 4; r++) {
+            int yi = y + (i + 1) * OSD_FONT_H + 2;
+            bool isCur = (regCursorRow == r && activeSection == 3);
+            VIDEO::vga.setCursor(xi, yi);
+            // Main part
+            if (isCur && !regAltSet)
+                VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(5, 0));
+            else
+                VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
+            snprintf(buf, 10, "%-2s %04X ", paired[r].name, paired[r].get());
+            VIDEO::vga.print(buf);
+            // Alt part
+            if (isCur && regAltSet)
+                VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(5, 0));
+            else
+                VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
+            snprintf(buf, 10, "%-3s %04X ", paired[r].altName, paired[r].getAlt());
+            VIDEO::vga.print(buf);
+            i++;
+        }
+
+        // Single registers: IX, IY, SP, PC
+        struct SingleReg {
+            const char* name;
+            uint16_t (*get)();
+        };
+        SingleReg singles[] = {
+            {"IX", Z80::getRegIX},
+            {"IY", Z80::getRegIY},
+            {"SP", Z80::getRegSP},
+            {"PC", (uint16_t(*)())Z80::getRegPC},
+        };
+        for (int r = 0; r < 4; r++) {
+            int yi = y + (i + 1) * OSD_FONT_H + 2;
+            int regIdx = 4 + r;
+            bool isCur = (regCursorRow == regIdx && activeSection == 3);
+            if (isCur)
+                VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(5, 0));
+            else
+                VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
+            VIDEO::vga.setCursor(xi, yi);
+            snprintf(buf, 32, "%-2s %04X         ", singles[r].name, singles[r].get());
+            buf[17] = 0;
+            VIDEO::vga.print(buf);
+            i++;
+        }
+
+        // I, R, IM row (regCursorRow == 8)
+        {
+            int yi = y + (i + 1) * OSD_FONT_H + 2;
+            bool isCur = (regCursorRow == 8 && activeSection == 3);
+            if (isCur)
+                VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(5, 0));
+            else
+                VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
+            VIDEO::vga.setCursor(xi, yi);
+            snprintf(buf, 32, "IR %02X%02X IM %d    ", Z80::getRegI(), Z80::getRegR(), Z80::getIntMode());
+            buf[17] = 0;
+            VIDEO::vga.print(buf);
+            i++;
+        }
+
+        // T-states and BP
+        VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
+        VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+        snprintf(buf, 32, "%dT %dus         ", T2 - T1, t2 - t1);
+        buf[17] = 0;
+        VIDEO::vga.print(buf);
+
+        if (Config::numBreakPoints > 0) {
+            VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+            snprintf(buf, 32, "BP(s):%d          ", Config::numBreakPoints);
+            buf[17] = 0;
+            VIDEO::vga.print(buf);
+        } else ++i;
+    }
+
+    // --- FLAGS header (aligned with Memory header = row CODE_LINES+1) ---
+    i = CODE_LINES + 1; // force alignment with Memory separator
+    VIDEO::vga.setTextColor(zxColor(5, 0), zxColor(7, 1));
+    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+    VIDEO::vga.print("-Flags-----------");
+
+    VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
+    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+    {
+        uint8_t f = Z80::getRegAF() & 0xFF;
+        uint8_t fx = Z80::getRegAFx() & 0xFF;
+        snprintf(buf, 32, "%c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c ",
+           BNc(f,7), BNc(f,6), BNc(f,5), BNc(f,4), BNc(f,3), BNc(f,2), BNc(f,1), BNc(f,0),
+           BNc(fx,7), BNc(fx,6), BNc(fx,5), BNc(fx,4), BNc(fx,3), BNc(fx,2), BNc(fx,1), BNc(fx,0));
+        buf[17] = 0;
+        VIDEO::vga.print(buf);
+    }
+    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
+    VIDEO::vga.print("SZ-H-PNC SZ-H-PNC");
+
     ++i;
-
     VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    VIDEO::vga.print("SZxHxPAC SZxHxPAC");
+    VIDEO::vga.print("F1 - Debug help  ");
+  } // redrawRight
 
-    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    uint8_t f = Z80::getRegAF() & 0xFF;
-    uint8_t fx = Z80::getRegAFx() & 0xFF;
-    snprintf(buf, 32, "%c%c%c%c%c%c%c%c %c%c%c%c%c%c%c%c",
-       BNc(f , 7), BNc(f , 6), BNc(f , 5), BNc(f , 4), BNc(f , 3), BNc(f , 2), BNc(f , 1), BNc(f , 0),
-       BNc(fx, 7), BNc(fx, 6), BNc(fx, 5), BNc(fx, 4), BNc(fx, 3), BNc(fx, 2), BNc(fx, 1), BNc(fx, 0)
-    );
-    VIDEO::vga.print(buf);
-
-    ++i;
-
-    VIDEO::vga.setCursor(xi, y + (i++ + 1) * OSD_FONT_H + 2);
-    VIDEO::vga.print("F1 - Debug help");
+    // Reset redraw flags (default: redraw all on next goto c)
+    redrawCode = true;
+    redrawMem = true;
+    redrawRight = true;
+    redrawTitle = false; // title/border only on first draw
 
     // Wait for a key
     fabgl::VirtualKeyItem Nextkey;
@@ -5093,96 +5826,253 @@ c:
             if (!Nextkey.down) continue;
 
             if (Nextkey.vk == fabgl::VK_ESCAPE) {
+                // Remount SD if card was removed and reinserted during debug session
+                if (!FileUtils::checkSDCard()) {
+                    FileUtils::remountSD();
+                }
                 break;
             } else
-            if (Nextkey.vk == fabgl::VK_F3) {
-                portReadBPDialog();
-                goto c;
-            } else
-            if (Nextkey.vk == fabgl::VK_F4) {
-                portWriteBPDialog();
-                goto c;
-            } else
             if (Nextkey.vk == fabgl::VK_F7) {
-                BPDialog();
+                if (alt) {
+                    uint16_t bpAddr = BPListDialog();
+                    if (bpAddr != 0xFFFF) { gotoAddr = bpAddr; gotoApplied = false; }
+                } else {
+                    BPDialog();
+                }
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_F8) {
                 jumpToDialog();
                 goto c;
             } else
-            // if (Nextkey.vk == fabgl::VK_F9) {
-            //     //pokeDialog();
-            //     ESPectrum::H_TOTAL++;
-            //     goto c;
-            // } else
-            // if (Nextkey.vk == fabgl::VK_F10) {
-            //     //Z80::triggerNMI();
-            //     ESPectrum::H_TOTAL--;
-            //     goto c;
-            // } else
+            if (Nextkey.vk == fabgl::VK_F9 && alt) {
+                // Fullscreen debug: show Spectrum screen, step with Space/ALT+Space, ESC to return
+                VIDEO::SaveRect.restore_last();
+                bool fs_alt = false;
+                while (1) {
+                    sleep_ms(5);
+                    if (Kbd->virtualKeyAvailable()) {
+                        Kbd->getNextVirtualKey(&Nextkey);
+                        if (Nextkey.vk == fabgl::VK_LALT || Nextkey.vk == fabgl::VK_RALT) {
+                            fs_alt = Nextkey.down;
+                            continue;
+                        }
+                        if (!Nextkey.down) continue;
+                        if (Nextkey.vk == fabgl::VK_ESCAPE) break;
+                        if (Nextkey.vk == fabgl::VK_SPACE) {
+                            // Step (or step over with ALT)
+                            int si = 0;
+                            T1 = CPU::tstates;
+                            t1 = time_us_32();
+                            uint16_t pcs = Z80::getRegPC();
+                            pc = pcs;
+                            while (si++ < 64*1024 &&
+                                (pc == Z80::getRegPC() ||
+                                 (fs_alt && pc + 3 != Z80::getRegPC()))
+                            ) {
+                                CPU::step();
+                            }
+                            t2 = time_us_32();
+                            T2 = CPU::tstates;
+                            pc = Z80::getRegPC();
+                            ii = 3;
+                            // Redraw Spectrum screen after step
+                            CPU::loop();
+                        }
+                    }
+                }
+                alt = false;
+                VIDEO::SaveRect.save(x - 1, y - 1, w + 2, h + 2);
+                redrawTitle = true;
+                goto c;
+            } else
             if (FileUtils::fsMount && Nextkey.vk == fabgl::VK_F11) {
                 // Persist Load
-                string menuload = MENU_PERSIST_LOAD[Config::lang];
-                for(int i = 1; i <= 40; ++i) {
-                    menuload += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
-                }
-                uint8_t opt2 = menuRun(menuload);
-                if (opt2) {
-                    persistLoad(opt2);
+                while (1) {
+                    menu_footer = Config::lang ? "F6: Renombrar  F8: Borrar" : "F6: Rename  F8: Remove";
+                uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_LOAD[Config::lang], 40));
+                    if (opt2) {
+                        if (menu_del_pressed) {
+                            persistDeleteConfirm(opt2);
+                            menu_curopt = opt2;
+                            continue;
+                        }
+                        persistLoad(opt2);
+                    }
+                    break;
                 }
                 goto c;
             }
             else if (FileUtils::fsMount && Nextkey.vk == fabgl::VK_F12) {
                 // Persist Save
-                string menusave = MENU_PERSIST_SAVE[Config::lang];
-                for(int i = 1; i <= 40; ++i) {
-                    menusave += (Config::lang ? "Ranura " : "Slot ") + to_string(i) + "\n";
-                }
-                uint8_t opt2 = menuRun(menusave);
-                if (opt2) {
-                    persistSave(opt2);
+                while (1) {
+                    menu_footer = Config::lang ? "F6: Renombrar  F8: Borrar" : "F6: Rename  F8: Remove";
+                uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_SAVE[Config::lang], 40));
+                    if (opt2) {
+                        if (menu_del_pressed) {
+                            persistDeleteConfirm(opt2);
+                            menu_curopt = opt2;
+                            continue;
+                        }
+                        if (persistSave(opt2, opt2)) break;
+                        menu_curopt = opt2;
+                    } else break;
                 }
                 goto c;
             }
-            if (Nextkey.vk == fabgl::VK_KP_PLUS || Nextkey.vk == fabgl::VK_UP) {
-                // Scroll up by previous instruction length
-                uint16_t start = pc - ii;
-                int step = 1;
-                for (int k = 1; k <= 4; ++k) {
-                    if (instrLen(start - k) == k) { step = k; break; }
+            if (Nextkey.vk == fabgl::VK_TAB) {
+                activeSection = (activeSection + 1) % 4;
+                redrawTitle = true;
+                goto c;
+            } else
+            if (Nextkey.vk == fabgl::VK_UP) {
+                if (activeSection == 0) {
+                    if (cursor_row > 0) cursor_row--;
+                    else {
+                        uint16_t start = pc - ii;
+                        int step = 1;
+                        for (int k = 1; k <= 4; ++k) {
+                            if (instrLen(start - k) == k) { step = k; break; }
+                        }
+                        ii += step;
+                    }
+                } else if (activeSection == 2) {
+                    if (pagesCursorRow > 0) pagesCursorRow--;
+                    redrawCode = false; redrawMem = false;
+                } else if (activeSection == 1) {
+                    if (memCursorRow > 0) memCursorRow--;
+                    else memViewAddr = (memViewAddr - (memAsciiMode ? 20 : 8)) & 0xFFFF;
+                    redrawCode = false; redrawRight = false;
+                } else if (activeSection == 3) {
+                    if (regCursorRow > 0) regCursorRow--;
+                    redrawCode = false; redrawMem = false;
                 }
-                ii += step;
                 goto c;
             } else
-            if (Nextkey.vk == fabgl::VK_KP_MINUS || Nextkey.vk == fabgl::VK_DOWN) {
-                ii -= instrLen(pc - ii);
+            if (Nextkey.vk == fabgl::VK_DOWN) {
+                if (activeSection == 0) {
+                    if (cursor_row < CODE_LINES - 1) cursor_row++;
+                    else ii -= instrLen(pc - ii);
+                } else if (activeSection == 2) {
+                    if (pagesCursorRow < 3) pagesCursorRow++;
+                    redrawCode = false; redrawMem = false;
+                } else if (activeSection == 1) {
+                    if (memCursorRow < MEM_LINES - 1) memCursorRow++;
+                    else memViewAddr = (memViewAddr + (memAsciiMode ? 20 : 8)) & 0xFFFF;
+                    redrawCode = false; redrawRight = false;
+                } else if (activeSection == 3) {
+                    if (regCursorRow < 8) regCursorRow++;
+                    redrawCode = false; redrawMem = false;
+                }
                 goto c;
             } else
-            if (Nextkey.vk == fabgl::VK_0) {
-                ii = 0;
+            if (Nextkey.vk == fabgl::VK_LEFT) {
+                if (activeSection == 2) {
+                    // Pages: cycle value left — affects code view (ROM/bank switch)
+                    if (pagesCursorRow == 0) { // PAGE0: ROM
+                        if (MemESP::romInUse > 0) MemESP::romInUse--;
+                        MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse].direct();
+                    } else if (pagesCursorRow == 1) { // PAGE3: RAM bank
+                        MemESP::bankLatch = (MemESP::bankLatch - 1) & 7;
+                        MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync(MemESP::bankLatch);
+                    } else if (pagesCursorRow == 2) { // VIDEO
+                        MemESP::videoLatch = MemESP::videoLatch ? 0 : 1;
+                    } else if (pagesCursorRow == 3) { // PAGING LOCK
+                        MemESP::pagingLock = !MemESP::pagingLock;
+                    }
+                } else if (activeSection == 1) {
+                    if (memCursorCol > 0) memCursorCol--;
+                    redrawCode = false; redrawRight = false;
+                } else if (activeSection == 3) {
+                    regAltSet = !regAltSet;
+                    redrawCode = false; redrawMem = false;
+                }
+                goto c;
+            } else
+            if (Nextkey.vk == fabgl::VK_RIGHT) {
+                if (activeSection == 2) {
+                    // Pages: cycle value right — affects code view (ROM/bank switch)
+                    if (pagesCursorRow == 0) {
+                        if (MemESP::romInUse < 3) MemESP::romInUse++;
+                        MemESP::ramCurrent[0] = MemESP::rom[MemESP::romInUse].direct();
+                    } else if (pagesCursorRow == 1) {
+                        MemESP::bankLatch = (MemESP::bankLatch + 1) & 7;
+                        MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync(MemESP::bankLatch);
+                    } else if (pagesCursorRow == 2) {
+                        MemESP::videoLatch = MemESP::videoLatch ? 0 : 1;
+                    } else if (pagesCursorRow == 3) {
+                        MemESP::pagingLock = !MemESP::pagingLock;
+                    }
+                } else if (activeSection == 1) {
+                    if (memCursorCol < (memAsciiMode ? 19 : 7)) memCursorCol++;
+                    redrawCode = false; redrawRight = false;
+                } else if (activeSection == 3) {
+                    regAltSet = !regAltSet;
+                    redrawCode = false; redrawMem = false;
+                }
+                goto c;
+            } else
+            if (Nextkey.vk == fabgl::VK_0 && activeSection == 0) {
+                ii = 3;
+                cursor_row = 3;
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_PAGEUP) {
-                ii += 20;
+                if (activeSection == 0) ii += CODE_LINES;
+                else if (activeSection == 1) { memViewAddr = (memViewAddr - MEM_LINES * (memAsciiMode ? 20 : 8)) & 0xFFFF; redrawCode = false; redrawRight = false; }
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_PAGEDOWN) {
-                ii -= 20;
+                if (activeSection == 0) ii -= CODE_LINES;
+                else if (activeSection == 1) { memViewAddr = (memViewAddr + MEM_LINES * (memAsciiMode ? 20 : 8)) & 0xFFFF; redrawCode = false; redrawRight = false; }
+                goto c;
+            } else
+            if (Nextkey.vk == fabgl::VK_T && alt) {
+                memAsciiMode = !memAsciiMode;
+                memCursorCol = 0; // reset col since byte count per row changes
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_F5) {
-                if (Config::enableBreakPoint && Config::breakPoint == pc) {
-                    Config::enableBreakPoint = false;
+                uint16_t bp_addr = line_addr[cursor_row];
+                if (Config::hasBreakPoint(bp_addr)) {
+                    Config::removeBreakPoint(bp_addr);
                 } else {
-                    Config::enableBreakPoint = true;
-                    Config::breakPoint = pc;
+                    Config::addBreakPoint(bp_addr);
                 }
                 Config::save();
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_F2) {
-                osdDump();
+                if (alt && FileUtils::fsMount) {
+                    // Remount SD if needed (card may have been swapped)
+                    if (!FileUtils::checkSDCard()) FileUtils::remountSD();
+                    uint16_t from_addr = line_addr[cursor_row];
+                    uint16_t to_addr = (from_addr + 0xFF) & 0xFFFF;
+                    if (dumpRangeDialog(from_addr, to_addr)) {
+                        saveDumpToFile(from_addr, to_addr);
+                        osdCenteredMsg("Dump saved", LEVEL_INFO, 1000);
+                    }
+                } else {
+                    osdDump();
+                }
+                goto c;
+            } else
+            if (Nextkey.vk == fabgl::VK_F1 && alt) {
+                // ALT+F1: Search memory for hex byte sequence
+                memSearchDialog();
+                if (memSearchResultAddr <= 0xFFFF) {
+                    ii = pc - (uint16_t)memSearchResultAddr + cursor_row;
+                }
+                goto c;
+            } else
+            if (Nextkey.vk == fabgl::VK_F3 && !alt) {
+                // F3: Search next (continues from last ALT+F1 search)
+                if (memSearchHex.length() >= 2) {
+                    uint32_t result = memDoSearch((memSearchLastFound + 1) & 0xFFFF);
+                    if (result <= 0xFFFF) {
+                        ii = pc - (uint16_t)result + cursor_row;
+                    }
+                }
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_F1) {
@@ -5199,9 +6089,121 @@ c:
                     }
                     sleep_ms(5);
                 }
+                redrawTitle = true;
+                goto c;
+            } else
+            if (Nextkey.vk == fabgl::VK_RETURN || Nextkey.vk == fabgl::VK_KP_ENTER) {
+                // Inline hex editing — shared helper lambda
+                auto inlineHexEdit = [&](int ex, int ey, char* hexbuf, int ndigits) -> bool {
+                    int hpos = 0;
+                    while (1) {
+                        for (int p = 0; p < ndigits; p++) {
+                            VIDEO::vga.setTextColor(zxColor(7, 1), p == hpos ? zxColor(1, 1) : zxColor(2, 0));
+                            VIDEO::vga.setCursor(ex + p * OSD_FONT_W, ey);
+                            char ch[2] = {hexbuf[p], 0};
+                            VIDEO::vga.print(ch);
+                        }
+                        while (!Kbd->virtualKeyAvailable()) sleep_ms(5);
+                        fabgl::VirtualKeyItem ek;
+                        Kbd->getNextVirtualKey(&ek);
+                        if (!ek.down) continue;
+                        if (ek.vk >= fabgl::VK_0 && ek.vk <= fabgl::VK_9) {
+                            hexbuf[hpos] = '0' + (ek.vk - fabgl::VK_0);
+                            if (hpos < ndigits - 1) hpos++;
+                        } else if (ek.vk >= fabgl::VK_A && ek.vk <= fabgl::VK_F) {
+                            hexbuf[hpos] = 'A' + (ek.vk - fabgl::VK_A);
+                            if (hpos < ndigits - 1) hpos++;
+                        } else if (ek.vk == fabgl::VK_LEFT) { if (hpos > 0) hpos--; }
+                        else if (ek.vk == fabgl::VK_RIGHT) { if (hpos < ndigits - 1) hpos++; }
+                        else if (ek.vk == fabgl::VK_BACKSPACE) { if (hpos > 0) { hpos--; hexbuf[hpos] = '0'; } }
+                        else if (ek.vk == fabgl::VK_RETURN || ek.vk == fabgl::VK_KP_ENTER) return true;
+                        else if (ek.vk == fabgl::VK_ESCAPE) return false;
+                    }
+                };
+                auto parseHex = [](const char* h, int n) -> uint16_t {
+                    uint16_t v = 0;
+                    for (int i = 0; i < n; i++) {
+                        v <<= 4;
+                        if (h[i] >= '0' && h[i] <= '9') v += h[i] - '0';
+                        else v += h[i] - 'A' + 10;
+                    }
+                    return v;
+                };
+
+                if (activeSection == 0) {
+                    // Code: inline address edit — jump to entered address
+                    char hexbuf[5];
+                    snprintf(hexbuf, 5, "%04X", line_addr[cursor_row]);
+                    int addr_x = x + 1 + OSD_FONT_W;
+                    int addr_y = y + (cursor_row + 1) * OSD_FONT_H + 2;
+                    if (inlineHexEdit(addr_x, addr_y, hexbuf, 4)) {
+                        gotoAddr = parseHex(hexbuf, 4);
+                        gotoApplied = false;
+                    }
+                } else if (activeSection == 1) {
+                    // Memory: inline byte edit (left panel, below code)
+                    int bpr = memAsciiMode ? 20 : 8;
+                    uint16_t addr = (memViewAddr + memCursorRow * bpr + memCursorCol) & 0xFFFF;
+                    char hexbuf[3];
+                    snprintf(hexbuf, 3, "%02X", MemESP::readbyte(addr));
+                    int xi_mem = x + 1 + OSD_FONT_W;
+                    int memStartRow = CODE_LINES + 2;
+                    int ccx = memAsciiMode
+                        ? (5 + memCursorCol)
+                        : (5 + memCursorCol * 2 + (memCursorCol / 2));
+                    int ex = xi_mem + ccx * OSD_FONT_W;
+                    int ey = y + (memStartRow + 1 + memCursorRow) * OSD_FONT_H + 2;
+                    if (inlineHexEdit(ex, ey, hexbuf, 2)) {
+                        MemESP::writebyte(addr, (uint8_t)parseHex(hexbuf, 2));
+                    }
+                } else if (activeSection == 3) {
+                    // Registers: inline edit
+                    typedef uint16_t (*RegGetter)();
+                    typedef void (*RegSetter)(uint16_t);
+                    struct RI { RegGetter get; RegSetter set; bool is8bit; };
+                    RI mainRegs[] = {
+                        {Z80::getRegAF, Z80::setRegAF, false},
+                        {Z80::getRegBC, Z80::setRegBC, false},
+                        {Z80::getRegHL, Z80::setRegHL, false},
+                        {Z80::getRegDE, Z80::setRegDE, false},
+                        {Z80::getRegIX, Z80::setRegIX, false},
+                        {Z80::getRegIY, Z80::setRegIY, false},
+                        {Z80::getRegSP, Z80::setRegSP, false},
+                        {(RegGetter)Z80::getRegPC, Z80::setRegPC, false},
+                    };
+                    RI altRegs[] = {
+                        {Z80::getRegAFx, Z80::setRegAFx, false},
+                        {Z80::getRegBCx, Z80::setRegBCx, false},
+                        {Z80::getRegHLx, Z80::setRegHLx, false},
+                        {Z80::getRegDEx, Z80::setRegDEx, false},
+                        {Z80::getRegIX, Z80::setRegIX, false},
+                        {Z80::getRegIY, Z80::setRegIY, false},
+                        {Z80::getRegSP, Z80::setRegSP, false},
+                        {(RegGetter)Z80::getRegPC, Z80::setRegPC, false},
+                    };
+                    if (regCursorRow < 8) {
+                        RI& ri = (regAltSet && regCursorRow < 4) ? altRegs[regCursorRow] : mainRegs[regCursorRow];
+                        char hexbuf[5];
+                        snprintf(hexbuf, 5, "%04X", ri.get());
+                        int rrow = regStartRow + regCursorRow;
+                        int ey = y + (rrow + 1) * OSD_FONT_H + 2;
+                        // For paired regs (0-3): main "%-2s %04X " (val at col 3), alt "%-3s %04X " (val at col 8+4=12)
+                        // For singles (4-7): "%-2s %04X" (val at col 3)
+                        int ex;
+                        if (regCursorRow < 4 && regAltSet)
+                            ex = xi_right + (8 + 4) * OSD_FONT_W; // after main(8) + "AF' "(4)
+                        else
+                            ex = xi_right + 3 * OSD_FONT_W;  // after "AF "(3)
+                        if (inlineHexEdit(ex, ey, hexbuf, 4)) {
+                            ri.set(parseHex(hexbuf, 4));
+                        }
+                    }
+                    // IR row (regCursorRow == 8): skip for now, complex
+                }
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_SPACE) {
+                // Step CPU
                 int i = 0;
                 T1 = CPU::tstates;
                 t1 = time_us_32();
@@ -5215,8 +6217,7 @@ c:
                     CPU::step();
                 }
                 if (alt && pc + 3 != Z80::getRegPC() && i >= 64*1024) {
-                    Config::enableBreakPoint = true;
-                    Config::breakPoint = pcs + 3; // CALL nn case
+                    Config::addBreakPoint(pcs + 3); // CALL nn case - temp BP at return addr
                     break;
                 }
                 ii -= (int)pc - Z80::getRegPC();
@@ -7097,6 +8098,15 @@ void OSD::pokeDialog() {
         }
         sleep_ms(5);
     }
+    flushKbd();
+}
+
+void flushKbd() {
+    auto kbd = ESPectrum::PS2Controller.keyboard();
+    while (kbd->virtualKeyAvailable()) {
+        fabgl::VirtualKeyItem dummy;
+        kbd->getNextVirtualKey(&dummy);
+    }
 }
 
 const dlgObject dlg_Objects2[3] = {
@@ -7282,19 +8292,27 @@ uint32_t OSD::addressDialog(uint16_t addr, const char* title) {
                 }
                 click();
             } else
-            if (is_enter(Nextkey.vk)) {
-                if (dlg_Objects2[curObject].Name == "Ok") {
+            if (is_enter(Nextkey.vk) || Nextkey.vk == fabgl::VK_RETURN || Nextkey.vk == fabgl::VK_KP_ENTER) {
+                if (dlg_Objects2[curObject].Name == "Ok" || dlg_Objects2[curObject].objType == DLG_OBJ_INPUT) {
                     string s = dlgValues[0];
                     trim(s);
+                    if (s.empty()) {
+                        click();
+                        flushKbd();
+                        return 0x00010001;
+                    }
                     addr = stoul(s, nullptr, 16);
                     click();
+                    flushKbd();
                     return addr;
                 } else if (dlg_Objects2[curObject].Name == "Cancel") {
                     click();
+                    flushKbd();
                     return 0x00010001;
                 }
             } else if (is_back(Nextkey.vk)) {
                 click();
+                flushKbd();
                 return 0x00010000;
             }
         }
@@ -7320,44 +8338,457 @@ uint32_t OSD::addressDialog(uint16_t addr, const char* title) {
     return 0x00010000;
 }
 
-void OSD::portReadBPDialog() {
-    uint32_t address = addressDialog(Config::portReadBP, "Port read BP");
-    if (address == 0x00010000) {
-        return;
-    }
-    if (address == 0x00010001) {
-        Config::enablePortReadBP = false;
-    } else {
-        Config::enablePortReadBP = true;
-        Config::portReadBP = address;
-    }
-    Config::save();
-}
+uint16_t OSD::BPListDialog() {
+    // Collect active breakpoint indices
+    int bpIdx[Config::MAX_BREAKPOINTS];
+    int count = 0;
+    auto rebuild = [&]() {
+        count = 0;
+        for (int i = 0; i < Config::MAX_BREAKPOINTS; i++)
+            if (Config::breakPoints[i].type != Config::BP_NONE)
+                bpIdx[count++] = i;
+        // Sort by type then address
+        for (int i = 0; i < count - 1; i++)
+            for (int j = i + 1; j < count; j++) {
+                auto &a = Config::breakPoints[bpIdx[i]], &b = Config::breakPoints[bpIdx[j]];
+                if (a.type > b.type || (a.type == b.type && a.addr > b.addr)) {
+                    int t = bpIdx[i]; bpIdx[i] = bpIdx[j]; bpIdx[j] = t;
+                }
+            }
+    };
+    rebuild();
+    if (count == 0) return 0xFFFF;
 
-void OSD::portWriteBPDialog() {
-    uint32_t address = addressDialog(Config::portWriteBP, "Port write BP");
-    if (address == 0x00010000) {
-        return;
-    }
-    if (address == 0x00010001) {
-        Config::enablePortWriteBP = false;
-    } else {
-        Config::enablePortWriteBP = true;
-        Config::portWriteBP = address;
+    int maxVisible = 10;
+    int visible = count < maxVisible ? count : maxVisible;
+    const unsigned short h = (visible + 2) * OSD_FONT_H + 4;
+    const unsigned short w = OSD_FONT_W * 28 + 2;
+    const unsigned short x = scrAlignCenterX(w);
+    const unsigned short y = scrAlignCenterY(h);
+
+    int cursor = 0;
+    int scroll = 0;
+    char buf[34];
+
+    VIDEO::vga.setFont(Font6x8);
+    VIDEO::SaveRect.save(x - 1, y - 1, w + 2, h + 2);
+
+    while (1) {
+        VIDEO::vga.rect(x, y, w, h, zxColor(0, 0));
+        VIDEO::vga.fillRect(x + 1, y + 1, w - 2, OSD_FONT_H, zxColor(0, 0));
+        VIDEO::vga.fillRect(x + 1, y + 1 + OSD_FONT_H, w - 2, h - OSD_FONT_H - 2, zxColor(7, 1));
+
+        VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(0, 0));
+        VIDEO::vga.setCursor(x + OSD_FONT_W + 1, y + 1);
+        snprintf(buf, sizeof(buf), "BP(s) [%d/%d] DEL=rm", count, Config::MAX_BREAKPOINTS);
+        VIDEO::vga.print(buf);
+
+        for (int i = 0; i < visible; i++) {
+            int idx = bpIdx[scroll + i];
+            auto &bp = Config::breakPoints[idx];
+            int yi = y + (i + 2) * OSD_FONT_H;
+            if (i == cursor)
+                VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
+            else
+                VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
+            VIDEO::vga.setCursor(x + OSD_FONT_W, yi);
+            if (bp.type == Config::BP_PC) {
+                char mn[13];
+                disasmAt(bp.addr, mn, 13);
+                snprintf(buf, sizeof(buf), "#%02d %s %04X %-12s", scroll + i + 1, Config::bpTypeName(bp.type), bp.addr, mn);
+            } else {
+                snprintf(buf, sizeof(buf), "#%02d %s %04X             ", scroll + i + 1, Config::bpTypeName(bp.type), bp.addr);
+            }
+            buf[28] = 0;
+            VIDEO::vga.print(buf);
+        }
+
+        auto Kbd = ESPectrum::PS2Controller.keyboard();
+        while (!Kbd->virtualKeyAvailable()) sleep_ms(5);
+        fabgl::VirtualKeyItem key;
+        Kbd->getNextVirtualKey(&key);
+        if (!key.down) continue;
+
+        if (key.vk == fabgl::VK_UP) {
+            if (cursor > 0) cursor--;
+            else if (scroll > 0) scroll--;
+        } else if (key.vk == fabgl::VK_DOWN) {
+            if (cursor < visible - 1 && cursor < count - scroll - 1) cursor++;
+            else if (scroll + visible < count) scroll++;
+        } else if (key.vk == fabgl::VK_DELETE || key.vk == fabgl::VK_BACKSPACE) {
+            Config::removeBreakPointAt(bpIdx[scroll + cursor]);
+            rebuild();
+            if (count == 0) break;
+            visible = count < maxVisible ? count : maxVisible;
+            if (scroll + cursor >= count) {
+                if (cursor > 0) cursor--;
+                else if (scroll > 0) scroll--;
+            }
+        } else if (key.vk == fabgl::VK_RETURN) {
+            auto &bp = Config::breakPoints[bpIdx[scroll + cursor]];
+            if (bp.type == Config::BP_PC) {
+                Config::save();
+                VIDEO::SaveRect.restore_last();
+                return bp.addr;
+            }
+            break;
+        } else if (key.vk == fabgl::VK_ESCAPE) {
+            break;
+        }
     }
     Config::save();
+    VIDEO::SaveRect.restore_last();
+    return 0xFFFF;
 }
 
 void OSD::BPDialog() {
-    uint32_t address = addressDialog(Config::breakPoint, Config::lang ? "Punto de interr." : "Breakpoint");
-    if (address == 0x00010000) {
-        return;
+    const char* items[] = { "PC address", "Port read", "Port write", "Mem write", "Mem read" };
+    Config::BPType types[] = { Config::BP_PC, Config::BP_PORT_READ, Config::BP_PORT_WRITE, Config::BP_MEM_WRITE, Config::BP_MEM_READ };
+    const char* titles[] = { "PC breakpoint", "Port read BP", "Port write BP", "Mem write BP", "Mem read BP" };
+    const int nItems = 5;
+    int sel = 0;
+
+    const unsigned short h = (nItems + 2) * OSD_FONT_H + 4;
+    const unsigned short w = OSD_FONT_W * 18 + 2;
+    const unsigned short x = scrAlignCenterX(w);
+    const unsigned short y = scrAlignCenterY(h);
+    char buf[24];
+
+    VIDEO::vga.setFont(Font6x8);
+    VIDEO::SaveRect.save(x - 1, y - 1, w + 2, h + 2);
+
+    while (1) {
+        VIDEO::vga.rect(x, y, w, h, zxColor(0, 0));
+        VIDEO::vga.fillRect(x + 1, y + 1, w - 2, OSD_FONT_H, zxColor(0, 0));
+        VIDEO::vga.fillRect(x + 1, y + 1 + OSD_FONT_H, w - 2, h - OSD_FONT_H - 2, zxColor(7, 1));
+        VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(0, 0));
+        VIDEO::vga.setCursor(x + OSD_FONT_W + 1, y + 1);
+        VIDEO::vga.print("Breakpoint type");
+
+        for (int i = 0; i < nItems; i++) {
+            int yi = y + (i + 2) * OSD_FONT_H;
+            if (i == sel)
+                VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
+            else
+                VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
+            VIDEO::vga.setCursor(x + OSD_FONT_W, yi);
+            snprintf(buf, 24, " %-15s", items[i]);
+            buf[16] = 0;
+            VIDEO::vga.print(buf);
+        }
+
+        auto Kbd = ESPectrum::PS2Controller.keyboard();
+        while (!Kbd->virtualKeyAvailable()) sleep_ms(5);
+        fabgl::VirtualKeyItem key;
+        Kbd->getNextVirtualKey(&key);
+        if (!key.down) continue;
+        if (key.vk == fabgl::VK_UP) { if (sel > 0) sel--; }
+        else if (key.vk == fabgl::VK_DOWN) { if (sel < nItems - 1) sel++; }
+        else if (key.vk == fabgl::VK_RETURN || key.vk == fabgl::VK_KP_ENTER) {
+            VIDEO::SaveRect.restore_last();
+            uint32_t address = addressDialog(Z80::getRegPC(), titles[sel]);
+            if (address == 0x00010000 || address == 0x00010001) return;
+            Config::addBreakPoint(address, types[sel]);
+            Config::save();
+            return;
+        }
+        else if (key.vk == fabgl::VK_ESCAPE) {
+            VIDEO::SaveRect.restore_last();
+            return;
+        }
     }
-    if (address == 0x00010001) {
-        Config::enableBreakPoint = false;
-    } else {
-        Config::enableBreakPoint = true;
-        Config::breakPoint = address;
+}
+
+bool OSD::dumpRangeDialog(uint16_t &from, uint16_t &to) {
+    char tmp0[8], tmp1[8];
+    snprintf(tmp0, 8, "%04X", from);
+    snprintf(tmp1, 8, "%04X", to);
+    string vals[2] = { tmp0, tmp1 };
+    const char* labels[2] = { "From ", "To   " };
+    int curField = 0;
+    uint8_t dlgMode = 0;
+
+    const unsigned short h = (OSD_FONT_H * 8) + 2;
+    const unsigned short w = (OSD_FONT_W * 20) + 2;
+    const unsigned short x = scrAlignCenterX(w) - 3;
+    const unsigned short y = scrAlignCenterY(h) - 8;
+
+    click();
+    VIDEO::vga.setFont(Font6x8);
+
+    // Border & background
+    VIDEO::vga.rect(x, y, w, h, zxColor(0, 0));
+    VIDEO::vga.fillRect(x + 1, y + 1, w - 2, OSD_FONT_H, zxColor(0, 0));
+    VIDEO::vga.fillRect(x + 1, y + 1 + OSD_FONT_H, w - 2, h - OSD_FONT_H - 2, zxColor(7, 1));
+
+    // Title
+    VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(0, 0));
+    VIDEO::vga.setCursor(x + OSD_FONT_W + 1, y + 1);
+    VIDEO::vga.print("Dump range");
+
+    // Rainbow
+    unsigned short rb_y = y + 8;
+    unsigned short rb_paint_x = x + w - 30;
+    uint8_t rb_colors[] = {2, 6, 4, 5};
+    for (uint8_t c = 0; c < 4; c++) {
+        for (uint8_t i = 0; i < 5; i++)
+            VIDEO::vga.line(rb_paint_x + i, rb_y, rb_paint_x + 8 + i, rb_y - 8, zxColor(rb_colors[c], 1));
+        rb_paint_x += 5;
     }
-    Config::save();
+
+    // Field positions
+    int fx = x + 10 * OSD_FONT_W; // input x
+    int fy[2] = { y + 24, y + 36 };
+    // Button positions
+    int by = y + 52;
+    int bx_ok = x + 7, bx_cancel = x + 52;
+
+    // Draw labels
+    for (int f = 0; f < 2; f++) {
+        VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
+        VIDEO::vga.setCursor(x + OSD_FONT_W, fy[f]);
+        VIDEO::vga.print(labels[f]);
+        VIDEO::vga.rect(fx - 2, fy[f] - 2, 6 * OSD_FONT_W + 4, 12, zxColor(0, 0));
+    }
+
+    int curObject = 0; // 0=from, 1=to, 2=ok, 3=cancel
+    int CursorFlash = 0;
+    fabgl::VirtualKeyItem Nextkey;
+
+    auto drawFields = [&]() {
+        for (int f = 0; f < 2; f++) {
+            if (f == curObject)
+                VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
+            else
+                VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
+            VIDEO::vga.setCursor(fx, fy[f]);
+            VIDEO::vga.print(vals[f].c_str());
+            VIDEO::vga.print(" ");
+        }
+        // Buttons
+        VIDEO::vga.setCursor(bx_ok, by);
+        VIDEO::vga.setTextColor(curObject == 2 ? zxColor(0, 1) : zxColor(0, 1),
+                                curObject == 2 ? zxColor(5, 1) : zxColor(7, 1));
+        VIDEO::vga.print("  Ok  ");
+        VIDEO::vga.setCursor(bx_cancel, by);
+        VIDEO::vga.setTextColor(curObject == 3 ? zxColor(0, 1) : zxColor(0, 1),
+                                curObject == 3 ? zxColor(5, 1) : zxColor(7, 1));
+        VIDEO::vga.print(Config::lang ? " Cancelar " : "  Cancel  ");
+    };
+
+    drawFields();
+
+    while (1) {
+        if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
+            ESPectrum::PS2Controller.keyboard()->getNextVirtualKey(&Nextkey);
+            if (!Nextkey.down) continue;
+
+            if (Nextkey.vk >= fabgl::VK_0 && Nextkey.vk <= fabgl::VK_9) {
+                if (curObject < 2 && vals[curObject].length() < 4) {
+                    vals[curObject] += char(Nextkey.vk + 46);
+                    drawFields();
+                }
+            } else if (Nextkey.vk >= fabgl::VK_A && Nextkey.vk <= fabgl::VK_F) {
+                if (curObject < 2 && vals[curObject].length() < 4) {
+                    vals[curObject] += char('A' + (Nextkey.vk - fabgl::VK_A));
+                    drawFields();
+                }
+            } else if (Nextkey.vk == fabgl::VK_BACKSPACE) {
+                if (curObject < 2 && vals[curObject].length() > 0) {
+                    vals[curObject].pop_back();
+                    drawFields();
+                }
+            } else if (Nextkey.vk == fabgl::VK_DOWN || Nextkey.vk == fabgl::VK_TAB) {
+                curObject = (curObject + 1) % 4;
+                CursorFlash = 0;
+                drawFields();
+            } else if (Nextkey.vk == fabgl::VK_UP) {
+                curObject = (curObject + 3) % 4;
+                CursorFlash = 0;
+                drawFields();
+            } else if (Nextkey.vk == fabgl::VK_LEFT) {
+                if (curObject >= 2) { curObject = (curObject == 2) ? 3 : 2; drawFields(); }
+            } else if (Nextkey.vk == fabgl::VK_RIGHT) {
+                if (curObject >= 2) { curObject = (curObject == 2) ? 3 : 2; drawFields(); }
+            } else if (Nextkey.vk == fabgl::VK_RETURN || Nextkey.vk == fabgl::VK_KP_ENTER) {
+                if (curObject == 3) { click(); return false; } // Cancel
+                if (curObject == 2 || curObject < 2) {
+                    // Ok or Enter on field
+                    string s0 = vals[0], s1 = vals[1];
+                    while (s0.length() < 4) s0 = "0" + s0;
+                    while (s1.length() < 4) s1 = "0" + s1;
+                    from = stoul(s0, nullptr, 16);
+                    to = stoul(s1, nullptr, 16);
+                    click();
+                    return true;
+                }
+            } else if (Nextkey.vk == fabgl::VK_ESCAPE) {
+                click();
+                return false;
+            }
+        }
+        // Cursor blink
+        if (curObject < 2) {
+            if ((++CursorFlash & 0xF) == 0) {
+                VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
+                VIDEO::vga.setCursor(fx, fy[curObject]);
+                VIDEO::vga.print(vals[curObject].c_str());
+                if (CursorFlash > 63)
+                    VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(0, 1));
+                else
+                    VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
+                VIDEO::vga.print("K");
+                VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
+                VIDEO::vga.print(" ");
+                if (CursorFlash == 128) CursorFlash = 0;
+            }
+        }
+        sleep_ms(5);
+    }
+}
+
+// Search memory for memSearchHex pattern starting at startAddr, return found address or 0x10000
+static uint32_t memDoSearch(uint16_t startAddr) {
+    int len = memSearchHex.length();
+    if (len < 2 || (len & 1)) return 0x10000;
+    int nBytes = len / 2;
+    uint8_t pattern[8];
+    if (nBytes > 8) nBytes = 8;
+    for (int i = 0; i < nBytes; i++) {
+        char hi = memSearchHex[i * 2], lo = memSearchHex[i * 2 + 1];
+        auto hexVal = [](char c) -> int {
+            if (c >= '0' && c <= '9') return c - '0';
+            if (c >= 'A' && c <= 'F') return c - 'A' + 10;
+            return -1;
+        };
+        int hv = hexVal(hi), lv = hexVal(lo);
+        if (hv < 0 || lv < 0) return 0x10000;
+        pattern[i] = (hv << 4) | lv;
+    }
+    for (uint32_t off = 0; off < 0x10000; off++) {
+        uint16_t addr = (startAddr + off) & 0xFFFF;
+        bool match = true;
+        for (int i = 0; i < nBytes; i++) {
+            if (MemESP::readbyte((addr + i) & 0xFFFF) != pattern[i]) { match = false; break; }
+        }
+        if (match) {
+            memSearchLastFound = addr;
+            return addr;
+        }
+    }
+    return 0x10000;
+}
+
+void OSD::memSearchDialog() {
+
+    const unsigned short h = (OSD_FONT_H * 6) + 2;
+    const unsigned short w = (OSD_FONT_W * 22) + 2;
+    const unsigned short x = scrAlignCenterX(w) - 3;
+    const unsigned short y = scrAlignCenterY(h) - 8;
+
+    click();
+    VIDEO::vga.setFont(Font6x8);
+
+    VIDEO::vga.rect(x, y, w, h, zxColor(0, 0));
+    VIDEO::vga.fillRect(x + 1, y + 1, w - 2, OSD_FONT_H, zxColor(0, 0));
+    VIDEO::vga.fillRect(x + 1, y + 1 + OSD_FONT_H, w - 2, h - OSD_FONT_H - 2, zxColor(7, 1));
+
+    VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(0, 0));
+    VIDEO::vga.setCursor(x + OSD_FONT_W + 1, y + 1);
+    VIDEO::vga.print("Search memory");
+
+    unsigned short rb_y = y + 8;
+    unsigned short rb_paint_x = x + w - 30;
+    uint8_t rb_colors[] = {2, 6, 4, 5};
+    for (uint8_t c = 0; c < 4; c++) {
+        for (uint8_t i = 0; i < 5; i++)
+            VIDEO::vga.line(rb_paint_x + i, rb_y, rb_paint_x + 8 + i, rb_y - 8, zxColor(rb_colors[c], 1));
+        rb_paint_x += 5;
+    }
+
+    int iy = y + 22;
+    int ry = y + 34;
+    int maxHexChars = 16;
+    char buf[32];
+    int CursorFlash = 0;
+    memSearchResultAddr = 0x10000;
+
+    auto drawInput = [&]() {
+        VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
+        VIDEO::vga.setCursor(x + OSD_FONT_W, iy);
+        VIDEO::vga.print("Hex:");
+        VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
+        VIDEO::vga.setCursor(x + 5 * OSD_FONT_W, iy);
+        snprintf(buf, 32, "%-16s", memSearchHex.c_str());
+        buf[16] = 0;
+        VIDEO::vga.print(buf);
+    };
+
+    auto drawResult = [&](const char* msg) {
+        VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
+        VIDEO::vga.setCursor(x + OSD_FONT_W, ry);
+        snprintf(buf, 32, "%-20s", msg);
+        buf[20] = 0;
+        VIDEO::vga.print(buf);
+    };
+
+    auto doSearch = [&](uint16_t startAddr) {
+        uint32_t result = memDoSearch(startAddr);
+        memSearchResultAddr = result;
+        if (result <= 0xFFFF) {
+            snprintf(buf, 32, "Found at %04X", (uint16_t)result);
+            drawResult(buf);
+        } else {
+            int len = memSearchHex.length();
+            if (len < 2 || (len & 1))
+                drawResult("Need even hex digits");
+            else
+                drawResult("Not found");
+        }
+    };
+
+    drawInput();
+    drawResult("Enter hex, F3=next");
+
+    fabgl::VirtualKeyItem Nextkey;
+    while (1) {
+        if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
+            ESPectrum::PS2Controller.keyboard()->getNextVirtualKey(&Nextkey);
+            if (!Nextkey.down) continue;
+
+            if (Nextkey.vk >= fabgl::VK_0 && Nextkey.vk <= fabgl::VK_9) {
+                if ((int)memSearchHex.length() < maxHexChars) {
+                    memSearchHex += char(Nextkey.vk + 46);
+                    drawInput();
+                }
+            } else if (Nextkey.vk >= fabgl::VK_A && Nextkey.vk <= fabgl::VK_F) {
+                if ((int)memSearchHex.length() < maxHexChars) {
+                    memSearchHex += char('A' + (Nextkey.vk - fabgl::VK_A));
+                    drawInput();
+                }
+            } else if (Nextkey.vk == fabgl::VK_BACKSPACE) {
+                if (memSearchHex.length() > 0) {
+                    memSearchHex.pop_back();
+                    drawInput();
+                }
+            } else if (Nextkey.vk == fabgl::VK_RETURN || Nextkey.vk == fabgl::VK_KP_ENTER) {
+                doSearch(0);
+            } else if (Nextkey.vk == fabgl::VK_F3) {
+                doSearch((memSearchLastFound + 1) & 0xFFFF);
+            } else if (Nextkey.vk == fabgl::VK_ESCAPE) {
+                break;
+            }
+        }
+        if ((++CursorFlash & 0xF) == 0) {
+            int cx = x + 5 * OSD_FONT_W + (int)memSearchHex.length() * OSD_FONT_W;
+            if (CursorFlash > 63)
+                VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(0, 1));
+            else
+                VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
+            VIDEO::vga.setCursor(cx, iy);
+            VIDEO::vga.print("K");
+            if (CursorFlash == 128) CursorFlash = 0;
+        }
+        sleep_ms(5);
+    }
 }

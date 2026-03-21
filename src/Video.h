@@ -126,6 +126,11 @@ public:
   // Reset video
   static void Reset();
 
+#ifdef VGA_HDMI
+  // Hot video mode switch (no reboot)
+  static void changeMode();
+#endif
+
   // Video draw functions
   static void EndFrame();
   static void Blank(unsigned int statestoadd, bool contended);

@@ -48,6 +48,14 @@ visit https://zxespectrum.speccy.org/contacto
 #include "OSDMain.h"
 #include "roms.h"
 #include "Video.h"
+#include "Tape.h"
+#include "wd1793.h"
+#include "sdcard.h"
+#if !PICO_RP2040
+#include "DivMMC.h"
+#endif
+
+extern "C" void mem_swap_reopen(void);
 
 using namespace std;
 
@@ -60,16 +68,22 @@ string FileUtils::TAP_Path = "/";
 string FileUtils::DSK_Path = "/";
 string FileUtils::ROM_Path = "/";
 string FileUtils::IMG_Path = "/";
-DISK_FTYPE FileUtils::fileTypes[5] = {
-    {".sna,.SNA,.z80,.Z80,.p,.P",2,2,0,""},
-    {".tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3",2,2,0,""},
+string FileUtils::ALL_Path = "/";
+DISK_FTYPE FileUtils::fileTypes[6] = {
+    {".sna,.SNA,.z80,.Z80,.p,.P,.zip,.ZIP",2,2,0,""},
+    {".tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3,.zip,.ZIP",2,2,0,""},
 #if PICO_RP2040
-    {".trd,.TRD,.scl,.SCL",2,2,0,""},
+    {".trd,.TRD,.scl,.SCL,.zip,.ZIP",2,2,0,""},
 #else
-    {".trd,.TRD,.scl,.SCL,.udi,.UDI,.fdi,.FDI",2,2,0,""},
+    {".trd,.TRD,.scl,.SCL,.udi,.UDI,.fdi,.FDI,.zip,.ZIP",2,2,0,""},
 #endif
     {".rom,.ROM,.bin,.BIN",2,2,0,""},
-    {".mmc,.MMC,.hdf,.HDF",2,2,0,""}
+    {".mmc,.MMC,.hdf,.HDF,.zip,.ZIP",2,2,0,""},
+#if PICO_RP2040
+    {".sna,.SNA,.z80,.Z80,.p,.P,.tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3,.trd,.TRD,.scl,.SCL,.zip,.ZIP",2,2,0,""}
+#else
+    {".sna,.SNA,.z80,.Z80,.p,.P,.tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3,.trd,.TRD,.scl,.SCL,.udi,.UDI,.fdi,.FDI,.mmc,.MMC,.hdf,.HDF,.zip,.ZIP",2,2,0,""}
+#endif
 };
 
 string toLower(const std::string& str) {
@@ -127,6 +141,62 @@ void FileUtils::unmountSDCard() {
     f_unmount("SD");
 }
 
+bool FileUtils::checkSDCard() {
+    if (!fsMount) return false;
+    FILINFO fno;
+    return f_stat(MOUNT_POINT_SD, &fno) == FR_OK;
+}
+
+bool FileUtils::remountSD() {
+    // Unmount FatFS and force full SD card reinit
+    f_mount(NULL, "SD", 0);
+    disk_invalidate();
+    if (!mountSDCard()) return false;
+
+    // Reopen WD1793 disk image files
+    rvmWD1793 &wd = ESPectrum::fdd;
+    for (int i = 0; i < 4; i++) {
+        if (wd.disk[i] && wd.disk[i]->Diskfile && !wd.disk[i]->fname.empty()) {
+            FSIZE_t pos = f_tell(wd.disk[i]->Diskfile);
+            fclose2(wd.disk[i]->Diskfile);
+            wd.disk[i]->Diskfile = fopen2(wd.disk[i]->fname.c_str(), FA_READ | FA_WRITE);
+            if (wd.disk[i]->Diskfile) f_lseek(wd.disk[i]->Diskfile, pos);
+        }
+    }
+
+    // Reopen tape file
+    if (Tape::tapeStatus != TAPE_STOPPED && !Tape::tapeFileName.empty()) {
+        FSIZE_t pos = f_tell(&Tape::tape);
+        f_close(&Tape::tape);
+        string fname = FileUtils::TAP_Path + Tape::tapeFileName;
+        if (f_open(&Tape::tape, fname.c_str(), FA_READ) == FR_OK) {
+            f_lseek(&Tape::tape, pos);
+        }
+    }
+
+    // Reopen CSW temp block if open
+    if (Tape::cswBlock.obj.fs) {
+        FSIZE_t pos = f_tell(&Tape::cswBlock);
+        f_close(&Tape::cswBlock);
+        // CSW temp files are in /tmp/.cswXXXX.tmp, try to reopen at same position
+        // The file was already decompressed before debug, so it's still on SD
+        char cswName[24];
+        snprintf(cswName, sizeof(cswName), "/tmp/.csw%04d.tmp", Tape::tapeCurBlock);
+        if (f_open(&Tape::cswBlock, cswName, FA_READ) == FR_OK) {
+            f_lseek(&Tape::cswBlock, pos);
+        }
+    }
+
+    // Reopen MemESP swap file
+    mem_swap_reopen();
+
+#if !PICO_RP2040
+    DivMMC::reopenFiles();
+#endif
+
+    return true;
+}
+
 bool FileUtils::hasSNAextension(string filename)
 {
     
@@ -181,6 +251,14 @@ bool FileUtils::hasMP3extension(string filename)
 {
     if (filename.substr(filename.size()-4,4) == ".mp3") return true;
     if (filename.substr(filename.size()-4,4) == ".MP3") return true;
+    return false;
+}
+
+bool FileUtils::hasZIPextension(string filename)
+{
+    if (filename.size() < 4) return false;
+    if (filename.substr(filename.size()-4,4) == ".zip") return true;
+    if (filename.substr(filename.size()-4,4) == ".ZIP") return true;
     return false;
 }
 

@@ -63,6 +63,9 @@ public:
     static inline void preOpcFetch(uint16_t pc);
     static inline void postOpcFetch();
 
+    // Reopen files after SD remount
+    static void reopenFiles();
+
 private:
     // Automap deferred signals (ZEsarUX model)
     static bool trap_after;       // Entry point hit → map after fetch

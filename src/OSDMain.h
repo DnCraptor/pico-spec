@@ -97,7 +97,7 @@ public:
     static void osdCenteredMsg(string msg, uint8_t warn_level, uint16_t millispause);
 
     static void osdDump();
-    static void osdDebug();
+    static void osdDebug(uint16_t gotoAddr = 0xFFFF);
 
     // Menu
     static unsigned short menuRealRowFor(uint8_t virtual_row_num);
@@ -128,15 +128,17 @@ public:
     static unsigned int ndirs;
 
     static uint8_t msgDialog(string title, string msg);
+    static string inlineTextEdit(int ex, int ey, int maxlen, string text);
     static bool videoModeConfirm(int timeout_sec = 15);
     static void progressDialog(string title, string msg, int percent, int action);
     string inputBox(int x, int y, string text);
     static void joyDialog(void);
     static void pokeDialog();
     static void jumpToDialog();
-    static void portReadBPDialog();
-    static void portWriteBPDialog();
     static void BPDialog();
+    static uint16_t BPListDialog();
+    static bool dumpRangeDialog(uint16_t &from, uint16_t &to);
+    static void memSearchDialog();
     static uint32_t addressDialog(uint16_t addr, const char* title);
 
     // Rows
@@ -161,6 +163,9 @@ public:
     static uint16_t y;                        // Y horizontal position
     static uint16_t prev_y[5];                // Y prev. position
     static unsigned short menu_prevopt;
+    static bool menu_del_pressed;         // Set by menuRun when Del pressed on a row
+    static bool menu_rename_pressed;      // Set by menuRun when R pressed on a row
+    static string menu_footer;            // Optional hint line drawn below menu (cleared after each menuRun)
     static string menu;                   // Menu string
     static unsigned short begin_row;      // First real displayed row
     static uint8_t focus;                    // Focused virtual row
@@ -221,5 +226,7 @@ static inline std::string trim_copy(std::string s) {
 #define is_enter(vk) (vk == fabgl::VK_MENU_RIGHT || vk == fabgl::VK_MENU_ENTER)
 #define is_enter_fd(vk) (vk == fabgl::VK_MENU_ENTER)
 #define is_return(vk) (vk == fabgl::VK_MENU_ENTER)
+
+void flushKbd();
 
 #endif // ESPECTRUM_OSD_H

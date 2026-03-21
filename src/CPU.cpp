@@ -184,7 +184,7 @@ IRAM_ATTR void CPU::step() {
     Z80::execute();
 }
 
-#define BREAKPOINTS if (pbbp || (bpe && bp == Z80::getRegPC())) { VIDEO::EndFrame(); return; }
+#define BREAKPOINTS if (pbbp || (nbp > 0 && Config::hasBreakPoint(Z80::getRegPC(), Config::BP_PC))) { VIDEO::EndFrame(); return; }
 
 
 IRAM_ATTR void CPU::loop() {
@@ -193,8 +193,7 @@ IRAM_ATTR void CPU::loop() {
         VIDEO::EndFrame();
         return;
     }
-    bool bpe = Config::enableBreakPoint;
-    uint16_t bp = Config::breakPoint;
+    int nbp = Config::numPcBP;
 
     BREAKPOINTS
     // Check NMI

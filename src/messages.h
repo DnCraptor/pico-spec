@@ -36,6 +36,10 @@ visit https://zxespectrum.speccy.org/contacto
 #ifndef ESPECTRUM_MESSAGES_h
 #define ESPECTRUM_MESSAGES_h
 
+// Stringify helper for embedding compile-time constants in menu strings
+#define _PIN_STR(x) #x
+#define _PIN_XSTR(x) _PIN_STR(x)
+
 // General
 #define MSG_LOADING_SNA "Loading SNA file"
 #define MSG_LOADING_Z80 "Loading Z80 file"
@@ -263,6 +267,34 @@ static const char *MENU_DSK_TITLE[2] = { MENU_DSK_TITLE_EN,MENU_DSK_TITLE_ES };
 #define MENU_ROM_TITLE_ES "Elija ROM"
 static const char *MENU_ROM_TITLE[2] = { MENU_ROM_TITLE_EN,MENU_ROM_TITLE_ES };
 
+#define MENU_ALL_TITLE_EN "Open File"
+#define MENU_ALL_TITLE_ES "Abrir fichero"
+static const char *MENU_ALL_TITLE[2] = { MENU_ALL_TITLE_EN,MENU_ALL_TITLE_ES };
+
+#define OSD_DSK_NEEDS_PENTAGON_EN "  Disk needs Pentagon mode  "
+#define OSD_DSK_NEEDS_PENTAGON_ES " Disco requiere modo Pentagon "
+static const char *OSD_DSK_NEEDS_PENTAGON[2] = { OSD_DSK_NEEDS_PENTAGON_EN,OSD_DSK_NEEDS_PENTAGON_ES };
+
+#define OSD_IMG_NEEDS_ESXDOS_EN "  Enable esxDOS first  "
+#define OSD_IMG_NEEDS_ESXDOS_ES " Active esxDOS primero "
+static const char *OSD_IMG_NEEDS_ESXDOS[2] = { OSD_IMG_NEEDS_ESXDOS_EN,OSD_IMG_NEEDS_ESXDOS_ES };
+
+#define OSD_DSK_WRITE_PROTECT_EN "  Disk is write protected  "
+#define OSD_DSK_WRITE_PROTECT_ES " Disco protegido contra escritura "
+static const char *OSD_DSK_WRITE_PROTECT[2] = { OSD_DSK_WRITE_PROTECT_EN,OSD_DSK_WRITE_PROTECT_ES };
+
+#define OSD_ZIP_ERR_EN " No supported file in ZIP "
+#define OSD_ZIP_ERR_ES " No hay archivo en ZIP "
+static const char *OSD_ZIP_ERR[2] = { OSD_ZIP_ERR_EN,OSD_ZIP_ERR_ES };
+
+#define OSD_ZIP_EXTRACTING_EN "    Extracting...    "
+#define OSD_ZIP_EXTRACTING_ES "    Extrayendo...    "
+static const char *OSD_ZIP_EXTRACTING[2] = { OSD_ZIP_EXTRACTING_EN,OSD_ZIP_EXTRACTING_ES };
+
+#define OSD_FILE_DELETE_TITLE_EN "Delete?"
+#define OSD_FILE_DELETE_TITLE_ES "Borrar?"
+static const char *OSD_FILE_DELETE_TITLE[2] = { OSD_FILE_DELETE_TITLE_EN,OSD_FILE_DELETE_TITLE_ES };
+
 #define MENU_SNA_EN \
     "Snapshot menu\n"\
     "Load (SNA,Z80,P)\t(F2) >\n"\
@@ -313,7 +345,7 @@ static const char *MENU_TAPE[2] = { MENU_TAPE_EN, MENU_TAPE_ES };
 static const char *MENU_TAPE_NO_SD[2] = { MENU_TAPE_NO_SD_EN, MENU_TAPE_NO_SD_ES };
 
 static const char *MENU_TAPEPLAYER[2] = { "Player mode\n", "Modo reproductor\n" };
-static const char *MENU_TAPEPLAYER2[2] = { "Real input\n", "Entrada real\n" };
+static const char *MENU_TAPEPLAYER2[2] = { "Input (P" _PIN_XSTR(LOAD_WAV_PIO) ")\n", "Entrada (P" _PIN_XSTR(LOAD_WAV_PIO) ")\n" };
 
 #if !PICO_RP2040
 #define MENU_STORAGE_MAIN_EN \
@@ -674,10 +706,9 @@ static const char *MENU_RESET[2] = { MENU_RESET_EN, MENU_RESET_ES };
 
 #define MENU_DEBUG_EN \
     "Debug Menu\n"\
-    "Port read BP  (ALT+F3)\n"\
-    "Port write BP (ALT+F4)\n"\
     "Debug dialog  (ALT+F5)\n"\
     "BreakPoint    (ALT+F7)\n"\
+    "BP List     (ALT+F7+A)\n"\
     "Jump to       (ALT+F8)\n"\
     "Input Poke    (ALT+F9)\n"\
 	"Trigger NMI   (ALT+F10)\n"
@@ -790,14 +821,12 @@ static const char *MENU_AY48[2] = { "Turned on?\n" , "Turned on?\n"};
 
 #if !PICO_RP2040
 static const char *MENU_SAA1099[2] = { "Turned on?\n" , "Turned on?\n"};
-#define _MIDI_STR(x) #x
-#define _MIDI_XSTR(x) _MIDI_STR(x)
-#define MENU_MIDI_EN "MIDI(Ext:P" _MIDI_XSTR(MIDI_TX_PIN) ")\n"\
+#define MENU_MIDI_EN "MIDI(Ext:P" _PIN_XSTR(MIDI_TX_PIN) ")\n"\
     "OFF     \t[O]\n"\
     "AY      \t[A]\n"\
     "ShamaZX \t[S]\n"\
     "Software\t[W]\n"
-#define MENU_MIDI_ES "MIDI(Ext:P" _MIDI_XSTR(MIDI_TX_PIN) ")\n"\
+#define MENU_MIDI_ES "MIDI(Ext:P" _PIN_XSTR(MIDI_TX_PIN) ")\n"\
     "OFF     \t[O]\n"\
     "AY      \t[A]\n"\
     "ShamaZX \t[S]\n"\
@@ -1397,7 +1426,7 @@ static const char *AboutMsg[2][9] = {
     " [F1]         Main menu\n"\
     " [F2]         Load (SNA,Z80,P)\n"\
     " [F3-F4]      Load / Save snapshot\n"\
-    " [F5]         Select tape file\n"\
+    " [F5]         Open file\n"\
     " [F6]         Play/Stop tape\n"\
     " [F7]         Tape browser\n"\
     " [F8]         CPU / Tape load stats\n"\
@@ -1419,7 +1448,7 @@ static const char *AboutMsg[2][9] = {
     " [F1]         Menu principal\n"\
     " [F2]         Cargar (SNA,Z80,P)\n"\
     " [F3-F4]      Cargar / Guardar snapshot\n"\
-    " [F5]         Elegir archivo de cinta\n"\
+    " [F5]         Abrir fichero\n"\
     " [F6]         Play/Stop cinta\n"\
     " [F7]         Explorador cinta\n"\
     " [F8]         Status CPU / Carga cinta\n"\
@@ -1441,7 +1470,7 @@ static const char *AboutMsg[2][9] = {
     " [F1]         Main menu\n"\
     " [F2]         Load (SNA,Z80,P)\n"\
     " [F3-F4]      Load / Save snapshot\n"\
-    " [F5]         Select tape file\n"\
+    " [F5]         Open file\n"\
     " [F6]         Play/Stop tape\n"\
     " [F7]         Tape browser\n"\
     " [F8]         CPU / Tape load stats\n"\
@@ -1463,7 +1492,7 @@ static const char *AboutMsg[2][9] = {
     " [F1]         Menu principal\n"\
     " [F2]         Cargar (SNA,Z80,P)\n"\
     " [F3-F4]      Cargar / Guardar snapshot\n"\
-    " [F5]         Elegir archivo de cinta\n"\
+    " [F5]         Abrir fichero\n"\
     " [F6]         Play/Stop cinta\n"\
     " [F7]         Explorador cinta\n"\
     " [F8]         Status CPU / Carga cinta\n"\
@@ -1484,17 +1513,20 @@ static const char *AboutMsg[2][9] = {
 
 #define OSD_DBG_HELP_EN \
     " [Space]      Step CPU\n"\
-    " [ALT+Space]  Step over CALL operation\n"\
+    " [ALT+Space]  Step over CALL\n"\
+    " [Enter]      Go to address (view)\n"\
     " [Esc]        Exit\n"\
+    " [ALT+F1]     Search memory\n"\
+    " [F3]         Search next\n"\
     " [F1]         This Help\n"\
     " [F2]         Show memory dump\n"\
-    " [F3]         Port read breakpoint\n"\
-    " [F4]         Port write breakpoint\n"\
-    " [F5]         Breakpoint current line\n"\
-    " [F7]         Breakpoint editor\n"\
-    " [F8]         Jump to address\n"\
-    " [F9]         Poke dialog\n"\
-	" [F10]        Trigger NMI\n"\
+    " [ALT+F2]     Save dump to file\n"\
+    " [F5]         Toggle PC breakpoint\n"\
+    " [F7]         Add breakpoint (type)\n"\
+    " [ALT+F7]     Breakpoint list\n"\
+    " [Tab]        Code/Memory/Regs\n"\
+    " [F8]         Set PC to address\n"\
+    " [ALT+F9]     Show full screen\n"\
     " [F11-F12]    Load / Save snapshot\n"\
     " [+]          Shift up screen\n"\
     " [-]          Shift down screen\n"\

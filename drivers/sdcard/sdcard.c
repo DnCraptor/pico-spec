@@ -415,6 +415,11 @@ DSTATUS disk_status (
 	return Stat;	/* Return disk status */
 }
 
+void disk_invalidate (void)
+{
+	Stat = STA_NOINIT;
+}
+
 
 
 /*-----------------------------------------------------------------------*/

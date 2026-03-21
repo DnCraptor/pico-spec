@@ -1225,7 +1225,11 @@ IRAM_ATTR void Z80::execute() {
 
 IRAM_ATTR void Z80::exec_nocheck() {
 
+    int nbp = Config::numPcBP;
+
     while (CPU::tstates < CPU::stFrame) {
+
+        if (nbp > 0 && Config::hasBreakPoint(REG_PC, Config::BP_PC)) return;
 
         uint8_t pg = REG_PCh >> 6;
         VIDEO::Draw_Opcode(MemESP::ramContended[pg]);
