@@ -54,6 +54,7 @@ using namespace std;
 #define DISK_DSKFILE 2
 #define DISK_ROMFILE 3
 #define DISK_IMGFILE 4
+#define DISK_ALLFILE 5
 
 struct DISK_FTYPE {
     string fileExts;
@@ -73,6 +74,8 @@ public:
     static void initFileSystem();
     static bool mountSDCard();
     static void unmountSDCard();
+    static bool checkSDCard();
+    static bool remountSD();
     // static String         getAllFilesFrom(const String path);
     // static void           listAllFiles();
     // static void           sanitizeFilename(String filename); // in-place
@@ -90,6 +93,7 @@ public:
     static bool hasWAVextension(string filename);
     static bool hasPZXextension(string filename);
     static bool hasMP3extension(string filename);
+    static bool hasZIPextension(string filename);
 
     static void deleteFilesWithExtension(const char *folder_path, const char *extension);
 
@@ -101,8 +105,9 @@ public:
     static string DSK_Path; // Current DSK path on the SD
     static string ROM_Path; // Current DSK path on the SD
     static string IMG_Path; // Current MMC/HDF image path on the SD
+    static string ALL_Path; // Current path for unified file dialog
 
-    static DISK_FTYPE fileTypes[5];
+    static DISK_FTYPE fileTypes[6];
 
 private:
     friend class Config;

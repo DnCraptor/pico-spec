@@ -50,6 +50,8 @@ using namespace std;
 #include <math.h>
 #include "Z80_JLS/z80.h"
 #include "Tape.h"
+#include "ZipExtract.h"
+#include "FileInfo.h"
 
 #include "ff.h"
 
@@ -447,9 +449,65 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                     menuAt(mfrows + (Config::aspect_16_9 ? 0 : 1), cols - 13);
                     VIDEO::vga.print("             ");
                 }
+                // Footer legend
+                if (ftype == DISK_ALLFILE && !FileUtils::fileTypes[ftype].fdMode) {
+                    menuAt(mfrows + (Config::aspect_16_9 ? 0 : 1), 1);
+                    VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(5, 0));
+                    VIDEO::vga.print("F3:Find F4:Unzip F7:View F8:Delete");
+                }
 
                 if (ESPectrum::readKbd(&Menukey)) {
                     if (!Menukey.down) continue;
+                    // F4 on a ZIP file = extract ZIP to current folder
+                    if (Menukey.vk == fabgl::VK_F4 && ftype == DISK_ALLFILE) {
+                        string filedir = rowGet(menu, FileUtils::fileTypes[ftype].focus);
+                        if (filedir[0] != DIR_MARKER && FileUtils::hasZIPextension(filedir)) {
+                            if (menu_saverect) {
+                                VIDEO::SaveRect.restore_last();
+                                menu_saverect = false;
+                            }
+                            rtrim(filedir);
+                            click();
+                            filenames.close();
+                            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                            return "X" + filedir; // X prefix = extract ZIP
+                        }
+                        click();
+                        continue;
+                    }
+                    // F7 = view file info (F5 dialog only)
+                    if (Menukey.vk == fabgl::VK_F7 && ftype == DISK_ALLFILE) {
+                        string filedir = rowGet(menu, FileUtils::fileTypes[ftype].focus);
+                        if (filedir[0] != DIR_MARKER) {
+                            rtrim(filedir);
+                            string fullpath = fdir + filedir;
+                            if (FileUtils::hasZIPextension(filedir))
+                                ZipExtract::viewInfo(fullpath);
+                            else
+                                FileInfo::viewInfo(fullpath);
+                            fd_Redraw(title, fdir, ftype, filexts);
+                        }
+                        click();
+                        continue;
+                    }
+                    // F8 = delete file with confirmation
+                    if ((Menukey.vk == fabgl::VK_F8 || Menukey.vk == fabgl::VK_DELETE)
+                        && ftype == DISK_ALLFILE) {
+                        string filedir = rowGet(menu, FileUtils::fileTypes[ftype].focus);
+                        if (filedir[0] != DIR_MARKER) {
+                            rtrim(filedir);
+                            string fullpath = fdir + filedir;
+                            if (OSD::msgDialog(OSD_FILE_DELETE_TITLE[Config::lang], filedir) == DLG_YES) {
+                                f_unlink(fullpath.c_str());
+                                FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
+                                click();
+                                break; // re-scan directory
+                            }
+                            // Redraw after dialog
+                            fd_Redraw(title, fdir, ftype, filexts);
+                        }
+                        continue;
+                    }
                     // Search first ocurrence of letter if we're not on that letter yet
                     if (((Menukey.vk >= fabgl::VK_a) && (Menukey.vk <= fabgl::VK_Z)) || ((Menukey.vk >= fabgl::VK_0) && (Menukey.vk <= fabgl::VK_9))) {
                         int fsearch;
@@ -493,12 +551,20 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                     } else if (Menukey.vk == fabgl::VK_F3) {
                         FileUtils::fileTypes[ftype].fdMode ^= 1;
                         if (FileUtils::fileTypes[ftype].fdMode) {
+                            // Clear footer legend before showing search input
+                            menuAt(mfrows + (Config::aspect_16_9 ? 0 : 1), 1);
+                            VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(5, 0));
+                            VIDEO::vga.print(std::string(cols - 2, ' ').c_str());
                             fdCursorFlash = 63;
                             fdSearchRefresh = FileUtils::fileTypes[ftype].fileSearch != "";
                         } else {
+                            // Clear search area and redraw footer legend
                             menuAt(mfrows + (Config::aspect_16_9 ? 0 : 1), 1);
                             VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(5, 0));
-                            VIDEO::vga.print("      " "          ");
+                            if (ftype == DISK_ALLFILE)
+                                VIDEO::vga.print("F3:Find F4:Unzip F7:View F8:Delete");
+                            else
+                                VIDEO::vga.print("      " "          ");
                             if (FileUtils::fileTypes[ftype].fileSearch != "") {
                                 real_rows = ndirs + elements + 2; // Add 2 for title and status bar
                                 virtual_rows = (real_rows > mf_rows ? mf_rows : real_rows);

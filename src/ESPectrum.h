@@ -120,6 +120,7 @@ public:
     static unsigned char audioCOVOXDivider;
     static unsigned char audioOverSampleDivider;
     static signed char aud_volume;
+    static bool vol_changed;
     static uint32_t audbufcnt;
     static uint32_t audbufcntover;
     static uint32_t audbufcntAY;

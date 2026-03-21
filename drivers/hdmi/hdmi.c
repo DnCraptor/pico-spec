@@ -584,6 +584,38 @@ static inline bool hdmi_init() {
 extern void vga_set_palette_entry(uint8_t i, uint32_t color888);
 #endif
 
+// Cross-core reinit: core0 sets flag, core1 executes hdmi_init()
+static volatile bool hdmi_reinit_pending = false;
+static volatile bool hdmi_reinit_done = false;
+
+void hdmi_reinit() {
+    // Stop DMA channels from core0 so the DMA IRQ stops firing.
+    // This frees core1 from back-to-back ISR calls, allowing its
+    // main loop to reach hdmi_poll_reinit().
+    dma_hw->abort = (1u << dma_chan_ctrl) | (1u << dma_chan)
+                  | (1u << dma_chan_pal_conv) | (1u << dma_chan_pal_conv_ctrl);
+    while (dma_hw->abort) tight_loop_contents();
+
+    // Signal core1 to do the reinit (IRQ handler must be registered on core1)
+    hdmi_reinit_done = false;
+    __dmb();
+    hdmi_reinit_pending = true;
+    __sev();
+    // Wait for core1 to complete
+    while (!hdmi_reinit_done) {
+        tight_loop_contents();
+    }
+}
+
+void hdmi_poll_reinit() {
+    if (hdmi_reinit_pending) {
+        hdmi_reinit_pending = false;
+        hdmi_init();
+        __dmb();
+        hdmi_reinit_done = true;
+    }
+}
+
 void graphics_set_palette(uint8_t i, uint32_t color888) {
     palette[i] = color888 & 0x00ffffff;
 

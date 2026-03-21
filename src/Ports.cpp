@@ -158,7 +158,7 @@ inline static size_t extendedZxRamPages() {
 
 IRAM_ATTR uint8_t Ports::input(uint16_t address) {
   uint8_t data;
-  if (address == Config::portReadBP && Config::enablePortReadBP)
+  if (Config::numPortReadBP > 0 && Config::hasBreakPoint(address, Config::BP_PORT_READ))
     CPU::portBasedBP = true;
   uint8_t rambank = address >> 14;
   p_states = CPU::tstates;
@@ -399,7 +399,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
 
 IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
   int Audiobit;
-  if (address == Config::portWriteBP && Config::enablePortWriteBP)
+  if (Config::numPortWriteBP > 0 && Config::hasBreakPoint(address, Config::BP_PORT_WRITE))
     CPU::portBasedBP = true;
   uint8_t rambank = address >> 14;
 
@@ -496,7 +496,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
       if ((address & 0x4000) != 0) {
         chips[AySound::selected_chip]->selectRegister(data);
       } else {
-        ESPectrum::AYGetSample();
+        if (Tape::tapeStatus != TAPE_LOADING) ESPectrum::AYGetSample();
         chips[AySound::selected_chip]->setRegisterData(data);
       }
       VIDEO::Draw(3, !Z80Ops::isPentagon); // I/O Contention (Late)
@@ -591,12 +591,12 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
       if (address & 0x0100) {
         // Register select (bit 8 set): 0x01FF, 0x05FF, etc.
         // Generate samples before selectRegister — it advances external envelope clock
-        ESPectrum::SAAGetSample();
+        if (Tape::tapeStatus != TAPE_LOADING) ESPectrum::SAAGetSample();
         saaChip.selectRegister(data);
         return;
       } else {
         // Data write (bit 8 clear): 0x00FF, 0x04FF, etc.
-        ESPectrum::SAAGetSample();
+        if (Tape::tapeStatus != TAPE_LOADING) ESPectrum::SAAGetSample();
         saaChip.setRegisterData(data);
         return;
       }
@@ -621,7 +621,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
       } else if ((address & 0x4000) != 0) {
         chips[AySound::selected_chip]->selectRegister(data);
       } else {
-        ESPectrum::AYGetSample();
+        if (Tape::tapeStatus != TAPE_LOADING) ESPectrum::AYGetSample();
         chips[AySound::selected_chip]->setRegisterData(data);
       }
       ioContentionLate(MemESP::ramContended[rambank]);

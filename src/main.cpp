@@ -819,6 +819,9 @@ void repeat_me_for_input() {
 #include "hdmi.h"
 extern "C" void ESPectrum_vsync();
 #endif
+#ifdef VGA_HDMI
+extern "C" void hdmi_poll_reinit(void);
+#endif
 
 void __scratch_x("render") render_core() {
     multicore_lockout_victim_init();
@@ -834,6 +837,9 @@ void __scratch_x("render") render_core() {
         }
         ESPectrum_vsync();
         #else
+#ifdef VGA_HDMI
+        hdmi_poll_reinit();
+#endif
         pcm_call();
         #endif
         tight_loop_contents();
