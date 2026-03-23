@@ -1119,7 +1119,7 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
             KeytoESP == fabgl::VK_TILDE || KeytoESP == fabgl::VK_GRAVEACCENT ||
             KeytoESP == fabgl::VK_VOLUMEUP || KeytoESP == fabgl::VK_VOLUMEDOWN ||
             KeytoESP == fabgl::VK_VOLUMEMUTE ||
-            KeytoESP == fabgl::VK_DELETE || KeytoESP == fabgl::VK_BACKSPACE)) {
+            KeytoESP == fabgl::VK_DELETE)) {
         int64_t osd_start = esp_timer_get_time();
         OSD::do_OSD(
             KeytoESP,
