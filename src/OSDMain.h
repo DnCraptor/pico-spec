@@ -135,6 +135,7 @@ public:
     static void joyDialog(void);
     static void pokeDialog();
     static void jumpToDialog();
+    static void hotkeyDialog();
     static void BPDialog();
     static uint16_t BPListDialog();
     static bool dumpRangeDialog(uint16_t &from, uint16_t &to);

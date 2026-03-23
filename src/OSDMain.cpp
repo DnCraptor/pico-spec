@@ -134,14 +134,15 @@ string OSD::inlineTextEdit(int ex, int ey, int maxlen, string text) {
     { fabgl::VirtualKeyItem drain; while (Kbd->virtualKeyAvailable()) Kbd->getNextVirtualKey(&drain); }
     VIDEO::vga.setFont(Font6x8);
 
-    auto redraw = [&]() {
+    uint8_t blinkCtr = 7; // triggers first draw immediately (++&0x7==0)
+
+    auto redraw = [&](bool cursorOn) {
         string display = text;
-        // Pad to maxlen with spaces
         while ((int)display.length() < maxlen) display += ' ';
         int cur = (int)text.length();
         for (int p = 0; p < maxlen; p++) {
             bool isCursor = (p == cur && cur < maxlen) || (p == maxlen - 1 && cur >= maxlen);
-            if (isCursor)
+            if (isCursor && cursorOn)
                 VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(1, 1));
             else
                 VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
@@ -151,10 +152,16 @@ string OSD::inlineTextEdit(int ex, int ey, int maxlen, string text) {
         }
     };
 
-    redraw();
+    redraw(true);
 
     while (1) {
-        while (!Kbd->virtualKeyAvailable()) sleep_ms(5);
+        // Blink cursor while waiting for keypress
+        while (!Kbd->virtualKeyAvailable()) {
+            sleep_ms(5);
+            if ((++blinkCtr & 0x7) == 0)
+                redraw((blinkCtr & 0x20) == 0);
+        }
+        blinkCtr = 7; // next tick redraws with cursor on after keypress
         fabgl::VirtualKeyItem ek;
         Kbd->getNextVirtualKey(&ek);
         if (!ek.down) continue;
@@ -163,7 +170,7 @@ string OSD::inlineTextEdit(int ex, int ey, int maxlen, string text) {
         if (ek.vk == fabgl::VK_RETURN || ek.vk == fabgl::VK_KP_ENTER) return text;
         if (ek.vk == fabgl::VK_ESCAPE) return "\x1B";
         if (ek.vk == fabgl::VK_BACKSPACE) {
-            if (!text.empty()) { text.pop_back(); redraw(); }
+            if (!text.empty()) { text.pop_back(); redraw(true); }
         } else if (ek.ASCII >= 32 && ek.ASCII < 127) {
             if ((int)text.length() < maxlen) {
                 char c = ek.ASCII;
@@ -173,7 +180,7 @@ string OSD::inlineTextEdit(int ex, int ey, int maxlen, string text) {
                     if (!shift && !caps) c = c - 'A' + 'a';
                 }
                 text += c;
-                redraw();
+                redraw(true);
             }
         }
     }
@@ -629,6 +636,12 @@ string getMenuPrefix() {
     return "Murmuzavr 32M/";
 }
 
+// Forward declarations for hotkey helpers (defined later in file)
+static string hkBindingText(int idx);
+static string expandHotkeys(const char* menu);
+extern const char* hkDescEN[];
+extern const char* hkDescES[];
+
 // OSD Main Loop
 void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
 
@@ -636,84 +649,81 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
     static uint8_t last_sna_row = 0;
     fabgl::VirtualKeyItem Nextkey;
 
-#ifdef VGA_HDMI
-    if (CTRL) {
-        if (ALT) { // CTRL + ALT + [key]
-            if (KeytoESP == fabgl::VK_HOME) { // HDMI 60Hz
-                uint8_t &vm = SELECT_VGA ? Config::vga_video_mode : Config::hdmi_video_mode;
-                if (vm == Config::VM_640x480_60) return;
-                uint8_t saved_vm = vm;
-                vm = Config::VM_640x480_60;
-                Config::save();
-                VIDEO::changeMode();
-                if (!videoModeConfirm(10)) {
-                    vm = saved_vm;
-                    Config::save();
-                    VIDEO::changeMode();
-                }
-            } else
-            if (KeytoESP == fabgl::VK_END) { // HDMI 50Hz
-                uint8_t &vm = SELECT_VGA ? Config::vga_video_mode : Config::hdmi_video_mode;
-                if (vm == Config::VM_640x480_50) return;
-                uint8_t saved_vm = vm;
-                vm = Config::VM_640x480_50;
-                Config::save();
-                VIDEO::changeMode();
-                if (!videoModeConfirm(10)) {
-                    vm = saved_vm;
-                    Config::save();
-                    VIDEO::changeMode();
-                }
-            }
-            // if (KeytoESP == fabgl::VK_PAGEDOWN) {
-            //     VIDEO::tStatesScreen--;
-            // }
-            // if (KeytoESP == fabgl::VK_INSERT) { // HDMI H_Total Lines
-            //     ESPectrum::H_TOTAL--;
-            // } else
-            // if (KeytoESP == fabgl::VK_DELETE) { // HDMI H_Total Lines
-            //     ESPectrum::H_TOTAL++;
-            // }
+    // Find matching configurable hotkey
+    int hkIdx = -1;
+    for (int i = 0; i < Config::HK_COUNT; i++) {
+        if (Config::hotkeys[i].vk != (uint16_t)fabgl::VK_NONE &&
+            Config::hotkeys[i].vk == (uint16_t)KeytoESP &&
+            Config::hotkeys[i].alt  == ALT &&
+            Config::hotkeys[i].ctrl == CTRL) {
+            hkIdx = i;
+            break;
         }
     }
-    else
+
+#ifdef VGA_HDMI
+    if (hkIdx == Config::HK_VIDMODE_60) { // HDMI 60Hz
+        uint8_t &vm = SELECT_VGA ? Config::vga_video_mode : Config::hdmi_video_mode;
+        if (vm == Config::VM_640x480_60) return;
+        uint8_t saved_vm = vm;
+        vm = Config::VM_640x480_60;
+        Config::save();
+        VIDEO::changeMode();
+        if (!videoModeConfirm(10)) {
+            vm = saved_vm;
+            Config::save();
+            VIDEO::changeMode();
+        }
+    } else
+    if (hkIdx == Config::HK_VIDMODE_50) { // HDMI 50Hz
+        uint8_t &vm = SELECT_VGA ? Config::vga_video_mode : Config::hdmi_video_mode;
+        if (vm == Config::VM_640x480_50) return;
+        uint8_t saved_vm = vm;
+        vm = Config::VM_640x480_50;
+        Config::save();
+        VIDEO::changeMode();
+        if (!videoModeConfirm(10)) {
+            vm = saved_vm;
+            Config::save();
+            VIDEO::changeMode();
+        }
+    } else
 #endif
-    if (ALT) { // ALT + [key]
-        if (KeytoESP == fabgl::VK_F1) { // Show mem info
+    if (hkIdx == Config::HK_HW_INFO) { // Show mem info
             if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             OSD::HWInfo();
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
             if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         } else
-        if (KeytoESP == fabgl::VK_F2) { // Turbo mode
+        if (hkIdx == Config::HK_TURBO) { // Turbo mode
             ESPectrum::multiplicator += 1;
             if (ESPectrum::multiplicator > 3) {
                 ESPectrum::multiplicator = 0;
             }
             CPU::updateStatesInFrame();
         } else
-        if (KeytoESP == fabgl::VK_F5) {
+        if (hkIdx == Config::HK_DEBUG) {
             if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             osdDebug();
             if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         }
-        else if (KeytoESP == fabgl::VK_F7) {
+        else if (hkIdx == Config::HK_BP_LIST) {
             if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             uint16_t bpAddr = BPListDialog();
             if (bpAddr != 0xFFFF) osdDebug(bpAddr);
             if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         } else
-        if (KeytoESP == fabgl::VK_F8) {
+        if (hkIdx == Config::HK_JUMP_TO) {
             if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             jumpToDialog();
             if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         } else
-        if (KeytoESP == fabgl::VK_F9) { // Input Poke
+        if (hkIdx == Config::HK_POKE) { // Input Poke
             if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             pokeDialog();
             if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         } else
-        if (KeytoESP == fabgl::VK_F10) { // NMI
+        if (hkIdx == Config::HK_NMI) { // NMI
 #if !PICO_RP2040
             if (DivMMC::enabled) {
                 // DivMMC NMI: automap at 0x0066 handled by preOpcFetch/postOpcFetch
@@ -764,7 +774,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             }
         }
         else
-        if (KeytoESP == fabgl::VK_F11) { // Reset to...
+        if (hkIdx == Config::HK_RESET_TO) { // Reset to...
 #if !PICO_RP2040
             if (DivMMC::enabled) {
                 menu_level = 0;
@@ -860,7 +870,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 }
             }
         }
-        else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F6) {
+        else if (FileUtils::fsMount && hkIdx == Config::HK_DISK) {
 #if !PICO_RP2040
             if (DivMMC::enabled) {
                 menu_level = 0;
@@ -999,14 +1009,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             }
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
         }
-        else if (KeytoESP == fabgl::VK_F12) {
+        else if (hkIdx == Config::HK_USB_BOOT) {
             if (confirmReboot(OSD_DLG_USBBOOT)) {
                 if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
                 reset_usb_boot(0, 0);
                 while(1);
             }
         }
-        else if (KeytoESP == fabgl::VK_PAGEUP) {
+        else if (hkIdx == Config::HK_GIGASCREEN) {
             if (Config::gigascreen_enabled)
             {
                 Config::gigascreen_onoff = (Config::gigascreen_onoff + 1) % 3; // Off -> On -> Auto -> Off
@@ -1022,18 +1032,15 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 osdCenteredMsg(menu, LEVEL_INFO, 500);
                 Config::save();
             }
-        }
-    } else {
-        if (KeytoESP == fabgl::VK_TILDE || KeytoESP == fabgl::VK_NUMLOCK) {
-            ESPectrum::maxSpeed = !ESPectrum::maxSpeed;
-            std::string menu = ESPectrum::maxSpeed ? OSD_MAXSPEED_ON[Config::lang] : OSD_MAXSPEED_OFF[Config::lang];
-            osdCenteredMsg(menu, LEVEL_INFO, 500);
-            click();
-        }else if (KeytoESP == fabgl::VK_PAUSE) {
-            CPU::paused = !CPU::paused;
-            click();
-        }
-        else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F2) {
+        } else if (hkIdx == Config::HK_MAX_SPEED || KeytoESP == fabgl::VK_NUMLOCK) {
+        ESPectrum::maxSpeed = !ESPectrum::maxSpeed;
+        std::string menu = ESPectrum::maxSpeed ? OSD_MAXSPEED_ON[Config::lang] : OSD_MAXSPEED_OFF[Config::lang];
+        osdCenteredMsg(menu, LEVEL_INFO, 500);
+        click();
+        } else if (hkIdx == Config::HK_PAUSE) {
+        CPU::paused = !CPU::paused;
+        click();
+        } else if (FileUtils::fsMount && hkIdx == Config::HK_LOAD_SNA) {
             menu_level = 0;
             menu_saverect = false;
             string mFile = fileDialog(FileUtils::SNA_Path, MENU_SNA_TITLE[Config::lang], DISK_SNAFILE, 51, 22);
@@ -1056,8 +1063,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 }
             }
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
-        }
-        else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F3) {
+        } else if (FileUtils::fsMount && hkIdx == Config::HK_PERSIST_LOAD) {
             menu_level = 0;
             menu_curopt = 1;
             // Persist Load
@@ -1081,8 +1087,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 } else break;
             }
             if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
-        }
-        else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F4) {
+        } else if (FileUtils::fsMount && hkIdx == Config::HK_PERSIST_SAVE) {
             // Persist Save
             menu_level = 0;
             menu_curopt = 1;
@@ -1111,8 +1116,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 }
             }
             if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
-        }
-        else if (FileUtils::fsMount && KeytoESP == fabgl::VK_F5) {
+        } else if (FileUtils::fsMount && hkIdx == Config::HK_LOAD_ANY) {
             menu_level = 0;
             menu_saverect = false;
             string mFile;
@@ -1122,7 +1126,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
 
             // Loop to allow re-opening fileDialog after ZIP cancel
             f5_retry:
-            mFile = fileDialog(FileUtils::ALL_Path, MENU_ALL_TITLE[Config::lang], DISK_ALLFILE, 51, 22);
+            mFile = fileDialog(FileUtils::ALL_Path, MENU_ALL_TITLE[Config::lang], DISK_ALLFILE, 52, 22);
             if (mFile != "") {
                 // X prefix = extract ZIP to current folder
                 if (mFile[0] == 'X') {
@@ -1216,8 +1220,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
 #endif
             }
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
-        }
-        else if (KeytoESP == fabgl::VK_F6) {
+        } else if (hkIdx == Config::HK_TAPE_PLAY) {
             // Start / Stop .tap reproduction
             if (Tape::tapeStatus == TAPE_STOPPED) {
                 if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
@@ -1227,8 +1230,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
             }
             click();
-        }
-        else if (KeytoESP == fabgl::VK_F7) {
+        } else if (hkIdx == Config::HK_TAPE_BROWSER) {
             // Tape Browser
             if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             if (Tape::tapeFileName=="none") {
@@ -1244,8 +1246,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 }
             }
             if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
-        }
-        else if (KeytoESP == fabgl::VK_F8) {
+        } else if (hkIdx == Config::HK_STATS) {
             // Show / hide OnScreen Stats
             {
                 uint8_t mode = VIDEO::OSD & 0x03;
@@ -1285,8 +1286,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 }
             }
             click();
-        }
-        else if (KeytoESP == fabgl::VK_F9 || KeytoESP == fabgl::VK_VOLUMEDOWN) {
+        } else if (hkIdx == Config::HK_VOL_DOWN) {
             if (VIDEO::OSD == 0) {
                 if (Config::aspect_16_9)
                     VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
@@ -1326,8 +1326,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             for (int i = 0; i < ESPectrum::aud_volume + 16; i++) {
                 VIDEO::vga.fillRect(x + 26 + (i * 7) , y + 1, 6, 7, zxColor( 7, 0));
             }
-        }
-        else if (KeytoESP == fabgl::VK_F10 || KeytoESP == fabgl::VK_VOLUMEUP) {
+        } else if (hkIdx == Config::HK_VOL_UP) {
             if (VIDEO::OSD == 0) {
                 if (Config::aspect_16_9)
                     VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
@@ -1367,24 +1366,21 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             for (int i = 0; i < ESPectrum::aud_volume + 16; i++) {
                 VIDEO::vga.fillRect(x + 26 + (i * 7) , y + 1, 6, 7, zxColor( 7, 0));
             }
-        }
-        else if (KeytoESP == fabgl::VK_F11) { // Hard reset
+        } else if (hkIdx == Config::HK_HARD_RESET) { // Hard reset
             if (Config::ram_file != NO_RAM_FILE) {
                 Config::ram_file = NO_RAM_FILE;
             }
             Config::last_ram_file = NO_RAM_FILE;
             if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             ESPectrum::reset();
-        }
-        else if (KeytoESP == fabgl::VK_F12) { // ESP32 reset
+        } else if (hkIdx == Config::HK_REBOOT) { // ESP32 reset
             if (confirmReboot(OSD_DLG_REBOOT)) {
                 if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
                 Config::ram_file = NO_RAM_FILE;
                 Config::save();
                 esp_hard_reset();
             }
-        }
-        else if (KeytoESP == fabgl::VK_F1) {
+        } else if (hkIdx == Config::HK_MAIN_MENU) {
           if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
           menu_curopt = 1;
           while(1) {
@@ -1440,7 +1436,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         menu_curopt = 1;
                         while(1) {
                             menu_level = 2;
-                            uint8_t tap_num = menuRun(FileUtils::fsMount ? MENU_TAPE[Config::lang] : MENU_TAPE_NO_SD[Config::lang]);
+                            uint8_t tap_num = menuRun(expandHotkeys(FileUtils::fsMount ? MENU_TAPE[Config::lang] : MENU_TAPE_NO_SD[Config::lang]));
                             if (tap_num > 0) {
                                 if (!FileUtils::fsMount) ++tap_num;
                                 menu_level = 3;
@@ -1888,7 +1884,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         menu_curopt = 1;
                         while(1) {
                             menu_level = 2;
-                            uint8_t sna_mnu = menuRun(MENU_SNA[Config::lang]);
+                            uint8_t sna_mnu = menuRun(expandHotkeys(MENU_SNA[Config::lang]));
                             if (sna_mnu > 0) {
                                 menu_level = 3;
                                 menu_saverect = true;
@@ -3028,7 +3024,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     FILINFO fi;
                     bool mos = f_stat(MOS_FILE, &fi) == FR_OK;
                     // Reset
-                    uint8_t opt2 = menuRun(mos ? MENU_RESET_MOS[Config::lang] : MENU_RESET[Config::lang]);
+                    uint8_t opt2 = menuRun(expandHotkeys(mos ? MENU_RESET_MOS[Config::lang] : MENU_RESET[Config::lang]));
                     if (opt2 == 1) {
                         // Soft
                         if (Config::last_ram_file != NO_RAM_FILE) {
@@ -3858,6 +3854,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         }
                                     }
                                 }
+                                else if (options_num == 7) {
+                                    // Hot Keys
+                                    OSD::hotkeyDialog();
+                                    menu_curopt = 7;
+                                    menu_level = 2;
+                                    menu_saverect = false;
+                                }
                             } else {
                                 menu_curopt = 5;
                                 break;
@@ -3869,7 +3872,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         menu_saverect = true;
                         while (1) {
                             // Update
-                            string Mnustr = FileUtils::fsMount ? MENU_UPDATE_FW[Config::lang] : MENU_UPDATE_FW_NO_SD[Config::lang];
+                            string Mnustr = expandHotkeys(FileUtils::fsMount ? MENU_UPDATE_FW[Config::lang] : MENU_UPDATE_FW_NO_SD[Config::lang]);
                             uint8_t opt2 = menuRun(Mnustr);
                             if (opt2) {
                                 // Update
@@ -3912,7 +3915,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 while(1) {
                     menu_level = 1;
                     // Debug
-                    uint8_t opt2 = menuRun(MENU_DEBUG_EN);
+                    uint8_t opt2 = menuRun(expandHotkeys(MENU_DEBUG_EN));
                     if (opt2 == 1) {
                         OSD::osdDebug();
                         if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
@@ -3944,23 +3947,86 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     }
                 }
             }
-            else if (opt == 9) { // Help
-                // Help
-                drawOSD(true);
-                osdAt(2, 0);
-                VIDEO::vga.setTextColor(zxColor(7, 0), zxColor(1, 0));
-                VIDEO::vga.print(Config::lang ? OSD_HELP_ES : OSD_HELP_EN);
+            else if (opt == 9) { // Help — dynamic from hotkeys
+                // Build help lines from current hotkey bindings
+                auto descs = Config::lang ? hkDescES : hkDescEN;
+                const int maxCols = osdMaxCols();
+                struct HelpLine { char text[42]; };
+                static HelpLine lines[Config::HK_COUNT + 2];
+                int nlines = 0;
+                const int descCol = 16; // column where description starts
+                auto addLine = [&](const char *key, const char *desc) {
+                    char buf[42];
+                    int pos = snprintf(buf, sizeof(buf), " [%s]", key);
+                    while (pos < descCol) buf[pos++] = ' ';
+                    snprintf(buf + pos, sizeof(buf) - pos, "%s", desc);
+                    int len = strlen(buf);
+                    if (len < maxCols) { memset(buf + len, ' ', maxCols - len); buf[maxCols] = 0; }
+                    else buf[maxCols] = 0;
+                    memcpy(lines[nlines++].text, buf, sizeof(lines[0].text));
+                };
+                for (int i = 0; i < Config::HK_COUNT; i++) {
+                    if (Config::hotkeys[i].vk == (uint16_t)fabgl::VK_NONE) continue;
+                    string binding = hkBindingText(i);
+                    addLine(binding.c_str(), descs[i]);
+                }
+                addLine("PrtScr", Config::lang ? "Captura BMP" : "BMP capture");
+                addLine("ScrollLk", Config::lang ? "Cursor=Joy" : "Cursor=Joy");
+
+                // Content area: skip 2 rows top (header), 2 rows bottom (footer)
+                const int topRow = 2;
+                const int maxVisible = osdMaxRows() - 4;
+                int scroll = 0;
+
+                auto drawHelp = [&]() {
+                    drawOSD(true);
+                    // Content
+                    VIDEO::vga.setTextColor(zxColor(7, 0), zxColor(1, 0));
+                    for (int i = 0; i < maxVisible && (scroll + i) < nlines; i++) {
+                        osdAt(topRow + i, 0);
+                        VIDEO::vga.print(lines[scroll + i].text);
+                    }
+                    // Scrollbar on the right edge
+                    if (nlines > maxVisible) {
+                        int ox = osdInsideX() + (maxCols - 1) * OSD_FONT_W;
+                        int oy = osdInsideY() + topRow * OSD_FONT_H;
+                        int barH = maxVisible * OSD_FONT_H;
+                        // Track
+                        VIDEO::vga.fillRect(ox, oy, OSD_FONT_W, barH, zxColor(7, 0));
+                        // Thumb
+                        int thumbH = (maxVisible * barH) / nlines;
+                        if (thumbH < 3) thumbH = 3;
+                        int thumbY = (scroll * barH) / nlines;
+                        if (thumbY + thumbH > barH) thumbY = barH - thumbH;
+                        VIDEO::vga.fillRect(ox + 1, oy + thumbY, OSD_FONT_W - 2, thumbH, zxColor(0, 0));
+                        // Arrows
+                        osdAt(topRow - 1, maxCols - 1);
+                        VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 0));
+                        VIDEO::vga.print(scroll > 0 ? "+" : "-");
+                        osdAt(topRow + maxVisible, maxCols - 1);
+                        VIDEO::vga.print(scroll + maxVisible < nlines ? "+" : "-");
+                    }
+                };
+                drawHelp();
                 while (1) {
                     if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
                         if (ESPectrum::readKbd(&Nextkey)) {
-                            if(!Nextkey.down) continue;
+                            if (!Nextkey.down) continue;
                             if (is_enter(Nextkey.vk) || is_back(Nextkey.vk)) break;
+                            if (is_down(Nextkey.vk) && scroll + maxVisible < nlines) {
+                                scroll++;
+                                drawHelp();
+                            }
+                            if (is_up(Nextkey.vk) && scroll > 0) {
+                                scroll--;
+                                drawHelp();
+                            }
                         }
                     }
                     sleep_ms(5);
                 }
                 click();
-                if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
+                if (VIDEO::OSD) OSD::drawStats();
                 if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                 return;
             }
@@ -4160,8 +4226,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
           }
           if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         }
-    }
 }
+
 
 // Shows a red panel with error text
 void OSD::errorPanel(string errormsg) {
@@ -7261,8 +7327,12 @@ case fabgl::VK_SPACE:
     return "Brk/Space";
 case fabgl::VK_LSHIFT:
     return "  Caps   ";
+case fabgl::VK_RSHIFT:
+    return " RShift  ";
 case fabgl::VK_LCTRL:
-    return "SymbShift";
+    return "  LCtrl  ";
+case fabgl::VK_RCTRL:
+    return "  RCtrl  ";
 case fabgl::VK_F1:
     return "   F1    ";
 case fabgl::VK_F2:
@@ -7315,6 +7385,52 @@ case fabgl::VK_DPAD_SELECT:
     return " Joy.Sel ";
 case fabgl::VK_DPAD_START:
     return "Joy.Start";
+case fabgl::VK_HOME:
+    return "  Home   ";
+case fabgl::VK_END:
+    return "   End   ";
+case fabgl::VK_PAGEUP:
+    return "  PgUp   ";
+case fabgl::VK_PAGEDOWN:
+    return "  PgDn   ";
+case fabgl::VK_INSERT:
+    return " Insert  ";
+case fabgl::VK_DELETE:
+    return " Delete  ";
+case fabgl::VK_NUMLOCK:
+    return " NumLock ";
+case fabgl::VK_TAB:
+    return "   Tab   ";
+case fabgl::VK_TILDE:
+    return "    ~    ";
+case fabgl::VK_GRAVEACCENT:
+    return "    `    ";
+case fabgl::VK_SLASH:
+    return "    /    ";
+case fabgl::VK_BACKSLASH:
+    return "    \\    ";
+case fabgl::VK_SEMICOLON:
+    return "    ;    ";
+case fabgl::VK_QUOTE:
+    return "    '    ";
+case fabgl::VK_COMMA:
+    return "    ,    ";
+case fabgl::VK_PERIOD:
+    return "    .    ";
+case fabgl::VK_MINUS:
+    return "    -    ";
+case fabgl::VK_EQUALS:
+    return "    =    ";
+case fabgl::VK_LEFTBRACKET:
+    return "    [    ";
+case fabgl::VK_RIGHTBRACKET:
+    return "    ]    ";
+case fabgl::VK_VOLUMEUP:
+    return "  Vol+   ";
+case fabgl::VK_VOLUMEDOWN:
+    return "  Vol-   ";
+case fabgl::VK_VOLUMEMUTE:
+    return "  Mute   ";
 default:
     return "  None   ";
 }
@@ -7406,6 +7522,307 @@ void DrawjoyControls(unsigned short x, unsigned short y) {
     VIDEO::vga.circle(x + joyControl[11][0] + 3, y + joyControl[11][1] + 3, 6, joyControl[11][2]);
     VIDEO::vga.print("Z");
 
+}
+
+// Returns a short display string for a hotkey binding, left-aligned, e.g. "ALT+F1", "F2", "None"
+static string hkBindingText(int idx) {
+    const Config::HotkeyBinding &b = Config::hotkeys[idx];
+    if (b.vk == (uint16_t)fabgl::VK_NONE) return "None";
+    // vkToText returns a 9-char padded string; trim it
+    string kname = vkToText(b.vk);
+    size_t s = kname.find_first_not_of(' ');
+    size_t e = kname.find_last_not_of(' ');
+    string trimmed = (s == string::npos) ? "None" : kname.substr(s, e - s + 1);
+    string text;
+    if (b.ctrl && b.alt) text = "C+A+" + trimmed;
+    else if (b.ctrl)      text = "C+" + trimmed;
+    else if (b.alt)      text = "A+" + trimmed;
+    else                 text = trimmed;
+    return text;
+}
+
+static const char* hkIdNames[Config::HK_COUNT] = {
+    "HK_MAIN_MENU", "HK_LOAD_SNA", "HK_PERSIST_LOAD", "HK_PERSIST_SAVE",
+    "HK_LOAD_ANY", "HK_TAPE_PLAY", "HK_TAPE_BROWSER", "HK_STATS",
+    "HK_VOL_DOWN", "HK_VOL_UP", "HK_HARD_RESET", "HK_REBOOT",
+    "HK_MAX_SPEED", "HK_PAUSE", "HK_HW_INFO", "HK_TURBO",
+    "HK_DEBUG", "HK_DISK", "HK_NMI", "HK_RESET_TO",
+    "HK_USB_BOOT", "HK_GIGASCREEN", "HK_BP_LIST", "HK_JUMP_TO",
+    "HK_POKE", "HK_VIDMODE_60", "HK_VIDMODE_50"
+};
+
+static string expandHotkeys(const char* menu) {
+    string s(menu);
+    size_t pos = 0;
+    while ((pos = s.find('{', pos)) != string::npos) {
+        size_t end = s.find('}', pos);
+        if (end == string::npos) break;
+        string token = s.substr(pos + 1, end - pos - 1);
+        string replacement;
+        for (int i = 0; i < Config::HK_COUNT; i++) {
+            if (token == hkIdNames[i]) {
+                string b = hkBindingText(i);
+                if (b != "None") replacement = b + " ";
+                break;
+            }
+        }
+        s.replace(pos, end - pos + 1, replacement);
+        pos += replacement.length();
+    }
+    return s;
+}
+
+// EN
+const char* hkDescEN[Config::HK_COUNT] = {
+    "Main menu",            // HK_MAIN_MENU
+    "Load (SNA,Z80,P)",     // HK_LOAD_SNA
+    "Load snapshot",        // HK_PERSIST_LOAD
+    "Save snapshot",        // HK_PERSIST_SAVE
+    "Open file",            // HK_LOAD_ANY
+    "Play/Stop tape",       // HK_TAPE_PLAY
+    "Tape browser",         // HK_TAPE_BROWSER
+    "CPU/Tape stats",       // HK_STATS
+    "Volume down",          // HK_VOL_DOWN
+    "Volume up",            // HK_VOL_UP
+    "Hard reset",           // HK_HARD_RESET
+#if PICO_RP2040
+    "Reboot RP2040",        // HK_REBOOT
+#else
+    "Reboot RP2350",        // HK_REBOOT
+#endif
+    "Max speed toggle",     // HK_MAX_SPEED
+    "Pause",                // HK_PAUSE
+    "Hardware info",        // HK_HW_INFO
+    "Turbo mode",           // HK_TURBO
+    "Debug",                // HK_DEBUG
+    "Insert disk",          // HK_DISK
+    "NMI",                  // HK_NMI
+    "Reset to...",          // HK_RESET_TO
+    "USB Boot mode",        // HK_USB_BOOT
+    "Gigascreen toggle",    // HK_GIGASCREEN
+    "Breakpoint list",      // HK_BP_LIST
+    "Jump to address",      // HK_JUMP_TO
+    "Input poke",           // HK_POKE
+    "HDMI 60Hz mode",       // HK_VIDMODE_60
+    "HDMI 50Hz mode",       // HK_VIDMODE_50
+};
+// ES
+const char* hkDescES[Config::HK_COUNT] = {
+    "Menu principal",        // HK_MAIN_MENU
+    "Cargar (SNA,Z80,P)",    // HK_LOAD_SNA
+    "Cargar snapshot",  // HK_PERSIST_LOAD
+    "Guardar snapshot", // HK_PERSIST_SAVE
+    "Abrir fichero",         // HK_LOAD_ANY
+    "Play/Stop cinta",       // HK_TAPE_PLAY
+    "Explorador cinta",      // HK_TAPE_BROWSER
+    "Status CPU/Carga",      // HK_STATS
+    "Bajar volumen",         // HK_VOL_DOWN
+    "Subir volumen",         // HK_VOL_UP
+    "Reset completo",        // HK_HARD_RESET
+#if PICO_RP2040
+    "Resetear RP2040",       // HK_REBOOT
+#else
+    "Resetear RP2350",       // HK_REBOOT
+#endif
+    "Velocidad maxima",      // HK_MAX_SPEED
+    "Pausa",                 // HK_PAUSE
+    "Info hardware",         // HK_HW_INFO
+    "Modo turbo",            // HK_TURBO
+    "Depurar",               // HK_DEBUG
+    "Insertar disco",        // HK_DISK
+    "NMI",                   // HK_NMI
+    "Resetear a...",         // HK_RESET_TO
+    "Modo USB Boot",         // HK_USB_BOOT
+    "Gigascreen",            // HK_GIGASCREEN
+    "Lista breakpoints",     // HK_BP_LIST
+    "Ir a direccion",        // HK_JUMP_TO
+    "Introducir poke",       // HK_POKE
+    "Modo HDMI 60Hz",        // HK_VIDMODE_60
+    "Modo HDMI 50Hz",        // HK_VIDMODE_50
+};
+
+static const int HK_MENU_WIDTH = 32; // usable cols for hotkey menu
+
+static string buildHotkeyMenu() {
+    auto descs = Config::lang ? hkDescES : hkDescEN;
+    string menu = Config::lang ? "Teclas rapidas\n" : "Hot Keys\n";
+    for (int i = 0; i < Config::HK_COUNT; i++) {
+        string left = descs[i];
+        string right = hkBindingText(i);
+        // Pad between left and right so right column is flush right
+        int pad = HK_MENU_WIDTH - (int)left.length() - (int)right.length();
+        if (pad < 1) pad = 1;
+        // Prefix readonly entries with \x01 marker for dimmed rendering
+        if (Config::hotkeys[i].readonly) menu += '\x01';
+        menu += left + string(pad, ' ') + right + '\n';
+    }
+    return menu;
+}
+
+void OSD::hotkeyDialog() {
+    auto Kbd = ESPectrum::PS2Controller.keyboard();
+    fabgl::VirtualKeyItem Nextkey;
+    bool changed = false;
+
+    // Disable joystick mapping so LALT/cursors aren't remapped to DPAD
+    bool savedCursorAsJoy = Config::CursorAsJoy;
+    Config::CursorAsJoy = false;
+
+    menu_level = 3;
+    menu_curopt = 1;
+    menu_saverect = true;
+
+    while (1) {
+        menu_footer = Config::lang
+            ? "F6:Defaults F8:Borrar "
+            : "F6:Defaults F8:Clear";
+        string hmenu = buildHotkeyMenu();
+        uint8_t opt = menuRun(hmenu);
+
+        if (opt == 0) {
+            // Escape: close dialog, save if changed
+            menu_footer = "";
+            if (changed) Config::save();
+            Config::CursorAsJoy = savedCursorAsJoy;
+            return;
+        }
+
+        int idx = opt - 1; // row 1 = title, so opt=1 → first entry
+        if (idx < 0 || idx >= Config::HK_COUNT) continue;
+
+        // Readonly entries: cannot be edited or cleared
+        if (Config::hotkeys[idx].readonly && !menu_rename_pressed) {
+            osdCenteredMsg(
+                Config::lang ? " Solo lectura " : " Read only ",
+                LEVEL_WARN, 800);
+            menu_curopt = opt;
+            menu_saverect = false;
+            continue;
+        }
+
+        // Delete/F8: clear binding for selected entry
+        if (menu_del_pressed) {
+            if (!Config::hotkeys[idx].readonly) {
+                Config::hotkeys[idx] = { (uint16_t)fabgl::VK_NONE, false, false };
+                changed = true;
+            }
+            menu_curopt = opt;
+            menu_saverect = false;
+            continue;
+        }
+
+        // F6: reset all to defaults
+        if (menu_rename_pressed) {
+            uint8_t res = msgDialog(
+                Config::lang ? "Teclas rapidas" : "Hot Keys",
+                Config::lang ? "Restaurar por defecto?" : "Reset to defaults?");
+            if (res == DLG_YES) {
+                Config::initHotkeys();
+                Config::save();
+                changed = false;
+            }
+            menu_curopt = opt;
+            menu_saverect = false;
+            continue;
+        }
+
+        // Enter pressed: capture new key
+        // Save background, show message, restore after capture
+        {
+            string msg = Config::lang ? " Pulsa tecla... (Esc=cancelar) " : " Press key... (Esc=cancel) ";
+            const unsigned short mh = OSD_FONT_H * 3;
+            const unsigned short my = scrAlignCenterY(mh);
+            const unsigned short mw = (msg.length() + 2) * OSD_FONT_W;
+            const unsigned short mx = scrAlignCenterX(mw);
+            VIDEO::SaveRect.save(mx, my, mw, mh);
+            VIDEO::vga.fillRect(mx, my, mw, mh, zxColor(1, 0));
+            VIDEO::vga.setTextColor(zxColor(7, 0), zxColor(1, 0));
+            VIDEO::vga.setFont(Font6x8);
+            VIDEO::vga.setCursor(mx + OSD_FONT_W, my + OSD_FONT_H);
+            VIDEO::vga.print(msg.c_str());
+        }
+
+        // Drain queue (Enter release etc.)
+        while (Kbd->virtualKeyAvailable())
+            Kbd->getNextVirtualKey(&Nextkey);
+
+        // Wait for a real key-down event
+        bool alt = false, ctrl = false;
+        while (1) {
+            sleep_ms(5);
+            if (Kbd->virtualKeyAvailable()) {
+                Kbd->getNextVirtualKey(&Nextkey);
+                if (Nextkey.vk == fabgl::VK_LALT || Nextkey.vk == fabgl::VK_RALT)
+                    alt = Nextkey.down;
+                if (Nextkey.vk == fabgl::VK_LCTRL || Nextkey.vk == fabgl::VK_RCTRL)
+                    ctrl = Nextkey.down;
+                if (!Nextkey.down) continue;
+                fabgl::VirtualKey vk = Nextkey.vk;
+                // Ignore modifier, joystick and menu-navigation keys
+                if (vk == fabgl::VK_LALT || vk == fabgl::VK_RALT ||
+                    vk == fabgl::VK_LCTRL || vk == fabgl::VK_RCTRL ||
+                    vk == fabgl::VK_LSHIFT || vk == fabgl::VK_RSHIFT ||
+                    vk == fabgl::VK_DPAD_FIRE || vk == fabgl::VK_DPAD_ALTFIRE ||
+                    vk == fabgl::VK_DPAD_LEFT || vk == fabgl::VK_DPAD_RIGHT ||
+                    vk == fabgl::VK_DPAD_UP || vk == fabgl::VK_DPAD_DOWN ||
+                    vk == fabgl::VK_DPAD_SELECT || vk == fabgl::VK_DPAD_START ||
+                    vk == fabgl::VK_MENU_LEFT || vk == fabgl::VK_MENU_RIGHT ||
+                    vk == fabgl::VK_MENU_UP || vk == fabgl::VK_MENU_DOWN ||
+                    vk == fabgl::VK_MENU_ENTER || vk == fabgl::VK_MENU_BS ||
+                    vk == fabgl::VK_MENU_HOME)
+                    continue;
+
+                if (vk == fabgl::VK_ESCAPE) {
+                    break;
+                }
+
+                // Only allow non-Spectrum keys (F-keys, navigation, special)
+                if (!((vk >= fabgl::VK_F1 && vk <= fabgl::VK_F12) ||
+                      vk == fabgl::VK_PAUSE || vk == fabgl::VK_PRINTSCREEN ||
+                      vk == fabgl::VK_SCROLLLOCK || vk == fabgl::VK_NUMLOCK ||
+                      vk == fabgl::VK_INSERT ||
+                      vk == fabgl::VK_HOME || vk == fabgl::VK_END ||
+                      vk == fabgl::VK_PAGEUP || vk == fabgl::VK_PAGEDOWN ||
+                      vk == fabgl::VK_TILDE || vk == fabgl::VK_GRAVEACCENT ||
+                      vk == fabgl::VK_VOLUMEUP || vk == fabgl::VK_VOLUMEDOWN ||
+                      vk == fabgl::VK_VOLUMEMUTE ||
+                      vk == fabgl::VK_DELETE || vk == fabgl::VK_BACKSPACE)) {
+                    osdCenteredMsg(
+                        Config::lang ? " Tecla no permitida " : " Key not allowed ",
+                        LEVEL_WARN, 800);
+                    continue;
+                }
+
+                // Conflict check
+                bool conflict = false;
+                for (int i = 0; i < Config::HK_COUNT; i++) {
+                    if (i == idx) continue;
+                    if (Config::hotkeys[i].vk == (uint16_t)vk &&
+                        Config::hotkeys[i].alt  == alt &&
+                        Config::hotkeys[i].ctrl == ctrl) {
+                        conflict = true;
+                        break;
+                    }
+                }
+                if (conflict) {
+                    osdCenteredMsg(
+                        Config::lang ? " Ya asignado! " : " Already assigned! ",
+                        LEVEL_WARN, 1000);
+                    continue;
+                }
+
+                Config::hotkeys[idx] = { (uint16_t)vk, alt, ctrl };
+                changed = true;
+                break;
+            }
+        }
+
+        // Restore background behind "Press key..." message
+        VIDEO::SaveRect.restore_last();
+
+        menu_curopt = opt;
+        menu_saverect = false;
+    }
 }
 
 void OSD::joyDialog(void) {

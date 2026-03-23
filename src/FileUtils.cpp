@@ -287,6 +287,44 @@ void FileUtils::deleteFilesWithExtension(const char *folder_path, const char *ex
     f_closedir(&dir);
 }
 
+bool FileUtils::deleteDirRecursive(const char *path) {
+    // Iterative post-order traversal to avoid stack overflow on deep trees.
+    // pending: dirs to visit (pushed when first seen, popped for deletion after contents cleared)
+    // Two passes per directory: first collect children, then delete the dir itself.
+    // We use a single vector as a worklist; entries prefixed with '\x01' are "delete this dir".
+    vector<string> stack;
+    stack.push_back(string(path));
+
+    vector<string> dirs_to_delete;
+
+    while (!stack.empty()) {
+        string cur = stack.back();
+        stack.pop_back();
+
+        DIR dir;
+        if (f_opendir(&dir, cur.c_str()) != FR_OK) continue;
+
+        FILINFO fno;
+        while (f_readdir(&dir, &fno) == FR_OK && fno.fname[0] != '\0') {
+            string child = cur + "/" + fno.fname;
+            if (fno.fattrib & AM_DIR)
+                stack.push_back(child);
+            else
+                f_unlink(child.c_str());
+        }
+        f_closedir(&dir);
+
+        // Schedule this dir for deletion after all its contents are processed
+        dirs_to_delete.push_back(cur);
+    }
+
+    // Delete directories in reverse order (deepest first)
+    for (int i = (int)dirs_to_delete.size() - 1; i >= 0; i--)
+        f_unlink(dirs_to_delete[i].c_str());
+
+    return true;
+}
+
 // uint16_t FileUtils::countFileEntriesFromDir(String path) {
 //     String entries = getFileEntriesFromDir(path);
 //     unsigned short count = 0;

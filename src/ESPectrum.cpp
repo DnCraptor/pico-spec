@@ -1111,13 +1111,15 @@ IRAM_ATTR void ESPectrum::processKeyboard() {
       Kdown = NextKey.down;
       if ((Kdown) &&
           ((KeytoESP >= fabgl::VK_F1 && KeytoESP <= fabgl::VK_F12) ||
-           KeytoESP == fabgl::VK_PAUSE || KeytoESP == fabgl::VK_NUMLOCK ||
-           KeytoESP == fabgl::VK_TILDE || KeytoESP == fabgl::VK_HOME ||
-           KeytoESP == fabgl::VK_END || KeytoESP == fabgl::VK_INSERT ||
-           KeytoESP == fabgl::VK_DELETE || KeytoESP == fabgl::VK_PAGEUP ||
-           KeytoESP == fabgl::VK_PAGEDOWN || KeytoESP == fabgl::VK_VOLUMEUP ||
-           KeytoESP == fabgl::VK_VOLUMEDOWN ||
-           KeytoESP == fabgl::VK_VOLUMEMUTE)) {
+            KeytoESP == fabgl::VK_PAUSE || KeytoESP == fabgl::VK_PRINTSCREEN ||
+            KeytoESP == fabgl::VK_SCROLLLOCK || KeytoESP == fabgl::VK_NUMLOCK ||
+            KeytoESP == fabgl::VK_INSERT ||
+            KeytoESP == fabgl::VK_HOME || KeytoESP == fabgl::VK_END ||
+            KeytoESP == fabgl::VK_PAGEUP || KeytoESP == fabgl::VK_PAGEDOWN ||
+            KeytoESP == fabgl::VK_TILDE || KeytoESP == fabgl::VK_GRAVEACCENT ||
+            KeytoESP == fabgl::VK_VOLUMEUP || KeytoESP == fabgl::VK_VOLUMEDOWN ||
+            KeytoESP == fabgl::VK_VOLUMEMUTE ||
+            KeytoESP == fabgl::VK_DELETE || KeytoESP == fabgl::VK_BACKSPACE)) {
         int64_t osd_start = esp_timer_get_time();
         OSD::do_OSD(
             KeytoESP,

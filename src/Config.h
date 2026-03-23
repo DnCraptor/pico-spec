@@ -221,6 +221,48 @@ public:
     static void savePendingVideoMode();
     static bool loadPendingVideoMode(uint8_t &hdmi_vm, uint8_t &vga_vm);
     static void clearPendingVideoMode();
+
+    // Hotkey indices
+    enum HotkeyId {
+        HK_MAIN_MENU    =  0,
+        HK_LOAD_SNA     =  1,
+        HK_PERSIST_LOAD =  2,
+        HK_PERSIST_SAVE =  3,
+        HK_LOAD_ANY     =  4,
+        HK_TAPE_PLAY    =  5,
+        HK_TAPE_BROWSER =  6,
+        HK_STATS        =  7,
+        HK_VOL_DOWN     =  8,
+        HK_VOL_UP       =  9,
+        HK_HARD_RESET   = 10,
+        HK_REBOOT       = 11,
+        HK_MAX_SPEED    = 12,
+        HK_PAUSE        = 13,
+        HK_HW_INFO      = 14,
+        HK_TURBO        = 15,
+        HK_DEBUG        = 16,
+        HK_DISK         = 17,
+        HK_NMI          = 18,
+        HK_RESET_TO     = 19,
+        HK_USB_BOOT     = 20,
+        HK_GIGASCREEN   = 21,
+        HK_BP_LIST      = 22,
+        HK_JUMP_TO      = 23,
+        HK_POKE         = 24,
+        HK_VIDMODE_60   = 25,
+        HK_VIDMODE_50   = 26,
+        HK_COUNT        = 27
+    };
+
+    struct HotkeyBinding {
+        uint16_t vk;       // fabgl::VirtualKey cast to uint16_t; 0 = unassigned (VK_NONE)
+        bool     alt;
+        bool     ctrl;
+        bool     readonly; // true = shown in dialog but not editable
+    };
+    static HotkeyBinding hotkeys[HK_COUNT];
+
+    static void initHotkeys();  // fill hotkeys[] with compiled-in defaults
 };
 
 #endif // Config.h

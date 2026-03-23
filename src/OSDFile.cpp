@@ -50,6 +50,7 @@ using namespace std;
 #include <math.h>
 #include "Z80_JLS/z80.h"
 #include "Tape.h"
+#include "wd1793.h"
 #include "ZipExtract.h"
 #include "FileInfo.h"
 
@@ -57,6 +58,8 @@ using namespace std;
 
 #include "Debug.h"
 #include "PinSerialData_595.h"
+
+extern Font Font6x8;
 
 inline static size_t crc(const std::string& s) {
     size_t res = 0;
@@ -254,7 +257,85 @@ int8_t OSD::fdScrollPos;
 int OSD::timeStartScroll;
 int OSD::timeScroll;
 uint8_t OSD::fdCursorFlash;
-bool OSD::fdSearchRefresh;    
+bool OSD::fdSearchRefresh;
+
+// File dialog layout constants
+// Total dialog: FDLG_LIST_COLS + 1 (sep) + FDLG_SIDE_COLS = FDLG_TOTAL_COLS
+static const uint8_t FDLG_LIST_COLS = 36;
+static const uint8_t FDLG_SIDE_COLS = 11;
+static const uint8_t FDLG_TOTAL_COLS = FDLG_LIST_COLS + FDLG_SIDE_COLS;
+// Active list column width — set per-dialog (FDLG_LIST_COLS for DISK_ALLFILE, cols otherwise)
+static uint8_t fd_list_cols = 0;
+
+// Sidebar key labels — 9 chars each (padded), displayed in the right panel
+// activeKey: VK of currently active action (0=none), shown highlighted
+static const struct { fabgl::VirtualKey vk; const char *label; } fd_sidebar_items[] = {
+    { fabgl::VK_F1, "F1 Info   " },
+    { fabgl::VK_F3, "F3 Find   " },
+    { fabgl::VK_F4, "F4 Unzip  " },
+    { fabgl::VK_F6, "F6 Rename " },
+    { fabgl::VK_F7, "F7 MkDir  " },
+    { fabgl::VK_F8, "F8 Del    " },
+    { fabgl::VK_F9, "F9 TRD    " },
+};
+static const int FDLG_SIDE_ITEMS = 7;
+
+// Draw the sidebar panel (right of vertical separator).
+// activeKey: if nonzero, that item is highlighted (action in progress).
+static void fd_DrawSidebar(int ox, int oy, int mf_rows, fabgl::VirtualKey activeKey = fabgl::VK_NONE) {
+    VIDEO::vga.setFont(Font6x8);
+    int sx = ox + 1 + (FDLG_LIST_COLS + 1) * OSD_FONT_W; // pixel x of sidebar
+    // Vertical separator — footer colour
+    for (int row = 1; row <= mf_rows; row++) {
+        VIDEO::vga.setCursor(ox + 1 + FDLG_LIST_COLS * OSD_FONT_W, oy + 1 + row * OSD_FONT_H);
+        VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(5, 0));
+        VIDEO::vga.print("|");
+    }
+    // Sidebar items: same colour as footer (white on blue); active item inverted
+    for (int i = 0; i < FDLG_SIDE_ITEMS; i++) {
+        int row = 1 + i;
+        if (row > mf_rows) break;
+        bool active = (fd_sidebar_items[i].vk == activeKey);
+        VIDEO::vga.setCursor(sx, oy + 1 + row * OSD_FONT_H);
+        if (active)
+            VIDEO::vga.setTextColor(zxColor(5, 0), zxColor(7, 1)); // inverted when active
+        else
+            VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(5, 0)); // white on blue (footer)
+        VIDEO::vga.print(fd_sidebar_items[i].label);
+    }
+    // Fill remaining sidebar rows with footer background
+    for (int row = 1 + FDLG_SIDE_ITEMS; row <= mf_rows; row++) {
+        VIDEO::vga.setCursor(sx, oy + 1 + row * OSD_FONT_H);
+        VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(5, 0));
+        VIDEO::vga.print("          ");
+    }
+}
+
+// Show a label in the footer and run inlineTextEdit for DISK_ALLFILE dialogs.
+// Returns the entered string (or "\x1B" for Escape, "" for empty+Enter).
+// Restores the footer (status bar background) after editing.
+static string fd_FooterTextEdit(int ox, int oy, int mfrows_val, int cols_val, const char *label, const string &initial) {
+    int footerRow = mfrows_val;
+    VIDEO::vga.setFont(Font6x8);
+    VIDEO::vga.setCursor(ox + 1, oy + 1 + footerRow * OSD_FONT_H);
+    VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(5, 0)); // white on blue (footer)
+    int labelLen = strlen(label);
+    VIDEO::vga.print(label);
+    int inputCols = cols_val - labelLen - 1;
+    if (inputCols < 4) inputCols = 4;
+    // Pad rest of footer
+    string padded(inputCols, ' ');
+    VIDEO::vga.print(padded.c_str());
+    // Input field starts right after label
+    int ex = ox + 1 + (1 + labelLen) * OSD_FONT_W;
+    int ey = oy + 1 + footerRow * OSD_FONT_H;
+    string result = OSD::inlineTextEdit(ex, ey, inputCols, initial);
+    // Restore footer (status bar background)
+    VIDEO::vga.setCursor(ox + 1, oy + 1 + footerRow * OSD_FONT_H);
+    VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(5, 0));
+    VIDEO::vga.print(string(cols_val, ' ').c_str());
+    return result;
+}
 
 size_t fread(uint8_t* v, size_t sz1, size_t sz2, FIL& f);
 int fseek (FIL* stream, long offset, int origin);
@@ -289,7 +370,9 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
     }
 
     // Columns and Rows
-    cols = mfcols;
+    // DISK_ALLFILE uses a sidebar layout: total cols = list + sep + sidebar
+    cols = (ftype == DISK_ALLFILE) ? FDLG_TOTAL_COLS : mfcols;
+    fd_list_cols = (ftype == DISK_ALLFILE) ? FDLG_LIST_COLS : cols;
     mf_rows = mfrows + (Config::aspect_16_9 ? 0 : 1);
 
     if (FileUtils::fileTypes[ftype].focus > mf_rows - 1) {
@@ -324,17 +407,20 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
 
     menu = title + "\n" + fdir + "\n";
     WindowDraw(); // Draw menu outline
+    if (ftype == DISK_ALLFILE)
+        fd_DrawSidebar(x, y, mf_rows);
     fd_PrintRow(1, IS_INFO, filexts);    // Path
 
-    // Draw blank rows
+    // Draw blank rows (list area only for DISK_ALLFILE)
+    uint8_t listCols = (ftype == DISK_ALLFILE) ? FDLG_LIST_COLS : cols;
     uint8_t row = 2;
     for (; row < mf_rows; row++) {
         VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
         menuAt(row, 0);
-        VIDEO::vga.print(std::string(cols, ' ').c_str());
+        VIDEO::vga.print(std::string(listCols, ' ').c_str());
     }
 
-    // Print status bar
+    // Print status bar (full width)
     menuAt(row, 0);
     VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(5, 0));
     VIDEO::vga.print(std::string(cols, ' ').c_str());    
@@ -449,13 +535,9 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                     menuAt(mfrows + (Config::aspect_16_9 ? 0 : 1), cols - 13);
                     VIDEO::vga.print("             ");
                 }
-                // Footer legend
-                if (ftype == DISK_ALLFILE && !FileUtils::fileTypes[ftype].fdMode) {
-                    menuAt(mfrows + (Config::aspect_16_9 ? 0 : 1), 1);
-                    VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(5, 0));
-                    VIDEO::vga.print("F3:Find F4:Unzip F7:View F8:Delete");
-                }
-
+                // Redraw search field when a key is pressed (fdCursorFlash reset separately)
+                if (FileUtils::fileTypes[ftype].fdMode)
+                    fdCursorFlash = 7; // force immediate redraw on next idle tick
                 if (ESPectrum::readKbd(&Menukey)) {
                     if (!Menukey.down) continue;
                     // F4 on a ZIP file = extract ZIP to current folder
@@ -475,8 +557,69 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         click();
                         continue;
                     }
-                    // F7 = view file info (F5 dialog only)
+                    // F7 = create new directory
                     if (Menukey.vk == fabgl::VK_F7 && ftype == DISK_ALLFILE) {
+                        fd_DrawSidebar(x, y, mf_rows, fabgl::VK_F7);
+                        string newname = fd_FooterTextEdit(x, y, mfrows + (Config::aspect_16_9 ? 0 : 1), cols, "MkDir: ", "");
+                        if (newname != "\x1B" && !newname.empty()) {
+                            string fullpath = fdir + newname;
+                            f_mkdir(fullpath.c_str());
+                            FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
+                            click();
+                            break;
+                        }
+                        fd_DrawSidebar(x, y, mf_rows);
+                        fd_Redraw(title, fdir, ftype, filexts);
+                        click();
+                        continue;
+                    }
+                    // F6 = rename file or folder
+                    if (Menukey.vk == fabgl::VK_F6 && ftype == DISK_ALLFILE) {
+                        string filedir = rowGet(menu, FileUtils::fileTypes[ftype].focus);
+                        rtrim(filedir);
+                        bool isDir = filedir[0] == DIR_MARKER;
+                        if (isDir) filedir = filedir.substr(1);
+                        if (!filedir.empty() && !(isDir && filedir == "..")) {
+                            fd_DrawSidebar(x, y, mf_rows, fabgl::VK_F6);
+                            string newname = fd_FooterTextEdit(x, y, mfrows + (Config::aspect_16_9 ? 0 : 1), cols, "Rename: ", filedir);
+                            if (newname != "\x1B" && !newname.empty() && newname != filedir) {
+                                string oldpath = fdir + filedir;
+                                string newpath = fdir + newname;
+                                f_rename(oldpath.c_str(), newpath.c_str());
+                                FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
+                                click();
+                                break;
+                            }
+                            fd_DrawSidebar(x, y, mf_rows);
+                            fd_Redraw(title, fdir, ftype, filexts);
+                        }
+                        click();
+                        continue;
+                    }
+                    // F9 = create new empty TRD disk image
+                    if (Menukey.vk == fabgl::VK_F9 && ftype == DISK_ALLFILE) {
+                        fd_DrawSidebar(x, y, mf_rows, fabgl::VK_F9);
+                        string newname = fd_FooterTextEdit(x, y, mfrows + (Config::aspect_16_9 ? 0 : 1), cols, "TRD: ", "");
+                        if (newname != "\x1B" && !newname.empty()) {
+                            string fname = newname;
+                            if (fname.size() < 4 || fname.substr(fname.size() - 4) != ".trd")
+                                fname += ".trd";
+                            string fullpath = fdir + fname;
+                            OSD::progressDialog(OSD_FILE_CREATING_TRD[Config::lang], fname, 0, 0);
+                            rvmWD1793CreateEmptyTRD(fullpath.c_str());
+                            OSD::progressDialog("", "", 100, 1);
+                            OSD::progressDialog("", "", 0, 2);
+                            FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
+                            click();
+                            break;
+                        }
+                        fd_DrawSidebar(x, y, mf_rows);
+                        fd_Redraw(title, fdir, ftype, filexts);
+                        click();
+                        continue;
+                    }
+                    // F1 = view file info
+                    if (Menukey.vk == fabgl::VK_F1 && ftype == DISK_ALLFILE) {
                         string filedir = rowGet(menu, FileUtils::fileTypes[ftype].focus);
                         if (filedir[0] != DIR_MARKER) {
                             rtrim(filedir);
@@ -490,26 +633,48 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         click();
                         continue;
                     }
-                    // F8 = delete file with confirmation
+                    // F8 = delete file or folder with confirmation
                     if ((Menukey.vk == fabgl::VK_F8 || Menukey.vk == fabgl::VK_DELETE)
                         && ftype == DISK_ALLFILE) {
                         string filedir = rowGet(menu, FileUtils::fileTypes[ftype].focus);
-                        if (filedir[0] != DIR_MARKER) {
-                            rtrim(filedir);
+                        rtrim(filedir);
+                        bool isDir = filedir[0] == DIR_MARKER;
+                        if (isDir) filedir = filedir.substr(1); // strip DIR_MARKER
+                        // Don't allow deleting ".." entry
+                        if (!filedir.empty() && !(isDir && filedir == "..")) {
                             string fullpath = fdir + filedir;
-                            if (OSD::msgDialog(OSD_FILE_DELETE_TITLE[Config::lang], filedir) == DLG_YES) {
-                                f_unlink(fullpath.c_str());
+                            const char *dlgTitle = isDir
+                                ? OSD_FILE_DELETE_DIR_TITLE[Config::lang]
+                                : OSD_FILE_DELETE_TITLE[Config::lang];
+                            if (OSD::msgDialog(dlgTitle, filedir) == DLG_YES) {
+                                if (isDir) {
+                                    OSD::progressDialog(OSD_FILE_DELETING[Config::lang], filedir, 0, 0);
+                                    FileUtils::deleteDirRecursive(fullpath.c_str());
+                                    OSD::progressDialog("", "", 100, 1);
+                                    OSD::progressDialog("", "", 0, 2);
+                                } else {
+                                    f_unlink(fullpath.c_str());
+                                }
                                 FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
                                 click();
                                 break; // re-scan directory
                             }
                             // Redraw after dialog
+                            if (ftype == DISK_ALLFILE) fd_DrawSidebar(x, y, mf_rows);
                             fd_Redraw(title, fdir, ftype, filexts);
                         }
                         continue;
                     }
                     // Search first ocurrence of letter if we're not on that letter yet
                     if (((Menukey.vk >= fabgl::VK_a) && (Menukey.vk <= fabgl::VK_Z)) || ((Menukey.vk >= fabgl::VK_0) && (Menukey.vk <= fabgl::VK_9))) {
+                        if (FileUtils::fileTypes[ftype].fdMode && Menukey.ASCII >= 32 && Menukey.ASCII < 127) {
+                            if (FileUtils::fileTypes[ftype].fileSearch.size() < 10) {
+                                FileUtils::fileTypes[ftype].fileSearch += (char)toupper(Menukey.ASCII);
+                                fdSearchRefresh = true;
+                                click();
+                            }
+                            continue;
+                        }
                         int fsearch;
                         if (Menukey.vk<=fabgl::VK_9)
                             fsearch = Menukey.vk + 46;
@@ -551,22 +716,21 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                     } else if (Menukey.vk == fabgl::VK_F3) {
                         FileUtils::fileTypes[ftype].fdMode ^= 1;
                         if (FileUtils::fileTypes[ftype].fdMode) {
-                            // Clear footer legend before showing search input
+                            fdCursorFlash = 7; // next tick (++&0x7==0) draws immediately
+                            // Entering search mode — highlight F3 in sidebar, clear footer
+                            if (ftype == DISK_ALLFILE) fd_DrawSidebar(x, y, mf_rows, fabgl::VK_F3);
                             menuAt(mfrows + (Config::aspect_16_9 ? 0 : 1), 1);
                             VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(5, 0));
                             VIDEO::vga.print(std::string(cols - 2, ' ').c_str());
-                            fdCursorFlash = 63;
-                            fdSearchRefresh = FileUtils::fileTypes[ftype].fileSearch != "";
                         } else {
-                            // Clear search area and redraw footer legend
+                            // Leaving search mode — restore sidebar and full list
+                            if (ftype == DISK_ALLFILE) fd_DrawSidebar(x, y, mf_rows);
                             menuAt(mfrows + (Config::aspect_16_9 ? 0 : 1), 1);
                             VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(5, 0));
-                            if (ftype == DISK_ALLFILE)
-                                VIDEO::vga.print("F3:Find F4:Unzip F7:View F8:Delete");
-                            else
-                                VIDEO::vga.print("      " "          ");
+                            VIDEO::vga.print(std::string(cols - 2, ' ').c_str());
                             if (FileUtils::fileTypes[ftype].fileSearch != "") {
-                                real_rows = ndirs + elements + 2; // Add 2 for title and status bar
+                                FileUtils::fileTypes[ftype].fileSearch = "";
+                                real_rows = ndirs + elements + 2;
                                 virtual_rows = (real_rows > mf_rows ? mf_rows : real_rows);
                                 last_begin_row = last_focus = 0;
                                 FileUtils::fileTypes[ftype].focus = 2;
@@ -645,8 +809,8 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                                 FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
                                 click();
                                 break;
-                            }       
-                        }                  
+                            }
+                        }
                     } else if (is_enter_fd(Menukey.vk)) {
                         string filedir = rowGet(menu, FileUtils::fileTypes[ftype].focus);
                         if (filedir[0] == DIR_MARKER) {
@@ -677,17 +841,10 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             VIDEO::SaveRect.restore_last();
                             menu_saverect = false;
                         }
-                        if (FileUtils::fileTypes[ftype].fdMode) {
-                            if (FileUtils::fileTypes[ftype].fileSearch.length()) {
-                                FileUtils::fileTypes[ftype].fileSearch.pop_back();
-                                fdSearchRefresh = true;
-                            }
-                        } else {
-                            if (fdir != "/") {
-                                fdir.pop_back();
-                                fdir = fdir.substr(0,fdir.find_last_of("/") + 1);
-                                FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
-                            }
+                        if (fdir != "/") {
+                            fdir.pop_back();
+                            fdir = fdir.substr(0,fdir.find_last_of("/") + 1);
+                            FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
                         }
                         click();
                         filenames.close();
@@ -710,19 +867,6 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
             }
 
             if (FileUtils::fileTypes[ftype].fdMode) {
-                if ((++fdCursorFlash & 0xf) == 0) {
-                    menuAt(mfrows + (Config::aspect_16_9 ? 0 : 1), 1);
-                    VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(5, 0));
-                    VIDEO::vga.print(Config::lang ? "Busq: " : "Find: ");
-                    VIDEO::vga.print(FileUtils::fileTypes[ftype].fileSearch.c_str());
-                    if (fdCursorFlash > 63) {
-                        VIDEO::vga.setTextColor(zxColor(5, 0), zxColor(7, 1));
-                        if (fdCursorFlash == 128) fdCursorFlash = 0;
-                    }
-                    VIDEO::vga.print("K");
-                    VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(5, 0));
-                    VIDEO::vga.print(std::string(10 - FileUtils::fileTypes[ftype].fileSearch.size(), ' ').c_str());
-                }
                 if (fdSearchRefresh) {
                     // Recalc items number
                     unsigned int foundcount = 0;
@@ -758,6 +902,31 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         fd_Redraw(title, fdir, ftype, filexts);
                     }
                     fdSearchRefresh = false;
+                }
+                // Blink cursor in search field — redraw every tick, cursor blinks via fdCursorFlash
+                if ((++fdCursorFlash & 0x7) == 0) {
+                    const char *label = Config::lang ? "Busq: " : "Find: ";
+                    int labelLen = strlen(label);
+                    int footerRow = mfrows + (Config::aspect_16_9 ? 0 : 1);
+                    menuAt(footerRow, 1);
+                    VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(5, 0));
+                    VIDEO::vga.print(label);
+                    const string &srch = FileUtils::fileTypes[ftype].fileSearch;
+                    // Field width: fill footer up to the counter area (cols-2 - labelLen chars)
+                    int fieldLen = cols - 1 - labelLen;
+                    int cur = (int)srch.size();
+                    bool cursorOn = (fdCursorFlash & 0x20) == 0; // ~160ms on/off at 5ms*8 ticks
+                    for (int p = 0; p < fieldLen; p++) {
+                        char ch = (p < cur) ? srch[p] : ' ';
+                        bool isCursor = (p == cur);
+                        if (isCursor && cursorOn)
+                            VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(1, 1));
+                        else
+                            VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
+                        char s[2] = { ch, 0 };
+                        VIDEO::vga.print(s);
+                    }
+                    if (fdCursorFlash >= 128) fdCursorFlash = 0;
                 }
             }
             sleep_ms(5);
@@ -824,13 +993,18 @@ void OSD::fd_Redraw(string title, string fdir, uint8_t ftype, const vector<strin
                 fd_PrintRow(row, IS_NORMAL, filexts);
             }
         }
-        if (real_rows > virtual_rows) {        
+        if (real_rows > virtual_rows) {
+            // For sidebar layout, scrollbar goes inside the list area, not full cols
+            uint8_t saved_cols = cols;
+            if (fd_list_cols != cols) cols = fd_list_cols;
             menuScrollBar(FileUtils::fileTypes[ftype].begin_row);
+            cols = saved_cols;
+            if (fd_list_cols != saved_cols) fd_DrawSidebar(x, y, mf_rows);
         } else {
             for (; row < mf_rows; row++) {
                 VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
                 menuAt(row, 0);
-                VIDEO::vga.print(std::string(cols, ' ').c_str());
+                VIDEO::vga.print(std::string(fd_list_cols, ' ').c_str());
             }
         }
         last_focus = FileUtils::fileTypes[ftype].focus;
@@ -850,7 +1024,7 @@ void OSD::fd_PrintRow(uint8_t virtual_row_num, uint8_t line_type, const vector<s
         // Row beyond end of file list — print blank line
         VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
         menuAt(virtual_row_num, 0);
-        VIDEO::vga.print(std::string(cols, ' ').c_str());
+        VIDEO::vga.print(std::string(fd_list_cols, ' ').c_str());
         return;
     }
 
@@ -895,41 +1069,40 @@ void OSD::fd_PrintRow(uint8_t virtual_row_num, uint8_t line_type, const vector<s
 
     VIDEO::vga.print(" ");
 
+    uint8_t lc = fd_list_cols; // effective list width for this dialog
     if (isDir || isExc) {
 
         // Directory
-        if (line.length() <= cols - margin - 6)
-            line = line + std::string(cols - margin - line.length(), ' ');
+        if (line.length() <= (size_t)(lc - margin - 6))
+            line = line + std::string(lc - margin - line.length(), ' ');
         else
             if (line_type == IS_FOCUSED) {
                 line = line.substr(fdScrollPos);
-                if (line.length() <= cols - margin - 6) {
+                if (line.length() <= (size_t)(lc - margin - 6)) {
                     fdScrollPos = -1;
-                    timeStartScroll = 0; 
+                    timeStartScroll = 0;
                 }
             }
 
-        line = line.substr(0, cols - margin - 6) + (isExc ? "   * " : " <DIR>");
+        line = line.substr(0, lc - margin - 6) + (isExc ? "   * " : " <DIR>");
 
     } else {
 
-        if (line.length() <= cols - margin) {
-            line = line + std::string(cols - margin - line.length(), ' ');
-            line = line.substr(0, cols - margin);
+        if (line.length() <= (size_t)(lc - margin)) {
+            line = line + std::string(lc - margin - line.length(), ' ');
+            line = line.substr(0, lc - margin);
         } else {
             if (line_type == IS_INFO) {
-                // printf("%s %d\n",line.c_str(),line.length() - (cols - margin));
-                line = ".." + line.substr(line.length() - (cols - margin) + 2);
-                // printf("%s\n",line.c_str());                
+                line = ".." + line.substr(line.length() - (lc - margin) + 2);
             } else {
                 if (line_type == IS_FOCUSED) {
                     line = line.substr(fdScrollPos);
-                    if (line.length() <= cols - margin) {
+                    if (line.length() <= (size_t)(lc - margin)) {
                         fdScrollPos = -1;
-                        timeStartScroll = 0;                    
+                        timeStartScroll = 0;
                     }
-                }                   
-                line = line.substr(0, cols - margin);
+                }
+                line = line.substr(0, lc - margin);
             }
         }
 
