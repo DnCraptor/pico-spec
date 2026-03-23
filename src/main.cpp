@@ -610,6 +610,10 @@ fabgl::VirtualKey map_key(uint8_t kc) {
         case HID_KEY_ARROW_DOWN: return fabgl::VirtualKey::VK_DOWN;
         case HID_KEY_ARROW_LEFT: return fabgl::VirtualKey::VK_LEFT;
         case HID_KEY_ARROW_RIGHT: return fabgl::VirtualKey::VK_RIGHT;
+
+        case HID_KEY_VOLUME_UP: return fabgl::VirtualKey::VK_VOLUMEUP;
+        case HID_KEY_VOLUME_DOWN: return fabgl::VirtualKey::VK_VOLUMEDOWN;
+        case HID_KEY_MUTE: return fabgl::VirtualKey::VK_VOLUMEMUTE;
  // TODO:
 //        case HID_KEY_GUI_LEFT: return fabgl::VirtualKey::VK_F1;
 //        case HID_KEY_GUI_RIGHT: return fabgl::VirtualKey::VK_F1;
@@ -680,7 +684,10 @@ void kbdExtraMapping(fabgl::VirtualKey virtualKey, bool pressed) {
         case fabgl::VirtualKey::VK_BACKSPACE: joyPushData(fabgl::VirtualKey::VK_MENU_BS, pressed); break;
         case fabgl::VirtualKey::VK_SPACE:     joyPushData(fabgl::VirtualKey::VK_MENU_ENTER, pressed); break;
         case fabgl::VirtualKey::VK_TAB:       if (Config::TABasfire1) JPAD(fabgl::VirtualKey::VK_DPAD_FIRE, pressed); break;
-        case fabgl::VirtualKey::VK_LALT:      if (Config::CursorAsJoy) JPAD(fabgl::VirtualKey::VK_DPAD_FIRE, pressed); break;
+        case fabgl::VirtualKey::VK_LALT:
+            if (Config::CursorAsJoy) JPAD(fabgl::VirtualKey::VK_DPAD_FIRE, pressed);
+            kbdPushData(fabgl::VirtualKey::VK_LALT, pressed);
+            break;
         case fabgl::VirtualKey::VK_RETURN:    joyPushData(fabgl::VirtualKey::VK_MENU_ENTER, pressed); break;
 
         case fabgl::VirtualKey::VK_KP_MULTIPLY: JPAD(fabgl::VirtualKey::VK_DPAD_START, pressed); break;

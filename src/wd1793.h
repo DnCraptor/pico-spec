@@ -331,6 +331,7 @@ bool rvmWD1793InsertDisk(rvmWD1793 *wd, unsigned char UnitNum, std::string Filen
 uint8_t rvmwdDiskStep(rvmWD1793 *wd, uint32_t control);
 void wdDiskEject(rvmWD1793 *wd, unsigned char UnitNum);
 void SCLtoTRD(rvmwdDisk *d, unsigned char *track0);
+bool rvmWD1793CreateEmptyTRD(const char *path);
 #if !PICO_RP2040
 void udiLoadTrack(rvmWD1793 *wd, uint32_t cyl, uint8_t side);
 void fdiLoadTrack(rvmWD1793 *wd, uint32_t cyl, uint8_t side);

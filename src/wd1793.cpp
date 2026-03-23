@@ -2247,6 +2247,46 @@ void SCLtoTRD(rvmwdDisk *d, unsigned char* track0) {
 
 }
 
+// Create an empty formatted TRD disk image at the given path.
+// 80 tracks, 2 sides, 16 sectors/track, 256 bytes/sector = 655360 bytes.
+// Track 0: 9 catalog sectors (0xFF-filled) + service sector + 6 zero sectors.
+bool rvmWD1793CreateEmptyTRD(const char *path) {
+    FIL f;
+    if (f_open(&f, path, FA_CREATE_ALWAYS | FA_WRITE) != FR_OK) return false;
+    UINT bw;
+    uint8_t buf[256];
+
+    // Sectors 0-7: catalog (empty = zeros, 8 sectors = 128 directory entries)
+    memset(buf, 0, 256);
+    for (int s = 0; s < 8; s++) f_write(&f, buf, 256, &bw);
+
+    // Sector 9 (0-indexed: 8): service sector (disk info at offsets 0xE1-0xE7)
+    // Reader expects this at file offset 2048+227 = 8*256+0xE3
+    memset(buf, 0, 256);
+    buf[0xe1] = 0x00; // first free sector on free track
+    buf[0xe2] = 0x01; // first free track (track 1)
+    buf[0xe3] = 0x16; // disk type: 80T 2DS
+    buf[0xe4] = 0x00; // number of files
+    buf[0xe5] = 0xF0; // free sectors low  (0x09F0 = 2544)
+    buf[0xe6] = 0x09; // free sectors high
+    buf[0xe7] = 0x10; // TR-DOS ID byte
+    // 0xEA-0xF2: 9 spaces (password field)
+    memset(buf + 0xea, 0x20, 9);
+    // 0xF5-0xFC: disk name (8 chars)
+    memcpy(buf + 0xf5, "NEW DISK", 8);
+    f_write(&f, buf, 256, &bw);
+
+    // Sectors 9-15: rest of track 0, zeros
+    memset(buf, 0, 256);
+    for (int s = 9; s < 16; s++) f_write(&f, buf, 256, &bw);
+
+    // Remaining 2544 sectors (tracks 1-79, both sides): zeros
+    for (int s = 0; s < 2544; s++) f_write(&f, buf, 256, &bw);
+
+    f_close(&f);
+    return true;
+}
+
 // Convert SCL disk to TRD file on first write attempt.
 // Creates a .trd file alongside the .scl, copies all data, and switches the disk handle.
 static bool sclConvertToTRD(rvmWD1793 *wd) {

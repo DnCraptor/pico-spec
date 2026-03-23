@@ -81,22 +81,26 @@ void OSD::menuAt(short int row, short int col) {
 
 // Print a virtual row
 void OSD::menuPrintRow(uint8_t virtual_row_num, uint8_t line_type) {
-    
+
     uint8_t margin;
 
     string line = rowGet(menu, menuRealRowFor(virtual_row_num));
-    
+
+    // Check for dimmed marker (readonly hotkey entries etc.)
+    bool dimmed = (!line.empty() && line[0] == '\x01');
+    if (dimmed) line.erase(0, 1);
+
     switch (line_type) {
     case IS_TITLE:
         VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(0, 0));
         margin = 2;
         break;
     case IS_FOCUSED:
-        VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
+        VIDEO::vga.setTextColor(dimmed ? zxColor(0, 0) : zxColor(0, 1), dimmed ? zxColor(5, 0) : zxColor(5, 1));
         margin = (real_rows > virtual_rows ? 3 : 2);
         break;
     default:
-        VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(7, 1));
+        VIDEO::vga.setTextColor(dimmed ? zxColor(0, 0) : zxColor(0, 1), dimmed ? zxColor(7, 0) : zxColor(7, 1));
         margin = (real_rows > virtual_rows ? 3 : 2);
     }
 
@@ -188,7 +192,7 @@ unsigned short OSD::menuRun(string new_menu) {
     }
     // printf("Cols: %d\n",cols);
     cols += 8;
-    cols = (cols > 28 ? 28 : cols);
+    cols = (cols > 36 ? 36 : cols);
 
     // Size
     w = (cols * OSD_FONT_W) + 2;
@@ -224,8 +228,21 @@ unsigned short OSD::menuRun(string new_menu) {
         VIDEO::vga.print(fs.c_str());
     }
 
-    begin_row = 1;
-    focus = menu_curopt;
+    // Calculate begin_row so menu_curopt is visible
+    if (menu_saverect || begin_row + virtual_rows - 1 > real_rows || begin_row < 1) {
+        // First open or begin_row invalid for this menu: recalculate
+        if (menu_curopt >= virtual_rows) {
+            begin_row = menu_curopt - virtual_rows + 2;
+            if (begin_row + virtual_rows - 1 > real_rows)
+                begin_row = real_rows - virtual_rows + 1;
+        } else {
+            begin_row = 1;
+        }
+    }
+    // Ensure focus is within visible range
+    focus = menu_curopt - begin_row + 1;
+    if (focus < 1) { focus = 1; begin_row = menu_curopt; }
+    if (focus >= virtual_rows) { begin_row = menu_curopt - virtual_rows + 2; focus = virtual_rows - 1; }
     last_begin_row = last_focus = 0;
 
     menuRedraw(); // Draw menu content
