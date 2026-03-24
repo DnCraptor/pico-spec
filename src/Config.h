@@ -58,6 +58,7 @@ public:
     static void load();  // load before initialized
     static void load2(); // load after initialized
     static void save();
+    static bool loaded;  // true after successful load() from file/RAM
 
     static void requestMachine(string newArch, string newRomSet);
 

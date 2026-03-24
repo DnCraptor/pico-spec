@@ -25,6 +25,7 @@ string   Config::pref_romSetP1M = "128Kp";
 string   Config::ram_file = NO_RAM_FILE;
 string   Config::last_ram_file = NO_RAM_FILE;
 
+bool     Config::loaded = false;
 bool     Config::slog_on = false;
 const bool     Config::aspect_16_9 = false;
 ///uint8_t  Config::esp32rev = 0;
@@ -572,6 +573,7 @@ void Config::load() {
         #endif
         else MEM_PG_CNT = mem_pg_cnt;
     }
+    loaded = true;
 }
 
 static void nvs_set_str(string& buf, const char* name, const char* val) {
@@ -722,17 +724,35 @@ void Config::save() {
     nvs_set_i(buf,"MEM_PG_CNT", MEM_PG_CNT);
 
     if (FileUtils::fsMount) {
-        string nvs = MOUNT_POINT_SD STORAGE_NVS;
-        FIL* handle = fopen2(nvs.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
+        if (!loaded) {
+            // Config was never loaded from file — refuse to overwrite
+            // existing storage.nvs with defaults
+            FILINFO fi;
+            if (f_stat(MOUNT_POINT_SD STORAGE_NVS, &fi) == FR_OK) {
+                Debug::log("Config::save BLOCKED — not loaded, file exists (%u bytes)", fi.fsize);
+                return;
+            }
+        }
+        // Atomic write: write to .tmp, then rename over the original
+        static const char* nvs_tmp = MOUNT_POINT_SD STORAGE_NVS ".tmp";
+        static const char* nvs_path = MOUNT_POINT_SD STORAGE_NVS;
+        FIL* handle = fopen2(nvs_tmp, FA_WRITE | FA_CREATE_ALWAYS);
         if (handle) {
             UINT bw;
-            f_write(handle, buf.c_str(), buf.size(), &bw);
+            FRESULT wr = f_write(handle, buf.c_str(), buf.size(), &bw);
             fclose2(handle);
+            if (wr == FR_OK && bw == buf.size()) {
+                f_unlink(nvs_path);
+                f_rename(nvs_tmp, nvs_path);
+            } else {
+                // Write failed — remove incomplete temp, keep original intact
+                f_unlink(nvs_tmp);
+                Debug::log("Config::save FAILED — write error (wr=%d, bw=%u/%u)", wr, bw, buf.size());
+            }
         }
     }
     // Always keep in RAM (for session persistence without SD)
     nvs_ram_buf = std::move(buf);
-    // printf("Config saved OK\n");
 }
 
 #define VMODE_PENDING_FILE MOUNT_POINT_SD "/vmode_pending.nvs"
