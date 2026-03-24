@@ -96,6 +96,7 @@ public:
     static bool hasZIPextension(string filename);
 
     static void deleteFilesWithExtension(const char *folder_path, const char *extension);
+    static bool deleteDirRecursive(const char *path);
 
     static string MountPoint;
     static bool SDReady;

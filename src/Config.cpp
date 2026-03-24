@@ -107,6 +107,43 @@ uint8_t  Config::audio_driver = 0;
 extern "C" uint8_t  video_driver = 0;
 bool     Config::byte_cobmect_mode = false;
 
+Config::HotkeyBinding Config::hotkeys[Config::HK_COUNT];
+
+void Config::initHotkeys() {
+    // Default bindings — must match HK_* enum order
+    static const HotkeyBinding defaults[HK_COUNT] = {
+        { fabgl::VK_F1,     false, false, true  }, // HK_MAIN_MENU  — readonly
+        { fabgl::VK_F2,     false, false, false }, // HK_LOAD_SNA
+        { fabgl::VK_F3,     false, false, false }, // HK_PERSIST_LOAD
+        { fabgl::VK_F4,     false, false, false }, // HK_PERSIST_SAVE
+        { fabgl::VK_F5,     false, false, false }, // HK_LOAD_ANY
+        { fabgl::VK_F6,     false, false, false }, // HK_TAPE_PLAY
+        { fabgl::VK_F7,     false, false, false }, // HK_TAPE_BROWSER
+        { fabgl::VK_F8,     false, false, false }, // HK_STATS
+        { fabgl::VK_F9,     false, false, false }, // HK_VOL_DOWN
+        { fabgl::VK_F10,    false, false, false }, // HK_VOL_UP
+        { fabgl::VK_F11,    false, false, false }, // HK_HARD_RESET
+        { fabgl::VK_F12,    false, false, false }, // HK_REBOOT
+        { fabgl::VK_TILDE,  false, false, false }, // HK_MAX_SPEED
+        { fabgl::VK_PAUSE,  false, false, false }, // HK_PAUSE
+        { fabgl::VK_F1,     true,  false, true  }, // HK_HW_INFO    — readonly
+        { fabgl::VK_F2,     true,  false, false }, // HK_TURBO
+        { fabgl::VK_F5,     true,  false, false }, // HK_DEBUG
+        { fabgl::VK_F6,     true,  false, false }, // HK_DISK
+        { fabgl::VK_F10,    true,  false, false }, // HK_NMI
+        { fabgl::VK_F11,    true,  false, false }, // HK_RESET_TO
+        { fabgl::VK_F12,    true,  false, false }, // HK_USB_BOOT
+        { fabgl::VK_PAGEUP, true,  false, false }, // HK_GIGASCREEN
+        { fabgl::VK_F7,     true,  false, false }, // HK_BP_LIST
+        { fabgl::VK_F8,     true,  false, false }, // HK_JUMP_TO
+        { fabgl::VK_F9,     true,  false, false }, // HK_POKE
+        { fabgl::VK_HOME,   true,  true,  false }, // HK_VIDMODE_60
+        { fabgl::VK_END,    true,  true,  false }, // HK_VIDMODE_50
+    };
+    for (int i = 0; i < HK_COUNT; i++)
+        hotkeys[i] = defaults[i];
+}
+
 void Config::requestMachine(string newArch, string newRomSet)
 {
     arch = newArch;
@@ -318,6 +355,7 @@ static void nvs_parse_lines(const string& data, vector<string>& sts) {
 
 // Read config from FS
 void Config::load() {
+    initHotkeys(); // fill defaults before overriding from NVS
     vector<string> sts;
     if (FileUtils::fsMount) {
         string nvs = MOUNT_POINT_SD STORAGE_NVS;
@@ -515,6 +553,17 @@ void Config::load() {
         if (v == "VGA" || v == "vga") video_driver = 1;
         else if (v == "HDMI" || v == "hdmi" || v == "DVI" || v == "dvi") video_driver = 2;
         nvs_get_b("byte_cobmect_mode", byte_cobmect_mode, sts);
+        // Load hotkey bindings (defaults already set by initHotkeys() before load)
+        for (int i = 0; i < HK_COUNT; i++) {
+            char key[12];
+            snprintf(key, sizeof(key), "hkVK%02d", i);
+            nvs_get_u16(key, hotkeys[i].vk, sts);
+            uint8_t mod = (hotkeys[i].alt ? 2 : 0) | (hotkeys[i].ctrl ? 1 : 0);
+            snprintf(key, sizeof(key), "hkMod%02d", i);
+            nvs_get_u8(key, mod, sts);
+            hotkeys[i].alt  = (mod >> 1) & 1;
+            hotkeys[i].ctrl = (mod     ) & 1;
+        }
         int mem_pg_cnt = 0;
         nvs_get_i("MEM_PG_CNT", mem_pg_cnt, sts);
         if (mem_pg_cnt < 8 || mem_pg_cnt > 2048) MEM_PG_CNT = 64;
@@ -661,6 +710,15 @@ void Config::save() {
     );
     nvs_set_str(buf,"video_driver", video_driver == 0 ? "auto" : (video_driver == 1) ? "vga" : "hdmi");
     nvs_set_str(buf,"byte_cobmect_mode", Config::byte_cobmect_mode ? "true" : "false");
+    // Save hotkey bindings
+    for (int i = 0; i < HK_COUNT; i++) {
+        char key[12];
+        snprintf(key, sizeof(key), "hkVK%02d", i);
+        nvs_set_u16(buf, key, hotkeys[i].vk);
+        snprintf(key, sizeof(key), "hkMod%02d", i);
+        uint8_t mod = (hotkeys[i].alt ? 2 : 0) | (hotkeys[i].ctrl ? 1 : 0);
+        nvs_set_u8(buf, key, mod);
+    }
     nvs_set_i(buf,"MEM_PG_CNT", MEM_PG_CNT);
 
     if (FileUtils::fsMount) {

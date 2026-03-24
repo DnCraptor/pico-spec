@@ -1747,7 +1747,7 @@ void SaveRectT::save(int16_t x, int16_t y, int16_t w, int16_t h) {
     }
 }
 void SaveRectT::restore_last() {
-    if (offsets.empty()) return; /// ???
+    if (offsets.size() <= 1) return; // nothing saved to restore
     offsets.pop_back();
     size_t off = offsets.back();
     uint16_t x;

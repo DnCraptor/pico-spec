@@ -260,7 +260,12 @@ uint8_t Ps2Kbd_Mrmltr::hidCodePage1(uint8_t ps2code) {
   case 0x7a: return HID_KEY_PAGE_DOWN;
   case 0x7d: return HID_KEY_PAGE_UP;
 
-  default: 
+  // Multimedia keys
+  case 0x32: return HID_KEY_VOLUME_UP;
+  case 0x21: return HID_KEY_VOLUME_DOWN;
+  case 0x23: return HID_KEY_MUTE;
+
+  default:
     return HID_KEY_NONE;
   }
 }
@@ -280,7 +285,7 @@ void Ps2Kbd_Mrmltr::handleActions() {
       _actions[i].code,
       _actions[i].code);
     UINT bw;
-    f_write(&f, tmp, strlen(tmp), &bw); 
+    f_write(&f, tmp, strlen(tmp), &bw);
   }
   f_close(&f);
   */

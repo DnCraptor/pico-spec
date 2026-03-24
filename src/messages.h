@@ -295,32 +295,48 @@ static const char *OSD_ZIP_EXTRACTING[2] = { OSD_ZIP_EXTRACTING_EN,OSD_ZIP_EXTRA
 #define OSD_FILE_DELETE_TITLE_ES "Borrar?"
 static const char *OSD_FILE_DELETE_TITLE[2] = { OSD_FILE_DELETE_TITLE_EN,OSD_FILE_DELETE_TITLE_ES };
 
+#define OSD_FILE_DELETE_DIR_TITLE_EN "Delete folder?"
+#define OSD_FILE_DELETE_DIR_TITLE_ES "Borrar carpeta?"
+static const char *OSD_FILE_DELETE_DIR_TITLE[2] = { OSD_FILE_DELETE_DIR_TITLE_EN, OSD_FILE_DELETE_DIR_TITLE_ES };
+
+#define OSD_FILE_MKDIR_TITLE_EN "New folder: "
+#define OSD_FILE_MKDIR_TITLE_ES "Nueva carp.: "
+static const char *OSD_FILE_MKDIR_TITLE[2] = { OSD_FILE_MKDIR_TITLE_EN, OSD_FILE_MKDIR_TITLE_ES };
+
+#define OSD_FILE_CREATING_TRD_EN "Creating TRD"
+#define OSD_FILE_CREATING_TRD_ES "Creando TRD"
+static const char *OSD_FILE_CREATING_TRD[2] = { OSD_FILE_CREATING_TRD_EN, OSD_FILE_CREATING_TRD_ES };
+
+#define OSD_FILE_DELETING_EN "Deleting..."
+#define OSD_FILE_DELETING_ES "Borrando..."
+static const char *OSD_FILE_DELETING[2] = { OSD_FILE_DELETING_EN, OSD_FILE_DELETING_ES };
+
 #define MENU_SNA_EN \
     "Snapshot menu\n"\
-    "Load (SNA,Z80,P)\t(F2) >\n"\
-    "Load fast-snap\t(F3) >\n"\
-    "Save fast-snap\t(F4) >\n"
+    "Load (SNA,Z80,P)\t{HK_LOAD_SNA}>\n"\
+    "Load fast-snap\t{HK_PERSIST_LOAD}>\n"\
+    "Save fast-snap\t{HK_PERSIST_SAVE}>\n"
 #define MENU_SNA_ES \
     "Menu snapshots\n"\
-    "Cargar (SNA,Z80,P)\t(F2) >\n"\
-    "Cargar snapshot\t(F3) >\n"\
-    "Guardar snapshot\t(F4) >\n"
+    "Cargar (SNA,Z80,P)\t{HK_LOAD_SNA}>\n"\
+    "Cargar snapshot\t{HK_PERSIST_LOAD}>\n"\
+    "Guardar snapshot\t{HK_PERSIST_SAVE}>\n"
 static const char *MENU_SNA[2] = { MENU_SNA_EN, MENU_SNA_ES };
 
 #define MENU_TAPE_EN \
     "Tape menu\n"\
-    "Select file\t(F5) >\n"\
-    "Play/Stop\t(F6)  \n"\
-    "Tape browser\t(F7)  \n"\
+    "Select file\t{HK_LOAD_ANY}>\n"\
+    "Play/Stop\t{HK_TAPE_PLAY}\n"\
+    "Tape browser\t{HK_TAPE_BROWSER}\n"\
 	"Player mode\t>\n"\
 	"Real sound-in\t>\n"\
 	"Fast tape load\t>\n"\
 	"R.G. ROM timings\t>\n"
 #define MENU_TAPE_ES \
     "Casete\n"\
-    "Elegir (TAP)\t(F5) >\n"\
-    "Play/Stop\t(F6)  \n"\
-    "Navegador cinta\t(F7)  \n"\
+    "Elegir (TAP)\t{HK_LOAD_ANY}>\n"\
+    "Play/Stop\t{HK_TAPE_PLAY}\n"\
+    "Navegador cinta\t{HK_TAPE_BROWSER}\n"\
 	"Modo reproductor\t>\n"\
 	"Modo de sonido real\t>\n"\
 	"Carga rapida cinta\t>\n"\
@@ -328,16 +344,16 @@ static const char *MENU_SNA[2] = { MENU_SNA_EN, MENU_SNA_ES };
 static const char *MENU_TAPE[2] = { MENU_TAPE_EN, MENU_TAPE_ES };
 #define MENU_TAPE_NO_SD_EN \
     "Tape menu\n"\
-    "Play/Stop\t(F6)  \n"\
-    "Tape browser\t(F7)  \n"\
+    "Play/Stop\t{HK_TAPE_PLAY}\n"\
+    "Tape browser\t{HK_TAPE_BROWSER}\n"\
 	"Player mode\t>\n"\
 	"Real sound-in\t>\n"\
 	"Fast tape load\t>\n"\
 	"R.G. ROM timings\t>\n"
 #define MENU_TAPE_NO_SD_ES \
     "Casete\n"\
-    "Play/Stop\t(F6)  \n"\
-    "Navegador cinta\t(F7)  \n"\
+    "Play/Stop\t{HK_TAPE_PLAY}\n"\
+    "Navegador cinta\t{HK_TAPE_BROWSER}\n"\
 	"Modo reproductor\t>\n"\
 	"Modo de sonido real\t>\n"\
 	"Carga rapida cinta\t>\n"\
@@ -417,7 +433,6 @@ static const char *MENU_NMI_TITLE[2] = { "NMI\n", "NMI\n" };
 #define MENU_NMI_ES "NMI\n" "Magic Button\n"
 static const char *MENU_NMI_SEL[2] = { MENU_NMI_EN, MENU_NMI_ES };
 
-// Reset To menu (ALT+F11) - machine-dependent options
 #define MENU_RESETTO_128_EN "Reset to\n" "128K\n" "48K\n"
 #define MENU_RESETTO_128_ES "Resetear a\n" "128K\n" "48K\n"
 static const char *MENU_RESETTO_128[2] = { MENU_RESETTO_128_EN, MENU_RESETTO_128_ES };
@@ -552,7 +567,7 @@ static const char *MENU_OPTIONS[2] = { MENU_OPTIONS_EN,MENU_OPTIONS_ES };
 
 #define MENU_UPDATE_EN \
     "Update\n"\
-	"Firmware        [ALT+F12]\n"\
+	"Firmware\t{HK_USB_BOOT}\n"\
 	"Custom ROM 48K\n"\
 	"Custom ROM 128k\n"\
 	"Custom ROM Pentagon\n"\
@@ -563,7 +578,7 @@ static const char *MENU_OPTIONS[2] = { MENU_OPTIONS_EN,MENU_OPTIONS_ES };
 	"Main ROM Pentagon bank #1\n"
 #define MENU_UPDATE_ES \
     "Actualizar\n"\
-	"Firmware        [ALT+F12]\n"\
+	"Firmware\t{HK_USB_BOOT}\n"\
 	"ROM Custom 48K\n"\
 	"ROM Custom 128k\n"\
 	"ROM Custom Pentagon\n"\
@@ -576,10 +591,10 @@ static const char *MENU_UPDATE_FW[2] = { MENU_UPDATE_EN, MENU_UPDATE_ES };
 
 #define MENU_UPDATE_NO_SD_EN \
     "Update\n"\
-	"Firmware       [ALT+F12]\n"
+	"Firmware\t{HK_USB_BOOT}\n"
 #define MENU_UPDATE_NO_SD_ES \
     "Actualizar\n"\
-	"Firmware       [ALT+F12]\n"
+	"Firmware\t{HK_USB_BOOT}\n"
 static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE_NO_SD_ES };
 
 #if !PICO_RP2040
@@ -679,53 +694,53 @@ static const char *MENU_GIGASCREEN[2] = { "Gigascreen\n", "Gigascreen\n" };
 #define MENU_RESET_EN \
     "Reset Menu\n"\
     "Soft reset\n"\
-    "Hard reset\t(F11)\n"\
-    "RP2350 reset\t(F12)\n"\
+    "Hard reset\t{HK_HARD_RESET}\n"\
+    "RP2350 reset\t{HK_REBOOT}\n"\
     "Defaults\n"
 #define MENU_RESET_ES \
     "Resetear\n"\
     "Reset parcial\n"\
-    "Reset completo\t(F11)\n"\
-    "Resetear RP2350\t(F12)\n"\
+    "Reset completo\t{HK_HARD_RESET}\n"\
+    "Resetear RP2350\t{HK_REBOOT}\n"\
 	"Predeterminados\n"
 #else
 #define MENU_RESET_EN \
     "Reset Menu\n"\
     "Soft reset\n"\
-    "Hard reset\t(F11)\n"\
-    "RP2040 reset\t(F12)\n"\
+    "Hard reset\t{HK_HARD_RESET}\n"\
+    "RP2040 reset\t{HK_REBOOT}\n"\
     "Defaults\n"
 #define MENU_RESET_ES \
     "Resetear\n"\
     "Reset parcial\n"\
-    "Reset completo\t(F11)\n"\
-    "Resetear RP2040\t(F12)\n"\
+    "Reset completo\t{HK_HARD_RESET}\n"\
+    "Resetear RP2040\t{HK_REBOOT}\n"\
 	"Predeterminados\n"
 #endif
 static const char *MENU_RESET[2] = { MENU_RESET_EN, MENU_RESET_ES };
 
 #define MENU_DEBUG_EN \
     "Debug Menu\n"\
-    "Debug dialog  (ALT+F5)\n"\
-    "BreakPoint    (ALT+F7)\n"\
-    "BP List     (ALT+F7+A)\n"\
-    "Jump to       (ALT+F8)\n"\
-    "Input Poke    (ALT+F9)\n"\
-	"Trigger NMI   (ALT+F10)\n"
+    "Debug dialog\t{HK_DEBUG}\n"\
+    "BreakPoint\t{HK_BP_LIST}\n"\
+    "BP List\t{HK_BP_LIST}\n"\
+    "Jump to\t{HK_JUMP_TO}\n"\
+    "Input Poke\t{HK_POKE}\n"\
+	"Trigger NMI\t{HK_NMI}\n"
 
 #define MOS_FILE "/.firmware"
 #define MENU_RESET_MOS_EN \
     "Reset Menu\n"\
     "Soft reset\n"\
-    "Hard reset\t(F11)\n"\
-    "RP2350 reset\t(F12)\n"\
+    "Hard reset\t{HK_HARD_RESET}\n"\
+    "RP2350 reset\t{HK_REBOOT}\n"\
     "MurmulatorOS\n"\
     "Defaults\n"
 #define MENU_RESET_MOS_ES \
     "Resetear\n"\
     "Reset parcial\n"\
-    "Reset completo\t(F11)\n"\
-    "Resetear RP2350\t(F12)\n"\
+    "Reset completo\t{HK_HARD_RESET}\n"\
+    "Resetear RP2350\t{HK_REBOOT}\n"\
     "MurmulatorOS\n"\
 	"Predeterminados\n"
 static const char *MENU_RESET_MOS[2] = { MENU_RESET_MOS_EN, MENU_RESET_MOS_ES };
@@ -807,14 +822,16 @@ static const char *MENU_AUDIO[2] = { MENU_AUDIO_EN, MENU_AUDIO_ES };
     "Map joystick to cursor\t>\n"\
     "Second joystick\t>\n"\
     "Kempston joystick port\t>\n"\
-    "Throttling\t>\n"
+    "Throttling\t>\n"\
+    "Hot Keys\t>\n"
 #define MENU_OTHER_ES "Otros\n"\
     "Temporizaci" "\xA2" "n ULA\t>\n"\
     "48K Issue 2\t>\n"\
     "Joystick al cursor\t>\n"\
     "Segundo joystick\t>\n"\
     "Puerto Kempston joystick\t>\n"\
-    "Aceleraci" "\xA2" "n\t>\n"
+    "Aceleraci" "\xA2" "n\t>\n"\
+    "Teclas rapidas\t>\n"
 static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
 
 static const char *MENU_AY48[2] = { "Turned on?\n" , "Turned on?\n"};
@@ -1420,96 +1437,6 @@ static const char *AboutMsg[2][9] = {
 	DEDICATORIA
 	}
 };
-
-#if !defined(PICO_RP2040)
-#define OSD_HELP_EN \
-    " [F1]         Main menu\n"\
-    " [F2]         Load (SNA,Z80,P)\n"\
-    " [F3-F4]      Load / Save snapshot\n"\
-    " [F5]         Open file\n"\
-    " [F6]         Play/Stop tape\n"\
-    " [F7]         Tape browser\n"\
-    " [F8]         CPU / Tape load stats\n"\
-    " [F9-F10]     Volume down-up\n"\
-	" [F11]        Hard reset\n"\
-    " [F12]        Reset RP2350\n"\
-    " [ALT+F1]     Hardware info\n"\
-    " [ALT+F2]     Turbo mode\n"\
-    " [ALT+F5]     Debug\n"\
-    " [ALT+F6]     Insert disk\n"\
-    " [ALT+F9]     Input poke\n"\
-    " [ALT+F10]    NMI\n"\
-	" [ALT+F11]    Reset to Gluk rom\n"\
-    " [Pause]      Pause\n"\
-    " [PrtScr]     BMP capture (/spec/.c)\n"\
-	" [NumLk],[~]  Max Speed\n"
-
-#define OSD_HELP_ES \
-    " [F1]         Menu principal\n"\
-    " [F2]         Cargar (SNA,Z80,P)\n"\
-    " [F3-F4]      Cargar / Guardar snapshot\n"\
-    " [F5]         Abrir fichero\n"\
-    " [F6]         Play/Stop cinta\n"\
-    " [F7]         Explorador cinta\n"\
-    " [F8]         Status CPU / Carga cinta\n"\
-    " [F9-F10]     Bajar-Subir volumen\n"\
-    " [F11]        Reset completo\n"\
-    " [F12]        Resetear RP2350\n"\
-    " [ALT+F1]     Info hardware\n"\
-    " [ALT+F2]     Modo turbo\n"\
-    " [ALT+F5]     Depurar\n"\
-    " [ALT+F6]     Insertar disco\n"\
-    " [ALT+F9]     Introducir poke\n"\
-    " [ALT+F10]    NMI\n"\
-	" [ALT+F11]    Restablecer a la ROM Gluk\n"\
-    " [Pause]      Pausa\n"\
-    " [ImpPant]    Captura BMP (/spec/.c)\n"\
-	" [NumLk],[~]  Velocidad máxima\n"
-#else
-#define OSD_HELP_EN \
-    " [F1]         Main menu\n"\
-    " [F2]         Load (SNA,Z80,P)\n"\
-    " [F3-F4]      Load / Save snapshot\n"\
-    " [F5]         Open file\n"\
-    " [F6]         Play/Stop tape\n"\
-    " [F7]         Tape browser\n"\
-    " [F8]         CPU / Tape load stats\n"\
-    " [F9-F10]     Volume down-up\n"\
-	" [F11]        Hard reset\n"\
-    " [F12]        Reset RP2040\n"\
-    " [ALT+F1]     Hardware info\n"\
-    " [ALT+F2]     Turbo mode\n"\
-    " [ALT+F5]     Debug\n"\
-    " [ALT+F6]     Insert disk\n"\
-    " [ALT+F9]     Input poke\n"\
-    " [ALT+F10]    NMI\n"\
-	" [ALT+F11]    Reset to Gluk rom\n"\
-    " [Pause]      Pause\n"\
-    " [PrtScr]     BMP capture (/spec/.c)\n"\
-	" [NumLk],[~]  Max Speed\n"
-
-#define OSD_HELP_ES \
-    " [F1]         Menu principal\n"\
-    " [F2]         Cargar (SNA,Z80,P)\n"\
-    " [F3-F4]      Cargar / Guardar snapshot\n"\
-    " [F5]         Abrir fichero\n"\
-    " [F6]         Play/Stop cinta\n"\
-    " [F7]         Explorador cinta\n"\
-    " [F8]         Status CPU / Carga cinta\n"\
-    " [F9-F10]     Bajar-Subir volumen\n"\
-    " [F11]        Reset completo\n"\
-    " [F12]        Resetear RP2040\n"\
-    " [ALT+F1]     Info hardware\n"\
-    " [ALT+F2]     Modo turbo\n"\
-    " [ALT+F5]     Depurar\n"\
-    " [ALT+F6]     Insertar disco\n"\
-    " [ALT+F9]     Introducir poke\n"\
-    " [ALT+F10]    NMI\n"\
-	" [ALT+F11]    Restablecer a la ROM Gluk\n"\
-    " [Pause]      Pausa\n"\
-    " [ImpPant]    Captura BMP (/spec/.c)\n"\
-	" [NumLk],[~]  Velocidad máxima\n"
-#endif
 
 #define OSD_DBG_HELP_EN \
     " [Space]      Step CPU\n"\
