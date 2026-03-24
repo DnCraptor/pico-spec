@@ -1731,19 +1731,24 @@ void SaveRectT::save(int16_t x, int16_t y, int16_t w, int16_t h) {
         f_close(&f);
         offsets.push_back(off);
     } else {
-        // RAM fallback when no SD card
+        // RAM fallback when no SD card — skip if not enough heap
         size_t need = 8 + (size_t)w * h;
-        ram_buf.resize(off + need);
-        uint8_t *p = ram_buf.data() + off;
-        memcpy(p, &x, 2); p += 2;
-        memcpy(p, &y, 2); p += 2;
-        memcpy(p, &w, 2); p += 2;
-        memcpy(p, &h, 2); p += 2;
-        for (size_t line = y; line < y + h; ++line) {
-            memcpy(p, VIDEO::vga.frameBuffer[line] + x, w);
-            p += w;
+        if (getFreeHeap() > need + 1024) {
+            ram_buf.resize(off + need);
+            uint8_t *p = ram_buf.data() + off;
+            memcpy(p, &x, 2); p += 2;
+            memcpy(p, &y, 2); p += 2;
+            memcpy(p, &w, 2); p += 2;
+            memcpy(p, &h, 2); p += 2;
+            for (size_t line = y; line < y + h; ++line) {
+                memcpy(p, VIDEO::vga.frameBuffer[line] + x, w);
+                p += w;
+            }
+            offsets.push_back(off + need);
+        } else {
+            // Not enough RAM — push dummy (restore will trigger redraw)
+            offsets.push_back(off);
         }
-        offsets.push_back(off + need);
     }
 }
 void SaveRectT::restore_last() {

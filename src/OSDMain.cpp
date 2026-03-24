@@ -639,8 +639,8 @@ string getMenuPrefix() {
 // Forward declarations for hotkey helpers (defined later in file)
 static string hkBindingText(int idx);
 static string expandHotkeys(const char* menu);
-extern const char* hkDescEN[];
-extern const char* hkDescES[];
+extern const char* const hkDescEN[];
+extern const char* const hkDescES[];
 
 // OSD Main Loop
 void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
@@ -3948,30 +3948,39 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 }
             }
             else if (opt == 9) { // Help — dynamic from hotkeys
-                // Build help lines from current hotkey bindings
+                // Build index of visible hotkeys (no large buffer needed)
                 auto descs = Config::lang ? hkDescES : hkDescEN;
                 const int maxCols = osdMaxCols();
-                struct HelpLine { char text[42]; };
-                static HelpLine lines[Config::HK_COUNT + 2];
+                const int descCol = 16;
+                // -2 = PrtScr, -1 = ScrollLk, 0..HK_COUNT-1 = hotkey index
+                int8_t hkOrder[Config::HK_COUNT + 2];
                 int nlines = 0;
-                const int descCol = 16; // column where description starts
-                auto addLine = [&](const char *key, const char *desc) {
-                    char buf[42];
-                    int pos = snprintf(buf, sizeof(buf), " [%s]", key);
+                for (int i = 0; i < Config::HK_COUNT; i++) {
+                    if (Config::hotkeys[i].vk == (uint16_t)fabgl::VK_NONE) continue;
+                    hkOrder[nlines++] = (int8_t)i;
+                }
+                hkOrder[nlines++] = -2; // PrtScr
+                hkOrder[nlines++] = -1; // ScrollLk
+
+                // Format one help line into buf (42 bytes max)
+                auto fmtLine = [&](int idx, char *buf) {
+                    const char *key, *desc;
+                    char keybuf[16];
+                    if (idx == -2) { key = "PrtScr"; desc = Config::lang ? "Captura BMP" : "BMP capture"; }
+                    else if (idx == -1) { key = "ScrollLk"; desc = Config::lang ? "Cursor=Joy" : "Cursor=Joy"; }
+                    else {
+                        string b = hkBindingText(idx);
+                        snprintf(keybuf, sizeof(keybuf), "%s", b.c_str());
+                        key = keybuf;
+                        desc = descs[idx];
+                    }
+                    int pos = snprintf(buf, 42, " [%s]", key);
                     while (pos < descCol) buf[pos++] = ' ';
-                    snprintf(buf + pos, sizeof(buf) - pos, "%s", desc);
+                    snprintf(buf + pos, 42 - pos, "%s", desc);
                     int len = strlen(buf);
                     if (len < maxCols) { memset(buf + len, ' ', maxCols - len); buf[maxCols] = 0; }
                     else buf[maxCols] = 0;
-                    memcpy(lines[nlines++].text, buf, sizeof(lines[0].text));
                 };
-                for (int i = 0; i < Config::HK_COUNT; i++) {
-                    if (Config::hotkeys[i].vk == (uint16_t)fabgl::VK_NONE) continue;
-                    string binding = hkBindingText(i);
-                    addLine(binding.c_str(), descs[i]);
-                }
-                addLine("PrtScr", Config::lang ? "Captura BMP" : "BMP capture");
-                addLine("ScrollLk", Config::lang ? "Cursor=Joy" : "Cursor=Joy");
 
                 // Content area: skip 2 rows top (header), 2 rows bottom (footer)
                 const int topRow = 2;
@@ -3981,10 +3990,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 auto drawHelp = [&]() {
                     drawOSD(true);
                     // Content
+                    char buf[42];
                     VIDEO::vga.setTextColor(zxColor(7, 0), zxColor(1, 0));
                     for (int i = 0; i < maxVisible && (scroll + i) < nlines; i++) {
+                        fmtLine(hkOrder[scroll + i], buf);
                         osdAt(topRow + i, 0);
-                        VIDEO::vga.print(lines[scroll + i].text);
+                        VIDEO::vga.print(buf);
                     }
                     // Scrollbar on the right edge
                     if (nlines > maxVisible) {
@@ -7573,7 +7584,7 @@ static string expandHotkeys(const char* menu) {
 }
 
 // EN
-const char* hkDescEN[Config::HK_COUNT] = {
+const char* const hkDescEN[Config::HK_COUNT] = {
     "Main menu",            // HK_MAIN_MENU
     "Load (SNA,Z80,P)",     // HK_LOAD_SNA
     "Load snapshot",        // HK_PERSIST_LOAD
@@ -7607,7 +7618,7 @@ const char* hkDescEN[Config::HK_COUNT] = {
     "HDMI 50Hz mode",       // HK_VIDMODE_50
 };
 // ES
-const char* hkDescES[Config::HK_COUNT] = {
+const char* const hkDescES[Config::HK_COUNT] = {
     "Menu principal",        // HK_MAIN_MENU
     "Cargar (SNA,Z80,P)",    // HK_LOAD_SNA
     "Cargar snapshot",  // HK_PERSIST_LOAD

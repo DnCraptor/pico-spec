@@ -557,6 +557,7 @@ void ESPectrum::setup() {
   //=======================================================================================
   // LOAD CONFIG
   //=======================================================================================
+  Config::initHotkeys(); // fill hotkey defaults even without SD
   if (FileUtils::fsMount)
     Config::load();
   Debug::log("setup: Config loaded");
@@ -645,14 +646,23 @@ void ESPectrum::setup() {
     MemESP::ram = new mem_desc_t[MEM_PG_CNT + 2];
     memcpy(MemESP::ram, temp, sizeof(mem_desc_t) * 8);
     Debug::log("setup: after memcpy: ram5=%p ram7=%p", MemESP::ram[5].direct(), MemESP::ram[7].direct());
+#if PICO_RP2040
+    // RP2040: page 0 not essential for 48K — always swap to save heap for framebuffer
+    MemESP::ram[0].assign_vram(0, mem_type_t::SWAP);
+    ++swap_pages;
+    MemESP::ram[1].assign_ram(new unsigned char[MEM_PG_SZ], 1, false);
+    MemESP::ram[2].assign_ram(new unsigned char[MEM_PG_SZ], 2, false);
+    MemESP::ram[3].assign_ram(new unsigned char[MEM_PG_SZ], 3, false);
+    ram_pages += 3;
+#else
     MemESP::ram[0].assign_ram(new unsigned char[MEM_PG_SZ], 0, false);
     MemESP::ram[1].assign_ram(new unsigned char[MEM_PG_SZ], 1, false);
     MemESP::ram[2].assign_ram(new unsigned char[MEM_PG_SZ], 2, false);
     MemESP::ram[3].assign_ram(new unsigned char[MEM_PG_SZ], 3, false);
-    // pages 4 and 6 may be added to some other pool
-    // 5 and 7 - static (video RAM)
     ram_pages += 4;
-    // for virtual ram
+#endif
+    // pages 4 and 6 — use assign_ram for MEM_REMAIN check
+    // 5 and 7 - static (video RAM)
     assign_ram(4);
     assign_ram(6);
     Debug::log("setup: ext_ram: pages 0-6 done, freeHeap=%u", getFreeHeap());
