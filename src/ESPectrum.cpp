@@ -291,6 +291,14 @@ uint32_t ESPectrum::tstatesPerSampleFP = 0;
 uint32_t ESPectrum::beeperSampleAccum = 0;
 uint32_t ESPectrum::beeperTstatesInSample = 0;
 
+// Reciprocal LUT: recip[n] = (1<<16)/n for fast division in BeeperGetSample
+static uint16_t beeper_recip[256];
+static void init_beeper_recip() {
+    beeper_recip[0] = 0;
+    for (int i = 1; i < 256; i++)
+        beeper_recip[i] = (uint16_t)((1u << 16) / i);
+}
+
 //=======================================================================================
 // LOGGING / TESTING
 //=======================================================================================
@@ -545,6 +553,7 @@ static void assign_ram(int i) {
 }
 
 void ESPectrum::setup() {
+  init_beeper_recip();
   //=======================================================================================
   // INIT FILESYSTEM
   //=======================================================================================
@@ -1376,8 +1385,8 @@ __not_in_flash("audio") void ESPectrum::BeeperGetSample() {
     uint32_t completedAccum = beeperSampleAccum - lastaudioBit * overflowTstates;
     uint32_t completedTstates = beeperTstatesInSample - overflowTstates;
     // Write tstate-weighted average directly
-    overSamplebuf[audbufcntover++] = completedTstates > 0
-        ? completedAccum / completedTstates : 0;
+    overSamplebuf[audbufcntover++] = (completedTstates > 0 && completedTstates < 256)
+        ? (uint32_t)(completedAccum * beeper_recip[completedTstates]) >> 16 : 0;
     // Carry overflow to next sample
     beeperSampleAccum = lastaudioBit * overflowTstates;
     beeperTstatesInSample = overflowTstates;
@@ -1615,7 +1624,9 @@ void ESPectrum::loop() {
             beeperSampleAccum += faudioBit * remaining;
             beeperTstatesInSample += remaining;
           }
-          overSamplebuf[audbufcntover++] = beeperSampleAccum / beeperTstatesInSample;
+          overSamplebuf[audbufcntover++] = beeperTstatesInSample < 256
+              ? (uint32_t)(beeperSampleAccum * beeper_recip[beeperTstatesInSample]) >> 16
+              : beeperSampleAccum / beeperTstatesInSample;
           beeperSampleAccum = 0;
           beeperTstatesInSample = 0;
         }
@@ -1624,38 +1635,24 @@ void ESPectrum::loop() {
           overSamplebuf[audbufcntover++] = faudioBit;
         }
         if (Tape::tapeStatus != TAPE_LOADING) {
-          // Smooth beeper buffer: causal 2-tap (1-1)/2
-          // Reduces PWM jitter from non-integer tstates/sample (128K: 113.45)
-          {
-            uint32_t prev = overSamplebuf[0];
-            for (int i = 1; i < samplesPerFrame; i++) {
-              uint32_t curr = overSamplebuf[i];
-              overSamplebuf[i] = (prev + curr + 1) >> 1;
-              prev = curr;
-            }
+          // Smooth beeper buffer + detect constant DC in single pass
+          static uint32_t dc_fade_q8 = 256u;
+          uint32_t v0 = overSamplebuf[0];
+          uint32_t prev = v0;
+          bool is_const = true;
+          for (int i = 1; i < samplesPerFrame; i++) {
+            uint32_t curr = overSamplebuf[i];
+            if (curr != v0) is_const = false;
+            overSamplebuf[i] = (prev + curr + 1) >> 1;
+            prev = curr;
           }
-          // Simulate speaker coupling capacitor: attenuate constant (DC) beeper signals.
-          // On real hardware the coupling cap blocks a static EAR output level — only
-          // transitions are audible. When all samples in the buffer are identical (bit
-          // held steady), fade the level out. When the beeper is oscillating (music),
-          // leave the buffer untouched so quality is fully preserved.
-          {
-            static uint32_t dc_fade_q8 = 256u; // Q8 attenuation: 256 = full, 0 = silent
-            uint32_t v0 = overSamplebuf[0];
-            bool is_const = true;
-            for (int i = 1; i < samplesPerFrame; i++)
-              if (overSamplebuf[i] != v0) { is_const = false; break; }
-            if (is_const && v0 > 0) {
-              // Constant non-zero DC — fade to silence over ~10 frames (~200ms)
-              if (dc_fade_q8 >= 26u) dc_fade_q8 -= 26u; else dc_fade_q8 = 0u;
-              uint32_t faded = (v0 * dc_fade_q8) >> 8;
-              for (int i = 0; i < samplesPerFrame; i++)
-                overSamplebuf[i] = faded;
-            } else if (!is_const) {
-              // Oscillating beeper (music) — full amplitude, restore attenuation
-              dc_fade_q8 = 256u;
-            }
-            // is_const && v0 == 0: constant silence — don't reset dc_fade_q8
+          if (is_const && v0 > 0) {
+            if (dc_fade_q8 >= 26u) dc_fade_q8 -= 26u; else dc_fade_q8 = 0u;
+            uint32_t faded = (v0 * dc_fade_q8) >> 8;
+            for (int i = 0; i < samplesPerFrame; i++)
+              overSamplebuf[i] = faded;
+          } else if (!is_const) {
+            dc_fade_q8 = 256u;
           }
         }
         if (Config::covox && faudbufcntCovox < samplesPerFrame) {

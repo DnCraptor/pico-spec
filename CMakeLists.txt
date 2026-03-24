@@ -167,6 +167,10 @@ set_source_files_properties(src/Ports.cpp PROPERTIES
     COMPILE_FLAGS "-O3")
 set_source_files_properties(src/wd1793.cpp PROPERTIES
     COMPILE_FLAGS "-O3")
+set_source_files_properties(src/ESPectrum.cpp PROPERTIES
+    COMPILE_FLAGS "-O3 -funroll-loops")
+set_source_files_properties(src/pwm_audio.cpp PROPERTIES
+    COMPILE_FLAGS "-O3")
 
 if (PICO_BOARD STREQUAL "pico")
     pico_define_boot_stage2(slower_boot2 ${PICO_DEFAULT_BOOT_STAGE2_FILE})

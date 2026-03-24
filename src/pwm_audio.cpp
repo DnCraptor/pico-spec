@@ -217,7 +217,6 @@ static int16_t buff_R[640] = { 0 };
 static repeating_timer_t m_timer = { 0 };
 static volatile size_t m_off = 0; // in 16-bit words
 static volatile size_t m_size = 0; // 16-bit values prepared (available)
-static volatile bool m_let_process_it = false;
 
 esp_err_t pwm_audio_write(
     uint8_t *bufL,
@@ -228,8 +227,8 @@ esp_err_t pwm_audio_write(
 ) {
     int16_t volume = vol;
     for (size_t i = 0; i < len; ++i) {
-        buff_L[i] = (((int16_t)bufL[i]) << 7) * volume / VOLUME_0DB;
-        buff_R[i] = (((int16_t)bufR[i]) << 7) * volume / VOLUME_0DB;
+        buff_L[i] = (int16_t)(((uint32_t)bufL[i] << 7) * volume >> 4);
+        buff_R[i] = (int16_t)(((uint32_t)bufR[i] << 7) * volume >> 4);
     }
     m_off = 0;
     m_size = len;
@@ -356,16 +355,7 @@ void pcm_audio_in_stop(void) {
 }
 #endif
 
-static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core#1?
-    m_let_process_it = true;
-    return true;
-}
-
-void pcm_call() {
-    if (!m_let_process_it) {
-        return;
-    }
-    m_let_process_it = false;
+static void __not_in_flash_func(pcm_call_inner)() {
 #if !PICO_RP2040
     if (Config::audio_driver == 4) {
         if (m_off < m_size) {
@@ -386,13 +376,16 @@ void pcm_call() {
     else if (is_i2s_enabled) {
         static int16_t v32[2];
         if (m_off < m_size) {
-            v32[0] = *(buff_R + m_off);
-            v32[1] = *(buff_L + m_off);
+            v32[0] = buff_R[m_off];
+            v32[1] = buff_L[m_off];
             ++m_off;
         }
         // When buffer exhausted, v32 retains last sample (static) — no click
-        i2s_write(&i2s_config, v32, 1);
-        // i2s_dma_write(&i2s_config, v32);
+        // Non-blocking: skip if PIO FIFO full (avoids stalling in IRQ context)
+        if (!pio_sm_is_tx_fifo_full(i2s_config.pio, i2s_config.sm)) {
+            uint32_t w = ((uint32_t)(uint16_t)v32[0] << 16) | (uint16_t)v32[1];
+            pio_sm_put(i2s_config.pio, i2s_config.sm, w);
+        }
     } else {
         uint16_t outL = 0;
         uint16_t outR = 0;
@@ -422,8 +415,17 @@ void pcm_call() {
     return;
 }
 
+static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) {
+    pcm_call_inner();
+    return true;
+}
+
+void pcm_call() {
+    // Called from core1 busy-loop — now a no-op since audio is driven directly
+    // from timer_callback interrupt. Kept for compatibility with render_core().
+}
+
 void pcm_cleanup(void) {
-    m_let_process_it = false;
     cancel_repeating_timer(&m_timer);
     m_timer.delay_us = 0;
 #if !PICO_RP2040
@@ -452,7 +454,6 @@ void pcm_setup(int hz) {
 #if !PICO_RP2040
     if (Config::audio_driver == 4) {
         // HDMI audio — timer only, no I2S/PWM hardware
-        m_let_process_it = false;
         add_repeating_timer_us(-1000000 / hz, timer_callback, NULL, &m_timer);
         return;
     }
@@ -472,7 +473,6 @@ void pcm_setup(int hz) {
             pcm_cleanup();
         }
     }
-    m_let_process_it = false;
     //hz; // 44100;	//44000 //44100 //96000 //22050
     // negative timeout means exact delay (rather than delay between callbacks)
     add_repeating_timer_us(-1000000 / hz, timer_callback, NULL, &m_timer);
