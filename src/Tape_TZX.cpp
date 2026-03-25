@@ -799,6 +799,7 @@ void Tape::TZX_GetBlock() {
 
                     // Allocate memory for the array of pointers to struct Symdef
                     SymDefTable = new Symdef[asp];
+                    SymDefTableSize = asp;
 
                     // Allocate memory for each row
                     for (int i = 0; i < asp; i++) {
@@ -864,6 +865,7 @@ void Tape::TZX_GetBlock() {
 
                     // Allocate memory for the array of pointers to struct Symdef
                     SymDefTable = new Symdef[asd];
+                    SymDefTableSize = asd;
 
                     // Allocate memory for each row
                     for (int i = 0; i < asd; i++) {

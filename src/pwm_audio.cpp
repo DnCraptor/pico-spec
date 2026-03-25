@@ -218,17 +218,17 @@ static repeating_timer_t m_timer = { 0 };
 static volatile size_t m_off = 0; // in 16-bit words
 static volatile size_t m_size = 0; // 16-bit values prepared (available)
 
-esp_err_t pwm_audio_write(
+esp_err_t __not_in_flash_func(pwm_audio_write)(
     uint8_t *bufL,
     uint8_t *bufR,
     size_t len,
     size_t* bytes_written,
     uint32_t wait_ms
 ) {
-    int16_t volume = vol;
+    uint32_t vol8 = (uint32_t)vol << 3;
     for (size_t i = 0; i < len; ++i) {
-        buff_L[i] = (int16_t)(((uint32_t)bufL[i] << 7) * volume >> 4);
-        buff_R[i] = (int16_t)(((uint32_t)bufR[i] << 7) * volume >> 4);
+        buff_L[i] = (int16_t)((uint32_t)bufL[i] * vol8);
+        buff_R[i] = (int16_t)((uint32_t)bufR[i] * vol8);
     }
     m_off = 0;
     m_size = len;

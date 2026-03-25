@@ -5,6 +5,12 @@
 using namespace std;
 
 #include "FileInfo.h"
+
+#if PICO_RP2040
+// Stub — saves ~2KB RAM (static FIL, lineStarts/lineLens arrays, format tables)
+void FileInfo::viewInfo(const string& path) {}
+#else
+
 #include "FileUtils.h"
 #include "Video.h"
 #include "OSDMain.h"
@@ -85,7 +91,7 @@ static void drawContent(const char** lineStarts, int* lineLens, int totalLines,
 
 // Draw info box with scrolling and wait for ESC
 static void showInfoBox(const string& info, int lineCount) {
-    const int MAX_LINES = 512;
+    const int MAX_LINES = 128;
     static const char* lineStarts[MAX_LINES];
     static int lineLens[MAX_LINES];
     int totalLines = parseLines(info, lineStarts, lineLens, MAX_LINES);
@@ -719,3 +725,4 @@ void FileInfo::viewInfo(const string& path) {
 
     showInfoBox(info, lines);
 }
+#endif // !PICO_RP2040

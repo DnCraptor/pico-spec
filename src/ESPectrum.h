@@ -114,7 +114,7 @@ public:
     static uint8_t audioBuffer_L[ESP_AUDIO_SAMPLES_PENTAGON];
     static uint8_t audioBuffer_R[ESP_AUDIO_SAMPLES_PENTAGON];
     static uint8_t audioBufferCovox[ESP_AUDIO_SAMPLES_PENTAGON];
-    static uint32_t overSamplebuf[ESP_AUDIO_SAMPLES_PENTAGON];
+    static uint8_t overSamplebuf[ESP_AUDIO_SAMPLES_PENTAGON];
     static unsigned char audioSampleDivider;
     static unsigned char audioAYDivider;
     static unsigned char audioCOVOXDivider;

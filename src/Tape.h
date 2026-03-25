@@ -217,6 +217,7 @@ public:
     static bool jjScreenAnimating; // true while JJ screen animation in progress
     static bool TapePortRead();
     static void Save();
+    static void FreeSymDefTable();
 
     static uint32_t CalcTapBlockPos(int block);
     static uint32_t CalcTZXBlockPos(int block);
@@ -295,6 +296,7 @@ private:
     static uint8_t curBit;       
     static bool GDBEnd;
     static Symdef* SymDefTable;
+    static uint16_t SymDefTableSize;
 
     // PZX vars
     static uint16_t pzxPulseRep;      // remaining repeat count for current PULS entry

@@ -600,8 +600,9 @@ static void nvs_set_sc(string& buf, const char* name, signed char val) {
 
 // Dump actual config to FS
 void Config::save() {
-    string buf;
-    buf.reserve(2048);
+    static string buf;
+    buf.clear();
+    if (buf.capacity() < 2048) buf.reserve(2048);
     #if TFT
     nvs_set_u8(buf,"TFT_FLAGS", TFT_FLAGS);
     nvs_set_u8(buf,"TFT_INVERSION", TFT_INVERSION);

@@ -292,241 +292,149 @@ void AySound::prepare_generation()
 // Generate sound.
 // Fill sound buffer with current register data
 //
-IRAM_ATTR void AySound::gen_sound(int sound_bufsize, int bufpos)
-{
-
-    int tmpvol;
-    uint8_t *sound_buf_L = SamplebufAY_L + bufpos;
-    uint8_t *sound_buf_R = SamplebufAY_R + bufpos;
-
-    // int snd_numcount = sound_bufsize / (sndfmt.channels * (sndfmt.bpc >> 3));
-    // while (snd_numcount-- > 0) {
-    while (sound_bufsize-- > 0) {        
-
-        int mix_l = 0;
-        int mix_r = 0;
-        
-        for (int m = 0 ; m < ChipTacts_per_outcount ; m++) {
-
-            if (++cnt_a >= ayregs.tone_a) {
-                cnt_a = 0;
-                bit_a = !bit_a;
-            }
-
-            if (++cnt_b >= ayregs.tone_b) {
-                cnt_b = 0;
-                bit_b = !bit_b;
-            }
-
-            if (++cnt_c >= ayregs.tone_c) {
-                cnt_c = 0;
-                bit_c = !bit_c;
-            }
-
-            /* GenNoise (c) Hacker KAY & Sergey Bulba */
-            if (++cnt_n >= (ayregs.noise * 2)) {
-                cnt_n = 0;
-                Cur_Seed = (Cur_Seed * 2 + 1) ^ \
-                    (((Cur_Seed >> 16) ^ (Cur_Seed >> 13)) & 1); 
-                bit_n = ((Cur_Seed >> 16) & 1);
-            }
-            /* End of GenNoise (c) Hacker KAY & Sergey Bulba */
-
-            // /* GenNoise (c) SoftSpectrum 48 */
-            // if (++cnt_n >= (ayregs.noise * 2)) {
-            //     cnt_n = 0;
-            //     // The algorithm is explained in the Fuse source:
-            //     // The Random Number Generator of the 8910 is a 17-bit shift
-            //     // register. The input to the shift register is bit0 XOR bit3
-            //     // (bit0 is the output). This was verified on AY-3-8910 and YM2149 chips.
-            //     // The following is a fast way to compute bit17 = bit0^bit3
-            //     // Instead of doing all the logic operations, we only check
-            //     // bit0, relying on the fact that after three shifts of the
-            //     // register, what now is bit3 will become bit0, and will
-            //     // invert, if necessary, bit14, which previously was bit17
-            //     if ((Cur_Seed & 1) == 1)
-            //     {
-            //         Cur_Seed ^= 0x24000;
-            //     }
-            //     Cur_Seed >>= 1;
-            //     bit_n = Cur_Seed & 1;
-            // }
-            // /* End of GenNoise (c) SoftSpectrum 48 */
-
-            // // /* GenNoise (c) JSpeccy */
-            // if (++cnt_n >= period_n) {
-
-            //     cnt_n = 0;
-            //      // Changes to R6 take effect only when internal counter reaches 0
-            //     period_n = ayregs.noise;
-            //     if (period_n == 0) {
-            //         period_n = 1;
-            //     }
-            //     period_n <<= 1;
-
-            //     // Code borrowed from MAME sources
-            //     /* Is noise output going to change? */
-            //     if (((Cur_Seed + 1) & 0x02) != 0) { /* (bit0^bit1)? */
-            //         bit_n = !bit_n;
-            //     }
-
-            //     /* The Random Number Generator of the 8910 is a 17-bit shift */
-            //     /* register. The input to the shift register is bit0 XOR bit3 */
-            //     /* (bit0 is the output). This was verified on AY-3-8910 and YM2149 chips. */
-            //     /* The following is a fast way to compute bit17 = bit0^bit3. */
-            //     /* Instead of doing all the logic operations, we only check */
-            //     /* bit0, relying on the fact that after three shifts of the */
-            //     /* register, what now is bit3 will become bit0, and will */
-            //     /* invert, if necessary, bit14, which previously was bit17. */
-            //     if ((Cur_Seed & 0x01) != 0) {
-            //         Cur_Seed ^= 0x24000; /* This version is called the "Galois configuration". */
-            //     }
-            //     Cur_Seed >>= 1;
-            //     // End of Code borrowed from MAME sources
-            // }
-            // // /* End of GenNoise (c) JSpeccy */            
-
-            if (++cnt_e >= ayregs.env_freq) {
-                cnt_e = 0;
-                if (++env_pos > 127)
-                    env_pos = 64;
-            }
-
-            #define ENVVOL Envelope[ayregs.env_style][env_pos]
-
-            if ((bit_a | !ayregs.R7_tone_a) & (bit_n | !ayregs.R7_noise_a)) {
-                tmpvol = (ayregs.env_a) ? ENVVOL : Rampa_AY_table[ayregs.vol_a];
-                if (Config::ayConfig == 2) { // mono
-                    int v = table[tmpvol];
-                    mix_l += v;
-                    mix_r += v;
-                } else {
-                    mix_l += table[tmpvol]; // ABC/ACB - A in L-channel
-                }
-            }
-
-            if ((bit_b | !ayregs.R7_tone_b) & (bit_n | !ayregs.R7_noise_b)) {
-                tmpvol = (ayregs.env_b) ? ENVVOL : Rampa_AY_table[ayregs.vol_b];
-                if (Config::ayConfig == 0) {
-                    // ABC - 50% of sygnal in each channel
-                    int v = table[tmpvol] >> 1;
-                    mix_l += v;
-                    mix_r += v;
-                } else if (Config::ayConfig == 2) { // mono
-                    int v = table[tmpvol];
-                    mix_l += v;
-                    mix_r += v;
-                } else {
-                    mix_r += table[tmpvol]; // ACB - B in R-channel
-                }
-            }
-            
-            if ((bit_c | !ayregs.R7_tone_c) & (bit_n | !ayregs.R7_noise_c)) {
-                tmpvol = (ayregs.env_c) ? ENVVOL : Rampa_AY_table[ayregs.vol_c];
-                if (Config::ayConfig == 0) {
-                    mix_r += table[tmpvol]; // ABC - C in R-channel
-                } else if (Config::ayConfig == 2) { // mono
-                    int v = table[tmpvol];
-                    mix_l += v;
-                    mix_r += v;
-                } else {
-                    // ACB - 50% of sygnal in each channel
-                    int v = table[tmpvol] >> 1;
-                    mix_l += v;
-                    mix_r += v;
-                }
-            }            
-
-        }
-        
-        *sound_buf_L++ = (mix_l * inv_Amp_Global) >> 16;
-        *sound_buf_R++ = (mix_r * inv_Amp_Global) >> 16;
-
+// Common counter/noise/envelope tick macro — shared by all stereo variants.
+// Operates on hoisted local variables to minimize member access in inner loop.
+#define AY_TICK_COUNTERS() \
+    if (++l_cnt_a >= l_tone_a) { l_cnt_a = 0; l_bit_a ^= 1; } \
+    if (++l_cnt_b >= l_tone_b) { l_cnt_b = 0; l_bit_b ^= 1; } \
+    if (++l_cnt_c >= l_tone_c) { l_cnt_c = 0; l_bit_c ^= 1; } \
+    if (++l_cnt_n >= l_noise2) { \
+        l_cnt_n = 0; \
+        l_seed = (l_seed * 2 + 1) ^ (((l_seed >> 16) ^ (l_seed >> 13)) & 1); \
+        l_bit_n = (l_seed >> 16) & 1; \
+    } \
+    if (++l_cnt_e >= l_env_freq) { \
+        l_cnt_e = 0; \
+        if (++l_env_pos > 127) l_env_pos = 64; \
     }
 
+// Hoist all loop-invariant AY state into local variables
+#define AY_HOIST_LOCALS() \
+    int l_tone_a = ayregs.tone_a, l_tone_b = ayregs.tone_b, l_tone_c = ayregs.tone_c; \
+    int l_noise2 = ayregs.noise * 2; \
+    int l_env_freq = ayregs.env_freq; \
+    const uint8_t *l_env_row = Envelope[ayregs.env_style]; \
+    int l_R7ta = ayregs.R7_tone_a, l_R7tb = ayregs.R7_tone_b, l_R7tc = ayregs.R7_tone_c; \
+    int l_R7na = ayregs.R7_noise_a, l_R7nb = ayregs.R7_noise_b, l_R7nc = ayregs.R7_noise_c; \
+    int l_vol_a = ayregs.vol_a, l_vol_b = ayregs.vol_b, l_vol_c = ayregs.vol_c; \
+    int l_env_a = ayregs.env_a, l_env_b = ayregs.env_b, l_env_c = ayregs.env_c; \
+    int l_cnt_a = cnt_a, l_cnt_b = cnt_b, l_cnt_c = cnt_c, l_cnt_n = cnt_n, l_cnt_e = cnt_e; \
+    int l_bit_a = bit_a, l_bit_b = bit_b, l_bit_c = bit_c, l_bit_n = bit_n; \
+    int l_env_pos = env_pos; \
+    int l_seed = Cur_Seed; \
+    int l_tacts = ChipTacts_per_outcount; \
+    int l_inv_amp = inv_Amp_Global; \
+    const int *l_table = table;
+
+// Write back mutable state to member variables
+#define AY_WRITEBACK() \
+    cnt_a = l_cnt_a; cnt_b = l_cnt_b; cnt_c = l_cnt_c; cnt_n = l_cnt_n; cnt_e = l_cnt_e; \
+    bit_a = l_bit_a; bit_b = l_bit_b; bit_c = l_bit_c; bit_n = l_bit_n; \
+    env_pos = l_env_pos; Cur_Seed = l_seed;
+
+// Channel volume helper
+#define AY_CHVOL(env_flag, vol_reg) \
+    (l_table[(env_flag) ? l_env_row[l_env_pos] : Rampa_AY_table[vol_reg]])
+
+// ABC stereo: A→L, B→L/2+R/2, C→R
+IRAM_ATTR void AySound::gen_sound_ABC(int sound_bufsize, uint8_t *sound_buf_L, uint8_t *sound_buf_R) {
+    AY_HOIST_LOCALS()
+    while (sound_bufsize-- > 0) {
+        int mix_l = 0, mix_r = 0;
+        for (int m = 0; m < l_tacts; m++) {
+            AY_TICK_COUNTERS()
+            if ((l_bit_a | !l_R7ta) & (l_bit_n | !l_R7na)) {
+                mix_l += AY_CHVOL(l_env_a, l_vol_a);
+            }
+            if ((l_bit_b | !l_R7tb) & (l_bit_n | !l_R7nb)) {
+                int v = AY_CHVOL(l_env_b, l_vol_b) >> 1;
+                mix_l += v;
+                mix_r += v;
+            }
+            if ((l_bit_c | !l_R7tc) & (l_bit_n | !l_R7nc)) {
+                mix_r += AY_CHVOL(l_env_c, l_vol_c);
+            }
+        }
+        *sound_buf_L++ = (mix_l * l_inv_amp) >> 16;
+        *sound_buf_R++ = (mix_r * l_inv_amp) >> 16;
+    }
+    AY_WRITEBACK()
+}
+
+// ACB stereo: A→L, B→R, C→L/2+R/2
+IRAM_ATTR void AySound::gen_sound_ACB(int sound_bufsize, uint8_t *sound_buf_L, uint8_t *sound_buf_R) {
+    AY_HOIST_LOCALS()
+    while (sound_bufsize-- > 0) {
+        int mix_l = 0, mix_r = 0;
+        for (int m = 0; m < l_tacts; m++) {
+            AY_TICK_COUNTERS()
+            if ((l_bit_a | !l_R7ta) & (l_bit_n | !l_R7na)) {
+                mix_l += AY_CHVOL(l_env_a, l_vol_a);
+            }
+            if ((l_bit_b | !l_R7tb) & (l_bit_n | !l_R7nb)) {
+                mix_r += AY_CHVOL(l_env_b, l_vol_b);
+            }
+            if ((l_bit_c | !l_R7tc) & (l_bit_n | !l_R7nc)) {
+                int v = AY_CHVOL(l_env_c, l_vol_c) >> 1;
+                mix_l += v;
+                mix_r += v;
+            }
+        }
+        *sound_buf_L++ = (mix_l * l_inv_amp) >> 16;
+        *sound_buf_R++ = (mix_r * l_inv_amp) >> 16;
+    }
+    AY_WRITEBACK()
+}
+
+// Mono: all channels → both L and R equally
+IRAM_ATTR void AySound::gen_sound_MONO(int sound_bufsize, uint8_t *sound_buf_L, uint8_t *sound_buf_R) {
+    AY_HOIST_LOCALS()
+    while (sound_bufsize-- > 0) {
+        int mix = 0;
+        for (int m = 0; m < l_tacts; m++) {
+            AY_TICK_COUNTERS()
+            if ((l_bit_a | !l_R7ta) & (l_bit_n | !l_R7na)) {
+                mix += AY_CHVOL(l_env_a, l_vol_a);
+            }
+            if ((l_bit_b | !l_R7tb) & (l_bit_n | !l_R7nb)) {
+                mix += AY_CHVOL(l_env_b, l_vol_b);
+            }
+            if ((l_bit_c | !l_R7tc) & (l_bit_n | !l_R7nc)) {
+                mix += AY_CHVOL(l_env_c, l_vol_c);
+            }
+        }
+        uint8_t out = (mix * l_inv_amp) >> 16;
+        *sound_buf_L++ = out;
+        *sound_buf_R++ = out;
+    }
+    AY_WRITEBACK()
+}
+
+IRAM_ATTR void AySound::gen_sound(int sound_bufsize, int bufpos)
+{
+    uint8_t *sound_buf_L = SamplebufAY_L + bufpos;
+    uint8_t *sound_buf_R = SamplebufAY_R + bufpos;
+    switch (Config::ayConfig) {
+    case 0:  gen_sound_ABC(sound_bufsize, sound_buf_L, sound_buf_R); break;
+    case 1:  gen_sound_ACB(sound_bufsize, sound_buf_L, sound_buf_R); break;
+    default: gen_sound_MONO(sound_bufsize, sound_buf_L, sound_buf_R); break;
+    }
 }
 
 IRAM_ATTR uint8_t* AySound::gen_sound()
 {
-    // sound_bufsize всегда 1, bufpos всегда 0
-    int mix_l = 0;
-    int mix_r = 0;
-
-    for (int m = 0; m < ChipTacts_per_outcount; m++) {
-        if (++cnt_a >= ayregs.tone_a) {
-            cnt_a = 0;
-            bit_a = !bit_a;
-        }
-        if (++cnt_b >= ayregs.tone_b) {
-            cnt_b = 0;
-            bit_b = !bit_b;
-        }
-        if (++cnt_c >= ayregs.tone_c) {
-            cnt_c = 0;
-            bit_c = !bit_c;
-        }
-        // Noise
-        if (++cnt_n >= (ayregs.noise * 2)) {
-            cnt_n = 0;
-            Cur_Seed = (Cur_Seed * 2 + 1) ^ (((Cur_Seed >> 16) ^ (Cur_Seed >> 13)) & 1);
-            bit_n = ((Cur_Seed >> 16) & 1);
-        }
-        // Envelope
-        if (++cnt_e >= ayregs.env_freq) {
-            cnt_e = 0;
-            if (++env_pos > 127)
-                env_pos = 64;
-        }
-
-        #define ENVVOL Envelope[ayregs.env_style][env_pos]
-
-        // Channel A
-        if ((bit_a | !ayregs.R7_tone_a) & (bit_n | !ayregs.R7_noise_a)) {
-            int tmpvol = (ayregs.env_a) ? ENVVOL : Rampa_AY_table[ayregs.vol_a];
-            if (Config::ayConfig == 2) { // mono
-                int v = table[tmpvol];
-                mix_l += v;
-                mix_r += v;
-            } else {
-                mix_l += table[tmpvol];
-            }
-        }
-        // Channel B
-        if ((bit_b | !ayregs.R7_tone_b) & (bit_n | !ayregs.R7_noise_b)) {
-            int tmpvol = (ayregs.env_b) ? ENVVOL : Rampa_AY_table[ayregs.vol_b];
-            if (Config::ayConfig == 0) {
-                int v = table[tmpvol] >> 1;
-                mix_l += v;
-                mix_r += v;
-            } else if (Config::ayConfig == 2) { // mono
-                int v = table[tmpvol];
-                mix_l += v;
-                mix_r += v;
-            } else {
-                mix_r += table[tmpvol];
-            }
-        }
-        // Channel C
-        if ((bit_c | !ayregs.R7_tone_c) & (bit_n | !ayregs.R7_noise_c)) {
-            int tmpvol = (ayregs.env_c) ? ENVVOL : Rampa_AY_table[ayregs.vol_c];
-            if (Config::ayConfig == 0) {
-                mix_r += table[tmpvol];
-            } else if (Config::ayConfig == 2) { // mono
-                int v = table[tmpvol];
-                mix_l += v;
-                mix_r += v;
-            } else {
-                int v = table[tmpvol] >> 1;
-                mix_l += v;
-                mix_r += v;
-            }
-        }
-    }
-
-    SamplebufAY[0] = (mix_l * inv_Amp_Global) >> 16;
-    SamplebufAY[1] = (mix_r * inv_Amp_Global) >> 16;
+    // Single-sample variant — delegates to batch with bufsize=1
+    gen_sound(1, 0);
+    SamplebufAY[0] = SamplebufAY_L[0];
+    SamplebufAY[1] = SamplebufAY_R[0];
     return SamplebufAY;
 }
+
+#undef AY_TICK_COUNTERS
+#undef AY_HOIST_LOCALS
+#undef AY_WRITEBACK
+#undef AY_CHVOL
+#undef ENVVOL
 
 void AySound::updToneA() {
     ayregs.tone_a = regs[0] + ((regs[1] & 0x0f) << 8);

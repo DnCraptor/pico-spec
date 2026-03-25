@@ -161,6 +161,13 @@ public:
     void gen_sound(int bufsize, int bufpos);
     uint8_t* gen_sound();
 
+private:
+    void gen_sound_ABC(int bufsize, uint8_t *buf_L, uint8_t *buf_R);
+    void gen_sound_ACB(int bufsize, uint8_t *buf_L, uint8_t *buf_R);
+    void gen_sound_MONO(int bufsize, uint8_t *buf_L, uint8_t *buf_R);
+
+public:
+
     uint8_t SamplebufAY_L[ESP_AUDIO_SAMPLES_PENTAGON];
     uint8_t SamplebufAY_R[ESP_AUDIO_SAMPLES_PENTAGON];
     uint8_t SamplebufAY[2];

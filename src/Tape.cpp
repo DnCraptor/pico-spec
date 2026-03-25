@@ -127,7 +127,18 @@ uint8_t Tape::GDBsymbol;
 uint8_t Tape::nb;
 uint8_t Tape::curBit;
 bool Tape::GDBEnd = false;
-Symdef* Tape::SymDefTable;
+Symdef* Tape::SymDefTable = nullptr;
+uint16_t Tape::SymDefTableSize = 0;
+
+void Tape::FreeSymDefTable() {
+    if (SymDefTable) {
+        for (int i = 0; i < SymDefTableSize; i++)
+            delete[] SymDefTable[i].PulseLenghts;
+        delete[] SymDefTable;
+        SymDefTable = nullptr;
+        SymDefTableSize = 0;
+    }
+}
 
 #define my_max(a,b) (((a) > (b)) ? (a) : (b))
 #define my_min(a,b) (((a) < (b)) ? (a) : (b))
@@ -671,6 +682,7 @@ void Tape::MP3_Open(string name) {
             free_ptr fp = { p , 0 };
             free_ptrs.push_back(fp);
         }
+        revoke_ram_4_mp3 = true;
     }
     working = (uint8_t*) malloc2(WORKING_SIZE);
     d_buff = (int16_t*) malloc2(RAM_BUFFER_LENGTH * 2);
@@ -1253,9 +1265,7 @@ IRAM_ATTR void Tape::Read() {
                             // End of PRLE
 
                             // Free SymDefTable
-                            for (int i = 0; i < asp; i++)
-                                delete[] SymDefTable[i].PulseLenghts;
-                            delete[] SymDefTable;
+                            FreeSymDefTable();
 
                             // End of pilotsync. Is there data stream ?
                             if (totd > 0) {
@@ -1264,6 +1274,7 @@ IRAM_ATTR void Tape::Read() {
 
                                 // Allocate memory for the array of pointers to struct Symdef
                                 SymDefTable = new Symdef[asd];
+                                SymDefTableSize = asd;
 
                                 // Allocate memory for each row
                                 for (int i = 0; i < asd; i++) {
@@ -1437,9 +1448,7 @@ IRAM_ATTR void Tape::Read() {
                         // printf("END DATA GDB -> tapeCurByte: %d, Tape pos: %d, Tapebbc: %d, TapeBlockLen: %d\n", tapeCurByte,(int)(ftell(tape)),tapebufByteCount, tapeBlockLen);
                         
                         // Free SymDefTable
-                        for (int i = 0; i < asd; i++)
-                            delete[] SymDefTable[i].PulseLenghts;
-                        delete[] SymDefTable;
+                        FreeSymDefTable();
 
                         if (tapeBlkPauseLen == 0) {
                             if (tapeCurByte == 0x13) tapeEarBit ^= 1; // This is needed for Basil, maybe for others (next block == Pulse sequence)

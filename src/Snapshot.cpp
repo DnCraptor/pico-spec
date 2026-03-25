@@ -109,6 +109,7 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
         snapshotArch = "P1024";
     } else {
         OSD::osdCenteredMsg("Bad SNA:\n" + sna_fn + "\nsize: " + to_string(sna_size) + "\n", LEVEL_INFO, 5000);
+        fclose2(file);
         return false;
     }
 
@@ -1124,6 +1125,7 @@ bool FileP::load(string p_fn) {
 
     if (p_size > (MEM_PG_SZ - 9)) {
         printf("FileP: Invalid .P file %s\n",p_fn.c_str());
+        fclose2(file);
         return false;
     }
 

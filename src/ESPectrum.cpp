@@ -177,7 +177,7 @@ void repeat_handler(void) {
 uint8_t ESPectrum::audioBuffer_L[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
 uint8_t ESPectrum::audioBuffer_R[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
 uint8_t ESPectrum::audioBufferCovox[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
-uint32_t ESPectrum::overSamplebuf[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
+uint8_t ESPectrum::overSamplebuf[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
 signed char ESPectrum::aud_volume = ESP_VOLUME_DEFAULT;
 bool ESPectrum::vol_changed = false;
 // signed char ESPectrum::aud_volume = ESP_VOLUME_MAX; // For .tap player test
@@ -1637,18 +1637,18 @@ void ESPectrum::loop() {
         if (Tape::tapeStatus != TAPE_LOADING) {
           // Smooth beeper buffer + detect constant DC in single pass
           static uint32_t dc_fade_q8 = 256u;
-          uint32_t v0 = overSamplebuf[0];
-          uint32_t prev = v0;
+          uint8_t v0 = overSamplebuf[0];
+          uint8_t prev = v0;
           bool is_const = true;
           for (int i = 1; i < samplesPerFrame; i++) {
-            uint32_t curr = overSamplebuf[i];
+            uint8_t curr = overSamplebuf[i];
             if (curr != v0) is_const = false;
-            overSamplebuf[i] = (prev + curr + 1) >> 1;
+            overSamplebuf[i] = ((uint32_t)prev + curr + 1) >> 1;
             prev = curr;
           }
           if (is_const && v0 > 0) {
             if (dc_fade_q8 >= 26u) dc_fade_q8 -= 26u; else dc_fade_q8 = 0u;
-            uint32_t faded = (v0 * dc_fade_q8) >> 8;
+            uint8_t faded = (v0 * dc_fade_q8) >> 8;
             for (int i = 0; i < samplesPerFrame; i++)
               overSamplebuf[i] = faded;
           } else if (!is_const) {
@@ -1694,6 +1694,13 @@ void ESPectrum::loop() {
           }
         }
 #endif
+        // Hoist frame-invariant source flags outside the mix loop
+        bool mix_chip0 = AY_emu && (Config::turbosound != 0 || AySound::selected_chip == 0);
+        bool mix_chip1 = AY_emu && (Config::turbosound != 0 || AySound::selected_chip == 1);
+#if !PICO_RP2040
+        bool mix_saa = SAA_emu;
+        bool mix_midi = (Midi::enabled == 3);
+#endif
         for (int i = 0; i < samplesPerFrame; i++)
         {
           int beeper_L = overSamplebuf[i] + audioBufferCovox[i]
@@ -1702,33 +1709,26 @@ void ESPectrum::loop() {
 #endif
               ;
           int beeper_R = beeper_L;
-          if (AY_emu)
-          {
-            if (Config::turbosound != 0 || AySound::selected_chip == 0)
-            {
-              beeper_L += chip0.SamplebufAY_L[i];
-              beeper_R += chip0.SamplebufAY_R[i];
-            }
-            if (Config::turbosound != 0 || AySound::selected_chip == 1)
-            {
-              beeper_L += chip1.SamplebufAY_L[i];
-              beeper_R += chip1.SamplebufAY_R[i];
-            }
+          if (mix_chip0) {
+            beeper_L += chip0.SamplebufAY_L[i];
+            beeper_R += chip0.SamplebufAY_R[i];
+          }
+          if (mix_chip1) {
+            beeper_L += chip1.SamplebufAY_L[i];
+            beeper_R += chip1.SamplebufAY_R[i];
           }
 #if !PICO_RP2040
-            if (SAA_emu)
-            {
-              beeper_L += saaChip.SamplebufSAA_L[i];
-              beeper_R += saaChip.SamplebufSAA_R[i];
-            }
-            if (Midi::enabled == 3)
-            {
-              beeper_L += audioBufferMIDI_L[i];
-              beeper_R += audioBufferMIDI_R[i];
-            }
+          if (mix_saa) {
+            beeper_L += saaChip.SamplebufSAA_L[i];
+            beeper_R += saaChip.SamplebufSAA_R[i];
+          }
+          if (mix_midi) {
+            beeper_L += audioBufferMIDI_L[i];
+            beeper_R += audioBufferMIDI_R[i];
+          }
 #endif
-            audioBuffer_L[i] = beeper_L > 255 ? 255 : beeper_L; // Clamp
-            audioBuffer_R[i] = beeper_R > 255 ? 255 : beeper_R; // Clamp
+          audioBuffer_L[i] = beeper_L > 255 ? 255 : beeper_L;
+          audioBuffer_R[i] = beeper_R > 255 ? 255 : beeper_R;
         }
       }
     }
