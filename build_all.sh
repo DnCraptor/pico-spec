@@ -43,9 +43,26 @@ SUCCEEDED=""
 OUTPUT_DIR="$SCRIPT_DIR/firmware"
 mkdir -p "$OUTPUT_DIR"
 
-# Clean build directories before building
+# Expand ZERO2 into two variants (252MHz and 378MHz)
+EXPANDED_TARGETS=""
 for TARGET in $TARGETS; do
-    BUILD_DIR="$SCRIPT_DIR/build-$TARGET"
+    if [ "$TARGET" = "ZERO2" ]; then
+        EXPANDED_TARGETS="$EXPANDED_TARGETS ZERO2@252 ZERO2@378"
+    else
+        EXPANDED_TARGETS="$EXPANDED_TARGETS $TARGET"
+    fi
+done
+TARGETS="$EXPANDED_TARGETS"
+
+# Clean build directories before building
+for ENTRY in $TARGETS; do
+    TARGET="${ENTRY%@*}"
+    SUFFIX="${ENTRY#*@}"
+    if [ "$TARGET" = "$SUFFIX" ]; then
+        BUILD_DIR="$SCRIPT_DIR/build-$TARGET"
+    else
+        BUILD_DIR="$SCRIPT_DIR/build-${TARGET}-${SUFFIX}"
+    fi
     if [ -d "$BUILD_DIR" ]; then
         echo "Cleaning $BUILD_DIR ..."
         rm -rf "$BUILD_DIR"
@@ -53,11 +70,20 @@ for TARGET in $TARGETS; do
 done
 echo ""
 
-for TARGET in $TARGETS; do
-    BUILD_DIR="$SCRIPT_DIR/build-$TARGET"
+for ENTRY in $TARGETS; do
+    TARGET="${ENTRY%@*}"
+    MHZ_OVERRIDE="${ENTRY#*@}"
+    if [ "$TARGET" = "$MHZ_OVERRIDE" ]; then
+        MHZ_OVERRIDE=""
+        BUILD_DIR="$SCRIPT_DIR/build-$TARGET"
+        LABEL="$TARGET"
+    else
+        BUILD_DIR="$SCRIPT_DIR/build-${TARGET}-${MHZ_OVERRIDE}"
+        LABEL="${TARGET} (${MHZ_OVERRIDE}MHz)"
+    fi
 
     echo "========================================"
-    echo " Building: $TARGET"
+    echo " Building: $LABEL"
     echo " Build dir: $BUILD_DIR"
     echo "========================================"
 
@@ -94,6 +120,11 @@ for TARGET in $TARGETS; do
         *)       TARGET_FLAGS=(-D"${TARGET}"=ON) ;;
     esac
 
+    # Add CPU_MHZ override if specified
+    if [ -n "$MHZ_OVERRIDE" ]; then
+        TARGET_FLAGS+=(-DCPU_MHZ_OVERRIDE="$MHZ_OVERRIDE")
+    fi
+
     CMAKE_ARGS=(
         -B "$BUILD_DIR" -S "$SCRIPT_DIR"
         -G "$CMAKE_GENERATOR"
@@ -106,13 +137,13 @@ for TARGET in $TARGETS; do
 
     if cmake "${CMAKE_ARGS[@]}" \
       && cmake --build "$BUILD_DIR" --parallel "$PARALLEL_JOBS"; then
-        SUCCEEDED="$SUCCEEDED $TARGET"
+        SUCCEEDED="$SUCCEEDED $ENTRY"
         echo ""
-        echo "[OK] $TARGET build succeeded"
+        echo "[OK] $LABEL build succeeded"
     else
-        FAILED="$FAILED $TARGET"
+        FAILED="$FAILED $ENTRY"
         echo ""
-        echo "[FAIL] $TARGET build failed"
+        echo "[FAIL] $LABEL build failed"
     fi
     echo ""
 done
@@ -123,8 +154,15 @@ echo "========================================"
 
 if [ -n "$SUCCEEDED" ]; then
     echo "Succeeded:$SUCCEEDED"
-    for TARGET in $SUCCEEDED; do
-        for FW in $(find "$SCRIPT_DIR/build-$TARGET" -name "*.uf2" 2>/dev/null); do
+    for ENTRY in $SUCCEEDED; do
+        TARGET="${ENTRY%@*}"
+        SUFFIX="${ENTRY#*@}"
+        if [ "$TARGET" = "$SUFFIX" ]; then
+            BUILD_DIR="$SCRIPT_DIR/build-$TARGET"
+        else
+            BUILD_DIR="$SCRIPT_DIR/build-${TARGET}-${SUFFIX}"
+        fi
+        for FW in $(find "$BUILD_DIR" -name "*.uf2" 2>/dev/null); do
             cp "$FW" "$OUTPUT_DIR/"
             echo "  $(basename "$FW")"
         done
