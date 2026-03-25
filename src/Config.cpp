@@ -36,6 +36,9 @@ bool     Config::SAA1099 = false;
 uint8_t  Config::midi = 0;
 uint8_t  Config::midi_synth_preset = 0;
 #endif
+uint16_t Config::cpu_mhz = CPU_MHZ;
+uint16_t Config::max_flash_freq = 66;
+uint16_t Config::max_psram_freq = 166;
 bool     Config::Issue2 = true;
 bool     Config::flashload = true;
 bool     Config::tape_player = false; // Tape player mode
@@ -411,6 +414,18 @@ void Config::load() {
         nvs_get_u8("midi", midi, sts);
         nvs_get_u8("midipreset", midi_synth_preset, sts);
 #endif
+        nvs_get_u16("cpu_mhz", cpu_mhz, sts);
+#if PICO_RP2040
+        if (cpu_mhz != 252 && cpu_mhz != 378)
+            cpu_mhz = CPU_MHZ;
+#else
+        if (cpu_mhz != 252 && cpu_mhz != 378 && cpu_mhz != 504)
+            cpu_mhz = CPU_MHZ;
+#endif
+        nvs_get_u16("max_flash_freq", max_flash_freq, sts);
+        if (max_flash_freq == 0) max_flash_freq = 66;
+        nvs_get_u16("max_psram_freq", max_psram_freq, sts);
+        if (max_psram_freq == 0) max_psram_freq = 166;
         nvs_get_b("Issue2", Issue2, sts);
         nvs_get_b("flashload", flashload, sts);
         nvs_get_b("rightSpace", rightSpace, sts);
@@ -603,6 +618,10 @@ void Config::save() {
     static string buf;
     buf.clear();
     if (buf.capacity() < 2048) buf.reserve(2048);
+    nvs_set_u16(buf,"cpu_mhz", cpu_mhz);
+    nvs_set_u16(buf,"max_flash_freq", max_flash_freq);
+    nvs_set_u16(buf,"max_psram_freq", max_psram_freq);
+
     #if TFT
     nvs_set_u8(buf,"TFT_FLAGS", TFT_FLAGS);
     nvs_set_u8(buf,"TFT_INVERSION", TFT_INVERSION);

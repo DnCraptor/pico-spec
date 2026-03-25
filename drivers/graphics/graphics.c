@@ -192,3 +192,9 @@ struct video_mode_t graphics_get_video_mode(int mode)
 {
     return video_mode[mode];
 }
+
+void graphics_set_pio_clk_div(float div)
+{
+    for (int i = 0; i < sizeof(video_mode)/sizeof(video_mode[0]); i++)
+        video_mode[i].pio_clk_div = div;
+}

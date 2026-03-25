@@ -43,18 +43,18 @@ SUCCEEDED=""
 OUTPUT_DIR="$SCRIPT_DIR/firmware"
 mkdir -p "$OUTPUT_DIR"
 
-# Expand ZERO and ZERO2 into two variants (252MHz and 378MHz)
-EXPANDED_TARGETS=""
-for TARGET in $TARGETS; do
-    if [ "$TARGET" = "ZERO2" ]; then
-        EXPANDED_TARGETS="$EXPANDED_TARGETS ZERO2@252 ZERO2@378"
-    elif [ "$TARGET" = "ZERO" ]; then
-        EXPANDED_TARGETS="$EXPANDED_TARGETS ZERO@252 ZERO@378"
-    else
-        EXPANDED_TARGETS="$EXPANDED_TARGETS $TARGET"
-    fi
-done
-TARGETS="$EXPANDED_TARGETS"
+# # Expand ZERO and ZERO2 into two variants (252MHz and 378MHz)
+# EXPANDED_TARGETS=""
+# for TARGET in $TARGETS; do
+#     if [ "$TARGET" = "ZERO2" ]; then
+#         EXPANDED_TARGETS="$EXPANDED_TARGETS ZERO2@252 ZERO2@378"
+#     elif [ "$TARGET" = "ZERO" ]; then
+#         EXPANDED_TARGETS="$EXPANDED_TARGETS ZERO@252 ZERO@378"
+#     else
+#         EXPANDED_TARGETS="$EXPANDED_TARGETS $TARGET"
+#     fi
+# done
+# TARGETS="$EXPANDED_TARGETS"
 
 # Clean build directories before building
 for ENTRY in $TARGETS; do
@@ -122,10 +122,10 @@ for ENTRY in $TARGETS; do
         *)       TARGET_FLAGS=(-D"${TARGET}"=ON) ;;
     esac
 
-    # Add CPU_MHZ override if specified
-    if [ -n "$MHZ_OVERRIDE" ]; then
-        TARGET_FLAGS+=(-DCPU_MHZ_OVERRIDE="$MHZ_OVERRIDE")
-    fi
+    # # Add CPU_MHZ override if specified
+    # if [ -n "$MHZ_OVERRIDE" ]; then
+    #     TARGET_FLAGS+=(-DCPU_MHZ_OVERRIDE="$MHZ_OVERRIDE")
+    # fi
 
     CMAKE_ARGS=(
         -B "$BUILD_DIR" -S "$SCRIPT_DIR"

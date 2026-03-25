@@ -89,7 +89,10 @@ public:
     static uint8_t  midi;  // 0=Off, 1=AY bitbang, 2=ShamaZX, 3=Soft Synth
     static uint8_t  midi_synth_preset; // 0=GM,1=Piano,2=Chiptune,3=Strings,4=Rock,5=Organ,6=MusicBox,7=Synth
 #endif
-    static bool     Issue2;    
+    static uint16_t cpu_mhz;   // 252, 378 (RP2040/RP2350), 504 (RP2350 only)
+    static uint16_t max_flash_freq; // MHz, default 66
+    static uint16_t max_psram_freq; // MHz, default 166
+    static bool     Issue2;
     static bool     flashload;    
     static bool     tape_player;
     static volatile bool real_player;
