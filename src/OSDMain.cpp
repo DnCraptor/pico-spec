@@ -3825,6 +3825,45 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_level = 2;
                                     menu_saverect = false;
                                 }
+                                else if (options_num == 8) {
+                                    // CPU MHz
+                                    menu_level = 3;
+                                    menu_curopt = 1;
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string mhz_menu = MENU_CPU_MHZ;
+                                        uint16_t cur = Config::cpu_mhz;
+                                        mhz_menu.replace(mhz_menu.find("[2"), 2, cur == 252 ? "[*" : "[ ");
+                                        mhz_menu.replace(mhz_menu.find("[3"), 2, cur == 378 ? "[*" : "[ ");
+#if !PICO_RP2040
+                                        mhz_menu.replace(mhz_menu.find("[5"), 2, cur == 504 ? "[*" : "[ ");
+#endif
+                                        uint8_t opt2 = menuRun(mhz_menu);
+                                        if (opt2) {
+                                            uint16_t new_mhz = 0;
+                                            if (opt2 == 1) new_mhz = 252;
+                                            else if (opt2 == 2) new_mhz = 378;
+#if !PICO_RP2040
+                                            else if (opt2 == 3) new_mhz = 504;
+#endif
+                                            if (new_mhz && new_mhz != cur) {
+                                                Config::cpu_mhz = new_mhz;
+                                                if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
+                                                    Config::save();
+                                                    esp_hard_reset();
+                                                } else {
+                                                    Config::cpu_mhz = cur;
+                                                }
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = 8;
+                                            menu_level = 2;
+                                            break;
+                                        }
+                                    }
+                                }
                             } else {
                                 menu_curopt = 5;
                                 break;

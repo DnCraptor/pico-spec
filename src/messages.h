@@ -823,7 +823,8 @@ static const char *MENU_AUDIO[2] = { MENU_AUDIO_EN, MENU_AUDIO_ES };
     "Second joystick\t>\n"\
     "Kempston joystick port\t>\n"\
     "Throttling\t>\n"\
-    "Hot Keys\t>\n"
+    "Hot Keys\t>\n"\
+    "CPU MHz\t>\n"
 #define MENU_OTHER_ES "Otros\n"\
     "Temporizaci" "\xA2" "n ULA\t>\n"\
     "48K Issue 2\t>\n"\
@@ -831,8 +832,22 @@ static const char *MENU_AUDIO[2] = { MENU_AUDIO_EN, MENU_AUDIO_ES };
     "Segundo joystick\t>\n"\
     "Puerto Kempston joystick\t>\n"\
     "Aceleraci" "\xA2" "n\t>\n"\
-    "Teclas rapidas\t>\n"
+    "Teclas rapidas\t>\n"\
+    "CPU MHz\t>\n"
 static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
+
+#ifdef PICO_RP2040
+#define MENU_CPU_MHZ \
+    "CPU MHz\n"\
+    "[2] 252 MHz\n"\
+    "[3] 378 MHz\n"
+#else
+#define MENU_CPU_MHZ \
+    "CPU MHz\n"\
+    "[2] 252 MHz\n"\
+    "[3] 378 MHz\n"\
+    "[5] 504 MHz\n"
+#endif
 
 static const char *MENU_AY48[2] = { "Turned on?\n" , "Turned on?\n"};
 

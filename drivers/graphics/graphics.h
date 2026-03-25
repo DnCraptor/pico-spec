@@ -66,6 +66,7 @@ void draw_window(const char title[TEXTMODE_COLS + 1], uint32_t x, uint32_t y, ui
 void clrScr(uint8_t color);
 
 struct video_mode_t graphics_get_video_mode(int mode);
+void graphics_set_pio_clk_div(float div);
 
 #ifdef __cplusplus
 }
