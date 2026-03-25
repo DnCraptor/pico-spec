@@ -155,10 +155,8 @@ static void showInfoBox(const string& info, int lineCount) {
                     if (scrollPos != 0) { scrollPos = 0; redraw = true; }
                 } else if (Menukey.vk == fabgl::VK_END) {
                     if (scrollPos != maxScroll) { scrollPos = maxScroll; redraw = true; }
-                } else if (Menukey.vk == fabgl::VK_DPAD_UP || Menukey.vk == fabgl::VK_DPAD_DOWN
-                        || Menukey.vk == fabgl::VK_DPAD_LEFT || Menukey.vk == fabgl::VK_DPAD_RIGHT) {
-                    // Ignore joystick dpad events
-                } else {
+                } else if (is_back(Menukey.vk) || is_enter(Menukey.vk)
+                        || Menukey.vk == fabgl::VK_RETURN || Menukey.vk == fabgl::VK_SPACE) {
                     goto done;
                 }
                 if (redraw)
