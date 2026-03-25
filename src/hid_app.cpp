@@ -43,6 +43,7 @@ static struct
 {
   uint8_t report_count;
   tuh_hid_report_info_t report_info[MAX_REPORT];
+  bool using_report_protocol; // true if switched from boot to report protocol
 }hid_info[CFG_TUH_HID];
 
 struct input_bits_t {
@@ -89,13 +90,17 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* desc_re
   hid_info[instance].report_count = tuh_hid_parse_report_descriptor(hid_info[instance].report_info, MAX_REPORT, desc_report, desc_len);
   printf("HID has %u reports \r\n", hid_info[instance].report_count);
 
-  // Check if this boot-protocol interface has consumer control reports
-  // If so, switch to report protocol so the device sends all report types
+  // For boot-protocol devices with consumer control reports (e.g. Dell keyboard with
+  // Vol+/Vol- keys), switch to report protocol so the device sends all report types.
+  // Devices that don't support report protocol well (e.g. Oppo wireless keyboard)
+  // will still work if they expose consumer control on a separate HID instance.
+  hid_info[instance].using_report_protocol = false;
   if ( itf_protocol != HID_ITF_PROTOCOL_NONE )
   {
     for (uint8_t i = 0; i < hid_info[instance].report_count; i++) {
       if (hid_info[instance].report_info[i].usage_page == HID_USAGE_PAGE_CONSUMER) {
         tuh_hid_set_protocol(dev_addr, instance, HID_PROTOCOL_REPORT);
+        hid_info[instance].using_report_protocol = true;
         break;
       }
     }
@@ -124,10 +129,10 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
 {
   uint8_t const itf_protocol = tuh_hid_interface_protocol(dev_addr, instance);
 
-  // For composite interfaces (multiple report IDs), check if this is a non-primary report
-  // and route it through generic handler (e.g. consumer control on a mouse interface)
-  if (hid_info[instance].report_count > 1 && len > 0) {
-    // First byte is report ID in composite interfaces
+  // If device was switched to report protocol (has consumer control + keyboard/mouse),
+  // use generic handler which parses report IDs and routes accordingly.
+  // Otherwise use boot protocol handlers directly.
+  if (hid_info[instance].using_report_protocol && hid_info[instance].report_count > 1 && len > 0) {
     process_generic_report(dev_addr, instance, report, len);
   }
   else
@@ -144,6 +149,7 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
       break;
 
       default:
+        // Generic report handles consumer control, gamepads, etc.
         process_generic_report(dev_addr, instance, report, len);
       break;
     }
