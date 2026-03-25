@@ -43,11 +43,13 @@ SUCCEEDED=""
 OUTPUT_DIR="$SCRIPT_DIR/firmware"
 mkdir -p "$OUTPUT_DIR"
 
-# Expand ZERO2 into two variants (252MHz and 378MHz)
+# Expand ZERO and ZERO2 into two variants (252MHz and 378MHz)
 EXPANDED_TARGETS=""
 for TARGET in $TARGETS; do
     if [ "$TARGET" = "ZERO2" ]; then
         EXPANDED_TARGETS="$EXPANDED_TARGETS ZERO2@252 ZERO2@378"
+    elif [ "$TARGET" = "ZERO" ]; then
+        EXPANDED_TARGETS="$EXPANDED_TARGETS ZERO@252 ZERO@378"
     else
         EXPANDED_TARGETS="$EXPANDED_TARGETS $TARGET"
     fi
