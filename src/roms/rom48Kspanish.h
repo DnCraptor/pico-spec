@@ -5,7 +5,7 @@
 //ROM 0 48K SPANISH
 #include <hardware/flash.h>
 
-extern "C" unsigned char __in_flash() __aligned(4096) gb_rom_0_48k_es[];
+extern "C" const unsigned char __in_flash() __aligned(4096) gb_rom_0_48k_es[];
 #endif
 
 #endif

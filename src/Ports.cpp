@@ -447,7 +447,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     }
     if (bitRead(address, 7) == 0 &&
         (address & 1) == 1) { // ALF ROM selector A7=0, A0=1
-      uint8_t *base = bitRead(data, 7) ? gb_rom_Alf_cart : gb_rom_Alf;
+      const uint8_t *base = bitRead(data, 7) ? gb_rom_Alf_cart : gb_rom_Alf;
       if (MemESP::ramCurrent[0] != base) { /// TODO: ensure
         int border_page = base == gb_rom_Alf ? 16 : 64;
         for (int i = 0; i < 64; ++i) {

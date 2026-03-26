@@ -51,14 +51,14 @@ visit https://zxespectrum.speccy.org/contacto
 #include "roms/romSTS75.h"
 
 #ifndef NO_ALF
-extern "C" unsigned char gb_rom_Alf_cart[];
-extern "C" unsigned char gb_rom_Alf[];
-extern "C" unsigned char gb_rom_Alf_ep[];
+extern "C" const unsigned char gb_rom_Alf_cart[];
+extern "C" const unsigned char gb_rom_Alf[];
+extern "C" const unsigned char gb_rom_Alf_ep[];
 #endif
 extern "C" unsigned char gb_rom_4_trdos_505d[];
 extern "C" unsigned char gb_rom_4_trdos_503[];
 extern "C" unsigned char gb_rom_4_trdos_504tm[];
-extern "C" unsigned char gb_rom_pentagon_128k[];
+extern "C" const unsigned char gb_rom_pentagon_128k[];
 #if !PICO_RP2040
 extern "C" unsigned char gb_rom_esxdos[];
 extern "C" unsigned char gb_rom_esxide[];
