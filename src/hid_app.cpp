@@ -43,7 +43,6 @@ static struct
 {
   uint8_t report_count;
   tuh_hid_report_info_t report_info[MAX_REPORT];
-  bool using_report_protocol; // true if switched from boot to report protocol
 }hid_info[CFG_TUH_HID];
 
 struct input_bits_t {
@@ -86,24 +85,12 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* desc_re
 
   printf("HID Interface Protocol = %s\r\n", protocol_str[itf_protocol]);
 
-  // Always parse report descriptor to detect composite interfaces (e.g. mouse + consumer control)
-  hid_info[instance].report_count = tuh_hid_parse_report_descriptor(hid_info[instance].report_info, MAX_REPORT, desc_report, desc_len);
-  printf("HID has %u reports \r\n", hid_info[instance].report_count);
-
-  // For boot-protocol devices with consumer control reports (e.g. Dell keyboard with
-  // Vol+/Vol- keys), switch to report protocol so the device sends all report types.
-  // Devices that don't support report protocol well (e.g. Oppo wireless keyboard)
-  // will still work if they expose consumer control on a separate HID instance.
-  hid_info[instance].using_report_protocol = false;
-  if ( itf_protocol != HID_ITF_PROTOCOL_NONE )
+  // By default host stack will use activate boot protocol on supported interface.
+  // Therefore for this simple example, we only need to parse generic report descriptor (with built-in parser)
+  if ( itf_protocol == HID_ITF_PROTOCOL_NONE )
   {
-    for (uint8_t i = 0; i < hid_info[instance].report_count; i++) {
-      if (hid_info[instance].report_info[i].usage_page == HID_USAGE_PAGE_CONSUMER) {
-        tuh_hid_set_protocol(dev_addr, instance, HID_PROTOCOL_REPORT);
-        hid_info[instance].using_report_protocol = true;
-        break;
-      }
-    }
+    hid_info[instance].report_count = tuh_hid_parse_report_descriptor(hid_info[instance].report_info, MAX_REPORT, desc_report, desc_len);
+    printf("HID has %u reports \r\n", hid_info[instance].report_count);
   }
 
   // request to receive report
@@ -128,31 +115,37 @@ static hid_keyboard_report_t prev_report = { 0 , 0 , {0}};
 void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* report, uint16_t len)
 {
   uint8_t const itf_protocol = tuh_hid_interface_protocol(dev_addr, instance);
-
-  // If device was switched to report protocol (has consumer control + keyboard/mouse),
-  // use generic handler which parses report IDs and routes accordingly.
-  // Otherwise use boot protocol handlers directly.
-  if (hid_info[instance].using_report_protocol && hid_info[instance].report_count > 1 && len > 0) {
-    process_generic_report(dev_addr, instance, report, len);
-  }
-  else
+/*
+  FIL f;
+  f_open(&f, "1.log", FA_OPEN_APPEND | FA_WRITE);
+  char tmp[64];
+  snprintf(tmp, 64, "USB report itf_protocol %d; len: %d mod: %02Xh kc0: %02Xh\n",
+      itf_protocol,
+      len,
+      ((hid_keyboard_report_t const*)report)->modifier,
+      ((hid_keyboard_report_t const*)report)->keycode[0]
+  );
+  UINT bw;
+  f_write(&f, tmp, strlen(tmp), &bw);
+  f_close(&f);
+*/
+  switch (itf_protocol)
   {
-    switch (itf_protocol)
-    {
-      case HID_ITF_PROTOCOL_KEYBOARD:
-        process_kbd_report( (hid_keyboard_report_t const*) report, &prev_report );
-        prev_report = *(hid_keyboard_report_t const*)report;
-      break;
+    case HID_ITF_PROTOCOL_KEYBOARD:
+      TU_LOG2("HID receive boot keyboard report\r\n");
+      process_kbd_report( (hid_keyboard_report_t const*) report, &prev_report );
+      prev_report = *(hid_keyboard_report_t const*)report;
+    break;
 
-      case HID_ITF_PROTOCOL_MOUSE:
-        process_mouse_report( (hid_mouse_report_t const*) report );
-      break;
+    case HID_ITF_PROTOCOL_MOUSE:
+      TU_LOG2("HID receive boot mouse report\r\n");
+      process_mouse_report( (hid_mouse_report_t const*) report );
+    break;
 
-      default:
-        // Generic report handles consumer control, gamepads, etc.
-        process_generic_report(dev_addr, instance, report, len);
-      break;
-    }
+    default:
+      // Generic report requires matching ReportID and contents with previous parsed report info
+      process_generic_report(dev_addr, instance, report, len);
+    break;
   }
 
   // continue to request to receive report
@@ -250,8 +243,6 @@ static uint16_t prev_consumer_usage = 0;
 
 static void process_consumer_report(uint8_t const* report, uint16_t len)
 {
-  // Consumer Control reports typically contain one or more 16-bit usage codes.
-  // When no key is pressed, the report contains 0x0000.
   uint16_t usage = 0;
   if (len >= 2) {
     usage = (uint16_t)(report[0] | (report[1] << 8));
@@ -259,7 +250,6 @@ static void process_consumer_report(uint8_t const* report, uint16_t len)
     usage = report[0];
   }
 
-  // Release previous key if it changed
   if (prev_consumer_usage && prev_consumer_usage != usage) {
     switch (prev_consumer_usage) {
       case HID_USAGE_CONSUMER_VOLUME_INCREMENT: kbdPushData(fabgl::VK_VOLUMEUP, false); break;
@@ -269,7 +259,6 @@ static void process_consumer_report(uint8_t const* report, uint16_t len)
     }
   }
 
-  // Press new key
   if (usage && usage != prev_consumer_usage) {
     switch (usage) {
       case HID_USAGE_CONSUMER_VOLUME_INCREMENT: kbdPushData(fabgl::VK_VOLUMEUP, true); break;
