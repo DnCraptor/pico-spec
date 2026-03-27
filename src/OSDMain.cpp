@@ -6307,6 +6307,7 @@ c:
                 if (ii < 0) ii = 4;
                 t2 = time_us_32();
                 T2 = CPU::tstates;
+                redrawTitle = true;
                 goto c;
             }
         }
