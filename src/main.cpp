@@ -826,11 +826,19 @@ void repeat_me_for_input() {
 
 #ifdef VGA_HDMI
 extern "C" void hdmi_poll_reinit(void);
+extern "C" void vga_reinit(void);
 #endif
 
 void __scratch_x("render") render_core() {
     multicore_lockout_victim_init();
     graphics_init();
+#ifdef VGA_HDMI
+    // graphics_init() hardcodes line_VS_begin/end for 640x480 (490/491).
+    // For 720x modes video_mode is already set by VIDEO::Reset() on core0,
+    // so update vsync line numbers from the mode table now.
+    extern bool SELECT_VGA;
+    if (SELECT_VGA) vga_reinit();
+#endif
     graphics_set_buffer(NULL, get_framebuffer_width(), get_framebuffer_height());
     graphics_set_bgcolor(0x000000);
     graphics_set_flashmode(true, false);
@@ -1200,6 +1208,8 @@ int main() {
         if (Config::cpu_mhz != running_mhz) {
             if (try_set_sys_clock_khz(Config::cpu_mhz * KHZ)) {
                 graphics_set_pio_clk_div((float)Config::cpu_mhz / 252.0f);
+                // Reinit audio: I2S PIO divider was calculated for old sys_clk
+                pcm_setup(ESPectrum::Audio_freq);
             } else {
                 // PLL did not lock — restore original PLL
                 set_sys_clock_khz(running_mhz * KHZ, true);
