@@ -90,6 +90,8 @@ extern bool SELECT_VGA;
 
 extern int ram_pages, butter_pages, psram_pages, swap_pages;
 uint8_t OSD::cols;                     // Maximum columns
+uint8_t OSD::tab_col;                  // Tab stop column
+uint8_t OSD::max_right;                // Longest right part (hotkeys only)
 uint8_t OSD::mf_rows;                  // File menu maximum rows
 unsigned short OSD::real_rows;      // Real row count
 uint8_t OSD::virtual_rows;             // Virtual maximum rows on screen
