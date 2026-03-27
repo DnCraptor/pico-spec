@@ -155,6 +155,8 @@ public:
     static char stats_lin2[25]; // "FPS:000.00 / FND:000.00 ";
     
     static uint8_t cols;                     // Maximum columns
+    static uint8_t tab_col;                  // Tab stop column (longest left part before \t)
+    static uint8_t max_right;                // Longest right part after \t (hotkeys only)
     static uint8_t mf_rows;                  // File menu maximum rows
     static unsigned short real_rows;      // Real row count
     static uint8_t virtual_rows;             // Virtual maximum rows on screen

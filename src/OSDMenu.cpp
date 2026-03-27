@@ -96,16 +96,30 @@ void OSD::menuPrintRow(uint8_t virtual_row_num, uint8_t line_type) {
         margin = 2;
         break;
     case IS_FOCUSED:
-        VIDEO::vga.setTextColor(dimmed ? zxColor(0, 0) : zxColor(0, 1), dimmed ? zxColor(5, 0) : zxColor(5, 1));
+        VIDEO::vga.setTextColor(dimmed ? zxColor(7, 0) : zxColor(0, 1), dimmed ? zxColor(5, 0) : zxColor(5, 1));
         margin = (real_rows > virtual_rows ? 3 : 2);
         break;
     default:
-        VIDEO::vga.setTextColor(dimmed ? zxColor(0, 0) : zxColor(0, 1), dimmed ? zxColor(7, 0) : zxColor(7, 1));
+        VIDEO::vga.setTextColor(dimmed ? zxColor(7, 0) : zxColor(0, 1), dimmed ? zxColor(7, 1) : zxColor(7, 1));
         margin = (real_rows > virtual_rows ? 3 : 2);
     }
 
     if (line.find(ASCII_TAB) != line.npos) {
-        line = line.substr(0,line.find(ASCII_TAB)) + string(cols - margin - line.length(),' ') + line.substr(line.find(ASCII_TAB)+1);
+        string left = line.substr(0, line.find(ASCII_TAB));
+        string right = line.substr(line.find(ASCII_TAB) + 1);
+        if (!right.empty() && right[0] != '[' && right != ">" && right != " >") {
+            // hotkey — left-align at tab_col
+            uint8_t pad = (tab_col > left.length()) ? tab_col - left.length() : 1;
+            line = left + string(pad, ' ') + right;
+        } else if ((right == ">" || right == " >") && tab_col > 2) {
+            // submenu arrow in menu with hotkeys — align with hotkey ">" position
+            int pad = tab_col + max_right - right.length() - left.length();
+            line = left + string(pad > 0 ? pad : 1, ' ') + right;
+        } else {
+            // options or submenu arrow — right-align
+            int pad = cols - margin - left.length() - right.length();
+            line = left + string(pad > 0 ? pad : 1, ' ') + right;
+        }
     }
 
     menuAt(virtual_row_num, 0);
@@ -179,19 +193,47 @@ unsigned short OSD::menuRun(string new_menu) {
 
     // Columns
     cols = 0;
+    tab_col = 0;
     uint8_t col_count = 0;
+    max_right = 0;
+    uint8_t cols_arrow = 0; // longest left part of ">" lines (no hotkey)
     for (unsigned short i = 0; i < menu.length(); i++) {
-        if ((menu.at(i) == ASCII_TAB) || (menu.at(i) == ASCII_NL)) {
+        if (menu.at(i) == ASCII_TAB) {
+            // measure right part length (only for hotkey lines, not ">" or "[...]")
+            unsigned short j = i + 1;
+            if (j < menu.length() && menu.at(j) != '>' && menu.at(j) != ' ' && menu.at(j) != '[') {
+                if (col_count > tab_col) {
+                    tab_col = col_count;
+                }
+                if (col_count > cols) {
+                    cols = col_count;
+                }
+                uint8_t right_len = 0;
+                while (j < menu.length() && menu.at(j) != ASCII_NL) { right_len++; j++; }
+                if (right_len > max_right) max_right = right_len;
+            } else {
+                if (col_count > cols_arrow) cols_arrow = col_count;
+                while (j < menu.length() && menu.at(j) != ASCII_NL) j++;
+            }
+            i = j;
+            col_count = 0;
+        } else if (menu.at(i) == ASCII_NL) {
             if (col_count > cols) {
                 cols = col_count;
             }
-            while (menu.at(i) != ASCII_NL) i++;
             col_count = 0;
         }
         col_count++;
     }
-    // printf("Cols: %d\n",cols);
-    cols += 8;
+    tab_col += 2; // min gap between label and hotkey
+    // for menus without hotkeys, arrow lines determine width
+    if (max_right == 0 && cols_arrow > cols) cols = cols_arrow;
+    cols += 6;
+    if (max_right > 0) {
+        // menu has hotkeys — ensure cols fits them
+        uint8_t tab_width = tab_col + max_right + 2;
+        if (tab_width > cols) cols = tab_width;
+    }
     cols = (cols > 36 ? 36 : cols);
 
     // Size
@@ -587,7 +629,21 @@ void OSD::PrintRow(uint8_t virtual_row_num, uint8_t line_type) {
     }
 
     if (line.find(ASCII_TAB) != line.npos) {
-        line = line.substr(0,line.find(ASCII_TAB)) + string(cols - margin - line.length(),' ') + line.substr(line.find(ASCII_TAB)+1);
+        string left = line.substr(0, line.find(ASCII_TAB));
+        string right = line.substr(line.find(ASCII_TAB) + 1);
+        if (!right.empty() && right[0] != '[' && right != ">" && right != " >") {
+            // hotkey — left-align at tab_col
+            uint8_t pad = (tab_col > left.length()) ? tab_col - left.length() : 1;
+            line = left + string(pad, ' ') + right;
+        } else if ((right == ">" || right == " >") && tab_col > 2) {
+            // submenu arrow in menu with hotkeys — align with hotkey ">" position
+            int pad = tab_col + max_right - right.length() - left.length();
+            line = left + string(pad > 0 ? pad : 1, ' ') + right;
+        } else {
+            // options or submenu arrow — right-align
+            int pad = cols - margin - left.length() - right.length();
+            line = left + string(pad > 0 ? pad : 1, ' ') + right;
+        }
     }
 
     menuAt(virtual_row_num, 0);
