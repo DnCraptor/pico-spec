@@ -8,6 +8,7 @@
 #include "OSDMain.h"
 #include "psram_spi.h"
 #include "pwm_audio.h"
+#include <hardware/vreg.h>
 
 string   Config::arch = "48K";
 string   Config::romSet = "48K";
@@ -39,6 +40,9 @@ uint8_t  Config::midi_synth_preset = 0;
 uint16_t Config::cpu_mhz = CPU_MHZ;
 uint16_t Config::max_flash_freq = 66;
 uint16_t Config::max_psram_freq = 166;
+#if !PICO_RP2040
+uint8_t  Config::vreq_voltage = VREG_VOLTAGE_1_60;
+#endif
 bool     Config::Issue2 = true;
 bool     Config::flashload = true;
 bool     Config::tape_player = false; // Tape player mode
@@ -426,6 +430,23 @@ void Config::load() {
         if (max_flash_freq == 0) max_flash_freq = 66;
         nvs_get_u16("max_psram_freq", max_psram_freq, sts);
         if (max_psram_freq == 0) max_psram_freq = 166;
+#if !PICO_RP2040
+        {
+            std::string vv;
+            nvs_get_str("vreq_voltage", vv, sts);
+            if      (vv == "1_15") vreq_voltage = VREG_VOLTAGE_1_15;
+            else if (vv == "1_20") vreq_voltage = VREG_VOLTAGE_1_20;
+            else if (vv == "1_25") vreq_voltage = VREG_VOLTAGE_1_25;
+            else if (vv == "1_30") vreq_voltage = VREG_VOLTAGE_1_30;
+            else if (vv == "1_35") vreq_voltage = VREG_VOLTAGE_1_35;
+            else if (vv == "1_40") vreq_voltage = VREG_VOLTAGE_1_40;
+            else if (vv == "1_50") vreq_voltage = VREG_VOLTAGE_1_50;
+            else if (vv == "1_60") vreq_voltage = VREG_VOLTAGE_1_60;
+            else if (vv == "1_65") vreq_voltage = VREG_VOLTAGE_1_65;
+            else if (vv == "1_70") vreq_voltage = VREG_VOLTAGE_1_70;
+            else if (vv == "1_80") vreq_voltage = VREG_VOLTAGE_1_80;
+        }
+#endif
         nvs_get_b("Issue2", Issue2, sts);
         nvs_get_b("flashload", flashload, sts);
         nvs_get_b("rightSpace", rightSpace, sts);
@@ -621,6 +642,25 @@ void Config::save() {
     nvs_set_u16(buf,"cpu_mhz", cpu_mhz);
     nvs_set_u16(buf,"max_flash_freq", max_flash_freq);
     nvs_set_u16(buf,"max_psram_freq", max_psram_freq);
+#if !PICO_RP2040
+    {
+        const char* vv = "1_60";
+        switch (vreq_voltage) {
+            case VREG_VOLTAGE_1_15: vv = "1_15"; break;
+            case VREG_VOLTAGE_1_20: vv = "1_20"; break;
+            case VREG_VOLTAGE_1_25: vv = "1_25"; break;
+            case VREG_VOLTAGE_1_30: vv = "1_30"; break;
+            case VREG_VOLTAGE_1_35: vv = "1_35"; break;
+            case VREG_VOLTAGE_1_40: vv = "1_40"; break;
+            case VREG_VOLTAGE_1_50: vv = "1_50"; break;
+            case VREG_VOLTAGE_1_60: vv = "1_60"; break;
+            case VREG_VOLTAGE_1_65: vv = "1_65"; break;
+            case VREG_VOLTAGE_1_70: vv = "1_70"; break;
+            case VREG_VOLTAGE_1_80: vv = "1_80"; break;
+        }
+        nvs_set_str(buf, "vreq_voltage", vv);
+    }
+#endif
 
     #if TFT
     nvs_set_u8(buf,"TFT_FLAGS", TFT_FLAGS);

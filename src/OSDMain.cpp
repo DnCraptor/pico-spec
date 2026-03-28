@@ -34,6 +34,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include <hardware/watchdog.h>
 #include <hardware/clocks.h>
 #include <hardware/flash.h>
+#include <hardware/vreg.h>
 #include <pico/bootrom.h>
 #include <pico/multicore.h>
 
@@ -6385,10 +6386,23 @@ void OSD::HWInfo() {
 
     string textout =
         " Chip model     : RP2350";
-    textout += (rp2350a ? "A " : "B ") +  to_string(cpu_hz) + " MHz\n"
-        " Chip cores     : 2\n"
-        " Chip RAM       : 520 KB\n"
-        " Free RAM       : ";
+    {
+        static const uint16_t vreg_mv[] = {
+            550, 600, 650, 700, 750, 800, 850, 900, 950, 1000,
+            1050, 1100, 1150, 1200, 1250, 1300, 1350, 1400, 1500,
+            1600, 1650, 1700, 1800, 1900, 2000, 2350, 2500, 2650,
+            2800, 3000, 3150, 3300
+        };
+        int vi = vreg_get_voltage();
+        int mv = (vi >= 0 && vi < 32) ? vreg_mv[vi] : 0;
+        char vbuf[16];
+        snprintf(vbuf, sizeof(vbuf), "%d.%02d", mv / 1000, (mv % 1000) / 10);
+        textout += (rp2350a ? "A " : "B ") + to_string(cpu_hz) + " MHz\n"
+            " Chip cores     : 2\n"
+            " Chip VREG      : " + vbuf + " V\n"
+            " Chip RAM       : 520 KB\n"
+            " Free RAM       : ";
+    }
 #else
     string textout =
         " Chip model     : RP2040 " + to_string(cpu_hz) + " MHz\n"

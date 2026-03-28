@@ -1204,6 +1204,11 @@ int main() {
 
     // Apply saved CPU frequency and flash/PSRAM timing from Config
     {
+#if !PICO_RP2040
+        // Apply saved vreg voltage (vreg_disable_voltage_limit already called at boot)
+        vreg_set_voltage((enum vreg_voltage)Config::vreq_voltage);
+        sleep_ms(10);
+#endif
         uint16_t running_mhz = clock_get_hz(clk_sys) / 1000000;
         if (Config::cpu_mhz != running_mhz) {
             if (try_set_sys_clock_khz(Config::cpu_mhz * KHZ)) {
