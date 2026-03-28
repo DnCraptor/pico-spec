@@ -320,9 +320,9 @@ void init_sound() {
 static LoadWavStream* lws = 0;
 static repeating_timer_t m_lws_timer;
 static bool lws_timer_active = false;
-// Use 25000 Hz — must not match HDMI DMA rates (50Hz: 31250, 60Hz: 31500)
+// Use 125000 Hz — must not match HDMI DMA rates (50Hz: 31250, 60Hz: 31500)
 // to avoid phase-lock where DMA (priority 0) systematically delays every tick
-#define LWS_SAMPLE_FREQ 25000
+#define LWS_SAMPLE_FREQ 125000
 
 static bool __not_in_flash_func(lws_timer_callback)(repeating_timer_t *rt) {
     if (lws && Config::real_player) {
