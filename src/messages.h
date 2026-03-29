@@ -606,7 +606,8 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 		"Scanlines\t>\n"\
 		"V-Sync\t>\n"\
 		"Gigascreen (No Flick)\t>\n"\
-		"ULA+ ON/OFF\t>\n"
+		"ULA+ ON/OFF\t>\n"\
+		"Timex Gfx Mode\t>\n"
 	#define MENU_VIDEO_ES \
 		"Video\n"\
 		"Modo\t>\n"\
@@ -615,7 +616,8 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 		"Scanlines\t>\n"\
 		"V-Sync\t>\n"\
 		"Gigascreen (No Flick)\t>\n"\
-		"ULA+ ON/OFF\t>\n"
+		"ULA+ ON/OFF\t>\n"\
+		"Timex Gfx Mode\t>\n"
 #else
 	#define MENU_VIDEO_EN \
 		"Video\n"\
@@ -879,6 +881,7 @@ static const char *MENU_MIDI_PRESET[2] = { MENU_MIDI_PRESET_EN, MENU_MIDI_PRESET
 
 #if !PICO_RP2040
 static const char *MENU_ULAPLUS[2] = { "ULA+\n", "ULA+\n"};
+static const char *MENU_TIMEX[2] = { "Timex Gfx Mode\n", "Timex Gfx Mode\n"};
 #endif
 
 #define MENU_KBD2NDPS2_EN "Enable\n"\

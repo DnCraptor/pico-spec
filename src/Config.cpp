@@ -110,6 +110,7 @@ bool     Config::gigascreen_enabled = false;
 uint8_t  Config::gigascreen_onoff = 0;
 #if !PICO_RP2040
 bool     Config::ulaplus = false;
+bool     Config::timex_video = false;
 #endif
 uint8_t  Config::audio_driver = 0;
 extern "C" uint8_t  video_driver = 0;
@@ -579,6 +580,7 @@ void Config::load() {
         #endif
         #if !PICO_RP2040
         nvs_get_b("ulaplus", ulaplus, sts);
+        nvs_get_b("timex_video", timex_video, sts);
         #endif
         std::string v;
         nvs_get_str("audio_driver", v, sts);
@@ -765,6 +767,7 @@ void Config::save() {
     nvs_set_u8(buf,"gigascreen_onoff", Config::gigascreen_onoff);
     #if !PICO_RP2040
     nvs_set_str(buf,"ulaplus", Config::ulaplus ? "true" : "false");
+    nvs_set_str(buf,"timex_video", Config::timex_video ? "true" : "false");
     #endif
     nvs_set_str(buf,"audio_driver", Config::audio_driver == 0 ? "auto" :
         (Config::audio_driver == 1) ? "pwm" : (Config::audio_driver == 2) ? "i2s" :
