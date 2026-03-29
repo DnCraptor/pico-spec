@@ -2251,15 +2251,29 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                             menu_saverect = true;
                             while (1) {
                                 string menu = MENU_I2S[Config::lang];
+#ifdef ZERO2
+                                menu += "PCM5122  \t[5]\n";
+#endif
                                 uint8_t prev = Config::audio_driver;
                                 menu.replace(menu.find("[A",0),2,prev==0 ? "[*" : "[ ");
                                 menu.replace(menu.find("[P",0),2,prev==1 ? "[*" : "[ ");
                                 menu.replace(menu.find("[I",0),2,prev==2 ? "[*" : "[ ");
                                 menu.replace(menu.find("[Y",0),2,prev==3 ? "[*" : "[ ");
                                 { auto pos = menu.find("[H",0); if (pos != string::npos) menu.replace(pos,2,prev==4 ? "[*" : "[ "); }
+#ifdef ZERO2
+                                { auto pos = menu.find("[5",0); if (pos != string::npos) menu.replace(pos,2,prev==5 ? "[*" : "[ "); }
+#endif
                                 uint8_t opt2 = menuRun(menu);
                                 if (opt2) {
-                                    Config::audio_driver = opt2 - 1;
+                                    // Map menu position to driver value
+                                    // (HDMI may be hidden, so opt2-1 doesn't always match)
+                                    static const uint8_t driver_map[] = {0, 1, 2, 3,
+#ifdef ZERO2
+                                        5
+#endif
+                                    };
+                                    static const uint8_t driver_map_size = sizeof(driver_map);
+                                    Config::audio_driver = (opt2 <= driver_map_size) ? driver_map[opt2 - 1] : prev;
                                     if (Config::audio_driver != prev) {
                                         if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
                                             Config::save();

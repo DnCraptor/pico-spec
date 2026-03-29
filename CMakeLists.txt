@@ -538,11 +538,19 @@ ELSEIF(ZERO2)
         CPU_MHZ=${CPU_MHZ}
         ZERO2=1
 
-        # PS2 keyboard
-        KBD_CLOCK_PIN=2
-        KBD_DATA_PIN=3
+        # PS2 keyboard (moved from GPIO 2/3 for PCM5122 I2C)
+        KBD_CLOCK_PIN=14
+        KBD_DATA_PIN=15
 
         LOAD_WAV_PIO=17
+
+        # PCM5122 Audio Board (I2S)
+        PCM5122_I2S_DATA=21
+        PCM5122_I2S_BCK=18
+        PCM5122_I2S_LCK=19
+        # PCM5122 Audio Board (I2C control)
+        PCM5122_I2C_SDA=2
+        PCM5122_I2C_SCL=3
 
         CLK_AY_PIN1=8 # not in use
         LATCH_595_PIN=10
@@ -550,9 +558,9 @@ ELSEIF(ZERO2)
         DATA_595_PIN=12
         CLK_AY_PIN2=7
 
-        I2S_DATA_PIO=10 #
-        I2S_BCK_PIO=11 #
-        I2S_LCK_PIO=12
+        I2S_DATA_PIO=10 # DIN
+        I2S_BCK_PIO=11 # BCK
+        I2S_LCK_PIO=12 # LRCK
 
         PWM_PIN0=10
         PWM_PIN1=11
