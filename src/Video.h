@@ -242,6 +242,13 @@ public:
   static bool gigascreen_enabled;
   static uint8_t gigascreen_auto_countdown;
 
+  // Timex SCLD video modes
+#if !PICO_RP2040
+  static uint8_t timex_port_ff;   // bits 0-5 of port 0xFF
+  static uint8_t timex_mode;      // cached (timex_port_ff & 7)
+  static uint8_t timex_hires_ink; // mode 6: ink palette index (0-7)
+#endif
+
   // ULA+
 #if !PICO_RP2040
   static bool ulaplus_enabled;

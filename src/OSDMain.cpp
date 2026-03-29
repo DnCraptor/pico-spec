@@ -2628,6 +2628,43 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 }
                             }
                         }
+                        // Timex Video ON/OFF
+                        else if (options_num == 8) {
+                            menu_level = 2;
+                            menu_curopt = 1;
+                            menu_saverect = true;
+                            while (1) {
+                                string tmx_menu = MENU_TIMEX[Config::lang];
+                                tmx_menu += MENU_YESNO[Config::lang];
+                                bool prev = Config::timex_video;
+                                if (prev) {
+                                    tmx_menu.replace(tmx_menu.find("[Y",0),2,"[*");
+                                    tmx_menu.replace(tmx_menu.find("[N",0),2,"[ ");
+                                } else {
+                                    tmx_menu.replace(tmx_menu.find("[Y",0),2,"[ ");
+                                    tmx_menu.replace(tmx_menu.find("[N",0),2,"[*");
+                                }
+                                uint8_t opt2 = menuRun(tmx_menu);
+                                if (opt2) {
+                                    if (opt2 == 1)
+                                        Config::timex_video = true;
+                                    else {
+                                        Config::timex_video = false;
+                                        VIDEO::timex_port_ff = 0;
+                                        VIDEO::timex_mode = 0;
+                                        VIDEO::timex_hires_ink = 0;
+                                    }
+                                    if (Config::timex_video != prev)
+                                        Config::save();
+                                    menu_curopt = opt2;
+                                    menu_saverect = false;
+                                } else {
+                                    menu_curopt = 8;
+                                    menu_level = 1;
+                                    break;
+                                }
+                            }
+                        }
                         #endif
                     } else {
                         menu_curopt = 4;

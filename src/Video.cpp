@@ -138,6 +138,13 @@ static int brdcol_step = 4;        // T-states per column (4 for 48K/128K, 1 for
 static bool brdPairWrite = true;   // true: uint32_t pair writes, false: uint16_t XOR
 static void Select_Update_Border(); // forward declaration
 
+// Timex SCLD video modes
+#if !PICO_RP2040
+uint8_t VIDEO::timex_port_ff = 0;
+uint8_t VIDEO::timex_mode = 0;
+uint8_t VIDEO::timex_hires_ink = 0;
+#endif
+
 // ULA+
 #if !PICO_RP2040
 bool VIDEO::ulaplus_enabled = false;
@@ -628,6 +635,11 @@ void VIDEO::Reset() {
     brd = border32[7];
 
 #if !PICO_RP2040
+    // Reset Timex SCLD state
+    timex_port_ff = 0;
+    timex_mode = 0;
+    timex_hires_ink = 0;
+
     // Reset ULA+ state
     if (ulaplus_enabled) ulaPlusDisable();
     ulaplus_reg = 0;
@@ -859,9 +871,33 @@ IRAM_ATTR void VIDEO::MainScreen_Blank(unsigned int statestoadd, bool contended)
         coldraw_cnt = 0;
 
         curline = linedraw_cnt - lin_end;
-        bmpOffset = offBmp[curline];
-        attOffset = offAtt[curline];
-        
+#if !PICO_RP2040
+        if (Config::timex_video && VIDEO::timex_mode != 0) {
+            switch (VIDEO::timex_mode) {
+                case 1: // Second screen
+                    bmpOffset = 0x2000 + offBmp[curline];
+                    attOffset = 0x2000 + offAtt[curline];
+                    break;
+                case 2: // Hi-colour (8x1 attrs from screen 1, ULA-swapped)
+                    bmpOffset = offBmp[curline];
+                    attOffset = 0x2000 + offBmp[curline];
+                    break;
+                case 6: // Hi-res (both screens as bitmap)
+                    bmpOffset = offBmp[curline];
+                    attOffset = 0x2000 + offBmp[curline];
+                    break;
+                default: // Undefined modes -> standard
+                    bmpOffset = offBmp[curline];
+                    attOffset = offAtt[curline];
+                    break;
+            }
+        } else
+#endif
+        {
+            bmpOffset = offBmp[curline];
+            attOffset = offAtt[curline];
+        }
+
         #ifdef DIRTY_LINES
         // Force line draw (for testing)
         // dirty_lines[curline] = 1;
@@ -879,8 +915,8 @@ IRAM_ATTR void VIDEO::MainScreen_Blank(unsigned int statestoadd, bool contended)
 
 IRAM_ATTR void VIDEO::MainScreen_Blank_Opcode(bool contended) { MainScreen_Blank(4, contended); }
 
-IRAM_ATTR void VIDEO::MainScreen_Blank_Snow(unsigned int statestoadd, bool contended) {    
-    
+IRAM_ATTR void VIDEO::MainScreen_Blank_Snow(unsigned int statestoadd, bool contended) {
+
     CPU::tstates += statestoadd;
 
     if (CPU::tstates >= tstateDraw) {
@@ -893,8 +929,32 @@ IRAM_ATTR void VIDEO::MainScreen_Blank_Snow(unsigned int statestoadd, bool conte
         coldraw_cnt = 0;
 
         curline = linedraw_cnt - lin_end;
-        bmpOffset = offBmp[curline];
-        attOffset = offAtt[curline];
+#if !PICO_RP2040
+        if (Config::timex_video && VIDEO::timex_mode != 0) {
+            switch (VIDEO::timex_mode) {
+                case 1:
+                    bmpOffset = 0x2000 + offBmp[curline];
+                    attOffset = 0x2000 + offAtt[curline];
+                    break;
+                case 2:
+                    bmpOffset = offBmp[curline];
+                    attOffset = 0x2000 + offBmp[curline];
+                    break;
+                case 6:
+                    bmpOffset = offBmp[curline];
+                    attOffset = 0x2000 + offBmp[curline];
+                    break;
+                default:
+                    bmpOffset = offBmp[curline];
+                    attOffset = offAtt[curline];
+                    break;
+            }
+        } else
+#endif
+        {
+            bmpOffset = offBmp[curline];
+            attOffset = offAtt[curline];
+        }
 
         snowpage = MemESP::videoLatch ? 7 : 5;
         
@@ -1040,6 +1100,32 @@ IRAM_ATTR void VIDEO::MainScreen(unsigned int statestoadd, bool contended) {
         loopCount -= coldraw_cnt - 32;
     }
 
+#if !PICO_RP2040
+    if (Config::timex_video && VIDEO::timex_mode == 6) {
+        // Hi-res mode 6: OR-merge screens 0+1, monochrome output
+        uint8_t hires_att = VIDEO::timex_hires_ink;
+        if (VIDEO::gigascreen_enabled) {
+            for (; loopCount--; ) {
+                uint8_t combined = grmem[bmpOffset++] | grmem[attOffset++];
+                uint32_t newPixel1 = AluByte[combined >> 4][hires_att];
+                uint32_t newPixel2 = AluByte[combined & 0xF][hires_att];
+
+                uint32_t mix1 = blendPixels32(newPixel1, *prevLineptr32);
+                uint32_t mix2 = blendPixels32(newPixel2, *(prevLineptr32 + 1));
+                *prevLineptr32++ = newPixel1;
+                *prevLineptr32++ = newPixel2;
+                *lineptr32++ = mix1;
+                *lineptr32++ = mix2;
+            }
+        } else {
+            for (; loopCount--; ) {
+                uint8_t combined = grmem[bmpOffset++] | grmem[attOffset++];
+                *lineptr32++ = AluByte[combined >> 4][hires_att];
+                *lineptr32++ = AluByte[combined & 0xF][hires_att];
+            }
+        }
+    } else
+#endif
     if (VIDEO::gigascreen_enabled) {
         for (; loopCount--; ) {
             uint8_t att = grmem[attOffset++];
@@ -1387,7 +1473,11 @@ IRAM_ATTR void VIDEO::EndFrame() {
         // Skip rendering: 1/1024 frames during tape loading, 1/256 otherwise
         Draw = VIDEO::snow_toggle ? &Blank_Snow : &Blank;
         Draw_Opcode = VIDEO::snow_toggle ? &Blank_Snow_Opcode : &Blank_Opcode;
-    } else if (VIDEO::snow_toggle) {
+    } else if (VIDEO::snow_toggle
+#if !PICO_RP2040
+        && !(Config::timex_video && VIDEO::timex_mode != 0)
+#endif
+    ) {
         Draw = &MainScreen_Blank_Snow;
         Draw_Opcode = &MainScreen_Blank_Snow_Opcode;
     } else {
