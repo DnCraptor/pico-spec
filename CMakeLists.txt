@@ -39,7 +39,7 @@ endif()
 set(NO_ALF 1)
 
 set(CPU_MHZ 378)
-set (PORT_VERSION "1.2.N2")
+set (PORT_VERSION "1.2.N3")
 string(LENGTH "${PORT_VERSION}" PORT_VERSION_LEN)
 
 # Target board (default: PICO_PC; override with -D flags, e.g. cmake -DMURM2=ON)

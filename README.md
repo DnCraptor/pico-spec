@@ -8,14 +8,14 @@ In progress...<br/>
 
 ![ESPectrum](https://zxespectrum.speccy.org/wp-content/uploads/2023/05/ESPectrum-logo-v02-2.png)
 
-This is an emulator of the Sinclair ZX Spectrum comparible computers running on RP2040 or RP2350 SoC powered boards.
+This is an emulator of the Sinclair ZX Spectrum compatible computers running on RP2040 or RP2350 SoC powered boards.
 
 Board supported:
- - "Murmulator 1.x" + Raspberry "Pi Pico" / "Pi Pico 2" or compartible;
- - "Murmulator 2.0" + Raspberry "Pi Pico" / "Pi Pico 2" or compartible;
- - Waveshare "RP2040-PiZero" / "RP2350-PiZero" + use PCM510x for best sound;
- - Pimoroni "Pico DV Demo Base" + Raspberry "Pi Pico" / "Pi Pico 2" or compartible;
- - Olimex "RP2040-PICO-PC" board + Raspberry "Pi Pico" / "Pi Pico 2" or compartible.
+ - "Murmulator 1.x" + Raspberry "Pi Pico" / "Pi Pico 2" or compatible;
+ - "Murmulator 2.0" + Raspberry "Pi Pico" / "Pi Pico 2" or compatible;
+ - Waveshare "RP2040-PiZero" / "RP2350-PiZero" + use PCM5122 for best sound;
+ - Pimoroni "Pico DV Demo Base" + Raspberry "Pi Pico" / "Pi Pico 2" or compatible;
+ - Olimex "RP2040-PICO-PC" board + Raspberry "Pi Pico" / "Pi Pico 2" or compatible.
 
 Best performance for case Pimoroni "Pico Plus 2" is used.
 
@@ -26,9 +26,14 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - Selectable Sinclair 48K, Sinclair 128K and Amstrad +2 english and spanish ROMs. Byte and ALF TV Game - russian ROMs, + Pentagons with Gluck services ROMs & TR-DOS 5.05D ROM.
 - Possibility of using custom ROM with easy flashing procedure from SD card.
 - ZX81+ IF2 ROM by courtesy Paul Farrow with .P file loading from SD card.
+- Timex SCLD video modes emulation (hi-res, hi-color, dual-screen).
 - 6 bpp VGA output in three modes: Standard VGA (60 and 70hz), VGA 50hz and CRT 15khz 50hz.
+- VGA/HDMI output with 5 selectable video modes: 640x480@60Hz, 640x480@50Hz, 720x480@60Hz, 720x576@60Hz, 720x576@50Hz.
+- Hot video mode switching without reboot (VGA/HDMI).
 - VGA/HDMI fake scanlines effect.
-- TV-composite viseo out.
+- HDMI audio output (RP2350 only).
+- TV-composite video out.
+- PCM5122 I2S audio DAC support (Waveshare PiZero boards).
 - Multicolor attribute effects emulated (Bifrost*2, Nirvana and Nirvana+ engines).
 - Border effects emulated (Aquaplane, The Sentinel, Overscan demo).
 - Floating bus effect emulated (Arkanoid, Sidewize).
@@ -52,8 +57,12 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - Rodolfo Guerra's ROMs fast load routines support with on the fly standard speed blocks translation.
 - TAP file saving to SD card.
 - SNA and Z80 snapshot loading.
-- Snapshot saving and loading.
+- Snapshot saving and loading with named slots.
 - ZIP archive support: browse, extract, load and delete files inside ZIP archives.
+- Configurable keyboard hotkeys with hint display in menus.
+- Enhanced debugger: multi-breakpoint (up to 20), memory editor, port read/write breakpoints.
+- CPU frequency switching from OSD menu (RP2350: 252/378/504 MHz; RP2040: 252 MHz).
+- Configurable voltage regulator (VREQ) for RP2350 boards.
 - Complete file navigation system with autoindexing, folder support and search functions.
 - Complete OSD menu in two languages: English & Spanish.
 - BMP screen capture to SD Card (thanks David Crespo 😉).
@@ -72,10 +81,12 @@ You can flash the binaries directly to the board: [Releases](https://github.com/
 
 ## Keyboard functions
 
+Default hotkey bindings (all hotkeys except F1 and ALT+F1 are reconfigurable via OSD menu):
+
 - F1 Main menu
 - F2 Load (SNA,Z80,P)
 - F3 Load custom snapshot
-- F4 Save customn snapshot
+- F4 Save custom snapshot
 - F5 Load file (TAP, TZX, PZX, TRD, SCL, UDI, FDI, SNA, Z80, MMC, HDF, DSK, ZIP)
 - F6 Play/Stop tape
 - F7 Tape Browser
@@ -84,21 +95,23 @@ You can flash the binaries directly to the board: [Releases](https://github.com/
 - F10 Volume up
 - F11 Hard reset
 - F12 Reset RP2040/RP2350
+- ~ (Tilde) Max speed toggle
+- Pause Pause
 - ALT+F1 Hardware info
 - ALT+F2 Turbo mode
-- ALT+F3 Set port reading breakpoint
-- ALT+F4 Set port writing breakpoint
 - ALT+F5 Debug
-- ALT+F7 Breakpoint at address
+- ALT+F6 Disk menu
+- ALT+F7 Breakpoint list
 - ALT+F8 Jump to address
 - ALT+F9 Input poke
 - ALT+F10 NMI (Pentagon: modal menu with NMI / Magic Button options)
 - ALT+F11 Reset to... (modal menu: Service/Gluk, TR-DOS, 128K, 48K — depends on machine)
-- ALT+F12 Update Firmware
+- ALT+F12 USB Boot / Update Firmware
 - ALT+PageUp Switch Gigascreen mode ON/OFF
-- Pause Pause
+- ALT+CTRL+Home Switch HDMI video mode (60Hz cycle)
+- ALT+CTRL+End Switch HDMI video mode (50Hz cycle)
 - PrntScr BMP screen capture (Folder /spec/.c at SDCard)
-- WASD/KL - Kempstron joystik parallel-emulation
+- WASD/KL - Kempston joystick parallel-emulation
 
 ## How to flash custom ROMs
 
@@ -142,7 +155,7 @@ The MIDI TX pin is configured per board in `CMakeLists.txt` via `MIDI_TX_PIN`. D
 |-------|-------------|
 | Murmulator | 22 |
 | Waveshare PiZero | 26 |
-| Pimoroni Pico DV | 4 |
+| Pimoroni Pico DV | 21 |
 | Olimex RP2040-PICO-PC | 22 |
 
 **Note:** On Murmulator boards, MIDI TX and real tape input share the same pin (GPIO 22). When MIDI is enabled, real tape loading is disabled. Disable MIDI in the menu to use real tape input.
@@ -164,7 +177,7 @@ GND          ──────────── GND (e.g. pin 6)
 ## How to build
 ### Windows 10+
  - Install VSCode [pico-setup-windows-x64-standalone.exe](https://github.com/raspberrypi/pico-setup-windows/releases) it will tune up environment and install default SDK 1.5.1;
- - In VSCode install [Rapberri Pi Pico](https://t.me/ZX_MURMULATOR/42804/194110) plugin, to make other SDK versions available and auto-load;
+ - In VSCode install [Raspberry Pi Pico](https://t.me/ZX_MURMULATOR/42804/194110) plugin, to make other SDK versions available and auto-load;
  - Import this project, and agree on all requests from the plugin (it may be required to wait some times on these steps);
  - Tune up build to be [Pico/Release](https://t.me/ZX_MURMULATOR/42804/214274)
  - Set required variables in your local copy of [CMakeLists.txt](https://github.com/DnCraptor/pico-spec/blob/main/CMakeLists.txt)
@@ -183,7 +196,24 @@ Your filesystem tree must be look like:
         |-- drivers
         |-- src
 ```
- - Configule building options in `pico-spec/CMakeLists.txt` - pico board, video&audio output, etc.
+ - Configure building options in `pico-spec/CMakeLists.txt` - pico board, video&audio output, etc.
+
+#### CMake build options
+
+| Option | Description |
+|--------|-------------|
+| `-DMURM=ON` | Build for Murmulator 1.x |
+| `-DMURM2=ON` | Build for Murmulator 2.0 (default) |
+| `-DPICO_PC=ON` | Build for Olimex RP2040-PICO-PC |
+| `-DPICO_DV=ON` | Build for Pimoroni Pico DV Demo Base |
+| `-DZERO=ON` | Build for Waveshare RP2040-PiZero |
+| `-DZERO2=ON` | Build for Waveshare RP2350-PiZero |
+| `-DVGA_HDMI=ON` | VGA/HDMI output (default) |
+| `-DSOFTTV=ON` | Software composite TV output |
+| `-DTV=ON` | Hardware composite TV output |
+| `-DTFT=ON` | TFT display output |
+| `-DILI9341=ON` | ILI9341 TFT display output |
+
  - Run building script:
 ```
  cd build
@@ -194,5 +224,5 @@ Your filesystem tree must be look like:
 ## Thanks to
 
 - [Original repo](https://github.com/EremusOne/ESPectrum)
-- [Murmulator comunity](https://t.me/ZX_MURMULATOR)
+- [Murmulator community](https://t.me/ZX_MURMULATOR)
 
