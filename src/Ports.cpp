@@ -260,8 +260,8 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     if (Midi::enabled >= 2 && address == 0xA0CF) {
       return 0x00;
     }
-    // Timex SCLD port read (port 0x00FF)
-    if (Config::timex_video && address == 0x00FF) {
+    // Timex SCLD port read (port 0x00FF) — skip when TR-DOS is active (port conflict)
+    if (Config::timex_video && !ESPectrum::trdos && address == 0x00FF) {
       ioContentionLate(MemESP::ramContended[rambank]);
       return VIDEO::timex_port_ff;
     }
@@ -589,8 +589,8 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
       return;
     }
     // Timex SCLD video mode register (port 0x00FF, bit 8 clear)
-    // Takes priority over SAA1099 data port when enabled
-    if (Config::timex_video && a8 == 0xFF && !(address & 0x0100)) {
+    // Skip when TR-DOS is active — port 0xFF is the Beta-128 system register
+    if (Config::timex_video && !ESPectrum::trdos && a8 == 0xFF && !(address & 0x0100)) {
       VIDEO::timex_port_ff = data & 0x3F;
       VIDEO::timex_mode = data & 0x07;
       VIDEO::timex_hires_ink = (data >> 3) & 0x07;
