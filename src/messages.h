@@ -890,16 +890,18 @@ static const char *MENU_TIMEX[2] = { "Timex Gfx Mode\n", "Timex Gfx Mode\n"};
 
 #define MENU_PALETTE_EN \
     "Palette\n"\
-    "Default\t[1]\n"\
-    "Grayscale\t[2]\n"\
-    "Mars\t[3]\n"\
-    "Ocean\t[4]\n"
+    "Pulsar\t[1]\n"\
+    "Alone\t[2]\n"\
+    "Grayscale\t[3]\n"\
+    "Mars\t[4]\n"\
+    "Ocean\t[5]\n"
 #define MENU_PALETTE_ES \
     "Paleta\n"\
-    "Default\t[1]\n"\
-    "Grayscale\t[2]\n"\
-    "Mars\t[3]\n"\
-    "Ocean\t[4]\n"
+    "Pulsar\t[1]\n"\
+    "Alone\t[2]\n"\
+    "Grayscale\t[3]\n"\
+    "Mars\t[4]\n"\
+    "Ocean\t[5]\n"
 static const char *MENU_PALETTE[2] = { MENU_PALETTE_EN, MENU_PALETTE_ES };
 
 #define MENU_KBD2NDPS2_EN "Enable\n"\

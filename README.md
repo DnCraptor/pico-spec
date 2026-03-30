@@ -39,6 +39,7 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - Floating bus effect emulated (Arkanoid, Sidewize).
 - Snow effect accurate emulation (as [described](https://spectrumcomputing.co.uk/forums/viewtopic.php?t=8240) by Weiv and MartianGirl).
 - Gigascreen support (Choose between three modes: On, Off, or Auto).
+- Selectable color palettes: Pulsar (default), Alone, Grayscale, Mars, Ocean (Unreal Speccy compatible format).
 - Ula+ support (https://sinclair.wiki.zxnet.co.uk/wiki/ULAplus).
 - Murmuzavr (up to 32 MB) support.
 - Contended memory and contended I/O emulation.

@@ -2684,6 +2684,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 pal_menu.replace(pal_menu.find("[2",0),2, prev == 1 ? "[*" : "[ ");
                                 pal_menu.replace(pal_menu.find("[3",0),2, prev == 2 ? "[*" : "[ ");
                                 pal_menu.replace(pal_menu.find("[4",0),2, prev == 3 ? "[*" : "[ ");
+                                pal_menu.replace(pal_menu.find("[5",0),2, prev == 4 ? "[*" : "[ ");
                                 uint8_t opt2 = menuRun(pal_menu);
                                 if (opt2) {
                                     Config::palette = opt2 - 1;
