@@ -112,6 +112,7 @@ uint8_t  Config::gigascreen_onoff = 0;
 bool     Config::ulaplus = false;
 bool     Config::timex_video = false;
 #endif
+uint8_t  Config::palette = 0;
 uint8_t  Config::audio_driver = 0;
 extern "C" uint8_t  video_driver = 0;
 bool     Config::byte_cobmect_mode = false;
@@ -582,6 +583,7 @@ void Config::load() {
         nvs_get_b("ulaplus", ulaplus, sts);
         nvs_get_b("timex_video", timex_video, sts);
         #endif
+        nvs_get_u8("palette", palette, sts);
         std::string v;
         nvs_get_str("audio_driver", v, sts);
         if (v == "pwm") Config::audio_driver = 1;
@@ -770,6 +772,7 @@ void Config::save() {
     nvs_set_str(buf,"ulaplus", Config::ulaplus ? "true" : "false");
     nvs_set_str(buf,"timex_video", Config::timex_video ? "true" : "false");
     #endif
+    nvs_set_u8(buf,"palette", Config::palette);
     nvs_set_str(buf,"audio_driver", Config::audio_driver == 0 ? "auto" :
         (Config::audio_driver == 1) ? "pwm" : (Config::audio_driver == 2) ? "i2s" :
         (Config::audio_driver == 3) ? "ay" : (Config::audio_driver == 4) ? "hdmi" :
