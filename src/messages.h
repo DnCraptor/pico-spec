@@ -606,8 +606,9 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 		"Scanlines\t>\n"\
 		"V-Sync\t>\n"\
 		"Gigascreen (No Flick)\t>\n"\
-		"ULA+ ON/OFF\t>\n"\
-		"Timex Gfx Mode\t>\n"
+		"ULA+\t>\n"\
+		"Timex Gfx Mode\t>\n"\
+		"Palette\t>\n"
 	#define MENU_VIDEO_ES \
 		"Video\n"\
 		"Modo\t>\n"\
@@ -616,8 +617,9 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 		"Scanlines\t>\n"\
 		"V-Sync\t>\n"\
 		"Gigascreen (No Flick)\t>\n"\
-		"ULA+ ON/OFF\t>\n"\
-		"Timex Gfx Mode\t>\n"
+		"ULA+\t>\n"\
+		"Timex Gfx Mode\t>\n"\
+		"Paleta\t>\n"
 #else
 	#define MENU_VIDEO_EN \
 		"Video\n"\
@@ -625,14 +627,16 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 		"Render type\t>\n"\
 		"Aspect Ratio\t>\n"\
 		"Scanlines\t>\n"\
-		"V-Sync\t>\n"
+		"V-Sync\t>\n"\
+		"Palette\t>\n"
 	#define MENU_VIDEO_ES \
 		"Video\n"\
 		"Modo\t>\n"\
 		"Tipo render\t>\n"\
 		"Relaci" "\xA2" "n de aspecto\t>\n"\
 		"Scanlines\t>\n"\
-		"V-Sync\t>\n"
+		"V-Sync\t>\n"\
+		"Paleta\t>\n"
 #endif
 static const char *MENU_VIDEO[2] = { MENU_VIDEO_EN, MENU_VIDEO_ES };
 
@@ -883,6 +887,22 @@ static const char *MENU_MIDI_PRESET[2] = { MENU_MIDI_PRESET_EN, MENU_MIDI_PRESET
 static const char *MENU_ULAPLUS[2] = { "ULA+\n", "ULA+\n"};
 static const char *MENU_TIMEX[2] = { "Timex Gfx Mode\n", "Timex Gfx Mode\n"};
 #endif
+
+#define MENU_PALETTE_EN \
+    "Palette\n"\
+    "Pulsar\t[1]\n"\
+    "Alone\t[2]\n"\
+    "Grayscale\t[3]\n"\
+    "Mars\t[4]\n"\
+    "Ocean\t[5]\n"
+#define MENU_PALETTE_ES \
+    "Paleta\n"\
+    "Pulsar\t[1]\n"\
+    "Alone\t[2]\n"\
+    "Grayscale\t[3]\n"\
+    "Mars\t[4]\n"\
+    "Ocean\t[5]\n"
+static const char *MENU_PALETTE[2] = { MENU_PALETTE_EN, MENU_PALETTE_ES };
 
 #define MENU_KBD2NDPS2_EN "Enable\n"\
     "No\t[N]\n"\

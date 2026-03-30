@@ -260,6 +260,9 @@ public:
   static void ulaPlusUpdateBorder();
   static void ulaPlusDisable();
 #endif
+
+  // Palette transform (Default, Grayscale, etc.)
+  static void applyPalette();
 };
 
 #define zxColor(color,bright) VIDEO::spectrum_colors[bright ? color + 8 : color]

@@ -2666,6 +2666,46 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                             }
                         }
                         #endif
+                        // Palette selection (RP2350: option 9, RP2040: option 6)
+                        else if (options_num ==
+                        #if !PICO_RP2040
+                            9
+                        #else
+                            6
+                        #endif
+                        ) {
+                            menu_level = 2;
+                            menu_curopt = 1;
+                            menu_saverect = true;
+                            while (1) {
+                                string pal_menu = MENU_PALETTE[Config::lang];
+                                uint8_t prev = Config::palette;
+                                pal_menu.replace(pal_menu.find("[1",0),2, prev == 0 ? "[*" : "[ ");
+                                pal_menu.replace(pal_menu.find("[2",0),2, prev == 1 ? "[*" : "[ ");
+                                pal_menu.replace(pal_menu.find("[3",0),2, prev == 2 ? "[*" : "[ ");
+                                pal_menu.replace(pal_menu.find("[4",0),2, prev == 3 ? "[*" : "[ ");
+                                pal_menu.replace(pal_menu.find("[5",0),2, prev == 4 ? "[*" : "[ ");
+                                uint8_t opt2 = menuRun(pal_menu);
+                                if (opt2) {
+                                    Config::palette = opt2 - 1;
+                                    if (Config::palette != prev) {
+                                        VIDEO::applyPalette();
+                                        Config::save();
+                                    }
+                                    menu_curopt = opt2;
+                                    menu_saverect = false;
+                                } else {
+                                    menu_curopt =
+                                    #if !PICO_RP2040
+                                        9;
+                                    #else
+                                        6;
+                                    #endif
+                                    menu_level = 1;
+                                    break;
+                                }
+                            }
+                        }
                     } else {
                         menu_curopt = 4;
                         break;

@@ -223,6 +223,8 @@ public:
 #if !PICO_RP2040
     static bool ulaplus;
 #endif
+    // Palette: 0=Default, 1=Grayscale
+    static uint8_t palette;
     static uint8_t audio_driver;
     static bool byte_cobmect_mode;
 

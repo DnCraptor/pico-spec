@@ -143,6 +143,7 @@ static void Select_Update_Border(); // forward declaration
 uint8_t VIDEO::timex_port_ff = 0;
 uint8_t VIDEO::timex_mode = 0;
 uint8_t VIDEO::timex_hires_ink = 0;
+
 #endif
 
 // ULA+
@@ -351,15 +352,75 @@ void precalcborder32()
     }
 }
 
-// Standard Spectrum RGB888 palette
-static const uint32_t spectrum_rgb888[16] = {
-    0x000000, 0x0000CD, 0xCD0000, 0xCD00CD,  // black, blue, red, magenta
-    0x00CD00, 0x00CDCD, 0xCDCD00, 0xCDCDCD,  // green, cyan, yellow, white
-    0x000000, 0x0000FF, 0xFF0000, 0xFF00FF,  // bright variants
-    0x00FF00, 0x00FFFF, 0xFFFF00, 0xFFFFFF,
+// Palette definitions (Unreal Speccy format)
+// Brightness levels: ZZ (black), NN (normal), BB (bright)
+// Color matrix 3x3: values 0..0x100 (0x100 = 1.0)
+struct PaletteDef {
+    uint8_t ZZ, NN, BB;         // brightness levels
+    uint16_t matrix[9];         // color transform matrix
 };
 
+static const PaletteDef palette_defs[] = {
+    // 0: Pulsar (ZZ=00, NN=CD, BB=FF, identity matrix)
+    { 0x00, 0xCD, 0xFF, { 0x100,0x000,0x000, 0x000,0x100,0x000, 0x000,0x000,0x100 } },
+    // 1: Alone (dimmer normal colors: NN=A0)
+    { 0x00, 0xA0, 0xFF, { 0x100,0x000,0x000, 0x000,0x100,0x000, 0x000,0x000,0x100 } },
+    // 2: Grayscale (Grey from Unreal: BT.601 luminance matrix)
+    { 0x00, 0xCD, 0xFF, { 0x049,0x092,0x024, 0x049,0x092,0x024, 0x049,0x092,0x024 } },
+    // 3: Mars (warm tones)
+    { 0x00, 0xCD, 0xFF, { 0x100,0x000,0x000, 0x040,0x0C0,0x000, 0x000,0x040,0x0C0 } },
+    // 4: Ocean (cool tones)
+    { 0x00, 0xCD, 0xFF, { 0x0D0,0x000,0x030, 0x000,0x0D0,0x030, 0x000,0x000,0x100 } },
+};
+#define PALETTE_COUNT (sizeof(palette_defs) / sizeof(palette_defs[0]))
+
+// Build 16 Spectrum RGB888 colors from brightness levels
+// Color bit pattern: index 0-7 normal (B=NN), 8-15 bright (B=BB)
+// Bit 0=Blue, Bit 1=Red, Bit 2=Green; Bit 3=Bright
+static void buildSpectrumRGB(const PaletteDef &pal, uint32_t out[16]) {
+    for (int i = 0; i < 16; i++) {
+        uint8_t lvl = (i & 8) ? pal.BB : pal.NN;
+        uint8_t R = (i & 2) ? lvl : pal.ZZ;
+        uint8_t G = (i & 4) ? lvl : pal.ZZ;
+        uint8_t B = (i & 1) ? lvl : pal.ZZ;
+        out[i] = (R << 16) | (G << 8) | B;
+    }
+}
+
+// Standard Spectrum RGB888 palette (default, rebuilt on palette change)
+static uint32_t spectrum_rgb888[16];
+
+// Initialize spectrum_rgb888 with default palette
+static void initDefaultPalette() {
+    buildSpectrumRGB(palette_defs[0], spectrum_rgb888);
+}
+
 void initGigascreenBlendLUT();
+
+// Apply color matrix transform to an RGB888 color
+static inline uint32_t matrixTransform(uint32_t rgb, const uint16_t *m) {
+    uint32_t R = (rgb >> 16) & 0xFF;
+    uint32_t G = (rgb >> 8) & 0xFF;
+    uint32_t B = rgb & 0xFF;
+    uint32_t oR = (R * m[0] + G * m[1] + B * m[2]) >> 8;
+    uint32_t oG = (R * m[3] + G * m[4] + B * m[5]) >> 8;
+    uint32_t oB = (R * m[6] + G * m[7] + B * m[8]) >> 8;
+    if (oR > 255) oR = 255;
+    if (oG > 255) oG = 255;
+    if (oB > 255) oB = 255;
+    return (oR << 16) | (oG << 8) | oB;
+}
+
+// Apply current palette transform to an RGB888 color
+static inline uint32_t paletteTransform(uint32_t rgb) {
+    uint8_t p = Config::palette < PALETTE_COUNT ? Config::palette : 0;
+    const uint16_t *m = palette_defs[p].matrix;
+    // Check if identity matrix (fast path)
+    if (m[0] == 0x100 && m[4] == 0x100 && m[8] == 0x100 &&
+        m[1] == 0 && m[2] == 0 && m[3] == 0 && m[5] == 0 && m[6] == 0 && m[7] == 0)
+        return rgb;
+    return matrixTransform(rgb, m);
+}
 
 // ULA+ G3R3B2 to full RGB888 conversion
 static inline uint32_t grb_to_rgb888(uint8_t grb) {
@@ -378,7 +439,7 @@ static inline uint32_t grb_to_rgb888(uint8_t grb) {
 void VIDEO::regenerateUlaPlusAluBytes() {
     // Set palette colors for all 64 ULA+ entries
     for (int i = 0; i < 64; i++)
-        graphics_set_palette(i, grb_to_rgb888(ulaplus_palette[i]));
+        graphics_set_palette(i, paletteTransform(grb_to_rgb888(ulaplus_palette[i])));
 
     // Build AluBytes with fixed indices 0-63 (only depends on attribute format,
     // not palette contents — only needs to be done once at ULA+ enable)
@@ -402,7 +463,7 @@ void VIDEO::regenerateUlaPlusAluBytes() {
 
 // Fast path: update single palette entry without rebuilding AluBytes
 void VIDEO::ulaPlusUpdatePaletteEntry(uint8_t entry) {
-    graphics_set_palette(entry, grb_to_rgb888(ulaplus_palette[entry]));
+    graphics_set_palette(entry, paletteTransform(grb_to_rgb888(ulaplus_palette[entry])));
 }
 
 void VIDEO::ulaPlusUpdateBorder() {
@@ -418,10 +479,11 @@ void VIDEO::ulaPlusDisable() {
     flashing = 0;
     // Restore palette: indices 0-63 back to G3R3B2 defaults, then 0-15 to Spectrum (solid)
     for (int i = 0; i < 64; i++)
-        graphics_set_palette(i, grb_to_rgb888(i));
+        graphics_set_palette(i, paletteTransform(grb_to_rgb888(i)));
     for (int i = 0; i < 16; i++) {
-        graphics_set_palette(i, spectrum_rgb888[i]);
-        vga_set_palette_entry_solid(i, spectrum_rgb888[i]);
+        uint32_t color = paletteTransform(spectrum_rgb888[i]);
+        graphics_set_palette(i, color);
+        vga_set_palette_entry_solid(i, color);
     }
 
     // Restore GigaScreen blend palette (slots 17-136) if GigaScreen is configured,
@@ -435,6 +497,32 @@ void VIDEO::ulaPlusDisable() {
     brdChange = true;
 }
 #endif
+
+// Apply palette: rebuild spectrum_rgb888 from current palette's brightness levels,
+// then apply color matrix to all palette entries.
+void VIDEO::applyPalette() {
+    uint8_t p = Config::palette < PALETTE_COUNT ? Config::palette : 0;
+    // Rebuild base 16 colors from brightness levels
+    buildSpectrumRGB(palette_defs[p], spectrum_rgb888);
+
+    // G3R3B2 entries (0-239) — apply matrix transform
+    for (int i = 0; i < 240; i++)
+        graphics_set_palette(i, paletteTransform(grb_to_rgb888(i)));
+    // Override indices 0-15 with Spectrum colors (already rebuilt with correct brightness)
+    for (int i = 0; i < 16; i++) {
+        uint32_t color = paletteTransform(spectrum_rgb888[i]);
+        graphics_set_palette(i, color);
+        vga_set_palette_entry_solid(i, color);
+    }
+    // Orange (index 16)
+    graphics_set_palette(16, paletteTransform(0xFF7F00));
+
+    // Re-apply GigaScreen blend palette if active
+#if !PICO_RP2040
+    if (Config::gigascreen_enabled)
+        initGigascreenBlendLUT();
+#endif
+}
 
 const int redPins[] = {RED_PINS_6B};
 const int grePins[] = {GRE_PINS_6B};
@@ -472,27 +560,15 @@ void VIDEO::Init() {
     vga.useInterrupt_flag = false;
     vga.init( Mode, redPins, grePins, bluPins, HSYNC_PIN, VSYNC_PIN);
 
-    // Initialize full 256-entry palette: G3R3B2 → RGB888 for all possible values
-    // This covers ULA+ (any G3R3B2 value maps to correct color) and provides
-    // a reasonable default for all indices
-    for (int i = 0; i < 240; i++)
-        graphics_set_palette(i, grb_to_rgb888(i));
-
-    // Override indices 0-15 with standard Spectrum colors (solid, no dithering)
-    for (int i = 0; i < 16; i++) {
-        graphics_set_palette(i, spectrum_rgb888[i]);
-        vga_set_palette_entry_solid(i, spectrum_rgb888[i]);
-    }
-
-    // Index 16 = ORANGE
-    graphics_set_palette(16, 0xFF7F00);
-
     // Generate AluBytes table with palette indices (no sync bits)
     initAluBytes();
 
     precalcULASWAP();   // precalculate ULA SWAP values
 
     precalcborder32();  // Precalc border 32 bits values
+
+    // Build and apply palette (brightness levels + color matrix)
+    applyPalette();
 
     if (Config::gigascreen_enabled)
     {
@@ -1055,7 +1131,7 @@ void initGigascreenBlendLUT() {
             // Assign to next available palette slot
             if (nextSlot < 240) {
                 gigsBlendLUT[i * 16 + j] = nextSlot;
-                graphics_set_palette(nextSlot, blended);
+                graphics_set_palette(nextSlot, paletteTransform(blended));
                 nextSlot++;
             } else {
                 gigsBlendLUT[i * 16 + j] = i; // fallback
@@ -1102,27 +1178,15 @@ IRAM_ATTR void VIDEO::MainScreen(unsigned int statestoadd, bool contended) {
 
 #if !PICO_RP2040
     if (Config::timex_video && VIDEO::timex_mode == 6) {
-        // Hi-res mode 6: OR-merge screens 0+1, monochrome output
+        // Hi-res mode 6 (512->256): real SCLD alternates byte-columns from
+        // screen0 and screen1 at same address, 64 cols x 8 bits = 512 pixels.
+        // For 256px output, OR-merge each pair (s0[addr] | s1[addr]) into
+        // 8 output pixels — preserves all set bits, covers all 32 addresses.
         uint8_t hires_att = VIDEO::timex_hires_ink;
-        if (VIDEO::gigascreen_enabled) {
-            for (; loopCount--; ) {
-                uint8_t combined = grmem[bmpOffset++] | grmem[attOffset++];
-                uint32_t newPixel1 = AluByte[combined >> 4][hires_att];
-                uint32_t newPixel2 = AluByte[combined & 0xF][hires_att];
-
-                uint32_t mix1 = blendPixels32(newPixel1, *prevLineptr32);
-                uint32_t mix2 = blendPixels32(newPixel2, *(prevLineptr32 + 1));
-                *prevLineptr32++ = newPixel1;
-                *prevLineptr32++ = newPixel2;
-                *lineptr32++ = mix1;
-                *lineptr32++ = mix2;
-            }
-        } else {
-            for (; loopCount--; ) {
-                uint8_t combined = grmem[bmpOffset++] | grmem[attOffset++];
-                *lineptr32++ = AluByte[combined >> 4][hires_att];
-                *lineptr32++ = AluByte[combined & 0xF][hires_att];
-            }
+        for (; loopCount--; ) {
+            uint8_t combined = grmem[bmpOffset++] | grmem[attOffset++];
+            *lineptr32++ = AluByte[combined >> 4][hires_att];
+            *lineptr32++ = AluByte[combined & 0xF][hires_att];
         }
     } else
 #endif
