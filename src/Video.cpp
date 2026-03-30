@@ -143,6 +143,7 @@ static void Select_Update_Border(); // forward declaration
 uint8_t VIDEO::timex_port_ff = 0;
 uint8_t VIDEO::timex_mode = 0;
 uint8_t VIDEO::timex_hires_ink = 0;
+
 #endif
 
 // ULA+
@@ -1102,27 +1103,15 @@ IRAM_ATTR void VIDEO::MainScreen(unsigned int statestoadd, bool contended) {
 
 #if !PICO_RP2040
     if (Config::timex_video && VIDEO::timex_mode == 6) {
-        // Hi-res mode 6: OR-merge screens 0+1, monochrome output
+        // Hi-res mode 6 (512->256): real SCLD alternates byte-columns from
+        // screen0 and screen1 at same address, 64 cols x 8 bits = 512 pixels.
+        // For 256px output, OR-merge each pair (s0[addr] | s1[addr]) into
+        // 8 output pixels — preserves all set bits, covers all 32 addresses.
         uint8_t hires_att = VIDEO::timex_hires_ink;
-        if (VIDEO::gigascreen_enabled) {
-            for (; loopCount--; ) {
-                uint8_t combined = grmem[bmpOffset++] | grmem[attOffset++];
-                uint32_t newPixel1 = AluByte[combined >> 4][hires_att];
-                uint32_t newPixel2 = AluByte[combined & 0xF][hires_att];
-
-                uint32_t mix1 = blendPixels32(newPixel1, *prevLineptr32);
-                uint32_t mix2 = blendPixels32(newPixel2, *(prevLineptr32 + 1));
-                *prevLineptr32++ = newPixel1;
-                *prevLineptr32++ = newPixel2;
-                *lineptr32++ = mix1;
-                *lineptr32++ = mix2;
-            }
-        } else {
-            for (; loopCount--; ) {
-                uint8_t combined = grmem[bmpOffset++] | grmem[attOffset++];
-                *lineptr32++ = AluByte[combined >> 4][hires_att];
-                *lineptr32++ = AluByte[combined & 0xF][hires_att];
-            }
+        for (; loopCount--; ) {
+            uint8_t combined = grmem[bmpOffset++] | grmem[attOffset++];
+            *lineptr32++ = AluByte[combined >> 4][hires_att];
+            *lineptr32++ = AluByte[combined & 0xF][hires_att];
         }
     } else
 #endif

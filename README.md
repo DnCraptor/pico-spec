@@ -26,14 +26,14 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - Selectable Sinclair 48K, Sinclair 128K and Amstrad +2 english and spanish ROMs. Byte and ALF TV Game - russian ROMs, + Pentagons with Gluck services ROMs & TR-DOS 5.05D ROM.
 - Possibility of using custom ROM with easy flashing procedure from SD card.
 - ZX81+ IF2 ROM by courtesy Paul Farrow with .P file loading from SD card.
-- Timex SCLD video modes emulation (hi-res, hi-color, dual-screen).
+- Timex SCLD video modes emulation (hi-res 512->256 OR-merge, hi-color, dual-screen).
 - 6 bpp VGA output in three modes: Standard VGA (60 and 70hz), VGA 50hz and CRT 15khz 50hz.
 - VGA/HDMI output with 5 selectable video modes: 640x480@60Hz, 640x480@50Hz, 720x480@60Hz, 720x576@60Hz, 720x576@50Hz.
 - Hot video mode switching without reboot (VGA/HDMI).
 - VGA/HDMI fake scanlines effect.
 - HDMI audio output (RP2350 only).
 - TV-composite video out.
-- PCM5122 I2S audio DAC support (Waveshare PiZero boards).
+- PCM5122 I2S audio DAC support (Waveshare PiZero boards - https://www.waveshare.com/wiki/PCM5122-Audio-Board-A).
 - Multicolor attribute effects emulated (Bifrost*2, Nirvana and Nirvana+ engines).
 - Border effects emulated (Aquaplane, The Sentinel, Overscan demo).
 - Floating bus effect emulated (Arkanoid, Sidewize).

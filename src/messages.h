@@ -606,7 +606,7 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 		"Scanlines\t>\n"\
 		"V-Sync\t>\n"\
 		"Gigascreen (No Flick)\t>\n"\
-		"ULA+ ON/OFF\t>\n"\
+		"ULA+\t>\n"\
 		"Timex Gfx Mode\t>\n"
 	#define MENU_VIDEO_ES \
 		"Video\n"\
@@ -616,7 +616,7 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 		"Scanlines\t>\n"\
 		"V-Sync\t>\n"\
 		"Gigascreen (No Flick)\t>\n"\
-		"ULA+ ON/OFF\t>\n"\
+		"ULA+\t>\n"\
 		"Timex Gfx Mode\t>\n"
 #else
 	#define MENU_VIDEO_EN \
