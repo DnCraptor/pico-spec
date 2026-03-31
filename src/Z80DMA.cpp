@@ -9,6 +9,7 @@
 
 #if !PICO_RP2040
 
+#include <string.h>
 #include "CPU.h"
 #include "Config.h"
 #include "MemESP.h"
@@ -58,6 +59,14 @@ bool     Z80DMA::read_sequence_active = false;
 
 // Reentrancy guard
 bool     Z80DMA::dma_in_progress = false;
+
+// Per-scanline attr shadow buffer
+uint8_t  Z80DMA::dma_attr_shadow[192 * 32];
+bool     Z80DMA::dma_attr_valid[192];
+bool     Z80DMA::dma_charrow_active[24];
+static uint8_t charrow_write_cnt[24];
+static uint8_t prev_attrs[24][32];
+static bool    prev_attrs_saved[24];
 
 // Decode WR1/WR2 address increment from bits 4:3
 static inline int8_t decodeIncrement(uint8_t bits) {
@@ -117,6 +126,19 @@ void Z80DMA::reset() {
     read_sequence_active = false;
 
     dma_in_progress = false;
+
+    memset(dma_attr_shadow, 0, sizeof(dma_attr_shadow));
+    memset(dma_attr_valid, 0, sizeof(dma_attr_valid));
+    memset(dma_charrow_active, 0, sizeof(dma_charrow_active));
+    memset(charrow_write_cnt, 0, sizeof(charrow_write_cnt));
+    memset(prev_attrs_saved, 0, sizeof(prev_attrs_saved));
+}
+
+void Z80DMA::resetAttrShadow() {
+    memset(dma_attr_valid, 0, sizeof(dma_attr_valid));
+    memset(dma_charrow_active, 0, sizeof(dma_charrow_active));
+    memset(charrow_write_cnt, 0, sizeof(charrow_write_cnt));
+    memset(prev_attrs_saved, 0, sizeof(prev_attrs_saved));
 }
 
 IRAM_ATTR void Z80DMA::writePort(uint8_t data) {
@@ -403,14 +425,71 @@ void Z80DMA::doDisable() {
 IRAM_ATTR void Z80DMA::handleDMA() {
 }
 
+// Shadow previous attrs before DMA overwrites them.
+// First write per charrow: save as reference, no shadow.
+// Second write: compare — if different, charrow is "per-scanline active",
+// then all subsequent writes skip compare and always shadow.
+static IRAM_ATTR void captureAttrAfterTransfer(uint16_t dest_start) {
+    if (dest_start < 0x5800 || dest_start > 0x5AFF) return;
+
+    uint8_t charrow = (dest_start - 0x5800) >> 5;
+    if (charrow >= 24) return;
+
+    uint8_t sub = charrow_write_cnt[charrow];
+    if (sub >= 8) return;
+    charrow_write_cnt[charrow] = sub + 1;
+
+    int scanline = charrow * 8 + sub;
+    if (scanline >= 192) return;
+
+    uint16_t attr_base = 0x1800 + (charrow << 5);
+
+    if (sub == 0) {
+        // First write: save as reference
+        memcpy(prev_attrs[charrow], &VIDEO::grmem[attr_base], 32);
+        prev_attrs_saved[charrow] = true;
+        return;
+    }
+
+    if (!prev_attrs_saved[charrow]) return;
+
+    // Once confirmed active, skip compare for remaining writes
+    if (!Z80DMA::dma_charrow_active[charrow]) {
+        // Check if attrs changed
+        if (memcmp(&VIDEO::grmem[attr_base], prev_attrs[charrow], 32) == 0) {
+            memcpy(prev_attrs[charrow], &VIDEO::grmem[attr_base], 32);
+            return;
+        }
+        // Confirmed per-scanline effect — mark active
+        Z80DMA::dma_charrow_active[charrow] = true;
+        // Shadow sub=0 retroactively
+        memcpy(&Z80DMA::dma_attr_shadow[charrow * 8 * 32], prev_attrs[charrow], 32);
+        Z80DMA::dma_attr_valid[charrow * 8] = true;
+    }
+
+    // Shadow previous scanline with prev_attrs (before DMA overwrote)
+    int prev_scanline = charrow * 8 + sub - 1;
+    if (prev_scanline >= 0 && prev_scanline < 192) {
+        memcpy(&Z80DMA::dma_attr_shadow[prev_scanline * 32], prev_attrs[charrow], 32);
+        Z80DMA::dma_attr_valid[prev_scanline] = true;
+    }
+    // Also shadow current scanline with current grmem (may be overwritten by next DMA)
+    memcpy(&Z80DMA::dma_attr_shadow[scanline * 32], &VIDEO::grmem[attr_base], 32);
+    Z80DMA::dma_attr_valid[scanline] = true;
+
+    memcpy(prev_attrs[charrow], &VIDEO::grmem[attr_base], 32);
+}
+
 IRAM_ATTR void Z80DMA::executeTransfer() {
     dma_in_progress = true;
+    uint8_t cycles_per_byte = port_a_cycles + port_b_cycles;
+
+    uint16_t dest_start = transfer_dir ? cur_port_b : cur_port_a;
+    uint32_t total_cycles = 0;
 
     while (byte_counter > 0 && transfer_active) {
         transfer_started = true;
-        // Advance beam BEFORE writing — renders all lines up to current position
-        // (equivalent to MAME's update_now() on each VRAM write)
-        VIDEO::Draw(port_a_cycles + port_b_cycles, false);
+
         uint8_t val;
         if (transfer_dir) {
             val = port_a_is_io ? Ports::input(cur_port_a) : MemESP::readbyte(cur_port_a);
@@ -425,8 +504,16 @@ IRAM_ATTR void Z80DMA::executeTransfer() {
         cur_port_a += port_a_inc;
         cur_port_b += port_b_inc;
         byte_counter--;
+        total_cycles += cycles_per_byte;
     }
 
+    // Snapshot attr row AFTER all bytes written, BEFORE VIDEO::Draw renders
+    captureAttrAfterTransfer(dest_start);
+
+    // Now advance time — VIDEO::Draw will use shadow if available
+    VIDEO::Draw(total_cycles, false);
+
+    // Handle frame boundary
     while (CPU::tstates >= CPU::statesInFrame) {
         VIDEO::EndFrame();
         CPU::global_tstates += CPU::statesInFrame;

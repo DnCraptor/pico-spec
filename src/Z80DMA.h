@@ -19,6 +19,11 @@ public:
     static uint8_t readPort();
     static void handleDMA();
 
+    // Per-scanline attribute shadow (8x1 attrs via DMA)
+    static uint8_t  dma_attr_shadow[192 * 32];
+    static bool     dma_attr_valid[192];
+    static bool     dma_charrow_active[24];
+    static void     resetAttrShadow();
 
 private:
     // Configured state (from WR0-WR5)

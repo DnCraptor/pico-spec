@@ -47,6 +47,9 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Z80_JLS/z80.h"
 #include "Z80_JLS/z80operations.h"
 #include "psram_spi.h"
+#if !PICO_RP2040
+#include "Z80DMA.h"
+#endif
 extern "C" void graphics_set_palette(uint8_t i, uint32_t color888);
 extern "C" void vga_set_palette_entry_solid(uint8_t i, uint32_t color888);
 extern "C" void graphics_set_buffer(uint8_t* buffer, uint16_t width, uint16_t height);
@@ -196,6 +199,11 @@ static unsigned int curline;
 
 static unsigned int bmpOffset;  // offset for bitmap in graphic memory
 static unsigned int attOffset;  // offset for attrib in graphic memory
+
+#if !PICO_RP2040
+// Per-scanline DMA attr shadow: non-null when DMA wrote attrs for current scanline
+static const uint8_t* dma_attr_override = nullptr;
+#endif
 
 static const uint8_t wait_st[128] = {
     6, 5, 4, 3, 2, 1, 0, 0, 6, 5, 4, 3, 2, 1, 0, 0,
@@ -978,6 +986,14 @@ IRAM_ATTR void VIDEO::MainScreen_Blank(unsigned int statestoadd, bool contended)
         // dirty_lines[curline] = 1;
         #endif // DIRTY_LINES
 
+#if !PICO_RP2040
+        // DMA per-scanline attr shadow: use snapshot if DMA wrote attrs for this scanline
+        if (Config::dma_mode && Z80DMA::dma_attr_valid[curline])
+            dma_attr_override = &Z80DMA::dma_attr_shadow[curline * 32];
+        else
+            dma_attr_override = nullptr;
+#endif
+
         Draw = linedraw_cnt >= 176 && linedraw_cnt <= 191 ? Draw_OSD169 : MainScreen;
         Draw_Opcode = MainScreen_Opcode;
 
@@ -987,7 +1003,7 @@ IRAM_ATTR void VIDEO::MainScreen_Blank(unsigned int statestoadd, bool contended)
 
     }
 
-}    
+}
 
 IRAM_ATTR void VIDEO::MainScreen_Blank_Opcode(bool contended) { MainScreen_Blank(4, contended); }
 
@@ -1192,7 +1208,12 @@ IRAM_ATTR void VIDEO::MainScreen(unsigned int statestoadd, bool contended) {
 #endif
     if (VIDEO::gigascreen_enabled) {
         for (; loopCount--; ) {
+#if !PICO_RP2040
+            uint8_t att = dma_attr_override ? dma_attr_override[attOffset & 0x1F] : grmem[attOffset];
+            attOffset++;
+#else
             uint8_t att = grmem[attOffset++];
+#endif
             uint8_t bmp = grmem[bmpOffset++] ^ (-((att & flashing) >> 7));
             uint32_t newPixel1 = AluByte[bmp >> 4][att];
             uint32_t newPixel2 = AluByte[bmp & 0xF][att];
@@ -1206,7 +1227,12 @@ IRAM_ATTR void VIDEO::MainScreen(unsigned int statestoadd, bool contended) {
         }
     } else {
         for (; loopCount--; ) {
+#if !PICO_RP2040
+            uint8_t att = dma_attr_override ? dma_attr_override[attOffset & 0x1F] : grmem[attOffset];
+            attOffset++;
+#else
             uint8_t att = grmem[attOffset++];
+#endif
             uint8_t bmp = grmem[bmpOffset++] ^ (-((att & flashing) >> 7));
             *lineptr32++ = AluByte[bmp >> 4][att];
             *lineptr32++ = AluByte[bmp & 0xF][att];
@@ -1522,6 +1548,13 @@ IRAM_ATTR void VIDEO::EndFrame() {
     linedraw_cnt = lin_end;
 
     tstateDraw = tStatesScreen;
+
+#if !PICO_RP2040
+    // Clear DMA attr shadow and charrow write counters for next frame
+    if (Config::dma_mode)
+        Z80DMA::resetAttrShadow();
+    dma_attr_override = nullptr;
+#endif
 
     static uint8_t skipCnt = 0;
     static bool wasMaxSpeed = false;

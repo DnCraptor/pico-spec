@@ -266,13 +266,10 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
       ioContentionLate(MemESP::ramContended[rambank]);
       return VIDEO::timex_port_ff;
     }
-    // zxnDMA port read
-    if (Config::dma_mode) {
-      uint8_t dma_port = (Config::dma_mode == 1) ? 0x0B : 0x6B;
-      if ((address & 0xFF) == dma_port) {
-        ioContentionLate(MemESP::ramContended[rambank]);
-        return Z80DMA::readPort();
-      }
+    // Z80 DMA / zxnDMA port read: listen on both 0x0B and 0x6B
+    if (Config::dma_mode && ((address & 0xFF) == 0x0B || (address & 0xFF) == 0x6B)) {
+      ioContentionLate(MemESP::ramContended[rambank]);
+      return Z80DMA::readPort();
     }
 #endif
     // The default port value is 0xFF.
@@ -597,14 +594,11 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
       Midi::send(data);
       return;
     }
-    // zxnDMA port write
-    if (Config::dma_mode) {
-      uint8_t dma_port = (Config::dma_mode == 1) ? 0x0B : 0x6B;
-      if (a8 == dma_port) {
-        Z80DMA::writePort(data);
-        ioContentionLate(MemESP::ramContended[rambank]);
-        return;
-      }
+    // Z80 DMA / zxnDMA port write: listen on both 0x0B and 0x6B
+    if (Config::dma_mode && (a8 == 0x0B || a8 == 0x6B)) {
+      Z80DMA::writePort(data);
+      ioContentionLate(MemESP::ramContended[rambank]);
+      return;
     }
     // Timex SCLD video mode register (port 0x00FF, bit 8 clear)
     // Skip when TR-DOS is active — port 0xFF is the Beta-128 system register
