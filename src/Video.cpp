@@ -52,7 +52,6 @@ extern "C" void vga_set_palette_entry_solid(uint8_t i, uint32_t color888);
 extern "C" void graphics_set_buffer(uint8_t* buffer, uint16_t width, uint16_t height);
 extern "C" void hdmi_reinit(void);
 extern "C" void vga_reinit(void);
-
 // Place hot video functions in SRAM instead of XIP flash
 #undef IRAM_ATTR
 #define IRAM_ATTR __not_in_flash("video")
@@ -981,6 +980,7 @@ IRAM_ATTR void VIDEO::MainScreen_Blank(unsigned int statestoadd, bool contended)
 
         Draw = linedraw_cnt >= 176 && linedraw_cnt <= 191 ? Draw_OSD169 : MainScreen;
         Draw_Opcode = MainScreen_Opcode;
+
 
         video_rest = CPU::tstates - tstateDraw;
         Draw(0,false);
