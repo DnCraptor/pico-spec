@@ -2364,7 +2364,38 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 }
                             }
                         }
+                        // Palette selection (option 2 on all platforms)
                         else if (options_num == 2) {
+                            menu_level = 2;
+                            menu_curopt = 1;
+                            menu_saverect = true;
+                            while (1) {
+                                // Build palette menu dynamically (built-in + custom)
+                                uint8_t pal_count = VIDEO::paletteCount();
+                                uint8_t prev = Config::palette;
+                                string pal_menu = Config::lang ? "Paleta\n" : "Palette\n";
+                                for (uint8_t i = 0; i < pal_count; i++) {
+                                    pal_menu += VIDEO::paletteName(i);
+                                    pal_menu += "\t";
+                                    pal_menu += (prev == i) ? "[*]\n" : "[ ]\n";
+                                }
+                                uint8_t opt2 = menuRun(pal_menu);
+                                if (opt2) {
+                                    Config::palette = opt2 - 1;
+                                    if (Config::palette != prev) {
+                                        VIDEO::applyPalette();
+                                        Config::save();
+                                    }
+                                    menu_curopt = opt2;
+                                    menu_saverect = false;
+                                } else {
+                                    menu_curopt = 2;
+                                    menu_level = 1;
+                                    break;
+                                }
+                            }
+                        }
+                        else if (options_num == 3) {
                             menu_level = 2;
                             menu_curopt = 1;
                             menu_saverect = true;
@@ -2404,13 +2435,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_curopt = opt2;
                                     menu_saverect = false;
                                 } else {
-                                    menu_curopt = 2;
+                                    menu_curopt = 3;
                                     menu_level = 1;
                                     break;
                                 }
                             }
                         }
-                        else if (options_num == 3) {
+                        else if (options_num == 4) {
                             menu_level = 2;
                             menu_curopt = 1;
                             menu_saverect = true;
@@ -2444,13 +2475,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_saverect = false;
 
                                 } else {
-                                    menu_curopt = 3;
+                                    menu_curopt = 4;
                                     menu_level = 1;
                                     break;
                                 }
                             }
                         }
-                        else if (options_num == 4) {
+                        else if (options_num == 5) {
                             menu_level = 2;
                             menu_curopt = 1;
                             menu_saverect = true;
@@ -2493,13 +2524,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_curopt = opt2;
                                     menu_saverect = false;
                                 } else {
-                                    menu_curopt = 4;
+                                    menu_curopt = 5;
                                     menu_level = 1;
                                     break;
                                 }
                             }
                         }
-                        else if (options_num == 5) {
+                        else if (options_num == 6) {
                             menu_level = 2;
                             menu_curopt = 1;
                             menu_saverect = true;
@@ -2527,14 +2558,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_curopt = opt2;
                                     menu_saverect = false;
                                 } else {
-                                    menu_curopt = 5;
+                                    menu_curopt = 6;
                                     menu_level = 1;
                                     break;
                                 }
                             }
                         }
                         #if !PICO_RP2040
-                        else if (options_num == 6) {
+                        else if (options_num == 7) {
                             menu_level = 2;
                             menu_curopt = 1;
                             menu_saverect = true;
@@ -2581,16 +2612,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_curopt = opt2;
                                     menu_saverect = false;
                                 } else {
-                                    menu_curopt = 6;
+                                    menu_curopt = 7;
                                     menu_level = 1;
                                     break;
                                 }
                             }
                         }
-                        #endif
-                        #if !PICO_RP2040
                         // ULA+ ON/OFF
-                        else if (options_num == 7) {
+                        else if (options_num == 8) {
                             menu_level = 2;
                             menu_curopt = 1;
                             menu_saverect = true;
@@ -2621,14 +2650,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_curopt = opt2;
                                     menu_saverect = false;
                                 } else {
-                                    menu_curopt = 7;
+                                    menu_curopt = 8;
                                     menu_level = 1;
                                     break;
                                 }
                             }
                         }
                         // Timex Video ON/OFF
-                        else if (options_num == 8) {
+                        else if (options_num == 9) {
                             menu_level = 2;
                             menu_curopt = 1;
                             menu_saverect = true;
@@ -2658,54 +2687,39 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_curopt = opt2;
                                     menu_saverect = false;
                                 } else {
-                                    menu_curopt = 8;
+                                    menu_curopt = 9;
                                     menu_level = 1;
                                     break;
                                 }
                             }
                         }
-                        #endif
-                        // Palette selection (RP2350: option 9, RP2040: option 6)
-                        else if (options_num ==
-                        #if !PICO_RP2040
-                            9
-                        #else
-                            6
-                        #endif
-                        ) {
+                        // DMA mode
+                        else if (options_num == 10) {
                             menu_level = 2;
                             menu_curopt = 1;
                             menu_saverect = true;
                             while (1) {
-                                // Build dynamic palette menu
-                                uint8_t pcount = VIDEO::paletteCount();
-                                string pal_menu = Config::lang ? "Paleta\n" : "Palette\n";
-                                uint8_t prev = Config::palette;
-                                for (uint8_t i = 0; i < pcount; i++) {
-                                    pal_menu += VIDEO::paletteName(i);
-                                    pal_menu += (i == prev) ? "\t[*]\n" : "\t[ ]\n";
-                                }
-                                uint8_t opt2 = menuRun(pal_menu);
+                                string dma_menu = MENU_DMA[Config::lang];
+                                uint8_t prev = Config::dma_mode;
+                                dma_menu.replace(dma_menu.find("[O",0),2, prev == 0 ? "[*" : "[ ");
+                                dma_menu.replace(dma_menu.find("[B",0),2, prev == 1 ? "[*" : "[ ");
+                                dma_menu.replace(dma_menu.find("[X",0),2, prev == 2 ? "[*" : "[ ");
+                                uint8_t opt2 = menuRun(dma_menu);
                                 if (opt2) {
-                                    Config::palette = opt2 - 1;
-                                    if (Config::palette != prev) {
-                                        VIDEO::applyPalette();
+                                    Config::dma_mode = opt2 - 1;
+                                    if (Config::dma_mode != prev) {
                                         Config::save();
                                     }
                                     menu_curopt = opt2;
                                     menu_saverect = false;
                                 } else {
-                                    menu_curopt =
-                                    #if !PICO_RP2040
-                                        9;
-                                    #else
-                                        6;
-                                    #endif
+                                    menu_curopt = 10;
                                     menu_level = 1;
                                     break;
                                 }
                             }
                         }
+                        #endif
                     } else {
                         menu_curopt = 4;
                         break;

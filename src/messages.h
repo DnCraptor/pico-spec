@@ -607,6 +607,7 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 	#define MENU_VIDEO_EN \
 		"Video\n"\
 		"Mode\t>\n"\
+		"Palette\t>\n"\
 		"Render type\t>\n"\
 		"Aspect Ratio\t>\n"\
 		"Scanlines\t>\n"\
@@ -614,10 +615,11 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 		"Gigascreen (No Flick)\t>\n"\
 		"ULA+\t>\n"\
 		"Timex Gfx Mode\t>\n"\
-		"Palette\t>\n"
+		"DMA\t>\n"
 	#define MENU_VIDEO_ES \
 		"Video\n"\
 		"Modo\t>\n"\
+		"Paleta\t>\n"\
 		"Tipo render\t>\n"\
 		"Relaci" "\xA2" "n de aspecto\t>\n"\
 		"Scanlines\t>\n"\
@@ -625,24 +627,24 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 		"Gigascreen (No Flick)\t>\n"\
 		"ULA+\t>\n"\
 		"Timex Gfx Mode\t>\n"\
-		"Paleta\t>\n"
+		"DMA\t>\n"
 #else
 	#define MENU_VIDEO_EN \
 		"Video\n"\
 		"Mode\t>\n"\
+		"Palette\t>\n"\
 		"Render type\t>\n"\
 		"Aspect Ratio\t>\n"\
 		"Scanlines\t>\n"\
-		"V-Sync\t>\n"\
-		"Palette\t>\n"
+		"V-Sync\t>\n"
 	#define MENU_VIDEO_ES \
 		"Video\n"\
 		"Modo\t>\n"\
+		"Paleta\t>\n"\
 		"Tipo render\t>\n"\
 		"Relaci" "\xA2" "n de aspecto\t>\n"\
 		"Scanlines\t>\n"\
-		"V-Sync\t>\n"\
-		"Paleta\t>\n"
+		"V-Sync\t>\n"
 #endif
 static const char *MENU_VIDEO[2] = { MENU_VIDEO_EN, MENU_VIDEO_ES };
 
@@ -962,6 +964,12 @@ static const char *MENU_MIDI_PRESET[2] = { MENU_MIDI_PRESET_EN, MENU_MIDI_PRESET
 #if !PICO_RP2040
 static const char *MENU_ULAPLUS[2] = { "ULA+\n", "ULA+\n"};
 static const char *MENU_TIMEX[2] = { "Timex Gfx Mode\n", "Timex Gfx Mode\n"};
+#define MENU_DMA_EN "DMA\n"\
+    "OFF            \t[O]\n"\
+    "Port #0B (Z80) \t[B]\n"\
+    "Port #6B (Next)\t[X]\n"
+#define MENU_DMA_ES MENU_DMA_EN
+static const char *MENU_DMA[2] = { MENU_DMA_EN, MENU_DMA_ES };
 #endif
 
 #define MENU_PALETTE_EN \

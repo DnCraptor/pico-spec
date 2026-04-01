@@ -111,6 +111,7 @@ uint8_t  Config::gigascreen_onoff = 0;
 #if !PICO_RP2040
 bool     Config::ulaplus = false;
 bool     Config::timex_video = false;
+uint8_t  Config::dma_mode = 0;
 #endif
 uint8_t  Config::palette = 0;
 uint8_t  Config::audio_driver = 0;
@@ -582,6 +583,7 @@ void Config::load() {
         #if !PICO_RP2040
         nvs_get_b("ulaplus", ulaplus, sts);
         nvs_get_b("timex_video", timex_video, sts);
+        nvs_get_u8("dma_mode", dma_mode, sts);
         #endif
         nvs_get_u8("palette", palette, sts);
         std::string v;
@@ -771,6 +773,7 @@ void Config::save() {
     #if !PICO_RP2040
     nvs_set_str(buf,"ulaplus", Config::ulaplus ? "true" : "false");
     nvs_set_str(buf,"timex_video", Config::timex_video ? "true" : "false");
+    nvs_set_u8(buf,"dma_mode",Config::dma_mode);
     #endif
     nvs_set_u8(buf,"palette", Config::palette);
     nvs_set_str(buf,"audio_driver", Config::audio_driver == 0 ? "auto" :

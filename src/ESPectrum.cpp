@@ -67,6 +67,7 @@ visit https://zxespectrum.speccy.org/contacto
 #endif
 #include "Midi.h"
 #include "MidiSynth.h"
+#include "Z80DMA.h"
 
 using namespace std;
 
@@ -796,6 +797,7 @@ void ESPectrum::setup() {
     SAA_emu = Config::SAA1099;
     Midi::enabled = Config::midi;
     if (Midi::enabled) Midi::init();
+    if (Config::dma_mode) Z80DMA::reset();
 #endif
 
   if (Config::arch == "48K") {
@@ -1006,6 +1008,7 @@ void ESPectrum::reset(uint8_t romInUse) {
     SAA_emu = Config::SAA1099;
     Midi::enabled = Config::midi;
     if (Midi::enabled) Midi::init();
+    if (Config::dma_mode) Z80DMA::reset();
 #endif
 
   // Set samples per frame and AY_emu flag depending on arch

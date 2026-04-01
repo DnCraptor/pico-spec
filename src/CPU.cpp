@@ -43,6 +43,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Z80_JLS/z80.h"
 #include "psram_spi.h"
 #include "Debug.h"
+#include "Z80DMA.h"
 #if !PICO_RP2040
 #include "DivMMC.h"
 #endif
@@ -206,6 +207,9 @@ IRAM_ATTR void CPU::loop() {
     }
     while (tstates < IntEnd) {
         Z80::execute();
+#if !PICO_RP2040
+        if (Config::dma_mode) Z80DMA::handleDMA();
+#endif
         BREAKPOINTS
     }
     BREAKPOINTS
@@ -220,6 +224,9 @@ IRAM_ATTR void CPU::loop() {
     BREAKPOINTS
     while (tstates < statesInFrame) {
         Z80::execute();
+#if !PICO_RP2040
+        if (Config::dma_mode) Z80DMA::handleDMA();
+#endif
         BREAKPOINTS
     }
     VIDEO::EndFrame();

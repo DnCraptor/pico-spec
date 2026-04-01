@@ -52,6 +52,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "OSDMain.h"
 
 #include "Midi.h"
+#include "Z80DMA.h"
 #if !PICO_RP2040
 #include "DivMMC.h"
 #include "hardware/gpio.h"
@@ -264,6 +265,11 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     if (Config::timex_video && !ESPectrum::trdos && address == 0x00FF) {
       ioContentionLate(MemESP::ramContended[rambank]);
       return VIDEO::timex_port_ff;
+    }
+    // Z80 DMA / zxnDMA port read: listen on both 0x0B and 0x6B
+    if (Config::dma_mode && ((address & 0xFF) == 0x0B || (address & 0xFF) == 0x6B)) {
+      ioContentionLate(MemESP::ramContended[rambank]);
+      return Z80DMA::readPort();
     }
 #endif
     // The default port value is 0xFF.
@@ -586,6 +592,12 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     // 0xA1CF = data port: write 0xFF/0x3F for init, read status (bit 6 = receiver full)
     if (Midi::enabled >= 2 && address == 0xA0CF) {
       Midi::send(data);
+      return;
+    }
+    // Z80 DMA / zxnDMA port write: listen on both 0x0B and 0x6B
+    if (Config::dma_mode && (a8 == 0x0B || a8 == 0x6B)) {
+      Z80DMA::writePort(data);
+      ioContentionLate(MemESP::ramContended[rambank]);
       return;
     }
     // Timex SCLD video mode register (port 0x00FF, bit 8 clear)
