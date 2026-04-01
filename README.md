@@ -40,8 +40,10 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - Snow effect accurate emulation (as [described](https://spectrumcomputing.co.uk/forums/viewtopic.php?t=8240) by Weiv and MartianGirl).
 - Gigascreen support (Choose between three modes: On, Off, or Auto).
 - Selectable color palettes: Pulsar (default), Alone, Grayscale, Mars, Ocean (Unreal Speccy compatible format).
+- Custom palettes support: load user-defined palettes from `/palette.nvs` file on SD card (up to 11 custom palettes, 3x3 RGB color transform matrix).
 - Ula+ support (https://sinclair.wiki.zxnet.co.uk/wiki/ULAplus).
 - Murmuzavr (up to 32 MB) support.
+- Z80 DMA / zxnDMA emulation: Port #0B (MB02+) and Port #6B (DATA-GEAR) modes (RP2350 only).
 - Contended memory and contended I/O emulation.
 - AY-3-8912 / TurboSound emulation.
 - SAA1099 sound chip emulation (https://en.wikipedia.org/wiki/Philips_SAA1099).
@@ -62,8 +64,8 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - ZIP archive support: browse, extract, load and delete files inside ZIP archives.
 - Configurable keyboard hotkeys with hint display in menus.
 - Enhanced debugger: multi-breakpoint (up to 20), memory editor, port read/write breakpoints.
-- CPU frequency switching from OSD menu (RP2350: 252/378/504 MHz; RP2040: 252 MHz).
-- Configurable voltage regulator (VREQ) for RP2350 boards.
+- Hardware info menu: Chip Info (model, cores, frequency, VREG voltage) and Board Info (flash, PSRAM, SDK version).
+- Overclock menu: CPU frequency (RP2350: 252/378/504 MHz; RP2040: 252/378 MHz), Flash frequency (33–166 MHz), PSRAM frequency (66–166 MHz), VReg voltage (RP2350: 1.15–1.80 V).
 - Complete file navigation system with autoindexing, folder support and search functions.
 - Complete OSD menu in two languages: English & Spanish.
 - BMP screen capture to SD Card (thanks David Crespo 😉).
