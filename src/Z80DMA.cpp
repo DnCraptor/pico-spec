@@ -482,43 +482,43 @@ static IRAM_ATTR void captureAttrAfterTransfer(uint16_t dest_start) {
 
 IRAM_ATTR void Z80DMA::executeTransfer() {
     dma_in_progress = true;
-    uint8_t cycles_per_byte = port_a_cycles + port_b_cycles;
 
     uint16_t dest_start = transfer_dir ? cur_port_b : cur_port_a;
-    uint32_t total_cycles = 0;
 
     while (byte_counter > 0 && transfer_active) {
         transfer_started = true;
 
         uint8_t val;
         if (transfer_dir) {
-            val = port_a_is_io ? Ports::input(cur_port_a) : MemESP::readbyte(cur_port_a);
-            if (port_b_is_io) Ports::output(cur_port_b, val);
+            // A → B: read A, write B
+            VIDEO::Draw(port_a_cycles, false);
+            val = port_a_is_io ? Ports::dmaInput(cur_port_a) : MemESP::readbyte(cur_port_a);
+            VIDEO::Draw(port_b_cycles, false);
+            if (port_b_is_io) Ports::dmaOutput(cur_port_b, val);
             else MemESP::writebyte(cur_port_b, val);
         } else {
-            val = port_b_is_io ? Ports::input(cur_port_b) : MemESP::readbyte(cur_port_b);
-            if (port_a_is_io) Ports::output(cur_port_a, val);
+            // B → A: read B, write A
+            VIDEO::Draw(port_b_cycles, false);
+            val = port_b_is_io ? Ports::dmaInput(cur_port_b) : MemESP::readbyte(cur_port_b);
+            VIDEO::Draw(port_a_cycles, false);
+            if (port_a_is_io) Ports::dmaOutput(cur_port_a, val);
             else MemESP::writebyte(cur_port_a, val);
         }
 
         cur_port_a += port_a_inc;
         cur_port_b += port_b_inc;
         byte_counter--;
-        total_cycles += cycles_per_byte;
+
+        // Handle frame boundary mid-transfer
+        if (CPU::tstates >= CPU::statesInFrame) {
+            VIDEO::EndFrame();
+            CPU::global_tstates += CPU::statesInFrame;
+            CPU::tstates -= CPU::statesInFrame;
+        }
     }
 
-    // Snapshot attr row AFTER all bytes written, BEFORE VIDEO::Draw renders
+    // Snapshot attr state for per-scanline effects
     captureAttrAfterTransfer(dest_start);
-
-    // Now advance time — VIDEO::Draw will use shadow if available
-    VIDEO::Draw(total_cycles, false);
-
-    // Handle frame boundary
-    while (CPU::tstates >= CPU::statesInFrame) {
-        VIDEO::EndFrame();
-        CPU::global_tstates += CPU::statesInFrame;
-        CPU::tstates -= CPU::statesInFrame;
-    }
 
     if (byte_counter == 0) {
         block_end = true;

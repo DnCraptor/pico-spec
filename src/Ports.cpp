@@ -856,3 +856,45 @@ IRAM_ATTR void Ports::ioContentionLate(bool contend) {
     VIDEO::Draw(3, false);
   }
 }
+
+// DMA I/O: no contention, only side effects (border, AY, beeper)
+IRAM_ATTR void Ports::dmaOutput(uint16_t address, uint8_t data) {
+    if ((address & 0x0001) == 0) {
+        // ULA port (0xFE): border + beeper
+        port254 = data;
+        if (VIDEO::borderColor != (data & 0x07)) {
+            VIDEO::brdChange = true;
+            VIDEO::DrawBorder();
+            VIDEO::borderColor = data & 0x07;
+#if !PICO_RP2040
+            if (VIDEO::ulaplus_enabled)
+                VIDEO::ulaPlusUpdateBorder();
+            else
+#endif
+                VIDEO::brd = VIDEO::border32[VIDEO::borderColor];
+        }
+        int Audiobit;
+        Audiobit = speaker_values[((data >> 2) & 0x04) | (Tape::tapeEarBit << 1) |
+                                    ((data >> 3) & 0x01)];
+        if (Audiobit != ESPectrum::lastaudioBit) {
+            ESPectrum::BeeperGetSample();
+            ESPectrum::lastaudioBit = Audiobit;
+        }
+    } else if ((ESPectrum::AY_emu) && ((address & 0x8002) == 0x8000)) {
+        // AY
+        if ((address & 0x4000) != 0) {
+            chips[AySound::selected_chip]->selectRegister(data);
+        } else {
+            chips[AySound::selected_chip]->setRegisterData(data);
+        }
+    }
+}
+
+IRAM_ATTR uint8_t Ports::dmaInput(uint16_t address) {
+    // DMA read from I/O: return port value without contention
+    if ((address & 0x0001) == 0) {
+        // ULA port: keyboard + ear
+        return 0xFF; // no keys pressed
+    }
+    return 0xFF;
+}
