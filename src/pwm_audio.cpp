@@ -341,7 +341,7 @@ void init_sound() {
     }
 #ifdef LOAD_WAV_PIO
     //пин ввода звука (не инициализировать если MIDI использует тот же пин)
-#if defined(MIDI_TX_PIN) && (LOAD_WAV_PIO == MIDI_TX_PIN)
+#if defined(PICO_RP2350) && defined(MIDI_TX_PIN) && (LOAD_WAV_PIO == MIDI_TX_PIN)
     if (Config::midi != 1 && Config::midi != 2)
 #endif
     {
