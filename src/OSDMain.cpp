@@ -1556,6 +1556,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                                 if (Config::real_player) {
                                                     ESPectrum::aud_volume = ESP_VOLUME_MAX;
                                                     pwm_audio_set_volume(ESPectrum::aud_volume);
+#if defined(MIDI_TX_PIN) && defined(LOAD_WAV_PIO) && (LOAD_WAV_PIO == MIDI_TX_PIN)
+                                                    if (Config::midi == 1 || Config::midi == 2)
+                                                        osdCenteredMsg(MSG_MIDI_PIN_CONFLICT[Config::lang], LEVEL_WARN, 3000);
+#endif
                                                 } else {
 #if LOAD_WAV_PIO
                                                     pcm_audio_in_stop();
@@ -2203,6 +2207,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         if (Midi::enabled)
                                             Midi::init();
                                         Config::save();
+#if defined(LOAD_WAV_PIO) && (LOAD_WAV_PIO == MIDI_TX_PIN)
+                                        if ((Config::midi == 1 || Config::midi == 2) && Config::real_player)
+                                            osdCenteredMsg(MSG_MIDI_PIN_CONFLICT[Config::lang], LEVEL_WARN, 3000);
+#endif
                                     }
                                     // Software selected — open preset submenu
                                     if (Config::midi == 3) {
@@ -4568,15 +4576,29 @@ void OSD::osdCenteredMsg(string msg, uint8_t warn_level) {
 
 void OSD::osdCenteredMsg(string msg, uint8_t warn_level, uint16_t millispause) {
 
-    const unsigned short h = OSD_FONT_H * 3;
+    // Count lines and find the longest line for proper sizing
+    unsigned short nlines = 1;
+    size_t maxlen = 0;
+    size_t pos = 0, prev = 0;
+    while ((pos = msg.find('\n', prev)) != string::npos) {
+        size_t len = pos - prev;
+        if (len > maxlen) maxlen = len;
+        nlines++;
+        prev = pos + 1;
+    }
+    size_t len = msg.length() - prev;
+    if (len > maxlen) maxlen = len;
+
+    size_t maxchars = (scrW / 6) - 10;
+    if (maxlen > maxchars) maxlen = maxchars;
+
+    const unsigned short h = OSD_FONT_H * (nlines + 2);
     const unsigned short y = scrAlignCenterY(h);
     unsigned short paper;
     unsigned short ink;
     unsigned int j;
 
-    if (msg.length() > (scrW / 6) - 10) msg = msg.substr(0,(scrW / 6) - 10);
-
-    const unsigned short w = (msg.length() + 2) * OSD_FONT_W;
+    const unsigned short w = (maxlen + 2) * OSD_FONT_W;
     const unsigned short x = scrAlignCenterX(w);
 
     switch (warn_level) {

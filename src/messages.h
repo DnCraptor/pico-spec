@@ -959,6 +959,12 @@ static const char *MENU_MIDI[2] = { MENU_MIDI_EN, MENU_MIDI_ES };
     "Synth    \t[Y]\n"
 #define MENU_MIDI_PRESET_ES MENU_MIDI_PRESET_EN
 static const char *MENU_MIDI_PRESET[2] = { MENU_MIDI_PRESET_EN, MENU_MIDI_PRESET_ES };
+#if defined(LOAD_WAV_PIO) && (LOAD_WAV_PIO == MIDI_TX_PIN)
+static const char *MSG_MIDI_PIN_CONFLICT[2] = {
+    "MIDI and Real sound-in share GPIO " _PIN_XSTR(MIDI_TX_PIN) ".\nDisable one of them.",
+    "MIDI y Modo de sonido real comparten GPIO " _PIN_XSTR(MIDI_TX_PIN) ".\nDesactive uno de ellos."
+};
+#endif
 #endif
 
 #if !PICO_RP2040
