@@ -2565,12 +2565,18 @@ bool Tape::TapePortRead() {
                     tapeAutoPlay = true;
                     Play();
                     Read();
-                } else if (tapeCurBlock > 0 && (pc >= 0x4000 || (pc >= 0x05E3 && pc <= 0x05F5))) {
-                    // Generic auto-start for other custom loaders.
-                    // Skip when tapeCurBlock==0: tape finished (all blocks loaded).
-                    // Skip when pc < 0x4000: ROM/BASIC keyboard scan — not a loader.
-                    // Exception: ROM LD-EDGE area (0x05E3-0x05F5) — custom loaders
-                    // like Hollywood Poker call CALL 0x05E7 for edge detection.
+                } else if (tapeCurBlock > 0 && (pc >= 0x05E3 && pc <= 0x05F5)) {
+                    // ROM LD-EDGE area — custom loaders call CALL 0x05E7
+                    // for edge detection (e.g. Hollywood Poker).
+                    tapeAutoPlay = true;
+                    Play();
+                    Read();
+                } else if (tapeCurBlock > 0 && pc >= 0x4000 &&
+                           MemESP::readbyte(pc - 2) == 0xDB) {
+                    // Generic auto-start for RAM-based custom tape loaders.
+                    // Only trigger for IN A,(n) opcode (0xDB) — real tape loaders.
+                    // Skip IN r,(C) (0xED prefix) which is used by keyboard scans
+                    // and general port reads, not tape loading.
                     tapeAutoPlay = true;
                     Play();
                     Read();
