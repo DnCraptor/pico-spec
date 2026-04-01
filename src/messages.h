@@ -972,8 +972,8 @@ static const char *MENU_ULAPLUS[2] = { "ULA+\n", "ULA+\n"};
 static const char *MENU_TIMEX[2] = { "Timex Gfx Mode\n", "Timex Gfx Mode\n"};
 #define MENU_DMA_EN "DMA\n"\
     "OFF            \t[O]\n"\
-    "Port #0B (Z80) \t[B]\n"\
-    "Port #6B (Next)\t[X]\n"
+    "Port #0B (MB02+) \t[B]\n"\
+    "Port #6B (DATA-GEAR)\t[X]\n"
 #define MENU_DMA_ES MENU_DMA_EN
 static const char *MENU_DMA[2] = { MENU_DMA_EN, MENU_DMA_ES };
 #endif
