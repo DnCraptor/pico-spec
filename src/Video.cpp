@@ -360,7 +360,7 @@ struct PaletteDef {
     uint16_t matrix[9];         // color transform matrix
 };
 
-static const PaletteDef palette_defs[] = {
+static const PaletteDef builtin_palette_defs[] = {
     // 0: Pulsar (ZZ=00, NN=CD, BB=FF, identity matrix)
     { 0x00, 0xCD, 0xFF, { 0x100,0x000,0x000, 0x000,0x100,0x000, 0x000,0x000,0x100 } },
     // 1: Alone (dimmer normal colors: NN=A0)
@@ -372,7 +372,191 @@ static const PaletteDef palette_defs[] = {
     // 4: Ocean (cool tones)
     { 0x00, 0xCD, 0xFF, { 0x0D0,0x000,0x030, 0x000,0x0D0,0x030, 0x000,0x000,0x100 } },
 };
-#define PALETTE_COUNT (sizeof(palette_defs) / sizeof(palette_defs[0]))
+#define BUILTIN_PALETTE_COUNT (sizeof(builtin_palette_defs) / sizeof(builtin_palette_defs[0]))
+
+static const char* builtin_palette_names[] = {
+    "Pulsar", "Alone", "Grayscale", "Mars", "Ocean"
+};
+
+// Custom palettes from /palette.nvs (max 11, total max 16)
+#define MAX_CUSTOM_PALETTES 11
+static PaletteDef custom_palette_defs[MAX_CUSTOM_PALETTES];
+static char custom_palette_names[MAX_CUSTOM_PALETTES][13]; // 12 chars + null
+static uint8_t custom_palette_count = 0;
+
+static uint8_t total_palette_count() {
+    return BUILTIN_PALETTE_COUNT + custom_palette_count;
+}
+
+static const PaletteDef& getPaletteDef(uint8_t idx) {
+    if (idx < BUILTIN_PALETTE_COUNT)
+        return builtin_palette_defs[idx];
+    uint8_t ci = idx - BUILTIN_PALETTE_COUNT;
+    if (ci < custom_palette_count)
+        return custom_palette_defs[ci];
+    return builtin_palette_defs[0];
+}
+
+uint8_t VIDEO::paletteCount() { return total_palette_count(); }
+
+const char* VIDEO::paletteName(uint8_t idx) {
+    if (idx < BUILTIN_PALETTE_COUNT)
+        return builtin_palette_names[idx];
+    uint8_t ci = idx - BUILTIN_PALETTE_COUNT;
+    if (ci < custom_palette_count)
+        return custom_palette_names[ci];
+    return "?";
+}
+
+// Parse hex value from string (up to 3 hex digits)
+static uint16_t parseHex(const char* s, int len) {
+    uint16_t v = 0;
+    for (int i = 0; i < len && s[i]; i++) {
+        char c = s[i];
+        v <<= 4;
+        if (c >= '0' && c <= '9') v |= c - '0';
+        else if (c >= 'A' && c <= 'F') v |= c - 'A' + 10;
+        else if (c >= 'a' && c <= 'f') v |= c - 'a' + 10;
+    }
+    return v;
+}
+
+// Load custom palettes from /palette.nvs
+// Format per line (JSON-like, one object per line):
+// { "name": "MyPal", "ZZ": 0x00, "NN": 0xCD, "BB": 0xFF, "matrix": [0x100,0x000,...] }
+// Lines starting with // are comments and ignored.
+// Simplified parser: extract name, ZZ, NN, BB, and 9 matrix values from hex
+void VIDEO::loadCustomPalettes() {
+    custom_palette_count = 0;
+    if (!FileUtils::fsMount) return;
+
+    // Create default palette.nvs if it doesn't exist
+    {
+        FILINFO fi;
+        if (f_stat(MOUNT_POINT_SD "/palette.nvs", &fi) != FR_OK) {
+            FIL cf;
+            if (f_open(&cf, MOUNT_POINT_SD "/palette.nvs", FA_WRITE | FA_CREATE_NEW) == FR_OK) {
+                static const char tmpl[] =
+                    "// Custom palettes for ZX Spectrum emulator\n"
+                    "//\n"
+                    "// One palette per line. Lines starting with // are comments.\n"
+                    "// To enable a palette, remove the // prefix.\n"
+                    "//\n"
+                    "// Fields:\n"
+                    "//   name   - palette name shown in menu (max 12 chars)\n"
+                    "//   ZZ     - black level (hex byte, usually 0x00)\n"
+                    "//   NN     - normal brightness (hex byte, e.g. 0xCD)\n"
+                    "//   BB     - bright brightness (hex byte, e.g. 0xFF)\n"
+                    "//   matrix - 3x3 RGB color transform (9 hex values, 0x000..0x100)\n"
+                    "//            rows: R-out, G-out, B-out; cols: R-in, G-in, B-in\n"
+                    "//            0x100 = 1.0 (identity), 0x080 = 0.5, 0x000 = 0.0\n"
+                    "//\n"
+                    "//   Matrix formula:        [m0 m1 m2]\n"
+                    "//     oR = (R*m0 + G*m1 + B*m2) >> 8\n"
+                    "//     oG = (R*m3 + G*m4 + B*m5) >> 8\n"
+                    "//     oB = (R*m6 + G*m7 + B*m8) >> 8\n"
+                    "//\n"
+                    "// Example (identity palette, same as Pulsar):\n"
+                    "// { \"name\": \"MyPal\", \"ZZ\": 0x00, \"NN\": 0xCD, \"BB\": 0xFF, \"matrix\": [0x100,0x000,0x000, 0x000,0x100,0x000, 0x000,0x000,0x100] }\n";
+                UINT bw;
+                f_write(&cf, tmpl, sizeof(tmpl) - 1, &bw);
+                f_close(&cf);
+            }
+        }
+    }
+
+    FIL fil;
+    if (f_open(&fil, MOUNT_POINT_SD "/palette.nvs", FA_READ) != FR_OK)
+        return;
+
+    char line[256];
+    UINT br;
+    int linepos = 0;
+
+    auto processLine = [&](const char* line) {
+        if (custom_palette_count >= MAX_CUSTOM_PALETTES) return;
+        // Skip empty lines and comments (// or #)
+        const char* p = line;
+        while (*p == ' ' || *p == '\t') p++;
+        if (*p == '#' || *p == '\0' || *p == '\n') return;
+        if (p[0] == '/' && p[1] == '/') return;
+
+        // Find "name": "..."
+        const char* nq = strstr(p, "\"name\"");
+        if (!nq) return;
+        nq = strchr(nq + 6, '\"');
+        if (!nq) return;
+        nq++; // start of name
+        const char* nqe = strchr(nq, '\"');
+        if (!nqe) return;
+        int nlen = nqe - nq;
+        if (nlen > 12) nlen = 12;
+
+        PaletteDef& pal = custom_palette_defs[custom_palette_count];
+        char* name = custom_palette_names[custom_palette_count];
+        memcpy(name, nq, nlen);
+        name[nlen] = '\0';
+
+        // Parse "ZZ": 0xHH
+        auto findHexVal = [](const char* s, const char* key) -> uint16_t {
+            const char* k = strstr(s, key);
+            if (!k) return 0;
+            k += strlen(key);
+            while (*k == ' ' || *k == ':' || *k == '\t') k++;
+            if (k[0] == '0' && (k[1] == 'x' || k[1] == 'X')) k += 2;
+            // Read up to 3 hex digits
+            int len = 0;
+            while (len < 3 && ((k[len] >= '0' && k[len] <= '9') ||
+                   (k[len] >= 'A' && k[len] <= 'F') ||
+                   (k[len] >= 'a' && k[len] <= 'f'))) len++;
+            return parseHex(k, len);
+        };
+
+        pal.ZZ = (uint8_t)findHexVal(p, "\"ZZ\"");
+        pal.NN = (uint8_t)findHexVal(p, "\"NN\"");
+        pal.BB = (uint8_t)findHexVal(p, "\"BB\"");
+
+        // Parse "matrix": [0x100, 0x000, ...]
+        const char* mq = strstr(p, "\"matrix\"");
+        if (!mq) return;
+        mq = strchr(mq, '[');
+        if (!mq) return;
+        mq++;
+        for (int i = 0; i < 9; i++) {
+            while (*mq == ' ' || *mq == ',') mq++;
+            if (*mq == '0' && (mq[1] == 'x' || mq[1] == 'X')) mq += 2;
+            int len = 0;
+            while (len < 3 && ((mq[len] >= '0' && mq[len] <= '9') ||
+                   (mq[len] >= 'A' && mq[len] <= 'F') ||
+                   (mq[len] >= 'a' && mq[len] <= 'f'))) len++;
+            if (len == 0) return;
+            pal.matrix[i] = parseHex(mq, len);
+            mq += len;
+        }
+
+        custom_palette_count++;
+    };
+
+    // Read char by char, process lines
+    linepos = 0;
+    char c;
+    while (f_read(&fil, &c, 1, &br) == FR_OK && br == 1) {
+        if (c == '\n' || c == '\r') {
+            if (linepos > 0) {
+                line[linepos] = '\0';
+                processLine(line);
+                linepos = 0;
+            }
+        } else if (linepos < 255) {
+            line[linepos++] = c;
+        }
+    }
+    if (linepos > 0) {
+        line[linepos] = '\0';
+        processLine(line);
+    }
+    f_close(&fil);
+}
 
 // Build 16 Spectrum RGB888 colors from brightness levels
 // Color bit pattern: index 0-7 normal (B=NN), 8-15 bright (B=BB)
@@ -392,7 +576,7 @@ static uint32_t spectrum_rgb888[16];
 
 // Initialize spectrum_rgb888 with default palette
 static void initDefaultPalette() {
-    buildSpectrumRGB(palette_defs[0], spectrum_rgb888);
+    buildSpectrumRGB(builtin_palette_defs[0], spectrum_rgb888);
 }
 
 void initGigascreenBlendLUT();
@@ -413,8 +597,8 @@ static inline uint32_t matrixTransform(uint32_t rgb, const uint16_t *m) {
 
 // Apply current palette transform to an RGB888 color
 static inline uint32_t paletteTransform(uint32_t rgb) {
-    uint8_t p = Config::palette < PALETTE_COUNT ? Config::palette : 0;
-    const uint16_t *m = palette_defs[p].matrix;
+    uint8_t p = Config::palette < total_palette_count() ? Config::palette : 0;
+    const uint16_t *m = getPaletteDef(p).matrix;
     // Check if identity matrix (fast path)
     if (m[0] == 0x100 && m[4] == 0x100 && m[8] == 0x100 &&
         m[1] == 0 && m[2] == 0 && m[3] == 0 && m[5] == 0 && m[6] == 0 && m[7] == 0)
@@ -501,9 +685,9 @@ void VIDEO::ulaPlusDisable() {
 // Apply palette: rebuild spectrum_rgb888 from current palette's brightness levels,
 // then apply color matrix to all palette entries.
 void VIDEO::applyPalette() {
-    uint8_t p = Config::palette < PALETTE_COUNT ? Config::palette : 0;
+    uint8_t p = Config::palette < total_palette_count() ? Config::palette : 0;
     // Rebuild base 16 colors from brightness levels
-    buildSpectrumRGB(palette_defs[p], spectrum_rgb888);
+    buildSpectrumRGB(getPaletteDef(p), spectrum_rgb888);
 
     // G3R3B2 entries (0-239) — apply matrix transform
     for (int i = 0; i < 240; i++)

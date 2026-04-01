@@ -1288,7 +1288,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     ESPectrum::TapeNameScroller = 0;
                 }
             }
-            click();
         } else if (hkIdx == Config::HK_VOL_DOWN) {
             if (VIDEO::OSD == 0) {
                 if (Config::aspect_16_9)
@@ -2678,13 +2677,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                             menu_curopt = 1;
                             menu_saverect = true;
                             while (1) {
-                                string pal_menu = MENU_PALETTE[Config::lang];
+                                // Build dynamic palette menu
+                                uint8_t pcount = VIDEO::paletteCount();
+                                string pal_menu = Config::lang ? "Paleta\n" : "Palette\n";
                                 uint8_t prev = Config::palette;
-                                pal_menu.replace(pal_menu.find("[1",0),2, prev == 0 ? "[*" : "[ ");
-                                pal_menu.replace(pal_menu.find("[2",0),2, prev == 1 ? "[*" : "[ ");
-                                pal_menu.replace(pal_menu.find("[3",0),2, prev == 2 ? "[*" : "[ ");
-                                pal_menu.replace(pal_menu.find("[4",0),2, prev == 3 ? "[*" : "[ ");
-                                pal_menu.replace(pal_menu.find("[5",0),2, prev == 4 ? "[*" : "[ ");
+                                for (uint8_t i = 0; i < pcount; i++) {
+                                    pal_menu += VIDEO::paletteName(i);
+                                    pal_menu += (i == prev) ? "\t[*]\n" : "\t[ ]\n";
+                                }
                                 uint8_t opt2 = menuRun(pal_menu);
                                 if (opt2) {
                                     Config::palette = opt2 - 1;
@@ -3919,45 +3919,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_level = 2;
                                     menu_saverect = false;
                                 }
-                                else if (options_num == 8) {
-                                    // CPU MHz
-                                    menu_level = 3;
-                                    menu_curopt = 1;
-                                    menu_saverect = true;
-                                    while (1) {
-                                        string mhz_menu = MENU_CPU_MHZ;
-                                        uint16_t cur = Config::cpu_mhz;
-                                        mhz_menu.replace(mhz_menu.find("[2"), 2, cur == 252 ? "[*" : "[ ");
-                                        mhz_menu.replace(mhz_menu.find("[3"), 2, cur == 378 ? "[*" : "[ ");
-#if !PICO_RP2040
-                                        mhz_menu.replace(mhz_menu.find("[5"), 2, cur == 504 ? "[*" : "[ ");
-#endif
-                                        uint8_t opt2 = menuRun(mhz_menu);
-                                        if (opt2) {
-                                            uint16_t new_mhz = 0;
-                                            if (opt2 == 1) new_mhz = 252;
-                                            else if (opt2 == 2) new_mhz = 378;
-#if !PICO_RP2040
-                                            else if (opt2 == 3) new_mhz = 504;
-#endif
-                                            if (new_mhz && new_mhz != cur) {
-                                                Config::cpu_mhz = new_mhz;
-                                                if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
-                                                    Config::save();
-                                                    esp_hard_reset();
-                                                } else {
-                                                    Config::cpu_mhz = cur;
-                                                }
-                                            }
-                                            menu_curopt = opt2;
-                                            menu_saverect = false;
-                                        } else {
-                                            menu_curopt = 8;
-                                            menu_level = 2;
-                                            break;
-                                        }
-                                    }
-                                }
                             } else {
                                 menu_curopt = 5;
                                 break;
@@ -4044,7 +4005,220 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     }
                 }
             }
-            else if (opt == 9) { // Help — dynamic from hotkeys
+            else if (opt == 9) { // Hardware
+                // ***********************************************************************************
+                // HARDWARE MENU
+                // ***********************************************************************************
+                menu_saverect = true;
+                menu_curopt = 1;
+                while (1) {
+                    menu_level = 1;
+                    uint8_t hw_opt = menuRun(MENU_HARDWARE[Config::lang]);
+                    if (hw_opt == 1) {
+                        // Chip Info
+                        OSD::ChipInfo();
+                        menu_curopt = 1;
+                        menu_saverect = false;
+                    }
+                    else if (hw_opt == 2) {
+                        // Board Info
+                        OSD::BoardInfo();
+                        menu_curopt = 2;
+                        menu_saverect = false;
+                    }
+                    else if (hw_opt == 3) {
+                        // Overclock submenu — warn user
+                        osdCenteredMsg(Config::lang ? "Peligroso! Puede no arrancar!" : "Dangerous! Board may not boot!", LEVEL_WARN, 2000);
+                        menu_level = 2;
+                        menu_curopt = 1;
+                        menu_saverect = true;
+                        while (1) {
+                        #if !PICO_RP2040
+                            uint8_t oc_opt = menuRun(MENU_OVERCLOCK_VREG[Config::lang]);
+                        #else
+                            uint8_t oc_opt = menuRun(MENU_OVERCLOCK[Config::lang]);
+                        #endif
+                            if (oc_opt == 1) {
+                                // CPU Freq
+                                menu_level = 3;
+                                menu_curopt = 1;
+                                menu_saverect = true;
+                                while (1) {
+                                    string mhz_menu = MENU_CPU_MHZ;
+                                    uint16_t cur = Config::cpu_mhz;
+                                    mhz_menu.replace(mhz_menu.find("[2"), 2, cur == 252 ? "[*" : "[ ");
+                                    mhz_menu.replace(mhz_menu.find("[3"), 2, cur == 378 ? "[*" : "[ ");
+                                #if !PICO_RP2040
+                                    mhz_menu.replace(mhz_menu.find("[5"), 2, cur == 504 ? "[*" : "[ ");
+                                #endif
+                                    uint8_t opt2 = menuRun(mhz_menu);
+                                    if (opt2) {
+                                        uint16_t new_mhz = 0;
+                                        if (opt2 == 1) new_mhz = 252;
+                                        else if (opt2 == 2) new_mhz = 378;
+                                    #if !PICO_RP2040
+                                        else if (opt2 == 3) new_mhz = 504;
+                                    #endif
+                                        if (new_mhz && new_mhz != cur) {
+                                            Config::cpu_mhz = new_mhz;
+                                            if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
+                                                Config::save();
+                                                esp_hard_reset();
+                                            } else {
+                                                Config::cpu_mhz = cur;
+                                            }
+                                        }
+                                        menu_curopt = opt2;
+                                        menu_saverect = false;
+                                    } else {
+                                        menu_curopt = 1;
+                                        menu_level = 2;
+                                        break;
+                                    }
+                                }
+                            }
+                        #if !PICO_RP2040
+                            else if (oc_opt == 2) {
+                                // VReg Voltage
+                                menu_level = 3;
+                                menu_curopt = 1;
+                                menu_saverect = true;
+                                while (1) {
+                                    string vreg_menu = MENU_VREG_VOLTAGE;
+                                    uint8_t cur = Config::vreq_voltage;
+                                    static const uint8_t vreg_vals[] = {
+                                        VREG_VOLTAGE_1_15, VREG_VOLTAGE_1_20, VREG_VOLTAGE_1_25,
+                                        VREG_VOLTAGE_1_30, VREG_VOLTAGE_1_35, VREG_VOLTAGE_1_40,
+                                        VREG_VOLTAGE_1_50, VREG_VOLTAGE_1_60, VREG_VOLTAGE_1_65,
+                                        VREG_VOLTAGE_1_70, VREG_VOLTAGE_1_80
+                                    };
+                                    const char markers[] = "ABCDEFGHIJK";
+                                    for (int i = 0; i < 11; i++) {
+                                        char mk[3] = { '[', markers[i], '\0' };
+                                        vreg_menu.replace(vreg_menu.find(mk), 2, cur == vreg_vals[i] ? "[*" : "[ ");
+                                    }
+                                    uint8_t opt2 = menuRun(vreg_menu);
+                                    if (opt2 && opt2 <= 11) {
+                                        uint8_t new_v = vreg_vals[opt2 - 1];
+                                        if (new_v != cur) {
+                                            Config::vreq_voltage = new_v;
+                                            if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
+                                                Config::save();
+                                                esp_hard_reset();
+                                            } else {
+                                                Config::vreq_voltage = cur;
+                                            }
+                                        }
+                                        menu_curopt = opt2;
+                                        menu_saverect = false;
+                                    } else {
+                                        menu_curopt = 2;
+                                        menu_level = 2;
+                                        break;
+                                    }
+                                }
+                            }
+                            // Flash Freq (opt 3 on RP2350, opt 2 on RP2040)
+                            else if (oc_opt == 3) {
+                        #else
+                            else if (oc_opt == 2) {
+                        #endif
+                                // Flash Freq
+                                menu_level = 3;
+                                menu_curopt = 1;
+                                menu_saverect = true;
+                                static const uint16_t flash_vals[] = { 33, 66, 84, 100, 133, 166 };
+                                while (1) {
+                                    string ff_menu = MENU_FLASH_FREQ;
+                                    uint16_t cur = Config::max_flash_freq;
+                                    const char markers[] = "ABCDEF";
+                                    for (int i = 0; i < 6; i++) {
+                                        char mk[3] = { '[', markers[i], '\0' };
+                                        ff_menu.replace(ff_menu.find(mk), 2, cur == flash_vals[i] ? "[*" : "[ ");
+                                    }
+                                    uint8_t opt2 = menuRun(ff_menu);
+                                    if (opt2 && opt2 <= 6) {
+                                        uint16_t new_f = flash_vals[opt2 - 1];
+                                        if (new_f != cur) {
+                                            Config::max_flash_freq = new_f;
+                                            if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
+                                                Config::save();
+                                                esp_hard_reset();
+                                            } else {
+                                                Config::max_flash_freq = cur;
+                                            }
+                                        }
+                                        menu_curopt = opt2;
+                                        menu_saverect = false;
+                                    } else {
+                                    #if !PICO_RP2040
+                                        menu_curopt = 3;
+                                    #else
+                                        menu_curopt = 2;
+                                    #endif
+                                        menu_level = 2;
+                                        break;
+                                    }
+                                }
+                            }
+                        #if !PICO_RP2040
+                            // PSRAM Freq (opt 4 on RP2350, opt 3 on RP2040)
+                            else if (oc_opt == 4) {
+                        #else
+                            else if (oc_opt == 3) {
+                        #endif
+                                // PSRAM Freq
+                                menu_level = 3;
+                                menu_curopt = 1;
+                                menu_saverect = true;
+                                static const uint16_t psram_vals[] = { 66, 84, 100, 133, 166 };
+                                while (1) {
+                                    string pf_menu = MENU_PSRAM_FREQ;
+                                    uint16_t cur = Config::max_psram_freq;
+                                    const char markers[] = "ABCDE";
+                                    for (int i = 0; i < 5; i++) {
+                                        char mk[3] = { '[', markers[i], '\0' };
+                                        pf_menu.replace(pf_menu.find(mk), 2, cur == psram_vals[i] ? "[*" : "[ ");
+                                    }
+                                    uint8_t opt2 = menuRun(pf_menu);
+                                    if (opt2 && opt2 <= 5) {
+                                        uint16_t new_p = psram_vals[opt2 - 1];
+                                        if (new_p != cur) {
+                                            Config::max_psram_freq = new_p;
+                                            if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
+                                                Config::save();
+                                                esp_hard_reset();
+                                            } else {
+                                                Config::max_psram_freq = cur;
+                                            }
+                                        }
+                                        menu_curopt = opt2;
+                                        menu_saverect = false;
+                                    } else {
+                                    #if !PICO_RP2040
+                                        menu_curopt = 4;
+                                    #else
+                                        menu_curopt = 3;
+                                    #endif
+                                        menu_level = 2;
+                                        break;
+                                    }
+                                }
+                            }
+                            else {
+                                menu_curopt = 3;
+                                menu_level = 1;
+                                break;
+                            }
+                        }
+                    }
+                    else {
+                        menu_curopt = 9;
+                        break;
+                    }
+                }
+            }
+            else if (opt == 10) { // Help — dynamic from hotkeys
                 // Build index of visible hotkeys (no large buffer needed)
                 auto descs = Config::lang ? hkDescES : hkDescEN;
                 const int maxCols = osdMaxCols();
@@ -4138,7 +4312,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                 return;
             }
-            else if (opt == 10) { // About
+            else if (opt == 11) { // About
                 // About
                 // Protect OSD area from Z80 video renderer overwrite
                 bool about_osd_enabled = (VIDEO::OSD != 0);
@@ -4260,7 +4434,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 return;
             }
 #if TFT
-            else if (FileUtils::fsMount && opt == 11) { // TFT
+            else if (FileUtils::fsMount && opt == 12) { // TFT
                 menu_saverect = true;
                 menu_curopt = 1;
                 while(1) {
@@ -6444,6 +6618,7 @@ string OSD::rowGet(string menu, unsigned short row) {
 // }
 extern "C" uint8_t linkVGA01;
 extern "C" uint8_t link_i2s_code;
+extern bool is_i2s_enabled;
 
 extern char __HeapLimit;
 extern "C" void *sbrk(intptr_t incr);
@@ -6453,30 +6628,134 @@ size_t getFreeHeap(void) {
     return (brk < &__HeapLimit) ? (size_t)(&__HeapLimit - brk) : 0;
 }
 
-void OSD::HWInfo() {
-    fabgl::VirtualKeyItem Nextkey;
+// Generic read-only text dialog with vertical scroll
+void OSD::showTextDialog(const char* title, const char* text) {
     click();
-    // Draw Hardware and memory info
-    drawOSD(true);
-    osdAt(2, 0);
 
-    VIDEO::vga.setTextColor(zxColor(7, 0), zxColor(1, 0));
+    unsigned short sx = scrAlignCenterX(OSD_W);
+    unsigned short sy = scrAlignCenterY(OSD_H);
+    VIDEO::SaveRect.save(sx, sy, OSD_W, OSD_H);
 
-    VIDEO::vga.print(" Hardware info\n");
-    VIDEO::vga.print(" --------------------------------------\n");
+    // Parse text into line pointers (zero-copy: index into original text)
+    const int MAX_DLGLINES = 64;
+    const char* lineStart[MAX_DLGLINES];
+    uint8_t lineLen[MAX_DLGLINES];
+    int nlines = 0;
+    const char* p = text;
+    while (*p && nlines < MAX_DLGLINES) {
+        lineStart[nlines] = p;
+        const char* eol = p;
+        while (*eol && *eol != '\n') eol++;
+        int len = eol - p;
+        lineLen[nlines] = len > 255 ? 255 : len;
+        nlines++;
+        p = *eol ? eol + 1 : eol;
+    }
+
+    const int visCols = osdMaxCols();
+    // rows: 0=OSD_TITLE, 1=title, 2=separator, ... last=OSD_BOTTOM → content rows = maxRows-4
+    const int visRows = osdMaxRows() - 4;
+    int scroll = 0;
+    bool needRedraw = true;
+
+    auto drawContent = [&]() {
+        drawOSD(true);
+        // Title (row 1)
+        osdAt(1, 0);
+        VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(1, 0));
+        char hdr[42];
+        snprintf(hdr, sizeof(hdr), " %s", title);
+        int hlen = strlen(hdr);
+        while (hlen < visCols) hdr[hlen++] = ' ';
+        hdr[visCols] = '\0';
+        VIDEO::vga.print(hdr);
+
+        // Separator (row 2)
+        osdAt(2, 0);
+        VIDEO::vga.setTextColor(zxColor(5, 0), zxColor(1, 0));
+        char sep[42];
+        memset(sep, '-', visCols);
+        sep[visCols] = '\0';
+        sep[0] = ' ';
+        VIDEO::vga.print(sep);
+
+        // Text lines (rows 3..3+visRows-1)
+        char row[42];
+        for (int r = 0; r < visRows; r++) {
+            osdAt(3 + r, 0);
+            int li = scroll + r;
+            if (li < nlines) {
+                VIDEO::vga.setTextColor(zxColor(7, 0), zxColor(1, 0));
+                int len = lineLen[li];
+                if (len > visCols) len = visCols;
+                memcpy(row, lineStart[li], len);
+                memset(row + len, ' ', visCols - len);
+            } else {
+                VIDEO::vga.setTextColor(zxColor(5, 0), zxColor(1, 0));
+                memset(row, ' ', visCols);
+            }
+            row[visCols] = '\0';
+            VIDEO::vga.print(row);
+        }
+
+        // Scrollbar on right edge
+        if (nlines > visRows) {
+            int sbx = osdInsideX() + (visCols - 1) * OSD_FONT_W;
+            int sby = osdInsideY() + 3 * OSD_FONT_H;
+            int barH = visRows * OSD_FONT_H;
+            // Track
+            VIDEO::vga.fillRect(sbx, sby, OSD_FONT_W, barH, zxColor(7, 0));
+            // Thumb
+            int thumbH = (visRows * barH) / nlines;
+            if (thumbH < 3) thumbH = 3;
+            int thumbY = (scroll * barH) / nlines;
+            if (thumbY + thumbH > barH) thumbY = barH - thumbH;
+            VIDEO::vga.fillRect(sbx + 1, sby + thumbY, OSD_FONT_W - 2, thumbH, zxColor(0, 0));
+        }
+    };
+
+    fabgl::VirtualKeyItem Nextkey;
+
+    while (1) {
+        if (needRedraw) {
+            drawContent();
+            needRedraw = false;
+        }
+
+        while (!ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable())
+            sleep_ms(5);
+
+        ESPectrum::PS2Controller.keyboard()->getNextVirtualKey(&Nextkey);
+        if (!Nextkey.down) continue;
+
+        if (is_enter(Nextkey.vk) || is_back(Nextkey.vk)) {
+            click();
+            break;
+        }
+        int maxScroll = nlines > visRows ? nlines - visRows : 0;
+        if (Nextkey.vk == fabgl::VK_UP) {
+            if (scroll > 0) { scroll--; needRedraw = true; }
+        } else if (Nextkey.vk == fabgl::VK_DOWN) {
+            if (scroll < maxScroll) { scroll++; needRedraw = true; }
+        } else if (Nextkey.vk == fabgl::VK_PAGEUP) {
+            scroll -= visRows; if (scroll < 0) scroll = 0; needRedraw = true;
+        } else if (Nextkey.vk == fabgl::VK_PAGEDOWN) {
+            scroll += visRows; if (scroll > maxScroll) scroll = maxScroll; needRedraw = true;
+        }
+    }
+
+    VIDEO::SaveRect.restore_last();
+}
+
+void OSD::HWInfo() {
+    // Build hardware info text into a static buffer
+    static char hwtext[768];
+    int pos = 0;
 
     uint32_t cpu_hz = clock_get_hz(clk_sys) / MHZ;
     uint32_t free_heap = getFreeHeap();
+
 #if PICO_RP2350
-  //  struct mallinfo info = mallinfo();
-
-    // printf("Total allocated: %d bytes\n", info.uordblks);
-    // printf("Total free: %d bytes\n", info.fordblks);
-    // printf("Total heap size: %d bytes\n", info.arena);
-    // printf("Largest free block: %d bytes\n", info.ordblks);
-
-    string textout =
-        " Chip model     : RP2350";
     {
         static const uint16_t vreg_mv[] = {
             550, 600, 650, 700, 750, 800, 850, 900, 950, 1000,
@@ -6486,134 +6765,340 @@ void OSD::HWInfo() {
         };
         int vi = vreg_get_voltage();
         int mv = (vi >= 0 && vi < 32) ? vreg_mv[vi] : 0;
-        char vbuf[16];
-        snprintf(vbuf, sizeof(vbuf), "%d.%02d", mv / 1000, (mv % 1000) / 10);
-        textout += (rp2350a ? "A " : "B ") + to_string(cpu_hz) + " MHz\n"
+        pos += snprintf(hwtext + pos, sizeof(hwtext) - pos,
+            " Chip model     : RP2350%s %d MHz\n"
             " Chip cores     : 2\n"
-            " Chip VREG      : " + vbuf + " V\n"
+            " Chip VREG      : %d.%02d V\n"
             " Chip RAM       : 520 KB\n"
-            " Free RAM       : ";
+            " Free RAM       : %d KB\n",
+            rp2350a ? "A" : "B", (int)cpu_hz,
+            mv / 1000, (mv % 1000) / 10,
+            (int)(free_heap / 1024));
     }
 #else
-    string textout =
-        " Chip model     : RP2040 " + to_string(cpu_hz) + " MHz\n"
+    pos += snprintf(hwtext + pos, sizeof(hwtext) - pos,
+        " Chip model     : RP2040 %d MHz\n"
         " Chip cores     : 2\n"
         " Chip RAM       : 264 KB\n"
-        " Free RAM       : ";
+        " Free RAM       : %d KB\n",
+        (int)cpu_hz, (int)(free_heap / 1024));
 #endif
-    textout += to_string(free_heap/1024) + " KB\n";
-    VIDEO::vga.print(textout.c_str());
 
-    char buf[128] = { 0 };
-    uint32_t flash_size = (1 << rx[3]);
-    snprintf(buf, 128,
-             " Flash size     : %d MB\n"
-             " Flash JEDEC ID : %02X-%02X-%02X-%02X\n",
-             flash_size >> 20, rx[0], rx[1], rx[2], rx[3]
-    );
-    VIDEO::vga.print(buf);
-    #ifndef MURM2
+    {
+        uint32_t flash_size = (1 << rx[3]);
+        pos += snprintf(hwtext + pos, sizeof(hwtext) - pos,
+            " Flash size     : %d MB\n"
+            " Flash JEDEC ID : %02X-%02X-%02X-%02X\n",
+            (int)(flash_size >> 20), rx[0], rx[1], rx[2], rx[3]);
+    }
+
+#ifndef MURM2
     {
         uint32_t psram32 = psram_size();
         if (psram32) {
             uint8_t rx8[8];
             psram_id(rx8);
-            snprintf(buf, 128,
-                        " PSRAM size     : %d MB\n"\
-                        " PSRAM MF ID/KGD: %02X/%02X\n"\
-                        " PSRAM EID      : %02X%02X-%02X%02X-%02X%02X\n",
-                        psram32 >> 20, rx8[0], rx8[1], rx8[2], rx8[3], rx8[4], rx8[5], rx8[6], rx8[7]
-            );
-            VIDEO::vga.print(buf);
+            pos += snprintf(hwtext + pos, sizeof(hwtext) - pos,
+                " PSRAM size     : %d MB\n"
+                " PSRAM MF ID/KGD: %02X/%02X\n"
+                " PSRAM EID      : %02X%02X-%02X%02X-%02X%02X\n",
+                (int)(psram32 >> 20), rx8[0], rx8[1], rx8[2], rx8[3], rx8[4], rx8[5], rx8[6], rx8[7]);
         }
     }
-    #endif
-    #ifdef BUTTER_PSRAM_GPIO
+#endif
+#ifdef BUTTER_PSRAM_GPIO
     if (butter_psram_size()) {
         uint32_t psram32 = butter_psram_size();
-        if (psram32) {
-            snprintf(buf, 128,
-                        "+PSRAM on GP%02d  : %d MB (QSPI)\n",
-                        psram_pin, psram32 >> 20
-            );
-        } else {
-            snprintf(buf, 128, " PSRAM on GP%02d  : Not found\n", psram_pin);
-        }
-        VIDEO::vga.print(buf);
+        if (psram32)
+            pos += snprintf(hwtext + pos, sizeof(hwtext) - pos,
+                "+PSRAM on GP%02d  : %d MB (QSPI)\n", psram_pin, (int)(psram32 >> 20));
+        else
+            pos += snprintf(hwtext + pos, sizeof(hwtext) - pos,
+                " PSRAM on GP%02d  : Not found\n", psram_pin);
     }
-    #endif
-    if (Config::audio_driver == 4) {
-        snprintf(buf, 128, " Audio mode     : HDMI\n");
-    } else if (Config::audio_driver == 3) {
-        snprintf(buf, 128, " Audio mode     : AY-3-8910\n");
-    } else {
-        snprintf(buf, 128, " Audio mode     : %s [%02Xh] %s\n",
-            (is_i2s_enabled ? "i2s" : "PWM"),
-            link_i2s_code,
-            (Config::audio_driver == 0 ? " (auto)" : "(overriden)")
-        );
-    }
-    VIDEO::vga.print(buf);
-#ifdef VGA_HDMI    
-    snprintf(buf, 128, " VGA/HDMI detect: %02Xh\n", linkVGA01);
-    VIDEO::vga.print(buf);
 #endif
-    if (!psram_pages) {
-        snprintf(buf, 128, " 16K RAM pages  : %d[s%d:b%d:v%d]\n",
-            ram_pages+ butter_pages+ swap_pages,
-            ram_pages, butter_pages, swap_pages
-        );
-    } else if (!butter_pages) {
-        snprintf(buf, 128, " 16K RAM pages  : %d[s%d:p%d:v%d]\n",
-            ram_pages+ psram_pages+ swap_pages,
-            ram_pages, psram_pages, swap_pages
-        );
-    } else if (!swap_pages) {
-        snprintf(buf, 128, " 16K RAM pages  : %d[s%d:b%d:p%d]\n",
-            ram_pages+ butter_pages+ psram_pages,
-            ram_pages, butter_pages, psram_pages
-        );
-    } else {
-        snprintf(buf, 128, " 16K RAM pages  : %d[s%d:b%d:p%d:v%d]\n",
-            ram_pages+ butter_pages+ psram_pages+ swap_pages,
-            ram_pages, butter_pages, psram_pages, swap_pages
-        );
-    }
-    VIDEO::vga.print(buf);
+
+    if (Config::audio_driver == 4)
+        pos += snprintf(hwtext + pos, sizeof(hwtext) - pos, " Audio mode     : HDMI\n");
+    else if (Config::audio_driver == 3)
+        pos += snprintf(hwtext + pos, sizeof(hwtext) - pos, " Audio mode     : AY-3-8910\n");
+    else
+        pos += snprintf(hwtext + pos, sizeof(hwtext) - pos, " Audio mode     : %s [%02Xh] %s\n",
+            (is_i2s_enabled ? "i2s" : "PWM"), link_i2s_code,
+            (Config::audio_driver == 0 ? " (auto)" : "(overriden)"));
+
+#ifdef VGA_HDMI
+    pos += snprintf(hwtext + pos, sizeof(hwtext) - pos, " VGA/HDMI detect: %02Xh\n", linkVGA01);
+#endif
+
+    if (!psram_pages)
+        pos += snprintf(hwtext + pos, sizeof(hwtext) - pos, " 16K RAM pages  : %d[s%d:b%d:v%d]\n",
+            ram_pages + butter_pages + swap_pages, ram_pages, butter_pages, swap_pages);
+    else if (!butter_pages)
+        pos += snprintf(hwtext + pos, sizeof(hwtext) - pos, " 16K RAM pages  : %d[s%d:p%d:v%d]\n",
+            ram_pages + psram_pages + swap_pages, ram_pages, psram_pages, swap_pages);
+    else if (!swap_pages)
+        pos += snprintf(hwtext + pos, sizeof(hwtext) - pos, " 16K RAM pages  : %d[s%d:b%d:p%d]\n",
+            ram_pages + butter_pages + psram_pages, ram_pages, butter_pages, psram_pages);
+    else
+        pos += snprintf(hwtext + pos, sizeof(hwtext) - pos, " 16K RAM pages  : %d[s%d:b%d:p%d:v%d]\n",
+            ram_pages + butter_pages + psram_pages + swap_pages, ram_pages, butter_pages, psram_pages, swap_pages);
+
 #if !PICO_RP2040
     if (DivMMC::enabled) {
         const char* mode_names[] = { "OFF", "DivMMC", "DivIDE", "DivSD" };
         const char* mem_type = DivMMC::use_psram ? "PSRAM" : "swap";
-        snprintf(buf, 128, " %-15s: 128K+8K [%s]\n",
+        pos += snprintf(hwtext + pos, sizeof(hwtext) - pos, " %-15s: 128K+8K [%s]\n",
             mode_names[Config::esxdos], mem_type);
-        VIDEO::vga.print(buf);
     }
 #endif
 
-    snprintf(buf, 128, "\n" \
-                       " Built at %s %s\n" \
-                       " branch '%s'\n" \
-                       " commit [%s]\n" \
-                       " %s\n",
-            __DATE__, __TIME__,
-            PICO_GIT_BRANCH,
-            PICO_GIT_COMMIT,
-            PICO_BUILD_NAME
-        );
-    VIDEO::vga.print(buf);
+    pos += snprintf(hwtext + pos, sizeof(hwtext) - pos,
+        "\n"
+        " Built at %s %s\n"
+        " branch '%s'\n"
+        " commit [%s]\n"
+        " %s\n",
+        __DATE__, __TIME__, PICO_GIT_BRANCH, PICO_GIT_COMMIT, PICO_BUILD_NAME);
 
-    // Wait for key
-    while (1) {
-        if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
-            ESPectrum::PS2Controller.keyboard()->getNextVirtualKey(&Nextkey);
-            if (!Nextkey.down) continue;
-            if (is_enter(Nextkey.vk) || is_back(Nextkey.vk)) {
-                click();
-                break;
-            }
-        }
-        sleep_ms(5);
+    showTextDialog("Hardware info", hwtext);
+}
+
+void OSD::ChipInfo() {
+    static char buf[512];
+    int pos = 0;
+    uint32_t cpu_hz = clock_get_hz(clk_sys) / MHZ;
+    uint32_t free_heap = getFreeHeap();
+
+#if PICO_RP2350
+    {
+        static const uint16_t vreg_mv[] = {
+            550, 600, 650, 700, 750, 800, 850, 900, 950, 1000,
+            1050, 1100, 1150, 1200, 1250, 1300, 1350, 1400, 1500,
+            1600, 1650, 1700, 1800, 1900, 2000, 2350, 2500, 2650,
+            2800, 3000, 3150, 3300
+        };
+        int vi = vreg_get_voltage();
+        int mv = (vi >= 0 && vi < 32) ? vreg_mv[vi] : 0;
+        pos += snprintf(buf + pos, sizeof(buf) - pos,
+            " Chip model     : RP2350%s\n"
+            " Chip cores     : 2\n"
+            " CPU frequency  : %d MHz\n"
+            " VREG voltage   : %d.%02d V\n"
+            " Chip RAM       : 520 KB\n"
+            " Free RAM       : %d KB\n",
+            rp2350a ? "A" : "B",
+            (int)cpu_hz,
+            mv / 1000, (mv % 1000) / 10,
+            (int)(free_heap / 1024));
     }
+#else
+    pos += snprintf(buf + pos, sizeof(buf) - pos,
+        " Chip model     : RP2040\n"
+        " Chip cores     : 2\n"
+        " CPU frequency  : %d MHz\n"
+        " Chip RAM       : 264 KB\n"
+        " Free RAM       : %d KB\n",
+        (int)cpu_hz, (int)(free_heap / 1024));
+#endif
+
+    {
+        uint32_t flash_size = (1 << rx[3]);
+        pos += snprintf(buf + pos, sizeof(buf) - pos,
+            " Flash size     : %d MB\n"
+            " Flash JEDEC ID : %02X-%02X-%02X-%02X\n",
+            (int)(flash_size >> 20), rx[0], rx[1], rx[2], rx[3]);
+    }
+
+#ifndef MURM2
+    {
+        uint32_t psram32 = psram_size();
+        if (psram32) {
+            uint8_t rx8[8];
+            psram_id(rx8);
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                " PSRAM size     : %d MB\n"
+                " PSRAM MF ID/KGD: %02X/%02X\n"
+                " PSRAM EID      : %02X%02X-%02X%02X-%02X%02X\n",
+                (int)(psram32 >> 20), rx8[0], rx8[1], rx8[2], rx8[3], rx8[4], rx8[5], rx8[6], rx8[7]);
+        }
+    }
+#endif
+#ifdef BUTTER_PSRAM_GPIO
+    {
+        uint32_t psram32 = butter_psram_size();
+        if (psram32)
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                "+PSRAM on GP%02d  : %d MB (QSPI)\n", psram_pin, (int)(psram32 >> 20));
+    }
+#endif
+
+    // On-chip temperature sensor via ADC
+    {
+        // Unreset ADC block: clear bit 0 in RESETS_RESET, wait bit 0 in RESET_DONE
+        volatile uint32_t *resets = (volatile uint32_t *)0x40020000;
+        resets[0] &= ~1u;                      // RESET: clear ADC bit
+        while (!(resets[2] & 1u)) {}            // RESET_DONE: wait ADC ready
+
+        volatile uint32_t *adc_cs     = (volatile uint32_t *)0x400a0000;
+        volatile uint32_t *adc_result = (volatile uint32_t *)0x400a0004;
+
+        // Temp sensor channel: 4 on RP2350A/RP2040, 8 on RP2350B
+    #if PICO_RP2350
+        uint32_t ts_ch = rp2350a ? 4 : 8;
+    #else
+        uint32_t ts_ch = 4;
+    #endif
+
+        *adc_cs = 1; // EN=1
+        while (!(*adc_cs & (1 << 8))) {} // wait READY
+        *adc_cs = (ts_ch << 12) | (1 << 1) | 1; // AINSEL=ch, TS_EN=1, EN=1
+        sleep_ms(1); // let temp sensor stabilize
+        *adc_cs = (ts_ch << 12) | (1 << 2) | (1 << 1) | 1; // + START_ONCE
+        while (!(*adc_cs & (1 << 8))) {} // wait READY
+        uint16_t raw = *adc_result & 0xFFF;
+        *adc_cs = 0; // disable ADC
+
+        // T = 27 - (V - 0.706) / 0.001721, V = raw * 3.3 / 4096
+        // Integer: T*10 = 270 - (raw*33000/4096 - 7060) * 100 / 1721
+        int uv10 = (int)raw * 33000 / 4096; // voltage * 10000 (0..33000)
+        int temp_x10 = 270 - (uv10 - 7060) * 100 / 1721;
+        int t_int = temp_x10 / 10;
+        int t_frac = (temp_x10 < 0 ? -temp_x10 : temp_x10) % 10;
+        pos += snprintf(buf + pos, sizeof(buf) - pos,
+            " Temperature    : %d.%d C\n", t_int, t_frac);
+    }
+
+    showTextDialog("Chip Info", buf);
+}
+
+void OSD::BoardInfo() {
+    static char buf[768];
+    int pos = 0;
+
+    // SD Card
+    if (FileUtils::fsMount) {
+        FATFS* fsp;
+        DWORD fre_clust;
+        if (f_getfree("", &fre_clust, &fsp) == FR_OK) {
+            uint32_t tot_mb = (uint32_t)((fsp->n_fatent - 2) * fsp->csize / 2048);
+            uint32_t fre_mb = (uint32_t)(fre_clust * fsp->csize / 2048);
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                " SD Card        : %d/%d MB free\n", (int)fre_mb, (int)tot_mb);
+        } else {
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " SD Card        : mounted\n");
+        }
+    } else {
+        pos += snprintf(buf + pos, sizeof(buf) - pos, " SD Card        : not mounted\n");
+    }
+
+    // Audio
+    if (Config::audio_driver == 4)
+        pos += snprintf(buf + pos, sizeof(buf) - pos, " Audio          : HDMI\n");
+    else if (Config::audio_driver == 3)
+        pos += snprintf(buf + pos, sizeof(buf) - pos, " Audio          : AY-3-8910\n");
+    else
+        pos += snprintf(buf + pos, sizeof(buf) - pos, " Audio          : %s [%02Xh]%s\n",
+            (is_i2s_enabled ? "i2s" : "PWM"), link_i2s_code,
+            (Config::audio_driver == 0 ? " auto" : ""));
+
+#ifdef VGA_HDMI
+    pos += snprintf(buf + pos, sizeof(buf) - pos, " VGA/HDMI detect: %02Xh\n", linkVGA01);
+#endif
+
+    // RAM pages
+    if (!psram_pages)
+        pos += snprintf(buf + pos, sizeof(buf) - pos, " 16K RAM pages  : %d[s%d:b%d:v%d]\n",
+            ram_pages + butter_pages + swap_pages, ram_pages, butter_pages, swap_pages);
+    else if (!butter_pages)
+        pos += snprintf(buf + pos, sizeof(buf) - pos, " 16K RAM pages  : %d[s%d:p%d:v%d]\n",
+            ram_pages + psram_pages + swap_pages, ram_pages, psram_pages, swap_pages);
+    else if (!swap_pages)
+        pos += snprintf(buf + pos, sizeof(buf) - pos, " 16K RAM pages  : %d[s%d:b%d:p%d]\n",
+            ram_pages + butter_pages + psram_pages, ram_pages, butter_pages, psram_pages);
+    else
+        pos += snprintf(buf + pos, sizeof(buf) - pos, " 16K RAM pages  : %d[s%d:b%d:p%d:v%d]\n",
+            ram_pages + butter_pages + psram_pages + swap_pages, ram_pages, butter_pages, psram_pages, swap_pages);
+
+#if !PICO_RP2040
+    if (DivMMC::enabled) {
+        const char* mode_names[] = { "OFF", "DivMMC", "DivIDE", "DivSD" };
+        const char* mem_type = DivMMC::use_psram ? "PSRAM" : "swap";
+        pos += snprintf(buf + pos, sizeof(buf) - pos, " %-15s: 128K+8K [%s]\n",
+            mode_names[Config::esxdos], mem_type);
+    }
+#endif
+
+    // GPIO pins (all labels 16 chars after "  " prefix, colon at col 18)
+    pos += snprintf(buf + pos, sizeof(buf) - pos, "\n GPIO pins:\n");
+    pos += snprintf(buf + pos, sizeof(buf) - pos,
+        "  Kbd CLK/DATA  : %d/%d\n", KBD_CLOCK_PIN, KBD_DATA_PIN);
+#ifdef VGA_BASE_PIN
+    pos += snprintf(buf + pos, sizeof(buf) - pos,
+        "  VGA base      : %d\n", VGA_BASE_PIN);
+#endif
+#ifdef HDMI_BASE_PIN
+    pos += snprintf(buf + pos, sizeof(buf) - pos,
+        "  HDMI base     : %d\n", HDMI_BASE_PIN);
+#endif
+    pos += snprintf(buf + pos, sizeof(buf) - pos,
+        "  PWM L/R       : %d/%d\n", PWM_PIN0, PWM_PIN1);
+#ifdef BEEPER_PIN
+    pos += snprintf(buf + pos, sizeof(buf) - pos,
+        "  Beeper        : %d\n", BEEPER_PIN);
+#endif
+#if defined(I2S_DATA_PIO) && defined(I2S_BCK_PIO) && defined(I2S_LCK_PIO)
+    pos += snprintf(buf + pos, sizeof(buf) - pos,
+        "  I2S D/BCK/LCK : %d/%d/%d\n", I2S_DATA_PIO, I2S_BCK_PIO, I2S_LCK_PIO);
+#endif
+#ifdef PCM5122_I2S_DATA
+    pos += snprintf(buf + pos, sizeof(buf) - pos,
+        "  PCM5122 I2S   : %d/%d/%d\n", PCM5122_I2S_DATA, PCM5122_I2S_BCK, PCM5122_I2S_LCK);
+    pos += snprintf(buf + pos, sizeof(buf) - pos,
+        "  PCM5122 I2C   : %d/%d\n", PCM5122_I2C_SDA, PCM5122_I2C_SCL);
+#endif
+#ifdef LATCH_595_PIN
+    pos += snprintf(buf + pos, sizeof(buf) - pos,
+        "  AY 595 L/C/D  : %d/%d/%d\n", LATCH_595_PIN, CLK_595_PIN, DATA_595_PIN);
+#endif
+    pos += snprintf(buf + pos, sizeof(buf) - pos,
+        "  SD MI/MO/CK/CS: %d/%d/%d/%d\n",
+        SDCARD_PIN_SPI0_MISO, SDCARD_PIN_SPI0_MOSI, SDCARD_PIN_SPI0_SCK, SDCARD_PIN_SPI0_CS);
+#ifdef PSRAM_PIN_CS
+    pos += snprintf(buf + pos, sizeof(buf) - pos,
+        "  PSRAM CS/CK/IO: %d/%d/%d/%d\n",
+        PSRAM_PIN_CS, PSRAM_PIN_SCK, PSRAM_PIN_MOSI, PSRAM_PIN_MISO);
+#endif
+#ifdef BUTTER_PSRAM_GPIO
+    pos += snprintf(buf + pos, sizeof(buf) - pos,
+        "  Butter PSRAM  : %d\n", BUTTER_PSRAM_GPIO);
+#endif
+#ifdef MIDI_TX_PIN
+    pos += snprintf(buf + pos, sizeof(buf) - pos,
+        "  MIDI TX       : %d\n", MIDI_TX_PIN);
+#endif
+#ifdef LOAD_WAV_PIO
+    pos += snprintf(buf + pos, sizeof(buf) - pos,
+        "  LOAD WAV      : %d\n", LOAD_WAV_PIO);
+#endif
+#ifdef USE_NESPAD
+    pos += snprintf(buf + pos, sizeof(buf) - pos,
+        "  NES CLK/LAT/D : %d/%d/%d\n", NES_GPIO_CLK, NES_GPIO_LAT, NES_GPIO_DATA);
+#endif
+#ifdef PICO_DEFAULT_LED_PIN
+    pos += snprintf(buf + pos, sizeof(buf) - pos,
+        "  LED           : %d\n", PICO_DEFAULT_LED_PIN);
+#endif
+
+    // Build info
+    pos += snprintf(buf + pos, sizeof(buf) - pos,
+        "\n %s\n"
+        " Built %s %s\n"
+        " branch '%s'\n"
+        " commit [%s]\n",
+        PICO_BUILD_NAME, __DATE__, __TIME__, PICO_GIT_BRANCH, PICO_GIT_COMMIT);
+
+    showTextDialog("Board Info", buf);
 }
 
 static void __not_in_flash_func(flash_block)(const uint8_t* buffer, size_t flash_target_offset) {
@@ -9331,3 +9816,4 @@ void OSD::memSearchDialog() {
         sleep_ms(5);
     }
 }
+

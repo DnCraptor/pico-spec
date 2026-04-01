@@ -263,6 +263,11 @@ public:
 
   // Palette transform (Default, Grayscale, etc.)
   static void applyPalette();
+
+  // Custom palettes loaded from /palette.nvs
+  static void loadCustomPalettes();
+  static uint8_t paletteCount();           // built-in + custom
+  static const char* paletteName(uint8_t idx); // name for menu display
 };
 
 #define zxColor(color,bright) VIDEO::spectrum_colors[bright ? color + 8 : color]

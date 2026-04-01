@@ -89,6 +89,9 @@ public:
     static void clearStats();
     static void do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL);
     static void HWInfo();
+    static void ChipInfo();
+    static void BoardInfo();
+    static void showTextDialog(const char* title, const char* text);
 
     // Error
     static void errorPanel(string errormsg);
@@ -141,6 +144,7 @@ public:
     static bool dumpRangeDialog(uint16_t &from, uint16_t &to);
     static void memSearchDialog();
     static uint32_t addressDialog(uint16_t addr, const char* title);
+
 
     // Rows
     static unsigned short rowCount(string menu);

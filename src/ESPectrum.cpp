@@ -569,6 +569,7 @@ void ESPectrum::setup() {
   Config::initHotkeys(); // fill hotkey defaults even without SD
   if (FileUtils::fsMount)
     Config::load();
+  VIDEO::loadCustomPalettes();
   Debug::log("setup: Config loaded");
   bool ext_ram_exist = butter_psram_size() >= (16 << 10) ||
                        psram_size() >= (16 << 10) || FileUtils::fsMount;

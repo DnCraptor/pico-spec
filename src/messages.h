@@ -480,6 +480,7 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
     "Reset\t>\n"\
     "Options\t>\n"\
     "Debug\t>\n"\
+    "Hardware\t>\n"\
     "Help\n"\
     "About\n"\
 	"TFT\t>\n"
@@ -491,7 +492,8 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
     "Modelo\t>\n"\
     "Resetear\t>\n"\
     "Opciones\t>\n"\
-	"Depurar\t\n"\
+	"Depurar\t>\n"\
+    "Hardware\t>\n"\
     "Ayuda\n"\
     "Acerca de\n"\
 	"TFT\t>\n"
@@ -505,6 +507,7 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
     "Reset\t>\n"\
     "Options\t>\n"\
     "Debug\t>\n"\
+    "Hardware\t>\n"\
     "Help\n"\
     "About\n"
 #define MENU_MAIN_ES \
@@ -515,7 +518,8 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
     "Modelo\t>\n"\
     "Resetear\t>\n"\
     "Opciones\t>\n"\
-	"Depurar\t\n"\
+	"Depurar\t>\n"\
+    "Hardware\t>\n"\
     "Ayuda\n"\
     "Acerca de\n"
 #endif
@@ -530,6 +534,7 @@ static const char *MENU_MAIN[2] = { MENU_MAIN_EN, MENU_MAIN_ES };
     "Reset\t>\n"\
     "Options\t>\n"\
     "Debug\t>\n"\
+    "Hardware\t>\n"\
     "Help\n"\
     "About\n"
 #define MENU_MAIN_NO_SD_ES \
@@ -541,6 +546,7 @@ static const char *MENU_MAIN[2] = { MENU_MAIN_EN, MENU_MAIN_ES };
     "Resetear\t>\n"\
     "Opciones\t>\n"\
     "Depurar\t>\n"\
+    "Hardware\t>\n"\
     "Ayuda\n"\
     "Acerca de\n"
 static const char *MENU_MAIN_NO_SD[2] = { MENU_MAIN_NO_SD_EN, MENU_MAIN_NO_SD_ES };
@@ -829,8 +835,7 @@ static const char *MENU_AUDIO[2] = { MENU_AUDIO_EN, MENU_AUDIO_ES };
     "Second joystick\t>\n"\
     "Kempston joystick port\t>\n"\
     "Throttling\t>\n"\
-    "Hot Keys\t>\n"\
-    "CPU MHz\t>\n"
+    "Hot Keys\t>\n"
 #define MENU_OTHER_ES "Otros\n"\
     "Temporizaci" "\xA2" "n ULA\t>\n"\
     "48K Issue 2\t>\n"\
@@ -838,8 +843,7 @@ static const char *MENU_AUDIO[2] = { MENU_AUDIO_EN, MENU_AUDIO_ES };
     "Segundo joystick\t>\n"\
     "Puerto Kempston joystick\t>\n"\
     "Aceleraci" "\xA2" "n\t>\n"\
-    "Teclas rapidas\t>\n"\
-    "CPU MHz\t>\n"
+    "Teclas rapidas\t>\n"
 static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
 
 #ifdef PICO_RP2040
@@ -853,6 +857,78 @@ static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
     "[2] 252 MHz\n"\
     "[3] 378 MHz\n"\
     "[5] 504 MHz\n"
+#endif
+
+#define MENU_HARDWARE_EN \
+    "Hardware\n"\
+    "Chip Info\n"\
+    "Board Info\n"\
+    "Overclock (!)\t>\n"
+#define MENU_HARDWARE_ES \
+    "Hardware\n"\
+    "Chip Info\n"\
+    "Info placa\n"\
+    "Overclock (!)\t>\n"
+static const char *MENU_HARDWARE[2] = { MENU_HARDWARE_EN, MENU_HARDWARE_ES };
+
+#define MENU_OVERCLOCK_EN \
+    "Overclock\n"\
+    "CPU Freq\t>\n"\
+    "Flash Freq\t>\n"\
+    "PSRAM Freq\t>\n"
+#define MENU_OVERCLOCK_ES \
+    "Overclock\n"\
+    "CPU Freq\t>\n"\
+    "Flash Freq\t>\n"\
+    "PSRAM Freq\t>\n"
+#if !PICO_RP2040
+#define MENU_OVERCLOCK_VREG_EN \
+    "Overclock\n"\
+    "CPU Freq\t>\n"\
+    "VReg Voltage\t>\n"\
+    "Flash Freq\t>\n"\
+    "PSRAM Freq\t>\n"
+#define MENU_OVERCLOCK_VREG_ES \
+    "Overclock\n"\
+    "CPU Freq\t>\n"\
+    "VReg Voltage\t>\n"\
+    "Flash Freq\t>\n"\
+    "PSRAM Freq\t>\n"
+static const char *MENU_OVERCLOCK_VREG[2] = { MENU_OVERCLOCK_VREG_EN, MENU_OVERCLOCK_VREG_ES };
+#endif
+static const char *MENU_OVERCLOCK[2] = { MENU_OVERCLOCK_EN, MENU_OVERCLOCK_ES };
+
+#define MENU_FLASH_FREQ \
+    "Flash Freq\n"\
+    "[A] 33 MHz\n"\
+    "[B] 66 MHz\n"\
+    "[C] 84 MHz\n"\
+    "[D] 100 MHz\n"\
+    "[E] 133 MHz\n"\
+    "[F] 166 MHz\n"
+
+#define MENU_PSRAM_FREQ \
+    "PSRAM Freq\n"\
+    "[A] 66 MHz\n"\
+    "[B] 84 MHz\n"\
+    "[C] 100 MHz\n"\
+    "[D] 133 MHz\n"\
+    "[E] 166 MHz\n"
+
+#if !PICO_RP2040
+#define MENU_VREG_VOLTAGE \
+    "VReg Voltage\n"\
+    "[A] 1.15 V\n"\
+    "[B] 1.20 V\n"\
+    "[C] 1.25 V\n"\
+    "[D] 1.30 V\n"\
+    "[E] 1.35 V\n"\
+    "[F] 1.40 V\n"\
+    "[G] 1.50 V\n"\
+    "[H] 1.60 V\n"\
+    "[I] 1.65 V\n"\
+    "[J] 1.70 V\n"\
+    "[K] 1.80 V\n"
 #endif
 
 static const char *MENU_AY48[2] = { "Turned on?\n" , "Turned on?\n"};
