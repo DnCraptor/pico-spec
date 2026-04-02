@@ -176,13 +176,12 @@ int Tape::inflateCSW(int blocknumber, long startPos, long data_length) {
     // Decompression.
     uint infile_remaining = data_length;
 
-    uint32_t *speccyram = (uint32_t *)MemESP::ram[1].sync(6);
+    // Borrow video RAM pages 5+7 as inflate dictionary (32KB contiguous).
+    uint8_t *dict = MemESP::ram[5].direct();
+    VIDEO::SaveRect.store_ram(dict, TINFL_LZ_DICT_SIZE);
+    memset(dict, 0, TINFL_LZ_DICT_SIZE);
 
-    VIDEO::SaveRect.store_ram(speccyram, 0x8000);
-    MemESP::ram[1].cleanup();
-    MemESP::ram[3].cleanup();
-    
-    if (inflateInit(&stream, MemESP::ram[1].sync(6))) {
+    if (inflateInit(&stream, dict)) {
         printf("inflateInit() failed!\n");
         return EXIT_FAILURE;
     }
@@ -241,7 +240,7 @@ int Tape::inflateCSW(int blocknumber, long startPos, long data_length) {
     // printf("Total output bytes: %u\n", (mz_uint32)stream.total_out);
     // printf("Success.\n");
 
-    VIDEO::SaveRect.restore_ram(speccyram, 0x8000);
+    VIDEO::SaveRect.restore_ram(dict, TINFL_LZ_DICT_SIZE);
 
     return EXIT_SUCCESS;
 
