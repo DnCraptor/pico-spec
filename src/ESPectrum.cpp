@@ -1728,6 +1728,7 @@ void ESPectrum::loop() {
 #endif
           audioBuffer_L[i] = beeper_L > 255 ? 255 : beeper_L;
           audioBuffer_R[i] = beeper_R > 255 ? 255 : beeper_R;
+
         }
       }
     }
