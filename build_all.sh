@@ -24,12 +24,28 @@ fi
 # All available targets
 ALL_TARGETS="MURM_P1 MURM_P2 MURM2 PICO_PC PICO_DV ZERO ZERO2"
 
+# Targets that support TFT+ILI9341 display variant
+TFT_TARGETS="MURM_P1 MURM_P2 MURM2"
+
 # Parse arguments: pass target names to build specific ones, or nothing for all
 if [ $# -gt 0 ]; then
     TARGETS="$*"
 else
     TARGETS="$ALL_TARGETS"
 fi
+
+# Build list of (target, display) pairs
+# All targets get VGA_HDMI; MURM_P1/MURM_P2/MURM2 also get TFT+ILI9341
+BUILD_PAIRS=""
+for TARGET in $TARGETS; do
+    BUILD_PAIRS="$BUILD_PAIRS ${TARGET}:VGA_HDMI"
+    for TFT_T in $TFT_TARGETS; do
+        if [ "$TARGET" = "$TFT_T" ]; then
+            BUILD_PAIRS="$BUILD_PAIRS ${TARGET}:TFT_ILI9341"
+            break
+        fi
+    done
+done
 
 echo "=== pico-spec multi-target build ==="
 echo "Targets: $TARGETS"
@@ -43,27 +59,14 @@ SUCCEEDED=""
 OUTPUT_DIR="$SCRIPT_DIR/firmware"
 mkdir -p "$OUTPUT_DIR"
 
-# # Expand ZERO and ZERO2 into two variants (252MHz and 378MHz)
-# EXPANDED_TARGETS=""
-# for TARGET in $TARGETS; do
-#     if [ "$TARGET" = "ZERO2" ]; then
-#         EXPANDED_TARGETS="$EXPANDED_TARGETS ZERO2@252 ZERO2@378"
-#     elif [ "$TARGET" = "ZERO" ]; then
-#         EXPANDED_TARGETS="$EXPANDED_TARGETS ZERO@252 ZERO@378"
-#     else
-#         EXPANDED_TARGETS="$EXPANDED_TARGETS $TARGET"
-#     fi
-# done
-# TARGETS="$EXPANDED_TARGETS"
-
 # Clean build directories before building
-for ENTRY in $TARGETS; do
-    TARGET="${ENTRY%@*}"
-    SUFFIX="${ENTRY#*@}"
-    if [ "$TARGET" = "$SUFFIX" ]; then
+for PAIR in $BUILD_PAIRS; do
+    TARGET="${PAIR%%:*}"
+    DISPLAY="${PAIR##*:}"
+    if [ "$DISPLAY" = "VGA_HDMI" ]; then
         BUILD_DIR="$SCRIPT_DIR/build-$TARGET"
     else
-        BUILD_DIR="$SCRIPT_DIR/build-${TARGET}-${SUFFIX}"
+        BUILD_DIR="$SCRIPT_DIR/build-${TARGET}-${DISPLAY}"
     fi
     if [ -d "$BUILD_DIR" ]; then
         echo "Cleaning $BUILD_DIR ..."
@@ -72,16 +75,15 @@ for ENTRY in $TARGETS; do
 done
 echo ""
 
-for ENTRY in $TARGETS; do
-    TARGET="${ENTRY%@*}"
-    MHZ_OVERRIDE="${ENTRY#*@}"
-    if [ "$TARGET" = "$MHZ_OVERRIDE" ]; then
-        MHZ_OVERRIDE=""
+for PAIR in $BUILD_PAIRS; do
+    TARGET="${PAIR%%:*}"
+    DISPLAY="${PAIR##*:}"
+    if [ "$DISPLAY" = "VGA_HDMI" ]; then
         BUILD_DIR="$SCRIPT_DIR/build-$TARGET"
-        LABEL="$TARGET"
+        LABEL="$TARGET (VGA_HDMI)"
     else
-        BUILD_DIR="$SCRIPT_DIR/build-${TARGET}-${MHZ_OVERRIDE}"
-        LABEL="${TARGET} (${MHZ_OVERRIDE}MHz)"
+        BUILD_DIR="$SCRIPT_DIR/build-${TARGET}-${DISPLAY}"
+        LABEL="$TARGET ($DISPLAY)"
     fi
 
     echo "========================================"
@@ -122,10 +124,10 @@ for ENTRY in $TARGETS; do
         *)       TARGET_FLAGS=(-D"${TARGET}"=ON) ;;
     esac
 
-    # # Add CPU_MHZ override if specified
-    # if [ -n "$MHZ_OVERRIDE" ]; then
-    #     TARGET_FLAGS+=(-DCPU_MHZ_OVERRIDE="$MHZ_OVERRIDE")
-    # fi
+    # Display variant flags
+    if [ "$DISPLAY" = "TFT_ILI9341" ]; then
+        TARGET_FLAGS+=(-DTFT=ON -DILI9341=ON -DVGA_HDMI=OFF)
+    fi
 
     CMAKE_ARGS=(
         -B "$BUILD_DIR" -S "$SCRIPT_DIR"
@@ -139,11 +141,11 @@ for ENTRY in $TARGETS; do
 
     if cmake "${CMAKE_ARGS[@]}" \
       && cmake --build "$BUILD_DIR" --parallel "$PARALLEL_JOBS"; then
-        SUCCEEDED="$SUCCEEDED $ENTRY"
+        SUCCEEDED="$SUCCEEDED $PAIR"
         echo ""
         echo "[OK] $LABEL build succeeded"
     else
-        FAILED="$FAILED $ENTRY"
+        FAILED="$FAILED $PAIR"
         echo ""
         echo "[FAIL] $LABEL build failed"
     fi
@@ -156,13 +158,13 @@ echo "========================================"
 
 if [ -n "$SUCCEEDED" ]; then
     echo "Succeeded:$SUCCEEDED"
-    for ENTRY in $SUCCEEDED; do
-        TARGET="${ENTRY%@*}"
-        SUFFIX="${ENTRY#*@}"
-        if [ "$TARGET" = "$SUFFIX" ]; then
+    for PAIR in $SUCCEEDED; do
+        TARGET="${PAIR%%:*}"
+        DISPLAY="${PAIR##*:}"
+        if [ "$DISPLAY" = "VGA_HDMI" ]; then
             BUILD_DIR="$SCRIPT_DIR/build-$TARGET"
         else
-            BUILD_DIR="$SCRIPT_DIR/build-${TARGET}-${SUFFIX}"
+            BUILD_DIR="$SCRIPT_DIR/build-${TARGET}-${DISPLAY}"
         fi
         for FW in $(find "$BUILD_DIR" -name "*.uf2" 2>/dev/null); do
             cp "$FW" "$OUTPUT_DIR/"

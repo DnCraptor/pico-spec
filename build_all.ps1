@@ -33,9 +33,21 @@ if (-not $CMakeGenerator) {
 }
 
 # All available targets
-$AllTargets = @("MURM", "MURM2", "PICO_PC", "PICO_DV", "ZERO", "ZERO2")
+$AllTargets = @("MURM_P1", "MURM_P2", "MURM2", "PICO_PC", "PICO_DV", "ZERO", "ZERO2")
+
+# Targets that support TFT+ILI9341
+$TftTargets = @("MURM_P1", "MURM_P2", "MURM2")
 
 if ($Targets.Count -eq 0) { $Targets = $AllTargets }
+
+# Build list of (target, display) pairs
+$BuildPairs = @()
+foreach ($Target in $Targets) {
+    $BuildPairs += @{ Target = $Target; Display = "VGA_HDMI" }
+    if ($TftTargets -contains $Target) {
+        $BuildPairs += @{ Target = $Target; Display = "TFT_ILI9341" }
+    }
+}
 
 Write-Host "=== pico-spec multi-target build ==="
 Write-Host "Targets: $($Targets -join ' ')"
@@ -49,11 +61,18 @@ $Succeeded = @()
 $OutputDir = Join-Path $ScriptDir "firmware"
 if (-not (Test-Path $OutputDir)) { New-Item -ItemType Directory -Path $OutputDir | Out-Null }
 
-foreach ($Target in $Targets) {
-    $BuildDir = Join-Path $ScriptDir "build-$Target"
+foreach ($Pair in $BuildPairs) {
+    $Target = $Pair.Target
+    $Display = $Pair.Display
+    if ($Display -eq "VGA_HDMI") {
+        $BuildDir = Join-Path $ScriptDir "build-$Target"
+    } else {
+        $BuildDir = Join-Path $ScriptDir "build-${Target}-${Display}"
+    }
+    $Label = "$Target ($Display)"
 
     Write-Host "========================================"
-    Write-Host " Building: $Target"
+    Write-Host " Building: $Label"
     Write-Host " Build dir: $BuildDir"
     Write-Host "========================================"
 
@@ -72,10 +91,22 @@ foreach ($Target in $Targets) {
 
     if (-not (Test-Path $BuildDir)) { New-Item -ItemType Directory -Path $BuildDir | Out-Null }
 
+    # Map target name to CMake flags
+    switch ($Target) {
+        "MURM_P1" { $TargetFlags = @("-DMURM=ON") }
+        "MURM_P2" { $TargetFlags = @("-DMURM=ON", "-DMURM_P2=ON") }
+        default    { $TargetFlags = @("-D${Target}=ON") }
+    }
+
+    # Display variant flags
+    if ($Display -eq "TFT_ILI9341") {
+        $TargetFlags += @("-DTFT=ON", "-DILI9341=ON", "-DVGA_HDMI=OFF")
+    }
+
     $CMakeArgs = @(
         "-B", $BuildDir, "-S", $ScriptDir,
-        "-G", $CMakeGenerator,
-        "-D${Target}=ON",
+        "-G", $CMakeGenerator
+    ) + $TargetFlags + @(
         "-DCMAKE_BUILD_TYPE=$BuildType"
     )
     if ($CMakeMakeProgram) {
@@ -92,13 +123,13 @@ foreach ($Target in $Targets) {
     }
 
     if ($ok) {
-        $Succeeded += $Target
+        $Succeeded += $Pair
         Write-Host ""
-        Write-Host "[OK] $Target build succeeded"
+        Write-Host "[OK] $Label build succeeded"
     } else {
-        $Failed += $Target
+        $Failed += $Pair
         Write-Host ""
-        Write-Host "[FAIL] $Target build failed"
+        Write-Host "[FAIL] $Label build failed"
     }
     Write-Host ""
 }
@@ -108,9 +139,14 @@ Write-Host " Build summary"
 Write-Host "========================================"
 
 if ($Succeeded.Count -gt 0) {
-    Write-Host "Succeeded: $($Succeeded -join ' ')"
-    foreach ($Target in $Succeeded) {
-        Get-ChildItem -Path (Join-Path $ScriptDir "build-$Target") -Filter "*.uf2" -Recurse | ForEach-Object {
+    Write-Host "Succeeded: $(($Succeeded | ForEach-Object { "$($_.Target):$($_.Display)" }) -join ' ')"
+    foreach ($Pair in $Succeeded) {
+        if ($Pair.Display -eq "VGA_HDMI") {
+            $BuildDir = Join-Path $ScriptDir "build-$($Pair.Target)"
+        } else {
+            $BuildDir = Join-Path $ScriptDir "build-$($Pair.Target)-$($Pair.Display)"
+        }
+        Get-ChildItem -Path $BuildDir -Filter "*.uf2" -Recurse | ForEach-Object {
             Copy-Item $_.FullName -Destination $OutputDir -Force
             Write-Host "  $($_.Name)"
         }
@@ -120,7 +156,7 @@ if ($Succeeded.Count -gt 0) {
 }
 
 if ($Failed.Count -gt 0) {
-    Write-Host "Failed: $($Failed -join ' ')"
+    Write-Host "Failed: $(($Failed | ForEach-Object { "$($_.Target):$($_.Display)" }) -join ' ')"
     exit 1
 }
 
