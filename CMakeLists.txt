@@ -30,12 +30,13 @@ option(ZERO2 "RP2350-PiZero" OFF)
 #set(FLASH_SIZE_GREEN ON)
 #set(m1p2launcher ON)
 
+# set(TFT ON)
+# set (ILI9341 ON)
+
 # Display output (default: VGA_HDMI; override with -D flags, e.g. cmake -DSOFTTV=ON)
 if(NOT VGA_HDMI AND NOT SOFTTV AND NOT TFT AND NOT ILI9341 AND NOT TV)
     set(VGA_HDMI ON)
 endif()
-#set(TFT_INV 0)
-#set(TFT_INV 1)
 set(NO_ALF 1)
 
 set(CPU_MHZ 378)

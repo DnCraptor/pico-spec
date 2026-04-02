@@ -9,7 +9,7 @@
 #include "Debug.h"
 #include "LoadWavStream.h"
 #include "PinSerialData_595.h"
-#if !PICO_RP2040
+#if !PICO_RP2040 && defined(VGA_HDMI)
 #include "hdmi.h"
 #endif
 #ifdef PCM5122_I2S_DATA
@@ -282,7 +282,7 @@ static bool hw_get_bit_LOAD() {
 #endif
 
 void init_sound() {
-#if !PICO_RP2040
+#if !PICO_RP2040 && defined(VGA_HDMI)
     if (Config::audio_driver == 4) {
         Debug::log("init_sound: HDMI audio mode");
         hdmi_audio_init();
@@ -390,7 +390,7 @@ void pcm_audio_in_stop(void) {
 #endif
 
 static void __not_in_flash_func(pcm_call_inner)() {
-#if !PICO_RP2040
+#if !PICO_RP2040  && defined(VGA_HDMI)
     if (Config::audio_driver == 4) {
         if (m_off < m_size) {
             hdmi_audio_write_sample(buff_L[m_off], buff_R[m_off]);

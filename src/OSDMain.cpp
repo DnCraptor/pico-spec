@@ -71,6 +71,9 @@ visit https://zxespectrum.speccy.org/contacto
 #include <string>
 #include <cstdio>
 
+extern "C" uint8_t TFT_FLAGS;
+extern "C" uint8_t TFT_INVERSION;
+
 void fputs(const char* b, FIL& f);
 
 using namespace std;
@@ -282,17 +285,9 @@ void OSD::drawOSD(bool bottom_info) {
 #endif
 #ifdef TFT
 #ifdef ILI9341
-    #if TFT_INV
-        bottom_line = " Video mode: ILI9341I      ";
-    #else 
-        bottom_line = " Video mode: ILI9341       ";
-    #endif
+        bottom_line = TFT_INVERSION ? " Video mode: ILI9341I      " : " Video mode: ILI9341       ";
 #else 
-    #if TFT_INV
-        bottom_line = " Video mode: ST7789I       ";
-    #else 
-        bottom_line = " Video mode: ST7789        ";
-    #endif
+        bottom_line = TFT_INVERSION ? " Video mode: ST7789I       " : " Video mode: ST7789        ";
 #endif
 #endif
 #endif
@@ -627,9 +622,6 @@ static bool persistLoad(uint8_t slotnumber)
 #define MADCTL_COLUMN_ADDRESS_ORDER_SWAP (1<<6)
 #define MADCTL_MY  (1 << 7) // Row Address Order (Y flip)
 #define MADCTL_MX  (1 << 6) // Column Address Order (X flip)
-
-extern "C" uint8_t TFT_FLAGS;
-extern "C" uint8_t TFT_INVERSION;
 
 string getMenuPrefix() {
     if (MEM_PG_CNT <= 64) return "ESPectrum ";
