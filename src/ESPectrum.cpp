@@ -1690,12 +1690,7 @@ void ESPectrum::loop() {
         }
         if (Midi::enabled == 3)
         {
-          if (Tape::tapeStatus == TAPE_LOADING) {
-            memset(audioBufferMIDI_L, 0, samplesPerFrame);
-            memset(audioBufferMIDI_R, 0, samplesPerFrame);
-          } else {
-            MidiSynth::gen_sound(audioBufferMIDI_L, audioBufferMIDI_R, samplesPerFrame);
-          }
+          MidiSynth::gen_sound(audioBufferMIDI_L, audioBufferMIDI_R, samplesPerFrame);
         }
 #endif
         // Hoist frame-invariant source flags outside the mix loop
