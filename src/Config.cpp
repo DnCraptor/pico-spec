@@ -18,11 +18,11 @@ string   Config::romSetPent = "128Kp";
 string   Config::romSetP512 = "128Kp";
 string   Config::romSetP1M = "128Kp";
 string   Config::pref_arch = "Last";
-string   Config::pref_romSet_48 = "48K";
-string   Config::pref_romSet_128 = "128K";
-string   Config::pref_romSetPent = "128Kp";
-string   Config::pref_romSetP512 = "128Kp";
-string   Config::pref_romSetP1M = "128Kp";
+string   Config::pref_romSet_48 = "Last";
+string   Config::pref_romSet_128 = "Last";
+string   Config::pref_romSetPent = "Last";
+string   Config::pref_romSetP512 = "Last";
+string   Config::pref_romSetP1M = "Last";
 string   Config::ram_file = NO_RAM_FILE;
 string   Config::last_ram_file = NO_RAM_FILE;
 
