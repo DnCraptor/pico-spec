@@ -417,6 +417,12 @@ ELSEIF(PICO_DV)
 
         PICO_DV=1
 
+        DEBUG=0
+        # stdio UART1 TX/RX on GP20/GP21 (Debug Probe)
+        # PICO_DEFAULT_UART=1
+        # PICO_DEFAULT_UART_TX_PIN=20
+        # PICO_DEFAULT_UART_RX_PIN=21
+
         # DBG1 1/2
         KBD_CLOCK_PIN=0
         KBD_DATA_PIN=1
@@ -471,8 +477,6 @@ ELSEIF(PICO_DV)
 
         DEFAULT_THROTTLING=0
         PICO_DEFAULT_LED_PIN=25
-
-        DEBUG=1
 )
 ELSEIF(ZERO)
     target_compile_definitions(${PROJECT_NAME} PRIVATE
@@ -539,6 +543,11 @@ ELSEIF(ZERO2)
         CPU_MHZ=${CPU_MHZ}
         ZERO2=1
 
+        DEBUG=0
+        # PICO_DEFAULT_UART=1
+        # PICO_DEFAULT_UART_TX_PIN=2
+        # PICO_DEFAULT_UART_RX_PIN=3
+
         # PS2 keyboard (moved from GPIO 2/3 for PCM5122 I2C)
         KBD_CLOCK_PIN=14
         KBD_DATA_PIN=15
@@ -575,22 +584,22 @@ ELSEIF(ZERO2)
         SDCARD_PIN_SPI0_MISO=40
         SDCARD_PIN_SPI0_CS=43
 
-     #   PSRAM
+        # PSRAM
         # PSRAM_MUTEX=1
         PSRAM_SPINLOCK=0
         PSRAM_ASYNC=1
 
-        PSRAM_PIN_CS=2
-        PSRAM_PIN_SCK=3
-        PSRAM_PIN_MOSI=4
-        PSRAM_PIN_MISO=5
+        PSRAM_PIN_CS=0
+        PSRAM_PIN_SCK=0
+        PSRAM_PIN_MOSI=0
+        PSRAM_PIN_MISO=0
 
         # NES Gamepad
-        USE_NESPAD
-        NES_GPIO_CLK=4
-        NES_GPIO_LAT=5
-        NES_GPIO_DATA=7
-        NES_GPIO_DATA2=8
+        # USE_NESPAD
+        # NES_GPIO_CLK=4
+        # NES_GPIO_LAT=5
+        # NES_GPIO_DATA=7
+        # NES_GPIO_DATA2=8
 
         # VGA 8 pins starts from pin:
         VGA_BASE_PIN=32
@@ -598,7 +607,7 @@ ELSEIF(ZERO2)
         # HDMI 8 pins starts from pin:
         HDMI_BASE_PIN=32
 
-#        PICO_DEFAULT_LED_PIN=25
+        PICO_DEFAULT_LED_PIN=25
         DEFAULT_THROTTLING=0
     )
 ELSE()

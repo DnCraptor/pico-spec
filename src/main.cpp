@@ -1102,6 +1102,10 @@ int main() {
     #endif
 #endif
 
+#if PICO_DEFAULT_UART
+    stdio_init_all();
+#endif
+
 #ifdef KBDUSB
     tuh_init(BOARD_TUH_RHPORT);
     ps2kbd.init_gpio();

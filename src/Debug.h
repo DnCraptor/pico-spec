@@ -20,8 +20,9 @@ public:
     static void led_on();
     static void led_off();
 
-    static void log(string data);
     static void log(const char* fmt, ...);
+    static void log2SD(string data);
+    static void log2SD(const char* fmt, ...);
 };
 
 #endif
