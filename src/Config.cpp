@@ -422,13 +422,7 @@ void Config::load() {
         nvs_get_u8("midipreset", midi_synth_preset, sts);
 #endif
         nvs_get_u16("cpu_mhz", cpu_mhz, sts);
-#if PICO_RP2040
-        if (cpu_mhz != 252 && cpu_mhz != 378)
-            cpu_mhz = CPU_MHZ;
-#else
-        if (cpu_mhz != 252 && cpu_mhz != 378 && cpu_mhz != 504)
-            cpu_mhz = CPU_MHZ;
-#endif
+        if (cpu_mhz == 0) cpu_mhz = CPU_MHZ;
         nvs_get_u16("max_flash_freq", max_flash_freq, sts);
         if (max_flash_freq == 0) max_flash_freq = 66;
         nvs_get_u16("max_psram_freq", max_psram_freq, sts);
