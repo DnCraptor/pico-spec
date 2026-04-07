@@ -171,6 +171,7 @@ static const uint8_t ulaplus_default_palette[64] = {
     0x00, 0x03, 0x1C, 0x1F, 0xE0, 0xE3, 0xFC, 0xFF,
 };
 uint8_t VIDEO::ulaplus_palette[64];
+bool VIDEO::ulaplus_palette_dirty = false;
 unsigned int VIDEO::AluBytesUlaPlus[16][256] = {};
 #endif
 
@@ -653,8 +654,19 @@ void VIDEO::regenerateUlaPlusAluBytes() {
 }
 
 // Fast path: update single palette entry without rebuilding AluBytes
+// Deferred: only marks dirty, actual conv_color update happens in ulaPlusFlushPalette()
+// to avoid palette tearing when HDMI DMA scans top lines before Z80 ISR finishes
 void VIDEO::ulaPlusUpdatePaletteEntry(uint8_t entry) {
-    graphics_set_palette(entry, paletteTransform(grb_to_rgb888(ulaplus_palette[entry])));
+    ulaplus_palette_dirty = true;
+}
+
+// Apply all pending ULA+ palette changes to hardware (conv_color / VGA LUT).
+// Called from EndFrame() so palette is stable before HDMI active area begins.
+void VIDEO::ulaPlusFlushPalette() {
+    if (!ulaplus_palette_dirty) return;
+    ulaplus_palette_dirty = false;
+    for (int i = 0; i < 64; i++)
+        graphics_set_palette(i, paletteTransform(grb_to_rgb888(ulaplus_palette[i])));
 }
 
 void VIDEO::ulaPlusUpdateBorder() {
@@ -667,6 +679,7 @@ void VIDEO::ulaPlusUpdateBorder() {
 
 void VIDEO::ulaPlusDisable() {
     ulaplus_enabled = false;
+    ulaplus_palette_dirty = false;
     flashing = 0;
     // Restore palette: indices 0-63 back to G3R3B2 defaults, then 0-15 to Spectrum (solid)
     for (int i = 0; i < 64; i++)
@@ -1738,6 +1751,11 @@ IRAM_ATTR void VIDEO::EndFrame() {
     if (Config::dma_mode)
         Z80DMA::resetAttrShadow();
     dma_attr_override = nullptr;
+
+    // Flush deferred ULA+ palette updates so HDMI DMA sees consistent palette
+    // for the entire next frame (prevents top-of-screen palette tearing)
+    if (ulaplus_enabled)
+        ulaPlusFlushPalette();
 #endif
 
     static uint8_t skipCnt = 0;

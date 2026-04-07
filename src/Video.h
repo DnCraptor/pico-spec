@@ -254,9 +254,11 @@ public:
   static bool ulaplus_enabled;
   static uint8_t ulaplus_reg;
   static uint8_t ulaplus_palette[64];
+  static bool ulaplus_palette_dirty;  // deferred palette flush for HDMI sync
   static unsigned int AluBytesUlaPlus[16][256];
   static void regenerateUlaPlusAluBytes();
   static void ulaPlusUpdatePaletteEntry(uint8_t entry);
+  static void ulaPlusFlushPalette();   // apply pending palette to hardware
   static void ulaPlusUpdateBorder();
   static void ulaPlusDisable();
 #endif
