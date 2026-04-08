@@ -6944,20 +6944,28 @@ void OSD::ChipInfo() {
         if (psram32) {
             uint8_t rx8[8];
             psram_id(rx8);
+            size_t psram_used = (size_t)psram_pages * MEM_PG_SZ;
+            size_t psram_free = psram32 > psram_used ? psram32 - psram_used : 0;
             pos += snprintf(buf + pos, sizeof(buf) - pos,
                 " PSRAM size     : %d MB\n"
                 " PSRAM MF ID/KGD: %02X/%02X\n"
-                " PSRAM EID      : %02X%02X-%02X%02X-%02X%02X\n",
-                (int)(psram32 >> 20), rx8[0], rx8[1], rx8[2], rx8[3], rx8[4], rx8[5], rx8[6], rx8[7]);
+                " PSRAM EID      : %02X%02X-%02X%02X-%02X%02X\n"
+                " Free PSRAM     : %d KB\n",
+                (int)(psram32 >> 20), rx8[0], rx8[1], rx8[2], rx8[3], rx8[4], rx8[5], rx8[6], rx8[7],
+                (int)(psram_free / 1024));
         }
     }
 #endif
 #ifdef BUTTER_PSRAM_GPIO
     {
         uint32_t psram32 = butter_psram_size();
-        if (psram32)
+        if (psram32) {
+            size_t butter_used = (size_t)butter_pages * MEM_PG_SZ;
+            size_t butter_free = psram32 > butter_used ? psram32 - butter_used : 0;
             pos += snprintf(buf + pos, sizeof(buf) - pos,
-                "+PSRAM on GP%02d  : %d MB (QSPI)\n", psram_pin, (int)(psram32 >> 20));
+                "+PSRAM on GP%02d  : %d MB (QSPI)\n"
+                " Free PSRAM     : %d KB\n", psram_pin, (int)(psram32 >> 20), (int)(butter_free / 1024));
+        }
     }
 #endif
 
