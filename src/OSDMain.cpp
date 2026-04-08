@@ -6229,10 +6229,12 @@ c:
                 } else {
                     BPDialog();
                 }
+                redrawTitle = true;
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_F8) {
                 jumpToDialog();
+                redrawTitle = true;
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_F9 && alt) {
@@ -6445,6 +6447,7 @@ c:
                 } else {
                     osdDump();
                 }
+                redrawTitle = true;
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_F1 && alt) {
@@ -6453,6 +6456,7 @@ c:
                 if (memSearchResultAddr <= 0xFFFF) {
                     ii = pc - (uint16_t)memSearchResultAddr + cursor_row;
                 }
+                redrawTitle = true;
                 goto c;
             } else
             if (Nextkey.vk == fabgl::VK_F3 && !alt) {
