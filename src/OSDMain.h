@@ -89,6 +89,9 @@ public:
     static void clearStats();
     static void do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL);
     static void HWInfo();
+    static void ChipInfo();
+    static void BoardInfo();
+    static void showTextDialog(const char* title, const char* text);
 
     // Error
     static void errorPanel(string errormsg);
@@ -142,6 +145,7 @@ public:
     static void memSearchDialog();
     static uint32_t addressDialog(uint16_t addr, const char* title);
 
+
     // Rows
     static unsigned short rowCount(string menu);
     static string rowGet(string menu, unsigned short row_number);
@@ -155,6 +159,8 @@ public:
     static char stats_lin2[25]; // "FPS:000.00 / FND:000.00 ";
     
     static uint8_t cols;                     // Maximum columns
+    static uint8_t tab_col;                  // Tab stop column (longest left part before \t)
+    static uint8_t max_right;                // Longest right part after \t (hotkeys only)
     static uint8_t mf_rows;                  // File menu maximum rows
     static unsigned short real_rows;      // Real row count
     static uint8_t virtual_rows;             // Virtual maximum rows on screen

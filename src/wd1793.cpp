@@ -62,6 +62,10 @@ static const uint16_t sectdatapos[16]= { 162,554,946,1338,1730,2122,2514,2906,32
 #define IRAM_ATTR
 #endif
 
+#if !PICO_RP2040
+static uint16_t vgCrc(uint16_t crc, uint8_t byte);
+#endif
+
 #ifndef ESP_PLATFORM
 #define heap_caps_calloc(n, size, caps) calloc(n, size)
 #define MALLOC_CAP_8BIT 0
@@ -656,6 +660,42 @@ case kRVMWD177XWriteData: {
     case kRVMWD177XWriteEnd: {
 
       wd->control&=~kRVMWD177XWriting;
+
+#if !PICO_RP2040
+      // On real WD1793, writing a sector produces valid CRC. Fix the MFM buffer
+      // and cached flags so subsequent reads on this track return correct CRC.
+      if (wd->disk[wd->diskS] && wd->disk[wd->diskS]->IsFDIFile && wd->diskDirty) {
+          for (int n = 0; n < wd->fdiSectorCount; n++) {
+              uint32_t idPos = wd->fdiSectorIdPos[n];
+              if (idPos + 5 < (uint32_t)wd->diskTrackLen &&
+                  wd->diskTrackBuf[idPos + 1] == wd->header[1] &&
+                  wd->diskTrackBuf[idPos + 2] == wd->header[2] &&
+                  wd->diskTrackBuf[idPos + 3] == wd->header[3] &&
+                  wd->diskTrackBuf[idPos + 4] == wd->header[4])
+              {
+                  wd->fdiSectorFlags[n] &= ~1;
+                  int bufLen = wd->diskTrackLen;
+                  for (int i = idPos + 7; i < (int)idPos + 87 && i < bufLen; i++) {
+                      if (wd->diskTrackBuf[i] == 0xFB || wd->diskTrackBuf[i] == 0xF8) {
+                          int slen = 128 << (wd->header[4] & 3);
+                          int crcPos = i + 1 + slen;
+                          if (crcPos + 2 <= bufLen) {
+                              int crcStart = i;
+                              while (crcStart > 0 && wd->diskTrackBuf[crcStart - 1] == 0xA1) crcStart--;
+                              uint16_t crc = 0xFFFF;
+                              for (int j = crcStart; j < crcPos; j++)
+                                  crc = vgCrc(crc, wd->diskTrackBuf[j]);
+                              wd->diskTrackBuf[crcPos] = (uint8_t)(crc >> 8);
+                              wd->diskTrackBuf[crcPos + 1] = (uint8_t)(crc & 0xFF);
+                          }
+                          break;
+                      }
+                  }
+                  break;
+              }
+          }
+      }
+#endif
 
       // Write buffer to diskfile
       // int saveptr = ftell(wd->disk[wd->diskS]->Diskfile);
@@ -1765,6 +1805,15 @@ static void fdiFlushTrack(rvmWD1793 *wd) {
         UINT bw;
         f_lseek(disk->Diskfile, filePos);
         f_write(disk->Diskfile, buf + dataPos, slen, &bw);
+
+        // Update CRC flag only for sectors that were actually written
+        if (!(flags & (1 << (secN & 3))) && sec < 32 && !(wd->fdiSectorFlags[sec] & 1)) {
+            uint8_t newFlags = (1 << (secN & 3));
+            if (flags & 0x80) newFlags |= 0x80;
+            uint32_t flagsPos = disk->fdiTrackHdrOffsets[trkIdx] + 7 + sec * 7 + 4;
+            f_lseek(disk->Diskfile, flagsPos);
+            f_write(disk->Diskfile, &newFlags, 1, &bw);
+        }
     }
 
     wd->diskDirty = false;
@@ -1876,7 +1925,7 @@ void fdiLoadTrack(rvmWD1793 *wd, uint32_t cyl, uint8_t side) {
         // Address mark
         if (sec < 32) {
             wd->fdiSectorIdPos[sec] = pos; // record position of 0xFE
-            wd->fdiSectorFlags[sec] = (((flags & 0x3F) == 0) ? 1 : 0)
+            wd->fdiSectorFlags[sec] = (!(flags & (1 << (secN & 3))) ? 1 : 0)
                                     | ((flags & 0x40) ? 2 : 0);
         }
         if (pos < imageSize) buf[pos++] = 0xFE;
@@ -1922,7 +1971,7 @@ void fdiLoadTrack(rvmWD1793 *wd, uint32_t cyl, uint8_t side) {
             crc = 0xFFFF;
             for (int i = crcStart; i < pos; i++) crc = vgCrc(crc, buf[i]);
             // Bad CRC if none of the low 6 bits are set
-            if ((flags & 0x3F) == 0) crc ^= 0xFFFF;
+            if (!(flags & (1 << (secN & 3)))) crc ^= 0xFFFF;
             if (pos + 2 <= imageSize) {
                 buf[pos++] = (uint8_t)(crc >> 8);
                 buf[pos++] = (uint8_t)(crc & 0xFF);

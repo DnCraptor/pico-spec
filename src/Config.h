@@ -58,6 +58,7 @@ public:
     static void load();  // load before initialized
     static void load2(); // load after initialized
     static void save();
+    static bool loaded;  // true after successful load() from file/RAM
 
     static void requestMachine(string newArch, string newRomSet);
 
@@ -87,8 +88,17 @@ public:
     static bool     SAA1099;
     static uint8_t  midi;  // 0=Off, 1=AY bitbang, 2=ShamaZX, 3=Soft Synth
     static uint8_t  midi_synth_preset; // 0=GM,1=Piano,2=Chiptune,3=Strings,4=Rock,5=Organ,6=MusicBox,7=Synth
+    static bool     timex_video;  // Timex SCLD video modes (port 0xFF)
+    static uint8_t  dma_mode;     // 0=Off, 1=Port #0B (Z80 DMA), 2=Port #6B (zxnDMA)
 #endif
-    static bool     Issue2;    
+    static uint16_t cpu_mhz;   // 252, 378 (RP2040/RP2350), 504 (RP2350 only)
+    static uint16_t max_flash_freq; // MHz, default 66
+    static uint16_t max_psram_freq; // MHz, default 166
+    static uint16_t max_tft_freq;   // MHz, default 126
+#if !PICO_RP2040
+    static uint8_t  vreq_voltage;  // vreg_voltage_t enum value, default VREG_VOLTAGE_1_60
+#endif
+    static bool     Issue2;
     static bool     flashload;    
     static bool     tape_player;
     static volatile bool real_player;
@@ -215,6 +225,8 @@ public:
 #if !PICO_RP2040
     static bool ulaplus;
 #endif
+    // Palette: 0=Default, 1=Grayscale
+    static uint8_t palette;
     static uint8_t audio_driver;
     static bool byte_cobmect_mode;
 

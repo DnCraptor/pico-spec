@@ -7249,13 +7249,28 @@ FRESULT f_setcp (
 
 
 
+#define FOPEN2_POOL_SIZE 1
+static FIL fopen2_pool[FOPEN2_POOL_SIZE];
+static BYTE fopen2_used[FOPEN2_POOL_SIZE];
+
 FIL* fopen2 (
 	const TCHAR* path,	/* Pointer to the file name */
 	BYTE mode			/* Access mode and open mode flags */
 ) {
-	FIL* res = (FIL*)malloc(sizeof(FIL));
+	FIL* res = 0;
+	for (int i = 0; i < FOPEN2_POOL_SIZE; i++) {
+		if (!fopen2_used[i]) {
+			fopen2_used[i] = 1;
+			res = &fopen2_pool[i];
+			break;
+		}
+	}
+	if (!res) {
+		res = (FIL*)malloc(sizeof(FIL));
+		if (!res) return 0;
+	}
 	if (f_open(res, path, mode) != FR_OK) {
-		free(res);
+		fclose2(res);
 		return 0;
 	}
 	return res;
@@ -7264,6 +7279,12 @@ FIL* fopen2 (
 void fclose2 (FIL* f) {
 	if (f) {
 		f_close(f);
+		for (int i = 0; i < FOPEN2_POOL_SIZE; i++) {
+			if (f == &fopen2_pool[i]) {
+				fopen2_used[i] = 0;
+				return;
+			}
+		}
 		free(f);
 	}
 }

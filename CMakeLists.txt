@@ -30,17 +30,18 @@ option(ZERO2 "RP2350-PiZero" OFF)
 #set(FLASH_SIZE_GREEN ON)
 #set(m1p2launcher ON)
 
+# set(TFT ON)
+# set(ILI9341 ON)
+# set(SOFTTV ON) 
+
 # Display output (default: VGA_HDMI; override with -D flags, e.g. cmake -DSOFTTV=ON)
 if(NOT VGA_HDMI AND NOT SOFTTV AND NOT TFT AND NOT ILI9341 AND NOT TV)
     set(VGA_HDMI ON)
 endif()
-#set(TFT_INV 0)
-#set(TFT_INV 1)
 set(NO_ALF 1)
 
-#set(CPU_MHZ 252)
 set(CPU_MHZ 378)
-set (PORT_VERSION "1.2.N2")
+set (PORT_VERSION "1.2.10")
 string(LENGTH "${PORT_VERSION}" PORT_VERSION_LEN)
 
 # Target board (default: PICO_PC; override with -D flags, e.g. cmake -DMURM2=ON)
@@ -167,6 +168,10 @@ set_source_files_properties(src/Ports.cpp PROPERTIES
     COMPILE_FLAGS "-O3")
 set_source_files_properties(src/wd1793.cpp PROPERTIES
     COMPILE_FLAGS "-O3")
+set_source_files_properties(src/ESPectrum.cpp PROPERTIES
+    COMPILE_FLAGS "-O3 -funroll-loops")
+set_source_files_properties(src/pwm_audio.cpp PROPERTIES
+    COMPILE_FLAGS "-O3")
 
 if (PICO_BOARD STREQUAL "pico")
     pico_define_boot_stage2(slower_boot2 ${PICO_DEFAULT_BOOT_STAGE2_FILE})
@@ -212,7 +217,7 @@ if (PICO_CYW43_SUPPORTED)
     target_link_libraries(${PROJECT_NAME} pico_cyw43_arch_none)
 endif()
 
-##pico_enable_stdio_uart(${PROJECT_NAME} 0)
+##pico_enable_stdio_uart(${PROJECT_NAME} 1)
 ##pico_enable_stdio_usb(${PROJECT_NAME} 1)
 
 # create map/bin/hex file etc.
@@ -413,6 +418,12 @@ ELSEIF(PICO_DV)
 
         PICO_DV=1
 
+        DEBUG=0
+        # stdio UART1 TX/RX on GP20/GP21 (Debug Probe)
+        # PICO_DEFAULT_UART=1
+        # PICO_DEFAULT_UART_TX_PIN=20
+        # PICO_DEFAULT_UART_RX_PIN=21
+
         # DBG1 1/2
         KBD_CLOCK_PIN=0
         KBD_DATA_PIN=1
@@ -467,8 +478,6 @@ ELSEIF(PICO_DV)
 
         DEFAULT_THROTTLING=0
         PICO_DEFAULT_LED_PIN=25
-
-        DEBUG=0
 )
 ELSEIF(ZERO)
     target_compile_definitions(${PROJECT_NAME} PRIVATE
@@ -535,11 +544,25 @@ ELSEIF(ZERO2)
         CPU_MHZ=${CPU_MHZ}
         ZERO2=1
 
-        # PS2 keyboard
-        KBD_CLOCK_PIN=2
-        KBD_DATA_PIN=3
+        DEBUG=0
+        # stdio UART0 TX/RX on GP20/GP21 (Debug Probe)
+        # PICO_DEFAULT_UART=1
+        # PICO_DEFAULT_UART_TX_PIN=20
+        # PICO_DEFAULT_UART_RX_PIN=21
+
+        # PS2 keyboard (moved from GPIO 2/3 for PCM5122 I2C)
+        KBD_CLOCK_PIN=14
+        KBD_DATA_PIN=15
 
         LOAD_WAV_PIO=17
+
+        # PCM5122 Audio Board (I2S)
+        PCM5122_I2S_DATA=21
+        PCM5122_I2S_BCK=18
+        PCM5122_I2S_LCK=19
+        # PCM5122 Audio Board (I2C control)
+        PCM5122_I2C_SDA=2
+        PCM5122_I2C_SCL=3
 
         CLK_AY_PIN1=8 # not in use
         LATCH_595_PIN=10
@@ -547,9 +570,9 @@ ELSEIF(ZERO2)
         DATA_595_PIN=12
         CLK_AY_PIN2=7
 
-        I2S_DATA_PIO=10 #
-        I2S_BCK_PIO=11 #
-        I2S_LCK_PIO=12
+        I2S_DATA_PIO=10 # DIN
+        I2S_BCK_PIO=11 # BCK
+        I2S_LCK_PIO=12 # LRCK
 
         PWM_PIN0=10
         PWM_PIN1=11
@@ -563,22 +586,22 @@ ELSEIF(ZERO2)
         SDCARD_PIN_SPI0_MISO=40
         SDCARD_PIN_SPI0_CS=43
 
-     #   PSRAM
+        # PSRAM
         # PSRAM_MUTEX=1
         PSRAM_SPINLOCK=0
         PSRAM_ASYNC=1
 
-        PSRAM_PIN_CS=2
-        PSRAM_PIN_SCK=3
-        PSRAM_PIN_MOSI=4
-        PSRAM_PIN_MISO=5
+        PSRAM_PIN_CS=0
+        PSRAM_PIN_SCK=0
+        PSRAM_PIN_MOSI=0
+        PSRAM_PIN_MISO=0
 
         # NES Gamepad
-        USE_NESPAD
-        NES_GPIO_CLK=4
-        NES_GPIO_LAT=5
-        NES_GPIO_DATA=7
-        NES_GPIO_DATA2=8
+        # USE_NESPAD
+        # NES_GPIO_CLK=4
+        # NES_GPIO_LAT=5
+        # NES_GPIO_DATA=7
+        # NES_GPIO_DATA2=8
 
         # VGA 8 pins starts from pin:
         VGA_BASE_PIN=32
@@ -586,7 +609,7 @@ ELSEIF(ZERO2)
         # HDMI 8 pins starts from pin:
         HDMI_BASE_PIN=32
 
-#        PICO_DEFAULT_LED_PIN=25
+        PICO_DEFAULT_LED_PIN=25
         DEFAULT_THROTTLING=0
     )
 ELSE()

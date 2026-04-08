@@ -24,12 +24,37 @@ fi
 # All available targets
 ALL_TARGETS="MURM_P1 MURM_P2 MURM2 PICO_PC PICO_DV ZERO ZERO2"
 
+# Targets that support TFT+ILI9341 display variant
+TFT_TARGETS="MURM_P1 MURM_P2 MURM2"
+
+# Targets that support SOFTTV display variant
+SOFTTV_TARGETS="MURM_P1 MURM_P2 MURM2"
+
 # Parse arguments: pass target names to build specific ones, or nothing for all
 if [ $# -gt 0 ]; then
     TARGETS="$*"
 else
     TARGETS="$ALL_TARGETS"
 fi
+
+# Build list of (target, display) pairs
+# All targets get VGA_HDMI; MURM_P1/MURM_P2/MURM2 also get TFT+ILI9341 and SOFTTV
+BUILD_PAIRS=""
+for TARGET in $TARGETS; do
+    BUILD_PAIRS="$BUILD_PAIRS ${TARGET}:VGA_HDMI"
+    for TFT_T in $TFT_TARGETS; do
+        if [ "$TARGET" = "$TFT_T" ]; then
+            BUILD_PAIRS="$BUILD_PAIRS ${TARGET}:TFT_ILI9341"
+            break
+        fi
+    done
+    for STV_T in $SOFTTV_TARGETS; do
+        if [ "$TARGET" = "$STV_T" ]; then
+            BUILD_PAIRS="$BUILD_PAIRS ${TARGET}:SOFTTV"
+            break
+        fi
+    done
+done
 
 echo "=== pico-spec multi-target build ==="
 echo "Targets: $TARGETS"
@@ -44,8 +69,14 @@ OUTPUT_DIR="$SCRIPT_DIR/firmware"
 mkdir -p "$OUTPUT_DIR"
 
 # Clean build directories before building
-for TARGET in $TARGETS; do
-    BUILD_DIR="$SCRIPT_DIR/build-$TARGET"
+for PAIR in $BUILD_PAIRS; do
+    TARGET="${PAIR%%:*}"
+    DISPLAY="${PAIR##*:}"
+    if [ "$DISPLAY" = "VGA_HDMI" ]; then
+        BUILD_DIR="$SCRIPT_DIR/build-$TARGET"
+    else
+        BUILD_DIR="$SCRIPT_DIR/build-${TARGET}-${DISPLAY}"
+    fi
     if [ -d "$BUILD_DIR" ]; then
         echo "Cleaning $BUILD_DIR ..."
         rm -rf "$BUILD_DIR"
@@ -53,11 +84,19 @@ for TARGET in $TARGETS; do
 done
 echo ""
 
-for TARGET in $TARGETS; do
-    BUILD_DIR="$SCRIPT_DIR/build-$TARGET"
+for PAIR in $BUILD_PAIRS; do
+    TARGET="${PAIR%%:*}"
+    DISPLAY="${PAIR##*:}"
+    if [ "$DISPLAY" = "VGA_HDMI" ]; then
+        BUILD_DIR="$SCRIPT_DIR/build-$TARGET"
+        LABEL="$TARGET (VGA_HDMI)"
+    else
+        BUILD_DIR="$SCRIPT_DIR/build-${TARGET}-${DISPLAY}"
+        LABEL="$TARGET ($DISPLAY)"
+    fi
 
     echo "========================================"
-    echo " Building: $TARGET"
+    echo " Building: $LABEL"
     echo " Build dir: $BUILD_DIR"
     echo "========================================"
 
@@ -94,6 +133,13 @@ for TARGET in $TARGETS; do
         *)       TARGET_FLAGS=(-D"${TARGET}"=ON) ;;
     esac
 
+    # Display variant flags
+    if [ "$DISPLAY" = "TFT_ILI9341" ]; then
+        TARGET_FLAGS+=(-DTFT=ON -DILI9341=ON -DVGA_HDMI=OFF)
+    elif [ "$DISPLAY" = "SOFTTV" ]; then
+        TARGET_FLAGS+=(-DSOFTTV=ON -DVGA_HDMI=OFF)
+    fi
+
     CMAKE_ARGS=(
         -B "$BUILD_DIR" -S "$SCRIPT_DIR"
         -G "$CMAKE_GENERATOR"
@@ -106,13 +152,13 @@ for TARGET in $TARGETS; do
 
     if cmake "${CMAKE_ARGS[@]}" \
       && cmake --build "$BUILD_DIR" --parallel "$PARALLEL_JOBS"; then
-        SUCCEEDED="$SUCCEEDED $TARGET"
+        SUCCEEDED="$SUCCEEDED $PAIR"
         echo ""
-        echo "[OK] $TARGET build succeeded"
+        echo "[OK] $LABEL build succeeded"
     else
-        FAILED="$FAILED $TARGET"
+        FAILED="$FAILED $PAIR"
         echo ""
-        echo "[FAIL] $TARGET build failed"
+        echo "[FAIL] $LABEL build failed"
     fi
     echo ""
 done
@@ -123,8 +169,15 @@ echo "========================================"
 
 if [ -n "$SUCCEEDED" ]; then
     echo "Succeeded:$SUCCEEDED"
-    for TARGET in $SUCCEEDED; do
-        for FW in $(find "$SCRIPT_DIR/build-$TARGET" -name "*.uf2" 2>/dev/null); do
+    for PAIR in $SUCCEEDED; do
+        TARGET="${PAIR%%:*}"
+        DISPLAY="${PAIR##*:}"
+        if [ "$DISPLAY" = "VGA_HDMI" ]; then
+            BUILD_DIR="$SCRIPT_DIR/build-$TARGET"
+        else
+            BUILD_DIR="$SCRIPT_DIR/build-${TARGET}-${DISPLAY}"
+        fi
+        for FW in $(find "$BUILD_DIR" -name "*.uf2" 2>/dev/null); do
             cp "$FW" "$OUTPUT_DIR/"
             echo "  $(basename "$FW")"
         done

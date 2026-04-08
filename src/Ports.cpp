@@ -52,6 +52,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "OSDMain.h"
 
 #include "Midi.h"
+#include "Z80DMA.h"
 #if !PICO_RP2040
 #include "DivMMC.h"
 #include "hardware/gpio.h"
@@ -260,6 +261,16 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     if (Midi::enabled >= 2 && address == 0xA0CF) {
       return 0x00;
     }
+    // Timex SCLD port read (port 0x00FF) — skip when TR-DOS is active (port conflict)
+    if (Config::timex_video && !ESPectrum::trdos && address == 0x00FF) {
+      ioContentionLate(MemESP::ramContended[rambank]);
+      return VIDEO::timex_port_ff;
+    }
+    // Z80 DMA / zxnDMA port read: listen on both 0x0B and 0x6B
+    if (Config::dma_mode && ((address & 0xFF) == 0x0B || (address & 0xFF) == 0x6B)) {
+      ioContentionLate(MemESP::ramContended[rambank]);
+      return Z80DMA::readPort();
+    }
 #endif
     // The default port value is 0xFF.
     data = 0xff;
@@ -447,7 +458,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     }
     if (bitRead(address, 7) == 0 &&
         (address & 1) == 1) { // ALF ROM selector A7=0, A0=1
-      uint8_t *base = bitRead(data, 7) ? gb_rom_Alf_cart : gb_rom_Alf;
+      const uint8_t *base = bitRead(data, 7) ? gb_rom_Alf_cart : gb_rom_Alf;
       if (MemESP::ramCurrent[0] != base) { /// TODO: ensure
         int border_page = base == gb_rom_Alf ? 16 : 64;
         for (int i = 0; i < 64; ++i) {
@@ -581,6 +592,21 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     // 0xA1CF = data port: write 0xFF/0x3F for init, read status (bit 6 = receiver full)
     if (Midi::enabled >= 2 && address == 0xA0CF) {
       Midi::send(data);
+      return;
+    }
+    // Z80 DMA / zxnDMA port write: listen on both 0x0B and 0x6B
+    if (Config::dma_mode && (a8 == 0x0B || a8 == 0x6B)) {
+      Z80DMA::writePort(data);
+      ioContentionLate(MemESP::ramContended[rambank]);
+      return;
+    }
+    // Timex SCLD video mode register (port 0x00FF, bit 8 clear)
+    // Skip when TR-DOS is active — port 0xFF is the Beta-128 system register
+    if (Config::timex_video && !ESPectrum::trdos && a8 == 0xFF && !(address & 0x0100)) {
+      VIDEO::timex_port_ff = data & 0x3F;
+      VIDEO::timex_mode = data & 0x07;
+      VIDEO::timex_hires_ink = (data >> 3) & 0x07;
+      ioContentionLate(MemESP::ramContended[rambank]);
       return;
     }
     // SAA1099 Sound Chip
@@ -829,4 +855,46 @@ IRAM_ATTR void Ports::ioContentionLate(bool contend) {
   } else {
     VIDEO::Draw(3, false);
   }
+}
+
+// DMA I/O: no contention, only side effects (border, AY, beeper)
+IRAM_ATTR void Ports::dmaOutput(uint16_t address, uint8_t data) {
+    if ((address & 0x0001) == 0) {
+        // ULA port (0xFE): border + beeper
+        port254 = data;
+        if (VIDEO::borderColor != (data & 0x07)) {
+            VIDEO::brdChange = true;
+            VIDEO::DrawBorder();
+            VIDEO::borderColor = data & 0x07;
+#if !PICO_RP2040
+            if (VIDEO::ulaplus_enabled)
+                VIDEO::ulaPlusUpdateBorder();
+            else
+#endif
+                VIDEO::brd = VIDEO::border32[VIDEO::borderColor];
+        }
+        int Audiobit;
+        Audiobit = speaker_values[((data >> 2) & 0x04) | (Tape::tapeEarBit << 1) |
+                                    ((data >> 3) & 0x01)];
+        if (Audiobit != ESPectrum::lastaudioBit) {
+            ESPectrum::BeeperGetSample();
+            ESPectrum::lastaudioBit = Audiobit;
+        }
+    } else if ((ESPectrum::AY_emu) && ((address & 0x8002) == 0x8000)) {
+        // AY
+        if ((address & 0x4000) != 0) {
+            chips[AySound::selected_chip]->selectRegister(data);
+        } else {
+            chips[AySound::selected_chip]->setRegisterData(data);
+        }
+    }
+}
+
+IRAM_ATTR uint8_t Ports::dmaInput(uint16_t address) {
+    // DMA read from I/O: return port value without contention
+    if ((address & 0x0001) == 0) {
+        // ULA port: keyboard + ear
+        return 0xFF; // no keys pressed
+    }
+    return 0xFF;
 }

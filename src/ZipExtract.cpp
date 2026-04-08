@@ -67,7 +67,11 @@ struct ZipEntry {
     uint16_t compression;
 };
 
+#if PICO_RP2040
+#define ZIP_MAX_ENTRIES 8
+#else
 #define ZIP_MAX_ENTRIES 16
+#endif
 
 string ZipExtract::extract(const string& zipPath, uint8_t fileType) {
     FIL& zipFile = s_zipFile;
@@ -241,14 +245,14 @@ bool ZipExtract::extractDeflate(FIL* zipFile, uint32_t compressedSize) {
 
     uint32_t infile_remaining = compressedSize;
 
-    // Borrow Spectrum RAM page as inflate dictionary (same as inflateCSW)
-    uint32_t *speccyram = (uint32_t *)MemESP::ram[1].sync(6);
-    VIDEO::SaveRect.store_ram(speccyram, 0x8000);
-    MemESP::ram[1].cleanup();
-    MemESP::ram[3].cleanup();
+    // Borrow video RAM pages 5+7 as inflate dictionary (32KB contiguous).
+    // pages57 is a static 32KB array: ram[5]=pages57, ram[7]=pages57+16KB.
+    uint8_t *dict = MemESP::ram[5].direct();
+    VIDEO::SaveRect.store_ram(dict, TINFL_LZ_DICT_SIZE);
+    memset(dict, 0, TINFL_LZ_DICT_SIZE);
 
-    if (inflateInit2(&stream, -MZ_DEFAULT_WINDOW_BITS, MemESP::ram[1].sync(6))) {
-        VIDEO::SaveRect.restore_ram(speccyram, 0x8000);
+    if (inflateInit2(&stream, -MZ_DEFAULT_WINDOW_BITS, dict)) {
+        VIDEO::SaveRect.restore_ram(dict, TINFL_LZ_DICT_SIZE);
         f_close(&outFile);
         return false;
     }
@@ -293,7 +297,7 @@ bool ZipExtract::extractDeflate(FIL* zipFile, uint32_t compressedSize) {
 
     inflateEnd(&stream);
     f_close(&outFile);
-    VIDEO::SaveRect.restore_ram(speccyram, 0x8000);
+    VIDEO::SaveRect.restore_ram(dict, TINFL_LZ_DICT_SIZE);
 
     return success;
 }

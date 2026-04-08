@@ -1,10 +1,12 @@
 #include "graphics.h"
 #include <string.h>
 
+uint16_t graphics_max_tft_freq_mhz = 126;
+
 // PIO clock divider must be integer or half-integer (n/2) for clean TMDS pixel clock.
 // TMDS bit clock = pixel_clock * 10 = 252MHz for 25.2MHz pixel clock.
 // sys_clk=378MHz → div=1.5; sys_clk=252MHz → div=1.0
-#if CPU_MHZ <= 252 || PICO_RP2040
+#if CPU_MHZ <= 252
 #define PIO_DIV  1.0f
 #else
 #define PIO_DIV  1.5f
@@ -191,4 +193,10 @@ void draw_window(const char title[TEXTMODE_COLS + 1], uint32_t x, uint32_t y, ui
 struct video_mode_t graphics_get_video_mode(int mode)
 {
     return video_mode[mode];
+}
+
+void graphics_set_pio_clk_div(float div)
+{
+    for (int i = 0; i < sizeof(video_mode)/sizeof(video_mode[0]); i++)
+        video_mode[i].pio_clk_div = div;
 }

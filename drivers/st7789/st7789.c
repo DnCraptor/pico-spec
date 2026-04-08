@@ -18,6 +18,7 @@
 
 #include "st7789.pio.h"
 #include "hardware/dma.h"
+#include "hardware/clocks.h"
 
 #ifndef SCREEN_WIDTH
 #define SCREEN_WIDTH 320
@@ -27,8 +28,6 @@
 #define SCREEN_HEIGHT 240
 #endif
 
-// 126MHz SPI
-#define SERIAL_CLK_DIV 3.0f
 #define MADCTL_BGR_PIXEL_ORDER (1<<3)
 #define MADCTL_ROW_COLUMN_EXCHANGE (1<<5)
 #define MADCTL_COLUMN_ADDRESS_ORDER_SWAP (1<<6)
@@ -44,7 +43,7 @@ static uint sm = 0;
 static PIO pio = pio0;
 static uint st7789_chan;
 
-static uint16_t __scratch_x("tft_palette") palette[64];
+static uint16_t __scratch_x("tft_palette") palette[256];
 
 static uint graphics_buffer_width = 0;
 static uint graphics_buffer_height = 0;
@@ -137,34 +136,45 @@ void create_dma_channel() {
 //RRRRR GGGGGG BBBBB
 ///#define RGB888(c) ((R(c) << 14) | (G(c) << 9) | B(c) << 3)
 
-//RRRR RGGG GGGB BBBB
+#ifdef ILI9341
+// ILI9341: RGB565 — RRRRR GGGGGG BBBBB
 #define RGB888(r, g, b) ((((r) >> 3) << 11) | (((g) >> 2) << 5) | ((b) >> 3))
+#else
+// ST7789 with MADCTL_BGR: BGR565 — BBBBB GGGGGG RRRRR
+#define RGB888(r, g, b) ((((b) >> 3) << 11) | (((g) >> 2) << 5) | ((r) >> 3))
+#endif
 
+// Order matches Video.h palette indices:
+// 0=BLACK, 1=BLUE, 2=RED, 3=MAGENTA, 4=GREEN, 5=CYAN, 6=YELLOW, 7=WHITE
+// 8=BRI_BLACK, 9=BRI_BLUE, 10=BRI_RED, 11=BRI_MAGENTA, 12=BRI_GREEN, 13=BRI_CYAN, 14=BRI_YELLOW, 15=BRI_WHITE, 16=ORANGE
 static const uint16_t textmode_palette_tft[17] = {
-    //R, G, B
-    RGB888(0x00, 0x00, 0x00), //black
-    RGB888(0x00, 0x00, 0xC4), //blue
-    RGB888(0x00, 0xC4, 0x00), //green
-    RGB888(0x00, 0xC4, 0xC4), //cyan
-    RGB888(0xC4, 0x00, 0x00), //red
-    RGB888(0xC4, 0x00, 0xC4), //magenta
-    RGB888(0xC4, 0x7E, 0x00), //brown
-    RGB888(0xC4, 0xC4, 0xC4), //light gray
-    RGB888(0xC4, 0xC4, 0x00), //yellow
-    RGB888(0x4E, 0x4E, 0xDC), //light blue
-    RGB888(0x4E, 0xDC, 0x4E), //light green
-    RGB888(0x4E, 0xF3, 0xF3), //light cyan
-    RGB888(0xDC, 0x4E, 0x4E), //light red
-    RGB888(0xF3, 0x4E, 0xF3), //light magenta
-    RGB888(0xF3, 0xF3, 0x4E), //light yellow
-    RGB888(0xFF, 0xFF, 0xFF), //white
-    RGB888(0xFF, 0x7E, 0x00) //orange
+    RGB888(0x00, 0x00, 0x00), // 0  BLACK
+    RGB888(0x00, 0x00, 0xC4), // 1  BLUE
+    RGB888(0xC4, 0x00, 0x00), // 2  RED
+    RGB888(0xC4, 0x00, 0xC4), // 3  MAGENTA
+    RGB888(0x00, 0xC4, 0x00), // 4  GREEN
+    RGB888(0x00, 0xC4, 0xC4), // 5  CYAN
+    RGB888(0xC4, 0xC4, 0x00), // 6  YELLOW
+    RGB888(0xC4, 0xC4, 0xC4), // 7  WHITE (light gray)
+    RGB888(0x00, 0x00, 0x00), // 8  BRI_BLACK (same as black)
+    RGB888(0x00, 0x00, 0xFF), // 9  BRI_BLUE
+    RGB888(0xFF, 0x00, 0x00), // 10 BRI_RED
+    RGB888(0xFF, 0x00, 0xFF), // 11 BRI_MAGENTA
+    RGB888(0x00, 0xFF, 0x00), // 12 BRI_GREEN
+    RGB888(0x00, 0xFF, 0xFF), // 13 BRI_CYAN
+    RGB888(0xFF, 0xFF, 0x00), // 14 BRI_YELLOW
+    RGB888(0xFF, 0xFF, 0xFF), // 15 BRI_WHITE
+    RGB888(0xFF, 0x7E, 0x00), // 16 ORANGE
 };
 
 void graphics_init() {
     const uint offset = pio_add_program(pio, &st7789_lcd_program);
     sm = pio_claim_unused_sm(pio, true);
-    st7789_lcd_program_init(pio, sm, offset, TFT_DATA_PIN, TFT_CLK_PIN, SERIAL_CLK_DIV);
+    uint32_t sys_hz = clock_get_hz(clk_sys);
+    uint32_t max_hz = graphics_max_tft_freq_mhz * 1000000u;
+    float clk_div = ((float)(sys_hz) / max_hz);
+    if (clk_div < 1.0f) clk_div = 1.0f;
+    st7789_lcd_program_init(pio, sm, offset, TFT_DATA_PIN, TFT_CLK_PIN, clk_div);
 
     gpio_init(TFT_CS_PIN);
     gpio_init(TFT_DC_PIN);
@@ -243,75 +253,9 @@ void graphics_init() {
     lcd_init(init_seq);
     gpio_put(TFT_LED_PIN, 1);
 
-    for (uint8_t c = 0; c <= 0b00111111; ++c) {
-        size_t idx = 0;
-        switch (c)
-        {
-        case 0b000000: idx = 0; break; // black
-
-        case 0b000001: idx = 4; break; // red
-        case 0b000010: idx = 4; break;
-
-        case 0b000011: idx = 12; break; // light red
-        case 0b010011: idx = 12; break;
-
-        case 0b000100: idx = 2; break; // green
-        case 0b001000: idx = 2; break;
-        case 0b001001: idx = 2; break;
-
-        case 0b001100: idx = 10; break; // light green
-
-        case 0b010000: idx = 1; break; // blue
-        case 0b100000: idx = 1; break;
-
-        case 0b110000: idx = 9; break; // light blue
-
-        case 0b000101: idx = 8; break; // yellow
-        case 0b000110: idx = 8; break;
-        case 0b001010: idx = 8; break;
-        case 0b001011: idx = 8; break;
-        case 0b001110: idx = 8; break;
-
-        case 0b001111: idx = 14; break; // light tellow
-
-        case 0b010001: idx = 5; break; // magenta
-        case 0b010010: idx = 5; break;
-        case 0b100001: idx = 5; break;
-        case 0b100010: idx = 5; break;
-        case 0b110010: idx = 5; break;
-        case 0b100011: idx = 5; break;
-
-        case 0b110011: idx = 13; break; // light magenta
-
-        case 0b010100: idx = 3; break; // cyan
-        case 0b100100: idx = 3; break;
-        case 0b011000: idx = 3; break;
-        case 0b101000: idx = 3; break;
-        case 0b111000: idx = 3; break;
-        case 0b101100: idx = 3; break;
-
-        case 0b111100: idx = 11; break; // light cyan
-
-        case 0b010101: idx = 7; break; // gray
-        case 0b010110: idx = 7; break;
-        case 0b100101: idx = 7; break;
-        case 0b100110: idx = 7; break;
-        case 0b010111: idx = 7; break;
-        case 0b011001: idx = 7; break;
-        case 0b011111: idx = 7; break;
-        case 0b111001: idx = 7; break;
-        case 0b111010: idx = 7; break;
-        case 0b101001: idx = 7; break;
-        case 0b101010: idx = 7; break;
-
-        case 0b111111: idx = 15; break; // white
-
-        case 0b000111: idx = 16; break; // orange
-
-        default: idx = 15; break;
-        }
-        palette[c] = textmode_palette_tft[idx];
-    }
+    // Initialize palette — will be overwritten by Video::applyPalette() at startup
+    for (int i = 0; i < 17; i++)
+        palette[i] = textmode_palette_tft[i];
     clrScr(0);
 
     create_dma_channel();
@@ -334,6 +278,18 @@ void graphics_set_buffer(uint8_t* buffer, const uint16_t width, const uint16_t h
 void graphics_set_offset(const int x, const int y) {
     graphics_buffer_shift_x = x;
     graphics_buffer_shift_y = y;
+}
+
+void graphics_set_palette(uint8_t i, uint32_t color888) {
+    if (i >= 240) return;
+    uint8_t r = (color888 >> 16) & 0xFF;
+    uint8_t g = (color888 >> 8) & 0xFF;
+    uint8_t b = color888 & 0xFF;
+    palette[i] = RGB888(r, g, b);
+}
+
+void vga_set_palette_entry_solid(uint8_t i, uint32_t color888) {
+    // TFT has 16-bit color, no dithering needed
 }
 
 void clrScr(const uint8_t color) {
@@ -363,15 +319,27 @@ void __inline __scratch_x("refresh_lcd") refresh_lcd() {
     ESPectrum_vsync();
     switch (graphics_mode) {
         case GRAPHICSMODE_DEFAULT: {
+            const size_t half = graphics_buffer_height / 2;
             lcd_set_window(graphics_buffer_shift_x, graphics_buffer_shift_y, graphics_buffer_width,
                            graphics_buffer_height);
             start_pixels();
-            for (register size_t y = 0; y < graphics_buffer_height; ++y) {
+            for (register size_t y = 0; y < half; ++y) {
                 register uint8_t* bitmap = getLineBuffer(y);
                 if (!bitmap) continue;
                 for (register size_t x = 0; x < graphics_buffer_width; ++x) {
                     register uint8_t c = bitmap[x ^ 2];
-                    st7789_lcd_put_pixel(pio, sm, palette[c & 0b111111]);
+                    st7789_lcd_put_pixel(pio, sm, palette[c]);
+                }
+            }
+            stop_pixels();
+            ESPectrum_vsync();
+            start_pixels();
+            for (register size_t y = half; y < graphics_buffer_height; ++y) {
+                register uint8_t* bitmap = getLineBuffer(y);
+                if (!bitmap) continue;
+                for (register size_t x = 0; x < graphics_buffer_width; ++x) {
+                    register uint8_t c = bitmap[x ^ 2];
+                    st7789_lcd_put_pixel(pio, sm, palette[c]);
                 }
             }
             stop_pixels();

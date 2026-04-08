@@ -127,7 +127,18 @@ uint8_t Tape::GDBsymbol;
 uint8_t Tape::nb;
 uint8_t Tape::curBit;
 bool Tape::GDBEnd = false;
-Symdef* Tape::SymDefTable;
+Symdef* Tape::SymDefTable = nullptr;
+uint16_t Tape::SymDefTableSize = 0;
+
+void Tape::FreeSymDefTable() {
+    if (SymDefTable) {
+        for (int i = 0; i < SymDefTableSize; i++)
+            delete[] SymDefTable[i].PulseLenghts;
+        delete[] SymDefTable;
+        SymDefTable = nullptr;
+        SymDefTableSize = 0;
+    }
+}
 
 #define my_max(a,b) (((a) > (b)) ? (a) : (b))
 #define my_min(a,b) (((a) < (b)) ? (a) : (b))
@@ -165,13 +176,12 @@ int Tape::inflateCSW(int blocknumber, long startPos, long data_length) {
     // Decompression.
     uint infile_remaining = data_length;
 
-    uint32_t *speccyram = (uint32_t *)MemESP::ram[1].sync(6);
+    // Borrow video RAM pages 5+7 as inflate dictionary (32KB contiguous).
+    uint8_t *dict = MemESP::ram[5].direct();
+    VIDEO::SaveRect.store_ram(dict, TINFL_LZ_DICT_SIZE);
+    memset(dict, 0, TINFL_LZ_DICT_SIZE);
 
-    VIDEO::SaveRect.store_ram(speccyram, 0x8000);
-    MemESP::ram[1].cleanup();
-    MemESP::ram[3].cleanup();
-    
-    if (inflateInit(&stream, MemESP::ram[1].sync(6))) {
+    if (inflateInit(&stream, dict)) {
         printf("inflateInit() failed!\n");
         return EXIT_FAILURE;
     }
@@ -230,7 +240,7 @@ int Tape::inflateCSW(int blocknumber, long startPos, long data_length) {
     // printf("Total output bytes: %u\n", (mz_uint32)stream.total_out);
     // printf("Success.\n");
 
-    VIDEO::SaveRect.restore_ram(speccyram, 0x8000);
+    VIDEO::SaveRect.restore_ram(dict, TINFL_LZ_DICT_SIZE);
 
     return EXIT_SUCCESS;
 
@@ -671,6 +681,7 @@ void Tape::MP3_Open(string name) {
             free_ptr fp = { p , 0 };
             free_ptrs.push_back(fp);
         }
+        revoke_ram_4_mp3 = true;
     }
     working = (uint8_t*) malloc2(WORKING_SIZE);
     d_buff = (int16_t*) malloc2(RAM_BUFFER_LENGTH * 2);
@@ -1253,9 +1264,7 @@ IRAM_ATTR void Tape::Read() {
                             // End of PRLE
 
                             // Free SymDefTable
-                            for (int i = 0; i < asp; i++)
-                                delete[] SymDefTable[i].PulseLenghts;
-                            delete[] SymDefTable;
+                            FreeSymDefTable();
 
                             // End of pilotsync. Is there data stream ?
                             if (totd > 0) {
@@ -1264,6 +1273,7 @@ IRAM_ATTR void Tape::Read() {
 
                                 // Allocate memory for the array of pointers to struct Symdef
                                 SymDefTable = new Symdef[asd];
+                                SymDefTableSize = asd;
 
                                 // Allocate memory for each row
                                 for (int i = 0; i < asd; i++) {
@@ -1437,9 +1447,7 @@ IRAM_ATTR void Tape::Read() {
                         // printf("END DATA GDB -> tapeCurByte: %d, Tape pos: %d, Tapebbc: %d, TapeBlockLen: %d\n", tapeCurByte,(int)(ftell(tape)),tapebufByteCount, tapeBlockLen);
                         
                         // Free SymDefTable
-                        for (int i = 0; i < asd; i++)
-                            delete[] SymDefTable[i].PulseLenghts;
-                        delete[] SymDefTable;
+                        FreeSymDefTable();
 
                         if (tapeBlkPauseLen == 0) {
                             if (tapeCurByte == 0x13) tapeEarBit ^= 1; // This is needed for Basil, maybe for others (next block == Pulse sequence)
@@ -2556,12 +2564,18 @@ bool Tape::TapePortRead() {
                     tapeAutoPlay = true;
                     Play();
                     Read();
-                } else if (tapeCurBlock > 0 && (pc >= 0x4000 || (pc >= 0x05E3 && pc <= 0x05F5))) {
-                    // Generic auto-start for other custom loaders.
-                    // Skip when tapeCurBlock==0: tape finished (all blocks loaded).
-                    // Skip when pc < 0x4000: ROM/BASIC keyboard scan — not a loader.
-                    // Exception: ROM LD-EDGE area (0x05E3-0x05F5) — custom loaders
-                    // like Hollywood Poker call CALL 0x05E7 for edge detection.
+                } else if (tapeCurBlock > 0 && (pc >= 0x05E3 && pc <= 0x05F5)) {
+                    // ROM LD-EDGE area — custom loaders call CALL 0x05E7
+                    // for edge detection (e.g. Hollywood Poker).
+                    tapeAutoPlay = true;
+                    Play();
+                    Read();
+                } else if (tapeCurBlock > 0 && pc >= 0x4000 &&
+                           MemESP::readbyte(pc - 2) == 0xDB) {
+                    // Generic auto-start for RAM-based custom tape loaders.
+                    // Only trigger for IN A,(n) opcode (0xDB) — real tape loaders.
+                    // Skip IN r,(C) (0xED prefix) which is used by keyboard scans
+                    // and general port reads, not tape loading.
                     tapeAutoPlay = true;
                     Play();
                     Read();

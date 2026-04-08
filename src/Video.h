@@ -242,17 +242,34 @@ public:
   static bool gigascreen_enabled;
   static uint8_t gigascreen_auto_countdown;
 
+  // Timex SCLD video modes
+#if !PICO_RP2040
+  static uint8_t timex_port_ff;   // bits 0-5 of port 0xFF
+  static uint8_t timex_mode;      // cached (timex_port_ff & 7)
+  static uint8_t timex_hires_ink; // mode 6: ink palette index (0-7)
+#endif
+
   // ULA+
 #if !PICO_RP2040
   static bool ulaplus_enabled;
   static uint8_t ulaplus_reg;
   static uint8_t ulaplus_palette[64];
+  static bool ulaplus_palette_dirty;  // deferred palette flush for HDMI sync
   static unsigned int AluBytesUlaPlus[16][256];
   static void regenerateUlaPlusAluBytes();
   static void ulaPlusUpdatePaletteEntry(uint8_t entry);
+  static void ulaPlusFlushPalette();   // apply pending palette to hardware
   static void ulaPlusUpdateBorder();
   static void ulaPlusDisable();
 #endif
+
+  // Palette transform (Default, Grayscale, etc.)
+  static void applyPalette();
+
+  // Custom palettes loaded from /palette.nvs
+  static void loadCustomPalettes();
+  static uint8_t paletteCount();           // built-in + custom
+  static const char* paletteName(uint8_t idx); // name for menu display
 };
 
 #define zxColor(color,bright) VIDEO::spectrum_colors[bright ? color + 8 : color]

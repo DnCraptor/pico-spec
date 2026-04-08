@@ -259,7 +259,7 @@ void MidiSynth::noteOn(uint8_t ch, uint8_t note, uint8_t vel) {
     voice.decay_rate = p.decay_rate;
     voice.release_rate = p.release_rate;
     voice.filter_k = p.filter_k;
-    voice.filter_z = 0;
+    voice.filter_z = 128;
 
     if (voice.wave == WAVE_NOISE) {
         voice.noise_lfsr = 0x7FFFF;
@@ -366,7 +366,7 @@ void __not_in_flash("midi") MidiSynth::gen_sound(uint8_t *buf_L, uint8_t *buf_R,
                 phase_inc = (uint32_t)((int32_t)phase_inc + vib);
             }
 
-            // Waveform generation (Q24 phase, top 8 bits for shape)
+            // Waveform generation — signed -128..+127
             uint8_t phase_hi = (vc.phase >> 16) & 0xFF;
             int32_t sample;
 
@@ -395,18 +395,22 @@ void __not_in_flash("midi") MidiSynth::gen_sound(uint8_t *buf_L, uint8_t *buf_R,
                 }
             }
 
-            // 1-pole low-pass filter
+            // Shift to unsigned 0..255 for unipolar mixing (like AY/SAA)
+            int32_t usample = sample + 128;
+
+            // 1-pole low-pass filter (unsigned domain 0..255)
             if (vc.filter_k > 0) {
-                int16_t diff = (int16_t)sample - vc.filter_z;
+                int16_t diff = (int16_t)usample - vc.filter_z;
                 uint8_t alpha = 255 - vc.filter_k;
                 if (alpha < 8) alpha = 8;
                 vc.filter_z += (diff * alpha) >> 8;
-                sample = vc.filter_z;
+                usample = vc.filter_z;
             }
 
             // Amplitude: velocity * envelope * channel_volume
+            // usample 0..255, amp 0..~125 → voiced 0..~996
             int32_t amp = ((uint32_t)vc.velocity * vc.env * channel_volume[vc.channel]) >> 17;
-            int32_t voiced = (sample * amp) >> 5;
+            int32_t voiced = (usample * amp) >> 5;
 
             // Stereo pan
             uint8_t pan = channel_pan[vc.channel];
@@ -418,17 +422,11 @@ void __not_in_flash("midi") MidiSynth::gen_sound(uint8_t *buf_L, uint8_t *buf_R,
             vc.phase = (vc.phase + phase_inc) & 0xFFFFFF;
         }
 
-        // Soft clip to preserve dynamics
-        if (mix_L > 120) mix_L = 120 + ((mix_L - 120) >> 2);
-        else if (mix_L < -120) mix_L = -120 + ((mix_L + 120) >> 2);
-        if (mix_R > 120) mix_R = 120 + ((mix_R - 120) >> 2);
-        else if (mix_R < -120) mix_R = -120 + ((mix_R + 120) >> 2);
-
-        // Center at 128 for unsigned 8-bit output
-        mix_L += 128;
-        mix_R += 128;
-        if (mix_L < 0) mix_L = 0; else if (mix_L > 255) mix_L = 255;
-        if (mix_R < 0) mix_R = 0; else if (mix_R > 255) mix_R = 255;
+        // Soft clip to unsigned 0..255 (silence = 0)
+        if (mix_L > 240) mix_L = 240 + ((mix_L - 240) >> 2);
+        if (mix_R > 240) mix_R = 240 + ((mix_R - 240) >> 2);
+        if (mix_L > 255) mix_L = 255;
+        if (mix_R > 255) mix_R = 255;
 
         buf_L[i] = (uint8_t)mix_L;
         buf_R[i] = (uint8_t)mix_R;

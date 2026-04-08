@@ -13,6 +13,8 @@
 #include <hardware/flash.h>
 #include <hardware/clocks.h>
 
+#include <hardware/pll.h>
+
 #ifdef PICO_RP2350
 #include <hardware/regs/qmi.h>
 #include <hardware/structs/qmi.h>
@@ -824,11 +826,19 @@ void repeat_me_for_input() {
 
 #ifdef VGA_HDMI
 extern "C" void hdmi_poll_reinit(void);
+extern "C" void vga_reinit(void);
 #endif
 
 void __scratch_x("render") render_core() {
     multicore_lockout_victim_init();
     graphics_init();
+#ifdef VGA_HDMI
+    // graphics_init() hardcodes line_VS_begin/end for 640x480 (490/491).
+    // For 720x modes video_mode is already set by VIDEO::Reset() on core0,
+    // so update vsync line numbers from the mode table now.
+    extern bool SELECT_VGA;
+    if (SELECT_VGA) vga_reinit();
+#endif
     graphics_set_buffer(NULL, get_framebuffer_width(), get_framebuffer_height());
     graphics_set_bgcolor(0x000000);
     graphics_set_flashmode(true, false);
@@ -883,6 +893,24 @@ uint8_t psram_pin;
 #define MB1 (1ul << 20)
 uint8_t* PSRAM_DATA = (uint8_t*)0x11000000;
 static int BUTTER_PSRAM_SIZE = -1;
+
+static void __not_in_flash_func(psram_retiming)() {
+    const int max_psram_freq = Config::max_psram_freq * MHZ;
+    const int clock_hz = clock_get_hz(clk_sys);
+    int divisor = (clock_hz + max_psram_freq - 1) / max_psram_freq;
+    if (divisor == 1 && clock_hz > 100000000) divisor = 2;
+    int rxdelay = divisor;
+    if (clock_hz / divisor > 100000000) rxdelay += 1;
+    const int clock_period_fs = 1000000000000000ll / clock_hz;
+    const int max_select = (125 * 1000000) / clock_period_fs;
+    const int min_deselect = (18 * 1000000 + (clock_period_fs - 1)) / clock_period_fs - (divisor + 1) / 2;
+    qmi_hw->m[1].timing = 1 << QMI_M1_TIMING_COOLDOWN_LSB |
+                          QMI_M1_TIMING_PAGEBREAK_VALUE_1024 << QMI_M1_TIMING_PAGEBREAK_LSB |
+                          max_select << QMI_M1_TIMING_MAX_SELECT_LSB |
+                          min_deselect << QMI_M1_TIMING_MIN_DESELECT_LSB |
+                          rxdelay << QMI_M1_TIMING_RXDELAY_LSB |
+                          divisor << QMI_M1_TIMING_CLKDIV_LSB;
+}
 uint32_t __not_in_flash_func(butter_psram_size)() {
     if (BUTTER_PSRAM_SIZE != -1) return BUTTER_PSRAM_SIZE;
     for(register int i = MB8; i < MB16; i += 4096)
@@ -918,34 +946,7 @@ void __no_inline_not_in_flash_func(psram_init)(uint cs_pin) {
     while (qmi_hw->direct_csr & QMI_DIRECT_CSR_BUSY_BITS)
         ;
 
-    // Set PSRAM timing for APS6404
-    //
-    // Using an rxdelay equal to the divisor isn't enough when running the APS6404 close to 133MHz.
-    // So: don't allow running at divisor 1 above 100MHz (because delay of 2 would be too late),
-    // and add an extra 1 to the rxdelay if the divided clock is > 100MHz (i.e. sys clock > 200MHz).
-    const int max_psram_freq = 166000000;
-    const int clock_hz = clock_get_hz(clk_sys);
-    int divisor = (clock_hz + max_psram_freq - 1) / max_psram_freq;
-    if (divisor == 1 && clock_hz > 100000000) {
-        divisor = 2;
-    }
-    int rxdelay = divisor;
-    if (clock_hz / divisor > 100000000) {
-        rxdelay += 1;
-    }
-
-    // - Max select must be <= 8us.  The value is given in multiples of 64 system clocks.
-    // - Min deselect must be >= 18ns.  The value is given in system clock cycles - ceil(divisor / 2).
-    const int clock_period_fs = 1000000000000000ll / clock_hz;
-    const int max_select = (125 * 1000000) / clock_period_fs;  // 125 = 8000ns / 64
-    const int min_deselect = (18 * 1000000 + (clock_period_fs - 1)) / clock_period_fs - (divisor + 1) / 2;
-
-    qmi_hw->m[1].timing = 1 << QMI_M1_TIMING_COOLDOWN_LSB |
-                          QMI_M1_TIMING_PAGEBREAK_VALUE_1024 << QMI_M1_TIMING_PAGEBREAK_LSB |
-                          max_select << QMI_M1_TIMING_MAX_SELECT_LSB |
-                          min_deselect << QMI_M1_TIMING_MIN_DESELECT_LSB |
-                          rxdelay << QMI_M1_TIMING_RXDELAY_LSB |
-                          divisor << QMI_M1_TIMING_CLKDIV_LSB;
+    psram_retiming();
 
     // Set PSRAM commands and formats
     qmi_hw->m[1].rfmt =
@@ -998,9 +999,9 @@ void __attribute__((naked, noreturn)) __printflike(1, 0) dummy_panic(__unused co
 }
 
 #ifndef PICO_RP2040
-void __not_in_flash() flash_timings() {
-        const int max_flash_freq = 66 * MHZ;
-        const int clock_hz = CPU_MHZ * MHZ;
+void __not_in_flash() flash_timings(int mhz) {
+        const int max_flash_freq = Config::max_flash_freq * MHZ;
+        const int clock_hz = mhz * MHZ;
         int divisor = (clock_hz + max_flash_freq - 1) / max_flash_freq;
         if (divisor == 1 && clock_hz > 100000000) {
             divisor = 2;
@@ -1022,6 +1023,53 @@ static void __not_in_flash_func(flash_info)() {
     }
 }
 
+// Try to switch sys clock with PLL lock timeout.
+// Returns true if PLL locked and clock switched; false if PLL did not lock
+// (system remains on previous clock).
+static bool __not_in_flash_func(try_set_sys_clock_khz)(uint32_t freq_khz) {
+    uint vco, postdiv1, postdiv2;
+    if (!check_sys_clock_khz(freq_khz, &vco, &postdiv1, &postdiv2))
+        return false;
+
+    // Switch clk_sys to USB PLL (48 MHz) while we reconfigure sys PLL
+    clock_configure_undivided(clk_sys,
+        CLOCKS_CLK_SYS_CTRL_SRC_VALUE_CLKSRC_CLK_SYS_AUX,
+        CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_CLKSRC_PLL_USB,
+        USB_CLK_HZ);
+
+    // Reset and configure sys PLL
+    uint32_t ref_freq = XOSC_HZ / PLL_SYS_REFDIV;
+    uint32_t fbdiv = vco / ref_freq;
+    reset_unreset_block_num_wait_blocking(RESET_PLL_SYS);
+    pll_sys_hw->cs = PLL_SYS_REFDIV;
+    pll_sys_hw->fbdiv_int = fbdiv;
+    hw_clear_bits(&pll_sys_hw->pwr, PLL_PWR_PD_BITS | PLL_PWR_VCOPD_BITS);
+
+    // Wait for PLL lock with timeout (~50ms at 48MHz USB clock)
+    for (int i = 0; i < 500000; i++) {
+        if (pll_sys_hw->cs & PLL_CS_LOCK_BITS) {
+            // PLL locked — enable post dividers
+            pll_sys_hw->prim = (postdiv1 << PLL_PRIM_POSTDIV1_LSB) |
+                               (postdiv2 << PLL_PRIM_POSTDIV2_LSB);
+            hw_clear_bits(&pll_sys_hw->pwr, PLL_PWR_POSTDIVPD_BITS);
+
+            uint32_t freq = vco / (postdiv1 * postdiv2);
+
+            // Switch clk_sys back to sys PLL
+            clock_configure_undivided(clk_sys,
+                CLOCKS_CLK_SYS_CTRL_SRC_VALUE_CLKSRC_CLK_SYS_AUX,
+                CLOCKS_CLK_SYS_CTRL_AUXSRC_VALUE_CLKSRC_PLL_SYS,
+                freq);
+            return true;
+        }
+        tight_loop_contents();
+    }
+
+    // PLL did not lock — restore sys PLL to power-down, switch back to USB PLL
+    hw_set_bits(&pll_sys_hw->pwr, PLL_PWR_PD_BITS | PLL_PWR_VCOPD_BITS | PLL_PWR_POSTDIVPD_BITS);
+    return false;
+}
+
 #ifdef VGA_HDMI
 extern "C" uint8_t linkVGA01;
 #endif
@@ -1030,29 +1078,11 @@ extern "C" int testPins(uint32_t pin0, uint32_t pin1);
 int main() {
     flash_info();
 #ifdef PICO_RP2040
-    hw_set_bits(&vreg_and_chip_reset_hw->vreg, VREG_AND_CHIP_RESET_VREG_VSEL_BITS);
+    vreg_set_voltage(VREG_VOLTAGE_MAX); // 1.30V — max for RP2040
     sleep_ms(10);
-    set_sys_clock_khz(CPU_MHZ * KHZ, true);
-    // #define QMI_COOLDOWN 30     // 0xc0000000 [31:30] COOLDOWN     (0x1) Chip select cooldown period
-    // #define QMI_PAGEBREAK 28    // 0x30000000 [29:28] PAGEBREAK    (0x0) When page break is enabled, chip select will...
-    // #define QMI_SELECT_SETUP 25 // 0x02000000 [25]    SELECT_SETUP (0) Add up to one additional system clock cycle of setup...
-    // #define QMI_SELECT_HOLD 23  // 0x01800000 [24:23] SELECT_HOLD  (0x0) Add up to three additional system clock cycles of active...
-    // #define QMI_MAX_SELECT 17   // 0x007e0000 [22:17] MAX_SELECT   (0x00) Enforce a maximum assertion duration for this window's...
-    // #define QMI_MIN_DESELECT 12 // 0x0001f000 [16:12] MIN_DESELECT (0x00) After this window's chip select is deasserted, it...
-    // #define QMI_RXDELAY 8       // 0x00000700 [10:8]  RXDELAY      (0x0) Delay the read data sample timing, in units of one half...
-    // #define QMI_CLKDIV 0        // 0x000000ff [7:0]   CLKDIV       (0x04) Clock divisor
-    // qmi_hw->m[1].timing = (1 << QMI_COOLDOWN) | (2 << QMI_PAGEBREAK) | (3 << QMI_SELECT_HOLD) | (18 << QMI_MAX_SELECT) | (4 << QMI_MIN_DESELECT) | (6 << QMI_RXDELAY) | (6 << QMI_CLKDIV);
-
-    // uint clkdiv = 4;
-    // uint rxdelay = 4;
-    // hw_write_masked(
-    // &qmi_hw->m[0].timing,
-    //         ((clkdiv << QMI_M0_TIMING_CLKDIV_LSB) & QMI_M0_TIMING_CLKDIV_BITS) |
-    //         ((rxdelay << QMI_M0_TIMING_RXDELAY_LSB) & QMI_M0_TIMING_RXDELAY_BITS),
-    //         QMI_M0_TIMING_CLKDIV_BITS | QMI_M0_TIMING_RXDELAY_BITS
-    // );
-    // busy_wait_us(1000);
-    // set_sys_clock_khz(CPU_MHZ * KHZ, true);
+    if (!set_sys_clock_khz(CPU_MHZ * KHZ, false)) {
+        set_sys_clock_khz(252 * KHZ, true); // fallback to 252MHz
+    }
 
 #else
     #if 0
@@ -1062,7 +1092,7 @@ int main() {
     #else
         vreg_disable_voltage_limit();
         vreg_set_voltage(VREG_VOLTAGE_1_60);
-        flash_timings();
+        flash_timings(CPU_MHZ);
         sleep_ms(100);
 
         if (!set_sys_clock_khz(CPU_MHZ * KHZ, 0)) {
@@ -1070,6 +1100,10 @@ int main() {
             set_sys_clock_khz(CPU_MHZ * KHZ, 1); // fallback to failsafe clocks
         }
     #endif
+#endif
+
+#if PICO_DEFAULT_UART
+    stdio_init_all();
 #endif
 
 #ifdef KBDUSB
@@ -1171,6 +1205,37 @@ int main() {
 //         }
 //     }
 // #endif
+
+    // Apply saved CPU frequency and flash/PSRAM timing from Config
+    {
+#if !PICO_RP2040
+        // Apply saved vreg voltage (vreg_disable_voltage_limit already called at boot)
+        vreg_set_voltage((enum vreg_voltage)Config::vreq_voltage);
+        sleep_ms(10);
+#endif
+        uint16_t running_mhz = clock_get_hz(clk_sys) / 1000000;
+        if (Config::cpu_mhz != running_mhz) {
+            if (try_set_sys_clock_khz(Config::cpu_mhz * KHZ)) {
+#ifdef VGA_HDMI
+                graphics_set_pio_clk_div((float)Config::cpu_mhz / 252.0f);
+#endif
+                // Reinit audio: I2S PIO divider was calculated for old sys_clk
+                pcm_setup(ESPectrum::Audio_freq);
+            } else {
+                // PLL did not lock — restore original PLL
+                set_sys_clock_khz(running_mhz * KHZ, true);
+                //Config::cpu_mhz = running_mhz;
+                //Config::save();
+            }
+        }
+        // Always re-apply flash/PSRAM timing with Config values
+#ifndef PICO_RP2040
+        flash_timings(Config::cpu_mhz);
+#endif
+#if PICO_RP2350 && defined(BUTTER_PSRAM_GPIO)
+        psram_retiming();
+#endif
+    }
 
     sem_init(&vga_start_semaphore, 0, 1);
     multicore_launch_core1(render_core);

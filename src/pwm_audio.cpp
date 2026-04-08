@@ -9,8 +9,11 @@
 #include "Debug.h"
 #include "LoadWavStream.h"
 #include "PinSerialData_595.h"
-#if !PICO_RP2040
+#if !PICO_RP2040 && defined(VGA_HDMI)
 #include "hdmi.h"
+#endif
+#ifdef PCM5122_I2S_DATA
+#include "pcm5122_init.h"
 #endif
 
 // connection is possible 00->00 (external pull down)
@@ -217,19 +220,18 @@ static int16_t buff_R[640] = { 0 };
 static repeating_timer_t m_timer = { 0 };
 static volatile size_t m_off = 0; // in 16-bit words
 static volatile size_t m_size = 0; // 16-bit values prepared (available)
-static volatile bool m_let_process_it = false;
 
-esp_err_t pwm_audio_write(
+esp_err_t __not_in_flash_func(pwm_audio_write)(
     uint8_t *bufL,
     uint8_t *bufR,
     size_t len,
     size_t* bytes_written,
     uint32_t wait_ms
 ) {
-    int16_t volume = vol;
+    uint32_t vol8 = (uint32_t)vol << 3;
     for (size_t i = 0; i < len; ++i) {
-        buff_L[i] = (((int16_t)bufL[i]) << 7) * volume / VOLUME_0DB;
-        buff_R[i] = (((int16_t)bufR[i]) << 7) * volume / VOLUME_0DB;
+        buff_L[i] = (int16_t)((uint32_t)bufL[i] * vol8);
+        buff_R[i] = (int16_t)((uint32_t)bufR[i] * vol8);
     }
     m_off = 0;
     m_size = len;
@@ -252,6 +254,10 @@ static i2s_config_t i2s_config = {
         .volume = 0,
         .program_offset = 0
 	};
+
+#ifdef PCM5122_I2S_DATA
+static bool pcm5122_detected = false;
+#endif
 
 static void PWM_init_pin(uint8_t pinN, uint16_t max_lvl) {
     pwm_config config = pwm_get_default_config();
@@ -276,11 +282,38 @@ static bool hw_get_bit_LOAD() {
 #endif
 
 void init_sound() {
-#if !PICO_RP2040
+#if !PICO_RP2040 && defined(VGA_HDMI)
     if (Config::audio_driver == 4) {
         Debug::log("init_sound: HDMI audio mode");
         hdmi_audio_init();
         return;
+    }
+#endif
+#ifdef PCM5122_I2S_DATA
+    if (Config::audio_driver == 5) {
+        Debug::log("init_sound: PCM5122 mode (explicit)");
+        pcm5122_detected = pcm5122_init(PCM5122_I2C_SDA, PCM5122_I2C_SCL);
+        Debug::log("init_sound: PCM5122 detected=%d", (int)pcm5122_detected);
+        i2s_config.data_pin = PCM5122_I2S_DATA;
+        i2s_config.bck_pin = PCM5122_I2S_BCK;
+        i2s_config.lck_pin = PCM5122_I2S_LCK;
+        is_i2s_enabled = true;
+        i2s_volume(&i2s_config, 0);
+        return;
+    }
+    if (Config::audio_driver == 0) {
+        // Auto mode: probe PCM5122 via I2C before standard testPins
+        if (pcm5122_detect(PCM5122_I2C_SDA, PCM5122_I2C_SCL)) {
+            Debug::log("init_sound: PCM5122 detected in auto mode");
+            pcm5122_detected = true;
+            pcm5122_init(PCM5122_I2C_SDA, PCM5122_I2C_SCL);
+            i2s_config.data_pin = PCM5122_I2S_DATA;
+            i2s_config.bck_pin = PCM5122_I2S_BCK;
+            i2s_config.lck_pin = PCM5122_I2S_LCK;
+            is_i2s_enabled = true;
+            i2s_volume(&i2s_config, 0);
+            return;
+        }
     }
 #endif
     if (Config::audio_driver == 3) {
@@ -308,8 +341,8 @@ void init_sound() {
     }
 #ifdef LOAD_WAV_PIO
     //пин ввода звука (не инициализировать если MIDI использует тот же пин)
-#if !PICO_RP2040
-    if (!Config::midi)
+#if defined(PICO_RP2350) && defined(MIDI_TX_PIN) && (LOAD_WAV_PIO == MIDI_TX_PIN)
+    if (Config::midi != 1 && Config::midi != 2)
 #endif
     {
         inInit(LOAD_WAV_PIO);
@@ -321,9 +354,9 @@ void init_sound() {
 static LoadWavStream* lws = 0;
 static repeating_timer_t m_lws_timer;
 static bool lws_timer_active = false;
-// Use 25000 Hz — must not match HDMI DMA rates (50Hz: 31250, 60Hz: 31500)
+// Use 125000 Hz — must not match HDMI DMA rates (50Hz: 31250, 60Hz: 31500)
 // to avoid phase-lock where DMA (priority 0) systematically delays every tick
-#define LWS_SAMPLE_FREQ 25000
+#define LWS_SAMPLE_FREQ 125000
 
 static bool __not_in_flash_func(lws_timer_callback)(repeating_timer_t *rt) {
     if (lws && Config::real_player) {
@@ -356,17 +389,8 @@ void pcm_audio_in_stop(void) {
 }
 #endif
 
-static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) { // core#1?
-    m_let_process_it = true;
-    return true;
-}
-
-void pcm_call() {
-    if (!m_let_process_it) {
-        return;
-    }
-    m_let_process_it = false;
-#if !PICO_RP2040
+static void __not_in_flash_func(pcm_call_inner)() {
+#if !PICO_RP2040  && defined(VGA_HDMI)
     if (Config::audio_driver == 4) {
         if (m_off < m_size) {
             hdmi_audio_write_sample(buff_L[m_off], buff_R[m_off]);
@@ -386,13 +410,16 @@ void pcm_call() {
     else if (is_i2s_enabled) {
         static int16_t v32[2];
         if (m_off < m_size) {
-            v32[0] = *(buff_R + m_off);
-            v32[1] = *(buff_L + m_off);
+            v32[0] = buff_R[m_off];
+            v32[1] = buff_L[m_off];
             ++m_off;
         }
         // When buffer exhausted, v32 retains last sample (static) — no click
-        i2s_write(&i2s_config, v32, 1);
-        // i2s_dma_write(&i2s_config, v32);
+        // Non-blocking: skip if PIO FIFO full (avoids stalling in IRQ context)
+        if (!pio_sm_is_tx_fifo_full(i2s_config.pio, i2s_config.sm)) {
+            uint32_t w = ((uint32_t)(uint16_t)v32[0] << 16) | (uint16_t)v32[1];
+            pio_sm_put(i2s_config.pio, i2s_config.sm, w);
+        }
     } else {
         uint16_t outL = 0;
         uint16_t outR = 0;
@@ -422,8 +449,17 @@ void pcm_call() {
     return;
 }
 
+static bool __not_in_flash_func(timer_callback)(repeating_timer_t *rt) {
+    pcm_call_inner();
+    return true;
+}
+
+void pcm_call() {
+    // Called from core1 busy-loop — now a no-op since audio is driven directly
+    // from timer_callback interrupt. Kept for compatibility with render_core().
+}
+
 void pcm_cleanup(void) {
-    m_let_process_it = false;
     cancel_repeating_timer(&m_timer);
     m_timer.delay_us = 0;
 #if !PICO_RP2040
@@ -433,7 +469,8 @@ void pcm_cleanup(void) {
 #endif
     if (Config::audio_driver == 3) {
         // TODO:
-    } else if (is_i2s_enabled) {
+    }
+    else if (is_i2s_enabled) {
         i2s_volume(&i2s_config, 16);
         i2s_deinit(&i2s_config);
     } else {
@@ -452,14 +489,14 @@ void pcm_setup(int hz) {
 #if !PICO_RP2040
     if (Config::audio_driver == 4) {
         // HDMI audio — timer only, no I2S/PWM hardware
-        m_let_process_it = false;
         add_repeating_timer_us(-1000000 / hz, timer_callback, NULL, &m_timer);
         return;
     }
 #endif
     if (Config::audio_driver == 3) {
         // TODO:
-    } else if (is_i2s_enabled) {
+    }
+    else if (is_i2s_enabled) {
         if (i2s_config.dma_buf) {
             pcm_cleanup();
         }
@@ -472,7 +509,6 @@ void pcm_setup(int hz) {
             pcm_cleanup();
         }
     }
-    m_let_process_it = false;
     //hz; // 44100;	//44000 //44100 //96000 //22050
     // negative timeout means exact delay (rather than delay between callbacks)
     add_repeating_timer_us(-1000000 / hz, timer_callback, NULL, &m_timer);

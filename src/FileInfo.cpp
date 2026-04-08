@@ -5,6 +5,12 @@
 using namespace std;
 
 #include "FileInfo.h"
+
+#if PICO_RP2040
+// Stub — saves ~2KB RAM (static FIL, lineStarts/lineLens arrays, format tables)
+void FileInfo::viewInfo(const string& path) {}
+#else
+
 #include "FileUtils.h"
 #include "Video.h"
 #include "OSDMain.h"
@@ -85,7 +91,7 @@ static void drawContent(const char** lineStarts, int* lineLens, int totalLines,
 
 // Draw info box with scrolling and wait for ESC
 static void showInfoBox(const string& info, int lineCount) {
-    const int MAX_LINES = 512;
+    const int MAX_LINES = 128;
     static const char* lineStarts[MAX_LINES];
     static int lineLens[MAX_LINES];
     int totalLines = parseLines(info, lineStarts, lineLens, MAX_LINES);
@@ -149,10 +155,8 @@ static void showInfoBox(const string& info, int lineCount) {
                     if (scrollPos != 0) { scrollPos = 0; redraw = true; }
                 } else if (Menukey.vk == fabgl::VK_END) {
                     if (scrollPos != maxScroll) { scrollPos = maxScroll; redraw = true; }
-                } else if (Menukey.vk == fabgl::VK_DPAD_UP || Menukey.vk == fabgl::VK_DPAD_DOWN
-                        || Menukey.vk == fabgl::VK_DPAD_LEFT || Menukey.vk == fabgl::VK_DPAD_RIGHT) {
-                    // Ignore joystick dpad events
-                } else {
+                } else if (is_back(Menukey.vk) || is_enter(Menukey.vk)
+                        || Menukey.vk == fabgl::VK_RETURN || Menukey.vk == fabgl::VK_SPACE) {
                     goto done;
                 }
                 if (redraw)
@@ -719,3 +723,4 @@ void FileInfo::viewInfo(const string& path) {
 
     showInfoBox(info, lines);
 }
+#endif // !PICO_RP2040

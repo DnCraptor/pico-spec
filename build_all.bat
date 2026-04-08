@@ -30,7 +30,13 @@ if not defined CMAKE_GENERATOR (
 )
 
 :: All available targets
-set "ALL_TARGETS=MURM MURM2 PICO_PC PICO_DV ZERO ZERO2"
+set "ALL_TARGETS=MURM_P1 MURM_P2 MURM2 PICO_PC PICO_DV ZERO ZERO2"
+
+:: Targets that support TFT+ILI9341
+set "TFT_TARGETS=MURM_P1 MURM_P2 MURM2"
+
+:: Targets that support SOFTTV
+set "SOFTTV_TARGETS=MURM_P1 MURM_P2 MURM2"
 
 :: Parse arguments
 if "%~1"=="" (
@@ -51,44 +57,20 @@ set "SUCCEEDED="
 set "OUTPUT_DIR=%SCRIPT_DIR%\firmware"
 if not exist "%OUTPUT_DIR%" mkdir "%OUTPUT_DIR%"
 
+:: Build each target with VGA_HDMI, then TFT_ILI9341 and SOFTTV for MURM targets
 for %%T in (%TARGETS%) do (
-    set "TARGET=%%T"
-    set "BUILD_DIR=%SCRIPT_DIR%\build-%%T"
+    :: VGA_HDMI build
+    call :build_target %%T VGA_HDMI
 
-    echo ========================================
-    echo  Building: %%T
-    echo  Build dir: !BUILD_DIR!
-    echo ========================================
-
-    :: Clean stale CMake cache if generator changed
-    if exist "!BUILD_DIR!\CMakeCache.txt" (
-        for /f "tokens=2 delims==" %%G in ('findstr /b "CMAKE_GENERATOR:INTERNAL=" "!BUILD_DIR!\CMakeCache.txt" 2^>nul') do (
-            if not "%%G"=="%CMAKE_GENERATOR%" (
-                echo   Generator changed, cleaning cache...
-                del /q "!BUILD_DIR!\CMakeCache.txt" 2>nul
-                rmdir /s /q "!BUILD_DIR!\CMakeFiles" 2>nul
-            )
-        )
+    :: TFT_ILI9341 build for MURM targets
+    for %%M in (%TFT_TARGETS%) do (
+        if "%%T"=="%%M" call :build_target %%T TFT_ILI9341
     )
 
-    if not exist "!BUILD_DIR!" mkdir "!BUILD_DIR!"
-
-    set "CMAKE_ARGS=-B "!BUILD_DIR!" -S "%SCRIPT_DIR%" -G "%CMAKE_GENERATOR%" -D%%T=ON -DCMAKE_BUILD_TYPE=%BUILD_TYPE%"
-    if defined CMAKE_MAKE_PROGRAM (
-        set "CMAKE_ARGS=!CMAKE_ARGS! -DCMAKE_MAKE_PROGRAM=!CMAKE_MAKE_PROGRAM!"
+    :: SOFTTV build for MURM targets
+    for %%M in (%SOFTTV_TARGETS%) do (
+        if "%%T"=="%%M" call :build_target %%T SOFTTV
     )
-
-    cmake !CMAKE_ARGS! && cmake --build "!BUILD_DIR!" --parallel %JOBS%
-    if !errorlevel! equ 0 (
-        set "SUCCEEDED=!SUCCEEDED! %%T"
-        echo.
-        echo [OK] %%T build succeeded
-    ) else (
-        set "FAILED=!FAILED! %%T"
-        echo.
-        echo [FAIL] %%T build failed
-    )
-    echo.
 )
 
 echo ========================================
@@ -97,8 +79,16 @@ echo ========================================
 
 if defined SUCCEEDED (
     echo Succeeded:!SUCCEEDED!
-    for %%T in (!SUCCEEDED!) do (
-        for /r "%SCRIPT_DIR%\build-%%T" %%F in (*.uf2) do (
+    for %%P in (!SUCCEEDED!) do (
+        :: Parse TARGET:DISPLAY pair
+        for /f "tokens=1,2 delims=:" %%A in ("%%P") do (
+            if "%%B"=="VGA_HDMI" (
+                set "BDIR=%SCRIPT_DIR%\build-%%A"
+            ) else (
+                set "BDIR=%SCRIPT_DIR%\build-%%A-%%B"
+            )
+        )
+        for /r "!BDIR!" %%F in (*.uf2) do (
             copy /y "%%F" "%OUTPUT_DIR%\" >nul
             echo   %%~nxF
         )
@@ -114,3 +104,71 @@ if defined FAILED (
 
 echo.
 echo All builds completed successfully!
+goto :eof
+
+:build_target
+:: %1 = target name, %2 = display variant (VGA_HDMI, TFT_ILI9341, or SOFTTV)
+set "BT_TARGET=%~1"
+set "BT_DISPLAY=%~2"
+
+if "%BT_DISPLAY%"=="VGA_HDMI" (
+    set "BT_BUILD_DIR=%SCRIPT_DIR%\build-%BT_TARGET%"
+    set "BT_LABEL=%BT_TARGET% (VGA_HDMI)"
+) else (
+    set "BT_BUILD_DIR=%SCRIPT_DIR%\build-%BT_TARGET%-%BT_DISPLAY%"
+    set "BT_LABEL=%BT_TARGET% (%BT_DISPLAY%)"
+)
+
+echo ========================================
+echo  Building: !BT_LABEL!
+echo  Build dir: !BT_BUILD_DIR!
+echo ========================================
+
+:: Clean stale CMake cache if generator changed
+if exist "!BT_BUILD_DIR!\CMakeCache.txt" (
+    for /f "tokens=2 delims==" %%G in ('findstr /b "CMAKE_GENERATOR:INTERNAL=" "!BT_BUILD_DIR!\CMakeCache.txt" 2^>nul') do (
+        if not "%%G"=="%CMAKE_GENERATOR%" (
+            echo   Generator changed, cleaning cache...
+            del /q "!BT_BUILD_DIR!\CMakeCache.txt" 2>nul
+            rmdir /s /q "!BT_BUILD_DIR!\CMakeFiles" 2>nul
+        )
+    )
+)
+
+if not exist "!BT_BUILD_DIR!" mkdir "!BT_BUILD_DIR!"
+
+:: Map target to CMake flags
+if "%BT_TARGET%"=="MURM_P1" (
+    set "BT_TARGET_FLAGS=-DMURM=ON"
+) else if "%BT_TARGET%"=="MURM_P2" (
+    set "BT_TARGET_FLAGS=-DMURM=ON -DMURM_P2=ON"
+) else (
+    set "BT_TARGET_FLAGS=-D%BT_TARGET%=ON"
+)
+
+:: Display variant flags
+set "BT_DISPLAY_FLAGS="
+if "%BT_DISPLAY%"=="TFT_ILI9341" (
+    set "BT_DISPLAY_FLAGS=-DTFT=ON -DILI9341=ON -DVGA_HDMI=OFF"
+)
+if "%BT_DISPLAY%"=="SOFTTV" (
+    set "BT_DISPLAY_FLAGS=-DSOFTTV=ON -DVGA_HDMI=OFF"
+)
+
+set "BT_CMAKE_ARGS=-B "!BT_BUILD_DIR!" -S "%SCRIPT_DIR%" -G "%CMAKE_GENERATOR%" !BT_TARGET_FLAGS! !BT_DISPLAY_FLAGS! -DCMAKE_BUILD_TYPE=%BUILD_TYPE%"
+if defined CMAKE_MAKE_PROGRAM (
+    set "BT_CMAKE_ARGS=!BT_CMAKE_ARGS! -DCMAKE_MAKE_PROGRAM=!CMAKE_MAKE_PROGRAM!"
+)
+
+cmake !BT_CMAKE_ARGS! && cmake --build "!BT_BUILD_DIR!" --parallel %JOBS%
+if !errorlevel! equ 0 (
+    set "SUCCEEDED=!SUCCEEDED! %BT_TARGET%:%BT_DISPLAY%"
+    echo.
+    echo [OK] !BT_LABEL! build succeeded
+) else (
+    set "FAILED=!FAILED! %BT_TARGET%:%BT_DISPLAY%"
+    echo.
+    echo [FAIL] !BT_LABEL! build failed
+)
+echo.
+goto :eof

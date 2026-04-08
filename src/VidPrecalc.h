@@ -36,4 +36,19 @@ static inline void initAluBytes() {
         AluByte[n] = (unsigned int*)AluBytesStd_flash[n];
 }
 
+#if PICO_RP2040
+// RP2040: SRAM lookup tables replace 16KB flash AluByte.
+// Precomputed splat arrays eliminate runtime multiplications in computePixels.
+// Defined once in Video.cpp, declared extern here.
+extern uint32_t attrPaperSplat[256]; // paper * 0x01010101
+extern uint32_t attrDiffSplat[256];  // (ink ^ paper) * 0x01010101
+extern uint32_t nibbleMask[16];
+void initInkPaper();
+
+static inline __attribute__((always_inline))
+uint32_t computePixels(uint8_t nibble, uint8_t att) {
+    return attrPaperSplat[att] ^ (nibbleMask[nibble] & attrDiffSplat[att]);
+}
+#endif // PICO_RP2040
+
 #endif // VIDPRECALC_h

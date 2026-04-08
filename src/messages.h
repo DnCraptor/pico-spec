@@ -480,6 +480,7 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
     "Reset\t>\n"\
     "Options\t>\n"\
     "Debug\t>\n"\
+    "Hardware\t>\n"\
     "Help\n"\
     "About\n"\
 	"TFT\t>\n"
@@ -491,7 +492,8 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
     "Modelo\t>\n"\
     "Resetear\t>\n"\
     "Opciones\t>\n"\
-	"Depurar\t\n"\
+	"Depurar\t>\n"\
+    "Hardware\t>\n"\
     "Ayuda\n"\
     "Acerca de\n"\
 	"TFT\t>\n"
@@ -505,6 +507,7 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
     "Reset\t>\n"\
     "Options\t>\n"\
     "Debug\t>\n"\
+    "Hardware\t>\n"\
     "Help\n"\
     "About\n"
 #define MENU_MAIN_ES \
@@ -515,7 +518,8 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
     "Modelo\t>\n"\
     "Resetear\t>\n"\
     "Opciones\t>\n"\
-	"Depurar\t\n"\
+	"Depurar\t>\n"\
+    "Hardware\t>\n"\
     "Ayuda\n"\
     "Acerca de\n"
 #endif
@@ -530,6 +534,7 @@ static const char *MENU_MAIN[2] = { MENU_MAIN_EN, MENU_MAIN_ES };
     "Reset\t>\n"\
     "Options\t>\n"\
     "Debug\t>\n"\
+    "Hardware\t>\n"\
     "Help\n"\
     "About\n"
 #define MENU_MAIN_NO_SD_ES \
@@ -541,6 +546,7 @@ static const char *MENU_MAIN[2] = { MENU_MAIN_EN, MENU_MAIN_ES };
     "Resetear\t>\n"\
     "Opciones\t>\n"\
     "Depurar\t>\n"\
+    "Hardware\t>\n"\
     "Ayuda\n"\
     "Acerca de\n"
 static const char *MENU_MAIN_NO_SD[2] = { MENU_MAIN_NO_SD_EN, MENU_MAIN_NO_SD_ES };
@@ -601,25 +607,32 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 	#define MENU_VIDEO_EN \
 		"Video\n"\
 		"Mode\t>\n"\
+		"Palette\t>\n"\
 		"Render type\t>\n"\
 		"Aspect Ratio\t>\n"\
 		"Scanlines\t>\n"\
 		"V-Sync\t>\n"\
 		"Gigascreen (No Flick)\t>\n"\
-		"ULA+ ON/OFF\t>\n"
+		"ULA+\t>\n"\
+		"Timex Gfx Mode\t>\n"\
+		"DMA\t>\n"
 	#define MENU_VIDEO_ES \
 		"Video\n"\
 		"Modo\t>\n"\
+		"Paleta\t>\n"\
 		"Tipo render\t>\n"\
 		"Relaci" "\xA2" "n de aspecto\t>\n"\
 		"Scanlines\t>\n"\
 		"V-Sync\t>\n"\
 		"Gigascreen (No Flick)\t>\n"\
-		"ULA+ ON/OFF\t>\n"
+		"ULA+\t>\n"\
+		"Timex Gfx Mode\t>\n"\
+		"DMA\t>\n"
 #else
 	#define MENU_VIDEO_EN \
 		"Video\n"\
 		"Mode\t>\n"\
+		"Palette\t>\n"\
 		"Render type\t>\n"\
 		"Aspect Ratio\t>\n"\
 		"Scanlines\t>\n"\
@@ -627,6 +640,7 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 	#define MENU_VIDEO_ES \
 		"Video\n"\
 		"Modo\t>\n"\
+		"Paleta\t>\n"\
 		"Tipo render\t>\n"\
 		"Relaci" "\xA2" "n de aspecto\t>\n"\
 		"Scanlines\t>\n"\
@@ -834,6 +848,91 @@ static const char *MENU_AUDIO[2] = { MENU_AUDIO_EN, MENU_AUDIO_ES };
     "Teclas rapidas\t>\n"
 static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
 
+#ifdef PICO_RP2040
+#define MENU_CPU_MHZ \
+    "CPU MHz\n"\
+    "[2] 252 MHz\n"\
+    "[3] 378 MHz\n"
+#else
+#define MENU_CPU_MHZ \
+    "CPU MHz\n"\
+    "[2] 252 MHz\n"\
+    "[3] 378 MHz\n"\
+    "[5] 504 MHz\n"
+#endif
+
+#define MENU_HARDWARE_EN \
+    "Hardware\n"\
+    "Chip Info\n"\
+    "Board Info\n"\
+    "Overclock (!)\t>\n"
+#define MENU_HARDWARE_ES \
+    "Hardware\n"\
+    "Chip Info\n"\
+    "Info placa\n"\
+    "Overclock (!)\t>\n"
+static const char *MENU_HARDWARE[2] = { MENU_HARDWARE_EN, MENU_HARDWARE_ES };
+
+#define MENU_OVERCLOCK_EN \
+    "Overclock\n"\
+    "CPU Freq\t>\n"\
+    "Flash Freq\t>\n"\
+    "PSRAM Freq\t>\n"
+#define MENU_OVERCLOCK_ES \
+    "Overclock\n"\
+    "CPU Freq\t>\n"\
+    "Flash Freq\t>\n"\
+    "PSRAM Freq\t>\n"
+#if !PICO_RP2040
+#define MENU_OVERCLOCK_VREG_EN \
+    "Overclock\n"\
+    "CPU Freq\t>\n"\
+    "VReg Voltage\t>\n"\
+    "Flash Freq\t>\n"\
+    "PSRAM Freq\t>\n"
+#define MENU_OVERCLOCK_VREG_ES \
+    "Overclock\n"\
+    "CPU Freq\t>\n"\
+    "VReg Voltage\t>\n"\
+    "Flash Freq\t>\n"\
+    "PSRAM Freq\t>\n"
+static const char *MENU_OVERCLOCK_VREG[2] = { MENU_OVERCLOCK_VREG_EN, MENU_OVERCLOCK_VREG_ES };
+#endif
+static const char *MENU_OVERCLOCK[2] = { MENU_OVERCLOCK_EN, MENU_OVERCLOCK_ES };
+
+#define MENU_FLASH_FREQ \
+    "Flash Freq\n"\
+    "[A] 33 MHz\n"\
+    "[B] 66 MHz\n"\
+    "[C] 84 MHz\n"\
+    "[D] 100 MHz\n"\
+    "[E] 133 MHz\n"\
+    "[F] 166 MHz\n"
+
+#define MENU_PSRAM_FREQ \
+    "PSRAM Freq\n"\
+    "[A] 66 MHz\n"\
+    "[B] 84 MHz\n"\
+    "[C] 100 MHz\n"\
+    "[D] 133 MHz\n"\
+    "[E] 166 MHz\n"
+
+#if !PICO_RP2040
+#define MENU_VREG_VOLTAGE \
+    "VReg Voltage\n"\
+    "[A] 1.15 V\n"\
+    "[B] 1.20 V\n"\
+    "[C] 1.25 V\n"\
+    "[D] 1.30 V\n"\
+    "[E] 1.35 V\n"\
+    "[F] 1.40 V\n"\
+    "[G] 1.50 V\n"\
+    "[H] 1.60 V\n"\
+    "[I] 1.65 V\n"\
+    "[J] 1.70 V\n"\
+    "[K] 1.80 V\n"
+#endif
+
 static const char *MENU_AY48[2] = { "Turned on?\n" , "Turned on?\n"};
 
 #if !PICO_RP2040
@@ -860,11 +959,40 @@ static const char *MENU_MIDI[2] = { MENU_MIDI_EN, MENU_MIDI_ES };
     "Synth    \t[Y]\n"
 #define MENU_MIDI_PRESET_ES MENU_MIDI_PRESET_EN
 static const char *MENU_MIDI_PRESET[2] = { MENU_MIDI_PRESET_EN, MENU_MIDI_PRESET_ES };
+#if defined(MIDI_TX_PIN) && defined(LOAD_WAV_PIO) && (LOAD_WAV_PIO == MIDI_TX_PIN)
+static const char *MSG_MIDI_PIN_CONFLICT[2] = {
+    "MIDI and Real sound-in share GPIO " _PIN_XSTR(MIDI_TX_PIN) ".\nDisable one of them.",
+    "MIDI y Modo de sonido real comparten GPIO " _PIN_XSTR(MIDI_TX_PIN) ".\nDesactive uno de ellos."
+};
+#endif
 #endif
 
 #if !PICO_RP2040
 static const char *MENU_ULAPLUS[2] = { "ULA+\n", "ULA+\n"};
+static const char *MENU_TIMEX[2] = { "Timex Gfx Mode\n", "Timex Gfx Mode\n"};
+#define MENU_DMA_EN "DMA\n"\
+    "OFF            \t[O]\n"\
+    "Port #0B (MB02+) \t[B]\n"\
+    "Port #6B (DATA-GEAR)\t[X]\n"
+#define MENU_DMA_ES MENU_DMA_EN
+static const char *MENU_DMA[2] = { MENU_DMA_EN, MENU_DMA_ES };
 #endif
+
+#define MENU_PALETTE_EN \
+    "Palette\n"\
+    "Pulsar\t[1]\n"\
+    "Alone\t[2]\n"\
+    "Grayscale\t[3]\n"\
+    "Mars\t[4]\n"\
+    "Ocean\t[5]\n"
+#define MENU_PALETTE_ES \
+    "Paleta\n"\
+    "Pulsar\t[1]\n"\
+    "Alone\t[2]\n"\
+    "Grayscale\t[3]\n"\
+    "Mars\t[4]\n"\
+    "Ocean\t[5]\n"
+static const char *MENU_PALETTE[2] = { MENU_PALETTE_EN, MENU_PALETTE_ES };
 
 #define MENU_KBD2NDPS2_EN "Enable\n"\
     "No\t[N]\n"\

@@ -31,7 +31,18 @@ void Debug::led_off()
 #endif
 }
 
-void Debug::log(string data)
+void Debug::log(const char* fmt, ...)
+{
+    char buf[256];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+
+    printf("%s\n", buf);
+}
+
+void Debug::log2SD(string data)
 {
 #if DEBUG
     if (!FileUtils::fsMount) return;
@@ -68,15 +79,15 @@ void Debug::log(string data)
 #endif
 }
 
-void Debug::log(const char* fmt, ...)
+void Debug::log2SD(const char* fmt, ...)
 {
     if (!FileUtils::fsMount) return;
 
-    char buf[256]; // можно увеличить при необходимости
+    char buf[256];
     va_list args;
     va_start(args, fmt);
     vsnprintf(buf, sizeof(buf), fmt, args);
     va_end(args);
 
-    log(std::string(buf)); // вызов основной версии
+    log2SD(std::string(buf));
 }

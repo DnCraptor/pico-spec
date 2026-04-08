@@ -47,12 +47,14 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Z80_JLS/z80.h"
 #include "Z80_JLS/z80operations.h"
 #include "psram_spi.h"
+#if !PICO_RP2040
+#include "Z80DMA.h"
+#endif
 extern "C" void graphics_set_palette(uint8_t i, uint32_t color888);
 extern "C" void vga_set_palette_entry_solid(uint8_t i, uint32_t color888);
 extern "C" void graphics_set_buffer(uint8_t* buffer, uint16_t width, uint16_t height);
 extern "C" void hdmi_reinit(void);
 extern "C" void vga_reinit(void);
-
 // Place hot video functions in SRAM instead of XIP flash
 #undef IRAM_ATTR
 #define IRAM_ATTR __not_in_flash("video")
@@ -138,6 +140,14 @@ static int brdcol_step = 4;        // T-states per column (4 for 48K/128K, 1 for
 static bool brdPairWrite = true;   // true: uint32_t pair writes, false: uint16_t XOR
 static void Select_Update_Border(); // forward declaration
 
+// Timex SCLD video modes
+#if !PICO_RP2040
+uint8_t VIDEO::timex_port_ff = 0;
+uint8_t VIDEO::timex_mode = 0;
+uint8_t VIDEO::timex_hires_ink = 0;
+
+#endif
+
 // ULA+
 #if !PICO_RP2040
 bool VIDEO::ulaplus_enabled = false;
@@ -161,6 +171,7 @@ static const uint8_t ulaplus_default_palette[64] = {
     0x00, 0x03, 0x1C, 0x1F, 0xE0, 0xE3, 0xFC, 0xFF,
 };
 uint8_t VIDEO::ulaplus_palette[64];
+bool VIDEO::ulaplus_palette_dirty = false;
 unsigned int VIDEO::AluBytesUlaPlus[16][256] = {};
 #endif
 
@@ -189,6 +200,11 @@ static unsigned int curline;
 
 static unsigned int bmpOffset;  // offset for bitmap in graphic memory
 static unsigned int attOffset;  // offset for attrib in graphic memory
+
+#if !PICO_RP2040
+// Per-scanline DMA attr shadow: non-null when DMA wrote attrs for current scanline
+static const uint8_t* dma_attr_override = nullptr;
+#endif
 
 static const uint8_t wait_st[128] = {
     6, 5, 4, 3, 2, 1, 0, 0, 6, 5, 4, 3, 2, 1, 0, 0,
@@ -344,15 +360,259 @@ void precalcborder32()
     }
 }
 
-// Standard Spectrum RGB888 palette
-static const uint32_t spectrum_rgb888[16] = {
-    0x000000, 0x0000CD, 0xCD0000, 0xCD00CD,  // black, blue, red, magenta
-    0x00CD00, 0x00CDCD, 0xCDCD00, 0xCDCDCD,  // green, cyan, yellow, white
-    0x000000, 0x0000FF, 0xFF0000, 0xFF00FF,  // bright variants
-    0x00FF00, 0x00FFFF, 0xFFFF00, 0xFFFFFF,
+// Palette definitions (Unreal Speccy format)
+// Brightness levels: ZZ (black), NN (normal), BB (bright)
+// Color matrix 3x3: values 0..0x100 (0x100 = 1.0)
+struct PaletteDef {
+    uint8_t ZZ, NN, BB;         // brightness levels
+    uint16_t matrix[9];         // color transform matrix
 };
 
+static const PaletteDef builtin_palette_defs[] = {
+    // 0: Pulsar (ZZ=00, NN=CD, BB=FF, identity matrix)
+    { 0x00, 0xCD, 0xFF, { 0x100,0x000,0x000, 0x000,0x100,0x000, 0x000,0x000,0x100 } },
+    // 1: Alone (dimmer normal colors: NN=A0)
+    { 0x00, 0xA0, 0xFF, { 0x100,0x000,0x000, 0x000,0x100,0x000, 0x000,0x000,0x100 } },
+    // 2: Grayscale (Grey from Unreal: BT.601 luminance matrix)
+    { 0x00, 0xCD, 0xFF, { 0x049,0x092,0x024, 0x049,0x092,0x024, 0x049,0x092,0x024 } },
+    // 3: Mars (warm tones)
+    { 0x00, 0xCD, 0xFF, { 0x100,0x000,0x000, 0x040,0x0C0,0x000, 0x000,0x040,0x0C0 } },
+    // 4: Ocean (cool tones)
+    { 0x00, 0xCD, 0xFF, { 0x0D0,0x000,0x030, 0x000,0x0D0,0x030, 0x000,0x000,0x100 } },
+};
+#define BUILTIN_PALETTE_COUNT (sizeof(builtin_palette_defs) / sizeof(builtin_palette_defs[0]))
+
+static const char* builtin_palette_names[] = {
+    "Pulsar", "Alone", "Grayscale", "Mars", "Ocean"
+};
+
+// Custom palettes from /palette.nvs (max 11, total max 16)
+#define MAX_CUSTOM_PALETTES 11
+static PaletteDef custom_palette_defs[MAX_CUSTOM_PALETTES];
+static char custom_palette_names[MAX_CUSTOM_PALETTES][13]; // 12 chars + null
+static uint8_t custom_palette_count = 0;
+
+static uint8_t total_palette_count() {
+    return BUILTIN_PALETTE_COUNT + custom_palette_count;
+}
+
+static const PaletteDef& getPaletteDef(uint8_t idx) {
+    if (idx < BUILTIN_PALETTE_COUNT)
+        return builtin_palette_defs[idx];
+    uint8_t ci = idx - BUILTIN_PALETTE_COUNT;
+    if (ci < custom_palette_count)
+        return custom_palette_defs[ci];
+    return builtin_palette_defs[0];
+}
+
+uint8_t VIDEO::paletteCount() { return total_palette_count(); }
+
+const char* VIDEO::paletteName(uint8_t idx) {
+    if (idx < BUILTIN_PALETTE_COUNT)
+        return builtin_palette_names[idx];
+    uint8_t ci = idx - BUILTIN_PALETTE_COUNT;
+    if (ci < custom_palette_count)
+        return custom_palette_names[ci];
+    return "?";
+}
+
+// Parse hex value from string (up to 3 hex digits)
+static uint16_t parseHex(const char* s, int len) {
+    uint16_t v = 0;
+    for (int i = 0; i < len && s[i]; i++) {
+        char c = s[i];
+        v <<= 4;
+        if (c >= '0' && c <= '9') v |= c - '0';
+        else if (c >= 'A' && c <= 'F') v |= c - 'A' + 10;
+        else if (c >= 'a' && c <= 'f') v |= c - 'a' + 10;
+    }
+    return v;
+}
+
+// Load custom palettes from /palette.nvs
+// Format per line (JSON-like, one object per line):
+// { "name": "MyPal", "ZZ": 0x00, "NN": 0xCD, "BB": 0xFF, "matrix": [0x100,0x000,...] }
+// Lines starting with // are comments and ignored.
+// Simplified parser: extract name, ZZ, NN, BB, and 9 matrix values from hex
+void VIDEO::loadCustomPalettes() {
+    custom_palette_count = 0;
+    if (!FileUtils::fsMount) return;
+
+    // Create default palette.nvs if it doesn't exist
+    {
+        FILINFO fi;
+        if (f_stat(MOUNT_POINT_SD "/palette.nvs", &fi) != FR_OK) {
+            FIL cf;
+            if (f_open(&cf, MOUNT_POINT_SD "/palette.nvs", FA_WRITE | FA_CREATE_NEW) == FR_OK) {
+                static const char tmpl[] =
+                    "// Custom palettes for ZX Spectrum emulator\n"
+                    "//\n"
+                    "// One palette per line. Lines starting with // are comments.\n"
+                    "// To enable a palette, remove the // prefix.\n"
+                    "//\n"
+                    "// Fields:\n"
+                    "//   name   - palette name shown in menu (max 12 chars)\n"
+                    "//   ZZ     - black level (hex byte, usually 0x00)\n"
+                    "//   NN     - normal brightness (hex byte, e.g. 0xCD)\n"
+                    "//   BB     - bright brightness (hex byte, e.g. 0xFF)\n"
+                    "//   matrix - 3x3 RGB color transform (9 hex values, 0x000..0x100)\n"
+                    "//            rows: R-out, G-out, B-out; cols: R-in, G-in, B-in\n"
+                    "//            0x100 = 1.0 (identity), 0x080 = 0.5, 0x000 = 0.0\n"
+                    "//\n"
+                    "//   Matrix formula:        [m0 m1 m2]\n"
+                    "//     oR = (R*m0 + G*m1 + B*m2) >> 8\n"
+                    "//     oG = (R*m3 + G*m4 + B*m5) >> 8\n"
+                    "//     oB = (R*m6 + G*m7 + B*m8) >> 8\n"
+                    "//\n"
+                    "// Example (identity palette, same as Pulsar):\n"
+                    "// { \"name\": \"MyPal\", \"ZZ\": 0x00, \"NN\": 0xCD, \"BB\": 0xFF, \"matrix\": [0x100,0x000,0x000, 0x000,0x100,0x000, 0x000,0x000,0x100] }\n";
+                UINT bw;
+                f_write(&cf, tmpl, sizeof(tmpl) - 1, &bw);
+                f_close(&cf);
+            }
+        }
+    }
+
+    FIL fil;
+    if (f_open(&fil, MOUNT_POINT_SD "/palette.nvs", FA_READ) != FR_OK)
+        return;
+
+    char line[256];
+    UINT br;
+    int linepos = 0;
+
+    auto processLine = [&](const char* line) {
+        if (custom_palette_count >= MAX_CUSTOM_PALETTES) return;
+        // Skip empty lines and comments (// or #)
+        const char* p = line;
+        while (*p == ' ' || *p == '\t') p++;
+        if (*p == '#' || *p == '\0' || *p == '\n') return;
+        if (p[0] == '/' && p[1] == '/') return;
+
+        // Find "name": "..."
+        const char* nq = strstr(p, "\"name\"");
+        if (!nq) return;
+        nq = strchr(nq + 6, '\"');
+        if (!nq) return;
+        nq++; // start of name
+        const char* nqe = strchr(nq, '\"');
+        if (!nqe) return;
+        int nlen = nqe - nq;
+        if (nlen > 12) nlen = 12;
+
+        PaletteDef& pal = custom_palette_defs[custom_palette_count];
+        char* name = custom_palette_names[custom_palette_count];
+        memcpy(name, nq, nlen);
+        name[nlen] = '\0';
+
+        // Parse "ZZ": 0xHH
+        auto findHexVal = [](const char* s, const char* key) -> uint16_t {
+            const char* k = strstr(s, key);
+            if (!k) return 0;
+            k += strlen(key);
+            while (*k == ' ' || *k == ':' || *k == '\t') k++;
+            if (k[0] == '0' && (k[1] == 'x' || k[1] == 'X')) k += 2;
+            // Read up to 3 hex digits
+            int len = 0;
+            while (len < 3 && ((k[len] >= '0' && k[len] <= '9') ||
+                   (k[len] >= 'A' && k[len] <= 'F') ||
+                   (k[len] >= 'a' && k[len] <= 'f'))) len++;
+            return parseHex(k, len);
+        };
+
+        pal.ZZ = (uint8_t)findHexVal(p, "\"ZZ\"");
+        pal.NN = (uint8_t)findHexVal(p, "\"NN\"");
+        pal.BB = (uint8_t)findHexVal(p, "\"BB\"");
+
+        // Parse "matrix": [0x100, 0x000, ...]
+        const char* mq = strstr(p, "\"matrix\"");
+        if (!mq) return;
+        mq = strchr(mq, '[');
+        if (!mq) return;
+        mq++;
+        for (int i = 0; i < 9; i++) {
+            while (*mq == ' ' || *mq == ',') mq++;
+            if (*mq == '0' && (mq[1] == 'x' || mq[1] == 'X')) mq += 2;
+            int len = 0;
+            while (len < 3 && ((mq[len] >= '0' && mq[len] <= '9') ||
+                   (mq[len] >= 'A' && mq[len] <= 'F') ||
+                   (mq[len] >= 'a' && mq[len] <= 'f'))) len++;
+            if (len == 0) return;
+            pal.matrix[i] = parseHex(mq, len);
+            mq += len;
+        }
+
+        custom_palette_count++;
+    };
+
+    // Read char by char, process lines
+    linepos = 0;
+    char c;
+    while (f_read(&fil, &c, 1, &br) == FR_OK && br == 1) {
+        if (c == '\n' || c == '\r') {
+            if (linepos > 0) {
+                line[linepos] = '\0';
+                processLine(line);
+                linepos = 0;
+            }
+        } else if (linepos < 255) {
+            line[linepos++] = c;
+        }
+    }
+    if (linepos > 0) {
+        line[linepos] = '\0';
+        processLine(line);
+    }
+    f_close(&fil);
+}
+
+// Build 16 Spectrum RGB888 colors from brightness levels
+// Color bit pattern: index 0-7 normal (B=NN), 8-15 bright (B=BB)
+// Bit 0=Blue, Bit 1=Red, Bit 2=Green; Bit 3=Bright
+static void buildSpectrumRGB(const PaletteDef &pal, uint32_t out[16]) {
+    for (int i = 0; i < 16; i++) {
+        uint8_t lvl = (i & 8) ? pal.BB : pal.NN;
+        uint8_t R = (i & 2) ? lvl : pal.ZZ;
+        uint8_t G = (i & 4) ? lvl : pal.ZZ;
+        uint8_t B = (i & 1) ? lvl : pal.ZZ;
+        out[i] = (R << 16) | (G << 8) | B;
+    }
+}
+
+// Standard Spectrum RGB888 palette (default, rebuilt on palette change)
+static uint32_t spectrum_rgb888[16];
+
+// Initialize spectrum_rgb888 with default palette
+static void initDefaultPalette() {
+    buildSpectrumRGB(builtin_palette_defs[0], spectrum_rgb888);
+}
+
 void initGigascreenBlendLUT();
+
+// Apply color matrix transform to an RGB888 color
+static inline uint32_t matrixTransform(uint32_t rgb, const uint16_t *m) {
+    uint32_t R = (rgb >> 16) & 0xFF;
+    uint32_t G = (rgb >> 8) & 0xFF;
+    uint32_t B = rgb & 0xFF;
+    uint32_t oR = (R * m[0] + G * m[1] + B * m[2]) >> 8;
+    uint32_t oG = (R * m[3] + G * m[4] + B * m[5]) >> 8;
+    uint32_t oB = (R * m[6] + G * m[7] + B * m[8]) >> 8;
+    if (oR > 255) oR = 255;
+    if (oG > 255) oG = 255;
+    if (oB > 255) oB = 255;
+    return (oR << 16) | (oG << 8) | oB;
+}
+
+// Apply current palette transform to an RGB888 color
+static inline uint32_t paletteTransform(uint32_t rgb) {
+    uint8_t p = Config::palette < total_palette_count() ? Config::palette : 0;
+    const uint16_t *m = getPaletteDef(p).matrix;
+    // Check if identity matrix (fast path)
+    if (m[0] == 0x100 && m[4] == 0x100 && m[8] == 0x100 &&
+        m[1] == 0 && m[2] == 0 && m[3] == 0 && m[5] == 0 && m[6] == 0 && m[7] == 0)
+        return rgb;
+    return matrixTransform(rgb, m);
+}
 
 // ULA+ G3R3B2 to full RGB888 conversion
 static inline uint32_t grb_to_rgb888(uint8_t grb) {
@@ -371,7 +631,7 @@ static inline uint32_t grb_to_rgb888(uint8_t grb) {
 void VIDEO::regenerateUlaPlusAluBytes() {
     // Set palette colors for all 64 ULA+ entries
     for (int i = 0; i < 64; i++)
-        graphics_set_palette(i, grb_to_rgb888(ulaplus_palette[i]));
+        graphics_set_palette(i, paletteTransform(grb_to_rgb888(ulaplus_palette[i])));
 
     // Build AluBytes with fixed indices 0-63 (only depends on attribute format,
     // not palette contents — only needs to be done once at ULA+ enable)
@@ -394,8 +654,19 @@ void VIDEO::regenerateUlaPlusAluBytes() {
 }
 
 // Fast path: update single palette entry without rebuilding AluBytes
+// Deferred: only marks dirty, actual conv_color update happens in ulaPlusFlushPalette()
+// to avoid palette tearing when HDMI DMA scans top lines before Z80 ISR finishes
 void VIDEO::ulaPlusUpdatePaletteEntry(uint8_t entry) {
-    graphics_set_palette(entry, grb_to_rgb888(ulaplus_palette[entry]));
+    ulaplus_palette_dirty = true;
+}
+
+// Apply all pending ULA+ palette changes to hardware (conv_color / VGA LUT).
+// Called from EndFrame() so palette is stable before HDMI active area begins.
+void VIDEO::ulaPlusFlushPalette() {
+    if (!ulaplus_palette_dirty) return;
+    ulaplus_palette_dirty = false;
+    for (int i = 0; i < 64; i++)
+        graphics_set_palette(i, paletteTransform(grb_to_rgb888(ulaplus_palette[i])));
 }
 
 void VIDEO::ulaPlusUpdateBorder() {
@@ -408,13 +679,15 @@ void VIDEO::ulaPlusUpdateBorder() {
 
 void VIDEO::ulaPlusDisable() {
     ulaplus_enabled = false;
+    ulaplus_palette_dirty = false;
     flashing = 0;
     // Restore palette: indices 0-63 back to G3R3B2 defaults, then 0-15 to Spectrum (solid)
     for (int i = 0; i < 64; i++)
-        graphics_set_palette(i, grb_to_rgb888(i));
+        graphics_set_palette(i, paletteTransform(grb_to_rgb888(i)));
     for (int i = 0; i < 16; i++) {
-        graphics_set_palette(i, spectrum_rgb888[i]);
-        vga_set_palette_entry_solid(i, spectrum_rgb888[i]);
+        uint32_t color = paletteTransform(spectrum_rgb888[i]);
+        graphics_set_palette(i, color);
+        vga_set_palette_entry_solid(i, color);
     }
 
     // Restore GigaScreen blend palette (slots 17-136) if GigaScreen is configured,
@@ -428,6 +701,32 @@ void VIDEO::ulaPlusDisable() {
     brdChange = true;
 }
 #endif
+
+// Apply palette: rebuild spectrum_rgb888 from current palette's brightness levels,
+// then apply color matrix to all palette entries.
+void VIDEO::applyPalette() {
+    uint8_t p = Config::palette < total_palette_count() ? Config::palette : 0;
+    // Rebuild base 16 colors from brightness levels
+    buildSpectrumRGB(getPaletteDef(p), spectrum_rgb888);
+
+    // G3R3B2 entries (0-239) — apply matrix transform
+    for (int i = 0; i < 240; i++)
+        graphics_set_palette(i, paletteTransform(grb_to_rgb888(i)));
+    // Override indices 0-15 with Spectrum colors (already rebuilt with correct brightness)
+    for (int i = 0; i < 16; i++) {
+        uint32_t color = paletteTransform(spectrum_rgb888[i]);
+        graphics_set_palette(i, color);
+        vga_set_palette_entry_solid(i, color);
+    }
+    // Orange (index 16)
+    graphics_set_palette(16, paletteTransform(0xFF7F00));
+
+    // Re-apply GigaScreen blend palette if active
+#if !PICO_RP2040
+    if (Config::gigascreen_enabled)
+        initGigascreenBlendLUT();
+#endif
+}
 
 const int redPins[] = {RED_PINS_6B};
 const int grePins[] = {GRE_PINS_6B};
@@ -465,27 +764,15 @@ void VIDEO::Init() {
     vga.useInterrupt_flag = false;
     vga.init( Mode, redPins, grePins, bluPins, HSYNC_PIN, VSYNC_PIN);
 
-    // Initialize full 256-entry palette: G3R3B2 → RGB888 for all possible values
-    // This covers ULA+ (any G3R3B2 value maps to correct color) and provides
-    // a reasonable default for all indices
-    for (int i = 0; i < 240; i++)
-        graphics_set_palette(i, grb_to_rgb888(i));
-
-    // Override indices 0-15 with standard Spectrum colors (solid, no dithering)
-    for (int i = 0; i < 16; i++) {
-        graphics_set_palette(i, spectrum_rgb888[i]);
-        vga_set_palette_entry_solid(i, spectrum_rgb888[i]);
-    }
-
-    // Index 16 = ORANGE
-    graphics_set_palette(16, 0xFF7F00);
-
     // Generate AluBytes table with palette indices (no sync bits)
     initAluBytes();
 
     precalcULASWAP();   // precalculate ULA SWAP values
 
     precalcborder32();  // Precalc border 32 bits values
+
+    // Build and apply palette (brightness levels + color matrix)
+    applyPalette();
 
     if (Config::gigascreen_enabled)
     {
@@ -628,6 +915,11 @@ void VIDEO::Reset() {
     brd = border32[7];
 
 #if !PICO_RP2040
+    // Reset Timex SCLD state
+    timex_port_ff = 0;
+    timex_mode = 0;
+    timex_hires_ink = 0;
+
     // Reset ULA+ state
     if (ulaplus_enabled) ulaPlusDisable();
     ulaplus_reg = 0;
@@ -859,28 +1151,61 @@ IRAM_ATTR void VIDEO::MainScreen_Blank(unsigned int statestoadd, bool contended)
         coldraw_cnt = 0;
 
         curline = linedraw_cnt - lin_end;
-        bmpOffset = offBmp[curline];
-        attOffset = offAtt[curline];
-        
+#if !PICO_RP2040
+        if (Config::timex_video && VIDEO::timex_mode != 0) {
+            switch (VIDEO::timex_mode) {
+                case 1: // Second screen
+                    bmpOffset = 0x2000 + offBmp[curline];
+                    attOffset = 0x2000 + offAtt[curline];
+                    break;
+                case 2: // Hi-colour (8x1 attrs from screen 1, ULA-swapped)
+                    bmpOffset = offBmp[curline];
+                    attOffset = 0x2000 + offBmp[curline];
+                    break;
+                case 6: // Hi-res (both screens as bitmap)
+                    bmpOffset = offBmp[curline];
+                    attOffset = 0x2000 + offBmp[curline];
+                    break;
+                default: // Undefined modes -> standard
+                    bmpOffset = offBmp[curline];
+                    attOffset = offAtt[curline];
+                    break;
+            }
+        } else
+#endif
+        {
+            bmpOffset = offBmp[curline];
+            attOffset = offAtt[curline];
+        }
+
         #ifdef DIRTY_LINES
         // Force line draw (for testing)
         // dirty_lines[curline] = 1;
         #endif // DIRTY_LINES
 
+#if !PICO_RP2040
+        // DMA per-scanline attr shadow: use snapshot if DMA wrote attrs for this scanline
+        if (Config::dma_mode && Z80DMA::dma_attr_valid[curline])
+            dma_attr_override = &Z80DMA::dma_attr_shadow[curline * 32];
+        else
+            dma_attr_override = nullptr;
+#endif
+
         Draw = linedraw_cnt >= 176 && linedraw_cnt <= 191 ? Draw_OSD169 : MainScreen;
         Draw_Opcode = MainScreen_Opcode;
+
 
         video_rest = CPU::tstates - tstateDraw;
         Draw(0,false);
 
     }
 
-}    
+}
 
 IRAM_ATTR void VIDEO::MainScreen_Blank_Opcode(bool contended) { MainScreen_Blank(4, contended); }
 
-IRAM_ATTR void VIDEO::MainScreen_Blank_Snow(unsigned int statestoadd, bool contended) {    
-    
+IRAM_ATTR void VIDEO::MainScreen_Blank_Snow(unsigned int statestoadd, bool contended) {
+
     CPU::tstates += statestoadd;
 
     if (CPU::tstates >= tstateDraw) {
@@ -893,8 +1218,32 @@ IRAM_ATTR void VIDEO::MainScreen_Blank_Snow(unsigned int statestoadd, bool conte
         coldraw_cnt = 0;
 
         curline = linedraw_cnt - lin_end;
-        bmpOffset = offBmp[curline];
-        attOffset = offAtt[curline];
+#if !PICO_RP2040
+        if (Config::timex_video && VIDEO::timex_mode != 0) {
+            switch (VIDEO::timex_mode) {
+                case 1:
+                    bmpOffset = 0x2000 + offBmp[curline];
+                    attOffset = 0x2000 + offAtt[curline];
+                    break;
+                case 2:
+                    bmpOffset = offBmp[curline];
+                    attOffset = 0x2000 + offBmp[curline];
+                    break;
+                case 6:
+                    bmpOffset = offBmp[curline];
+                    attOffset = 0x2000 + offBmp[curline];
+                    break;
+                default:
+                    bmpOffset = offBmp[curline];
+                    attOffset = offAtt[curline];
+                    break;
+            }
+        } else
+#endif
+        {
+            bmpOffset = offBmp[curline];
+            attOffset = offAtt[curline];
+        }
 
         snowpage = MemESP::videoLatch ? 7 : 5;
         
@@ -995,7 +1344,7 @@ void initGigascreenBlendLUT() {
             // Assign to next available palette slot
             if (nextSlot < 240) {
                 gigsBlendLUT[i * 16 + j] = nextSlot;
-                graphics_set_palette(nextSlot, blended);
+                graphics_set_palette(nextSlot, paletteTransform(blended));
                 nextSlot++;
             } else {
                 gigsBlendLUT[i * 16 + j] = i; // fallback
@@ -1040,9 +1389,28 @@ IRAM_ATTR void VIDEO::MainScreen(unsigned int statestoadd, bool contended) {
         loopCount -= coldraw_cnt - 32;
     }
 
+#if !PICO_RP2040
+    if (Config::timex_video && VIDEO::timex_mode == 6) {
+        // Hi-res mode 6 (512->256): real SCLD alternates byte-columns from
+        // screen0 and screen1 at same address, 64 cols x 8 bits = 512 pixels.
+        // For 256px output, OR-merge each pair (s0[addr] | s1[addr]) into
+        // 8 output pixels — preserves all set bits, covers all 32 addresses.
+        uint8_t hires_att = VIDEO::timex_hires_ink;
+        for (; loopCount--; ) {
+            uint8_t combined = grmem[bmpOffset++] | grmem[attOffset++];
+            *lineptr32++ = AluByte[combined >> 4][hires_att];
+            *lineptr32++ = AluByte[combined & 0xF][hires_att];
+        }
+    } else
+#endif
     if (VIDEO::gigascreen_enabled) {
         for (; loopCount--; ) {
+#if !PICO_RP2040
+            uint8_t att = dma_attr_override ? dma_attr_override[attOffset & 0x1F] : grmem[attOffset];
+            attOffset++;
+#else
             uint8_t att = grmem[attOffset++];
+#endif
             uint8_t bmp = grmem[bmpOffset++] ^ (-((att & flashing) >> 7));
             uint32_t newPixel1 = AluByte[bmp >> 4][att];
             uint32_t newPixel2 = AluByte[bmp & 0xF][att];
@@ -1056,7 +1424,12 @@ IRAM_ATTR void VIDEO::MainScreen(unsigned int statestoadd, bool contended) {
         }
     } else {
         for (; loopCount--; ) {
+#if !PICO_RP2040
+            uint8_t att = dma_attr_override ? dma_attr_override[attOffset & 0x1F] : grmem[attOffset];
+            attOffset++;
+#else
             uint8_t att = grmem[attOffset++];
+#endif
             uint8_t bmp = grmem[bmpOffset++] ^ (-((att & flashing) >> 7));
             *lineptr32++ = AluByte[bmp >> 4][att];
             *lineptr32++ = AluByte[bmp & 0xF][att];
@@ -1373,6 +1746,18 @@ IRAM_ATTR void VIDEO::EndFrame() {
 
     tstateDraw = tStatesScreen;
 
+#if !PICO_RP2040
+    // Clear DMA attr shadow and charrow write counters for next frame
+    if (Config::dma_mode)
+        Z80DMA::resetAttrShadow();
+    dma_attr_override = nullptr;
+
+    // Flush deferred ULA+ palette updates so HDMI DMA sees consistent palette
+    // for the entire next frame (prevents top-of-screen palette tearing)
+    if (ulaplus_enabled)
+        ulaPlusFlushPalette();
+#endif
+
     static uint8_t skipCnt = 0;
     static bool wasMaxSpeed = false;
     bool skipFrame = ESPectrum::maxSpeed && (++skipCnt & 63);
@@ -1387,7 +1772,11 @@ IRAM_ATTR void VIDEO::EndFrame() {
         // Skip rendering: 1/1024 frames during tape loading, 1/256 otherwise
         Draw = VIDEO::snow_toggle ? &Blank_Snow : &Blank;
         Draw_Opcode = VIDEO::snow_toggle ? &Blank_Snow_Opcode : &Blank_Opcode;
-    } else if (VIDEO::snow_toggle) {
+    } else if (VIDEO::snow_toggle
+#if !PICO_RP2040
+        && !(Config::timex_video && VIDEO::timex_mode != 0)
+#endif
+    ) {
         Draw = &MainScreen_Blank_Snow;
         Draw_Opcode = &MainScreen_Blank_Snow_Opcode;
     } else {
@@ -1731,19 +2120,24 @@ void SaveRectT::save(int16_t x, int16_t y, int16_t w, int16_t h) {
         f_close(&f);
         offsets.push_back(off);
     } else {
-        // RAM fallback when no SD card
+        // RAM fallback when no SD card — skip if not enough heap
         size_t need = 8 + (size_t)w * h;
-        ram_buf.resize(off + need);
-        uint8_t *p = ram_buf.data() + off;
-        memcpy(p, &x, 2); p += 2;
-        memcpy(p, &y, 2); p += 2;
-        memcpy(p, &w, 2); p += 2;
-        memcpy(p, &h, 2); p += 2;
-        for (size_t line = y; line < y + h; ++line) {
-            memcpy(p, VIDEO::vga.frameBuffer[line] + x, w);
-            p += w;
+        if (getFreeHeap() > need + 1024) {
+            ram_buf.resize(off + need);
+            uint8_t *p = ram_buf.data() + off;
+            memcpy(p, &x, 2); p += 2;
+            memcpy(p, &y, 2); p += 2;
+            memcpy(p, &w, 2); p += 2;
+            memcpy(p, &h, 2); p += 2;
+            for (size_t line = y; line < y + h; ++line) {
+                memcpy(p, VIDEO::vga.frameBuffer[line] + x, w);
+                p += w;
+            }
+            offsets.push_back(off + need);
+        } else {
+            // Not enough RAM — push dummy (restore will trigger redraw)
+            offsets.push_back(off);
         }
-        offsets.push_back(off + need);
     }
 }
 void SaveRectT::restore_last() {

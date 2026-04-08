@@ -2,7 +2,7 @@
 
 #if !CARTRIDGE_AS_CUSTOM || NO_ALF
 
-unsigned char __in_flash() __aligned(4096) gb_rom_0_128k_custom[(32 << 10)] = { // 32776
+const unsigned char __in_flash() __aligned(4096) gb_rom_0_128k_custom[(32 << 10)] = { // 32776
 
 ///	0x45, 0x53, 0x50, 0x52, 0x5F, 0x31, 0x32, 0x38, // MAGIC -> "ESPR_128"
 

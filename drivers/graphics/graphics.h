@@ -44,6 +44,8 @@ enum graphics_mode_t {
     GRAPHICSMODE_DEFAULT,
 };
 
+extern uint16_t graphics_max_tft_freq_mhz; // max SPI freq for TFT, MHz
+
 void graphics_init();
 
 void graphics_set_mode(enum graphics_mode_t mode);
@@ -66,6 +68,7 @@ void draw_window(const char title[TEXTMODE_COLS + 1], uint32_t x, uint32_t y, ui
 void clrScr(uint8_t color);
 
 struct video_mode_t graphics_get_video_mode(int mode);
+void graphics_set_pio_clk_div(float div);
 
 #ifdef __cplusplus
 }

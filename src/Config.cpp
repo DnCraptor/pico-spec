@@ -8,6 +8,8 @@
 #include "OSDMain.h"
 #include "psram_spi.h"
 #include "pwm_audio.h"
+#include "graphics.h"
+#include <hardware/vreg.h>
 
 string   Config::arch = "48K";
 string   Config::romSet = "48K";
@@ -16,15 +18,16 @@ string   Config::romSet128 = "128K";
 string   Config::romSetPent = "128Kp";
 string   Config::romSetP512 = "128Kp";
 string   Config::romSetP1M = "128Kp";
-string   Config::pref_arch = "48K";
-string   Config::pref_romSet_48 = "48K";
-string   Config::pref_romSet_128 = "128K";
-string   Config::pref_romSetPent = "128Kp";
-string   Config::pref_romSetP512 = "128Kp";
-string   Config::pref_romSetP1M = "128Kp";
+string   Config::pref_arch = "Last";
+string   Config::pref_romSet_48 = "Last";
+string   Config::pref_romSet_128 = "Last";
+string   Config::pref_romSetPent = "Last";
+string   Config::pref_romSetP512 = "Last";
+string   Config::pref_romSetP1M = "Last";
 string   Config::ram_file = NO_RAM_FILE;
 string   Config::last_ram_file = NO_RAM_FILE;
 
+bool     Config::loaded = false;
 bool     Config::slog_on = false;
 const bool     Config::aspect_16_9 = false;
 ///uint8_t  Config::esp32rev = 0;
@@ -34,6 +37,13 @@ bool     Config::AY48 = true;
 bool     Config::SAA1099 = false;
 uint8_t  Config::midi = 0;
 uint8_t  Config::midi_synth_preset = 0;
+#endif
+uint16_t Config::cpu_mhz = CPU_MHZ;
+uint16_t Config::max_flash_freq = 66;
+uint16_t Config::max_psram_freq = 166;
+uint16_t Config::max_tft_freq = 126;
+#if !PICO_RP2040
+uint8_t  Config::vreq_voltage = VREG_VOLTAGE_1_60;
 #endif
 bool     Config::Issue2 = true;
 bool     Config::flashload = true;
@@ -102,7 +112,10 @@ bool     Config::gigascreen_enabled = false;
 uint8_t  Config::gigascreen_onoff = 0;
 #if !PICO_RP2040
 bool     Config::ulaplus = false;
+bool     Config::timex_video = false;
+uint8_t  Config::dma_mode = 0;
 #endif
+uint8_t  Config::palette = 0;
 uint8_t  Config::audio_driver = 0;
 extern "C" uint8_t  video_driver = 0;
 bool     Config::byte_cobmect_mode = false;
@@ -410,6 +423,32 @@ void Config::load() {
         nvs_get_u8("midi", midi, sts);
         nvs_get_u8("midipreset", midi_synth_preset, sts);
 #endif
+        nvs_get_u16("cpu_mhz", cpu_mhz, sts);
+        if (cpu_mhz == 0) cpu_mhz = CPU_MHZ;
+        nvs_get_u16("max_flash_freq", max_flash_freq, sts);
+        if (max_flash_freq == 0) max_flash_freq = 66;
+        nvs_get_u16("max_psram_freq", max_psram_freq, sts);
+        if (max_psram_freq == 0) max_psram_freq = 166;
+        nvs_get_u16("max_tft_freq", max_tft_freq, sts);
+        if (max_tft_freq == 0) max_tft_freq = 126;
+        graphics_max_tft_freq_mhz = max_tft_freq;
+#if !PICO_RP2040
+        {
+            std::string vv;
+            nvs_get_str("vreq_voltage", vv, sts);
+            if      (vv == "1_15") vreq_voltage = VREG_VOLTAGE_1_15;
+            else if (vv == "1_20") vreq_voltage = VREG_VOLTAGE_1_20;
+            else if (vv == "1_25") vreq_voltage = VREG_VOLTAGE_1_25;
+            else if (vv == "1_30") vreq_voltage = VREG_VOLTAGE_1_30;
+            else if (vv == "1_35") vreq_voltage = VREG_VOLTAGE_1_35;
+            else if (vv == "1_40") vreq_voltage = VREG_VOLTAGE_1_40;
+            else if (vv == "1_50") vreq_voltage = VREG_VOLTAGE_1_50;
+            else if (vv == "1_60") vreq_voltage = VREG_VOLTAGE_1_60;
+            else if (vv == "1_65") vreq_voltage = VREG_VOLTAGE_1_65;
+            else if (vv == "1_70") vreq_voltage = VREG_VOLTAGE_1_70;
+            else if (vv == "1_80") vreq_voltage = VREG_VOLTAGE_1_80;
+        }
+#endif
         nvs_get_b("Issue2", Issue2, sts);
         nvs_get_b("flashload", flashload, sts);
         nvs_get_b("rightSpace", rightSpace, sts);
@@ -542,13 +581,17 @@ void Config::load() {
         #endif
         #if !PICO_RP2040
         nvs_get_b("ulaplus", ulaplus, sts);
+        nvs_get_b("timex_video", timex_video, sts);
+        nvs_get_u8("dma_mode", dma_mode, sts);
         #endif
+        nvs_get_u8("palette", palette, sts);
         std::string v;
         nvs_get_str("audio_driver", v, sts);
         if (v == "pwm") Config::audio_driver = 1;
         else if (v == "i2s") Config::audio_driver = 2;
         else if (v == "ay") Config::audio_driver = 3;
         else if (v == "hdmi") Config::audio_driver = 4;
+        else if (v == "pcm5122") Config::audio_driver = 5;
         nvs_get_str("video_driver", v, sts);
         if (v == "VGA" || v == "vga") video_driver = 1;
         else if (v == "HDMI" || v == "hdmi" || v == "DVI" || v == "dvi") video_driver = 2;
@@ -572,6 +615,7 @@ void Config::load() {
         #endif
         else MEM_PG_CNT = mem_pg_cnt;
     }
+    loaded = true;
 }
 
 static void nvs_set_str(string& buf, const char* name, const char* val) {
@@ -598,8 +642,33 @@ static void nvs_set_sc(string& buf, const char* name, signed char val) {
 
 // Dump actual config to FS
 void Config::save() {
-    string buf;
-    buf.reserve(2048);
+    static string buf;
+    buf.clear();
+    if (buf.capacity() < 2048) buf.reserve(2048);
+    nvs_set_u16(buf,"cpu_mhz", cpu_mhz);
+    nvs_set_u16(buf,"max_flash_freq", max_flash_freq);
+    nvs_set_u16(buf,"max_psram_freq", max_psram_freq);
+    nvs_set_u16(buf,"max_tft_freq", max_tft_freq);
+#if !PICO_RP2040
+    {
+        const char* vv = "1_60";
+        switch (vreq_voltage) {
+            case VREG_VOLTAGE_1_15: vv = "1_15"; break;
+            case VREG_VOLTAGE_1_20: vv = "1_20"; break;
+            case VREG_VOLTAGE_1_25: vv = "1_25"; break;
+            case VREG_VOLTAGE_1_30: vv = "1_30"; break;
+            case VREG_VOLTAGE_1_35: vv = "1_35"; break;
+            case VREG_VOLTAGE_1_40: vv = "1_40"; break;
+            case VREG_VOLTAGE_1_50: vv = "1_50"; break;
+            case VREG_VOLTAGE_1_60: vv = "1_60"; break;
+            case VREG_VOLTAGE_1_65: vv = "1_65"; break;
+            case VREG_VOLTAGE_1_70: vv = "1_70"; break;
+            case VREG_VOLTAGE_1_80: vv = "1_80"; break;
+        }
+        nvs_set_str(buf, "vreq_voltage", vv);
+    }
+#endif
+
     #if TFT
     nvs_set_u8(buf,"TFT_FLAGS", TFT_FLAGS);
     nvs_set_u8(buf,"TFT_INVERSION", TFT_INVERSION);
@@ -703,10 +772,14 @@ void Config::save() {
     nvs_set_u8(buf,"gigascreen_onoff", Config::gigascreen_onoff);
     #if !PICO_RP2040
     nvs_set_str(buf,"ulaplus", Config::ulaplus ? "true" : "false");
+    nvs_set_str(buf,"timex_video", Config::timex_video ? "true" : "false");
+    nvs_set_u8(buf,"dma_mode",Config::dma_mode);
     #endif
+    nvs_set_u8(buf,"palette", Config::palette);
     nvs_set_str(buf,"audio_driver", Config::audio_driver == 0 ? "auto" :
         (Config::audio_driver == 1) ? "pwm" : (Config::audio_driver == 2) ? "i2s" :
-        (Config::audio_driver == 3) ? "ay" : "hdmi"
+        (Config::audio_driver == 3) ? "ay" : (Config::audio_driver == 4) ? "hdmi" :
+        (Config::audio_driver == 5) ? "pcm5122" : "auto"
     );
     nvs_set_str(buf,"video_driver", video_driver == 0 ? "auto" : (video_driver == 1) ? "vga" : "hdmi");
     nvs_set_str(buf,"byte_cobmect_mode", Config::byte_cobmect_mode ? "true" : "false");
@@ -722,17 +795,35 @@ void Config::save() {
     nvs_set_i(buf,"MEM_PG_CNT", MEM_PG_CNT);
 
     if (FileUtils::fsMount) {
-        string nvs = MOUNT_POINT_SD STORAGE_NVS;
-        FIL* handle = fopen2(nvs.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
+        if (!loaded) {
+            // Config was never loaded from file — refuse to overwrite
+            // existing storage.nvs with defaults
+            FILINFO fi;
+            if (f_stat(MOUNT_POINT_SD STORAGE_NVS, &fi) == FR_OK) {
+                Debug::log("Config::save BLOCKED — not loaded, file exists (%u bytes)", fi.fsize);
+                return;
+            }
+        }
+        // Atomic write: write to .tmp, then rename over the original
+        static const char* nvs_tmp = MOUNT_POINT_SD STORAGE_NVS ".tmp";
+        static const char* nvs_path = MOUNT_POINT_SD STORAGE_NVS;
+        FIL* handle = fopen2(nvs_tmp, FA_WRITE | FA_CREATE_ALWAYS);
         if (handle) {
             UINT bw;
-            f_write(handle, buf.c_str(), buf.size(), &bw);
+            FRESULT wr = f_write(handle, buf.c_str(), buf.size(), &bw);
             fclose2(handle);
+            if (wr == FR_OK && bw == buf.size()) {
+                f_unlink(nvs_path);
+                f_rename(nvs_tmp, nvs_path);
+            } else {
+                // Write failed — remove incomplete temp, keep original intact
+                f_unlink(nvs_tmp);
+                Debug::log("Config::save FAILED — write error (wr=%d, bw=%u/%u)", wr, bw, buf.size());
+            }
         }
     }
     // Always keep in RAM (for session persistence without SD)
     nvs_ram_buf = std::move(buf);
-    // printf("Config saved OK\n");
 }
 
 #define VMODE_PENDING_FILE MOUNT_POINT_SD "/vmode_pending.nvs"

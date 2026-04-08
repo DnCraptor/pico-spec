@@ -67,6 +67,7 @@ visit https://zxespectrum.speccy.org/contacto
 #endif
 #include "Midi.h"
 #include "MidiSynth.h"
+#include "Z80DMA.h"
 
 using namespace std;
 
@@ -177,7 +178,7 @@ void repeat_handler(void) {
 uint8_t ESPectrum::audioBuffer_L[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
 uint8_t ESPectrum::audioBuffer_R[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
 uint8_t ESPectrum::audioBufferCovox[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
-uint32_t ESPectrum::overSamplebuf[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
+uint8_t ESPectrum::overSamplebuf[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
 signed char ESPectrum::aud_volume = ESP_VOLUME_DEFAULT;
 bool ESPectrum::vol_changed = false;
 // signed char ESPectrum::aud_volume = ESP_VOLUME_MAX; // For .tap player test
@@ -290,6 +291,14 @@ uint32_t ESPectrum::accumulatorFP = 0;
 uint32_t ESPectrum::tstatesPerSampleFP = 0;
 uint32_t ESPectrum::beeperSampleAccum = 0;
 uint32_t ESPectrum::beeperTstatesInSample = 0;
+
+// Reciprocal LUT: recip[n] = (1<<16)/n for fast division in BeeperGetSample
+static uint16_t beeper_recip[256];
+static void init_beeper_recip() {
+    beeper_recip[0] = 0;
+    for (int i = 1; i < 256; i++)
+        beeper_recip[i] = (uint16_t)((1u << 16) / i);
+}
 
 //=======================================================================================
 // LOGGING / TESTING
@@ -545,6 +554,7 @@ static void assign_ram(int i) {
 }
 
 void ESPectrum::setup() {
+  init_beeper_recip();
   //=======================================================================================
   // INIT FILESYSTEM
   //=======================================================================================
@@ -557,8 +567,10 @@ void ESPectrum::setup() {
   //=======================================================================================
   // LOAD CONFIG
   //=======================================================================================
+  Config::initHotkeys(); // fill hotkey defaults even without SD
   if (FileUtils::fsMount)
     Config::load();
+  VIDEO::loadCustomPalettes();
   Debug::log("setup: Config loaded");
   bool ext_ram_exist = butter_psram_size() >= (16 << 10) ||
                        psram_size() >= (16 << 10) || FileUtils::fsMount;
@@ -645,14 +657,23 @@ void ESPectrum::setup() {
     MemESP::ram = new mem_desc_t[MEM_PG_CNT + 2];
     memcpy(MemESP::ram, temp, sizeof(mem_desc_t) * 8);
     Debug::log("setup: after memcpy: ram5=%p ram7=%p", MemESP::ram[5].direct(), MemESP::ram[7].direct());
+#if PICO_RP2040
+    // RP2040: page 0 not essential for 48K — always swap to save heap for framebuffer
+    MemESP::ram[0].assign_vram(0, mem_type_t::SWAP);
+    ++swap_pages;
+    MemESP::ram[1].assign_ram(new unsigned char[MEM_PG_SZ], 1, false);
+    MemESP::ram[2].assign_ram(new unsigned char[MEM_PG_SZ], 2, false);
+    MemESP::ram[3].assign_ram(new unsigned char[MEM_PG_SZ], 3, false);
+    ram_pages += 3;
+#else
     MemESP::ram[0].assign_ram(new unsigned char[MEM_PG_SZ], 0, false);
     MemESP::ram[1].assign_ram(new unsigned char[MEM_PG_SZ], 1, false);
     MemESP::ram[2].assign_ram(new unsigned char[MEM_PG_SZ], 2, false);
     MemESP::ram[3].assign_ram(new unsigned char[MEM_PG_SZ], 3, false);
-    // pages 4 and 6 may be added to some other pool
-    // 5 and 7 - static (video RAM)
     ram_pages += 4;
-    // for virtual ram
+#endif
+    // pages 4 and 6 — use assign_ram for MEM_REMAIN check
+    // 5 and 7 - static (video RAM)
     assign_ram(4);
     assign_ram(6);
     Debug::log("setup: ext_ram: pages 0-6 done, freeHeap=%u", getFreeHeap());
@@ -776,6 +797,7 @@ void ESPectrum::setup() {
     SAA_emu = Config::SAA1099;
     Midi::enabled = Config::midi;
     if (Midi::enabled) Midi::init();
+    if (Config::dma_mode) Z80DMA::reset();
 #endif
 
   if (Config::arch == "48K") {
@@ -986,6 +1008,7 @@ void ESPectrum::reset(uint8_t romInUse) {
     SAA_emu = Config::SAA1099;
     Midi::enabled = Config::midi;
     if (Midi::enabled) Midi::init();
+    if (Config::dma_mode) Z80DMA::reset();
 #endif
 
   // Set samples per frame and AY_emu flag depending on arch
@@ -1366,8 +1389,8 @@ __not_in_flash("audio") void ESPectrum::BeeperGetSample() {
     uint32_t completedAccum = beeperSampleAccum - lastaudioBit * overflowTstates;
     uint32_t completedTstates = beeperTstatesInSample - overflowTstates;
     // Write tstate-weighted average directly
-    overSamplebuf[audbufcntover++] = completedTstates > 0
-        ? completedAccum / completedTstates : 0;
+    overSamplebuf[audbufcntover++] = (completedTstates > 0 && completedTstates < 256)
+        ? (uint32_t)(completedAccum * beeper_recip[completedTstates]) >> 16 : 0;
     // Carry overflow to next sample
     beeperSampleAccum = lastaudioBit * overflowTstates;
     beeperTstatesInSample = overflowTstates;
@@ -1605,7 +1628,9 @@ void ESPectrum::loop() {
             beeperSampleAccum += faudioBit * remaining;
             beeperTstatesInSample += remaining;
           }
-          overSamplebuf[audbufcntover++] = beeperSampleAccum / beeperTstatesInSample;
+          overSamplebuf[audbufcntover++] = beeperTstatesInSample < 256
+              ? (uint32_t)(beeperSampleAccum * beeper_recip[beeperTstatesInSample]) >> 16
+              : beeperSampleAccum / beeperTstatesInSample;
           beeperSampleAccum = 0;
           beeperTstatesInSample = 0;
         }
@@ -1614,38 +1639,24 @@ void ESPectrum::loop() {
           overSamplebuf[audbufcntover++] = faudioBit;
         }
         if (Tape::tapeStatus != TAPE_LOADING) {
-          // Smooth beeper buffer: causal 2-tap (1-1)/2
-          // Reduces PWM jitter from non-integer tstates/sample (128K: 113.45)
-          {
-            uint32_t prev = overSamplebuf[0];
-            for (int i = 1; i < samplesPerFrame; i++) {
-              uint32_t curr = overSamplebuf[i];
-              overSamplebuf[i] = (prev + curr + 1) >> 1;
-              prev = curr;
-            }
+          // Smooth beeper buffer + detect constant DC in single pass
+          static uint32_t dc_fade_q8 = 256u;
+          uint8_t v0 = overSamplebuf[0];
+          uint8_t prev = v0;
+          bool is_const = true;
+          for (int i = 1; i < samplesPerFrame; i++) {
+            uint8_t curr = overSamplebuf[i];
+            if (curr != v0) is_const = false;
+            overSamplebuf[i] = ((uint32_t)prev + curr + 1) >> 1;
+            prev = curr;
           }
-          // Simulate speaker coupling capacitor: attenuate constant (DC) beeper signals.
-          // On real hardware the coupling cap blocks a static EAR output level — only
-          // transitions are audible. When all samples in the buffer are identical (bit
-          // held steady), fade the level out. When the beeper is oscillating (music),
-          // leave the buffer untouched so quality is fully preserved.
-          {
-            static uint32_t dc_fade_q8 = 256u; // Q8 attenuation: 256 = full, 0 = silent
-            uint32_t v0 = overSamplebuf[0];
-            bool is_const = true;
-            for (int i = 1; i < samplesPerFrame; i++)
-              if (overSamplebuf[i] != v0) { is_const = false; break; }
-            if (is_const && v0 > 0) {
-              // Constant non-zero DC — fade to silence over ~10 frames (~200ms)
-              if (dc_fade_q8 >= 26u) dc_fade_q8 -= 26u; else dc_fade_q8 = 0u;
-              uint32_t faded = (v0 * dc_fade_q8) >> 8;
-              for (int i = 0; i < samplesPerFrame; i++)
-                overSamplebuf[i] = faded;
-            } else if (!is_const) {
-              // Oscillating beeper (music) — full amplitude, restore attenuation
-              dc_fade_q8 = 256u;
-            }
-            // is_const && v0 == 0: constant silence — don't reset dc_fade_q8
+          if (is_const && v0 > 0) {
+            if (dc_fade_q8 >= 26u) dc_fade_q8 -= 26u; else dc_fade_q8 = 0u;
+            uint8_t faded = (v0 * dc_fade_q8) >> 8;
+            for (int i = 0; i < samplesPerFrame; i++)
+              overSamplebuf[i] = faded;
+          } else if (!is_const) {
+            dc_fade_q8 = 256u;
           }
         }
         if (Config::covox && faudbufcntCovox < samplesPerFrame) {
@@ -1679,13 +1690,15 @@ void ESPectrum::loop() {
         }
         if (Midi::enabled == 3)
         {
-          if (Tape::tapeStatus == TAPE_LOADING) {
-            memset(audioBufferMIDI_L, 0, samplesPerFrame);
-            memset(audioBufferMIDI_R, 0, samplesPerFrame);
-          } else {
-            MidiSynth::gen_sound(audioBufferMIDI_L, audioBufferMIDI_R, samplesPerFrame);
-          }
+          MidiSynth::gen_sound(audioBufferMIDI_L, audioBufferMIDI_R, samplesPerFrame);
         }
+#endif
+        // Hoist frame-invariant source flags outside the mix loop
+        bool mix_chip0 = AY_emu && (Config::turbosound != 0 || AySound::selected_chip == 0);
+        bool mix_chip1 = AY_emu && (Config::turbosound != 0 || AySound::selected_chip == 1);
+#if !PICO_RP2040
+        bool mix_saa = SAA_emu;
+        bool mix_midi = (Midi::enabled == 3);
 #endif
         for (int i = 0; i < samplesPerFrame; i++)
         {
@@ -1695,33 +1708,26 @@ void ESPectrum::loop() {
 #endif
               ;
           int beeper_R = beeper_L;
-          if (AY_emu)
-          {
-            if (Config::turbosound != 0 || AySound::selected_chip == 0)
-            {
-              beeper_L += chip0.SamplebufAY_L[i];
-              beeper_R += chip0.SamplebufAY_R[i];
-            }
-            if (Config::turbosound != 0 || AySound::selected_chip == 1)
-            {
-              beeper_L += chip1.SamplebufAY_L[i];
-              beeper_R += chip1.SamplebufAY_R[i];
-            }
+          if (mix_chip0) {
+            beeper_L += chip0.SamplebufAY_L[i];
+            beeper_R += chip0.SamplebufAY_R[i];
+          }
+          if (mix_chip1) {
+            beeper_L += chip1.SamplebufAY_L[i];
+            beeper_R += chip1.SamplebufAY_R[i];
           }
 #if !PICO_RP2040
-            if (SAA_emu)
-            {
-              beeper_L += saaChip.SamplebufSAA_L[i];
-              beeper_R += saaChip.SamplebufSAA_R[i];
-            }
-            if (Midi::enabled == 3)
-            {
-              beeper_L += audioBufferMIDI_L[i];
-              beeper_R += audioBufferMIDI_R[i];
-            }
+          if (mix_saa) {
+            beeper_L += saaChip.SamplebufSAA_L[i];
+            beeper_R += saaChip.SamplebufSAA_R[i];
+          }
+          if (mix_midi) {
+            beeper_L += audioBufferMIDI_L[i];
+            beeper_R += audioBufferMIDI_R[i];
+          }
 #endif
-            audioBuffer_L[i] = beeper_L > 255 ? 255 : beeper_L; // Clamp
-            audioBuffer_R[i] = beeper_R > 255 ? 255 : beeper_R; // Clamp
+          audioBuffer_L[i] = beeper_L > 255 ? 255 : beeper_L;
+          audioBuffer_R[i] = beeper_R > 255 ? 255 : beeper_R;
         }
       }
     }

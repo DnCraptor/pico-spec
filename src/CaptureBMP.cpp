@@ -34,6 +34,7 @@ visit https://zxespectrum.speccy.org/contacto
 */
 
 #include "stdio.h"
+#define CAPTUREBMP_IMPL
 #include "CaptureBMP.h"
 #include "Video.h"
 #include "FileUtils.h"
