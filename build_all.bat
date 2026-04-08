@@ -35,6 +35,9 @@ set "ALL_TARGETS=MURM_P1 MURM_P2 MURM2 PICO_PC PICO_DV ZERO ZERO2"
 :: Targets that support TFT+ILI9341
 set "TFT_TARGETS=MURM_P1 MURM_P2 MURM2"
 
+:: Targets that support SOFTTV
+set "SOFTTV_TARGETS=MURM_P1 MURM_P2 MURM2"
+
 :: Parse arguments
 if "%~1"=="" (
     set "TARGETS=%ALL_TARGETS%"
@@ -54,7 +57,7 @@ set "SUCCEEDED="
 set "OUTPUT_DIR=%SCRIPT_DIR%\firmware"
 if not exist "%OUTPUT_DIR%" mkdir "%OUTPUT_DIR%"
 
-:: Build each target with VGA_HDMI, then TFT_ILI9341 for MURM targets
+:: Build each target with VGA_HDMI, then TFT_ILI9341 and SOFTTV for MURM targets
 for %%T in (%TARGETS%) do (
     :: VGA_HDMI build
     call :build_target %%T VGA_HDMI
@@ -62,6 +65,11 @@ for %%T in (%TARGETS%) do (
     :: TFT_ILI9341 build for MURM targets
     for %%M in (%TFT_TARGETS%) do (
         if "%%T"=="%%M" call :build_target %%T TFT_ILI9341
+    )
+
+    :: SOFTTV build for MURM targets
+    for %%M in (%SOFTTV_TARGETS%) do (
+        if "%%T"=="%%M" call :build_target %%T SOFTTV
     )
 )
 
@@ -99,7 +107,7 @@ echo All builds completed successfully!
 goto :eof
 
 :build_target
-:: %1 = target name, %2 = display variant (VGA_HDMI or TFT_ILI9341)
+:: %1 = target name, %2 = display variant (VGA_HDMI, TFT_ILI9341, or SOFTTV)
 set "BT_TARGET=%~1"
 set "BT_DISPLAY=%~2"
 
@@ -142,6 +150,9 @@ if "%BT_TARGET%"=="MURM_P1" (
 set "BT_DISPLAY_FLAGS="
 if "%BT_DISPLAY%"=="TFT_ILI9341" (
     set "BT_DISPLAY_FLAGS=-DTFT=ON -DILI9341=ON -DVGA_HDMI=OFF"
+)
+if "%BT_DISPLAY%"=="SOFTTV" (
+    set "BT_DISPLAY_FLAGS=-DSOFTTV=ON -DVGA_HDMI=OFF"
 )
 
 set "BT_CMAKE_ARGS=-B "!BT_BUILD_DIR!" -S "%SCRIPT_DIR%" -G "%CMAKE_GENERATOR%" !BT_TARGET_FLAGS! !BT_DISPLAY_FLAGS! -DCMAKE_BUILD_TYPE=%BUILD_TYPE%"

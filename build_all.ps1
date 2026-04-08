@@ -38,6 +38,9 @@ $AllTargets = @("MURM_P1", "MURM_P2", "MURM2", "PICO_PC", "PICO_DV", "ZERO", "ZE
 # Targets that support TFT+ILI9341
 $TftTargets = @("MURM_P1", "MURM_P2", "MURM2")
 
+# Targets that support SOFTTV
+$SofttvTargets = @("MURM_P1", "MURM_P2", "MURM2")
+
 if ($Targets.Count -eq 0) { $Targets = $AllTargets }
 
 # Build list of (target, display) pairs
@@ -46,6 +49,9 @@ foreach ($Target in $Targets) {
     $BuildPairs += @{ Target = $Target; Display = "VGA_HDMI" }
     if ($TftTargets -contains $Target) {
         $BuildPairs += @{ Target = $Target; Display = "TFT_ILI9341" }
+    }
+    if ($SofttvTargets -contains $Target) {
+        $BuildPairs += @{ Target = $Target; Display = "SOFTTV" }
     }
 }
 
@@ -101,6 +107,8 @@ foreach ($Pair in $BuildPairs) {
     # Display variant flags
     if ($Display -eq "TFT_ILI9341") {
         $TargetFlags += @("-DTFT=ON", "-DILI9341=ON", "-DVGA_HDMI=OFF")
+    } elseif ($Display -eq "SOFTTV") {
+        $TargetFlags += @("-DSOFTTV=ON", "-DVGA_HDMI=OFF")
     }
 
     $CMakeArgs = @(

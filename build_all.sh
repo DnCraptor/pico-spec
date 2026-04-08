@@ -27,6 +27,9 @@ ALL_TARGETS="MURM_P1 MURM_P2 MURM2 PICO_PC PICO_DV ZERO ZERO2"
 # Targets that support TFT+ILI9341 display variant
 TFT_TARGETS="MURM_P1 MURM_P2 MURM2"
 
+# Targets that support SOFTTV display variant
+SOFTTV_TARGETS="MURM_P1 MURM_P2 MURM2"
+
 # Parse arguments: pass target names to build specific ones, or nothing for all
 if [ $# -gt 0 ]; then
     TARGETS="$*"
@@ -35,13 +38,19 @@ else
 fi
 
 # Build list of (target, display) pairs
-# All targets get VGA_HDMI; MURM_P1/MURM_P2/MURM2 also get TFT+ILI9341
+# All targets get VGA_HDMI; MURM_P1/MURM_P2/MURM2 also get TFT+ILI9341 and SOFTTV
 BUILD_PAIRS=""
 for TARGET in $TARGETS; do
     BUILD_PAIRS="$BUILD_PAIRS ${TARGET}:VGA_HDMI"
     for TFT_T in $TFT_TARGETS; do
         if [ "$TARGET" = "$TFT_T" ]; then
             BUILD_PAIRS="$BUILD_PAIRS ${TARGET}:TFT_ILI9341"
+            break
+        fi
+    done
+    for STV_T in $SOFTTV_TARGETS; do
+        if [ "$TARGET" = "$STV_T" ]; then
+            BUILD_PAIRS="$BUILD_PAIRS ${TARGET}:SOFTTV"
             break
         fi
     done
@@ -127,6 +136,8 @@ for PAIR in $BUILD_PAIRS; do
     # Display variant flags
     if [ "$DISPLAY" = "TFT_ILI9341" ]; then
         TARGET_FLAGS+=(-DTFT=ON -DILI9341=ON -DVGA_HDMI=OFF)
+    elif [ "$DISPLAY" = "SOFTTV" ]; then
+        TARGET_FLAGS+=(-DSOFTTV=ON -DVGA_HDMI=OFF)
     fi
 
     CMAKE_ARGS=(

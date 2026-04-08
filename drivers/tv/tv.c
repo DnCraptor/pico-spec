@@ -130,6 +130,10 @@ static void pio_set_x(PIO pio, const int sm, const uint32_t v) {
 
 
 //определение палитры
+void vga_set_palette_entry_solid(uint8_t i, uint32_t color888) {
+    // TV composite has no dithering, no-op
+}
+
 void graphics_set_palette(uint8_t i, uint32_t color888) {
     if (i >= 240) return;
     uint8_t conv0[] = { 0b00, 0b00, 0b01, 0b10, 0b10, 0b10, 0b11, 0b11 };

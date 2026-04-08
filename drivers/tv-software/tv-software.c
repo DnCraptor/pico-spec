@@ -225,6 +225,10 @@ static uint32_t cbINV[2][10]; //цветовая вспышка	инвертир
 
 static uint32_t* cb[2]; //цветовая вспышка
 //определение палитры(переделать)
+void vga_set_palette_entry_solid(uint8_t i, uint32_t color888) {
+    // TV composite has no dithering, no-op
+}
+
 void graphics_set_palette(uint8_t i, uint32_t color888) {
     conv_color[0] = conv_colorNORM[0];
     conv_color[1] = conv_colorNORM[1];
