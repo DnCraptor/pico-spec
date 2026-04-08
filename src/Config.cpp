@@ -8,6 +8,7 @@
 #include "OSDMain.h"
 #include "psram_spi.h"
 #include "pwm_audio.h"
+#include "graphics.h"
 #include <hardware/vreg.h>
 
 string   Config::arch = "48K";
@@ -40,6 +41,7 @@ uint8_t  Config::midi_synth_preset = 0;
 uint16_t Config::cpu_mhz = CPU_MHZ;
 uint16_t Config::max_flash_freq = 66;
 uint16_t Config::max_psram_freq = 166;
+uint16_t Config::max_tft_freq = 126;
 #if !PICO_RP2040
 uint8_t  Config::vreq_voltage = VREG_VOLTAGE_1_60;
 #endif
@@ -427,6 +429,9 @@ void Config::load() {
         if (max_flash_freq == 0) max_flash_freq = 66;
         nvs_get_u16("max_psram_freq", max_psram_freq, sts);
         if (max_psram_freq == 0) max_psram_freq = 166;
+        nvs_get_u16("max_tft_freq", max_tft_freq, sts);
+        if (max_tft_freq == 0) max_tft_freq = 126;
+        graphics_max_tft_freq_mhz = max_tft_freq;
 #if !PICO_RP2040
         {
             std::string vv;
@@ -643,6 +648,7 @@ void Config::save() {
     nvs_set_u16(buf,"cpu_mhz", cpu_mhz);
     nvs_set_u16(buf,"max_flash_freq", max_flash_freq);
     nvs_set_u16(buf,"max_psram_freq", max_psram_freq);
+    nvs_set_u16(buf,"max_tft_freq", max_tft_freq);
 #if !PICO_RP2040
     {
         const char* vv = "1_60";

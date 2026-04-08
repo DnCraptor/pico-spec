@@ -31,7 +31,8 @@ option(ZERO2 "RP2350-PiZero" OFF)
 #set(m1p2launcher ON)
 
 # set(TFT ON)
-# set (ILI9341 ON)
+# set(ILI9341 ON)
+# set(SOFTTV ON) 
 
 # Display output (default: VGA_HDMI; override with -D flags, e.g. cmake -DSOFTTV=ON)
 if(NOT VGA_HDMI AND NOT SOFTTV AND NOT TFT AND NOT ILI9341 AND NOT TV)
@@ -216,7 +217,7 @@ if (PICO_CYW43_SUPPORTED)
     target_link_libraries(${PROJECT_NAME} pico_cyw43_arch_none)
 endif()
 
-##pico_enable_stdio_uart(${PROJECT_NAME} 0)
+##pico_enable_stdio_uart(${PROJECT_NAME} 1)
 ##pico_enable_stdio_usb(${PROJECT_NAME} 1)
 
 # create map/bin/hex file etc.
@@ -544,9 +545,10 @@ ELSEIF(ZERO2)
         ZERO2=1
 
         DEBUG=0
+        # stdio UART0 TX/RX on GP20/GP21 (Debug Probe)
         # PICO_DEFAULT_UART=1
-        # PICO_DEFAULT_UART_TX_PIN=2
-        # PICO_DEFAULT_UART_RX_PIN=3
+        # PICO_DEFAULT_UART_TX_PIN=20
+        # PICO_DEFAULT_UART_RX_PIN=21
 
         # PS2 keyboard (moved from GPIO 2/3 for PCM5122 I2C)
         KBD_CLOCK_PIN=14

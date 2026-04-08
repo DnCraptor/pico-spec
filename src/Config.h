@@ -94,6 +94,7 @@ public:
     static uint16_t cpu_mhz;   // 252, 378 (RP2040/RP2350), 504 (RP2350 only)
     static uint16_t max_flash_freq; // MHz, default 66
     static uint16_t max_psram_freq; // MHz, default 166
+    static uint16_t max_tft_freq;   // MHz, default 126
 #if !PICO_RP2040
     static uint8_t  vreq_voltage;  // vreg_voltage_t enum value, default VREG_VOLTAGE_1_60
 #endif

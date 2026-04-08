@@ -1,6 +1,8 @@
 #include "graphics.h"
 #include <string.h>
 
+uint16_t graphics_max_tft_freq_mhz = 126;
+
 // PIO clock divider must be integer or half-integer (n/2) for clean TMDS pixel clock.
 // TMDS bit clock = pixel_clock * 10 = 252MHz for 25.2MHz pixel clock.
 // sys_clk=378MHz → div=1.5; sys_clk=252MHz → div=1.0

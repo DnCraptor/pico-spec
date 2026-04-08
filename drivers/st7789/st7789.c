@@ -18,6 +18,7 @@
 
 #include "st7789.pio.h"
 #include "hardware/dma.h"
+#include "hardware/clocks.h"
 
 #ifndef SCREEN_WIDTH
 #define SCREEN_WIDTH 320
@@ -27,8 +28,6 @@
 #define SCREEN_HEIGHT 240
 #endif
 
-// 126MHz SPI
-#define SERIAL_CLK_DIV 3.0f
 #define MADCTL_BGR_PIXEL_ORDER (1<<3)
 #define MADCTL_ROW_COLUMN_EXCHANGE (1<<5)
 #define MADCTL_COLUMN_ADDRESS_ORDER_SWAP (1<<6)
@@ -171,7 +170,11 @@ static const uint16_t textmode_palette_tft[17] = {
 void graphics_init() {
     const uint offset = pio_add_program(pio, &st7789_lcd_program);
     sm = pio_claim_unused_sm(pio, true);
-    st7789_lcd_program_init(pio, sm, offset, TFT_DATA_PIN, TFT_CLK_PIN, SERIAL_CLK_DIV);
+    uint32_t sys_hz = clock_get_hz(clk_sys);
+    uint32_t max_hz = graphics_max_tft_freq_mhz * 1000000u;
+    float clk_div = ((float)(sys_hz) / max_hz);
+    if (clk_div < 1.0f) clk_div = 1.0f;
+    st7789_lcd_program_init(pio, sm, offset, TFT_DATA_PIN, TFT_CLK_PIN, clk_div);
 
     gpio_init(TFT_CS_PIN);
     gpio_init(TFT_DC_PIN);
@@ -316,10 +319,22 @@ void __inline __scratch_x("refresh_lcd") refresh_lcd() {
     ESPectrum_vsync();
     switch (graphics_mode) {
         case GRAPHICSMODE_DEFAULT: {
+            const size_t half = graphics_buffer_height / 2;
             lcd_set_window(graphics_buffer_shift_x, graphics_buffer_shift_y, graphics_buffer_width,
                            graphics_buffer_height);
             start_pixels();
-            for (register size_t y = 0; y < graphics_buffer_height; ++y) {
+            for (register size_t y = 0; y < half; ++y) {
+                register uint8_t* bitmap = getLineBuffer(y);
+                if (!bitmap) continue;
+                for (register size_t x = 0; x < graphics_buffer_width; ++x) {
+                    register uint8_t c = bitmap[x ^ 2];
+                    st7789_lcd_put_pixel(pio, sm, palette[c]);
+                }
+            }
+            stop_pixels();
+            ESPectrum_vsync();
+            start_pixels();
+            for (register size_t y = half; y < graphics_buffer_height; ++y) {
                 register uint8_t* bitmap = getLineBuffer(y);
                 if (!bitmap) continue;
                 for (register size_t x = 0; x < graphics_buffer_width; ++x) {

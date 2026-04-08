@@ -1216,14 +1216,16 @@ int main() {
         uint16_t running_mhz = clock_get_hz(clk_sys) / 1000000;
         if (Config::cpu_mhz != running_mhz) {
             if (try_set_sys_clock_khz(Config::cpu_mhz * KHZ)) {
+#ifdef VGA_HDMI
                 graphics_set_pio_clk_div((float)Config::cpu_mhz / 252.0f);
+#endif
                 // Reinit audio: I2S PIO divider was calculated for old sys_clk
                 pcm_setup(ESPectrum::Audio_freq);
             } else {
                 // PLL did not lock — restore original PLL
                 set_sys_clock_khz(running_mhz * KHZ, true);
-                Config::cpu_mhz = running_mhz;
-                Config::save();
+                //Config::cpu_mhz = running_mhz;
+                //Config::save();
             }
         }
         // Always re-apply flash/PSRAM timing with Config values

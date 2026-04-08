@@ -44,6 +44,8 @@ enum graphics_mode_t {
     GRAPHICSMODE_DEFAULT,
 };
 
+extern uint16_t graphics_max_tft_freq_mhz; // max SPI freq for TFT, MHz
+
 void graphics_init();
 
 void graphics_set_mode(enum graphics_mode_t mode);
