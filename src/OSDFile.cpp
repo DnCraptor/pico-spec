@@ -250,6 +250,30 @@ public:
 
 static sorted_files filenames;
 
+// Name to navigate to after directory rescan (e.g. after create/delete)
+static string fd_goto_name;
+
+// Stack for saving file dialog position when entering subdirectories
+static constexpr int FD_POS_STACK_MAX = 16;
+static struct { int begin_row; int focus; } fd_pos_stack[FD_POS_STACK_MAX];
+static int fd_pos_stack_top = 0;
+
+static void fd_pos_push(int begin_row, int focus) {
+    if (fd_pos_stack_top < FD_POS_STACK_MAX) {
+        fd_pos_stack[fd_pos_stack_top++] = {begin_row, focus};
+    }
+}
+
+static bool fd_pos_pop(int &begin_row, int &focus) {
+    if (fd_pos_stack_top > 0) {
+        auto &e = fd_pos_stack[--fd_pos_stack_top];
+        begin_row = e.begin_row;
+        focus = e.focus;
+        return true;
+    }
+    return false;
+}
+
 unsigned int OSD::elements;
 unsigned int OSD::fdSearchElements;
 unsigned int OSD::ndirs;
@@ -360,6 +384,8 @@ void fgets(char* b, size_t sz, FIL& f) {
 // Run a new file menu
 string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols, uint8_t mfrows) {
     if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
+    fd_pos_stack_top = 0;
+    fd_goto_name.clear();
     // Position
     if (menu_level == 0) {
         x = (Config::aspect_16_9 ? 24 : 4);
@@ -502,6 +528,44 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
         last_begin_row = last_focus = 0;
         fdSearchElements = elements;
 
+        // Navigate to a specific file/dir after rescan
+        if (!fd_goto_name.empty()) {
+            int cnt = filenames.size();
+            int found = -1;
+            for (int i = 0; i < cnt; i++) {
+                string s = filenames[i];
+                if (s == fd_goto_name) { found = i; break; }
+                // For delete: fd_goto_name may not exist, find next item at same index
+            }
+            if (found < 0) {
+                // Deleted file: position at same index (or last item)
+                found = 0;
+                for (int i = 0; i < cnt; i++) {
+                    string s = filenames[i];
+                    if (s >= fd_goto_name) { found = i; break; }
+                    found = i;
+                }
+            }
+            // Convert filenames index to row position (rows start at 2, dirs first)
+            int row = found + 2;
+            if (real_rows > mf_rows) {
+                int max_begin = real_rows - (mf_rows - 2);
+                if (row < mf_rows) {
+                    FileUtils::fileTypes[ftype].begin_row = 2;
+                    FileUtils::fileTypes[ftype].focus = row;
+                } else {
+                    FileUtils::fileTypes[ftype].begin_row = row - 2;
+                    if (FileUtils::fileTypes[ftype].begin_row > max_begin)
+                        FileUtils::fileTypes[ftype].begin_row = max_begin;
+                    FileUtils::fileTypes[ftype].focus = row - FileUtils::fileTypes[ftype].begin_row + 2;
+                }
+            } else {
+                FileUtils::fileTypes[ftype].begin_row = 2;
+                FileUtils::fileTypes[ftype].focus = row < real_rows ? row : real_rows - 1;
+            }
+            fd_goto_name.clear();
+        }
+
         if ((real_rows > mf_rows) && ((FileUtils::fileTypes[ftype].begin_row + mf_rows - 2) > real_rows)) {
             FileUtils::fileTypes[ftype].focus += (FileUtils::fileTypes[ftype].begin_row + mf_rows - 2) - real_rows;
             FileUtils::fileTypes[ftype].begin_row = real_rows - (mf_rows - 2);
@@ -564,7 +628,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         if (newname != "\x1B" && !newname.empty()) {
                             string fullpath = fdir + newname;
                             f_mkdir(fullpath.c_str());
-                            FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
+                            fd_goto_name = char(DIR_MARKER) + newname;
                             click();
                             break;
                         }
@@ -586,7 +650,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                                 string oldpath = fdir + filedir;
                                 string newpath = fdir + newname;
                                 f_rename(oldpath.c_str(), newpath.c_str());
-                                FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
+                                fd_goto_name = isDir ? char(DIR_MARKER) + newname : newname;
                                 click();
                                 break;
                             }
@@ -609,7 +673,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             rvmWD1793CreateEmptyTRD(fullpath.c_str());
                             OSD::progressDialog("", "", 100, 1);
                             OSD::progressDialog("", "", 0, 2);
-                            FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
+                            fd_goto_name = fname;
                             click();
                             break;
                         }
@@ -652,10 +716,11 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                                     FileUtils::deleteDirRecursive(fullpath.c_str());
                                     OSD::progressDialog("", "", 100, 1);
                                     OSD::progressDialog("", "", 0, 2);
+                                    fd_goto_name = char(DIR_MARKER) + filedir;
                                 } else {
                                     f_unlink(fullpath.c_str());
+                                    fd_goto_name = filedir;
                                 }
-                                FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
                                 click();
                                 break; // re-scan directory
                             }
@@ -806,7 +871,9 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             if (fdir != "/") {
                                 fdir.pop_back();
                                 fdir = fdir.substr(0,fdir.find_last_of("/") + 1);
-                                FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
+                                if (!fd_pos_pop(FileUtils::fileTypes[ftype].begin_row,
+                                                FileUtils::fileTypes[ftype].focus))
+                                    FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
                                 click();
                                 break;
                             }
@@ -815,13 +882,20 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         string filedir = rowGet(menu, FileUtils::fileTypes[ftype].focus);
                         if (filedir[0] == DIR_MARKER) {
                             if (filedir[1] == DIR_MARKER) {
+                                // Going up to parent dir — restore saved position
                                 fdir.pop_back();
                                 fdir = fdir.substr(0,fdir.find_last_of("/") + 1);
+                                if (!fd_pos_pop(FileUtils::fileTypes[ftype].begin_row,
+                                                FileUtils::fileTypes[ftype].focus))
+                                    FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
                             } else {
+                                // Entering subdirectory — save current position
+                                fd_pos_push(FileUtils::fileTypes[ftype].begin_row,
+                                            FileUtils::fileTypes[ftype].focus);
                                 filedir.erase(0,1);
                                 fdir = fdir + filedir + "/";
+                                FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
                             }
-                            FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
                             break;
                         } else {
                             if (menu_saverect) {
@@ -841,11 +915,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             VIDEO::SaveRect.restore_last();
                             menu_saverect = false;
                         }
-                        if (fdir != "/") {
-                            fdir.pop_back();
-                            fdir = fdir.substr(0,fdir.find_last_of("/") + 1);
-                            FileUtils::fileTypes[ftype].begin_row = FileUtils::fileTypes[ftype].focus = 2;
-                        }
+                        // Keep current dir and position so next F5 reopens here
                         click();
                         filenames.close();
                         if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));

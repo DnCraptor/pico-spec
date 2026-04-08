@@ -116,6 +116,7 @@ bool OSD::menu_saverect = false;
 unsigned short OSD::menu_curopt = 1;
 bool OSD::menu_del_pressed = false;
 bool OSD::menu_rename_pressed = false;
+bool OSD::menu_quicksave_pressed = false;
 string OSD::menu_footer = "";
 
 unsigned short OSD::scrW = 320;
@@ -509,7 +510,7 @@ static string slotInlineEdit(uint8_t opt2, const string& current) {
 }
 
 
-static bool persistSave(uint8_t slotnumber, uint8_t opt2)
+static bool persistSave(uint8_t slotnumber, uint8_t opt2, bool quicksave = false)
 {
     FILINFO stat_buf;
     char persistfname[sizeof(DISK_PSNA_FILE) + 7];
@@ -522,18 +523,24 @@ static bool persistSave(uint8_t slotnumber, uint8_t opt2)
 
     // Slot isn't void
     if (f_stat(finfo.c_str(), &stat_buf) == FR_OK) {
-        string title = OSD_PSNA_SAVE[Config::lang];
-        string msg = OSD_PSNA_EXISTS[Config::lang];
-        uint8_t res = OSD::msgDialog(title, msg);
-        if (res != DLG_YES) return false;
+        if (!quicksave) {
+            string title = OSD_PSNA_SAVE[Config::lang];
+            string msg = OSD_PSNA_EXISTS[Config::lang];
+            uint8_t res = OSD::msgDialog(title, msg);
+            if (res != DLG_YES) return false;
+        }
         slotName = getSlotName(slotnumber);
         if (slotName == "\x01") slotName = "";
     } else {
-        // Empty slot: inline-edit name pre-filled with tape/disk name
-        string defaultName = getDefaultSnapshotName();
-        slotName = slotInlineEdit(opt2, defaultName);
-        if (slotName == "\x1B") return false;  // Esc = cancel save
-        if (slotName.empty()) slotName = defaultName;  // Enter on empty = use default
+        if (!quicksave) {
+            // Empty slot: inline-edit name pre-filled with tape/disk name
+            string defaultName = getDefaultSnapshotName();
+            slotName = slotInlineEdit(opt2, defaultName);
+            if (slotName == "\x1B") return false;  // Esc = cancel save
+            if (slotName.empty()) slotName = defaultName;  // Enter on empty = use default
+        } else {
+            slotName = getDefaultSnapshotName();
+        }
     }
 
     OSD::osdCenteredMsg(OSD_PSNA_SAVING, LEVEL_INFO, 500);
@@ -1060,13 +1067,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
         } else if (FileUtils::fsMount && hkIdx == Config::HK_PERSIST_LOAD) {
             menu_level = 0;
-            menu_curopt = 1;
+            menu_curopt = Config::persist_slot;
             // Persist Load
             if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             while (1) {
-                menu_footer = Config::lang ? "F6: Renombrar  F8: Borrar" : "F6: Rename  F8: Remove";
+                menu_footer = Config::lang ? "F6:Renombrar  F8:Borrar" : "F6:Rename  F8:Remove";
                 uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_LOAD[Config::lang], 40));
                 if (opt2) {
+                    Config::persist_slot = opt2;
                     if (menu_del_pressed) {
                         persistDeleteConfirm(opt2);
                         menu_curopt = opt2;
@@ -1085,12 +1093,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
         } else if (FileUtils::fsMount && hkIdx == Config::HK_PERSIST_SAVE) {
             // Persist Save
             menu_level = 0;
-            menu_curopt = 1;
+            menu_curopt = Config::persist_slot;
             if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             while (1) {
-                menu_footer = Config::lang ? "F6: Renombrar  F8: Borrar" : "F6: Rename  F8: Remove";
+                menu_footer = Config::lang ? "F4:Guardar  F6:Renombrar  F8:Borrar" : "F4:Save  F6:Rename  F8:Remove";
                 uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_SAVE[Config::lang], 40));
                 if (opt2) {
+                    Config::persist_slot = opt2;
                     if (menu_del_pressed) {
                         persistDeleteConfirm(opt2);
                         menu_curopt = opt2;
@@ -1100,6 +1109,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         persistRename(opt2, opt2);
                         menu_curopt = opt2;
                         continue;
+                    }
+                    if (menu_quicksave_pressed) {
+                        persistSave(opt2, opt2, true);
+                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                        return;
                     }
                     if (persistSave(opt2, opt2)) {
                         if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));

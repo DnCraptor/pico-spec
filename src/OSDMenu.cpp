@@ -367,6 +367,7 @@ unsigned short OSD::menuRun(string new_menu) {
                     menu_prevopt = menuRealRowFor(focus);
                     menu_del_pressed = false;
                     menu_rename_pressed = false;
+                    menu_quicksave_pressed = false;
                     menu_footer = "";
                     return menu_prevopt;
                 } else if (Menukey.vk == fabgl::VK_F8 || Menukey.vk == fabgl::VK_DELETE) {
@@ -374,6 +375,15 @@ unsigned short OSD::menuRun(string new_menu) {
                     menu_prevopt = menuRealRowFor(focus);
                     menu_del_pressed = true;
                     menu_rename_pressed = false;
+                    menu_quicksave_pressed = false;
+                    menu_footer = "";
+                    return menu_prevopt;
+                } else if (Menukey.vk == fabgl::VK_F4) {
+                    click();
+                    menu_prevopt = menuRealRowFor(focus);
+                    menu_del_pressed = false;
+                    menu_rename_pressed = false;
+                    menu_quicksave_pressed = true;
                     menu_footer = "";
                     return menu_prevopt;
                 } else if (Menukey.vk == fabgl::VK_F6) {
