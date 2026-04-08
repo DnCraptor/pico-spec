@@ -2,14 +2,14 @@
 
 ESPectrum, a Sinclair ZX Spectrum emulator for Espressif ESP32 SoC
 
-Copyright (c) 2023, 2024 Víctor Iborra [Eremus] and 2023 David Crespo [dcrespo3d]
+Copyright (c) 2023, 2024 Victor Iborra [Eremus] and 2023 David Crespo [dcrespo3d]
 https://github.com/EremusOne/ZX-ESPectrum-IDF
 
 Based on ZX-ESPectrum-Wiimote
 Copyright (c) 2020, 2022 David Crespo [dcrespo3d]
 https://github.com/dcrespo3d/ZX-ESPectrum-Wiimote
 
-Based on previous work by Ramón Martinez and Jorge Fuertes
+Based on previous work by Ramon Martinez and Jorge Fuertes
 https://github.com/rampa069/ZX-ESPectrum
 
 Original project by Pete Todd
@@ -28,7 +28,7 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public License
 along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
-To Contact the dev team you can write to zxespectrum@gmail.com or 
+To Contact the dev team you can write to zxespectrum@gmail.com or
 visit https://zxespectrum.speccy.org/contacto
 
 */
@@ -48,7 +48,7 @@ size_t fwrite(const void* v, size_t sz1, size_t sz2, FIL* f);
 void CaptureToBmp()
 {
     char filename[] = "ESP00000.bmp";
-    unsigned char bmp_header2[BMP_HEADER2_SIZE] = { 
+    unsigned char bmp_header2[BMP_HEADER2_SIZE] = {
         0xaa,0xaa,0xaa,0xaa,0xbb,
         0xbb,0xbb,0xbb,0x01,0x00,
         0x08,0x00,0x00,0x00,0x00,
@@ -62,40 +62,37 @@ void CaptureToBmp()
     // number of uint32_t words
     int count = w >> 2;
 
-    // allocate line  buffer
+    // allocate line buffer
     uint32_t *linebuf = new uint32_t[count];
     if (NULL == linebuf) {
         printf("Capture BMP: unable to allocate line buffer\n");
         return;
     }
 
-    // Get next filename (BMP + 5 digits, 0 padded sequential)
-    string filelist;
-    string scrdir = (string) MOUNT_POINT_SD + DISK_SCR_DIR;
+    static const char scrdir[] = MOUNT_POINT_SD DISK_SCR_DIR;
 
     // Create dir if it doesn't exist
     FILINFO stat_buf;
-    if (f_stat(scrdir.c_str(), &stat_buf) != FR_OK) {
-        if (f_mkdir(scrdir.c_str()) != FR_OK) {
+    if (f_stat(scrdir, &stat_buf) != FR_OK) {
+        if (f_mkdir(scrdir) != FR_OK) {
             printf("Capture BMP: problem creating capture dir\n");
+            delete[] linebuf;
             return;
         }
     }
-    
+
     DIR dir;
-    if (f_opendir(&dir, scrdir.c_str()) != FR_OK) {
+    if (f_opendir(&dir, scrdir) != FR_OK) {
         printf("Capture BMP: problem accessing capture dir\n");
+        delete[] linebuf;
         return;
     }
     int bmpnumber = 0;
-    if (f_readdir(&dir, &stat_buf) == FR_OK && stat_buf.fname[0] != '\0') {
-        while (true) {
-            string fname = stat_buf.fname;
-            if ((fname.substr(0,3) == "ESP") && (fname.substr(8,4) == ".bmp")) {
-                int fnum = stoi(fname.substr(3,5));
-                if (fnum > bmpnumber) bmpnumber = fnum;
-            }
-            if (f_readdir(&dir, &stat_buf) != FR_OK || stat_buf.fname[0] != '\0') break;
+    while (f_readdir(&dir, &stat_buf) == FR_OK && stat_buf.fname[0] != '\0') {
+        if (stat_buf.fname[0] == 'E' && stat_buf.fname[1] == 'S' && stat_buf.fname[2] == 'P'
+            && stat_buf.fname[8] == '.' && stat_buf.fname[9] == 'b') {
+            int fnum = atoi(&stat_buf.fname[3]);
+            if (fnum > bmpnumber) bmpnumber = fnum;
         }
     }
     f_closedir(&dir);
@@ -104,20 +101,19 @@ void CaptureToBmp()
 
     if (Config::slog_on) printf("BMP number -> %.5d\n",bmpnumber);
 
-    sprintf((char *)filename,"ESP%.5d.bmp",bmpnumber);    
-        
+    sprintf((char *)filename,"ESP%.5d.bmp",bmpnumber);
+
     // Full filename. Save only to SD.
-    std::string fullfn = (string) MOUNT_POINT_SD + DISK_SCR_DIR + "/" + filename;
+    char fullfn[32];
+    snprintf(fullfn, sizeof(fullfn), "%s/%s", scrdir, filename);
 
     // open file for writing
-    FIL* f = fopen2(fullfn.c_str(), FA_CREATE_ALWAYS | FA_WRITE);
+    FIL* f = fopen2(fullfn, FA_CREATE_ALWAYS | FA_WRITE);
     if (!f) {
         delete[] linebuf;
-        printf("Capture BMP: unable to open file %s for writing\n", fullfn.c_str());
+        printf("Capture BMP: unable to open file %s for writing\n", fullfn);
         return;
     }
-
-    // printf("CaptureBMP: capturing %d x %d to %s...\n", w, h, fullfn.c_str());
 
     // put width, height and size values in header
     uint32_t* biWidth     = (uint32_t*)(&bmp_header2[0]);
@@ -133,10 +129,15 @@ void CaptureToBmp()
     // write header 2
     fwrite(bmp_header2, BMP_HEADER2_SIZE, 1, f);
 
-    // write header 3
-    fwrite(bmp_header3, BMP_HEADER3_SIZE, 1, f);
+    // write header 3 info fields (xPelsPerMeter, yPelsPerMeter, clrUsed, clrImportant)
+    fwrite(bmp_header3_info, BMP_HEADER3_INFO_SIZE, 1, f);
 
-    // process every scanline in reverse order (BMP is topdown)
+    // Generate and write palette dynamically from current VGA palette (G3R3B2 format)
+    uint8_t bmp_palette[BMP_PALETTE_SIZE];
+    VIDEO::getBmpPalette(bmp_palette);
+    fwrite(bmp_palette, BMP_PALETTE_SIZE, 1, f);
+
+    // process every scanline in reverse order (BMP is bottom-up)
     for (int y = h - 1; y >= 0; y--) {
         uint32_t* src = (uint32_t*)VIDEO::vga.frameBuffer[y];
         uint32_t* dst = linebuf;
@@ -144,7 +145,7 @@ void CaptureToBmp()
         for (int i = 0; i < count; i++) {
             uint32_t srcval = *src++;
             uint32_t dstval = 0;
-            // swap every uint32
+            // swap uint16 halves to undo x^2 XOR framebuffer indexing
             dstval |= ((srcval & 0xFFFF0000) >> 16);
             dstval |= ((srcval & 0x0000FFFF) << 16);
             *dst++ = dstval;
@@ -157,6 +158,4 @@ void CaptureToBmp()
     fclose2(f);
 
     delete[] linebuf;
-
-    // printf("Capture BMP: done\n");
 }

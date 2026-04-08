@@ -728,6 +728,56 @@ void VIDEO::applyPalette() {
 #endif
 }
 
+// Fill 256-entry BMP palette (1024 bytes, BGRA format) matching current VGA palette.
+// Replicates the same logic as applyPalette() but writes BMP BGRA entries instead
+// of programming the VGA hardware.
+void VIDEO::getBmpPalette(uint8_t* out) {
+    // G3R3B2 entries (0-239) with palette transform
+    for (int i = 0; i < 240; i++) {
+        uint32_t c = paletteTransform(grb_to_rgb888(i));
+        out[i * 4 + 0] = c & 0xFF;         // B
+        out[i * 4 + 1] = (c >> 8) & 0xFF;  // G
+        out[i * 4 + 2] = (c >> 16) & 0xFF; // R
+        out[i * 4 + 3] = 0;                 // A
+    }
+    // Indices 240-255: same G3R3B2 fallback
+    for (int i = 240; i < 256; i++) {
+        uint32_t c = paletteTransform(grb_to_rgb888(i));
+        out[i * 4 + 0] = c & 0xFF;
+        out[i * 4 + 1] = (c >> 8) & 0xFF;
+        out[i * 4 + 2] = (c >> 16) & 0xFF;
+        out[i * 4 + 3] = 0;
+    }
+    // Override indices 0-15 with Spectrum colors (matching applyPalette)
+    for (int i = 0; i < 16; i++) {
+        uint32_t c = paletteTransform(spectrum_rgb888[i]);
+        out[i * 4 + 0] = c & 0xFF;
+        out[i * 4 + 1] = (c >> 8) & 0xFF;
+        out[i * 4 + 2] = (c >> 16) & 0xFF;
+        out[i * 4 + 3] = 0;
+    }
+    // Orange (index 16)
+    {
+        uint32_t c = paletteTransform(0xFF7F00);
+        out[16 * 4 + 0] = c & 0xFF;
+        out[16 * 4 + 1] = (c >> 8) & 0xFF;
+        out[16 * 4 + 2] = (c >> 16) & 0xFF;
+        out[16 * 4 + 3] = 0;
+    }
+#if !PICO_RP2040
+    // ULA+ palette override (indices 0-63)
+    if (ulaplus_enabled) {
+        for (int i = 0; i < 64; i++) {
+            uint32_t c = paletteTransform(grb_to_rgb888(ulaplus_palette[i]));
+            out[i * 4 + 0] = c & 0xFF;
+            out[i * 4 + 1] = (c >> 8) & 0xFF;
+            out[i * 4 + 2] = (c >> 16) & 0xFF;
+            out[i * 4 + 3] = 0;
+        }
+    }
+#endif
+}
+
 const int redPins[] = {RED_PINS_6B};
 const int grePins[] = {GRE_PINS_6B};
 const int bluPins[] = {BLU_PINS_6B};
