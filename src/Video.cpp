@@ -69,7 +69,40 @@ extern "C" uint8_t* getLineBuffer(int line) {
 }
 
 extern "C" void ESPectrum_vsync() {
-    ESPectrum::v_sync = true;
+    static int64_t prevmicros = 0;
+    static int64_t elapsedmicros = 0;
+    static int cntvsync = 0;
+
+    if (Config::tape_player) {
+        ESPectrum::v_sync = true;
+        return;
+    }
+
+    int64_t currentmicros = time_us_64();
+
+    if (prevmicros) {
+        elapsedmicros += currentmicros - prevmicros;
+
+        if (elapsedmicros >= ESPectrum::target) {
+            ESPectrum::v_sync = true;
+
+            if (VIDEO::VsyncFinetune[0]) {
+                if (cntvsync++ == VIDEO::VsyncFinetune[1]) {
+                    elapsedmicros += VIDEO::VsyncFinetune[0];
+                    cntvsync = 0;
+                }
+            }
+
+            elapsedmicros -= ESPectrum::target;
+        } else {
+            ESPectrum::v_sync = false;
+        }
+    } else {
+        elapsedmicros = 0;
+        ESPectrum::v_sync = false;
+    }
+
+    prevmicros = currentmicros;
 }
 
 extern "C" int get_video_mode() {
