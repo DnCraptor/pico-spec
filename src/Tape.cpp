@@ -2576,9 +2576,19 @@ bool Tape::TapePortRead() {
                     // Only trigger for IN A,(n) opcode (0xDB) — real tape loaders.
                     // Skip IN r,(C) (0xED prefix) which is used by keyboard scans
                     // and general port reads, not tape loading.
-                    tapeAutoPlay = true;
-                    Play();
-                    Read();
+                    // Additionally verify tape edge detection pattern after IN:
+                    // RRA (0x1F), RLCA (0x07), AND n (0xE6) with bit 5 or 6 set,
+                    // or BIT 6,A (0xCB 0x77). Keyboard scans use XOR/CPL/AND 0x1F
+                    // which don't match — prevents false auto-start during gameplay.
+                    uint8_t nextOp = MemESP::readbyte(pc);
+                    bool isTapeEdge = (nextOp == 0x1F) || (nextOp == 0x07) ||
+                        (nextOp == 0xE6 && (MemESP::readbyte(pc + 1) & 0x60)) ||
+                        (nextOp == 0xCB && MemESP::readbyte(pc + 1) == 0x77);
+                    if (isTapeEdge) {
+                        tapeAutoPlay = true;
+                        Play();
+                        Read();
+                    }
                 }
             }
         } else { loopPC = pc; loopCount = 1; }
