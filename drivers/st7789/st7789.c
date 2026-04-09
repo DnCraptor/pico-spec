@@ -319,22 +319,10 @@ void __inline __scratch_x("refresh_lcd") refresh_lcd() {
     ESPectrum_vsync();
     switch (graphics_mode) {
         case GRAPHICSMODE_DEFAULT: {
-            const size_t half = graphics_buffer_height / 2;
             lcd_set_window(graphics_buffer_shift_x, graphics_buffer_shift_y, graphics_buffer_width,
                            graphics_buffer_height);
             start_pixels();
-            for (register size_t y = 0; y < half; ++y) {
-                register uint8_t* bitmap = getLineBuffer(y);
-                if (!bitmap) continue;
-                for (register size_t x = 0; x < graphics_buffer_width; ++x) {
-                    register uint8_t c = bitmap[x ^ 2];
-                    st7789_lcd_put_pixel(pio, sm, palette[c]);
-                }
-            }
-            stop_pixels();
-            ESPectrum_vsync();
-            start_pixels();
-            for (register size_t y = half; y < graphics_buffer_height; ++y) {
+            for (register size_t y = 0; y < graphics_buffer_height; ++y) {
                 register uint8_t* bitmap = getLineBuffer(y);
                 if (!bitmap) continue;
                 for (register size_t x = 0; x < graphics_buffer_width; ++x) {

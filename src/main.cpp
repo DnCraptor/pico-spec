@@ -828,6 +828,9 @@ void repeat_me_for_input() {
 extern "C" void hdmi_poll_reinit(void);
 extern "C" void vga_reinit(void);
 #endif
+#ifdef TFT
+extern "C" void refresh_lcd(void);
+#endif
 
 void __scratch_x("render") render_core() {
     multicore_lockout_victim_init();
@@ -846,6 +849,9 @@ void __scratch_x("render") render_core() {
     while (true) {
 #ifdef VGA_HDMI
         hdmi_poll_reinit();
+#endif
+#ifdef TFT
+        refresh_lcd();
 #endif
         pcm_call();
         tight_loop_contents();
