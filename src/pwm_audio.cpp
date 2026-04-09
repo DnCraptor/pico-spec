@@ -333,10 +333,12 @@ void init_sound() {
             Debug::log("init_sound: I2S mode");
             i2s_volume(&i2s_config, 0);
         } else {
-            Debug::log("init_sound: PWM mode, pins %d/%d", PWM_PIN0, PWM_PIN1);
+            Debug::log("init_sound: PWM mode, pins %d/%d/%d", PWM_PIN0, PWM_PIN1, BEEPER_PIN);
             PWM_init_pin(PWM_PIN0, (1 << 8) - 1);
             PWM_init_pin(PWM_PIN1, (1 << 8) - 1);
-            /// PWM_init_pin(BEEPER_PIN, (1 << 8) - 1);
+            #if BEEPER_PIN
+            PWM_init_pin(BEEPER_PIN, (1 << 8) - 1);
+            #endif
         }
     }
 #ifdef LOAD_WAV_PIO
@@ -445,6 +447,10 @@ static void __not_in_flash_func(pcm_call_inner)() {
         }
         pwm_set_gpio_level(PWM_PIN0, outR); // Право
         pwm_set_gpio_level(PWM_PIN1, outL); // Лево
+        #if BEEPER_PIN
+        uint16_t mono = (outL + outR) >> 1;
+        pwm_set_gpio_level(BEEPER_PIN, mono); // Beeper
+        #endif
     }
     return;
 }
@@ -477,7 +483,9 @@ void pcm_cleanup(void) {
         uint16_t o = 0;
         pwm_set_gpio_level(PWM_PIN0, o); // Право
         pwm_set_gpio_level(PWM_PIN1, o); // Лево
-    ///    pwm_set_gpio_level(BEEPER_PIN, o); // Beeper
+        #if BEEPER_PIN
+        pwm_set_gpio_level(BEEPER_PIN, o); // Beeper
+        #endif
     }
 }
 

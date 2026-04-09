@@ -82,6 +82,9 @@ void i2s_init(i2s_config_t *i2s_config) {
     } else {
         gpio_set_function(PWM_PIN0, GPIO_FUNC_PWM);
         gpio_set_function(PWM_PIN1, GPIO_FUNC_PWM);
+        #if BEEPER_PIN
+        gpio_set_function(BEEPER_PIN, GPIO_FUNC_PWM);
+        #endif
         uint slice_num = pwm_gpio_to_slice_num(PWM_PIN0);
     
         pwm_config c_pwm=pwm_get_default_config();
