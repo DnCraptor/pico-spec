@@ -266,6 +266,9 @@ public:
   // Palette transform (Default, Grayscale, etc.)
   static void applyPalette();
 
+  // Fill 256-entry BMP palette (1024 bytes, BGRA format) matching current VGA palette
+  static void getBmpPalette(uint8_t* out);
+
   // Custom palettes loaded from /palette.nvs
   static void loadCustomPalettes();
   static uint8_t paletteCount();           // built-in + custom

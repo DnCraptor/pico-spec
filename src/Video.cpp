@@ -69,7 +69,40 @@ extern "C" uint8_t* getLineBuffer(int line) {
 }
 
 extern "C" void ESPectrum_vsync() {
-    ESPectrum::v_sync = true;
+    static int64_t prevmicros = 0;
+    static int64_t elapsedmicros = 0;
+    static int cntvsync = 0;
+
+    if (Config::tape_player) {
+        ESPectrum::v_sync = true;
+        return;
+    }
+
+    int64_t currentmicros = time_us_64();
+
+    if (prevmicros) {
+        elapsedmicros += currentmicros - prevmicros;
+
+        if (elapsedmicros >= ESPectrum::target) {
+            ESPectrum::v_sync = true;
+
+            if (VIDEO::VsyncFinetune[0]) {
+                if (cntvsync++ == VIDEO::VsyncFinetune[1]) {
+                    elapsedmicros += VIDEO::VsyncFinetune[0];
+                    cntvsync = 0;
+                }
+            }
+
+            elapsedmicros -= ESPectrum::target;
+        } else {
+            ESPectrum::v_sync = false;
+        }
+    } else {
+        elapsedmicros = 0;
+        ESPectrum::v_sync = false;
+    }
+
+    prevmicros = currentmicros;
 }
 
 extern "C" int get_video_mode() {
@@ -725,6 +758,56 @@ void VIDEO::applyPalette() {
 #if !PICO_RP2040
     if (Config::gigascreen_enabled)
         initGigascreenBlendLUT();
+#endif
+}
+
+// Fill 256-entry BMP palette (1024 bytes, BGRA format) matching current VGA palette.
+// Replicates the same logic as applyPalette() but writes BMP BGRA entries instead
+// of programming the VGA hardware.
+void VIDEO::getBmpPalette(uint8_t* out) {
+    // G3R3B2 entries (0-239) with palette transform
+    for (int i = 0; i < 240; i++) {
+        uint32_t c = paletteTransform(grb_to_rgb888(i));
+        out[i * 4 + 0] = c & 0xFF;         // B
+        out[i * 4 + 1] = (c >> 8) & 0xFF;  // G
+        out[i * 4 + 2] = (c >> 16) & 0xFF; // R
+        out[i * 4 + 3] = 0;                 // A
+    }
+    // Indices 240-255: same G3R3B2 fallback
+    for (int i = 240; i < 256; i++) {
+        uint32_t c = paletteTransform(grb_to_rgb888(i));
+        out[i * 4 + 0] = c & 0xFF;
+        out[i * 4 + 1] = (c >> 8) & 0xFF;
+        out[i * 4 + 2] = (c >> 16) & 0xFF;
+        out[i * 4 + 3] = 0;
+    }
+    // Override indices 0-15 with Spectrum colors (matching applyPalette)
+    for (int i = 0; i < 16; i++) {
+        uint32_t c = paletteTransform(spectrum_rgb888[i]);
+        out[i * 4 + 0] = c & 0xFF;
+        out[i * 4 + 1] = (c >> 8) & 0xFF;
+        out[i * 4 + 2] = (c >> 16) & 0xFF;
+        out[i * 4 + 3] = 0;
+    }
+    // Orange (index 16)
+    {
+        uint32_t c = paletteTransform(0xFF7F00);
+        out[16 * 4 + 0] = c & 0xFF;
+        out[16 * 4 + 1] = (c >> 8) & 0xFF;
+        out[16 * 4 + 2] = (c >> 16) & 0xFF;
+        out[16 * 4 + 3] = 0;
+    }
+#if !PICO_RP2040
+    // ULA+ palette override (indices 0-63)
+    if (ulaplus_enabled) {
+        for (int i = 0; i < 64; i++) {
+            uint32_t c = paletteTransform(grb_to_rgb888(ulaplus_palette[i]));
+            out[i * 4 + 0] = c & 0xFF;
+            out[i * 4 + 1] = (c >> 8) & 0xFF;
+            out[i * 4 + 2] = (c >> 16) & 0xFF;
+            out[i * 4 + 3] = 0;
+        }
+    }
 #endif
 }
 

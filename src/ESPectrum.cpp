@@ -1412,7 +1412,7 @@ __not_in_flash("audio") void ESPectrum::CovoxGetSample() {
 }
 
 __not_in_flash("audio") void ESPectrum::AYGetSample() {
-  uint32_t audbufpos = CPU::tstates >> 7; // /128 instead of /112 — fast shift for AY buffer position
+  uint32_t audbufpos = CPU::tstates / audioAYDivider;
     if (multiplicator) audbufpos >>= multiplicator;
     if (audbufpos > audbufcntAY) {
         chip0.gen_sound(audbufpos - audbufcntAY, audbufcntAY);

@@ -101,6 +101,7 @@ string   Config::esxdos_hdf_image[2] = {"", ""};
 
 uint8_t Config::scanlines = 0;
 uint8_t Config::render = 0;
+uint8_t Config::persist_slot = 1;
 
 bool     Config::TABasfire1 = false;
 bool     Config::StartMsg = true;

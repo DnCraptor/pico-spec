@@ -189,7 +189,8 @@ public:
     static uint8_t  throtling;
     static bool CursorAsJoy;
     static uint8_t scanlines;
-    static uint8_t render;    
+    static uint8_t render;
+    static uint8_t persist_slot;
 
     static bool TABasfire1; 
 
