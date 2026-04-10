@@ -50,6 +50,9 @@ uint8_t CURSOR_X, CURSOR_Y = 0;
 uint8_t rx[4] = { 0 };
 
 struct semaphore vga_start_semaphore;
+#if SOFTTV
+struct semaphore graphics_init_done_semaphore;
+#endif
 #include "Video.h"
 
 static FATFS fs;
@@ -834,7 +837,14 @@ extern "C" void refresh_lcd(void);
 
 void __scratch_x("render") render_core() {
     multicore_lockout_victim_init();
+    Debug::log("core1: before graphics_init()");
+    Debug::log2SD("core1: before graphics_init()");
     graphics_init();
+    Debug::log("core1: after graphics_init()");
+    Debug::log2SD("core1: after graphics_init()");
+#if SOFTTV
+    sem_release(&graphics_init_done_semaphore);
+#endif
 #ifdef VGA_HDMI
     // graphics_init() hardcodes line_VS_begin/end for 640x480 (490/491).
     // For 720x modes video_mode is already set by VIDEO::Reset() on core0,
@@ -1244,8 +1254,21 @@ int main() {
     }
 
     sem_init(&vga_start_semaphore, 0, 1);
+#if SOFTTV
+    sem_init(&graphics_init_done_semaphore, 0, 1);
+#endif
+    Debug::log2SD("main: launching core1");
     multicore_launch_core1(render_core);
+#if SOFTTV
+    Debug::log2SD("main: waiting for graphics_init_done");
+    sem_acquire_blocking(&graphics_init_done_semaphore);
+    Debug::log2SD("main: graphics_init done, calling applyPalette");
+    VIDEO::applyPalette();
+    Debug::log2SD("main: applyPalette done");
+#endif
+    Debug::log2SD("main: releasing vga_start_semaphore");
     sem_release(&vga_start_semaphore);
+    Debug::log2SD("main: entering ESPectrum::loop()");
     ESPectrum::loop();
     __unreachable();
 }

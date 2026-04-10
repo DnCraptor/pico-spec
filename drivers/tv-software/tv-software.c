@@ -2,6 +2,8 @@
 //программный композит
 #include <stdio.h>
 #include "graphics.h"
+// C-callable SD logger (defined in Debug.cpp)
+extern void debug_log2sd(const char* fmt, ...);
 #include "hardware/clocks.h"
 #include <stdalign.h>
 
@@ -162,11 +164,9 @@ static repeating_timer_t video_timer;
 
 void graphics_set_modeTV(tv_out_mode_t mode) {
     if (SM_video == -1) return;
+    debug_log2sd("graphics_set_modeTV: tv_system=%d N_lines=%d", mode.tv_system, mode.N_lines);
     //можно добавить проверку на валидность данных, но пока так
     tv_out_mode = mode;
-    for (int i = 0; i < 256; i++) {
-        graphics_set_palette(i, (paletteRGB[2][i] << 16) | (paletteRGB[1][i] << 8) | (paletteRGB[0][i] << 0));
-    };
 
     switch (tv_out_mode.N_lines) {
         case _624_lines:
@@ -214,6 +214,18 @@ void graphics_set_modeTV(tv_out_mode_t mode) {
         video_mode.LVL_Y_MAX += 3;
     };
     video_mode.LVL_BLACK_TMPL = CONV_DAC(video_mode.LVL_BLACK) | (1 << SYNC_PIN);
+
+    debug_log2sd("graphics_set_modeTV: H_len=%d N_lines=%d LVL_BLACK=%d LVL_Y_MAX=%d LVL_C_MAX=%d SYNC=%02X NO_SYNC=%02X",
+        video_mode.H_len, video_mode.N_lines, video_mode.LVL_BLACK,
+        video_mode.LVL_Y_MAX, video_mode.LVL_C_MAX,
+        video_mode.SYNC_TMPL, video_mode.NO_SYNC_TMPL);
+
+    // Rebuild palette with correct video_mode levels
+    for (int i = 0; i < 256; i++) {
+        graphics_set_palette(i, (paletteRGB[2][i] << 16) | (paletteRGB[1][i] << 8) | (paletteRGB[0][i] << 0));
+    };
+    debug_log2sd("graphics_set_modeTV: palette rebuilt, conv_color[0][0]=%08X [1][0]=%08X [0][7]=%08X",
+        (unsigned)conv_color[0][0], (unsigned)conv_color[1][0], (unsigned)conv_color[0][7]);
 
     sm_config_set_clkdiv((pio_sm_config*)PIO_VIDEO->sm, clock_get_hz(clk_sys) / (color_freq * 4));
 
@@ -431,6 +443,11 @@ void graphics_set_palette(uint8_t i, uint32_t color888) {
     ci = (int8_t*)&cd1_32;
     for (int i = 0; i < 4; i++) { yi[i] = CONV_DAC(yi[i]+ci[i]) | (1 << SYNC_PIN); };
     conv_color[1][i] = Y32;
+
+    if (i < 16) {
+        debug_log2sd("set_palette[%d]: rgb=%06X Y8=%d conv[0]=%08X conv[1]=%08X",
+            i, (unsigned)color888, Y8, (unsigned)conv_color[0][i], (unsigned)conv_color[1][i]);
+    }
 
     //цвет со сдвигом фазы
     uint32_t c32 = conv_color[0][i];
@@ -968,6 +985,7 @@ void graphics_set_buffer(uint8_t* buffer, const uint16_t width, const uint16_t h
 
 //выделение и настройка общих ресурсов - 4 DMA канала, PIO программ и 2 SM
 void graphics_init() {
+    debug_log2sd("graphics_init: begin, video_mode.LVL_BLACK=%d LVL_Y_MAX=%d", video_mode.LVL_BLACK, video_mode.LVL_Y_MAX);
     //настройка PIO
     SM_video = pio_claim_unused_sm(PIO_VIDEO, true);
     //выделение  DMA каналов
@@ -980,6 +998,7 @@ void graphics_init() {
 
     //заполнение палитры по умолчанию(ч.б.)
     for (int ci = 0; ci < 256; ci++) graphics_set_palette(ci, (ci << 16) | (ci << 8) | ci); //
+    debug_log2sd("graphics_init: default grayscale palette done");
 
 
     //настройка рабочей SM TV
@@ -1086,8 +1105,11 @@ void graphics_init() {
         return;
     }
     // graphics_get_default_modeTV();
+    debug_log2sd("graphics_init: calling 2nd graphics_set_modeTV");
     graphics_set_modeTV(tv_out_mode);
 
+    debug_log2sd("graphics_init: done, conv_color[0][0]=%08X [0][7]=%08X [0][15]=%08X",
+        (unsigned)conv_color[0][0], (unsigned)conv_color[0][7], (unsigned)conv_color[0][15]);
     // Palette is initialized centrally by Video.cpp Init()
 };
 

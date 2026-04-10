@@ -32,7 +32,7 @@ option(ZERO2 "RP2350-PiZero" OFF)
 
 # set(TFT ON)
 # set(ILI9341 ON)
-# set(SOFTTV ON) 
+set(SOFTTV ON) 
 
 # Display output (default: VGA_HDMI; override with -D flags, e.g. cmake -DSOFTTV=ON)
 if(NOT VGA_HDMI AND NOT SOFTTV AND NOT TFT AND NOT ILI9341 AND NOT TV)
@@ -676,6 +676,7 @@ ELSE()
 
         DEFAULT_THROTTLING=0
         PICO_DEFAULT_LED_PIN=25
+        DEBUG=1
     )
 ENDIF()
 
