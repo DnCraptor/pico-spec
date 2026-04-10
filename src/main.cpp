@@ -837,11 +837,7 @@ extern "C" void refresh_lcd(void);
 
 void __scratch_x("render") render_core() {
     multicore_lockout_victim_init();
-    Debug::log("core1: before graphics_init()");
-    Debug::log2SD("core1: before graphics_init()");
     graphics_init();
-    Debug::log("core1: after graphics_init()");
-    Debug::log2SD("core1: after graphics_init()");
 #if SOFTTV
     sem_release(&graphics_init_done_semaphore);
 #endif
