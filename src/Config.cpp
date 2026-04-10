@@ -153,6 +153,8 @@ void Config::initHotkeys() {
         { fabgl::VK_F9,     true,  false, false }, // HK_POKE
         { fabgl::VK_HOME,   true,  true,  false }, // HK_VIDMODE_60
         { fabgl::VK_END,    true,  true,  false }, // HK_VIDMODE_50
+        { fabgl::VK_F3,     true,  false, false }, // HK_QUICK_LOAD
+        { fabgl::VK_F4,     true,  false, false }, // HK_QUICK_SAVE
     };
     for (int i = 0; i < HK_COUNT; i++)
         hotkeys[i] = defaults[i];

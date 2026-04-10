@@ -245,7 +245,6 @@ IRAM_ATTR void _do(rvmWD1793 *wd) {
         _do(wd);
         return;
       } else {
-        //printf("Type I end\n");
         wd->control|=kRVMWD177XINTRQ;
         wd->status|=kRVMWD177XStatusSetHead;
         wd->status&=~kRVMWD177XStatusBusy;
@@ -1324,19 +1323,25 @@ IRAM_ATTR void rvmWD1793Write(rvmWD1793 *wd,uint8_t a,uint8_t value) {
 
             _do(wd);
 
-            // Complete Type I (Seek/Step/Restore) immediately — don't wait for step delays.
+            // Complete Type I (Seek/Step/Restore) step delays immediately.
             // Copy-protected loaders issue the next command before step delays expire.
-            // Skip instant completion for UDI/FDI raw disks — their loaders poll system
-            // register for INTRQ, and instant completion causes INTRQ to be set and cleared
-            // before the poll loop runs.
-            if (!(wd->command & kRVMWD177XTypeI)
-#if !PICO_RP2040
-                && !(wd->disk[wd->diskS] && (wd->disk[wd->diskS]->IsUDIFile || wd->disk[wd->diskS]->IsFDIFile))
-#endif
-            ) {
+            if (!(wd->command & kRVMWD177XTypeI)) {
               while (wd->stepState == kRVMWD177XStepWaiting) {
                 _do(wd);
               }
+            }
+
+            // If Type I completed synchronously (TypeIEnd reached inside _do chain),
+            // INTRQ was set before TR-DOS ROM enters its polling loop on port 0xFF.
+            // TR-DOS reads the status register first (clearing INTRQ), then polls
+            // the system register — missing the INTRQ and hanging forever.
+            // Fix: promote INTRQ to FINTRQ, which is not cleared by status reads
+            // but is still visible on the system register (port 0xFF bit 7).
+            // FINTRQ will be cleared when the next command is issued.
+            if (wd->state == kRVMWD177XTypeIEnd
+                && wd->stepState == kRVMWD177XStepIdle
+                && (wd->control & kRVMWD177XINTRQ)) {
+              wd->control |= kRVMWD177XFINTRQ;
             }
 
           }

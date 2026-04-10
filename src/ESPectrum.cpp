@@ -202,9 +202,8 @@ uint32_t ESPectrum::faudbufcntSAA = 0;
 bool ESPectrum::SAA_emu = false;
 #endif
 
-#if !PICO_RP2040
-uint8_t ESPectrum::audioBufferFDD[ESP_AUDIO_SAMPLES_PENTAGON] = {0};
-#endif
+ESPectrum::FDDSound ESPectrum::fddSound = {{}, 0xACE1, 0, false, 0, 12};
+const uint8_t ESPectrum::fdd_click_decay[12] = {48,36,27,20,15,11,8,6,4,3,2,1};
 int ESPectrum::lastaudioBit = 0;
 int ESPectrum::lastCovoxVal = 0;
 int ESPectrum::faudioBit = 0;
@@ -1444,34 +1443,25 @@ __not_in_flash("audio") void ESPectrum::PITGetSample() {
 #endif
 
 void ESPectrum::FDDGenSound() {
-#if !PICO_RP2040
-    memset(audioBufferFDD, 0, samplesPerFrame);
     uint8_t clicks = fdd.fdd_clicks;
     fdd.fdd_clicks = 0;
     if (clicks > 0) {
         if (clicks > 8) clicks = 8;
+        fddSound.click_count = clicks;
+        fddSound.motor_noise = false;
         int spacing = samplesPerFrame / (clicks + 1);
         for (int c = 0; c < clicks; c++) {
-            int pos = spacing * (c + 1);
-            uint8_t amp = 48;
-            for (int j = 0; j < 20 && (pos + j) < samplesPerFrame; j++) {
-                audioBufferFDD[pos + j] += amp;
-                amp = (amp * 3) >> 2;
-                if (amp == 0) break;
-            }
+            fddSound.click_pos[c] = spacing * (c + 1);
         }
     } else if (fdd.led) {
-        static uint16_t fdd_lfsr = 0xACE1;
-        for (int i = 0; i < samplesPerFrame; i++) {
-            fdd_lfsr ^= fdd_lfsr >> 7;
-            fdd_lfsr ^= fdd_lfsr << 9;
-            fdd_lfsr ^= fdd_lfsr >> 13;
-            audioBufferFDD[i] = (fdd_lfsr & 0xF);
-        }
+        fddSound.click_count = 0;
+        fddSound.motor_noise = true;
+    } else {
+        fddSound.click_count = 0;
+        fddSound.motor_noise = false;
     }
-#else
-    fdd.fdd_clicks = 0;
-#endif
+    fddSound.click_idx = 0;
+    fddSound.decay_pos = 12;
 }
 
 // === Таймер ===
@@ -1700,13 +1690,15 @@ void ESPectrum::loop() {
         bool mix_saa = SAA_emu;
         bool mix_midi = (Midi::enabled == 3);
 #endif
+        bool mix_fdd = Config::trdosSoundLed && (fddSound.click_count > 0 || fddSound.motor_noise);
         for (int i = 0; i < samplesPerFrame; i++)
         {
           int beeper_L = overSamplebuf[i] + audioBufferCovox[i]
 #if !PICO_RP2040
-                         + audioBufferFDD[i] + audioBufferPIT[i]
+                         + audioBufferPIT[i]
 #endif
               ;
+          if (mix_fdd) beeper_L += getFDDSample(i);
           int beeper_R = beeper_L;
           if (mix_chip0) {
             beeper_L += chip0.SamplebufAY_L[i];
