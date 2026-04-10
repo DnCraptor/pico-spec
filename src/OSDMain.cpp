@@ -647,6 +647,10 @@ extern const char* const hkDescES[];
 // OSD Main Loop
 void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
 
+    struct AYGuard {
+        AYGuard()  { if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable)); }
+        ~AYGuard() { if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable)); }
+    } ayGuard;
 
     static uint8_t last_sna_row = 0;
     fabgl::VirtualKeyItem Nextkey;
@@ -692,10 +696,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
     } else
 #endif
     if (hkIdx == Config::HK_HW_INFO) { // Show mem info
-            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             OSD::HWInfo();
             if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
-            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         } else
         if (hkIdx == Config::HK_TURBO) { // Turbo mode
             ESPectrum::multiplicator += 1;
@@ -705,25 +707,17 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             CPU::updateStatesInFrame();
         } else
         if (hkIdx == Config::HK_DEBUG) {
-            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             osdDebug();
-            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         }
         else if (hkIdx == Config::HK_BP_LIST) {
-            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             uint16_t bpAddr = BPListDialog();
             if (bpAddr != 0xFFFF) osdDebug(bpAddr);
-            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         } else
         if (hkIdx == Config::HK_JUMP_TO) {
-            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             jumpToDialog();
-            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         } else
         if (hkIdx == Config::HK_POKE) { // Input Poke
-            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             pokeDialog();
-            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         } else
         if (hkIdx == Config::HK_NMI) { // NMI
 #if !PICO_RP2040
@@ -919,7 +913,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     DivMMC::init();
                     Config::save();
                     ESPectrum::reset();
-                    if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                     return;
                     } // else (zip ok)
                 }
@@ -1013,7 +1006,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
         }
         else if (hkIdx == Config::HK_USB_BOOT) {
             if (confirmReboot(OSD_DLG_USBBOOT)) {
-                if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
                 reset_usb_boot(0, 0);
                 while(1);
             }
@@ -1069,7 +1061,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             menu_level = 0;
             menu_curopt = Config::persist_slot;
             // Persist Load
-            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             while (1) {
                 menu_footer = Config::lang ? "F6:Renombrar  F8:Borrar" : "F6:Rename  F8:Remove";
                 uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_LOAD[Config::lang], 40));
@@ -1089,12 +1080,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     break;
                 } else break;
             }
-            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         } else if (FileUtils::fsMount && hkIdx == Config::HK_PERSIST_SAVE) {
             // Persist Save
             menu_level = 0;
             menu_curopt = Config::persist_slot;
-            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             while (1) {
                 menu_footer = Config::lang ? "F4:Guardar  F6:Renombrar  F8:Borrar" : "F4:Save  F6:Rename  F8:Remove";
                 uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_SAVE[Config::lang], 40));
@@ -1112,11 +1101,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     }
                     if (menu_quicksave_pressed) {
                         persistSave(opt2, opt2, true);
-                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
                     }
                     if (persistSave(opt2, opt2)) {
-                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
                     }
                     menu_curopt = opt2;
@@ -1124,7 +1111,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     break;
                 }
             }
-            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+        } else if (FileUtils::fsMount && hkIdx == Config::HK_QUICK_LOAD) {
+            // Quick Load — load current persist slot without dialog (same as F3 + Enter)
+            persistLoad(Config::persist_slot);
+        } else if (FileUtils::fsMount && hkIdx == Config::HK_QUICK_SAVE) {
+            // Quick Save — save to current persist slot without dialog (same as F4 + F4)
+            persistSave(Config::persist_slot, Config::persist_slot, true);
         } else if (FileUtils::fsMount && hkIdx == Config::HK_LOAD_ANY) {
             menu_level = 0;
             menu_saverect = false;
@@ -1178,19 +1170,15 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 if (ext == "tap" || ext == "tzx" || ext == "pzx" || ext == "wav" || ext == "mp3") {
                     // Tape — sync TAP_Path: /tmp/ for ZIP, ALL_Path for normal files
                     FileUtils::TAP_Path = fromZip ? "/tmp/" : FileUtils::ALL_Path;
-                    if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
                     Config::save();
                     Tape::LoadTape(mFile);
-                    if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                 }
                 else if (ext == "trd" || ext == "scl" || ext == "udi" || ext == "fdi") {
                     // Disk into Drive A — check machine compatibility
                     if (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) {
                         if (!fromZip) FileUtils::DSK_Path = FileUtils::ALL_Path;
-                        if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
                         Config::save();
                         rvmWD1793InsertDisk(&ESPectrum::fdd, 0, fname);
-                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                     } else {
                         OSD::osdCenteredMsg(OSD_DSK_NEEDS_PENTAGON[Config::lang], LEVEL_WARN);
                     }
@@ -1198,7 +1186,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 else if (ext == "sna" || ext == "z80" || ext == "p") {
                     // Snapshot
                     if (!fromZip) FileUtils::SNA_Path = FileUtils::ALL_Path;
-                    if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
                     Config::save();
                     if (!LoadSnapshot(fname, "", "")) {
                         OSD::osdCenteredMsg(OSD_PSNA_LOAD_ERR, LEVEL_WARN);
@@ -1206,7 +1193,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         Config::ram_file = fname;
                         Config::last_ram_file = fname;
                     }
-                    if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                 }
 #if !PICO_RP2040
                 else if (ext == "mmc" || ext == "hdf") {
@@ -1217,11 +1203,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                             Config::esxdos_hdf_image[0] = fname; // master (hd0)
                         else
                             Config::esxdos_mmc_image = fname;
-                        if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
                         DivMMC::init();
                         Config::save();
                         ESPectrum::reset();
-                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                     } else {
                         OSD::osdCenteredMsg(OSD_IMG_NEEDS_ESXDOS[Config::lang], LEVEL_WARN);
                     }
@@ -1232,16 +1216,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
         } else if (hkIdx == Config::HK_TAPE_PLAY) {
             // Start / Stop .tap reproduction
             if (Tape::tapeStatus == TAPE_STOPPED) {
-                if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
                 Tape::Play();
             } else {
                 Tape::Stop();
-                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
             }
             click();
         } else if (hkIdx == Config::HK_TAPE_BROWSER) {
             // Tape Browser
-            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             if (Tape::tapeFileName=="none") {
                 OSD::osdCenteredMsg(OSD_TAPE_SELECT_ERR[Config::lang], LEVEL_WARN);
             } else {
@@ -1254,7 +1235,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     Tape::Stop();
                 }
             }
-            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         } else if (hkIdx == Config::HK_STATS) {
             // Show / hide OnScreen Stats
             {
@@ -1379,17 +1359,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 Config::ram_file = NO_RAM_FILE;
             }
             Config::last_ram_file = NO_RAM_FILE;
-            if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
             ESPectrum::reset();
         } else if (hkIdx == Config::HK_REBOOT) { // ESP32 reset
             if (confirmReboot(OSD_DLG_REBOOT)) {
-                if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
                 Config::ram_file = NO_RAM_FILE;
                 Config::save();
                 esp_hard_reset();
             }
         } else if (hkIdx == Config::HK_MAIN_MENU) {
-          if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
           menu_curopt = 1;
           while(1) {
             // Main menu
@@ -1399,7 +1376,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 (!FileUtils::fsMount ? MENU_MAIN_NO_SD[Config::lang] : MENU_MAIN[Config::lang])
             );
             if (opt == 1) { // Volume
-                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                 if (VIDEO::OSD == 0) {
                     if (Config::aspect_16_9)
                         VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
@@ -1465,18 +1441,15 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         }
                                         Config::save();
                                         Tape::LoadTape(mFile);
-                                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                         return;
                                     }
                                 }
                                 else if (tap_num == 2) {
                                     // Start / Stop .tap reproduction
                                     if (Tape::tapeStatus == TAPE_STOPPED) {
-                                        if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
                                         Tape::Play();
                                     } else {
                                         Tape::Stop();
-                                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                     }
                                     return;
                                 }
@@ -1495,7 +1468,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             Tape::tapeCurBlock = tBlock;
                                             Tape::Stop();
                                         }
-                                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                         return;
                                     }
                                 }
@@ -1694,7 +1666,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         if (opt2 == 2) {
                                             wdDiskEject(&ESPectrum::fdd, dsk_num - 1);
                                             Config::save();
-                                            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                             return;
                                         }
                                     } else {
@@ -1942,7 +1913,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                                 continue;
                                             }
                                             if (persistLoad(opt2)) {
-                                                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                                 return;
                                             }
                                             menu_saverect = false;
@@ -1971,7 +1941,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                                 continue;
                                             }
                                             if (persistSave(opt2, opt2)) {
-                                                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                                 return;
                                             }
                                             menu_saverect = false;
@@ -2363,7 +2332,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             VIDEO::changeMode();
                                         }
                                         // Exit OSD after mode switch
-                                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                         return;
 #else
                                         OSD::esp_hard_reset();
@@ -2529,7 +2497,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             VIDEO::changeMode();
                                         }
                                         // Exit OSD after mode switch
-                                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                         return;
 #else
                                         OSD::esp_hard_reset();
@@ -3515,7 +3482,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                             } else if (optjoy == 6) {
                                 joyDialog();
                                 if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
-                                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                 return;
                             } else {
                                 menu_curopt = 3;
@@ -3704,7 +3670,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 if (Config::lang != (opt2 - 1)) {
                                     Config::lang = opt2 - 1;
                                     Config::save();
-                                    if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                     return;
                                 }
                                 menu_curopt = opt2;
@@ -3970,12 +3935,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 } else {
                                     string mFile = fileDialog(FileUtils::ROM_Path, MENU_ROM_TITLE[Config::lang], DISK_ROMFILE, 26, 15);
                                     if (mFile != "") {
-                                        if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
                                         mFile.erase(0, 1);
                                         string fname = FileUtils::ROM_Path + mFile;
                                         bool res = updateROM(fname, opt2 - 1);
                                         if (res) {
-                                            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                                             return;
                                         }
                                     }
@@ -4004,28 +3967,22 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     uint8_t opt2 = menuRun(expandHotkeys(MENU_DEBUG_EN));
                     if (opt2 == 1) {
                         OSD::osdDebug();
-                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
                     } else if (opt2 == 2) {
                         BPDialog();
-                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
                     } else if (opt2 == 3) {
                         { uint16_t bpAddr = BPListDialog();
                         if (bpAddr != 0xFFFF) osdDebug(bpAddr); }
-                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
                     } else if (opt2 == 4) {
                         jumpToDialog();
-                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
                     } else if (opt2 == 5) {
                         pokeDialog();
-                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
                     } else if (opt2 == 6) {
                         Z80::triggerNMI();
-                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return;
                     } else {
                         menu_curopt = 8;
@@ -4337,7 +4294,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 }
                 click();
                 if (VIDEO::OSD) OSD::drawStats();
-                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                 return;
             }
             else if (opt == 11) { // About
@@ -4458,7 +4414,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         VIDEO::Draw_OSD43 = VIDEO::BottomBorder;
                 }
                 if (VIDEO::OSD) OSD::drawStats(); // Redraw stats for 16:9 modes
-                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                 return;
             }
 #if TFT
@@ -4534,7 +4489,6 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
 #endif
             else break;
           }
-          if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
         }
 }
 
@@ -8209,7 +8163,8 @@ static const char* hkIdNames[Config::HK_COUNT] = {
     "HK_MAX_SPEED", "HK_PAUSE", "HK_HW_INFO", "HK_TURBO",
     "HK_DEBUG", "HK_DISK", "HK_NMI", "HK_RESET_TO",
     "HK_USB_BOOT", "HK_GIGASCREEN", "HK_BP_LIST", "HK_JUMP_TO",
-    "HK_POKE", "HK_VIDMODE_60", "HK_VIDMODE_50"
+    "HK_POKE", "HK_VIDMODE_60", "HK_VIDMODE_50",
+    "HK_QUICK_LOAD", "HK_QUICK_SAVE"
 };
 
 static string expandHotkeys(const char* menu) {
@@ -8266,6 +8221,8 @@ const char* const hkDescEN[Config::HK_COUNT] = {
     "Input poke",           // HK_POKE
     "HDMI 60Hz mode",       // HK_VIDMODE_60
     "HDMI 50Hz mode",       // HK_VIDMODE_50
+    "Quick Load snapshot",  // HK_QUICK_LOAD
+    "Quick Save snapshot",  // HK_QUICK_SAVE
 };
 // ES
 const char* const hkDescES[Config::HK_COUNT] = {
@@ -8300,6 +8257,8 @@ const char* const hkDescES[Config::HK_COUNT] = {
     "Introducir poke",       // HK_POKE
     "Modo HDMI 60Hz",        // HK_VIDMODE_60
     "Modo HDMI 50Hz",        // HK_VIDMODE_50
+    "Carga rapida snapshot", // HK_QUICK_LOAD
+    "Guardado rapido snapshot", // HK_QUICK_SAVE
 };
 
 static const int HK_MENU_WIDTH = 32; // usable cols for hotkey menu

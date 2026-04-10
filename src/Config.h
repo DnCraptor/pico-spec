@@ -264,7 +264,9 @@ public:
         HK_POKE         = 24,
         HK_VIDMODE_60   = 25,
         HK_VIDMODE_50   = 26,
-        HK_COUNT        = 27
+        HK_QUICK_LOAD   = 27,
+        HK_QUICK_SAVE   = 28,
+        HK_COUNT        = 29
     };
 
     struct HotkeyBinding {

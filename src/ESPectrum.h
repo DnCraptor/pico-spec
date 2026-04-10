@@ -137,9 +137,35 @@ public:
 #if !PICO_RP2040
     static uint8_t audioBufferPIT[ESP_AUDIO_SAMPLES_PENTAGON];
 #endif
-#if !PICO_RP2040
-    static uint8_t audioBufferFDD[ESP_AUDIO_SAMPLES_PENTAGON];
-#endif
+    // Compact FDD sound description (~22 bytes instead of 640-byte buffer)
+    struct FDDSound {
+        uint16_t click_pos[8]; // sample positions of clicks
+        uint16_t fdd_lfsr;     // LFSR state for motor noise
+        uint8_t click_count;   // number of clicks (0-8)
+        bool motor_noise;      // generate motor noise instead of clicks
+        // Per-frame state for inline generation
+        int click_idx;         // current index into click_pos
+        int decay_pos;         // offset within current click decay
+    };
+    static FDDSound fddSound;
+    static const uint8_t fdd_click_decay[12];
+    static inline int getFDDSample(int i) {
+        if (fddSound.motor_noise) {
+            fddSound.fdd_lfsr ^= fddSound.fdd_lfsr >> 7;
+            fddSound.fdd_lfsr ^= fddSound.fdd_lfsr << 9;
+            fddSound.fdd_lfsr ^= fddSound.fdd_lfsr >> 13;
+            return fddSound.fdd_lfsr & 0xF;
+        }
+        if (fddSound.click_count > 0) {
+            if (fddSound.click_idx < fddSound.click_count && i >= fddSound.click_pos[fddSound.click_idx]) {
+                fddSound.click_idx++;
+                fddSound.decay_pos = 0;
+            }
+            if (fddSound.decay_pos < 12)
+                return fdd_click_decay[fddSound.decay_pos++];
+        }
+        return 0;
+    }
 #if !PICO_RP2040
     static uint8_t audioBufferMIDI_L[ESP_AUDIO_SAMPLES_PENTAGON];
     static uint8_t audioBufferMIDI_R[ESP_AUDIO_SAMPLES_PENTAGON];
