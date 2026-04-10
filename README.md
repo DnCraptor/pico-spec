@@ -60,7 +60,7 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - Rodolfo Guerra's ROMs fast load routines support with on the fly standard speed blocks translation.
 - TAP file saving to SD card.
 - SNA and Z80 snapshot loading.
-- Snapshot saving and loading with named slots.
+- Snapshot saving and loading with named slots. Quick load/save hotkeys.
 - ZIP archive support: browse, extract, load and delete files inside ZIP archives.
 - Configurable keyboard hotkeys with hint display in menus.
 - Enhanced debugger: multi-breakpoint (up to 20), memory editor, port read/write breakpoints.
@@ -111,6 +111,8 @@ Default hotkey bindings (all hotkeys except F1 and ALT+F1 are reconfigurable via
 - ALT+F11 Reset to... (modal menu: Service/Gluk, TR-DOS, 128K, 48K — depends on machine)
 - ALT+F12 USB Boot / Update Firmware
 - ALT+PageUp Switch Gigascreen mode ON/OFF
+- ALT+F3 Quick load snapshot
+- ALT+F4 Quick save snapshot
 - ALT+CTRL+Home Switch HDMI video mode (60Hz cycle)
 - ALT+CTRL+End Switch HDMI video mode (50Hz cycle)
 - PrntScr BMP screen capture (Folder /spec/.c at SDCard)
