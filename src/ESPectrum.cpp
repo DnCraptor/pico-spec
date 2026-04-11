@@ -557,7 +557,7 @@ void ESPectrum::setup()
     //=======================================================================================
     if (ext_ram_exist) {
         mem_desc_t* temp = MemESP::ram;
-        MemESP::ram = (mem_desc_t*)calloc(MEM_PG_CNT+2, sizeof(mem_desc_t));
+        MemESP::ram = new mem_desc_t[MEM_PG_CNT+2];
         memcpy(MemESP::ram, temp, sizeof(mem_desc_t) * 8);
         MemESP::ram[0].assign_ram(new unsigned char[MEM_PG_SZ], 0, false);
         MemESP::ram[4].assign_ram(new unsigned char[MEM_PG_SZ], 4, false);
