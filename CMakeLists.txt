@@ -12,7 +12,7 @@ if (EXISTS ${picoVscode})
     include(${picoVscode})
 endif()
 # ====================================================================================
-set(PICO_BOARD pico CACHE STRING "Board type")
+set(PICO_BOARD pico2 CACHE STRING "Board type")
 cmake_minimum_required(VERSION 3.13)
 
 option(VGA_HDMI "Enable VGA/HDMI driver" OFF)
@@ -28,8 +28,8 @@ option(ZERO2 "RP2350-PiZero" OFF)
 
 #set(m1p2launcher ON)
 
-set(VGA_HDMI ON)
-#set(SOFTTV ON)
+#set(VGA_HDMI ON)
+set(SOFTTV ON)
 #set(TFT ON)
 #set(TFT_INV 0)
 #set(TFT_INV 1)

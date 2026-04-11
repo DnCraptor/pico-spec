@@ -57,7 +57,7 @@ uint8_t* mem_desc_t::to_vram(void) {
     uint8_t* res = _int->p;
     uint32_t ba = _int->vram_off;
     if (psram_size()) {
-        for (size_t i = 0; i < 0x4000; i += 4) {
+        for (size_t i = 0; i < MEM_PG_SZ; i += 4) {
             write32psram(ba + i, *(uint32_t*)(res + i));
         }
     } else {
@@ -65,7 +65,7 @@ uint8_t* mem_desc_t::to_vram(void) {
         UINT bw;
         FSIZE_t lba = ba;
         f_lseek(&f, lba);
-        f_write(&f, res, 0x4000, &bw);
+        f_write(&f, res, MEM_PG_SZ, &bw);
         gpio_put(PICO_DEFAULT_LED_PIN, false);
     }
     _int->outside = true;
@@ -76,7 +76,7 @@ void mem_desc_t::from_vram(uint8_t* p) {
     this->_int->p = p;
     uint32_t ba = _int->vram_off;
     if (psram_size()) {
-        for (size_t i = 0; i < 0x4000; i += 4) {
+        for (size_t i = 0; i < MEM_PG_SZ; i += 4) {
             *(uint32_t*)(p + i) = read32psram(ba + i);
         }
     } else {
@@ -200,16 +200,30 @@ void mem_desc_t::from_mem(mem_desc_t& ram, size_t sz) {
 }
 void mem_desc_t::cleanup() {
     if (_int->outside) {
-        for (size_t addr = 0; addr < 0x4000; ++addr) {
+        for (size_t addr = 0; addr < MEM_PG_SZ; ++addr) {
             _write(addr, 0);
         }
     } else {
-        memset(direct(), 0, 0x4000);
+        if (!_int->p) return;
+        memset(direct(), 0, MEM_PG_SZ);
     }
 }
 
 mem_desc_t MemESP::rom[64];
-mem_desc_t MemESP::ram[64 + 2];
+static uint8_t pages13[MEM_PG_SZ * 2] = { 0 };
+static uint8_t page2[MEM_PG_SZ] = { 0 };
+static uint8_t pages57[MEM_PG_SZ * 2] = { 0 };
+static mem_desc_t temp[8] = {
+    { 0, 0 },
+    { pages13, 1},
+    { page2, 2 },
+    { pages13 + MEM_PG_SZ, 3},
+    { 0, 4 },
+    { pages57, 5},
+    { 0, 6 },
+    { pages57 + MEM_PG_SZ, 7},
+};
+mem_desc_t* MemESP::ram = temp;
 bool MemESP::newSRAM = false;
 
 uint8_t* MemESP::ramCurrent[4];

@@ -159,6 +159,7 @@ static uint32_t* conv_color[2];
 static uint8_t __scratch_x("buff4") paletteRGB[3][256]; //768 байт
 
 static repeating_timer_t video_timer;
+bool SELECT_VGA = true;
 
 
 void graphics_set_modeTV(tv_out_mode_t mode) {
