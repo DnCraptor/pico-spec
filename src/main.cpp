@@ -1083,10 +1083,10 @@ int main() {
 #endif
 
 #if PICO_RP2350
-    if (psram_pin != PSRAM_PIN_CS)
+ //   if (psram_pin != PSRAM_PIN_CS)
 #endif
     #ifndef MURM2
-        if (!butter_psram_size()) init_psram();
+   //     init_psram();
     #endif
     // send kbd reset only after initial process passed
 #ifndef KBDUSB

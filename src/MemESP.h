@@ -138,7 +138,6 @@ public:
     void cleanup();
 };
 
-#define MEM_PG_SZ 0x4000
 class MemESP
 {
 public:
