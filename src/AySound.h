@@ -196,6 +196,7 @@ private:
     int cnt_e;                       /*< back counter of envelop generator */
     int ChipTacts_per_outcount;      /*< chip's counts per one sound signal count */
     int Amp_Global;                  /*< scale factor for amplitude */
+    int inv_Amp_Global;              /*< precomputed reciprocal: (1<<16)/Amp_Global */
     int EnvNum;                      /*< number of current envilopment (0...15) */
     int env_pos;                     /*< current position in envelop (0...127) */
     int Cur_Seed;                    /*< random numbers counter */

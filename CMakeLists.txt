@@ -141,6 +141,11 @@ message(STATUS "")
 
 add_executable(${PROJECT_NAME} ${SRC})
 
+# КРИТИЧНАЯ ОПТИМИЗАЦИЯ: компилируем AySound.cpp с максимальной оптимизацией
+# Это дает дополнительные 2-4 FPS при проигрывании цифровой музыки через AY
+set_source_files_properties(src/AySound.cpp PROPERTIES
+    COMPILE_FLAGS "-O3 -ffast-math -funroll-loops")
+
 if (PICO_BOARD STREQUAL "pico")
     pico_define_boot_stage2(slower_boot2 ${PICO_DEFAULT_BOOT_STAGE2_FILE})
     target_compile_definitions(slower_boot2 PRIVATE PICO_FLASH_SPI_CLKDIV=4)

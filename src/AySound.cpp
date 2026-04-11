@@ -41,7 +41,8 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Config.h"
 #include "PinSerialData_595.h"
 
-#define IRAM_ATTR 
+#include <pico/platform.h>
+#define IRAM_ATTR __not_in_flash("audio")
 
 // #pragma GCC optimize("O3")
 
@@ -275,6 +276,7 @@ void AySound::prepare_generation()
     // Amp_Global = ChipTacts_per_outcount * vol / AYEMU_MAX_AMP;
 
     Amp_Global = ChipTacts_per_outcount * (table[31] * 3) / AYEMU_MAX_AMP;
+    inv_Amp_Global = Amp_Global > 0 ? ((1 << 16) + Amp_Global - 1) / Amp_Global : 0;
 
     dirty = 0;
 }
@@ -430,8 +432,8 @@ IRAM_ATTR void AySound::gen_sound(int sound_bufsize, int bufpos)
 
         }
         
-        *sound_buf_L++ = mix_l / Amp_Global;
-        *sound_buf_R++ = mix_r / Amp_Global;
+        *sound_buf_L++ = (mix_l * inv_Amp_Global) >> 16;
+        *sound_buf_R++ = (mix_r * inv_Amp_Global) >> 16;
 
     }
 
@@ -514,8 +516,8 @@ IRAM_ATTR uint8_t* AySound::gen_sound()
         }
     }
 
-    SamplebufAY[0] = mix_l / Amp_Global;
-    SamplebufAY[1] = mix_r / Amp_Global;
+    SamplebufAY[0] = (mix_l * inv_Amp_Global) >> 16;
+    SamplebufAY[1] = (mix_r * inv_Amp_Global) >> 16;
     return SamplebufAY;
 }
 

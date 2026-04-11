@@ -54,6 +54,19 @@ public:
     static void FDDStep(bool force);
 
     static uint8_t portAFF7;
+
+    // KR580VI53 (Intel 8253 PIT) — Byte computer sound synthesizer
+    struct PIT8253Channel {
+        uint16_t count_value;  // Programmed divisor (16-bit)
+        int counter;           // Current counter position
+        uint8_t output;        // Current output state (0 or 1)
+        uint8_t lsb;           // Latched LSB for 2-byte load
+        bool lsb_loaded;       // Whether LSB is waiting for MSB
+        bool active;           // Whether channel has been programmed
+    };
+    static PIT8253Channel pitChannels[3];
+    static void pitGenSound(uint8_t* buf, int bufsize);
+
 private :
 
     static void ioContentionLate(bool contend);
