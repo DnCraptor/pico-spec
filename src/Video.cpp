@@ -67,7 +67,10 @@ extern "C" int get_video_mode() {
 //     return VIDEO::video_mode[0];
 // }
 
+#ifdef VGA_HDMI
 extern bool SELECT_VGA;
+int VIDEO::video_mode = 0;
+#endif
 
 uint16_t VIDEO::spectrum_colors[NUM_SPECTRUM_COLORS] = {
     BLACK,     BLUE,     RED,     MAGENTA,     GREEN,     CYAN,     YELLOW,     WHITE,
@@ -134,8 +137,6 @@ static const uint8_t wait_st[128] = {
     6, 5, 4, 3, 2, 1, 0, 0, 6, 5, 4, 3, 2, 1, 0, 0,
     6, 5, 4, 3, 2, 1, 0, 0, 6, 5, 4, 3, 2, 1, 0, 0,
 }; // sequence of wait states
-
-int VIDEO::video_mode = 0;
 
 IRAM_ATTR void VGA6Bit::interrupt(void *arg) {
     static int64_t prevmicros = 0;
@@ -410,6 +411,7 @@ void VIDEO::Reset() {
     brdChange = false;
     brdnextframe = true;
 
+#ifdef VGA_HDMI
     if (SELECT_VGA)
     {
         if (Config::vga_video_mode > 0)
@@ -436,6 +438,7 @@ void VIDEO::Reset() {
         }
         video_mode = Config::hdmi_video_mode;
     }
+#endif
 }
 
 //  VIDEO DRAW FUNCTIONS
@@ -1205,6 +1208,7 @@ void SaveRectT::save(int16_t x, int16_t y, int16_t w, int16_t h) {
     x -= 2; if (x < 0) x = 0; // W/A
     w += 4; // W/A
     size_t off = offsets.back();
+    #if 0
     if (butter_psram_size() >= PSRAM_SHIFT_RAM) {
         off += PSRAM_SHIFT_RAM;
         *(int16_t*)(PSRAM_DATA + off) = x; off += 2;
@@ -1222,6 +1226,7 @@ void SaveRectT::save(int16_t x, int16_t y, int16_t w, int16_t h) {
         offsets.push_back(off - PSRAM_SHIFT_RAM);
         return;
     }
+    #endif
     if (psram_size() >= PSRAM_SHIFT_RAM) {
         off += PSRAM_SHIFT_RAM;
         write16psram(off, x); off += 2;
@@ -1263,6 +1268,7 @@ void SaveRectT::restore_last() {
     uint16_t y;
     uint16_t w;
     uint16_t h;
+    #if 0
     if (butter_psram_size() >= PSRAM_SHIFT_RAM) {
         off += PSRAM_SHIFT_RAM;
         x = *(int16_t*)(PSRAM_DATA + off); off += 2;
@@ -1287,7 +1293,9 @@ void SaveRectT::restore_last() {
             readpsram(VIDEO::vga.frameBuffer[line] + x, off, w);
             off += w;
         }
-    } else if (FileUtils::fsMount) {
+    } else
+    #endif
+    if (FileUtils::fsMount) {
         FIL f;
         f_open(&f, "/tmp/save_rect.tmp", FA_READ);
         f_lseek(&f, off);

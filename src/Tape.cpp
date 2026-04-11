@@ -1627,7 +1627,7 @@ bool Tape::FlashLoad() {
 
     // printf("nBytes: %d\n",nBytes);
 
-    if ((addr2 + nBytes) <= 0x4000) {
+    if ((addr2 + nBytes) <= MEM_PG_SZ) {
 
         // printf("Case 1\n");
         UINT br;
@@ -1648,7 +1648,7 @@ bool Tape::FlashLoad() {
 
         // printf("Case 2\n");
 
-        int chunk1 = 0x4000 - addr2;
+        int chunk1 = MEM_PG_SZ - addr2;
         int chunkrest = nBytes > (blockLen - 1) ? (blockLen - 1) : nBytes;
 
         do {
@@ -1675,7 +1675,7 @@ bool Tape::FlashLoad() {
 
             addr2 = 0;
             chunkrest = chunkrest - chunk1;
-            if (chunkrest > 0x4000) chunk1 = 0x4000; else chunk1 = chunkrest;
+            if (chunkrest > MEM_PG_SZ) chunk1 = MEM_PG_SZ; else chunk1 = chunkrest;
             page++;
 
         } while (chunkrest > 0);

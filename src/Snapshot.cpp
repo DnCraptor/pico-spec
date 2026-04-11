@@ -103,9 +103,9 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
             snapshotArch = Config::arch;
         else    
             snapshotArch = "Pentagon";
-    } else if ((sna_size == SNA_128K_SIZE1 + ( 8 + 16 ) * 0x4000) || (sna_size == SNA_128K_SIZE2 + ( 8 + 16 ) * 0x4000)) {
+    } else if ((sna_size == SNA_128K_SIZE1 + ( 8 + 16 ) * MEM_PG_SZ) || (sna_size == SNA_128K_SIZE2 + ( 8 + 16 ) * MEM_PG_SZ)) {
         snapshotArch = "P512";
-    } else if ((sna_size == SNA_128K_SIZE1 + ( 8 + 16 + 32 ) * 0x4000) || (sna_size == SNA_128K_SIZE2 + ( 8 + 16 + 32 ) * 0x4000)) {
+    } else if ((sna_size == SNA_128K_SIZE1 + ( 8 + 16 + 32 ) * MEM_PG_SZ) || (sna_size == SNA_128K_SIZE2 + ( 8 + 16 + 32 ) * MEM_PG_SZ)) {
         snapshotArch = "P1024";
     } else {
         OSD::osdCenteredMsg("Bad SNA:\n" + sna_fn + "\nsize: " + to_string(sna_size) + "\n", LEVEL_INFO, 5000);
@@ -172,9 +172,9 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
     VIDEO::brd = VIDEO::border32[VIDEO::borderColor];
 
     // read 48K memory
-    MemESP::ram[5].from_file(file, 0x4000);
-    MemESP::ram[2].from_file(file, 0x4000);
-    MemESP::ram[0].from_file(file, 0x4000);
+    MemESP::ram[5].from_file(file, MEM_PG_SZ);
+    MemESP::ram[2].from_file(file, MEM_PG_SZ);
+    MemESP::ram[0].from_file(file, MEM_PG_SZ);
 
     if (Z80Ops::is48) {
         // in 48K mode, pop PC from stack
@@ -191,14 +191,14 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
         uint8_t tmp_latch = tmp_port & 0x07;
 
         // copy what was read into page 0 to correct page
-        MemESP::ram[tmp_latch].from_mem(MemESP::ram[0], 0x4000);
+        MemESP::ram[tmp_latch].from_mem(MemESP::ram[0], MEM_PG_SZ);
 
         uint8_t tr_dos = readByteFile(file);     // Check if TR-DOS is paged
         
         // read remaining pages
         for (int page = 0; page < (Z80Ops::is1024 ? 64 : (Z80Ops::is512 ? 32 : 8)); page++) {
             if (page != tmp_latch && page != 2 && page != 5) {
-                MemESP::ram[page].from_file(file, 0x4000);
+                MemESP::ram[page].from_file(file, MEM_PG_SZ);
             }
         }
         /// TODO: new flags
@@ -253,7 +253,7 @@ size_t fread(uint8_t* v, size_t sz1, size_t sz2, FIL& f) {
 static bool writeMemPage(uint8_t page, FIL* file, bool blockMode)
 {
     page = page & 0x07;
-    MemESP::ram[page].to_file(file, 0x4000);
+    MemESP::ram[page].to_file(file, MEM_PG_SZ);
     return true;
 }
 
@@ -699,12 +699,12 @@ bool FileZ80::load(string z80_fn) {
 
                     // Uncompressed data
 
-                    compDataLen = 0x4000;
+                    compDataLen = MEM_PG_SZ;
 
                     for (int i = 0; i < compDataLen; i++)                    
                         MemESP::writebyte(memoff + i, readByteFile(file));
                 } else {
-                    loadCompressedMemData(file, compDataLen, memoff, 0x4000);
+                    loadCompressedMemData(file, compDataLen, memoff, MEM_PG_SZ);
                 }
                 dataOffset += compDataLen;
             }
@@ -739,7 +739,7 @@ bool FileZ80::load(string z80_fn) {
                 if (compDataLen == 0xffff) { 
                     // load uncompressed data into memory
                     // printf("Loading uncompressed data\n");
-                    compDataLen = 0x4000;
+                    compDataLen = MEM_PG_SZ;
                     if ((hdr2 > 2) && (hdr2 < 11)) {
                         uint8_t* sp = pages[hdr2]->sync();
                         for (int i = 0; i < compDataLen; i++) {
@@ -749,7 +749,7 @@ bool FileZ80::load(string z80_fn) {
                 } else {
                     // Block is compressed
                     if ((hdr2 > 2) && (hdr2 < 11)) {
-                        loadCompressedMemPage(file, compDataLen, pages[hdr2]->sync(), 0x4000);
+                        loadCompressedMemPage(file, compDataLen, pages[hdr2]->sync(), MEM_PG_SZ);
                     }
                 }
                 dataOffset += compDataLen;
@@ -914,7 +914,7 @@ void FileZ80::loader48() {
             uint8_t repval = 0;
             uint16_t memidx = 0;
 
-            while(dataOff < compDataLen && memidx < 0x4000) {
+            while(dataOff < compDataLen && memidx < MEM_PG_SZ) {
                 uint8_t databyte = z80_array[0]; z80_array ++;
                 if (ed_cnt == 0) {
                     if (databyte != 0xED)
@@ -1058,7 +1058,7 @@ void FileZ80::loader128() {
             uint8_t repval = 0;
             uint16_t memidx = 0;
 
-            while(dataOff < compDataLen && memidx < 0x4000) {
+            while(dataOff < compDataLen && memidx < MEM_PG_SZ) {
                 uint8_t databyte = z80_array[0];
                 z80_array ++;
                 if (ed_cnt == 0) {
@@ -1121,7 +1121,7 @@ bool FileP::load(string p_fn) {
     p_size = ftell(file);
     rewind (file);
 
-    if (p_size > (0x4000 - 9)) {
+    if (p_size > (MEM_PG_SZ - 9)) {
         printf("FileP: Invalid .P file %s\n",p_fn.c_str());
         return false;
     }
