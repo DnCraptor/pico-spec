@@ -72,7 +72,9 @@ extern "C" int testPins(uint32_t pin0, uint32_t pin1) {
 #ifdef BUTTER_PSRAM_GPIO
     if (pin0 == BUTTER_PSRAM_GPIO || pin1 == BUTTER_PSRAM_GPIO) return res;
 #endif
+    #ifdef PICO_DEFAULT_LED_PIN
     if (pin0 == PICO_DEFAULT_LED_PIN || pin1 == PICO_DEFAULT_LED_PIN) return res; // LED
+    #endif
     if (pin0 == 23 || pin1 == 23) return res; // SMPS Power
     if (pin0 == 24 || pin1 == 24) return res; // VBus sense
     // try pull down case (passive)

@@ -406,13 +406,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 }
                 Config::save();
                 esp_hard_reset();
-            // } else
-            // if (KeytoESP == fabgl::VK_PAGEUP) {
-            //     VIDEO::tStatesScreen++;
-            // } else
+            }
             // if (KeytoESP == fabgl::VK_PAGEDOWN) {
             //     VIDEO::tStatesScreen--;
-            }
+            // }
             // if (KeytoESP == fabgl::VK_INSERT) { // HDMI H_Total Lines
             //     ESPectrum::H_TOTAL--;
             // } else
@@ -552,6 +549,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             //close_all()
             reset_usb_boot(0, 0);
             while(1);
+        }
+        else if (KeytoESP == fabgl::VK_PAGEUP) {
+            if (Config::gigascreen_enabled)
+            {
+                VIDEO::gigascreen_enabled = !VIDEO::gigascreen_enabled;
+                std::string menu = VIDEO::gigascreen_enabled ? OSD_GIGASCREEN_ON[Config::lang] : OSD_GIGASCREEN_OFF[Config::lang];
+                osdCenteredMsg(menu, LEVEL_INFO, 500);
+            }
         }
     } else {
         if (KeytoESP == fabgl::VK_TILDE || KeytoESP == fabgl::VK_NUMLOCK) {
@@ -2152,6 +2157,44 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         }
                                     }
                                 }
+                                #if !PICO_RP2040
+                                else if (options_num == 6) {
+                                    menu_level = 3;
+                                    menu_curopt = 1;
+                                    menu_saverect = true;
+                                    while (1) {
+                                        string opt_menu = MENU_GIGASCREEN[Config::lang];
+                                        opt_menu += MENU_YESNO[Config::lang];
+                                        bool prev_opt = Config::gigascreen_enabled;
+                                        if (prev_opt) {
+                                            opt_menu.replace(opt_menu.find("[Y",0),2,"[*");
+                                            opt_menu.replace(opt_menu.find("[N",0),2,"[ ");
+                                        } else {
+                                            opt_menu.replace(opt_menu.find("[Y",0),2,"[ ");
+                                            opt_menu.replace(opt_menu.find("[N",0),2,"[*");
+                                        }
+                                        uint8_t opt2 = menuRun(opt_menu);
+                                        if (opt2) {
+                                            if (opt2 == 1)
+                                                Config::gigascreen_enabled = true;
+                                            else
+                                                Config::gigascreen_enabled = false;
+
+                                            if (Config::gigascreen_enabled != prev_opt) {
+                                                Config::save();
+                                                esp_hard_reset();
+                                                return;
+                                            }
+                                            menu_curopt = opt2;
+                                            menu_saverect = false;
+                                        } else {
+                                            menu_curopt = 6;
+                                            menu_level = 2;
+                                            break;
+                                        }
+                                    }
+                                }
+                                #endif
                             } else {
                                 menu_curopt = 6;
                                 break;
@@ -4607,7 +4650,9 @@ static void __not_in_flash_func(flash_block)(const uint8_t* buffer, size_t flash
     }
     return;
 flash_it:
+    #ifdef PICO_DEFAULT_LED_PIN
     gpio_put(PICO_DEFAULT_LED_PIN, flash_target_offset % (FLASH_SECTOR_SIZE << 2) == 0);
+    #endif
     multicore_lockout_start_blocking();
     const uint32_t ints = save_and_disable_interrupts();
     if (flash_target_offset % FLASH_SECTOR_SIZE == 0) { // cleanup_block
@@ -4616,7 +4661,9 @@ flash_it:
     flash_range_program(flash_target_offset, buffer, 512);
     restore_interrupts(ints);
     multicore_lockout_end_blocking();
+    #ifdef PICO_DEFAULT_LED_PIN
     gpio_put(PICO_DEFAULT_LED_PIN, false);
+    #endif
 }
 
 bool OSD::updateROM(const string& fname, uint8_t arch) {

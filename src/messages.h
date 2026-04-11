@@ -74,6 +74,14 @@ static const char *OSD_MAXSPEED_ON[2] = { OSD_MAXSPEED_ON_EN,OSD_MAXSPEED_ON_ES 
 #define OSD_MAXSPEED_OFF_ES "--=[VELOCIDAD MÁXIMA APAGADA]=--"
 static const char *OSD_MAXSPEED_OFF[2] = { OSD_MAXSPEED_OFF_EN,OSD_MAXSPEED_OFF_ES };
 
+#define OSD_GIGASCREEN_ON_EN "--=[ GIGASCREEN ON ]=--"
+#define OSD_GIGASCREEN_ON_ES "--=[ GIGASCREEN ENCENDIDA ]=--"
+static const char *OSD_GIGASCREEN_ON[2] = { OSD_GIGASCREEN_ON_EN,OSD_GIGASCREEN_ON_ES };
+
+#define OSD_GIGASCREEN_OFF_EN "--=[ GIGASCREEN OFF ]=--"
+#define OSD_GIGASCREEN_OFF_ES "--=[ GIGASCREEN APAGADA ]=--"
+static const char *OSD_GIGASCREEN_OFF[2] = { OSD_GIGASCREEN_OFF_EN,OSD_GIGASCREEN_OFF_ES };
+
 #define OSD_PSNA_NOT_AVAIL "No Persist Snapshot Available"
 #define OSD_PSNA_LOADING "Loading Persist Snapshot"
 #define OSD_PSNA_SAVING  "Saving Persist Snapshot"
@@ -415,20 +423,39 @@ static const char *MENU_UPDATE_FW[2] = { MENU_UPDATE_EN, MENU_UPDATE_ES };
 	"Firmware       [ALT+F12]\n"
 static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE_NO_SD_ES };
 
-#define MENU_VIDEO_EN \
-    "Video\n"\
-	"Mode\t>\n"\
-    "Render type\t>\n"\
-    "Aspect Ratio\t>\n"\
-    "Scanlines\t>\n"\
-	"V-Sync\t>\n"
-#define MENU_VIDEO_ES \
-    "Video\n"\
-	"Modo\t>\n"\
-    "Tipo render\t>\n"\
-	"Relaci" "\xA2" "n de aspecto\t>\n"\
-    "Scanlines\t>\n"\
-	"V-Sync\t>\n"
+#if !PICO_RP2040
+	#define MENU_VIDEO_EN \
+		"Video\n"\
+		"Mode\t>\n"\
+		"Render type\t>\n"\
+		"Aspect Ratio\t>\n"\
+		"Scanlines\t>\n"\
+		"V-Sync\t>\n"\
+		"Gigascreen (No Flick)\t>\n"
+	#define MENU_VIDEO_ES \
+		"Video\n"\
+		"Modo\t>\n"\
+		"Tipo render\t>\n"\
+		"Relaci" "\xA2" "n de aspecto\t>\n"\
+		"Scanlines\t>\n"\
+		"V-Sync\t>\n"\
+		"Gigascreen (No Flick)\t>\n"
+#else
+	#define MENU_VIDEO_EN \
+		"Video\n"\
+		"Mode\t>\n"\
+		"Render type\t>\n"\
+		"Aspect Ratio\t>\n"\
+		"Scanlines\t>\n"\
+		"V-Sync\t>\n"
+	#define MENU_VIDEO_ES \
+		"Video\n"\
+		"Modo\t>\n"\
+		"Tipo render\t>\n"\
+		"Relaci" "\xA2" "n de aspecto\t>\n"\
+		"Scanlines\t>\n"\
+		"V-Sync\t>\n"
+#endif
 static const char *MENU_VIDEO[2] = { MENU_VIDEO_EN, MENU_VIDEO_ES };
 
 #define MENU_VIDEO_MODE_EN \
@@ -466,6 +493,8 @@ static const char *MENU_ASPECT[2] = { MENU_ASPECT_EN, MENU_ASPECT_ES };
 static const char *MENU_SCANLINES[2] = { "Scanlines\n", "Scanlines\n" };
 
 static const char *MENU_VSYNC[2] = { "V-Sync\n", "V-Sync\n" };
+
+static const char *MENU_GIGASCREEN[2] = { "Gigascreen\n", "Gigascreen\n" };
 
 #if !defined(PICO_RP2040)
 #define MENU_RESET_EN \

@@ -160,18 +160,12 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     uint8_t p8 = address & 0xFF;
     if (p8 == 0xFB) { // Hidden RAM on
         MemESP::newSRAM = true;
-        uint8_t* r0 = MemESP::ram[MEM_PG_CNT + MemESP::romLatch].sync(0);
-        if (MemESP::ramCurrent[0] != r0) {
-            MemESP::ramCurrent[0] = r0;
-        }
+        MemESP::recoverPage0();
         return 0xFF;
     }
     if (p8 == 0x7B) { // Hidden RAM off
         MemESP::newSRAM = false;
-        uint8_t* r0 = (MemESP::page0ram ? MemESP::ram[0].sync(0) : MemESP::rom[MemESP::romInUse].direct());
-        if (MemESP::ramCurrent[0] != r0) {
-            MemESP::ramCurrent[0] = r0;
-        }
+        MemESP::recoverPage0();
         return 0xFF;
     }
     // ULA PORT
@@ -202,17 +196,11 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
         if (ia && bitRead(p8, 7) == 0) {
             if (bitRead(p8, 1) == 0) { // 1D
                 MemESP::newSRAM = true;
-                uint8_t* r0 = MemESP::ram[MEM_PG_CNT + MemESP::romLatch].sync(0);
-                if (MemESP::ramCurrent[0] != r0) {
-                    MemESP::ramCurrent[0] = r0;
-                }
+                MemESP::recoverPage0();
             }
             else { // 1F
                 MemESP::newSRAM = false;
-                uint8_t* r0 = MemESP::rom[MemESP::romInUse].direct();
-                if (MemESP::ramCurrent[0] != r0) {
-                    MemESP::ramCurrent[0] = r0;
-                }
+                MemESP::recoverPage0();
             }
         }
 #endif

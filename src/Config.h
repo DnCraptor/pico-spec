@@ -122,6 +122,7 @@ public:
     static int hdmi_video_mode;
     static int vga_video_mode;
     static bool v_sync_enabled;
+    static bool gigascreen_enabled;
     static uint8_t audio_driver;
     static bool byte_cobmect_mode;
 };

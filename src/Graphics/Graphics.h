@@ -23,6 +23,7 @@ class Graphics {
 	long frontColor, backColor;
 	Font *font;
 	Color **frameBuffer;
+	Color **prevFrameBuffer;
 	int xres;
 	int yres;
 
@@ -62,6 +63,7 @@ class Graphics {
 		frontColor = -1;
 		backColor = 0;
 		frameBuffer = 0;
+		prevFrameBuffer = 0;
 	}
 
 	virtual bool allocateFrameBuffers()	{
