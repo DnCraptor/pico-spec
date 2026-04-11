@@ -779,10 +779,13 @@ void ESPectrum::setup() {
   }
 #endif
   Debug::log("setup: VIDEO::Init begin, freeHeap=%u", getFreeHeap());
+  Debug::log2SD("setup: VIDEO::Init begin, freeHeap=%u", getFreeHeap());
   VIDEO::Init();
   Debug::log("setup: VIDEO::Init done, freeHeap=%u", getFreeHeap());
+  Debug::log2SD("setup: VIDEO::Init done, freeHeap=%u", getFreeHeap());
   VIDEO::Reset();
   Debug::log("setup: VIDEO::Reset done");
+  Debug::log2SD("setup: VIDEO::Reset done");
 
   // if (Config::StartMsg) ShowStartMsg(); // Show welcome message
 

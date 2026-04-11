@@ -706,8 +706,12 @@ void VIDEO::ulaPlusDisable() {
 // then apply color matrix to all palette entries.
 void VIDEO::applyPalette() {
     uint8_t p = Config::palette < total_palette_count() ? Config::palette : 0;
+    Debug::log2SD("applyPalette: palette=%d", p);
     // Rebuild base 16 colors from brightness levels
     buildSpectrumRGB(getPaletteDef(p), spectrum_rgb888);
+
+    Debug::log2SD("applyPalette: spectrum_rgb888[0]=0x%06X [1]=0x%06X [7]=0x%06X [15]=0x%06X",
+        spectrum_rgb888[0], spectrum_rgb888[1], spectrum_rgb888[7], spectrum_rgb888[15]);
 
     // G3R3B2 entries (0-239) — apply matrix transform
     for (int i = 0; i < 240; i++)
@@ -720,6 +724,8 @@ void VIDEO::applyPalette() {
     }
     // Orange (index 16)
     graphics_set_palette(16, paletteTransform(0xFF7F00));
+
+    Debug::log2SD("applyPalette: done, 240+16+1 entries written");
 
     // Re-apply GigaScreen blend palette if active
 #if !PICO_RP2040

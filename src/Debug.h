@@ -25,4 +25,12 @@ public:
     static void log2SD(const char* fmt, ...);
 };
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+void debug_log2sd(const char* fmt, ...);
+#ifdef __cplusplus
+}
+#endif
+
 #endif

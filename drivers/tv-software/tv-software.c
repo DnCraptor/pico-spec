@@ -164,9 +164,6 @@ void graphics_set_modeTV(tv_out_mode_t mode) {
     if (SM_video == -1) return;
     //можно добавить проверку на валидность данных, но пока так
     tv_out_mode = mode;
-    for (int i = 0; i < 256; i++) {
-        graphics_set_palette(i, (paletteRGB[2][i] << 16) | (paletteRGB[1][i] << 8) | (paletteRGB[0][i] << 0));
-    };
 
     switch (tv_out_mode.N_lines) {
         case _624_lines:
@@ -214,6 +211,11 @@ void graphics_set_modeTV(tv_out_mode_t mode) {
         video_mode.LVL_Y_MAX += 3;
     };
     video_mode.LVL_BLACK_TMPL = CONV_DAC(video_mode.LVL_BLACK) | (1 << SYNC_PIN);
+
+    // Rebuild palette with correct video_mode levels
+    for (int i = 0; i < 256; i++) {
+        graphics_set_palette(i, (paletteRGB[2][i] << 16) | (paletteRGB[1][i] << 8) | (paletteRGB[0][i] << 0));
+    };
 
     sm_config_set_clkdiv((pio_sm_config*)PIO_VIDEO->sm, clock_get_hz(clk_sys) / (color_freq * 4));
 
@@ -431,6 +433,7 @@ void graphics_set_palette(uint8_t i, uint32_t color888) {
     ci = (int8_t*)&cd1_32;
     for (int i = 0; i < 4; i++) { yi[i] = CONV_DAC(yi[i]+ci[i]) | (1 << SYNC_PIN); };
     conv_color[1][i] = Y32;
+
 
     //цвет со сдвигом фазы
     uint32_t c32 = conv_color[0][i];
@@ -1087,7 +1090,6 @@ void graphics_init() {
     }
     // graphics_get_default_modeTV();
     graphics_set_modeTV(tv_out_mode);
-
     // Palette is initialized centrally by Video.cpp Init()
 };
 
