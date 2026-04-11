@@ -1155,7 +1155,7 @@ int main() {
     if (butter_psram_size() == 0 || psram_pin != PSRAM_PIN_SCK) {
 #endif
     #ifndef MURM2
-        init_psram();
+    //    init_psram();
     #endif
 #if PICO_RP2350
     }
