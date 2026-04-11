@@ -67,6 +67,7 @@ visit https://zxespectrum.speccy.org/contacto
 uint8_t Ports::speaker_values[8]={ 0, 19, 34, 53, 97, 101, 130, 134 };
 uint8_t Ports::port[128];
 uint8_t Ports::port254 = 0;
+uint8_t Ports::portAFF7 = 0;
 
 uint8_t (*Ports::getFloatBusData)() = &Ports::getFloatBusData48;
 
@@ -126,6 +127,14 @@ IRAM_ATTR void Ports::FDDStep(bool force)
 uint8_t nes_pad2_for_alf(void);
 static uint8_t newAlfBit = 0;
 
+extern int ram_pages, butter_pages, psram_pages, swap_pages;
+inline static size_t extendedZxRamPages() {
+    if (Z80Ops::is1024) return 64;
+    if (Z80Ops::is512) return 32;
+    if (Z80Ops::is128 || Z80Ops::isPentagon) return 8;
+    return 4;
+}
+
 IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     uint8_t data;
     if (address == Config::portReadBP && Config::enablePortReadBP) CPU::portBasedBP = true;
@@ -144,24 +153,27 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
         VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
     }
 
+    if (MEM_PG_CNT > 64 && address == 0xAFF7) {
+        return portAFF7;
+    }
     bool ia = Z80Ops::isALF;
     uint8_t p8 = address & 0xFF;
-        if (p8 == 0xFB) { // Hidden RAM on
-            MemESP::newSRAM = true;
-            uint8_t* r0 = MemESP::ram[MEM_PG_CNT + MemESP::sramLatch].sync();
-            if (MemESP::ramCurrent[0] != r0) {
-                MemESP::ramCurrent[0] = r0;
-            }
-            return 0xFF;
+    if (p8 == 0xFB) { // Hidden RAM on
+        MemESP::newSRAM = true;
+        uint8_t* r0 = MemESP::ram[MEM_PG_CNT + MemESP::romLatch].sync(0);
+        if (MemESP::ramCurrent[0] != r0) {
+            MemESP::ramCurrent[0] = r0;
         }
-        if (p8 == 0x7B) { // Hidden RAM off
-            MemESP::newSRAM = false;
-            uint8_t* r0 = (MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct());
-            if (MemESP::ramCurrent[0] != r0) {
-                MemESP::ramCurrent[0] = r0;
-            }
-            return 0xFF;
+        return 0xFF;
+    }
+    if (p8 == 0x7B) { // Hidden RAM off
+        MemESP::newSRAM = false;
+        uint8_t* r0 = (MemESP::page0ram ? MemESP::ram[0].sync(0) : MemESP::rom[MemESP::romInUse].direct());
+        if (MemESP::ramCurrent[0] != r0) {
+            MemESP::ramCurrent[0] = r0;
         }
+        return 0xFF;
+    }
     // ULA PORT
     if ((address & 0x0001) == 0) {
         VIDEO::Draw(3, !Z80Ops::isPentagon);   // I/O Contention (Late)
@@ -186,10 +198,11 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
         if (Tape::tapeEarBit) data ^= 0x40;
     } else {
         ioContentionLate(MemESP::ramContended[rambank]);
+#ifndef NO_ALF
         if (ia && bitRead(p8, 7) == 0) {
             if (bitRead(p8, 1) == 0) { // 1D
                 MemESP::newSRAM = true;
-                uint8_t* r0 = MemESP::ram[MEM_PG_CNT + MemESP::sramLatch].sync();
+                uint8_t* r0 = MemESP::ram[MEM_PG_CNT + MemESP::romLatch].sync(0);
                 if (MemESP::ramCurrent[0] != r0) {
                     MemESP::ramCurrent[0] = r0;
                 }
@@ -202,6 +215,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
                 }
             }
         }
+#endif
         // The default port value is 0xFF.
         data = 0xff;
         if (ESPectrum::trdos) {
@@ -268,11 +282,18 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
                 // //  http://www.speccy.org/foro/viewtopic.php?f=8&t=2374
                 if (!MemESP::pagingLock) {
                     MemESP::pagingLock = bitRead(data, 5);
-                    uint8_t page = (data & 0x7);
+                    uint32_t page = (data & 0x7);
+                    if (MEM_PG_CNT > 64) {
+                        page += portAFF7 * extendedZxRamPages();
+                        uint32_t pages = ram_pages+ butter_pages+ psram_pages+ swap_pages;
+                        if (page >= pages) {
+                            page = (data & 0x7); // W/A: protection of incorrect page selection logic
+                        }
+                    }
                     if (MemESP::bankLatch != page) {
                         MemESP::bankLatch = page;
-                        MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync();
-                        MemESP::ramContended[3] = MemESP::bankLatch & 0x01 ? true: false;
+                        MemESP::ramCurrent[3] = MemESP::ram[page].sync(3);
+                        MemESP::ramContended[3] = page & 0x01 ? true: false;
                     }
                     if (MemESP::videoLatch != bitRead(data, 3)) {
                         MemESP::videoLatch = bitRead(data, 3);
@@ -280,11 +301,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
                     }
                     MemESP::romLatch = bitRead(data, 4);
                     MemESP::romInUse = MemESP::romLatch;
-                    uint8_t* r0 = MemESP::newSRAM ? MemESP::ram[MEM_PG_CNT + MemESP::sramLatch].sync() :
-                                  (MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct());
-                    if (MemESP::ramCurrent[0] != r0) {
-                        MemESP::ramCurrent[0] = r0;
-                    }
+                    MemESP::recoverPage0();
                 }
             }
         }
@@ -310,6 +327,24 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     }
     uint8_t a8 = (address & 0xFF);
     p_states = CPU::tstates;
+
+    if (address == 0xAFF7) {
+        uint8_t prev = portAFF7;
+        uint8_t d6 = data & 0b00111111; // limit it for 64 planes
+        if (prev != d6) {
+            portAFF7 = d6;
+            if (!MemESP::pagingLock) {
+                size_t zxPages = extendedZxRamPages();
+                uint32_t page = MemESP::bankLatch + d6 * zxPages - prev * zxPages;
+                uint32_t pages = ram_pages+ butter_pages+ psram_pages+ swap_pages;
+                if (page < pages) { // W/A: protection of incorrect page selection logic
+                    MemESP::bankLatch = page;
+                    MemESP::ramCurrent[3] = MemESP::ram[page].sync(3);
+                    MemESP::ramContended[3] = Z80Ops::isPentagon ? false : (page & 0x01 ? true: false);
+                }
+            }
+        }
+    }
     
     bool ia = Z80Ops::isALF;
 #ifndef NO_ALF
@@ -327,10 +362,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
             }
             MemESP::romInUse = (data & 0b01111111);
             while (MemESP::romInUse >= 64) MemESP::romInUse -= 64; // rolling ROM
-            uint8_t* r0 = MemESP::newSRAM ? MemESP::ram[MEM_PG_CNT + MemESP::sramLatch].sync() : MemESP::rom[MemESP::romInUse].direct();
-            if (MemESP::ramCurrent[0] != r0) {
-                MemESP::ramCurrent[0] = r0;
-            }
+            MemESP::recoverPage0();
         }
     }
 #endif
@@ -451,14 +483,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
             uint8_t prev = MemESP::page0ram;
             MemESP::notMore128 = bitRead(data, 2);
             MemESP::page0ram = bitRead(data, 3);
-            if (MemESP::page0ram != prev) {
-                uint8_t* r0 = MemESP::newSRAM ?
-                          MemESP::ram[MEM_PG_CNT + MemESP::sramLatch].sync() :
-                          (MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct());
-                if (MemESP::ramCurrent[0] != r0) {
-                    MemESP::ramCurrent[0] = r0;
-                }
-            }
+            if (MemESP::page0ram != prev) MemESP::recoverPage0();
         }
     }
     // 128K, Pentagon ==================================================================
@@ -470,7 +495,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
             } else {
                 MemESP::pagingLock = D5;
             }
-            uint8_t page = (data & 0x7);
+            uint32_t page = (data & 0x7);
             if ((Z80Ops::is512 || Z80Ops::is1024) && !MemESP::notMore128 && !MemESP::pagingLock) {
                 uint8_t D6 = bitRead(data, 6);
                 uint8_t D7 = bitRead(data, 7);
@@ -478,24 +503,23 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
                 if (D7) page += 16;
                 if (Z80Ops::is1024 && D5) page += 32;
             }
+            if (MEM_PG_CNT > 64) {
+                uint32_t pPlus = page + portAFF7 * extendedZxRamPages();
+                uint32_t pages = ram_pages+ butter_pages+ psram_pages+ swap_pages;
+                if (pPlus < pages) { // W/A: protection of incorrect page selection logic
+                    page = pPlus; 
+                }
+            }
             if (MemESP::bankLatch != page) {
                 MemESP::bankLatch = page;
-                MemESP::ramCurrent[3] = MemESP::ram[MemESP::bankLatch].sync();
-                MemESP::ramContended[3] = Z80Ops::isPentagon ? false : (MemESP::bankLatch & 0x01 ? true: false);
+                MemESP::ramCurrent[3] = MemESP::ram[page].sync(3);
+                MemESP::ramContended[3] = Z80Ops::isPentagon ? false : (page & 0x01 ? true: false);
             }
             MemESP::romLatch = bitRead(data, 4);
             if (!ia) {
                 MemESP::romInUse = MemESP::romLatch;
             }
-            if (MemESP::newSRAM) {
-                MemESP::sramLatch = MemESP::romLatch;
-            }
-            uint8_t* r0 = MemESP::newSRAM ?
-                          MemESP::ram[MEM_PG_CNT + MemESP::sramLatch].sync() :
-                         (MemESP::page0ram ? MemESP::ram[0].sync() : MemESP::rom[MemESP::romInUse].direct());
-            if (MemESP::ramCurrent[0] != r0) {
-                MemESP::ramCurrent[0] = r0;
-            }
+            MemESP::recoverPage0();
             if (MemESP::videoLatch != bitRead(data, 3)) {
                 MemESP::videoLatch = bitRead(data, 3);
                 VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct() : MemESP::ram[5].direct();

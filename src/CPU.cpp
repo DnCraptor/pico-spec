@@ -356,7 +356,7 @@ IRAM_ATTR uint8_t Z80Ops::fetchOpcode() {
 IRAM_ATTR void Z80Ops::poke8(uint16_t address, uint8_t value) {
     uint8_t page = address >> 14;
     uint8_t* p = MemESP::ramCurrent[page];
-    if ( p < (uint8_t*)0x11000000 || (page == 0 && !MemESP::page0ram) ) {
+    if ( p < (uint8_t*)0x11000000 ) {
         VIDEO::Draw(3, false);
         return;
     }
@@ -397,7 +397,7 @@ IRAM_ATTR void Z80Ops::poke16(uint16_t address, RegisterPair word) {
 
     if (page_addr < 0x3fff) {    // Check if address is between two different pages
         uint8_t* p = MemESP::ramCurrent[page];
-        if ( p < (uint8_t*)0x11000000 || (page == 0 && !MemESP::page0ram) ) {
+        if ( p < (uint8_t*)0x11000000 ) {
             VIDEO::Draw(6, false);
             return;
         }

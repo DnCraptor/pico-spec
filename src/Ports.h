@@ -53,6 +53,7 @@ public:
 
     static void FDDStep(bool force);
 
+    static uint8_t portAFF7;
 private :
 
     static void ioContentionLate(bool contend);

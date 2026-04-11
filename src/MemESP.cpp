@@ -39,27 +39,28 @@ visit https://zxespectrum.speccy.org/contacto
 #include "ff.h"
 
 std::list<mem_desc_t> mem_desc_t::pages;
+uint8_t* mem_desc_t::plugged_in[4] = { 0, 0, 0, 0 };
+uint32_t MEM_PG_CNT = 64;
 
 static FIL f;
-static const char PAGEFILE[] = "/tmp/pico-spec.1M";
+static const char PAGEFILE[] = "/tmp/pico-spec.swap";
 void mem_desc_t::reset(void) {
     pages.clear();
-    if ( !butter_psram_size() && !psram_size() ) {
-        f_close(&f);
-        f_unlink(PAGEFILE); // ensure it is new file
-        f_open(&f, PAGEFILE, FA_WRITE | FA_CREATE_ALWAYS);
-        f_close(&f);
-        f_open(&f, PAGEFILE, FA_READ | FA_WRITE);
-    }
+    f_close(&f);
+    f_unlink(PAGEFILE); // ensure it is new file
+    f_open(&f, PAGEFILE, FA_WRITE | FA_CREATE_ALWAYS);
+    f_close(&f);
+    f_open(&f, PAGEFILE, FA_READ | FA_WRITE);
 }
 
 uint8_t* mem_desc_t::to_vram(void) {
     uint8_t* res = _int->p;
     uint32_t ba = _int->vram_off;
-    if (psram_size()) {
+    if (psram_size() >= ba + MEM_PG_SZ) {
         for (size_t i = 0; i < MEM_PG_SZ; i += 4) {
             write32psram(ba + i, *(uint32_t*)(res + i));
         }
+        _int->mem_type = PSRAM_SPI;
     } else {
         gpio_put(PICO_DEFAULT_LED_PIN, true);
         UINT bw;
@@ -67,15 +68,15 @@ uint8_t* mem_desc_t::to_vram(void) {
         f_lseek(&f, lba);
         f_write(&f, res, MEM_PG_SZ, &bw);
         gpio_put(PICO_DEFAULT_LED_PIN, false);
+        _int->mem_type = SWAP;
     }
-    _int->outside = true;
     _int->p = 0;
     return res;
 }
 void mem_desc_t::from_vram(uint8_t* p) {
     this->_int->p = p;
     uint32_t ba = _int->vram_off;
-    if (psram_size()) {
+    if (psram_size() >= ba + MEM_PG_SZ) {
         for (size_t i = 0; i < MEM_PG_SZ; i += 4) {
             *(uint32_t*)(p + i) = read32psram(ba + i);
         }
@@ -85,11 +86,11 @@ void mem_desc_t::from_vram(uint8_t* p) {
         f_lseek(&f, lba);
         f_read(&f, p, 0x4000, &br);
     }
-    _int->outside = false;
+    _int->mem_type = POINTER;
 }
 uint8_t mem_desc_t::_read(uint16_t addr) {
     uint32_t ba = _int->vram_off;
-    if (psram_size()) {
+    if (psram_size() >= ba + MEM_PG_SZ) {
         return read8psram(ba + addr);
     }
     UINT br;
@@ -101,7 +102,7 @@ uint8_t mem_desc_t::_read(uint16_t addr) {
 }
 void mem_desc_t::_write(uint16_t addr, uint8_t v) {
     uint32_t ba = _int->vram_off;
-    if (psram_size()) {
+    if (psram_size() >= ba + MEM_PG_SZ) {
         write8psram(ba + addr, v);
         return;
     }
@@ -112,27 +113,33 @@ void mem_desc_t::_write(uint16_t addr, uint8_t v) {
     f_write(&f, &v, 1, &br);
     gpio_put(PICO_DEFAULT_LED_PIN, false);
 }
-void mem_desc_t::_sync(void) {
+void mem_desc_t::_sync(uint8_t bank) {
     for (auto it = pages.begin(); it != pages.end(); ++it) {
         mem_desc_t& page = *it;
-        if (!page._int->outside) {
+        if (page._int->mem_type == POINTER) {
+            for (uint8_t i = 0; i < 4; ++i) {
+                if (i != bank) {
+                    if (page._int->p == plugged_in[i]) goto skip;
+                }
+            }
             from_vram( page.to_vram() );
             pages.erase(it);
             pages.push_back(*this);
             break;
         }
+        skip:
     }
 }
 /// TODO: packet mode
 void mem_desc_t::from_file(FIL* f_in, size_t sz) {
     UINT br;
-    if (!_int->outside) {
+    if (_int->mem_type == POINTER) {
         f_read(f_in, direct(), sz, &br);
         return;
     }
     uint8_t v;
     uint32_t ba = _int->vram_off;
-    if (psram_size()) {
+    if (psram_size() >= ba + MEM_PG_SZ) {
         for (size_t addr = 0; addr < sz; ++addr) {
             f_read(f_in, &v, 1, &br);
             write8psram(ba + addr, v);
@@ -151,7 +158,7 @@ void mem_desc_t::from_file(FIL* f_in, size_t sz) {
 void mem_desc_t::to_file(FIL* f_out, size_t sz) {
     gpio_put(PICO_DEFAULT_LED_PIN, true);
     UINT br;
-    if (!_int->outside) {
+    if (_int->mem_type == POINTER) {
         f_write(f_out, direct(), sz, &br);
         gpio_put(PICO_DEFAULT_LED_PIN, false);
         return;
@@ -175,8 +182,8 @@ void mem_desc_t::to_file(FIL* f_out, size_t sz) {
     gpio_put(PICO_DEFAULT_LED_PIN, false);
 }
 void mem_desc_t::from_mem(mem_desc_t& ram, size_t sz) {
-    if (!_int->outside) {
-        if (!ram._int->outside) {
+    if (_int->mem_type == POINTER) {
+        if (ram._int->mem_type == POINTER) {
             memcpy(direct(), ram.direct(), sz);
         } else {
             uint8_t* p = direct();
@@ -185,7 +192,7 @@ void mem_desc_t::from_mem(mem_desc_t& ram, size_t sz) {
             }
         }
     } else {
-        if (!ram._int->outside) {
+        if (ram._int->mem_type == POINTER) {
             uint8_t* p = ram.direct();
             for (size_t addr = 0; addr < sz; ++addr) {
                 _write(addr, p[addr]);
@@ -199,7 +206,7 @@ void mem_desc_t::from_mem(mem_desc_t& ram, size_t sz) {
 
 }
 void mem_desc_t::cleanup() {
-    if (_int->outside) {
+    if (_int->mem_type == POINTER) {
         for (size_t addr = 0; addr < MEM_PG_SZ; ++addr) {
             _write(addr, 0);
         }
@@ -210,14 +217,12 @@ void mem_desc_t::cleanup() {
 }
 
 mem_desc_t MemESP::rom[64];
-static uint8_t pages13[MEM_PG_SZ * 2] = { 0 };
-static uint8_t page2[MEM_PG_SZ] = { 0 };
 static uint8_t pages57[MEM_PG_SZ * 2] = { 0 };
 static mem_desc_t temp[8] = {
     { 0, 0 },
-    { pages13, 1},
-    { page2, 2 },
-    { pages13 + MEM_PG_SZ, 3},
+    { 0, 1},
+    { 0, 2 },
+    { 0, 3},
     { 0, 4 },
     { pages57, 5},
     { 0, 6 },
@@ -225,16 +230,16 @@ static mem_desc_t temp[8] = {
 };
 mem_desc_t* MemESP::ram = temp;
 bool MemESP::newSRAM = false;
+int ram_pages = 2, butter_pages = 0, psram_pages = 0, swap_pages = 0;
 
 uint8_t* MemESP::ramCurrent[4];
 bool MemESP::ramContended[4];
 
 uint8_t MemESP::notMore128 = 0;
-uint8_t MemESP::page0ram = 0;
-uint8_t MemESP::bankLatch = 0;
+uint32_t MemESP::page0ram = 0;
+uint32_t MemESP::bankLatch = 0;
 uint8_t MemESP::videoLatch = 0;
 uint8_t MemESP::romLatch = 0;
-uint8_t MemESP::sramLatch = 0;
 uint8_t MemESP::pagingLock = 0;
 uint8_t MemESP::romInUse = 0;
 
