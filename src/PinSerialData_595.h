@@ -25,6 +25,8 @@ void send_to_595(uint16_t data);
 
 /// HW TurboSound support
 extern uint16_t control_bits;
+#define AY_RES    0b0000001100000000 // reset
+#define AY_Z      0b0100110000000000 // deactivate both
 #define CS_SAA1099	(1<<15)
 #define AY_Enable (1<<14)
 #define SAVE (1<<13)

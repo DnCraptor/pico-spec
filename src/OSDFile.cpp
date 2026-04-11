@@ -54,6 +54,7 @@ using namespace std;
 #include "ff.h"
 
 #include "Debug.h"
+#include "PinSerialData_595.h"
 
 inline static size_t crc(const std::string& s) {
     size_t res = 0;
@@ -275,6 +276,7 @@ void fgets(char* b, size_t sz, FIL& f) {
 
 // Run a new file menu
 string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols, uint8_t mfrows) {
+    if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
     // Position
     if (menu_level == 0) {
         x = (Config::aspect_16_9 ? 24 : 4);
@@ -597,6 +599,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             rtrim(filedir);
                             click();
                             filenames.close();
+                            if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                             return (is_return(Menukey.vk) ? "R" : "S") + filedir;
                         }
                     } else if (is_back(Menukey.vk)) {
@@ -619,6 +622,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         }
                         click();
                         filenames.close();
+                        if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return "";
                     }
                 }
@@ -692,6 +696,8 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
         filenames.close();
     }
     filenames.close();
+    if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+    return "";
 }
 
 // Redraw inside rows

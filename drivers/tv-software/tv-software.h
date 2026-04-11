@@ -5,7 +5,7 @@
 
 #define PIO_VIDEO pio0
 
-#define TV_BASE_PIN (6)
+#define TV_BASE_PIN (VGA_BASE_PIN)
 
 #define TEXTMODE_COLS 40
 #define TEXTMODE_ROWS 30

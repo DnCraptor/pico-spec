@@ -26,7 +26,7 @@ option(PICO_DV "RP2350-PICO-DV" OFF)
 option(ZERO "RP2040-PiZero" OFF)
 option(ZERO2 "RP2350-PiZero" OFF)
 
-#set(FLASH_SIZE_GREEN ON)
+set(FLASH_SIZE_GREEN ON)
 #set(m1p2launcher ON)
 
 #set(VGA_HDMI ON)
@@ -38,7 +38,7 @@ set(SOFTTV ON)
 
 #set(CPU_MHZ 252)
 set(CPU_MHZ 378)
-set (PORT_VERSION "1.2.J")
+set (PORT_VERSION "1.2.K")
 
 set (MURM ON)
 #set (MURM2 ON)
@@ -499,8 +499,9 @@ ELSEIF(ZERO2)
         CPU_MHZ=${CPU_MHZ}
         ZERO2=1
 
-        KBD_CLOCK_PIN=0
-        KBD_DATA_PIN=1
+        # PS2 keyboard
+        KBD_CLOCK_PIN=2
+        KBD_DATA_PIN=3
 
         LOAD_WAV_PIO=17
 
@@ -536,11 +537,11 @@ ELSEIF(ZERO2)
         PSRAM_PIN_MISO=5
 
         # NES Gamepad
-        #USE_NESPAD
-        NES_GPIO_CLK=7
-        NES_GPIO_LAT=8
-        NES_GPIO_DATA=9
-        NES_GPIO_DATA2=10
+        USE_NESPAD
+        NES_GPIO_CLK=4
+        NES_GPIO_LAT=5
+        NES_GPIO_DATA=7
+        NES_GPIO_DATA2=8
 
         # VGA 8 pins starts from pin:
         VGA_BASE_PIN=32
@@ -648,7 +649,17 @@ ENDIF()
 SET(BUILD_NAME "${BUILD_NAME}-${CPU_MHZ}MHz-${PORT_VERSION}")
 
 IF(m1p2launcher)
-    SET(BUILD_NAME "${BUILD_NAME}.m1p2")
+    IF(MURM2)
+        SET(BUILD_NAME "${BUILD_NAME}.m2p2")
+    ELSEIF(PICO_PC)
+        SET(BUILD_NAME "${BUILD_NAME}.PCp2")
+    ELSEIF(PICO_DV)
+        SET(BUILD_NAME "${BUILD_NAME}.DVp2")
+    ELSEIF(ZERO2)
+        SET(BUILD_NAME "${BUILD_NAME}.z0p2")
+    ELSE()
+        SET(BUILD_NAME "${BUILD_NAME}.m1p2")
+    ENDIF()
 ENDIF()
 
 message(STATUS "BUILD_NAME: ${BUILD_NAME}")

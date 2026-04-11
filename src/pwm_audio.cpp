@@ -187,7 +187,7 @@ extern "C" int testPins(uint32_t pin0, uint32_t pin1) {
 #define VOLUME_0DB          (16)
 
 static volatile uint8_t vol = VOLUME_0DB;
-uint8_t link_i2s_code = 0;
+uint8_t link_i2s_code = 0xFF;
 bool is_i2s_enabled = false;
 
 esp_err_t pwm_audio_set_volume(int8_t volume) {
@@ -272,13 +272,15 @@ static bool hw_get_bit_LOAD() {
 #endif
 
 void init_sound() {
-    if (I2S_BCK_PIO != I2S_LCK_PIO && I2S_LCK_PIO != I2S_DATA_PIO && I2S_BCK_PIO != I2S_DATA_PIO) {
-        link_i2s_code = testPins(I2S_DATA_PIO, I2S_BCK_PIO);
-        is_i2s_enabled = link_i2s_code; // TODO: ensure
-    }
     if (Config::audio_driver == 3) {
         Init_PWM_175(TSPIN_MODE_GP29);
     } else {
+        if (link_i2s_code == 0xFF) {
+            if (I2S_BCK_PIO != I2S_LCK_PIO && I2S_LCK_PIO != I2S_DATA_PIO && I2S_BCK_PIO != I2S_DATA_PIO) {
+                link_i2s_code = testPins(I2S_DATA_PIO, I2S_BCK_PIO);
+                is_i2s_enabled = link_i2s_code; // TODO: ensure
+            }
+        }
         if (Config::audio_driver != 0) {
             is_i2s_enabled = (Config::audio_driver == 2);
         }
@@ -329,55 +331,7 @@ void pcm_call() {
     }
     m_let_process_it = false;
     if (Config::audio_driver == 3) {
-        if (!Config::AY48) {
-            uint16_t outL = 0;
-            uint16_t outR = 0;
-            if (m_off < m_size) {
-                int16_t* b_L = buff_L + m_off;
-                int16_t* b_R = buff_R + m_off;
-                uint32_t x = ((int32_t)*b_L) + 0x8000;
-                outL = x >> 8; // 4
-                ++m_off;
-                x = ((int32_t)*b_R) + 0x8000;
-                outR = x >> 8;///4;
-            } else {
-                return;
-            }
-            // выбор первого чипа
-            HIGH(CS_AY0);
-            LOW(CS_AY1);
-            // выбор регистра разрешений
-            send_to_595(HIGH (BDIR | BC1) | 7); 
-            send_to_595( LOW (BDIR | BC1) | 7);
-            // разрешение записи в регистр portB
-            send_to_595(LOW (BDIR) | 0x80);
-            send_to_595(HIGH(BDIR) | 0x80);
-            send_to_595(LOW (BDIR) | 0x80);
-            // выбор IO регистра port B 
-            send_to_595(HIGH (BDIR | BC1) | 0x0F); 
-            send_to_595( LOW (BDIR | BC1) | 0x0F);
-            // запись значения в регистр port B первого чипа
-            send_to_595(LOW (BDIR) | outR);
-            send_to_595(HIGH(BDIR) | outR);
-            send_to_595(LOW (BDIR) | outR);
-            // выбор второго чипа
-            HIGH(CS_AY1);
-            LOW(CS_AY0);
-            // выбор регистра разрешений
-            send_to_595(HIGH (BDIR | BC1) | 7); 
-            send_to_595( LOW (BDIR | BC1) | 7);
-            // разрешение записи в регистр portB
-            send_to_595(LOW (BDIR) | 0x80);
-            send_to_595(HIGH(BDIR) | 0x80);
-            send_to_595(LOW (BDIR) | 0x80);
-            // выбор IO регистра port B 
-            send_to_595(HIGH (BDIR | BC1) | 0x0F); 
-            send_to_595( LOW (BDIR | BC1) | 0x0F);
-            // запись значения в регистр port B второго чипа
-            send_to_595(LOW (BDIR) | outL);
-            send_to_595(HIGH(BDIR) | outL);
-            send_to_595(LOW (BDIR) | outL);
-        }
+/// TODO:
     }
     else if (is_i2s_enabled) {
         static int16_t v32[2];
@@ -443,7 +397,7 @@ void pcm_setup(int hz) {
         }
     }
     m_let_process_it = false;
-        //hz; // 44100;	//44000 //44100 //96000 //22050
-        // negative timeout means exact delay (rather than delay between callbacks)
-        add_repeating_timer_us(-1000000 / hz, timer_callback, NULL, &m_timer);
+    //hz; // 44100;	//44000 //44100 //96000 //22050
+    // negative timeout means exact delay (rather than delay between callbacks)
+    add_repeating_timer_us(-1000000 / hz, timer_callback, NULL, &m_timer);
 }

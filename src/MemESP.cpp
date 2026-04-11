@@ -135,7 +135,7 @@ void mem_desc_t::_sync(uint8_t bank) {
             pages.push_back(*this);
             break;
         }
-        skip:
+        skip:;
     }
 }
 /// TODO: packet mode

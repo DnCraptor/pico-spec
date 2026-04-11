@@ -1,5 +1,4 @@
 /*
-
 ESPectrum, a Sinclair ZX Spectrum emulator for Espressif ESP32 SoC
 
 Copyright (c) 2023, 2024 Víctor Iborra [Eremus] and 2023 David Crespo [dcrespo3d]
@@ -30,7 +29,6 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 To Contact the dev team you can write to zxespectrum@gmail.com or
 visit https://zxespectrum.speccy.org/contacto
-
 */
 
 #include <hardware/watchdog.h>
@@ -61,6 +59,8 @@ visit https://zxespectrum.speccy.org/contacto
     #include "ps2.h"
 #endif
 
+#include "PinSerialData_595.h"
+
 using namespace std;
 
 extern size_t getFreeHeap(void);
@@ -85,7 +85,6 @@ fabgl::VirtualKey get_last_key_pressed(void) {
 }
 
 void close_all(void) {
-    f_unlink(MOS_FILE);
 #ifdef BUTTER_PSRAM_GPIO
     if (butter_psram_size()) {
         memset((void*)PSRAM_DATA, 0, butter_psram_size());
@@ -682,8 +681,14 @@ void ESPectrum::setup()
         ESPectrum::aud_volume = Config::aud_volume;
 
     pwm_audio_set_volume(aud_volume);
-
+  
     // AY Sound
+    if (Config::audio_driver == 3) {
+        send_to_595(HIGH(AY_RES)); // reset
+        send_to_595(HIGH(AY_Z));
+        send_to_595(LOW(AY_Enable));
+        send_to_595(HIGH(AY_Enable | CS_SAA1099 | CS_AY0 | Beeper | CS_AY1 | BDIR | BC1 | (SAVE)));
+    }
     chip0.init();
     chip0.set_sound_format(Audio_freq,1,8);
     chip0.set_stereo(AYEMU_MONO,NULL);
@@ -819,6 +824,13 @@ void ESPectrum::reset(uint8_t romInUse)
 
     if (Config::tape_player) AY_emu = false; // Disable AY emulation if tape player mode is set
 
+    // Real AY
+    if (Config::audio_driver == 3) {
+        send_to_595(HIGH(AY_RES)); // reset
+        send_to_595(HIGH(AY_Z));
+        send_to_595(LOW(AY_Enable));
+        send_to_595(HIGH(AY_Enable | CS_SAA1099 | CS_AY0 | Beeper | CS_AY1 | BDIR | BC1 | (SAVE)));
+    }
     // Reset AY emulation
     chip0.init();
     chip0.set_sound_format(Audio_freq,1,8);
