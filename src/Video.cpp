@@ -1016,6 +1016,7 @@ void VIDEO::Reset() {
     isFullBorder = 0;
 #endif
 
+    uint8_t prevOSDstats = OSD & 0x03; // Preserve stats mode across reset
     OSD = 0;
 
     bool isFullBorder240 = VIDEO::isFullBorder240();
@@ -1194,6 +1195,15 @@ void VIDEO::Reset() {
         }
     }
 #endif
+
+    // Restore stats mode that was active before reset
+    if (prevOSDstats) {
+        OSD = prevOSDstats;
+        if (Config::aspect_16_9)
+            Draw_OSD169 = MainScreen_OSD;
+        else
+            Draw_OSD43 = BottomBorder_OSD;
+    }
 }
 
 extern size_t getFreeHeap(void);
