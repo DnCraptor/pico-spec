@@ -150,7 +150,9 @@ public:
   static void MainScreen_Snow_Opcode(bool contended);
   
   // static void DrawBorderFast();
+#if !PICO_RP2040
   static void InitPrevBuffer();
+#endif
 
   static void Border_Blank();
 

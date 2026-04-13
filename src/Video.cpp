@@ -53,6 +53,7 @@ visit https://zxespectrum.speccy.org/contacto
 extern "C" void graphics_set_palette(uint8_t i, uint32_t color888);
 extern "C" void vga_set_palette_entry_solid(uint8_t i, uint32_t color888);
 extern "C" void graphics_set_buffer(uint8_t* buffer, uint16_t width, uint16_t height);
+extern "C" void graphics_set_scanlines(bool enabled);
 extern "C" void hdmi_reinit(void);
 extern "C" void vga_reinit(void);
 // Place hot video functions in SRAM instead of XIP flash
@@ -386,8 +387,12 @@ static const char* builtin_palette_names[] = {
     "Pulsar", "Alone", "Grayscale", "Mars", "Ocean"
 };
 
-// Custom palettes from /palette.nvs (max 11, total max 16)
+// Custom palettes from /palette.nvs
+#if PICO_RP2040
+#define MAX_CUSTOM_PALETTES 4
+#else
 #define MAX_CUSTOM_PALETTES 11
+#endif
 static PaletteDef custom_palette_defs[MAX_CUSTOM_PALETTES];
 static char custom_palette_names[MAX_CUSTOM_PALETTES][13]; // 12 chars + null
 static uint8_t custom_palette_count = 0;
@@ -587,7 +592,9 @@ static void initDefaultPalette() {
     buildSpectrumRGB(builtin_palette_defs[0], spectrum_rgb888);
 }
 
+#if !PICO_RP2040
 void initGigascreenBlendLUT();
+#endif
 
 // Apply color matrix transform to an RGB888 color
 static inline uint32_t matrixTransform(uint32_t rgb, const uint16_t *m) {
@@ -804,6 +811,7 @@ void VIDEO::vgataskinit(void *unused) {
 
 void VIDEO::Init() {
     int Mode;
+    bool vga_scanline_shift = false;
 #ifdef VGA_HDMI
     if (VIDEO::isFullBorder288()) {
         Mode = 22; // VgaMode_360x288 — full border 360x288
@@ -813,12 +821,22 @@ void VIDEO::Init() {
 #endif
     {
         Mode = Config::aspect_16_9 ? 2 : 0;
+#ifdef VGA_HDMI
+        if (SELECT_VGA) {
+            Mode += Config::scanlines;
+            vga_scanline_shift = Config::scanlines;
+        }
+#else
         Mode += Config::scanlines;
+        vga_scanline_shift = Config::scanlines;
+#endif
     }
     OSD::scrW = vidmodes[Mode][vmodeproperties::hRes];
-    OSD::scrH = (vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv]) >> Config::scanlines;
+    OSD::scrH = (vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv]) >> vga_scanline_shift;
     vga.useInterrupt_flag = false;
     vga.init( Mode, redPins, grePins, bluPins, HSYNC_PIN, VSYNC_PIN);
+
+    graphics_set_scanlines(Config::scanlines);
 
     // Generate AluBytes table with palette indices (no sync bits)
     initAluBytes();
@@ -830,6 +848,7 @@ void VIDEO::Init() {
     // Build and apply palette (brightness levels + color matrix)
     applyPalette();
 
+#if !PICO_RP2040
     if (Config::gigascreen_enabled)
     {
         VIDEO::gigascreen_enabled = (Config::gigascreen_onoff == 1); // On=enabled, Auto=start disabled
@@ -842,6 +861,7 @@ void VIDEO::Init() {
             VIDEO::gigascreen_enabled = false;
         }
     }
+#endif
 }
 
 static void freeFrameBuffer(void **fb) {
@@ -854,17 +874,21 @@ static void freeFrameBuffer(void **fb) {
 void VIDEO::changeMode() {
     // 1. Determine new VGA Mode index (same logic as Init())
     int Mode;
+    bool vga_scanline_shift = false;
     if (VIDEO::isFullBorder288()) {
         Mode = 22;
     } else if (VIDEO::isFullBorder240()) {
         Mode = 23;
     } else {
         Mode = Config::aspect_16_9 ? 2 : 0;
-        Mode += Config::scanlines;
+        if (SELECT_VGA) {
+            Mode += Config::scanlines;
+            vga_scanline_shift = Config::scanlines;
+        }
     }
 
     int newW = vidmodes[Mode][vmodeproperties::hRes];
-    int newH = (vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv]) >> Config::scanlines;
+    int newH = (vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv]) >> vga_scanline_shift;
 
     bool sameDims = (vga.frameBuffer && vga.xres == newW && vga.yres == newH);
 
@@ -922,6 +946,7 @@ void VIDEO::changeMode() {
     OSD::scrW = newW;
     OSD::scrH = newH;
     graphics_set_buffer(NULL, newW, newH);
+    graphics_set_scanlines(Config::scanlines);
     if (SELECT_VGA) {
         // VGA: PIO clkdiv and line_size are identical across all modes.
         // Only vsync line numbers need updating.
@@ -954,6 +979,7 @@ void VIDEO::changeMode() {
         memset(vga.frameBuffer[0], zxColor(borderColor, 0), vga.yres * stride);
     }
 
+#if !PICO_RP2040
     // 9. Gigascreen: reallocate prevFrameBuffer if enabled
     if (Config::gigascreen_enabled) {
         InitPrevBuffer();
@@ -962,6 +988,7 @@ void VIDEO::changeMode() {
             VIDEO::gigascreen_enabled = false;
         }
     }
+#endif
 }
 #endif
 
@@ -1171,15 +1198,9 @@ void VIDEO::Reset() {
 
 extern size_t getFreeHeap(void);
 
+#if !PICO_RP2040
 void VIDEO::InitPrevBuffer() {
     if (!vga.prevFrameBuffer) {
-        // Each line = xres bytes, need (yres+1) lines + pointer array
-        size_t needed = (size_t)(vga.yres + 1) * (vga.xres + sizeof(void*)) + 4096;
-        size_t avail = getFreeHeap();
-        if (avail < needed) {
-            Debug::log("InitPrevBuffer: not enough heap (%u < %u)", (unsigned)avail, (unsigned)needed);
-            return;
-        }
         vga.prevFrameBuffer = vga.allocateFrameBuffer();
     }
     if (!vga.prevFrameBuffer) return;
@@ -1191,6 +1212,7 @@ void VIDEO::InitPrevBuffer() {
         if (src && dst) std::memcpy(dst, src, lineBytes);
     }
 }
+#endif
 
 //  VIDEO DRAW FUNCTIONS
 IRAM_ATTR void VIDEO::MainScreen_Blank(unsigned int statestoadd, bool contended) {    
@@ -1367,6 +1389,7 @@ IRAM_ATTR void VIDEO::MainScreen_Blank_Snow_Opcode(bool contended) {
 
 #ifndef DIRTY_LINES
 
+#if !PICO_RP2040
 // GigaScreen blend LUT: maps (prev_palette_idx, cur_palette_idx) → blended palette_idx
 // Supports standard 16 Spectrum colors (indices 0-15)
 // Blended colors stored in palette slots 17-239
@@ -1419,6 +1442,10 @@ inline uint32_t blendPixels32(uint32_t cur, uint32_t prev) {
         | (gigsBlendLUT[((prev >>16) & 0x0F) * 16 + ((cur >>16) & 0x0F)] << 16)
         | (gigsBlendLUT[((prev >>24) & 0x0F) * 16 + ((cur >>24) & 0x0F)] << 24);
 }
+#else
+// RP2040: gigascreen_enabled is always false, but compiler still needs the symbol
+inline uint32_t blendPixels32(uint32_t cur, uint32_t) { return cur; }
+#endif // !PICO_RP2040
 
 // ----------------------------------------------------------------------------------
 // Fast video emulation with no ULA cycle emulation and no snow effect support
@@ -1863,6 +1890,7 @@ IRAM_ATTR void VIDEO::EndFrame() {
     lastBrdTstate = tStatesBorder;
     brdChange = false;
 
+#if !PICO_RP2040
     if (Config::gigascreen_onoff == 2) { // Auto mode
         if (gigascreen_auto_countdown > 0) {
             gigascreen_auto_countdown--;
@@ -1874,6 +1902,7 @@ IRAM_ATTR void VIDEO::EndFrame() {
             if (gigascreen_enabled) gigascreen_enabled = false;
         }
     }
+#endif
 
     framecnt++;
 }

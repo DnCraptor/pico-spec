@@ -200,3 +200,8 @@ void graphics_set_pio_clk_div(float div)
     for (int i = 0; i < sizeof(video_mode)/sizeof(video_mode[0]); i++)
         video_mode[i].pio_clk_div = div;
 }
+
+// Weak default: overridden by hdmi.c (VGA_HDMI) or vga.c (standalone VGA)
+__attribute__((weak)) void graphics_set_scanlines(bool enabled) {
+    (void)enabled;
+}

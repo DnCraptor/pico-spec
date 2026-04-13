@@ -93,6 +93,11 @@ extern bool SELECT_VGA;
 #endif
 
 extern int ram_pages, butter_pages, psram_pages, swap_pages;
+
+// Shared buffer for HWInfo/ChipInfo/BoardInfo/EmulatorInfo (never called concurrently)
+#define OSD_INFO_BUF_SZ 1536
+static char osd_info_buf[OSD_INFO_BUF_SZ];
+
 uint8_t OSD::cols;                     // Maximum columns
 uint8_t OSD::tab_col;                  // Tab stop column
 uint8_t OSD::max_right;                // Longest right part (hotkeys only)
@@ -2570,12 +2575,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
 
                                     if (Config::gigascreen_enabled != prev_opt) {
                                         if (Config::gigascreen_enabled) {
+#if !PICO_RP2040
                                             initGigascreenBlendLUT();
                                             VIDEO::InitPrevBuffer();
                                             if (!VIDEO::vga.prevFrameBuffer) {
                                                 Config::gigascreen_enabled = false;
                                                 VIDEO::gigascreen_enabled = false;
                                             }
+#endif
                                             if (Config::gigascreen_onoff == 0)
                                                 Config::gigascreen_onoff = 1; // Off->On when enabling
                                             if (Config::gigascreen_onoff == 1)
@@ -4012,6 +4019,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         menu_saverect = false;
                     }
                     else if (hw_opt == 3) {
+                        // Emulator Info
+                        OSD::EmulatorInfo();
+                        menu_curopt = 3;
+                        menu_saverect = false;
+                    }
+                    else if (hw_opt == 4) {
                         // Overclock submenu — warn user
                         osdCenteredMsg(Config::lang ? "Peligroso! Puede no arrancar!" : "Dangerous! Board may not boot!", LEVEL_WARN, 2000);
                         menu_level = 2;
@@ -6748,8 +6761,7 @@ void OSD::showTextDialog(const char* title, const char* text) {
 }
 
 void OSD::HWInfo() {
-    // Build hardware info text into a static buffer
-    static char hwtext[768];
+    char (&hwtext)[OSD_INFO_BUF_SZ] = osd_info_buf;
     int pos = 0;
 
     uint32_t cpu_hz = clock_get_hz(clk_sys) / MHZ;
@@ -6865,7 +6877,7 @@ void OSD::HWInfo() {
 }
 
 void OSD::ChipInfo() {
-    static char buf[512];
+    char (&buf)[OSD_INFO_BUF_SZ] = osd_info_buf;
     int pos = 0;
     uint32_t cpu_hz = clock_get_hz(clk_sys) / MHZ;
     uint32_t free_heap = getFreeHeap();
@@ -6981,7 +6993,7 @@ void OSD::ChipInfo() {
 }
 
 void OSD::BoardInfo() {
-    static char buf[768];
+    char (&buf)[OSD_INFO_BUF_SZ] = osd_info_buf;
     int pos = 0;
 
     // SD Card
@@ -7107,6 +7119,259 @@ void OSD::BoardInfo() {
         PICO_BUILD_NAME, __DATE__, __TIME__, PICO_GIT_BRANCH, PICO_GIT_COMMIT);
 
     showTextDialog("Board Info", buf);
+}
+
+// Helper: append just the filename part of a path, truncated to maxlen chars
+static int appendFilename(char* buf, int pos, int bufsize, const string& path, int maxlen) {
+    if (path.empty()) return snprintf(buf + pos, bufsize - pos, "(none)");
+    size_t slash = path.find_last_of("/");
+    const char* fn = (slash != string::npos) ? path.c_str() + slash + 1 : path.c_str();
+    int len = strlen(fn);
+    if (len <= maxlen)
+        return snprintf(buf + pos, bufsize - pos, "%s", fn);
+    else
+        return snprintf(buf + pos, bufsize - pos, "..%s", fn + len - (maxlen - 2));
+}
+
+void OSD::EmulatorInfo() {
+    char (&buf)[OSD_INFO_BUF_SZ] = osd_info_buf;
+    int pos = 0;
+
+    // --- Machine ---
+    pos += snprintf(buf + pos, sizeof(buf) - pos,
+        " --- Machine ---\n"
+        " Architecture   : %s\n"
+        " ROM set        : %s\n"
+        " Issue 2        : %s\n"
+        " ALU Timing     : %s\n",
+        Config::arch.c_str(),
+        Config::romSet.c_str(),
+        Config::Issue2 ? "On" : "Off",
+        Config::AluTiming == 0 ? "Early" : "Late");
+
+    // --- Video ---
+    {
+        const char* vmname;
+        uint8_t vm = VIDEO::activeVideoMode();
+        switch (vm) {
+            case Config::VM_640x480_60: vmname = "640x480@60"; break;
+            case Config::VM_640x480_50: vmname = "640x480@50"; break;
+            case Config::VM_720x480_60: vmname = "720x480@60"; break;
+            case Config::VM_720x576_60: vmname = "720x576@60"; break;
+            case Config::VM_720x576_50: vmname = "720x576@50"; break;
+            default:                    vmname = "unknown";    break;
+        }
+        pos += snprintf(buf + pos, sizeof(buf) - pos, "\n --- Video ---\n");
+#ifdef VGA_HDMI
+        extern bool SELECT_VGA;
+        pos += snprintf(buf + pos, sizeof(buf) - pos,
+            " Video output   : %s %s\n",
+            SELECT_VGA ? "VGA" : "HDMI", vmname);
+#else
+        pos += snprintf(buf + pos, sizeof(buf) - pos,
+            " Video mode     : %s\n", vmname);
+#endif
+        pos += snprintf(buf + pos, sizeof(buf) - pos,
+            " Scanlines      : %s\n"
+            " Render         : %s\n"
+            " Palette        : %s\n",
+            Config::scanlines ? "On" : "Off",
+            Config::render ? "Snow effect" : "Standard",
+            VIDEO::paletteName(Config::palette));
+#if !PICO_RP2040
+        {
+            const char* gs;
+            if (Config::gigascreen_onoff == 0) gs = "Off";
+            else if (Config::gigascreen_onoff == 1) gs = "On";
+            else gs = "Auto";
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                " Gigascreen     : %s\n"
+                " ULA+           : %s\n"
+                " Timex video    : %s\n",
+                gs,
+                Config::ulaplus ? "On" : "Off",
+                Config::timex_video ? "On (#FF)" : "Off");
+        }
+#endif
+    }
+
+    // --- Sound ---
+    {
+        pos += snprintf(buf + pos, sizeof(buf) - pos, "\n --- Sound ---\n");
+
+        // AY chip
+        if (Config::AY48) {
+            static const char* stereo[] = { "ABC", "ACB", "Mono" };
+            int si = Config::ayConfig;
+            if (si > 2) si = 0;
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                " AY-3-8912      : On (%s) #FFFD\n", stereo[si]);
+        } else {
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                " AY-3-8912      : Off\n");
+        }
+
+        // TurboSound
+        {
+            static const char* ts[] = { "Off", "NedoPC", "old-TC", "Both" };
+            int ti = Config::turbosound;
+            if (ti > 3) ti = 0;
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                " TurboSound     : %s\n", ts[ti]);
+        }
+
+        // Covox
+        if (Config::covox == 1)
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " Covox          : On (#FB)\n");
+        else if (Config::covox == 2)
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " Covox          : On (#DD)\n");
+        else
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " Covox          : Off\n");
+
+#if !PICO_RP2040
+        // SAA1099
+        pos += snprintf(buf + pos, sizeof(buf) - pos,
+            " SAA1099        : %s\n",
+            Config::SAA1099 ? "On (#FF)" : "Off");
+
+        // MIDI
+        if (Config::midi == 0) {
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " MIDI           : Off\n");
+        } else if (Config::midi == 3) {
+            static const char* presets[] = {
+                "GM", "Piano", "Chiptune", "Strings",
+                "Rock", "Organ", "MusicBox", "Synth"
+            };
+            int pi = Config::midi_synth_preset;
+            if (pi > 7) pi = 0;
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                " MIDI           : Synth (%s)\n", presets[pi]);
+        } else {
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                " MIDI           : %s\n",
+                Config::midi == 1 ? "AY bitbang" : "ShamaZX");
+        }
+#endif
+
+        // Audio driver
+        if (Config::audio_driver == 4)
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " Audio driver   : HDMI\n");
+        else if (Config::audio_driver == 3)
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " Audio driver   : AY-3-8910\n");
+        else
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " Audio driver   : %s%s\n",
+                (is_i2s_enabled ? "i2s" : "PWM"),
+                (Config::audio_driver == 0 ? " (auto)" : ""));
+    }
+
+    // --- Input ---
+    {
+        static const char* jnames[] = {
+            "Cursor", "Kempston", "Sinclair 1",
+            "Sinclair 2", "Fuller", "Custom", "None"
+        };
+        int ji = Config::joystick;
+        if (ji > 6) ji = 6;
+        pos += snprintf(buf + pos, sizeof(buf) - pos,
+            "\n --- Input ---\n");
+
+        // Joystick with port number
+        if (ji == JOY_KEMPSTON)
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                " Joystick       : Kempston (#%02X)\n", Config::kempstonPort);
+        else if (ji == JOY_FULLER)
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                " Joystick       : Fuller (#7F)\n");
+        else
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                " Joystick       : %s\n", jnames[ji]);
+
+        pos += snprintf(buf + pos, sizeof(buf) - pos,
+            " TAB as fire    : %s\n",
+            Config::TABasfire1 ? "On" : "Off");
+    }
+
+    // --- Storage ---
+    {
+        pos += snprintf(buf + pos, sizeof(buf) - pos, "\n --- Storage ---\n");
+
+#if !PICO_RP2040
+        // esxDOS
+        {
+            static const char* esx[] = { "Off", "DivMMC", "DivIDE", "DivSD" };
+            int ei = Config::esxdos;
+            if (ei > 3) ei = 0;
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                " esxDOS         : %s\n", esx[ei]);
+
+            // Show image names depending on mode
+            if (ei == 1 || ei == 3) {
+                // DivMMC or DivSD — show MMC image
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "  MMC image     : ");
+                pos += appendFilename(buf, pos, sizeof(buf), Config::esxdos_mmc_image, 19);
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "\n");
+            } else if (ei == 2) {
+                // DivIDE — show HDF master/slave
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "  HDF master    : ");
+                pos += appendFilename(buf, pos, sizeof(buf), Config::esxdos_hdf_image[0], 19);
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "\n");
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "  HDF slave     : ");
+                pos += appendFilename(buf, pos, sizeof(buf), Config::esxdos_hdf_image[1], 19);
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "\n");
+            }
+        }
+#endif
+
+        // TR-DOS — available for Pentagon or Byte 128K
+        {
+            bool trdos_available = Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte);
+            if (trdos_available) {
+                pos += snprintf(buf + pos, sizeof(buf) - pos, " TR-DOS         : On");
+                if (Config::trdosFastMode || Config::trdosWriteProtect) {
+                    pos += snprintf(buf + pos, sizeof(buf) - pos, " (");
+                    if (Config::trdosFastMode) pos += snprintf(buf + pos, sizeof(buf) - pos, "fast");
+                    if (Config::trdosFastMode && Config::trdosWriteProtect) pos += snprintf(buf + pos, sizeof(buf) - pos, ",");
+                    if (Config::trdosWriteProtect) pos += snprintf(buf + pos, sizeof(buf) - pos, "WP");
+                    pos += snprintf(buf + pos, sizeof(buf) - pos, ")");
+                }
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "\n");
+
+                // Show disk drives A:-D:
+                static const char drive_letter[] = "ABCD";
+                for (int i = 0; i < 4; i++) {
+                    pos += snprintf(buf + pos, sizeof(buf) - pos, "  %c:            : ", drive_letter[i]);
+                    if (ESPectrum::fdd.disk[i] && !ESPectrum::fdd.disk[i]->fname.empty())
+                        pos += appendFilename(buf, pos, sizeof(buf), ESPectrum::fdd.disk[i]->fname, 19);
+                    else
+                        pos += snprintf(buf + pos, sizeof(buf) - pos, "(empty)");
+                    pos += snprintf(buf + pos, sizeof(buf) - pos, "\n");
+                }
+            } else {
+                pos += snprintf(buf + pos, sizeof(buf) - pos, " TR-DOS         : Off\n");
+            }
+        }
+
+#if !PICO_RP2040
+        // DMA
+        if (Config::dma_mode == 1)
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " DMA            : Z80 DMA (#0B)\n");
+        else if (Config::dma_mode == 2)
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " DMA            : zxnDMA (#6B)\n");
+        else
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " DMA            : Off\n");
+#endif
+
+        // Tape
+        pos += snprintf(buf + pos, sizeof(buf) - pos, " Tape           : ");
+        pos += appendFilename(buf, pos, sizeof(buf), Tape::tapeFileName, 19);
+        pos += snprintf(buf + pos, sizeof(buf) - pos, "\n");
+
+        pos += snprintf(buf + pos, sizeof(buf) - pos,
+            " Flash load     : %s\n",
+            Config::flashload ? "On" : "Off");
+    }
+
+    showTextDialog(Config::lang ? "Info emulador" : "Emulator Info", buf);
 }
 
 static void __not_in_flash_func(flash_block)(const uint8_t* buffer, size_t flash_target_offset) {

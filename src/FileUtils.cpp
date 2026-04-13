@@ -70,18 +70,19 @@ string FileUtils::ROM_Path = "/";
 string FileUtils::IMG_Path = "/";
 string FileUtils::ALL_Path = "/";
 DISK_FTYPE FileUtils::fileTypes[6] = {
+#if PICO_RP2040
+    {".sna,.SNA,.z80,.Z80,.p,.P",2,2,0,""},
+    {".tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3",2,2,0,""},
+    {".trd,.TRD,.scl,.SCL",2,2,0,""},
+    {".rom,.ROM,.bin,.BIN",2,2,0,""},
+    {".mmc,.MMC,.hdf,.HDF",2,2,0,""},
+    {".sna,.SNA,.z80,.Z80,.p,.P,.tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3,.trd,.TRD,.scl,.SCL",2,2,0,""}
+#else
     {".sna,.SNA,.z80,.Z80,.p,.P,.zip,.ZIP",2,2,0,""},
     {".tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3,.zip,.ZIP",2,2,0,""},
-#if PICO_RP2040
-    {".trd,.TRD,.scl,.SCL,.zip,.ZIP",2,2,0,""},
-#else
     {".trd,.TRD,.scl,.SCL,.udi,.UDI,.fdi,.FDI,.zip,.ZIP",2,2,0,""},
-#endif
     {".rom,.ROM,.bin,.BIN",2,2,0,""},
     {".mmc,.MMC,.hdf,.HDF,.zip,.ZIP",2,2,0,""},
-#if PICO_RP2040
-    {".sna,.SNA,.z80,.Z80,.p,.P,.tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3,.trd,.TRD,.scl,.SCL,.zip,.ZIP",2,2,0,""}
-#else
     {".sna,.SNA,.z80,.Z80,.p,.P,.tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3,.trd,.TRD,.scl,.SCL,.udi,.UDI,.fdi,.FDI,.mmc,.MMC,.hdf,.HDF,.zip,.ZIP",2,2,0,""}
 #endif
 };
@@ -254,6 +255,9 @@ bool FileUtils::hasMP3extension(string filename)
     return false;
 }
 
+#if PICO_RP2040
+bool FileUtils::hasZIPextension(string) { return false; }
+#else
 bool FileUtils::hasZIPextension(string filename)
 {
     if (filename.size() < 4) return false;
@@ -261,6 +265,7 @@ bool FileUtils::hasZIPextension(string filename)
     if (filename.substr(filename.size()-4,4) == ".ZIP") return true;
     return false;
 }
+#endif
 
 void FileUtils::deleteFilesWithExtension(const char *folder_path, const char *extension) {
     DIR dir;

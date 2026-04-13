@@ -91,6 +91,7 @@ public:
     static void HWInfo();
     static void ChipInfo();
     static void BoardInfo();
+    static void EmulatorInfo();
     static void showTextDialog(const char* title, const char* text);
 
     // Error

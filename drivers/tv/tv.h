@@ -30,3 +30,4 @@ static void graphics_set_flashmode(bool flash_line, bool flash_frame) {
 static void graphics_set_bgcolor(uint32_t color888) {
     // dummy
 }
+

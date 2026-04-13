@@ -447,6 +447,10 @@ void graphics_set_bgcolor(const uint32_t color888) {
 void graphics_set_palette(const uint8_t i, const uint32_t color888) {
     vga_set_palette_entry(i, color888);
 }
+
+void graphics_set_scanlines(bool enabled) {
+    // VGA scanlines handled via video mode selection, not runtime flag
+}
 #endif
 
 uint8_t linkVGA01;

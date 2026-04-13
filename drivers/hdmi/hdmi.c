@@ -20,6 +20,9 @@ static int SM_conv = -1;
 //активный видеорежим
 extern enum graphics_mode_t graphics_mode;
 
+// Scanlines mode: when enabled, every other physical line is black
+static bool hdmi_scanlines = false;
+
 //буфер  палитры 256 цветов в формате R8G8B8
 static uint32_t palette[256];
 
@@ -218,7 +221,25 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
         ESPectrum_vsync();
     }
 
-    if ((line & 1) == 0) return;
+    if ((line & 1) == 0) {
+        // Even physical lines: scanlines mode renders a black line,
+        // normal mode skips (DMA replays the previous odd-line buffer = line doubling)
+        if (!hdmi_scanlines || line >= mode.v_active) return;
+        inx_buf_dma++;
+        uint8_t* activ_buf = (uint8_t *)dma_lines[inx_buf_dma & 1];
+        const int line_sz = mode.line_bytes;
+        const int h_sync = mode.h_sync_bytes;
+        const int h_bp = mode.h_bp_bytes;
+        const int h_fp = mode.h_fp_bytes;
+        const int scr_w = mode.screen_width;
+        // Black content area (palette index 0 = black)
+        memset(activ_buf + h_sync + h_bp, 0, scr_w);
+        // Horizontal sync preamble
+        memset(activ_buf + h_sync, BASE_HDMI_CTRL_INX, h_bp);
+        memset(activ_buf, BASE_HDMI_CTRL_INX + 1, h_sync);
+        memset(activ_buf + line_sz - h_fp, BASE_HDMI_CTRL_INX, h_fp);
+        return;
+    }
     inx_buf_dma++;
 
     uint8_t* activ_buf = (uint8_t *)dma_lines[inx_buf_dma & 1];
@@ -662,6 +683,10 @@ void graphics_set_bgcolor_hdmi(uint32_t color888) //определяем зар�
 {
     graphics_set_palette(255, color888);
 };
+
+void graphics_set_scanlines(bool enabled) {
+    hdmi_scanlines = enabled;
+}
 
 // ============================================================
 // HDMI Audio — Data Island encoding (RP2350 only)

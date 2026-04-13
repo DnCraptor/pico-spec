@@ -32,7 +32,7 @@ option(ZERO2 "RP2350-PiZero" OFF)
 
 # set(TFT ON)
 # set(ILI9341 ON)
-set(SOFTTV ON) 
+# set(SOFTTV ON) 
 
 # Display output (default: VGA_HDMI; override with -D flags, e.g. cmake -DSOFTTV=ON)
 if(NOT VGA_HDMI AND NOT SOFTTV AND NOT TFT AND NOT ILI9341 AND NOT TV)
@@ -46,7 +46,7 @@ string(LENGTH "${PORT_VERSION}" PORT_VERSION_LEN)
 
 # Target board (default: PICO_PC; override with -D flags, e.g. cmake -DMURM2=ON)
 if(NOT MURM AND NOT MURM2 AND NOT PICO_PC AND NOT PICO_DV AND NOT ZERO AND NOT ZERO2)
-    set(MURM ON)
+    set(MURM2 ON)
 endif()
 
 set(KBDUSB ON)
@@ -66,6 +66,8 @@ elseif(ZERO)
     set(PICO_BOARD pico)
     set(CPU_MHZ 252)
 elseif(MURM AND NOT MURM_P2)
+    set(PICO_BOARD pico)
+    set(PICO_PLATFORM rp2040)
 else()
     set(PICO_BOARD pico2)
     set(PICO_PLATFORM rp2350-arm-s)
@@ -674,7 +676,6 @@ ELSE()
 
         DEFAULT_THROTTLING=0
         PICO_DEFAULT_LED_PIN=25
-        DEBUG=1
     )
 ENDIF()
 
