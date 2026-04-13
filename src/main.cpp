@@ -654,23 +654,31 @@ void kbdExtraMapping(fabgl::VirtualKey virtualKey, bool pressed) {
             break;
         }
         case fabgl::VirtualKey::VK_D: {
-            if (Config::wasd) joyPushData(fabgl::VirtualKey::VK_DPAD_RIGHT, pressed);
-            joyPushData(fabgl::VirtualKey::VK_MENU_RIGHT, pressed);
+            if (Config::wasd) {
+                joyPushData(fabgl::VirtualKey::VK_DPAD_RIGHT, pressed);
+                joyPushData(fabgl::VirtualKey::VK_MENU_RIGHT, pressed);
+            }
             break;
         }
         case fabgl::VirtualKey::VK_W: {
-            if (Config::wasd) joyPushData(fabgl::VirtualKey::VK_DPAD_UP, pressed);
-            joyPushData(fabgl::VirtualKey::VK_MENU_UP, pressed);
+            if (Config::wasd) {
+                joyPushData(fabgl::VirtualKey::VK_DPAD_UP, pressed);
+                joyPushData(fabgl::VirtualKey::VK_MENU_UP, pressed);
+            }
             break;
         }
         case fabgl::VirtualKey::VK_A: {
-            if (Config::wasd) joyPushData(fabgl::VirtualKey::VK_DPAD_LEFT, pressed);
-            joyPushData(fabgl::VirtualKey::VK_MENU_LEFT, pressed);
+            if (Config::wasd) {
+                joyPushData(fabgl::VirtualKey::VK_DPAD_LEFT, pressed);
+                joyPushData(fabgl::VirtualKey::VK_MENU_LEFT, pressed);
+            }
             break;
         }
         case fabgl::VirtualKey::VK_S: {
-            if (Config::wasd) joyPushData(fabgl::VirtualKey::VK_DPAD_DOWN, pressed);
-            joyPushData(fabgl::VirtualKey::VK_MENU_DOWN, pressed);
+            if (Config::wasd) {
+                joyPushData(fabgl::VirtualKey::VK_DPAD_DOWN, pressed);
+                joyPushData(fabgl::VirtualKey::VK_MENU_DOWN, pressed);
+            }
             break;
         }
         case fabgl::VirtualKey::VK_KP_ENTER: { // VK_KP_ENTER
