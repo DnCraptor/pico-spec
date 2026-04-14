@@ -330,6 +330,7 @@ void graphics_set_mode(enum graphics_mode_t mode) {
     for (int i = 0; i < 256; i++) {
         palette_vga16[0][i] = (palette_vga16[0][i] & 0x3f3f) | palette16_mask;
         palette_vga16[1][i] = (palette_vga16[1][i] & 0x3f3f) | palette16_mask;
+        palette_vga16_scanline[i] = (palette_vga16_scanline[i] & 0x3f3f) | palette16_mask;
     }
 
     //инициализация шаблонов строк и синхросигнала
