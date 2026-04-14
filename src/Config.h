@@ -60,7 +60,7 @@ public:
     static void save();
     static bool loaded;  // true after successful load() from file/RAM
 
-    static void requestMachine(string newArch, string newRomSet);
+    static void requestMachine(const string& newArch, const string& newRomSet);
 
     static void setJoyMap(uint8_t joy_type);
 

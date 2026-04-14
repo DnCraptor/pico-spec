@@ -95,10 +95,10 @@ public:
     static void showTextDialog(const char* title, const char* text);
 
     // Error
-    static void errorPanel(string errormsg);
-    static void errorHalt(string errormsg);
-    static void osdCenteredMsg(string msg, uint8_t warn_level);
-    static void osdCenteredMsg(string msg, uint8_t warn_level, uint16_t millispause);
+    static void errorPanel(const string& errormsg);
+    static void errorHalt(const string& errormsg);
+    static void osdCenteredMsg(const string& msg, uint8_t warn_level);
+    static void osdCenteredMsg(const string& msg, uint8_t warn_level, uint16_t millispause);
 
     static void osdDump();
     static void osdDebug(uint16_t gotoAddr = 0xFFFF);
@@ -109,14 +109,14 @@ public:
     static void menuPrintRow(uint8_t virtual_row_num, uint8_t line_type);
     static void menuRedraw();
     static void WindowDraw();
-    static unsigned short menuRun(string new_menu);
-    static unsigned short simpleMenuRun(string new_menu, uint16_t posx, uint16_t posy, uint8_t max_rows, uint8_t max_cols);
-    static string fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols, uint8_t mfrows);
-    static int menuTape(string title);    
+    static unsigned short menuRun(const string& new_menu);
+    static unsigned short simpleMenuRun(const string& new_menu, uint16_t posx, uint16_t posy, uint8_t max_rows, uint8_t max_cols);
+    static string fileDialog(string &fdir, const string& title, uint8_t ftype, uint8_t mfcols, uint8_t mfrows);
+    static int menuTape(const string& title);
     static void menuScroll(bool up);
     static void fd_Redraw(const string& title, const string& fdir, uint8_t ftype, const vector<string>& filexts);
     static void fd_PrintRow(uint8_t virtual_row_num, uint8_t line_type, const vector<string>& filexts);
-    static void tapemenuRedraw(string title);
+    static void tapemenuRedraw(const string& title);
     static void PrintRow(uint8_t virtual_row_num, uint8_t line_type);
     static void menuAt(short int row, short int col);
     static void menuScrollBar(unsigned short br);
@@ -131,11 +131,11 @@ public:
     static unsigned int elements;
     static unsigned int ndirs;
 
-    static uint8_t msgDialog(string title, string msg);
-    static string inlineTextEdit(int ex, int ey, int maxlen, string text);
+    static uint8_t msgDialog(const string& title, const string& msg);
+    static string inlineTextEdit(int ex, int ey, int maxlen, const string& text);
     static bool videoModeConfirm(int timeout_sec = 15);
-    static void progressDialog(string title, string msg, int percent, int action);
-    string inputBox(int x, int y, string text);
+    static void progressDialog(const string& title, const string& msg, int percent, int action);
+    string inputBox(int x, int y, const string& text);
     static void joyDialog(void);
     static void pokeDialog();
     static void jumpToDialog();

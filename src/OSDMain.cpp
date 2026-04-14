@@ -142,7 +142,8 @@ unsigned short OSD::scrAlignCenterY(unsigned short pixel_height) { return (scrH 
 // Draws each character individually; cursor shown as highlighted block under current char.
 // Returns entered string on Enter, "\x1B" on Escape, "" if Enter pressed with empty field.
 // Ignores VK_MENU_* synthetic events to avoid double-fires from kbdExtraMapping.
-string OSD::inlineTextEdit(int ex, int ey, int maxlen, string text) {
+string OSD::inlineTextEdit(int ex, int ey, int maxlen, const string& initial_text) {
+    string text = initial_text;
     auto Kbd = ESPectrum::PS2Controller.keyboard();
     // Drain any keys still in the queue (e.g. the Enter that triggered the save action)
     { fabgl::VirtualKeyItem drain; while (Kbd->virtualKeyAvailable()) Kbd->getNextVirtualKey(&drain); }
@@ -4496,7 +4497,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
 
 
 // Shows a red panel with error text
-void OSD::errorPanel(string errormsg) {
+void OSD::errorPanel(const string& errormsg) {
     unsigned short x = scrAlignCenterX(OSD_W);
     unsigned short y = scrAlignCenterY(OSD_H);
 
@@ -4519,7 +4520,7 @@ void OSD::errorPanel(string errormsg) {
 }
 
 // Error panel and infinite loop
-void OSD::errorHalt(string errormsg) {
+void OSD::errorHalt(const string& errormsg) {
     errorPanel(errormsg);
     while (1) {
         sleep_ms(5);
@@ -4532,11 +4533,11 @@ extern "C" void osd_printf(const char* msg, ...) {
 }
 
 // Centered message
-void OSD::osdCenteredMsg(string msg, uint8_t warn_level) {
+void OSD::osdCenteredMsg(const string& msg, uint8_t warn_level) {
     osdCenteredMsg(msg,warn_level,1000);
 }
 
-void OSD::osdCenteredMsg(string msg, uint8_t warn_level, uint16_t millispause) {
+void OSD::osdCenteredMsg(const string& msg, uint8_t warn_level, uint16_t millispause) {
 
     // Count lines and find the longest line for proper sizing
     unsigned short nlines = 1;
@@ -7590,6 +7591,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         memset(buffer, 0, sz);
         if ( f_read(f, buffer, sz, &br) != FR_OK) {
             osdCenteredMsg(fname + " - unable to read", LEVEL_ERROR, 5000);
+            free(buffer);
             fclose2(f);
             return false;
         }
@@ -7700,7 +7702,7 @@ progressDialog(OSD_FIRMW[Config::lang],OSD_FIRMW_END[Config::lang],100,1);
     return true;
 }
 
-void OSD::progressDialog(string title, string msg, int percent, int action) {
+void OSD::progressDialog(const string& title, const string& msg, int percent, int action) {
 
     static unsigned short h;
     static unsigned short y;
@@ -7715,10 +7717,11 @@ void OSD::progressDialog(string title, string msg, int percent, int action) {
         h = (OSD_FONT_H * 6) + 2;
         y = scrAlignCenterY(h);
 
-        if (msg.length() > (scrW / 6) - 4) msg = msg.substr(0,(scrW / 6) - 4);
-        if (title.length() > (scrW / 6) - 4) title = title.substr(0,(scrW / 6) - 4);
+        size_t maxchars = (scrW / 6) - 4;
+        string tmsg = msg.length() > maxchars ? msg.substr(0, maxchars) : msg;
+        string ttitle = title.length() > maxchars ? title.substr(0, maxchars) : title;
 
-        w = (((msg.length() > title.length() + 6 ? msg.length(): title.length() + 6) + 2) * OSD_FONT_W) + 2;
+        w = (((tmsg.length() > ttitle.length() + 6 ? tmsg.length(): ttitle.length() + 6) + 2) * OSD_FONT_W) + 2;
         x = scrAlignCenterX(w);
 
         // Save backbuffer data
@@ -7736,12 +7739,12 @@ void OSD::progressDialog(string title, string msg, int percent, int action) {
         // Title
         VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(0, 0));
         VIDEO::vga.setCursor(x + OSD_FONT_W + 1, y + 1);
-        VIDEO::vga.print(title.c_str());
+        VIDEO::vga.print(ttitle.c_str());
 
         // Msg
         VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
-        VIDEO::vga.setCursor(scrAlignCenterX(msg.length() * OSD_FONT_W), y + 1 + (OSD_FONT_H * 2));
-        VIDEO::vga.print(msg.c_str());
+        VIDEO::vga.setCursor(scrAlignCenterX(tmsg.length() * OSD_FONT_W), y + 1 + (OSD_FONT_H * 2));
+        VIDEO::vga.print(tmsg.c_str());
 
         // Rainbow
         unsigned short rb_y = y + 8;
@@ -7778,12 +7781,13 @@ void OSD::progressDialog(string title, string msg, int percent, int action) {
     }
 }
 
-uint8_t OSD::msgDialog(string title, string msg) {
+uint8_t OSD::msgDialog(const string& title_, const string& msg_) {
 
     const unsigned short h = (OSD_FONT_H * 6) + 2;
     const unsigned short y = scrAlignCenterY(h);
     uint8_t res = DLG_NO;
 
+    string msg = msg_, title = title_;
     if (msg.length() > (scrW / 6) - 4) msg = msg.substr(0,(scrW / 6) - 4);
     if (title.length() > (scrW / 6) - 4) title = title.substr(0,(scrW / 6) - 4);
 
@@ -8010,7 +8014,7 @@ bool OSD::videoModeConfirm(int timeout_sec) {
     return confirmed;
 }
 
-string OSD::inputBox(int x, int y, string text) {
+string OSD::inputBox(int x, int y, const string& text) {
 
 return text;
 

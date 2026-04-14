@@ -42,7 +42,7 @@ void Debug::log(const char* fmt, ...)
     printf("%s\n", buf);
 }
 
-void Debug::log2SD(string data)
+void Debug::log2SD(const string& data)
 {
 #if DEBUG
     if (!FileUtils::fsMount) return;

@@ -408,7 +408,7 @@ string Tape::tzxBlockReadData(int Blocknum) {
 
 }
 
-void Tape::TZX_Open(string name) {
+void Tape::TZX_Open(const string& name) {
 
     if (tapeFileType != TAPE_FTYPE_EMPTY) {
         fclose(tape);

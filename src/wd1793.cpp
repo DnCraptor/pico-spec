@@ -1495,7 +1495,7 @@ void rvmWD1793Reset(rvmWD1793 *wd) {
 #endif
 }
 
-bool rvmWD1793InsertDisk(rvmWD1793 *wd, unsigned char UnitNum, std::string Filename) {
+bool rvmWD1793InsertDisk(rvmWD1793 *wd, unsigned char UnitNum, const std::string& Filename) {
 
     // Close any open disk in this unit
     wdDiskEject(wd,UnitNum);
@@ -2209,7 +2209,7 @@ void wdDiskEject(rvmWD1793 *wd, unsigned char UnitNum) {
             else if (wd->disk[UnitNum]->IsFDIFile) fdiFlushTrack(wd);
         }
 #endif
-        f_close(wd->disk[UnitNum]->Diskfile);
+        fclose2(wd->disk[UnitNum]->Diskfile);
         wd->disk[UnitNum]->Diskfile = NULL;
     }
 
@@ -2410,7 +2410,7 @@ static bool sclConvertToTRD(rvmWD1793 *wd) {
     f_sync(trdFile);
 
     // Close SCL, switch to TRD
-    f_close(disk->Diskfile);
+    fclose2(disk->Diskfile);
     disk->Diskfile = trdFile;
     disk->IsSCLFile = false;
     disk->sclDataOffset = 0;

@@ -198,57 +198,57 @@ bool FileUtils::remountSD() {
     return true;
 }
 
-bool FileUtils::hasSNAextension(string filename)
+bool FileUtils::hasSNAextension(const string& filename)
 {
-    
+
     if (filename.substr(filename.size()-4,4) == ".sna") return true;
     if (filename.substr(filename.size()-4,4) == ".SNA") return true;
     return false;
 }
 
-bool FileUtils::hasZ80extension(string filename)
+bool FileUtils::hasZ80extension(const string& filename)
 {
     if (filename.substr(filename.size()-4,4) == ".z80") return true;
     if (filename.substr(filename.size()-4,4) == ".Z80") return true;
     return false;
 }
 
-bool FileUtils::hasPextension(string filename)
+bool FileUtils::hasPextension(const string& filename)
 {
     if (filename.substr(filename.size()-2,2) == ".p") return true;
     if (filename.substr(filename.size()-2,2) == ".P") return true;
     return false;
 }
 
-bool FileUtils::hasTAPextension(string filename)
+bool FileUtils::hasTAPextension(const string& filename)
 {
     if (filename.substr(filename.size()-4,4) == ".tap") return true;
     if (filename.substr(filename.size()-4,4) == ".TAP") return true;
     return false;
 }
 
-bool FileUtils::hasTZXextension(string filename)
+bool FileUtils::hasTZXextension(const string& filename)
 {
     if (filename.substr(filename.size()-4,4) == ".tzx") return true;
     if (filename.substr(filename.size()-4,4) == ".TZX") return true;
     return false;
 }
 
-bool FileUtils::hasPZXextension(string filename)
+bool FileUtils::hasPZXextension(const string& filename)
 {
     if (filename.substr(filename.size()-4,4) == ".pzx") return true;
     if (filename.substr(filename.size()-4,4) == ".PZX") return true;
     return false;
 }
 
-bool FileUtils::hasWAVextension(string filename)
+bool FileUtils::hasWAVextension(const string& filename)
 {
     if (filename.substr(filename.size()-4,4) == ".wav") return true;
     if (filename.substr(filename.size()-4,4) == ".WAV") return true;
     return false;
 }
 
-bool FileUtils::hasMP3extension(string filename)
+bool FileUtils::hasMP3extension(const string& filename)
 {
     if (filename.substr(filename.size()-4,4) == ".mp3") return true;
     if (filename.substr(filename.size()-4,4) == ".MP3") return true;
@@ -256,9 +256,9 @@ bool FileUtils::hasMP3extension(string filename)
 }
 
 #if PICO_RP2040
-bool FileUtils::hasZIPextension(string) { return false; }
+bool FileUtils::hasZIPextension(const string&) { return false; }
 #else
-bool FileUtils::hasZIPextension(string filename)
+bool FileUtils::hasZIPextension(const string& filename)
 {
     if (filename.size() < 4) return false;
     if (filename.substr(filename.size()-4,4) == ".zip") return true;

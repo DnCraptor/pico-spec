@@ -160,7 +160,7 @@ void Config::initHotkeys() {
         hotkeys[i] = defaults[i];
 }
 
-void Config::requestMachine(string newArch, string newRomSet)
+void Config::requestMachine(const string& newArch, const string& newRomSet)
 {
     arch = newArch;
     if (arch == "48K") {

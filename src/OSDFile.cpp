@@ -390,7 +390,7 @@ void fgets(char* b, size_t sz, FIL& f) {
 #define feof(x) f_eof(&x)
 
 // Run a new file menu
-string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols, uint8_t mfrows) {
+string OSD::fileDialog(string &fdir, const string& title, uint8_t ftype, uint8_t mfcols, uint8_t mfrows) {
     if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
     fd_pos_stack_top = 0;
     fd_goto_name.clear();
@@ -500,7 +500,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                 if (fdir.size() > 1) {
                     filenames.push(string(2, DIR_MARKER) + "..");
                 }
-                f_opendir(&f_dir, fdir.c_str());
+                if (f_opendir(&f_dir, fdir.c_str()) != FR_OK) break;
                 OSD::progressDialog(OSD_FILE_INDEXING[Config::lang], OSD_FILE_INDEXING_1[Config::lang], 5, 1);
                 size_t f_idx = 0;
                 while (f_readdir(&f_dir, &fileInfo) == FR_OK && fileInfo.fname[0] != '\0') {
