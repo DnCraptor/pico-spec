@@ -114,7 +114,7 @@ public:
     static string fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols, uint8_t mfrows);
     static int menuTape(string title);    
     static void menuScroll(bool up);
-    static void fd_Redraw(string title, string fdir, uint8_t ftype, const vector<string>& filexts);
+    static void fd_Redraw(const string& title, const string& fdir, uint8_t ftype, const vector<string>& filexts);
     static void fd_PrintRow(uint8_t virtual_row_num, uint8_t line_type, const vector<string>& filexts);
     static void tapemenuRedraw(string title);
     static void PrintRow(uint8_t virtual_row_num, uint8_t line_type);
@@ -148,8 +148,8 @@ public:
 
 
     // Rows
-    static unsigned short rowCount(string menu);
-    static string rowGet(string menu, unsigned short row_number);
+    static unsigned short rowCount(const string& menu);
+    static string rowGet(const string& menu, unsigned short row_number);
 
     static void esp_hard_reset();
 

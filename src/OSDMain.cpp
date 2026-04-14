@@ -6585,7 +6585,7 @@ c:
 }
 
 // // Count NL chars inside a string, useful to count menu rows
-unsigned short OSD::rowCount(string menu) {
+unsigned short OSD::rowCount(const string& menu) {
     unsigned short count = 0;
     for (unsigned short i = 0; i < menu.length(); i++) {
         if (menu.at(i) == ASCII_NL) {
@@ -6596,7 +6596,7 @@ unsigned short OSD::rowCount(string menu) {
 }
 
 // // Get a row text
-string OSD::rowGet(string menu, unsigned short row) {
+string OSD::rowGet(const string& menu, unsigned short row) {
     unsigned short count = 0;
     unsigned short last = 0;
     for (unsigned short i = 0; i < menu.length(); i++) {

@@ -2237,7 +2237,7 @@ void SaveRectT::save(int16_t x, int16_t y, int16_t w, int16_t h) {
     #endif
     if (FileUtils::fsMount) {
         FIL f;
-        f_open(&f, "/tmp/save_rect.tmp", FA_WRITE | FA_CREATE_ALWAYS);
+        f_open(&f, "/tmp/save_rect.tmp", FA_WRITE | FA_OPEN_ALWAYS);
         f_lseek(&f, off);
         UINT bw;
         f_write(&f, &x, 2, &bw);
@@ -2351,7 +2351,7 @@ void SaveRectT::store_ram(const void* p, size_t sz) {
     size_t off = offsets.back();
     UINT bw;
     FIL f;
-    f_open(&f, "/tmp/save_rect.tmp", FA_WRITE | FA_CREATE_ALWAYS);
+    f_open(&f, "/tmp/save_rect.tmp", FA_WRITE | FA_OPEN_ALWAYS);
     f_lseek(&f, off);
     f_write(&f, p, sz, &bw);
     f_close(&f);

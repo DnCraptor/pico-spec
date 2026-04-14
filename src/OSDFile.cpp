@@ -623,6 +623,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             rtrim(filedir);
                             click();
                             filenames.close();
+                            string(). swap(menu); // release menu heap buffer
                             if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                             return "X" + filedir; // X prefix = extract ZIP
                         }
@@ -930,6 +931,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             rtrim(filedir);
                             click();
                             filenames.close();
+                            string().swap(menu); // release menu heap buffer
                             if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                             return (is_return(Menukey.vk) ? "R" : "S") + filedir;
                         }
@@ -942,6 +944,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         // Keep current dir and position so next F5 reopens here
                         click();
                         filenames.close();
+                        string().swap(menu); // release menu heap buffer
                         if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return "";
                     }
@@ -1028,12 +1031,13 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
         filenames.close();
     }
     filenames.close();
+    string().swap(menu); // release menu heap buffer
     if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
     return "";
 }
 
 // Redraw inside rows
-void OSD::fd_Redraw(string title, string fdir, uint8_t ftype, const vector<string>& filexts) {
+void OSD::fd_Redraw(const string& title, const string& fdir, uint8_t ftype, const vector<string>& filexts) {
     if ((FileUtils::fileTypes[ftype].focus != last_focus) || (FileUtils::fileTypes[ftype].begin_row != last_begin_row)) {
         // printf("fd_Redraw\n");
         // Read bunch of rows
