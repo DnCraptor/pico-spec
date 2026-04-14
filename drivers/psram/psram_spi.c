@@ -28,10 +28,16 @@ uint32_t psram_size() {
 
 uint32_t init_psram() {
 #ifdef PSRAM
-    psram_spi = psram_spi_init_clkdiv(pio1, -1, 2.0, false);
+#ifdef SOFTTV
+    // SOFTTV uses pio0 for composite video output, so PSRAM must use pio1
+    PIO psram_pio = pio1;
+#else
+    PIO psram_pio = pio0;
+#endif
+    psram_spi = psram_spi_init_clkdiv(psram_pio, -1, 2.0, false);
 #ifndef PSRAM_NO_FUGE
     if ( !_psram_size() ) {
-        psram_spi = psram_spi_init_clkdiv(pio1, -1, 2.0, true);
+        psram_spi = psram_spi_init_clkdiv(psram_pio, -1, 2.0, true);
     }
 #endif
 #endif

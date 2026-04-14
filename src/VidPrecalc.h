@@ -30,6 +30,9 @@ static unsigned int* AluByte[16];
 // Precalculated standard Spectrum AluBytes table (in flash)
 extern "C" const unsigned int AluBytesStd_flash[16][256];
 
+// Precalculated ULA+ AluBytes table (in flash) — palette indices 0-63
+extern "C" const unsigned int AluBytesUlaPlus_flash[16][256];
+
 // Point AluByte[] to the flash table
 static inline void initAluBytes() {
     for (int n = 0; n < 16; n++)

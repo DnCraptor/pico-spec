@@ -173,7 +173,7 @@ static const uint8_t ulaplus_default_palette[64] = {
 };
 uint8_t VIDEO::ulaplus_palette[64];
 bool VIDEO::ulaplus_palette_dirty = false;
-unsigned int VIDEO::AluBytesUlaPlus[16][256] = {};
+// AluBytesUlaPlus moved to flash — see roms/AluBytesUlaPlus.c
 #endif
 
 #ifdef DIRTY_LINES
@@ -640,24 +640,10 @@ void VIDEO::regenerateUlaPlusAluBytes() {
     for (int i = 0; i < 64; i++)
         graphics_set_palette(i, paletteTransform(grb_to_rgb888(ulaplus_palette[i])));
 
-    // Build AluBytes with fixed indices 0-63 (only depends on attribute format,
-    // not palette contents — only needs to be done once at ULA+ enable)
-    for (int nibble = 0; nibble < 16; nibble++) {
-        for (int att = 0; att < 256; att++) {
-            uint8_t group = (att >> 6) & 0x03;
-            uint8_t ink_idx   = group * 16 + (att & 0x07);
-            uint8_t paper_idx = group * 16 + ((att >> 3) & 0x07) + 8;
-
-            uint8_t px[2] = { paper_idx, ink_idx };
-            AluBytesUlaPlus[nibble][att] =
-                px[(nibble >> 1) & 1]        |
-                (px[nibble & 1]       << 8)  |
-                (px[(nibble >> 3) & 1] << 16)|
-                (px[(nibble >> 2) & 1] << 24);
-        }
-    }
+    // Point AluByte to flash-resident ULA+ table (palette indices 0-63,
+    // fixed mapping that depends only on attribute format, not palette contents)
     for (int n = 0; n < 16; n++)
-        AluByte[n] = AluBytesUlaPlus[n];
+        AluByte[n] = (unsigned int*)AluBytesUlaPlus_flash[n];
 }
 
 // Fast path: update single palette entry without rebuilding AluBytes
@@ -808,10 +794,38 @@ void VIDEO::vgataskinit(void *unused) {
 
 ///TaskHandle_t VIDEO::videoTaskHandle;
 
+#if !PICO_RP2040
+// Shared framebuffer data block — allocated once at boot for max resolution (360x288).
+// Both main FB and prevFB (Gigascreen) live in the same contiguous block.
+// changeMode() reconfigures pointer arrays without any alloc/free.
+#define FB_MAX_LINES 289   // calcLines(288)
+#define FB_MAX_STRIDE 360
+#define FB_MAX_SIZE (FB_MAX_LINES * FB_MAX_STRIDE)  // 104,040 bytes per FB
+
+static int fbCalcLines(int count) {
+    if (count == 288) return 289;
+    if (count == 240) return 241;
+    if (count == 480) return 241;
+    if (count == 400) return 201;
+    return count;
+}
+
+static uint8_t *sharedFB_block = nullptr;
+static void **sharedFB_arr1 = nullptr;  // pointer array for frameBuffer
+static void **sharedFB_arr2 = nullptr;  // pointer array for prevFrameBuffer
+
+static void setupSharedFBPointers(Graphics<unsigned char> &vga, int lines, int stride) {
+    for (int i = 0; i < lines; i++) {
+        sharedFB_arr1[i] = sharedFB_block + i * stride;
+        sharedFB_arr2[i] = sharedFB_block + FB_MAX_SIZE + i * stride;
+    }
+    vga.frameBuffer = (unsigned char **)sharedFB_arr1;
+    vga.prevFrameBuffer = (unsigned char **)sharedFB_arr2;
+}
+#endif
 
 void VIDEO::Init() {
     int Mode;
-    bool vga_scanline_shift = false;
 #ifdef VGA_HDMI
     if (VIDEO::isFullBorder288()) {
         Mode = 22; // VgaMode_360x288 — full border 360x288
@@ -821,19 +835,37 @@ void VIDEO::Init() {
 #endif
     {
         Mode = Config::aspect_16_9 ? 2 : 0;
-#ifdef VGA_HDMI
-        if (SELECT_VGA) {
-            Mode += Config::scanlines;
-            vga_scanline_shift = Config::scanlines;
-        }
-#else
-        Mode += Config::scanlines;
-        vga_scanline_shift = Config::scanlines;
-#endif
     }
     OSD::scrW = vidmodes[Mode][vmodeproperties::hRes];
-    OSD::scrH = (vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv]) >> vga_scanline_shift;
+    OSD::scrH = vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv];
     vga.useInterrupt_flag = false;
+
+#if !PICO_RP2040
+    // Allocate shared data block for main + prev framebuffers at max resolution
+    // BEFORE vga.init() — while heap is still unfragmented (full MEM_REMAIN available).
+    // The block is never freed; changeMode() only reconfigures pointer arrays.
+    if (!sharedFB_block) {
+        sharedFB_block = (uint8_t *)malloc(FB_MAX_SIZE * 2);
+        if (sharedFB_block) {
+            memset(sharedFB_block, 0, FB_MAX_SIZE * 2);
+            sharedFB_arr1 = (void **)malloc(FB_MAX_LINES * sizeof(void *));
+            sharedFB_arr2 = (void **)malloc(FB_MAX_LINES * sizeof(void *));
+            if (!sharedFB_arr1 || !sharedFB_arr2) {
+                free(sharedFB_block); sharedFB_block = nullptr;
+                free(sharedFB_arr1); sharedFB_arr1 = nullptr;
+                free(sharedFB_arr2); sharedFB_arr2 = nullptr;
+            }
+        }
+    }
+    if (sharedFB_block) {
+        int lines = fbCalcLines(
+            vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv]);
+        int stride = (vidmodes[Mode][vmodeproperties::hRes] + 3) & ~3;
+        setupSharedFBPointers(vga, lines, stride);
+        // frameBuffer is set — vga.init()'s allocateFrameBuffers() will skip allocation
+    }
+#endif
+
     vga.init( Mode, redPins, grePins, bluPins, HSYNC_PIN, VSYNC_PIN);
 
     graphics_set_scanlines(Config::scanlines);
@@ -849,17 +881,11 @@ void VIDEO::Init() {
     applyPalette();
 
 #if !PICO_RP2040
-    if (Config::gigascreen_enabled)
+    if (Config::gigascreen_enabled && vga.prevFrameBuffer)
     {
         VIDEO::gigascreen_enabled = (Config::gigascreen_onoff == 1); // On=enabled, Auto=start disabled
         VIDEO::gigascreen_auto_countdown = 0;
         initGigascreenBlendLUT(); // Pre-compute blend palette entries
-        InitPrevBuffer();   // For Gigascreen (needed for both On and Auto modes)
-        if (!vga.prevFrameBuffer) {
-            // Not enough memory — disable gigascreen
-            Config::gigascreen_enabled = false;
-            VIDEO::gigascreen_enabled = false;
-        }
     }
 #endif
 }
@@ -874,36 +900,42 @@ static void freeFrameBuffer(void **fb) {
 void VIDEO::changeMode() {
     // 1. Determine new VGA Mode index (same logic as Init())
     int Mode;
-    bool vga_scanline_shift = false;
     if (VIDEO::isFullBorder288()) {
         Mode = 22;
     } else if (VIDEO::isFullBorder240()) {
         Mode = 23;
     } else {
         Mode = Config::aspect_16_9 ? 2 : 0;
-        if (SELECT_VGA) {
-            Mode += Config::scanlines;
-            vga_scanline_shift = Config::scanlines;
-        }
     }
 
     int newW = vidmodes[Mode][vmodeproperties::hRes];
-    int newH = (vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv]) >> vga_scanline_shift;
+    int newH = vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv];
 
     bool sameDims = (vga.frameBuffer && vga.xres == newW && vga.yres == newH);
 
-    // 2. Free prevFrameBuffer (Gigascreen) — always freed, re-created later if needed
-    if (vga.prevFrameBuffer) {
-        auto oldPrev = vga.prevFrameBuffer;
-        vga.prevFrameBuffer = nullptr;
-        freeFrameBuffer((void**)oldPrev);
+#if !PICO_RP2040
+    // Shared block path: no alloc/free, just reconfigure pointers
+    if (sharedFB_block) {
+        if (!sameDims) {
+            vga.frameBuffer = nullptr;  // blank output while reconfiguring
+            SaveRect.clear();
+            int lines = fbCalcLines(newH);
+            int stride = (newW + 3) & ~3;
+            setupSharedFBPointers(vga, lines, stride);
+        }
+    } else
+#endif
+    {
+        // Non-shared fallback (RP2040 or shared alloc failed)
+        if (vga.prevFrameBuffer) {
+            auto oldPrev = vga.prevFrameBuffer;
+            vga.prevFrameBuffer = nullptr;
+            freeFrameBuffer((void**)oldPrev);
+        }
+        vga.frameBuffer = nullptr;
     }
 
-    // 3. Null out frameBuffer so DMA handler returns early (getLineBuffer checks null)
-    auto oldFB = vga.frameBuffer;
-    vga.frameBuffer = nullptr;
-
-    // 4. Update video_mode BEFORE reinit (hdmi_init reads it via get_video_mode())
+    // 2. Update video_mode BEFORE reinit (hdmi_init reads it via get_video_mode())
     if (SELECT_VGA) {
         switch (Config::vga_video_mode) {
             case Config::VM_640x480_50:
@@ -939,7 +971,7 @@ void VIDEO::changeMode() {
         }
     }
 
-    // 5. Update driver buffer dimensions + reinit video output
+    // 3. Update driver buffer dimensions + reinit video output
     vga.mode = Mode;
     vga.xres = newW;
     vga.yres = newH;
@@ -948,40 +980,46 @@ void VIDEO::changeMode() {
     graphics_set_buffer(NULL, newW, newH);
     graphics_set_scanlines(Config::scanlines);
     if (SELECT_VGA) {
-        // VGA: PIO clkdiv and line_size are identical across all modes.
-        // Only vsync line numbers need updating.
         vga_reinit();
     } else {
-        // HDMI: abort DMA from core0, then signal core1 to run hdmi_init()
         hdmi_reinit();
     }
 
-    // 6. Allocate new framebuffer (HDMI DMA is now running with new mode, FB is null → blank output)
-    if (sameDims) {
-        // Same dimensions — reuse existing framebuffer
-        vga.frameBuffer = oldFB;
-    } else {
-        freeFrameBuffer((void**)oldFB);
-        vga.frameBuffer = vga.allocateFrameBuffer();
-        SaveRect.clear();
+    // 4. Allocate framebuffer (non-shared path only)
+#if !PICO_RP2040
+    if (!sharedFB_block) {
+#endif
+        if (sameDims) {
+            // frameBuffer already nulled above for non-shared; won't reach here for shared
+        } else {
+            auto oldFB = vga.frameBuffer;
+            vga.frameBuffer = nullptr;
+            freeFrameBuffer((void**)oldFB);
+            vga.frameBuffer = vga.allocateFrameBuffer();
+            SaveRect.clear();
+        }
+#if !PICO_RP2040
     }
+#endif
 
-    // 7. Recalculate border timing + precalc tables (preserve border color)
+    // 5. Recalculate border timing + precalc tables (preserve border color)
     uint8_t savedBorderColor = borderColor;
     VIDEO::Reset();
     borderColor = savedBorderColor;
     brd = border32[borderColor];
     precalcborder32();
 
-    // 8. Repaint framebuffer with current border color
+    // 6. Repaint framebuffer with current border color
     if (vga.frameBuffer) {
         int stride = (vga.xres + 3) & ~3;
         memset(vga.frameBuffer[0], zxColor(borderColor, 0), vga.yres * stride);
     }
 
 #if !PICO_RP2040
-    // 9. Gigascreen: reallocate prevFrameBuffer if enabled
-    if (Config::gigascreen_enabled) {
+    // 7. Gigascreen
+    if (Config::gigascreen_enabled && vga.prevFrameBuffer) {
+        VIDEO::gigascreen_enabled = (Config::gigascreen_onoff == 1);
+    } else if (Config::gigascreen_enabled) {
         InitPrevBuffer();
         if (!vga.prevFrameBuffer) {
             Config::gigascreen_enabled = false;

@@ -20,7 +20,7 @@ static int SM_conv = -1;
 //активный видеорежим
 extern enum graphics_mode_t graphics_mode;
 
-// Scanlines mode: when enabled, every other physical line is black
+// Scanlines mode: when enabled, every other physical line is dark
 static bool hdmi_scanlines = false;
 
 //буфер  палитры 256 цветов в формате R8G8B8
@@ -45,7 +45,10 @@ static int dma_chan_pal_conv;
 //DMA буферы
 //основные строчные данные
 static uint32_t* __scratch_x("hdmi_ptr_3") dma_lines[2] = { NULL,NULL };
-static uint32_t* __scratch_x("hdmi_ptr_4") DMA_BUF_ADDR[2];
+static uint32_t* __scratch_x("hdmi_ptr_4") DMA_BUF_ADDR[3];
+
+// Pre-filled scanline buffer (dark line with valid HDMI sync)
+static uint8_t hdmi_scanline_buf[400];
 
 //ДМА палитра для конвертации
 //в хвосте этой памяти выделяется dma_data
@@ -58,6 +61,7 @@ static uint32_t irq_inx = 0;
 //функции и константы HDMI
 
 #define BASE_HDMI_CTRL_INX (240)
+#define IDX_SCANLINE        (244)   // dark gray for scanline effect
 
 // Data Island palette indices (for HDMI audio, below control words to avoid overlap)
 #define IDX_DI_PREAMBLE     (220)
@@ -222,22 +226,12 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
     }
 
     if ((line & 1) == 0) {
-        // Even physical lines: scanlines mode renders a black line,
-        // normal mode skips (DMA replays the previous odd-line buffer = line doubling)
-        if (!hdmi_scanlines || line >= mode.v_active) return;
-        inx_buf_dma++;
-        uint8_t* activ_buf = (uint8_t *)dma_lines[inx_buf_dma & 1];
-        const int line_sz = mode.line_bytes;
-        const int h_sync = mode.h_sync_bytes;
-        const int h_bp = mode.h_bp_bytes;
-        const int h_fp = mode.h_fp_bytes;
-        const int scr_w = mode.screen_width;
-        // Black content area (palette index 0 = black)
-        memset(activ_buf + h_sync + h_bp, 0, scr_w);
-        // Horizontal sync preamble
-        memset(activ_buf + h_sync, BASE_HDMI_CTRL_INX, h_bp);
-        memset(activ_buf, BASE_HDMI_CTRL_INX + 1, h_sync);
-        memset(activ_buf + line_sz - h_fp, BASE_HDMI_CTRL_INX, h_fp);
+        // Even physical lines: scanlines mode dims the previous content line,
+        // normal mode skips (DMA replays the previous odd-line buffer = line doubling).
+        // No inx_buf_dma increment — preserves ping-pong sync.
+        if (hdmi_scanlines && line < mode.v_active) {
+            dma_channel_set_read_addr(dma_chan_ctrl, &DMA_BUF_ADDR[2], false);
+        }
         return;
     }
     inx_buf_dma++;
@@ -399,6 +393,8 @@ static inline bool hdmi_init() {
     //255 - цвет фона
     graphics_set_palette(255, palette[255]);
 
+    // Scanline color: dark gray RGB888
+    graphics_set_palette(IDX_SCANLINE, 0x202020);
 
     //240-243 служебные данные(синхра) напрямую вносим в массив -конвертер
     uint64_t* conv_color64 = (uint64_t *)conv_color;
@@ -487,11 +483,22 @@ static inline bool hdmi_init() {
     {
         const int ls = hdmi_mode.line_bytes;
         const int hs = hdmi_mode.h_sync_bytes;
+        const int bp = hdmi_mode.h_bp_bytes;
+        const int fp = hdmi_mode.h_fp_bytes;
+        const int sw = hdmi_mode.screen_width;
         for (int b = 0; b < 2; b++) {
             uint8_t *buf = (uint8_t *)dma_lines[b];
             memset(buf + hs, BASE_HDMI_CTRL_INX, ls - hs);     // blanking
             memset(buf, BASE_HDMI_CTRL_INX + 1, hs);            // hsync
         }
+        // Scanline buffer: dark gray content + valid HDMI sync
+        memset(hdmi_scanline_buf + hs + bp, IDX_SCANLINE, sw);
+        memset(hdmi_scanline_buf + hs, BASE_HDMI_CTRL_INX, bp);
+        memset(hdmi_scanline_buf, BASE_HDMI_CTRL_INX + 1, hs);
+        memset(hdmi_scanline_buf + ls - fp, BASE_HDMI_CTRL_INX, fp);
+        memset(hdmi_scanline_buf + hs, BASE_HDMI_CTRL_INX, bp);
+        memset(hdmi_scanline_buf, BASE_HDMI_CTRL_INX + 1, hs);
+        memset(hdmi_scanline_buf + ls - fp, BASE_HDMI_CTRL_INX, fp);
     }
 
     //основной рабочий канал
@@ -527,6 +534,7 @@ static inline bool hdmi_init() {
 
     DMA_BUF_ADDR[0] = &dma_lines[0][0];
     DMA_BUF_ADDR[1] = &dma_lines[1][0];
+    DMA_BUF_ADDR[2] = (uint32_t*)hdmi_scanline_buf;
 
     dma_channel_configure(
         dma_chan_ctrl,
@@ -645,7 +653,7 @@ void graphics_set_palette(uint8_t i, uint32_t color888) {
     vga_set_palette_entry(i, color888);
 #endif
 
-    if ((i >= BASE_HDMI_CTRL_INX) && (i != 255)) return; //не записываем "служебные" цвета
+    if ((i >= BASE_HDMI_CTRL_INX) && (i != 255) && (i != IDX_SCANLINE)) return; //не записываем "служебные" цвета
 #if !PICO_RP2040
     if (hdmi_audio_enabled && i >= IDX_DI_PREAMBLE && i <= (IDX_DI_DATA_BASE + 15)) return;
 #endif
@@ -684,7 +692,7 @@ void graphics_set_bgcolor_hdmi(uint32_t color888) //определяем зар�
     graphics_set_palette(255, color888);
 };
 
-void graphics_set_scanlines(bool enabled) {
+void hdmi_set_scanlines(bool enabled) {
     hdmi_scanlines = enabled;
 }
 

@@ -31,6 +31,7 @@ To Contact the dev team you can write to zxespectrum@gmail.com or
 visit https://zxespectrum.speccy.org/contacto
 
 */
+#include <malloc.h>
 #include <hardware/watchdog.h>
 #include <hardware/clocks.h>
 #include <hardware/flash.h>
@@ -60,6 +61,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "AySound.h"
 #include "Midi.h"
 #include "MidiSynth.h"
+extern "C" void graphics_set_scanlines(bool enabled);
 #if !PICO_RP2040
 #include "DivMMC.h"
 #endif
@@ -2491,21 +2493,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         Config::scanlines = 0;
 
                                     if (Config::scanlines != prev_opt) {
-                                        Config::ram_file = "none";
                                         Config::save();
-#ifdef VGA_HDMI
-                                        VIDEO::changeMode();
-                                        if (!videoModeConfirm(10)) {
-                                            Config::scanlines = prev_opt;
-                                            Config::ram_file = "none";
-                                            Config::save();
-                                            VIDEO::changeMode();
-                                        }
-                                        // Exit OSD after mode switch
-                                        return;
-#else
-                                        OSD::esp_hard_reset();
-#endif
+                                        graphics_set_scanlines(Config::scanlines);
                                     }
                                     menu_curopt = opt2;
                                     menu_saverect = false;
@@ -6637,8 +6626,12 @@ extern char __HeapLimit;
 extern "C" void *sbrk(intptr_t incr);
 
 size_t getFreeHeap(void) {
+    struct mallinfo mi = mallinfo();
+    // fordblks = free blocks in free list + sbrk headroom (total really free memory)
+    // Add remaining sbrk space that mallinfo doesn't account for
     char *brk = (char *)sbrk(0);
-    return (brk < &__HeapLimit) ? (size_t)(&__HeapLimit - brk) : 0;
+    size_t sbrk_free = (brk < &__HeapLimit) ? (size_t)(&__HeapLimit - brk) : 0;
+    return mi.fordblks + sbrk_free;
 }
 
 // Generic read-only text dialog with vertical scroll

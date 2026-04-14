@@ -56,6 +56,7 @@ int graphics_buffer_shift_y = 0;
 
 static bool is_flash_line = false;
 static bool is_flash_frame = false;
+bool vga_scanlines = false;
 
 static uint32_t bg_color[2];
 static uint16_t palette16_mask = 0;
@@ -63,6 +64,9 @@ static uint16_t palette16_mask = 0;
 // VGA8 dithered palette LUT: /42 checkerboard dithering (7 levels per channel, 343 colors)
 // [0][i] = even scanline pixel pair,  [1][i] = odd scanline pixel pair
 static uint16_t palette_vga16[2][256] = { 0 };
+
+// Scanline dimmed palette: dithered at ~50% brightness for scanline effect
+static uint16_t palette_vga16_scanline[256] = { 0 };
 
 static uint text_buffer_width = 0;
 static uint text_buffer_height = 0;
@@ -239,7 +243,9 @@ if (!text_buffer) return;
     uint8_t* output_buffer_8bit;
     switch (graphics_mode) {
         case GRAPHICSMODE_DEFAULT: {
-            uint16_t* pal = palette_vga16[screen_line & 1];
+            uint16_t* pal = (vga_scanlines && (screen_line & 1))
+                ? palette_vga16_scanline
+                : palette_vga16[screen_line & 1];
             for  (int x = 0; x < width; ++x) {
                 register uint8_t idx = input_buffer_8bit[x ^ 2];
                 *output_buffer_16bit++ = pal[idx];
@@ -413,9 +419,20 @@ static void vga_rgb888_dither(uint32_t color888, uint16_t *even_pair, uint16_t *
     *odd_pair  = ((p11 << 8) | p10) & 0x3f3f | palette16_mask;
 }
 
+// Dim RGB888 color to ~50% brightness
+static uint32_t dim_rgb888(uint32_t color888) {
+    uint8_t r = ((color888 >> 16) & 0xff) >> 1;
+    uint8_t g = ((color888 >> 8) & 0xff) >> 1;
+    uint8_t b = (color888 & 0xff) >> 1;
+    return (r << 16) | (g << 8) | b;
+}
+
 // Update a single VGA palette LUT entry with Bayer dithering
 void vga_set_palette_entry(uint8_t i, uint32_t color888) {
     vga_rgb888_dither(color888, &palette_vga16[0][i], &palette_vga16[1][i]);
+    // Scanline: dithered at 50% brightness (use odd pair for single-line rendering)
+    uint16_t dummy;
+    vga_rgb888_dither(dim_rgb888(color888), &dummy, &palette_vga16_scanline[i]);
 }
 
 // Update a VGA palette entry WITHOUT dithering (both palettes get identical solid color)
@@ -428,6 +445,13 @@ void vga_set_palette_entry_solid(uint8_t i, uint32_t color888) {
     uint16_t solid = ((vga6 << 8) | vga6) & 0x3f3f | palette16_mask;
     palette_vga16[0][i] = solid;
     palette_vga16[1][i] = solid;
+    // Scanline: dimmed solid
+    uint32_t dim = dim_rgb888(color888);
+    r2 = ((dim >> 16) & 0xff) / 85;
+    g2 = ((dim >> 8) & 0xff) / 85;
+    b2 = (dim & 0xff) / 85;
+    vga6 = (r2 << 4) | (g2 << 2) | b2;
+    palette_vga16_scanline[i] = ((vga6 << 8) | vga6) & 0x3f3f | palette16_mask;
 }
 
 void graphics_set_bgcolor_hdmi(uint32_t color888);
@@ -447,9 +471,15 @@ void graphics_set_bgcolor(const uint32_t color888) {
 void graphics_set_palette(const uint8_t i, const uint32_t color888) {
     vga_set_palette_entry(i, color888);
 }
+#endif
 
+void vga_set_scanlines(bool enabled) {
+    vga_scanlines = enabled;
+}
+
+#ifndef VGA_HDMI
 void graphics_set_scanlines(bool enabled) {
-    // VGA scanlines handled via video mode selection, not runtime flag
+    vga_set_scanlines(enabled);
 }
 #endif
 
