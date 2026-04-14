@@ -208,4 +208,8 @@ void graphics_set_scanlines(bool enabled) {
     hdmi_set_scanlines(enabled);
     vga_set_scanlines(enabled);
 }
+#else
+void graphics_set_scanlines(bool enabled) {
+    (void)enabled;
+}
 #endif
