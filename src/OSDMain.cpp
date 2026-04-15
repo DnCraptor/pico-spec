@@ -1002,14 +1002,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
 #if !PICO_RP2040
                     else if (ext == "mbd") {
                         printf("Insert MB-02 disk %s\n",fname.c_str());
-                        if (!MB02::enabled) {
-                            Config::mb02 = 1;
-                            MB02::init();
-                        }
                         if (MB02::enabled) {
                             rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, 0, fname);
-                            Config::save();
-                            ESPectrum::reset();
+                        } else {
+                            OSD::osdCenteredMsg("Enable MB-02+ first", LEVEL_WARN);
                         }
                     }
 #endif
@@ -1207,12 +1203,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 }
 #if !PICO_RP2040
                 else if (ext == "mbd") {
-                    // MB-02+ disk into Drive A
+                    // MB-02+ disk into Drive A (no reset — user enables mode separately)
                     if (MB02::enabled) {
                         if (!fromZip) FileUtils::DSK_Path = FileUtils::ALL_Path;
                         Config::save();
                         rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, 0, fname);
-                        ESPectrum::reset();
                     } else {
                         OSD::osdCenteredMsg("Enable MB-02+ first", LEVEL_WARN);
                     }
@@ -1896,16 +1891,30 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         while(1) {
                             menu_level = 2;
                             string mb02menu = "MB-02+\n";
+                            mb02menu += Config::mb02 ? "Mode\tOn\n" : "Mode\tOff\n";
                             mb02menu += "Drive A\t>\n";
                             mb02menu += "Drive B\t>\n";
                             mb02menu += "Drive C\t>\n";
                             mb02menu += "Drive D\t>\n";
-                            mb02menu += Config::mb02 ? "Enabled\t[*]\n" : "Disabled\t[ ]\n";
                             uint8_t mb02_num = menuRun(mb02menu);
-                            if (mb02_num > 0 && mb02_num < 5) {
+                            if (mb02_num == 1) {
+                                // Mode toggle (Enable/Disable)
+                                uint8_t newval = Config::mb02 ? 0 : 1;
+                                Config::mb02 = newval;
+                                MB02::init();
+                                if (Config::mb02 && !MB02::enabled) {
+                                    OSD::osdCenteredMsg("MB-02+: not enough PSRAM", LEVEL_ERROR, 2000);
+                                    Config::mb02 = 0;
+                                }
+                                Config::save();
+                                ESPectrum::reset();
+                                return;
+                            }
+                            else if (mb02_num >= 2 && mb02_num <= 5) {
                                 // Drive A-D submenu
+                                uint8_t drv = mb02_num - 2;
                                 string drvmenu = "Drive ";
-                                drvmenu += char('A' + mb02_num - 1);
+                                drvmenu += char('A' + drv);
                                 drvmenu += "\nInsert disk\t>\nEject disk\n";
                                 menu_saverect = true;
                                 menu_curopt = 1;
@@ -1913,7 +1922,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_level = 3;
                                     uint8_t opt2 = menuRun(drvmenu);
                                     if (opt2 == 1) {
-                                        // Insert disk
+                                        // Insert disk (no reset)
                                         menu_saverect = true;
                                         string mFile = fileDialog(FileUtils::DSK_Path, "MB-02+ Disk", DISK_DSKFILE, 26, 15);
                                         if (mFile != "") {
@@ -1925,32 +1934,18 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                                 if (zipFname == "\x1b") break;
                                                 fname = zipFname;
                                             }
-                                            rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, mb02_num - 1, fname);
-                                            ESPectrum::reset();
+                                            rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, drv, fname);
                                             return;
                                         }
                                     } else if (opt2 == 2) {
                                         // Eject disk
-                                        wdDiskEject(&ESPectrum::mb02_fdd, mb02_num - 1);
+                                        wdDiskEject(&ESPectrum::mb02_fdd, drv);
                                         return;
                                     } else {
                                         menu_curopt = mb02_num;
                                         break;
                                     }
                                 }
-                            }
-                            else if (mb02_num == 5) {
-                                // Enable/Disable toggle
-                                uint8_t newval = Config::mb02 ? 0 : 1;
-                                Config::mb02 = newval;
-                                MB02::init();
-                                if (Config::mb02 && !MB02::enabled) {
-                                    OSD::osdCenteredMsg("MB-02+: not enough PSRAM", LEVEL_ERROR, 2000);
-                                    Config::mb02 = 0;
-                                }
-                                Config::save();
-                                ESPectrum::reset();
-                                return;
                             }
                             else {
                                 menu_curopt = 4;
@@ -7440,6 +7435,24 @@ void OSD::EmulatorInfo() {
                 pos += snprintf(buf + pos, sizeof(buf) - pos, " TR-DOS         : Off\n");
             }
         }
+
+#if !PICO_RP2040
+        // MB-02+
+        if (MB02::enabled) {
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " MB-02+         : On\n");
+            static const char drive_letter[] = "ABCD";
+            for (int i = 0; i < 4; i++) {
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "  %c:            : ", drive_letter[i]);
+                if (ESPectrum::mb02_fdd.disk[i] && !ESPectrum::mb02_fdd.disk[i]->fname.empty())
+                    pos += appendFilename(buf, pos, sizeof(buf), ESPectrum::mb02_fdd.disk[i]->fname, 19);
+                else
+                    pos += snprintf(buf + pos, sizeof(buf) - pos, "(empty)");
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "\n");
+            }
+        } else if (Config::mb02) {
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " MB-02+         : No PSRAM\n");
+        }
+#endif
 
 #if !PICO_RP2040
         // DMA
