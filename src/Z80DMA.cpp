@@ -415,10 +415,6 @@ void Z80DMA::doContinue() {
 }
 
 void Z80DMA::doEnable() {
-    Debug::log("DMA ENABLE: A=%04X(%s%s) B=%04X(%s%s) len=%d dir=%s",
-               cur_port_a, port_a_is_io?"IO":"MEM", port_a_inc>0?"+":port_a_inc<0?"-":"=",
-               cur_port_b, port_b_is_io?"IO":"MEM", port_b_inc>0?"+":port_b_inc<0?"-":"=",
-               byte_counter, transfer_dir?"A>B":"B>A");
     transfer_active = true;
     // MB-02+: DMA transfer is deferred — real Z80-DMA waits for READY/DRQ
     // from FDC before transferring each byte. Don't execute immediately;

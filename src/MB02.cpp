@@ -84,17 +84,7 @@ void MB02::reset() {
     motor_state = 0;
     write_enabled = false;
 
-    Debug::log("MB02::reset disk[0]=%p disk[1]=%p divmmc_mapped=%d",
-               ESPectrum::mb02_fdd.disk[0], ESPectrum::mb02_fdd.disk[1],
-               MemESP::divmmc_mapped ? 1 : 0);
-
     applyMapping();
-
-    Debug::log("MB02::reset done divmmc_mapped=%d page0_lo=%p page0_hi=%p composite=%p",
-               MemESP::divmmc_mapped ? 1 : 0, MemESP::page0_lo, MemESP::page0_hi, page0_composite);
-    Debug::log("MB02::reset first bytes: %02X %02X %02X %02X %02X",
-               MemESP::page0_lo[0], MemESP::page0_lo[1], MemESP::page0_lo[2],
-               MemESP::page0_lo[3], MemESP::page0_lo[4]);
 }
 
 void MB02::applyMapping() {
@@ -157,21 +147,6 @@ void MB02::writePort17(uint8_t data) {
     if (data != last_paging && data != 0x60 && data != 0x61) {
         Debug::log("MB02 OUT #17=%02X (page=%d sram=%d eprom=%d write=%d)",
                    data, data & 0x1F, (data>>6)&1, (data>>7)&1, (data>>5)&1);
-    }
-    // Dump SRAM BIOS code after several page switches (BS-DOS needs time to load)
-    if (data == 0x60 && sram_base) {
-        static int dump_cnt = 0;
-        dump_cnt++;
-        if (dump_cnt == 10) {
-            uint8_t *p = sram_base; // SRAM page 0
-            for (int addr = 0x01F0; addr < 0x0300; addr += 16) {
-                Debug::log("SRAM %04X: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",
-                    addr, p[addr], p[addr+1], p[addr+2], p[addr+3],
-                    p[addr+4], p[addr+5], p[addr+6], p[addr+7],
-                    p[addr+8], p[addr+9], p[addr+10], p[addr+11],
-                    p[addr+12], p[addr+13], p[addr+14], p[addr+15]);
-            }
-        }
     }
     last_paging = data;
     paging_reg = data;
