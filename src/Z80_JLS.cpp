@@ -1111,6 +1111,10 @@ void Z80::doNMI(void) {
         DivMMC::automap = false;
         DivMMC::applyMapping();
     }
+    // MB-02+: ensure SRAM page 0 is mapped for NMI handler (BS-ROM 118 NMI menu)
+    if (MB02::enabled) {
+        MB02::writePort17(0x60); // SRAM page 0, write enable
+    }
 #endif
     nmi();
 

@@ -217,7 +217,7 @@ if (PICO_CYW43_SUPPORTED)
     target_link_libraries(${PROJECT_NAME} pico_cyw43_arch_none)
 endif()
 
-##pico_enable_stdio_uart(${PROJECT_NAME} 1)
+pico_enable_stdio_uart(${PROJECT_NAME} 1)
 ##pico_enable_stdio_usb(${PROJECT_NAME} 1)
 
 # create map/bin/hex file etc.
@@ -420,15 +420,15 @@ ELSEIF(PICO_DV)
 
         DEBUG=0
         # stdio UART1 TX/RX on GP20/GP21 (Debug Probe)
-        # PICO_DEFAULT_UART=1
-        # PICO_DEFAULT_UART_TX_PIN=20
-        # PICO_DEFAULT_UART_RX_PIN=21
+        PICO_DEFAULT_UART=1
+        PICO_DEFAULT_UART_TX_PIN=20
+        PICO_DEFAULT_UART_RX_PIN=21
 
         # DBG1 1/2
         KBD_CLOCK_PIN=0
         KBD_DATA_PIN=1
 
-        LOAD_WAV_PIO=20
+        LOAD_WAV_PIO=3
 
         CLK_AY_PIN1=21 # not in use
         LATCH_595_PIN=26
@@ -443,7 +443,7 @@ ELSEIF(PICO_DV)
         PWM_PIN0=26 # R
         PWM_PIN1=27 # L
         BEEPER_PIN=28 # not implemented
-        MIDI_TX_PIN=21
+        MIDI_TX_PIN=3
 
         # SDCARD
         SDCARD_SPI_BUS=spi1
