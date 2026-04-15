@@ -34,12 +34,12 @@ void MB02::init() {
 
     if (!Config::mb02) return;
 
-    // Calculate PSRAM allocation after Spectrum pages and DivMMC
+    // Calculate PSRAM allocation after Spectrum pages
+    // MB-02 and DivMMC are mutually exclusive (both page into 0x0000-0x3FFF),
+    // but DivMMC may have already reserved PSRAM space. Account for it.
     size_t butter_used = (size_t)butter_pages * MEM_PG_SZ;
-
-    // Account for DivMMC allocation if active
     if (Config::esxdos) {
-        butter_used += 16 * 0x2000; // DIVMMC_NUM_BANKS * DIVMMC_BANK_SIZE
+        butter_used += 16 * 0x2000; // DivMMC banks already allocated
     }
 
     size_t mb02_total = MB02_NUM_PAGES * MB02_PAGE_SIZE; // 512KB

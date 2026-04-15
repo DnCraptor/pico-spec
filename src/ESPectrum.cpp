@@ -928,6 +928,14 @@ void ESPectrum::setup() {
   }
   Debug::log("setup: Config::load2 done");
 
+#if !PICO_RP2040
+  // Re-reset MB-02 after load2 so boot EPROM starts with disks already inserted
+  if (MB02::enabled && mb02_fdd.disk[0]) {
+    MB02::reset();
+    Z80::reset();
+  }
+#endif
+
   // Load snapshot if present in Config::
   Debug::log("setup: ram_file='%s'", Config::ram_file.c_str());
   if (Config::ram_file != NO_RAM_FILE) {
@@ -1805,13 +1813,16 @@ void ESPectrum::loop() {
                      "MB02 TR:#%02X/SEC:#%02X/S:%d ",
                      ESPectrum::mb02_fdd.track, ESPectrum::mb02_fdd.sector,
                      ESPectrum::mb02_fdd.side);
+            OSD::drawStats();
           } else
 #endif
-          snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2),
-                   "ST:%-6sTR:#%02X/SEC:#%02X ",
-                   rvmWD1793StepStateName(&ESPectrum::fdd).c_str(),
-                   ESPectrum::fdd.track, ESPectrum::fdd.sector);
-          OSD::drawStats();
+          {
+            snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2),
+                    "ST:%-6sTR:#%02X/SEC:#%02X ",
+                    rvmWD1793StepStateName(&ESPectrum::fdd).c_str(),
+                    ESPectrum::fdd.track, ESPectrum::fdd.sector);
+            OSD::drawStats();
+          }
         }
         totalseconds = 0;
         totalsecondsnodelay = 0;

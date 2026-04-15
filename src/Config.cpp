@@ -3,6 +3,9 @@
 #include "roms.h"
 #include "FileUtils.h"
 #include "ESPectrum.h"
+#if !PICO_RP2040
+#include "MB02.h"
+#endif
 #include "fabutils.h"
 #include "messages.h"
 #include "OSDMain.h"
@@ -342,6 +345,16 @@ void Config::load2() {
                         rvmWD1793InsertDisk(&ESPectrum::fdd, i, fn);
                     }
                 }
+#if !PICO_RP2040
+                snprintf(prefix, sizeof(prefix), "mb02d%u.file=", (unsigned)i);
+                plen = strlen(prefix);
+                if (s.length() >= plen && s.compare(0, plen, prefix) == 0) {
+                    std::string fn = s.substr(plen);
+                    if (!fn.empty() && MB02::enabled) {
+                        rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, i, fn);
+                    }
+                }
+#endif
             }
             s.clear();
         } else {
@@ -764,6 +777,10 @@ void Config::save() {
         if (i < 4) {
             s = "drive" + to_string(i);
             nvs_set_str(buf, (s + ".file").c_str(), ESPectrum::fdd.disk[i] ? ESPectrum::fdd.disk[i]->fname.c_str() : "");
+#if !PICO_RP2040
+            s = "mb02d" + to_string(i);
+            nvs_set_str(buf, (s + ".file").c_str(), ESPectrum::mb02_fdd.disk[i] ? ESPectrum::mb02_fdd.disk[i]->fname.c_str() : "");
+#endif
         }
     }
     nvs_set_u8(buf,"scanlines",Config::scanlines);

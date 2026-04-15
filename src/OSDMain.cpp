@@ -1273,7 +1273,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             // Show / hide OnScreen Stats
             {
                 uint8_t mode = VIDEO::OSD & 0x03;
-                bool hasFdd = (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) && Tape::tapeStatus != TAPE_LOADING
+                bool hasFdd = (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)
+                                || ((Z80Ops::is48 || Z80Ops::is128) && MB02::enabled))
+                        && Tape::tapeStatus != TAPE_LOADING
 #if !PICO_RP2040
                     && !DivMMC::enabled
 #endif
@@ -1939,14 +1941,15 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                                 fname = zipFname;
                                             }
                                             rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, drv, fname);
-                                            // Invalidate track cache so FDC re-reads from new disk
                                             ESPectrum::mb02_fdd.diskLoadedCyl = -1;
                                             ESPectrum::mb02_fdd.diskLoadedSide = -1;
+                                            Config::save();
                                             return;
                                         }
                                     } else if (opt2 == 2) {
                                         // Eject disk
                                         wdDiskEject(&ESPectrum::mb02_fdd, drv);
+                                        Config::save();
                                         return;
                                     } else {
                                         menu_curopt = mb02_num;
