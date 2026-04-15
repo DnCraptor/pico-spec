@@ -97,6 +97,7 @@ uint8_t  Config::trdosBios = 2; // Default: 5.05D
 uint8_t  Config::esxdos = 0;
 string   Config::esxdos_mmc_image = "";
 string   Config::esxdos_hdf_image[2] = {"", ""};
+uint8_t  Config::mb02 = 0;
 #endif
 
 uint8_t Config::scanlines = 0;
@@ -536,6 +537,7 @@ void Config::load() {
         nvs_get_str("esxdos_mmc", esxdos_mmc_image, sts);
         nvs_get_str("esxdos_hdf", esxdos_hdf_image[0], sts);
         nvs_get_str("esxdos_hd1", esxdos_hdf_image[1], sts);
+        nvs_get_u8("mb02", mb02, sts);
 #endif
         nvs_get_str("SNA_Path", FileUtils::SNA_Path, sts);
         nvs_get_str("TAP_Path", FileUtils::TAP_Path, sts);
@@ -744,6 +746,7 @@ void Config::save() {
     nvs_set_str(buf,"esxdos_mmc", esxdos_mmc_image.c_str());
     nvs_set_str(buf,"esxdos_hdf", esxdos_hdf_image[0].c_str());
     nvs_set_str(buf,"esxdos_hd1", esxdos_hdf_image[1].c_str());
+    nvs_set_u8(buf,"mb02", mb02);
 #endif
     nvs_set_str(buf,"SNA_Path",FileUtils::SNA_Path.c_str());
     nvs_set_str(buf,"TAP_Path",FileUtils::TAP_Path.c_str());

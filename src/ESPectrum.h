@@ -205,6 +205,9 @@ public:
 
     static bool trdos;
     static rvmWD1793 fdd;
+#if !PICO_RP2040
+    static rvmWD1793 mb02_fdd;
+#endif
 
     static int32_t mouseX;
     static int32_t mouseY;

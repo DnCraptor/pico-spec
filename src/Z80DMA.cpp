@@ -12,6 +12,7 @@
 #include <string.h>
 #include "CPU.h"
 #include "Config.h"
+#include "Debug.h"
 #include "MemESP.h"
 #include "Ports.h"
 #include "Video.h"
@@ -59,6 +60,7 @@ bool     Z80DMA::read_sequence_active = false;
 
 // Reentrancy guard
 bool     Z80DMA::dma_in_progress = false;
+bool     Z80DMA::mb02_deferred = false;
 
 // Per-scanline attr shadow buffer
 uint8_t  Z80DMA::dma_attr_shadow[192 * 32];
@@ -413,7 +415,15 @@ void Z80DMA::doContinue() {
 }
 
 void Z80DMA::doEnable() {
+    Debug::log("DMA ENABLE: A=%04X(%s%s) B=%04X(%s%s) len=%d dir=%s",
+               cur_port_a, port_a_is_io?"IO":"MEM", port_a_inc>0?"+":port_a_inc<0?"-":"=",
+               cur_port_b, port_b_is_io?"IO":"MEM", port_b_inc>0?"+":port_b_inc<0?"-":"=",
+               byte_counter, transfer_dir?"A>B":"B>A");
     transfer_active = true;
+    // MB-02+: DMA transfer is deferred — real Z80-DMA waits for READY/DRQ
+    // from FDC before transferring each byte. Don't execute immediately;
+    // MB02 FDC step will call executeTransfer() when data is ready.
+    if (mb02_deferred) return;
     executeTransfer();
 }
 

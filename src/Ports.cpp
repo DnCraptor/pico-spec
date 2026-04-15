@@ -55,6 +55,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Z80DMA.h"
 #if !PICO_RP2040
 #include "DivMMC.h"
+#include "MB02.h"
 #include "hardware/gpio.h"
 #include "sdcard.h"
 #endif
@@ -142,6 +143,17 @@ IRAM_ATTR void Ports::FDDStep(bool force) {
 
   CPU::prev_tstates = p_states;
 }
+
+#if !PICO_RP2040
+IRAM_ATTR static void FDDStep_MB02(bool force) {
+  CPU::tstates_diff += p_states - CPU::prev_tstates;
+  if (force ||
+      ((ESPectrum::mb02_fdd.control & (kRVMWD177XHLD | kRVMWD177XHLT)) != 0))
+    rvmWD1793Step(&ESPectrum::mb02_fdd, CPU::tstates_diff / WD177XSTEPSTATES);
+  CPU::tstates_diff = CPU::tstates_diff % WD177XSTEPSTATES;
+  CPU::prev_tstates = p_states;
+}
+#endif
 
 uint8_t nes_pad2_for_alf(void);
 static uint8_t newAlfBit = 0;
@@ -276,6 +288,41 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     data = 0xff;
 
 #if !PICO_RP2040
+    // MB-02+ ports: FDC (#0F/#2F/#4F/#6F), floppy status (#13)
+    if (MB02::enabled) {
+      uint8_t lo = address & 0xFF;
+      if ((lo & 0x9F) == 0x0F) { // WD2797 registers
+        FDDStep_MB02(true); // force step — WD2797 needs step advancement for Seek/Restore
+        ioContentionLate(MemESP::ramContended[rambank]);
+        uint8_t r = (lo >> 5) & 3;
+        // Dump actual Z80 code at calibration addresses (once)
+        if (r == 0 && Z80::getRegPC() == 0x0210) {
+            static bool code_dumped = false;
+            if (!code_dumped) {
+                code_dumped = true;
+                Debug::log("divmmc_mapped=%d", MemESP::divmmc_mapped?1:0);
+                for (int a = 0x01F0; a < 0x0300; a += 16) {
+                    Debug::log("CODE %04X: %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X %02X",
+                        a, MemESP::readbyte(a), MemESP::readbyte(a+1), MemESP::readbyte(a+2), MemESP::readbyte(a+3),
+                        MemESP::readbyte(a+4), MemESP::readbyte(a+5), MemESP::readbyte(a+6), MemESP::readbyte(a+7),
+                        MemESP::readbyte(a+8), MemESP::readbyte(a+9), MemESP::readbyte(a+10), MemESP::readbyte(a+11),
+                        MemESP::readbyte(a+12), MemESP::readbyte(a+13), MemESP::readbyte(a+14), MemESP::readbyte(a+15));
+                }
+            }
+        }
+        uint8_t val = rvmWD1793Read(&ESPectrum::mb02_fdd, r);
+        { static int fdc_rd_log = 0;
+          if (fdc_rd_log < 80 && (r == 0 || r == 1)) { fdc_rd_log++; Debug::log("FDC RD reg%d=%02X disk_t=%d pc=%04X", r, val, ESPectrum::mb02_fdd.disk[ESPectrum::mb02_fdd.diskS] ? (int)ESPectrum::mb02_fdd.disk[ESPectrum::mb02_fdd.diskS]->t : -1, Z80::getRegPC()); }
+        }
+        return val;
+      }
+      if (lo == 0x13) { // Floppy status
+        FDDStep_MB02(true);
+        ioContentionLate(MemESP::ramContended[rambank]);
+        return MB02::readPort13();
+      }
+    }
+
     if (DivMMC::enabled) {
       uint8_t lo = address & 0xFF;
       if (lo == 0xE3) {
@@ -654,6 +701,46 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
       return;
     }
 #if !PICO_RP2040
+    // MB-02+ ports: FDC (#0F/#2F/#4F/#6F), floppy control (#13), memory paging (#17)
+    if (MB02::enabled) {
+      uint8_t lo = address & 0xFF;
+      if ((lo & 0x9F) == 0x0F) { // WD2797 registers
+        FDDStep_MB02(false);
+        uint8_t reg = (lo >> 5) & 3;
+        // Log FDC writes
+        {
+            static int fdc_log = 0;
+            if (fdc_log < 80) { fdc_log++; Debug::log("FDC WR reg%d=%02X trk=%d sec=%d data=%d side=%d ta=%d pc=%04X", reg, data, ESPectrum::mb02_fdd.track, ESPectrum::mb02_fdd.sector, ESPectrum::mb02_fdd.data, ESPectrum::mb02_fdd.side, Z80DMA::transfer_active?1:0, Z80::getRegPC()); }
+        }
+        rvmWD1793Write(&ESPectrum::mb02_fdd, reg, data);
+        // If command register written and DMA transfer is pending, execute it now.
+        // On real hardware DMA waits for DRQ from FDC; here we run the whole
+        // sector transfer synchronously after the Read/Write Sector command.
+        if (reg == 0 && Z80DMA::mb02_deferred && Z80DMA::transfer_active) {
+            Z80DMA::executeTransfer();
+            static int dma_xfer_log = 0;
+            if (dma_xfer_log < 30) {
+                dma_xfer_log++;
+                uint8_t st = rvmWD1793Read(&ESPectrum::mb02_fdd, 0);
+                Debug::log("DMA DONE #%d cmd=%02X st=%02X trk=%d sec=%d side=%d",
+                    dma_xfer_log, data, st,
+                    ESPectrum::mb02_fdd.track, ESPectrum::mb02_fdd.sector,
+                    ESPectrum::mb02_fdd.side);
+            }
+        }
+        ioContentionLate(MemESP::ramContended[rambank]);
+        return;
+      }
+      if (lo == 0x13) { // Floppy control
+        MB02::writePort13(data);
+        return;
+      }
+      if (lo == 0x17) { // Memory paging
+        MB02::writePort17(data);
+        return;
+      }
+    }
+
     if (DivMMC::enabled) {
       uint8_t lo = address & 0xFF;
       if (lo == 0xE3) {
@@ -888,6 +975,19 @@ IRAM_ATTR void Ports::dmaOutput(uint16_t address, uint8_t data) {
             chips[AySound::selected_chip]->setRegisterData(data);
         }
     }
+#if !PICO_RP2040
+    // MB-02+ FDC: DMA writes to WD2797 data port (#6F)
+    if (MB02::enabled) {
+        uint8_t lo = address & 0xFF;
+        if ((lo & 0x9F) == 0x0F) {
+            for (int i = 0; i < 1000; i++) {
+                rvmWD1793Step(&ESPectrum::mb02_fdd, 1);
+                if (ESPectrum::mb02_fdd.control & kRVMWD177XDRQ) break;
+            }
+            rvmWD1793Write(&ESPectrum::mb02_fdd, (lo >> 5) & 3, data);
+        }
+    }
+#endif
 }
 
 IRAM_ATTR uint8_t Ports::dmaInput(uint16_t address) {
@@ -896,5 +996,19 @@ IRAM_ATTR uint8_t Ports::dmaInput(uint16_t address) {
         // ULA port: keyboard + ear
         return 0xFF; // no keys pressed
     }
+#if !PICO_RP2040
+    // MB-02+ FDC: DMA reads from WD2797 data port (#6F)
+    if (MB02::enabled) {
+        uint8_t lo = address & 0xFF;
+        if ((lo & 0x9F) == 0x0F) {
+            // Step FDC until DRQ is set or timeout
+            for (int i = 0; i < 1000; i++) {
+                rvmWD1793Step(&ESPectrum::mb02_fdd, 1);
+                if (ESPectrum::mb02_fdd.control & kRVMWD177XDRQ) break;
+            }
+            return rvmWD1793Read(&ESPectrum::mb02_fdd, (lo >> 5) & 3);
+        }
+    }
+#endif
     return 0xFF;
 }

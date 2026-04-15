@@ -25,6 +25,11 @@ public:
     static bool     dma_charrow_active[24];
     static void     resetAttrShadow();
 
+    // MB-02+ deferred DMA: trigger pending transfer externally
+    static bool mb02_deferred;
+    static bool transfer_active;
+    static void executeTransfer();
+
 private:
     // Configured state (from WR0-WR5)
     static uint8_t transfer_dir;    // 0=A->B, 1=B->A
@@ -46,7 +51,7 @@ private:
     static uint16_t cur_port_a;
     static uint16_t cur_port_b;
     static uint32_t byte_counter;
-    static bool transfer_active;
+    // transfer_active moved to public (for MB-02 deferred DMA)
     static bool transfer_started;
     static bool block_end;
 
@@ -68,6 +73,8 @@ private:
     // Reentrancy guard
     static bool dma_in_progress;
 
+    // mb02_deferred moved to public
+
     // Internal methods
     static void processCommand(uint8_t data);
     static void processWR0(uint8_t data);
@@ -82,7 +89,7 @@ private:
     static void doContinue();
     static void doEnable();
     static void doDisable();
-    static void executeTransfer();
+    // executeTransfer() moved to public (for MB-02 deferred DMA)
     static void transferOneByte();
     static uint8_t getStatusByte();
 };

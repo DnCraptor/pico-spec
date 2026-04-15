@@ -64,6 +64,7 @@ visit https://zxespectrum.speccy.org/contacto
 extern "C" void graphics_set_scanlines(bool enabled);
 #if !PICO_RP2040
 #include "DivMMC.h"
+#include "MB02.h"
 #endif
 
 #include <malloc.h>
@@ -998,6 +999,20 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         printf("Insert disk %s\n",fname.c_str());
                         rvmWD1793InsertDisk(&ESPectrum::fdd, 0, fname);
                     }
+#if !PICO_RP2040
+                    else if (ext == "mbd") {
+                        printf("Insert MB-02 disk %s\n",fname.c_str());
+                        if (!MB02::enabled) {
+                            Config::mb02 = 1;
+                            MB02::init();
+                        }
+                        if (MB02::enabled) {
+                            rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, 0, fname);
+                            Config::save();
+                            ESPectrum::reset();
+                        }
+                    }
+#endif
                     else
                     {
                         Debug::led_blink();
@@ -1190,6 +1205,19 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         OSD::osdCenteredMsg(OSD_DSK_NEEDS_PENTAGON[Config::lang], LEVEL_WARN);
                     }
                 }
+#if !PICO_RP2040
+                else if (ext == "mbd") {
+                    // MB-02+ disk into Drive A
+                    if (MB02::enabled) {
+                        if (!fromZip) FileUtils::DSK_Path = FileUtils::ALL_Path;
+                        Config::save();
+                        rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, 0, fname);
+                        ESPectrum::reset();
+                    } else {
+                        OSD::osdCenteredMsg("Enable MB-02+ first", LEVEL_WARN);
+                    }
+                }
+#endif
                 else if (ext == "sna" || ext == "z80" || ext == "p") {
                     // Snapshot
                     if (!fromZip) FileUtils::SNA_Path = FileUtils::ALL_Path;
@@ -1862,10 +1890,79 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                             }
                         }
                     }
+                    else if (FileUtils::fsMount && stor_num == 4) { // MB-02+
+                        menu_saverect = true;
+                        menu_curopt = 1;
+                        while(1) {
+                            menu_level = 2;
+                            string mb02menu = "MB-02+\n";
+                            mb02menu += "Drive A\t>\n";
+                            mb02menu += "Drive B\t>\n";
+                            mb02menu += "Drive C\t>\n";
+                            mb02menu += "Drive D\t>\n";
+                            mb02menu += Config::mb02 ? "Enabled\t[*]\n" : "Disabled\t[ ]\n";
+                            uint8_t mb02_num = menuRun(mb02menu);
+                            if (mb02_num > 0 && mb02_num < 5) {
+                                // Drive A-D submenu
+                                string drvmenu = "Drive ";
+                                drvmenu += char('A' + mb02_num - 1);
+                                drvmenu += "\nInsert disk\t>\nEject disk\n";
+                                menu_saverect = true;
+                                menu_curopt = 1;
+                                while (1) {
+                                    menu_level = 3;
+                                    uint8_t opt2 = menuRun(drvmenu);
+                                    if (opt2 == 1) {
+                                        // Insert disk
+                                        menu_saverect = true;
+                                        string mFile = fileDialog(FileUtils::DSK_Path, "MB-02+ Disk", DISK_DSKFILE, 26, 15);
+                                        if (mFile != "") {
+                                            mFile.erase(0, 1);
+                                            string fname = FileUtils::DSK_Path + "/" + mFile;
+                                            if (FileUtils::getLCaseExt(fname) == "zip") {
+                                                string zipFname = ZipExtract::extract(fname, DISK_DSKFILE);
+                                                if (zipFname.empty()) { OSD::osdCenteredMsg(OSD_ZIP_ERR[Config::lang], LEVEL_WARN); break; }
+                                                if (zipFname == "\x1b") break;
+                                                fname = zipFname;
+                                            }
+                                            rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, mb02_num - 1, fname);
+                                            ESPectrum::reset();
+                                            return;
+                                        }
+                                    } else if (opt2 == 2) {
+                                        // Eject disk
+                                        wdDiskEject(&ESPectrum::mb02_fdd, mb02_num - 1);
+                                        return;
+                                    } else {
+                                        menu_curopt = mb02_num;
+                                        break;
+                                    }
+                                }
+                            }
+                            else if (mb02_num == 5) {
+                                // Enable/Disable toggle
+                                uint8_t newval = Config::mb02 ? 0 : 1;
+                                Config::mb02 = newval;
+                                MB02::init();
+                                if (Config::mb02 && !MB02::enabled) {
+                                    OSD::osdCenteredMsg("MB-02+: not enough PSRAM", LEVEL_ERROR, 2000);
+                                    Config::mb02 = 0;
+                                }
+                                Config::save();
+                                ESPectrum::reset();
+                                return;
+                            }
+                            else {
+                                menu_curopt = 4;
+                                menu_level = 1;
+                                break;
+                            }
+                        }
+                    }
 #endif
                     else if (FileUtils::fsMount &&
 #if !PICO_RP2040
-                        stor_num == 4
+                        stor_num == 5
 #else
                         stor_num == 3
 #endif

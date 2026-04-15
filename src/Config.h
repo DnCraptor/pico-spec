@@ -204,6 +204,7 @@ public:
     static uint8_t esxdos;   // 0=OFF 1=DivMMC 2=DivIDE 3=DivSD
     static string esxdos_mmc_image; // Full path to .mmc image (empty = /esxdos.mmc)
     static string esxdos_hdf_image[2]; // HDF images: [0]=master/hd0, [1]=slave/hd1
+    static uint8_t mb02;     // 0=OFF 1=ON (MB-02+ disk interface, mutually exclusive with TR-DOS/DivMMC)
 #endif
     
     static signed char aud_volume;

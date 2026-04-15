@@ -64,6 +64,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Debug.h"
 #if !PICO_RP2040
 #include "DivMMC.h"
+#include "MB02.h"
 #endif
 #include "Midi.h"
 #include "MidiSynth.h"
@@ -232,6 +233,9 @@ int ESPectrum::TapeNameScroller = 0;
 
 bool ESPectrum::trdos = false;
 rvmWD1793 ESPectrum::fdd;
+#if !PICO_RP2040
+rvmWD1793 ESPectrum::mb02_fdd;
+#endif
 
 /// @brief  Mouse support
 int32_t ESPectrum::mouseX = 0;
@@ -768,6 +772,8 @@ void ESPectrum::setup() {
 #if !PICO_RP2040
   // Always init DivMMC (load ROM) so it's ready if user enables from OSD later
   DivMMC::init();
+  // MB-02+ disk interface (allocates SRAM in butter PSRAM after DivMMC)
+  MB02::init();
 #endif
 
   //=======================================================================================
@@ -993,6 +999,9 @@ void ESPectrum::reset(uint8_t romInUse) {
 
   // Init disk controller
   rvmWD1793Reset(&fdd);
+#if !PICO_RP2040
+  if (MB02::enabled) MB02::reset();
+#endif
 
   Tape::tapeFileName = "none";
   if (Tape::tape.obj.fs != NULL) {
