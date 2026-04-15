@@ -1004,6 +1004,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         printf("Insert MB-02 disk %s\n",fname.c_str());
                         if (MB02::enabled) {
                             rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, 0, fname);
+                            ESPectrum::mb02_fdd.diskLoadedCyl = -1;
+                            ESPectrum::mb02_fdd.diskLoadedSide = -1;
                         } else {
                             OSD::osdCenteredMsg("Enable MB-02+ first", LEVEL_WARN);
                         }
@@ -1208,6 +1210,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         if (!fromZip) FileUtils::DSK_Path = FileUtils::ALL_Path;
                         Config::save();
                         rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, 0, fname);
+                        ESPectrum::mb02_fdd.diskLoadedCyl = -1;
+                        ESPectrum::mb02_fdd.diskLoadedSide = -1;
                     } else {
                         OSD::osdCenteredMsg("Enable MB-02+ first", LEVEL_WARN);
                     }
@@ -1935,6 +1939,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                                 fname = zipFname;
                                             }
                                             rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, drv, fname);
+                                            // Invalidate track cache so FDC re-reads from new disk
+                                            ESPectrum::mb02_fdd.diskLoadedCyl = -1;
+                                            ESPectrum::mb02_fdd.diskLoadedSide = -1;
                                             return;
                                         }
                                     } else if (opt2 == 2) {

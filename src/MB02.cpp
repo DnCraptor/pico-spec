@@ -28,6 +28,10 @@ void MB02::init() {
     MemESP::mb02_write_gate = true; // restore default (allow all writes)
     Z80DMA::mb02_deferred = false;
 
+    // Unmap SRAM/EPROM when disabling
+    MemESP::divmmc_mapped = false;
+    MemESP::recoverPage0();
+
     if (!Config::mb02) return;
 
     // Calculate PSRAM allocation after Spectrum pages and DivMMC

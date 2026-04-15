@@ -1798,6 +1798,15 @@ void ESPectrum::loop() {
           snprintf(OSD::stats_lin1, sizeof(OSD::stats_lin1),
                    "TST: %05d / IDL: %05d ", CPU::tstates_active,
                    (int)(ESPectrum::idle));
+
+#if !PICO_RP2040
+          if (MB02::enabled) {
+            snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2),
+                     "MB02 TR:#%02X/SEC:#%02X/S:%d ",
+                     ESPectrum::mb02_fdd.track, ESPectrum::mb02_fdd.sector,
+                     ESPectrum::mb02_fdd.side);
+          } else
+#endif
           snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2),
                    "ST:%-6sTR:#%02X/SEC:#%02X ",
                    rvmWD1793StepStateName(&ESPectrum::fdd).c_str(),
@@ -1823,6 +1832,15 @@ void ESPectrum::loop() {
         && !DivMMC::enabled
 #endif
         ;
+#if !PICO_RP2040
+    if (MB02::enabled) {
+        if (ESPectrum::mb02_fdd.led) {
+            VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(mb02_fdd.led == 2 ? 2 : 1, 1));
+        } else {
+            VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(VIDEO::borderColor, 0));
+        }
+    } else
+#endif
     if (hasFdd && Config::trdosSoundLed) {
         if (ESPectrum::fdd.led) {
             VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(fdd.led == 2 ? 2 : 1, 1));
