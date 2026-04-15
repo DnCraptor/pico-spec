@@ -181,9 +181,8 @@ void MB02::writePort17(uint8_t data) {
 void MB02::writePort13(uint8_t data) {
     floppy_reg = data;
 
-    // Drive select and motor control register
-    // The /ACTIVE and /MOTOR signals are active-low on the FDD cable,
-    // but the register value is active-HIGH (1 = drive/motor selected)
+    // Port #13 OUT — register is active-HIGH (1 = drive/motor selected)
+    // (hardware inverts to active-low FDD cable signals)
     // Bit 0: ACTIVE_A, Bit 2: ACTIVE_B, Bit 4: ACTIVE_C, Bit 6: ACTIVE_D
     uint8_t drive = ESPectrum::mb02_fdd.diskS; // keep current if none selected
     if (data & 0x01) drive = 0;
@@ -199,44 +198,41 @@ void MB02::writePort13(uint8_t data) {
             ESPectrum::mb02_fdd.side = 0;
     }
 
-    // Motor state: Bit 1: MOTOR_A, Bit 3: MOTOR_B, Bit 5: MOTOR_C, Bit 7: MOTOR_D
+    // Motor state: Bit 1: MOTOR_A, Bit 3: MOTOR_B (active-high: 1 = on)
     motor_state = 0;
-    if (data & 0x02) motor_state |= 0x01; // motor A on
-    if (data & 0x08) motor_state |= 0x02; // motor B on
-    if (data & 0x20) motor_state |= 0x04; // motor C on
-    if (data & 0x80) motor_state |= 0x08; // motor D on
+    if (data & 0x02) motor_state |= 0x01;
+    if (data & 0x08) motor_state |= 0x02;
+    if (data & 0x20) motor_state |= 0x04;
+    if (data & 0x80) motor_state |= 0x08;
 
-    // Don't clear Power flags via motor control — Power means "disk present",
-    // set by InsertDisk. Clearing it causes FDC to return NotReady status
-    // and lose Head Loaded state (BS-DOS interrupt handler writes 0x00 to
-    // deselect drives temporarily, which must not kill Power flags).
-    for (int i = 0; i < 4; i++) {
-        if (motor_state & (1 << i))
-            ESPectrum::mb02_fdd.control |= kRVMWD177XPower0 << i;
-    }
+    // Power flags are set by InsertDisk and must persist regardless of motor state.
+    // Don't modify Power flags here at all — motor on/off is cosmetic in emulation.
 }
 
 uint8_t MB02::readPort13() {
-    // Hardware documentation says signals are active-low on the bus,
-    // but the register reflects actual logic levels for software:
-    // 0 = inactive, 1 = active
+    // Port #13 IN — documentation says active-low on FDD bus, but the
+    // register inverts signals so software sees active-HIGH:
+    // 1 = signal active, 0 = signal inactive
     uint8_t result = 0;
 
-    // Bit 0: DRQ
+    // Bit 0: DRQ (1 = active)
     if (ESPectrum::mb02_fdd.control & kRVMWD177XDRQ)
         result |= 0x01;
 
-    // Bit 1: DISK CHANGE — not emulated, always 0
-    // result |= 0x02;
+    // Bit 1: DISK CHANGE (1 = disk was changed/inserted)
+    // Set to 0 = no change (disk stable) — BS-DOS uses this for drive detection
+    // BS-DOS aktive routine: RET C when /DISK_CHANGE(bit1)=1 in active-low terms
+    // which is bit1=1 in register = no change → drive ready, proceed
+    result |= 0x02; // no disk change = drive stable
 
-    // Bit 2: INTRQ
+    // Bit 2: INTRQ (1 = active)
     if (ESPectrum::mb02_fdd.control & (kRVMWD177XINTRQ | kRVMWD177XFINTRQ))
         result |= 0x04;
 
-    // Bit 3: HDIN (head density input) — 1 = HD
+    // Bit 3: HDIN (1 = HD)
     result |= 0x08;
 
-    // Bits 4-7: MOTOR_ACTIVE A-D (1 = motor running)
+    // Bits 4-7: MOTOR ACTIVE A-D (1 = motor running)
     if (motor_state & 0x01) result |= 0x10;
     if (motor_state & 0x02) result |= 0x20;
     if (motor_state & 0x04) result |= 0x40;

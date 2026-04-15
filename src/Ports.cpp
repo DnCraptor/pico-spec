@@ -1001,10 +1001,19 @@ IRAM_ATTR uint8_t Ports::dmaInput(uint16_t address) {
     if (MB02::enabled) {
         uint8_t lo = address & 0xFF;
         if ((lo & 0x9F) == 0x0F) {
-            // Step FDC until DRQ is set or timeout
+            // Step FDC until DRQ is set or timeout/command complete
+            bool got_drq = false;
             for (int i = 0; i < 1000; i++) {
                 rvmWD1793Step(&ESPectrum::mb02_fdd, 1);
-                if (ESPectrum::mb02_fdd.control & kRVMWD177XDRQ) break;
+                if (ESPectrum::mb02_fdd.control & kRVMWD177XDRQ) { got_drq = true; break; }
+                // If FDC command completed (INTRQ set, not busy) → no more data
+                if ((ESPectrum::mb02_fdd.control & kRVMWD177XINTRQ) &&
+                    !(ESPectrum::mb02_fdd.status & kRVMWD177XStatusBusy)) break;
+            }
+            if (!got_drq) {
+                // No more data — abort DMA transfer
+                Z80DMA::transfer_active = false;
+                return 0xFF;
             }
             return rvmWD1793Read(&ESPectrum::mb02_fdd, (lo >> 5) & 3);
         }
