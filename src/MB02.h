@@ -18,25 +18,33 @@
 
 class MB02 {
 public:
-    static bool enabled;           // Config: MB-02 active
+    static bool enabled;           // Runtime: MB-02 active
     static uint8_t paging_reg;     // Last value written to port #17
     static uint8_t floppy_reg;     // Last value written to port #13
-    static uint8_t* sram_base;     // Base pointer in butter PSRAM (512KB)
     static bool write_enabled;     // Derived from bit 5 of paging_reg
 
-    static void init();            // Allocate SRAM, set up EPROM
-    static void reset();           // Reset to boot state (EPROM mapped)
-    static void applyMapping();    // Update page0_lo/page0_hi from paging_reg
+    static void init();
+    static void reset();
+    static void applyMapping();
 
     // Port handlers
-    static void writePort17(uint8_t data);   // Memory paging register
-    static void writePort13(uint8_t data);   // Floppy control (drive/motor select)
-    static uint8_t readPort13();             // Floppy status (DRQ, INTRQ, motors)
+    static void writePort17(uint8_t data);
+    static void writePort13(uint8_t data);
+    static uint8_t readPort13();
+
+    // Signal disk change to BS-DOS after hot-swap
+    static void signalDiskChange();
 
 private:
-    // Composite 8K buffer for EPROM mode (2K EPROM + 6K ROM)
-    static uint8_t page0_composite[0x2000];
-    static uint8_t motor_state;    // Motor on/off state per drive
+    static uint8_t page0_composite[0x2000]; // EPROM mode composite buffer
+    static uint8_t motor_state;
+    static bool disk_changed;      // temporary flag for disk change signal
+
+    // SRAM pages use MemESP::ram[ram_base_idx + page] descriptors
+    // These are already allocated by ESPectrum::setup() (heap/PSRAM/swap)
+    static int ram_base_idx;       // base index in MemESP::ram[] for MB-02 pages
+
+    static uint8_t* getPage(uint8_t page_idx);
 };
 
 #endif // !PICO_RP2040

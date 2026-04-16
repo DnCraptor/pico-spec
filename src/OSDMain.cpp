@@ -1006,6 +1006,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                             rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, 0, fname);
                             ESPectrum::mb02_fdd.diskLoadedCyl = -1;
                             ESPectrum::mb02_fdd.diskLoadedSide = -1;
+                            MB02::signalDiskChange();
                         } else {
                             OSD::osdCenteredMsg("Enable MB-02+ first", LEVEL_WARN);
                         }
@@ -1212,6 +1213,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, 0, fname);
                         ESPectrum::mb02_fdd.diskLoadedCyl = -1;
                         ESPectrum::mb02_fdd.diskLoadedSide = -1;
+                        MB02::signalDiskChange();
                     } else {
                         OSD::osdCenteredMsg("Enable MB-02+ first", LEVEL_WARN);
                     }
@@ -1871,8 +1873,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                             if (opt2) {
                                 uint8_t newval = opt2 - 1;
                                 if (newval != Config::esxdos) {
+                                    // esxDOS On → MB02 off
+                                    if (newval && Config::mb02) {
+                                        Config::mb02 = 0;
+                                        MB02::init();
+                                        OSD::osdCenteredMsg("MB-02+ disabled", LEVEL_WARN, 2000);
+                                    }
                                     Config::esxdos = newval;
-                                    DivMMC::init(); // handles enable/disable, mode switch, cleanup
+                                    DivMMC::init();
                                     if (DivMMC::enabled && !DivMMC::rom_loaded) {
                                         OSD::osdCenteredMsg("ESXDOS ROM not found", LEVEL_ERROR, 2000);
                                         Config::esxdos = 0;
@@ -1907,9 +1915,15 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 // Mode toggle (Enable/Disable)
                                 uint8_t newval = Config::mb02 ? 0 : 1;
                                 Config::mb02 = newval;
+                                // MB02 On → esxDOS off
+                                if (Config::mb02 && Config::esxdos) {
+                                    Config::esxdos = 0;
+                                    DivMMC::init();
+                                    OSD::osdCenteredMsg("esxDOS disabled", LEVEL_WARN, 2000);
+                                }
                                 MB02::init();
                                 if (Config::mb02 && !MB02::enabled) {
-                                    OSD::osdCenteredMsg("MB-02+: not enough PSRAM", LEVEL_ERROR, 2000);
+                                    OSD::osdCenteredMsg("MB-02+: not enough memory", LEVEL_ERROR, 2000);
                                     Config::mb02 = 0;
                                 }
                                 Config::save();
@@ -1943,12 +1957,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                             rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, drv, fname);
                                             ESPectrum::mb02_fdd.diskLoadedCyl = -1;
                                             ESPectrum::mb02_fdd.diskLoadedSide = -1;
+                                            MB02::signalDiskChange();
                                             Config::save();
                                             return;
                                         }
                                     } else if (opt2 == 2) {
                                         // Eject disk
                                         wdDiskEject(&ESPectrum::mb02_fdd, drv);
+                                        MB02::signalDiskChange();
                                         Config::save();
                                         return;
                                     } else {
@@ -3148,6 +3164,22 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         Config::arch = arch;
                                     }
                                 }
+                                // Mutual exclusivity
+#if !PICO_RP2040
+                                bool isByte = (romset == "48Kby" || romset == "128Kby");
+                                if (Config::mb02 && (arch == "Pentagon" || arch == "P512" || arch == "P1024" ||
+                                    isByte)) {
+                                    Config::mb02 = 0;
+                                    MB02::init();
+                                    OSD::osdCenteredMsg("MB-02+ disabled", LEVEL_WARN, 2000);
+                                }
+                                if (Config::timex_video && isByte) {
+                                    Config::timex_video = false;
+                                    VIDEO::timex_port_ff = 0;
+                                    VIDEO::timex_mode = 0;
+                                    OSD::osdCenteredMsg("Timex disabled", LEVEL_WARN, 2000);
+                                }
+#endif
                                 Config::save();
                                 Config::requestMachine(arch, romset);
                             }
