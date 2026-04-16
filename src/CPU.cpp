@@ -320,6 +320,10 @@ IRAM_ATTR uint8_t Z80Ops::fetchOpcode() {
         DivMMC::postOpcFetch();
         return opCode;
     }
+    // MB-02+: page0 mapped but DivMMC not active — check divmmc_mapped for fetch
+    if (pg == 0 && MemESP::divmmc_mapped) {
+        return (pc < 0x2000) ? MemESP::page0_lo[pc] : MemESP::page0_hi[pc & 0x1FFF];
+    }
 #endif
     return MemESP::ramCurrent[pg][pc & 0x3fff];
 }

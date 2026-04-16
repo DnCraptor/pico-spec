@@ -369,12 +369,14 @@ static const char *MENU_TAPEPLAYER2[2] = { "Input (P" _PIN_XSTR(LOAD_WAV_PIO) ")
     "Tape\t>\n"\
     "Betadisk\t>\n"\
     "esxDOS\t>\n"\
+    "MB-02+\t>\n"\
     "Snapshot\t>\n"
 #define MENU_STORAGE_MAIN_ES \
     "Almacenamiento\n"\
     "Casete\t>\n"\
     "Betadisk\t>\n"\
     "esxDOS\t>\n"\
+    "MB-02+\t>\n"\
     "Snapshots\t>\n"
 static const char *MENU_STORAGE_MAIN[2] = { MENU_STORAGE_MAIN_EN, MENU_STORAGE_MAIN_ES };
 #else

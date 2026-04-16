@@ -64,6 +64,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Debug.h"
 #if !PICO_RP2040
 #include "DivMMC.h"
+#include "MB02.h"
 #endif
 #include "Midi.h"
 #include "MidiSynth.h"
@@ -232,6 +233,9 @@ int ESPectrum::TapeNameScroller = 0;
 
 bool ESPectrum::trdos = false;
 rvmWD1793 ESPectrum::fdd;
+#if !PICO_RP2040
+rvmWD1793 ESPectrum::mb02_fdd;
+#endif
 
 /// @brief  Mouse support
 int32_t ESPectrum::mouseX = 0;
@@ -768,6 +772,8 @@ void ESPectrum::setup() {
 #if !PICO_RP2040
   // Always init DivMMC (load ROM) so it's ready if user enables from OSD later
   DivMMC::init();
+  // MB-02+ disk interface (allocates SRAM in butter PSRAM after DivMMC)
+  MB02::init();
 #endif
 
   //=======================================================================================
@@ -922,6 +928,14 @@ void ESPectrum::setup() {
   }
   Debug::log("setup: Config::load2 done");
 
+#if !PICO_RP2040
+  // Re-reset MB-02 after load2 so boot EPROM starts with disks already inserted
+  if (MB02::enabled && mb02_fdd.disk[0]) {
+    MB02::reset();
+    Z80::reset();
+  }
+#endif
+
   // Load snapshot if present in Config::
   Debug::log("setup: ram_file='%s'", Config::ram_file.c_str());
   if (Config::ram_file != NO_RAM_FILE) {
@@ -993,6 +1007,9 @@ void ESPectrum::reset(uint8_t romInUse) {
 
   // Init disk controller
   rvmWD1793Reset(&fdd);
+#if !PICO_RP2040
+  if (MB02::enabled) MB02::reset();
+#endif
 
   Tape::tapeFileName = "none";
   if (Tape::tape.obj.fs != NULL) {
@@ -1789,11 +1806,23 @@ void ESPectrum::loop() {
           snprintf(OSD::stats_lin1, sizeof(OSD::stats_lin1),
                    "TST: %05d / IDL: %05d ", CPU::tstates_active,
                    (int)(ESPectrum::idle));
-          snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2),
-                   "ST:%-6sTR:#%02X/SEC:#%02X ",
-                   rvmWD1793StepStateName(&ESPectrum::fdd).c_str(),
-                   ESPectrum::fdd.track, ESPectrum::fdd.sector);
-          OSD::drawStats();
+
+#if !PICO_RP2040
+          if (MB02::enabled) {
+            snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2),
+                     "MB02 TR:#%02X/SEC:#%02X/S:%d ",
+                     ESPectrum::mb02_fdd.track, ESPectrum::mb02_fdd.sector,
+                     ESPectrum::mb02_fdd.side);
+            OSD::drawStats();
+          } else
+#endif
+          {
+            snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2),
+                    "ST:%-6sTR:#%02X/SEC:#%02X ",
+                    rvmWD1793StepStateName(&ESPectrum::fdd).c_str(),
+                    ESPectrum::fdd.track, ESPectrum::fdd.sector);
+            OSD::drawStats();
+          }
         }
         totalseconds = 0;
         totalsecondsnodelay = 0;
@@ -1814,6 +1843,15 @@ void ESPectrum::loop() {
         && !DivMMC::enabled
 #endif
         ;
+#if !PICO_RP2040
+    if (MB02::enabled) {
+        if (ESPectrum::mb02_fdd.led) {
+            VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(mb02_fdd.led == 2 ? 2 : 1, 1));
+        } else {
+            VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(VIDEO::borderColor, 0));
+        }
+    } else
+#endif
     if (hasFdd && Config::trdosSoundLed) {
         if (ESPectrum::fdd.led) {
             VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(fdd.led == 2 ? 2 : 1, 1));

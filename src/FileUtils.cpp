@@ -80,10 +80,10 @@ DISK_FTYPE FileUtils::fileTypes[6] = {
 #else
     {".sna,.SNA,.z80,.Z80,.p,.P,.zip,.ZIP",2,2,0,""},
     {".tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3,.zip,.ZIP",2,2,0,""},
-    {".trd,.TRD,.scl,.SCL,.udi,.UDI,.fdi,.FDI,.zip,.ZIP",2,2,0,""},
+    {".trd,.TRD,.scl,.SCL,.udi,.UDI,.fdi,.FDI,.mbd,.MBD,.zip,.ZIP",2,2,0,""},
     {".rom,.ROM,.bin,.BIN",2,2,0,""},
     {".mmc,.MMC,.hdf,.HDF,.zip,.ZIP",2,2,0,""},
-    {".sna,.SNA,.z80,.Z80,.p,.P,.tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3,.trd,.TRD,.scl,.SCL,.udi,.UDI,.fdi,.FDI,.mmc,.MMC,.hdf,.HDF,.zip,.ZIP",2,2,0,""}
+    {".sna,.SNA,.z80,.Z80,.p,.P,.tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3,.trd,.TRD,.scl,.SCL,.udi,.UDI,.fdi,.FDI,.mbd,.MBD,.mmc,.MMC,.hdf,.HDF,.zip,.ZIP",2,2,0,""}
 #endif
 };
 

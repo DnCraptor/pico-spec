@@ -176,11 +176,12 @@ public:
     static uint8_t romInUse;
 
 #if !PICO_RP2040
-    static uint8_t* page0_lo;      // 0x0000-0x1FFF when DivMMC mapped
-    static uint8_t* page0_hi;      // 0x2000-0x3FFF when DivMMC mapped
-    static bool divmmc_mapped;     // DivMMC memory currently visible at page 0
+    static uint8_t* page0_lo;      // 0x0000-0x1FFF when DivMMC/MB02 mapped
+    static uint8_t* page0_hi;      // 0x2000-0x3FFF when DivMMC/MB02 mapped
+    static bool divmmc_mapped;     // DivMMC/MB02 memory currently visible at page 0
     static bool* divmmc_hi_dirty;  // swap mode: points to slot_dirty[] for page0_hi slot
     static bool* divmmc_lo_dirty;  // swap mode: points to slot_dirty[] for page0_lo slot
+    static bool mb02_write_gate;   // MB-02: true = SRAM writable, false = read-only
 #endif
 
     static uint8_t readbyte(uint16_t addr);
@@ -244,10 +245,12 @@ inline void MemESP::writebyte(uint16_t addr, uint8_t data)
                 page0_lo[addr] = data;
                 *divmmc_lo_dirty = true;
             } else if (page0_lo >= (uint8_t*)0x11000000) {
+                if (!mb02_write_gate) return; // MB-02 write protect
                 page0_lo[addr] = data;
             }
         } else {
             // 0x2000-0x3FFF: always RAM bank, writable
+            if (page0_hi >= (uint8_t*)0x11000000 && !mb02_write_gate) return;
             page0_hi[addr & 0x1FFF] = data;
             if (divmmc_hi_dirty) *divmmc_hi_dirty = true;
         }

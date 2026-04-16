@@ -64,6 +64,7 @@ visit https://zxespectrum.speccy.org/contacto
 extern "C" void graphics_set_scanlines(bool enabled);
 #if !PICO_RP2040
 #include "DivMMC.h"
+#include "MB02.h"
 #endif
 
 #include <malloc.h>
@@ -999,6 +1000,19 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         printf("Insert disk %s\n",fname.c_str());
                         rvmWD1793InsertDisk(&ESPectrum::fdd, 0, fname);
                     }
+#if !PICO_RP2040
+                    else if (ext == "mbd") {
+                        printf("Insert MB-02 disk %s\n",fname.c_str());
+                        if (MB02::enabled) {
+                            rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, 0, fname);
+                            ESPectrum::mb02_fdd.diskLoadedCyl = -1;
+                            ESPectrum::mb02_fdd.diskLoadedSide = -1;
+                            MB02::signalDiskChange();
+                        } else {
+                            OSD::osdCenteredMsg("Enable MB-02+ first", LEVEL_WARN);
+                        }
+                    }
+#endif
                     else
                     {
                         Debug::led_blink();
@@ -1191,6 +1205,21 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         OSD::osdCenteredMsg(OSD_DSK_NEEDS_PENTAGON[Config::lang], LEVEL_WARN);
                     }
                 }
+#if !PICO_RP2040
+                else if (ext == "mbd") {
+                    // MB-02+ disk into Drive A (no reset — user enables mode separately)
+                    if (MB02::enabled) {
+                        if (!fromZip) FileUtils::DSK_Path = FileUtils::ALL_Path;
+                        Config::save();
+                        rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, 0, fname);
+                        ESPectrum::mb02_fdd.diskLoadedCyl = -1;
+                        ESPectrum::mb02_fdd.diskLoadedSide = -1;
+                        MB02::signalDiskChange();
+                    } else {
+                        OSD::osdCenteredMsg("Enable MB-02+ first", LEVEL_WARN);
+                    }
+                }
+#endif
                 else if (ext == "sna" || ext == "z80" || ext == "p") {
                     // Snapshot
                     if (!fromZip) FileUtils::SNA_Path = FileUtils::ALL_Path;
@@ -1247,7 +1276,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             // Show / hide OnScreen Stats
             {
                 uint8_t mode = VIDEO::OSD & 0x03;
-                bool hasFdd = (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) && Tape::tapeStatus != TAPE_LOADING
+                bool hasFdd = (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)
+                                || ((Z80Ops::is48 || Z80Ops::is128) && MB02::enabled))
+                        && Tape::tapeStatus != TAPE_LOADING
 #if !PICO_RP2040
                     && !DivMMC::enabled
 #endif
@@ -1843,8 +1874,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                             if (opt2) {
                                 uint8_t newval = opt2 - 1;
                                 if (newval != Config::esxdos) {
+                                    // esxDOS On → MB02 off
+                                    if (newval && Config::mb02) {
+                                        Config::mb02 = 0;
+                                        MB02::init();
+                                        OSD::osdCenteredMsg("MB-02+ disabled", LEVEL_WARN, 2000);
+                                    }
                                     Config::esxdos = newval;
-                                    DivMMC::init(); // handles enable/disable, mode switch, cleanup
+                                    DivMMC::init();
                                     if (DivMMC::enabled && !DivMMC::rom_loaded) {
                                         OSD::osdCenteredMsg("ESXDOS ROM not found", LEVEL_ERROR, 2000);
                                         Config::esxdos = 0;
@@ -1863,10 +1900,91 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                             }
                         }
                     }
+                    else if (FileUtils::fsMount && stor_num == 4) { // MB-02+
+                        menu_saverect = true;
+                        menu_curopt = 1;
+                        while(1) {
+                            menu_level = 2;
+                            string mb02menu = "MB-02+\n";
+                            mb02menu += Config::mb02 ? "Mode\tOn\n" : "Mode\tOff\n";
+                            mb02menu += "Drive A\t>\n";
+                            mb02menu += "Drive B\t>\n";
+                            mb02menu += "Drive C\t>\n";
+                            mb02menu += "Drive D\t>\n";
+                            uint8_t mb02_num = menuRun(mb02menu);
+                            if (mb02_num == 1) {
+                                // Mode toggle (Enable/Disable)
+                                uint8_t newval = Config::mb02 ? 0 : 1;
+                                Config::mb02 = newval;
+                                // MB02 On → esxDOS off
+                                if (Config::mb02 && Config::esxdos) {
+                                    Config::esxdos = 0;
+                                    DivMMC::init();
+                                    OSD::osdCenteredMsg("esxDOS disabled", LEVEL_WARN, 2000);
+                                }
+                                MB02::init();
+                                if (Config::mb02 && !MB02::enabled) {
+                                    OSD::osdCenteredMsg("MB-02+: not enough memory", LEVEL_ERROR, 2000);
+                                    Config::mb02 = 0;
+                                }
+                                Config::save();
+                                ESPectrum::reset();
+                                return;
+                            }
+                            else if (mb02_num >= 2 && mb02_num <= 5) {
+                                // Drive A-D submenu
+                                uint8_t drv = mb02_num - 2;
+                                string drvmenu = "Drive ";
+                                drvmenu += char('A' + drv);
+                                drvmenu += "\nInsert disk\t>\nEject disk\n";
+                                menu_saverect = true;
+                                menu_curopt = 1;
+                                while (1) {
+                                    menu_level = 3;
+                                    uint8_t opt2 = menuRun(drvmenu);
+                                    if (opt2 == 1) {
+                                        // Insert disk (no reset)
+                                        menu_saverect = true;
+                                        string mFile = fileDialog(FileUtils::DSK_Path, "MB-02+ Disk", DISK_DSKFILE, 26, 15);
+                                        if (mFile != "") {
+                                            mFile.erase(0, 1);
+                                            string fname = FileUtils::DSK_Path + "/" + mFile;
+                                            if (FileUtils::getLCaseExt(fname) == "zip") {
+                                                string zipFname = ZipExtract::extract(fname, DISK_DSKFILE);
+                                                if (zipFname.empty()) { OSD::osdCenteredMsg(OSD_ZIP_ERR[Config::lang], LEVEL_WARN); break; }
+                                                if (zipFname == "\x1b") break;
+                                                fname = zipFname;
+                                            }
+                                            rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, drv, fname);
+                                            ESPectrum::mb02_fdd.diskLoadedCyl = -1;
+                                            ESPectrum::mb02_fdd.diskLoadedSide = -1;
+                                            MB02::signalDiskChange();
+                                            Config::save();
+                                            return;
+                                        }
+                                    } else if (opt2 == 2) {
+                                        // Eject disk
+                                        wdDiskEject(&ESPectrum::mb02_fdd, drv);
+                                        MB02::signalDiskChange();
+                                        Config::save();
+                                        return;
+                                    } else {
+                                        menu_curopt = mb02_num;
+                                        break;
+                                    }
+                                }
+                            }
+                            else {
+                                menu_curopt = 4;
+                                menu_level = 1;
+                                break;
+                            }
+                        }
+                    }
 #endif
                     else if (FileUtils::fsMount &&
 #if !PICO_RP2040
-                        stor_num == 4
+                        stor_num == 5
 #else
                         stor_num == 3
 #endif
@@ -3047,6 +3165,22 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         Config::arch = arch;
                                     }
                                 }
+                                // Mutual exclusivity
+#if !PICO_RP2040
+                                bool isByte = (romset == "48Kby" || romset == "128Kby");
+                                if (Config::mb02 && (arch == "Pentagon" || arch == "P512" || arch == "P1024" ||
+                                    isByte)) {
+                                    Config::mb02 = 0;
+                                    MB02::init();
+                                    OSD::osdCenteredMsg("MB-02+ disabled", LEVEL_WARN, 2000);
+                                }
+                                if (Config::timex_video && isByte) {
+                                    Config::timex_video = false;
+                                    VIDEO::timex_port_ff = 0;
+                                    VIDEO::timex_mode = 0;
+                                    OSD::osdCenteredMsg("Timex disabled", LEVEL_WARN, 2000);
+                                }
+#endif
                                 Config::save();
                                 Config::requestMachine(arch, romset);
                             }
@@ -7344,6 +7478,24 @@ void OSD::EmulatorInfo() {
                 pos += snprintf(buf + pos, sizeof(buf) - pos, " TR-DOS         : Off\n");
             }
         }
+
+#if !PICO_RP2040
+        // MB-02+
+        if (MB02::enabled) {
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " MB-02+         : On\n");
+            static const char drive_letter[] = "ABCD";
+            for (int i = 0; i < 4; i++) {
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "  %c:            : ", drive_letter[i]);
+                if (ESPectrum::mb02_fdd.disk[i] && !ESPectrum::mb02_fdd.disk[i]->fname.empty())
+                    pos += appendFilename(buf, pos, sizeof(buf), ESPectrum::mb02_fdd.disk[i]->fname, 19);
+                else
+                    pos += snprintf(buf + pos, sizeof(buf) - pos, "(empty)");
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "\n");
+            }
+        } else if (Config::mb02) {
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " MB-02+         : No PSRAM\n");
+        }
+#endif
 
 #if !PICO_RP2040
         // DMA
