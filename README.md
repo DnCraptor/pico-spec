@@ -52,6 +52,7 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - PS/2 Joystick emulation (Cursor, Sinclair, Kempston and Fuller).
 - Two real joysticks support (Up to 8 button joysticks).
 - Emulation of Betadisk interface with four drives and TRD, SCL, UDI and FDI (read and write) support. Fast and realtime modes.
+- MB-02+ disk interface emulation: WD2797 FDC, Z80-DMA, 512KB SRAM paging, BS-DOS 308, MBD disk images, 4 drives, NMI menu (RP2350 only).
 - esxDOS support (DivMMC, DivIDE, DivSD) — [esxdos.org](https://esxdos.org/index.html).
 - FDD activity LED indicator and mechanical head click/seek sound emulation (optional, toggled via Betadisk menu).
 - Realtime (with OSD) TZX, TAP and PZX file loading.
@@ -89,7 +90,7 @@ Default hotkey bindings (all hotkeys except F1 and ALT+F1 are reconfigurable via
 - F2 Load (SNA,Z80,P)
 - F3 Load custom snapshot
 - F4 Save custom snapshot
-- F5 Load file (TAP, TZX, PZX, TRD, SCL, UDI, FDI, SNA, Z80, MMC, HDF, DSK, ZIP)
+- F5 Load file (TAP, TZX, PZX, TRD, SCL, UDI, FDI, MBD, SNA, Z80, MMC, HDF, DSK, ZIP)
 - F6 Play/Stop tape
 - F7 Tape Browser
 - F8 CPU / Tape load stats ( [CPU] microsecs per CPU cycle, [IDL] idle microsecs, [FPS] Frames per second, [FND] FPS w/no delay applied )
