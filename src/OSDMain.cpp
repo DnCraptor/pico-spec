@@ -1907,10 +1907,10 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                             menu_level = 2;
                             string mb02menu = "MB-02+\n";
                             mb02menu += Config::mb02 ? "Mode\tOn\n" : "Mode\tOff\n";
-                            mb02menu += "Drive A\t>\n";
-                            mb02menu += "Drive B\t>\n";
-                            mb02menu += "Drive C\t>\n";
-                            mb02menu += "Drive D\t>\n";
+                            mb02menu += "Drive 01\t>\n";
+                            mb02menu += "Drive 02\t>\n";
+                            mb02menu += "Drive 03\t>\n";
+                            mb02menu += "Drive 04\t>\n";
                             uint8_t mb02_num = menuRun(mb02menu);
                             if (mb02_num == 1) {
                                 // Mode toggle (Enable/Disable)
@@ -1932,11 +1932,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 return;
                             }
                             else if (mb02_num >= 2 && mb02_num <= 5) {
-                                // Drive A-D submenu
+                                // Drive #01-#04 submenu
                                 uint8_t drv = mb02_num - 2;
-                                string drvmenu = "Drive ";
-                                drvmenu += char('A' + drv);
-                                drvmenu += "\nInsert disk\t>\nEject disk\n";
+                                char drvtitle[16];
+                                snprintf(drvtitle, sizeof(drvtitle), "Drive %02d", drv + 1);
+                                string drvmenu = string(drvtitle) + "\nInsert disk\t>\nEject disk\n";
                                 menu_saverect = true;
                                 menu_curopt = 1;
                                 while (1) {
@@ -7483,9 +7483,8 @@ void OSD::EmulatorInfo() {
         // MB-02+
         if (MB02::enabled) {
             pos += snprintf(buf + pos, sizeof(buf) - pos, " MB-02+         : On\n");
-            static const char drive_letter[] = "ABCD";
             for (int i = 0; i < 4; i++) {
-                pos += snprintf(buf + pos, sizeof(buf) - pos, "  %c:            : ", drive_letter[i]);
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "  %02d            : ", i + 1);
                 if (ESPectrum::mb02_fdd.disk[i] && !ESPectrum::mb02_fdd.disk[i]->fname.empty())
                     pos += appendFilename(buf, pos, sizeof(buf), ESPectrum::mb02_fdd.disk[i]->fname, 19);
                 else
