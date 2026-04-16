@@ -142,12 +142,6 @@ void MB02::applyMapping() {
 }
 
 void MB02::writePort17(uint8_t data) {
-    static uint8_t last_paging = 0xFF;
-    if (data != last_paging && data != 0x60 && data != 0x61) {
-        Debug::log("MB02 OUT #17=%02X (page=%d sram=%d eprom=%d write=%d)",
-                   data, data & 0x1F, (data>>6)&1, (data>>7)&1, (data>>5)&1);
-    }
-    last_paging = data;
     paging_reg = data;
     applyMapping();
 }

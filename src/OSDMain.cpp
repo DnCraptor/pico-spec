@@ -1277,10 +1277,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             {
                 uint8_t mode = VIDEO::OSD & 0x03;
                 bool hasFdd = (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)
+#if !PICO_RP2040
                                 || ((Z80Ops::is48 || Z80Ops::is128) && MB02::enabled))
                         && Tape::tapeStatus != TAPE_LOADING
-#if !PICO_RP2040
                     && !DivMMC::enabled
+#else
+                                )
+                        && Tape::tapeStatus != TAPE_LOADING
 #endif
                     ;
                 uint8_t maxMode = hasFdd ? 3 : 2;
