@@ -200,6 +200,42 @@ uint8_t* getLineBuffer(int line);
 void ESPectrum_vsync();
 int get_video_mode();
 
+static inline void* __not_in_flash_func(nf_memset)(void* ptr, int value, size_t len)
+{
+    uint8_t* p = (uint8_t*)ptr;
+    uint8_t v8 = (uint8_t)value;
+
+    // --- выравниваем до 4 байт ---
+    while (len && ((uintptr_t)p & 3)) {
+        *p++ = v8;
+        len--;
+    }
+
+    // --- основной 32-битный цикл ---
+    if (len >= 4) {
+        uint32_t v32 = v8;
+        v32 |= v32 << 8;
+        v32 |= v32 << 16;
+
+        uint32_t* p32 = (uint32_t*)p;
+        size_t n32 = len >> 2;
+
+        while (n32--) {
+            *p32++ = v32;
+        }
+
+        p = (uint8_t*)p32;
+        len &= 3;
+    }
+
+    // --- хвост ---
+    while (len--) {
+        *p++ = v8;
+    }
+
+    return ptr;
+}
+
 static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
     static uint32_t inx_buf_dma;
     static uint line = 0;
@@ -238,7 +274,7 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
     if (line < mode.v_active ) {
         uint8_t* output_buffer = activ_buf + h_sync + h_bp;
         if (hdmi_scanlines && !(line & 1)) { // gray_line
-            memset(output_buffer, IDX_SCANLINE, scr_w);
+            nf_memset(output_buffer, IDX_SCANLINE, scr_w);
             goto ex;
         }
         int y = (line >> 1) + mode.v_offset;
@@ -249,7 +285,7 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
         if (false || (graphics_buffer_shift_y > y) || (y >= (graphics_buffer_shift_y + graphics_buffer_height))
             || (graphics_buffer_shift_x >= scr_w) || (
                 (graphics_buffer_shift_x + graphics_buffer_width) < 0)) {
-            memset(output_buffer, 255, scr_w);
+            nf_memset(output_buffer, 255, scr_w);
             goto ex;
         }
 
@@ -274,9 +310,9 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
 ex:
 
         //ССИ — горизонтальная синхронизация
-        memset(activ_buf + h_sync, BASE_HDMI_CTRL_INX, h_bp);
-        memset(activ_buf, BASE_HDMI_CTRL_INX + 1, h_sync);
-        memset(activ_buf + line_sz - h_fp, BASE_HDMI_CTRL_INX, h_fp);
+        nf_memset(activ_buf + h_sync, BASE_HDMI_CTRL_INX, h_bp);
+        nf_memset(activ_buf, BASE_HDMI_CTRL_INX + 1, h_sync);
+        nf_memset(activ_buf + line_sz - h_fp, BASE_HDMI_CTRL_INX, h_fp);
 
         // Audio sample packets sent in vblank only (h_bp too tight for active lines)
     }
@@ -284,13 +320,13 @@ ex:
         int blanking_rest = line_sz - h_sync;
         if ((line >= mode.vsync_start) && (line < mode.vsync_end)) {
             //кадровый синхроимпульс
-            memset(activ_buf + h_sync, BASE_HDMI_CTRL_INX + 2, blanking_rest);
-            memset(activ_buf, BASE_HDMI_CTRL_INX + 3, h_sync);
+            nf_memset(activ_buf + h_sync, BASE_HDMI_CTRL_INX + 2, blanking_rest);
+            nf_memset(activ_buf, BASE_HDMI_CTRL_INX + 3, h_sync);
         }
         else {
             //ССИ без изображения
-            memset(activ_buf + h_sync, BASE_HDMI_CTRL_INX, blanking_rest);
-            memset(activ_buf, BASE_HDMI_CTRL_INX + 1, h_sync);
+            nf_memset(activ_buf + h_sync, BASE_HDMI_CTRL_INX, blanking_rest);
+            nf_memset(activ_buf, BASE_HDMI_CTRL_INX + 1, h_sync);
 
 #if !PICO_RP2040
             if (hdmi_audio_enabled) {
@@ -735,7 +771,7 @@ static void hdmi_build_acr_packet(uint8_t hsync) {
     header[3] = hdmi_bch_ecc(header, 3);
 
     uint8_t subpkt[4][8];
-    memset(subpkt, 0, sizeof(subpkt));
+    nf_memset(subpkt, 0, sizeof(subpkt));
     // Subpacket 0: CTS[19:0] and N[19:0]
     uint32_t cts = HDMI_ACR_CTS;
     uint32_t n = HDMI_ACR_N;
@@ -764,7 +800,7 @@ static void hdmi_build_infoframe_packet(uint8_t hsync) {
     header[3] = hdmi_bch_ecc(header, 3);
 
     uint8_t subpkt[4][8];
-    memset(subpkt, 0, sizeof(subpkt));
+    nf_memset(subpkt, 0, sizeof(subpkt));
     // Subpacket 0: checksum + audio info
     // PB0 = checksum: -(sum of HB0..HB2 + PB1..PB10) & 0xFF
     uint8_t pb1 = 0x01;  // CT=1(LPCM), CC=1(2 channels)
@@ -897,8 +933,8 @@ static void __attribute__((noinline)) hdmi_audio_hw_init(void) {
 void hdmi_audio_init(void) {
     hdmi_audio_wr = 0;
     hdmi_audio_rd = 0;
-    memset((void *)hdmi_audio_ring_L, 0, sizeof(hdmi_audio_ring_L));
-    memset((void *)hdmi_audio_ring_R, 0, sizeof(hdmi_audio_ring_R));
+    nf_memset((void *)hdmi_audio_ring_L, 0, sizeof(hdmi_audio_ring_L));
+    nf_memset((void *)hdmi_audio_ring_R, 0, sizeof(hdmi_audio_ring_R));
     hdmi_audio_enabled = true;  // flag for graphics_init_hdmi to call hdmi_audio_hw_init
 }
 
