@@ -225,7 +225,6 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
     if (!hdmi_scanlines && !(line & 1)) {
         return;
     }
-    bool gray_line = hdmi_scanlines && !(line & 1);
     inx_buf_dma++;
 
     uint8_t* activ_buf = (uint8_t *)dma_lines[inx_buf_dma & 1];
@@ -238,8 +237,8 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
 
     if (line < mode.v_active ) {
         uint8_t* output_buffer = activ_buf + h_sync + h_bp;
-        if (gray_line) {
-            memset(output_buffer, 255, scr_w);
+        if (hdmi_scanlines && !(line & 1)) { // gray_line
+            memset(output_buffer, IDX_SCANLINE, scr_w);
             goto ex;
         }
         int y = (line >> 1) + mode.v_offset;
