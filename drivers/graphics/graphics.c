@@ -190,7 +190,7 @@ void draw_window(const char title[TEXTMODE_COLS + 1], uint32_t x, uint32_t y, ui
     draw_text(line, x + (width - strlen(line)) / 2, y, 14, 3);
 }
 
-struct video_mode_t graphics_get_video_mode(int mode)
+struct video_mode_t __not_in_flash_func(graphics_get_video_mode)(int mode)
 {
     return video_mode[mode];
 }

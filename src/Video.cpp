@@ -73,7 +73,7 @@ extern "C" void ESPectrum_vsync() {
     ESPectrum::v_sync = true;
 }
 
-extern "C" int get_video_mode() {
+extern "C" int __not_in_flash_func(get_video_mode)() {
     return VIDEO::video_mode;
 }
 
