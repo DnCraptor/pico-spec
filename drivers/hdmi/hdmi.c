@@ -45,10 +45,7 @@ static int dma_chan_pal_conv;
 //DMA буферы
 //основные строчные данные
 static uint32_t* __scratch_x("hdmi_ptr_3") dma_lines[2] = { NULL,NULL };
-static uint32_t* __scratch_x("hdmi_ptr_4") DMA_BUF_ADDR[3];
-
-// Pre-filled scanline buffer (dark line with valid HDMI sync)
-static uint8_t hdmi_scanline_buf[400];
+static uint32_t* __scratch_x("hdmi_ptr_4") DMA_BUF_ADDR[2];
 
 //ДМА палитра для конвертации
 //в хвосте этой памяти выделяется dma_data
@@ -225,15 +222,10 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
         ESPectrum_vsync();
     }
 
-    if ((line & 1) == 0) {
-        // Even physical lines: scanlines mode dims the previous content line,
-        // normal mode skips (DMA replays the previous odd-line buffer = line doubling).
-        // No inx_buf_dma increment — preserves ping-pong sync.
-        if (hdmi_scanlines && line < mode.v_active) {
-            dma_channel_set_read_addr(dma_chan_ctrl, &DMA_BUF_ADDR[2], false);
-        }
+    if (!hdmi_scanlines && !(line & 1)) {
         return;
     }
+    bool gray_line = hdmi_scanlines && !(line & 1);
     inx_buf_dma++;
 
     uint8_t* activ_buf = (uint8_t *)dma_lines[inx_buf_dma & 1];
@@ -246,47 +238,41 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
 
     if (line < mode.v_active ) {
         uint8_t* output_buffer = activ_buf + h_sync + h_bp;
+        if (gray_line) {
+            memset(output_buffer, 255, scr_w);
+            goto ex;
+        }
         int y = (line >> 1) + mode.v_offset;
         //область изображения
         uint8_t* input_buffer = getLineBuffer(y);
         if (!input_buffer) return;
-        switch (graphics_mode) {
-            case GRAPHICSMODE_DEFAULT:
-                //заполняем пространство сверху и снизу графического буфера
-                if (false || (graphics_buffer_shift_y > y) || (y >= (graphics_buffer_shift_y + graphics_buffer_height))
-                    || (graphics_buffer_shift_x >= scr_w) || (
-                        (graphics_buffer_shift_x + graphics_buffer_width) < 0)) {
-                    memset(output_buffer, 255, scr_w);
-                    break;
-                }
-
-                uint8_t* activ_buf_end = output_buffer + scr_w;
-            //рисуем пространство слева от буфера
-                for (int i = graphics_buffer_shift_x; i-- > 0;) {
-                    *output_buffer++ = 255;
-                }
-
-            //рисуем сам видеобуфер+пространство справа
-                const uint8_t* input_buffer_end = input_buffer + graphics_buffer_width;
-                if (graphics_buffer_shift_x < 0) input_buffer -= graphics_buffer_shift_x;
-                register size_t x = 0;
-                while (activ_buf_end > output_buffer) {
-                    if (input_buffer < input_buffer_end) {
-                        // Direct 8-bit palette index — no mask or lookup needed
-                        *output_buffer++ = input_buffer[(x++) ^ 2];
-                    }
-                    else
-                        *output_buffer++ = 255;
-                }
-                break;
-            default:
-                for (int i = scr_w; i--;) {
-                    uint8_t i_color = *input_buffer++;
-                    i_color = (i_color & 0xf0) == 0xf0 ? 255 : i_color;
-                    *output_buffer++ = i_color;
-                }
-                break;
+        // заполняем пространство сверху и снизу графического буфера
+        if (false || (graphics_buffer_shift_y > y) || (y >= (graphics_buffer_shift_y + graphics_buffer_height))
+            || (graphics_buffer_shift_x >= scr_w) || (
+                (graphics_buffer_shift_x + graphics_buffer_width) < 0)) {
+            memset(output_buffer, 255, scr_w);
+            goto ex;
         }
+
+        uint8_t* activ_buf_end = output_buffer + scr_w;
+        // рисуем пространство слева от буфера
+        for (int i = graphics_buffer_shift_x; i-- > 0;) {
+            *output_buffer++ = 255;
+        }
+
+        // рисуем сам видеобуфер+пространство справа
+        const uint8_t* input_buffer_end = input_buffer + graphics_buffer_width;
+        if (graphics_buffer_shift_x < 0) input_buffer -= graphics_buffer_shift_x;
+        register size_t x = 0;
+        while (activ_buf_end > output_buffer) {
+            if (input_buffer < input_buffer_end) {
+                // Direct 8-bit palette index — no mask or lookup needed
+                *output_buffer++ = input_buffer[(x++) ^ 2];
+            }
+            else
+                *output_buffer++ = 255;
+        }
+ex:
 
         //ССИ — горизонтальная синхронизация
         memset(activ_buf + h_sync, BASE_HDMI_CTRL_INX, h_bp);
@@ -478,29 +464,6 @@ static inline bool hdmi_init() {
     dma_lines[0] = &conv_color[1024];
     dma_lines[1] = &conv_color[1024 + line_u32];
 
-    // Pre-fill DMA line buffers with valid blanking/sync pattern
-    // so the HDMI receiver sees correct sync from the very first line
-    {
-        const int ls = hdmi_mode.line_bytes;
-        const int hs = hdmi_mode.h_sync_bytes;
-        const int bp = hdmi_mode.h_bp_bytes;
-        const int fp = hdmi_mode.h_fp_bytes;
-        const int sw = hdmi_mode.screen_width;
-        for (int b = 0; b < 2; b++) {
-            uint8_t *buf = (uint8_t *)dma_lines[b];
-            memset(buf + hs, BASE_HDMI_CTRL_INX, ls - hs);     // blanking
-            memset(buf, BASE_HDMI_CTRL_INX + 1, hs);            // hsync
-        }
-        // Scanline buffer: dark gray content + valid HDMI sync
-        memset(hdmi_scanline_buf + hs + bp, IDX_SCANLINE, sw);
-        memset(hdmi_scanline_buf + hs, BASE_HDMI_CTRL_INX, bp);
-        memset(hdmi_scanline_buf, BASE_HDMI_CTRL_INX + 1, hs);
-        memset(hdmi_scanline_buf + ls - fp, BASE_HDMI_CTRL_INX, fp);
-        memset(hdmi_scanline_buf + hs, BASE_HDMI_CTRL_INX, bp);
-        memset(hdmi_scanline_buf, BASE_HDMI_CTRL_INX + 1, hs);
-        memset(hdmi_scanline_buf + ls - fp, BASE_HDMI_CTRL_INX, fp);
-    }
-
     //основной рабочий канал
     dma_channel_config cfg_dma = dma_channel_get_default_config(dma_chan);
     channel_config_set_transfer_data_size(&cfg_dma, DMA_SIZE_8);
@@ -534,7 +497,6 @@ static inline bool hdmi_init() {
 
     DMA_BUF_ADDR[0] = &dma_lines[0][0];
     DMA_BUF_ADDR[1] = &dma_lines[1][0];
-    DMA_BUF_ADDR[2] = (uint32_t*)hdmi_scanline_buf;
 
     dma_channel_configure(
         dma_chan_ctrl,
