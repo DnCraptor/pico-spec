@@ -55,6 +55,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Z80_JLS/z80.h"
 #include "roms.h"
 #include "ff.h"
+#include "diskio.h"
 #include "psram_spi.h"
 #include "Ports.h"
 #include "audio.h"
@@ -1036,8 +1037,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             if (Config::gigascreen_enabled)
             {
                 Config::gigascreen_onoff = (Config::gigascreen_onoff + 1) % 3; // Off -> On -> Auto -> Off
-                if (Config::gigascreen_onoff == 1)
+                if (Config::gigascreen_onoff == 1) {
+#if !PICO_RP2040
+                    VIDEO::InitPrevBuffer(); // seed prev from current FB to avoid stale-frame flash
+#endif
                     VIDEO::gigascreen_enabled = true;
+                }
                 else {
                     VIDEO::gigascreen_enabled = false;
                     VIDEO::gigascreen_auto_countdown = 0;
@@ -7086,20 +7091,22 @@ void OSD::ChipInfo() {
 
     // On-chip temperature sensor via ADC
     {
-        // Unreset ADC block: clear bit 0 in RESETS_RESET, wait bit 0 in RESET_DONE
-        volatile uint32_t *resets = (volatile uint32_t *)0x40020000;
-        resets[0] &= ~1u;                      // RESET: clear ADC bit
-        while (!(resets[2] & 1u)) {}            // RESET_DONE: wait ADC ready
-
+        // Register bases differ between chips
+    #if PICO_RP2350
+        volatile uint32_t *resets     = (volatile uint32_t *)0x40020000;
         volatile uint32_t *adc_cs     = (volatile uint32_t *)0x400a0000;
         volatile uint32_t *adc_result = (volatile uint32_t *)0x400a0004;
-
-        // Temp sensor channel: 4 on RP2350A/RP2040, 8 on RP2350B
-    #if PICO_RP2350
         uint32_t ts_ch = rp2350a ? 4 : 8;
-    #else
+    #else // RP2040
+        volatile uint32_t *resets     = (volatile uint32_t *)0x4000c000;
+        volatile uint32_t *adc_cs     = (volatile uint32_t *)0x4004c000;
+        volatile uint32_t *adc_result = (volatile uint32_t *)0x4004c004;
         uint32_t ts_ch = 4;
     #endif
+
+        // Unreset ADC block: clear bit 0 in RESETS_RESET, wait bit 0 in RESET_DONE
+        resets[0] &= ~1u;                      // RESET: clear ADC bit
+        while (!(resets[2] & 1u)) {}            // RESET_DONE: wait ADC ready
 
         *adc_cs = 1; // EN=1
         while (!(*adc_cs & (1 << 8))) {} // wait READY
@@ -7136,8 +7143,55 @@ void OSD::BoardInfo() {
             uint32_t fre_mb = (uint32_t)(fre_clust * fsp->csize / 2048);
             pos += snprintf(buf + pos, sizeof(buf) - pos,
                 " SD Card        : %d/%d MB free\n", (int)fre_mb, (int)tot_mb);
+
+            const char* fs_name = "?";
+            switch (fsp->fs_type) {
+                case FS_FAT12: fs_name = "FAT12"; break;
+                case FS_FAT16: fs_name = "FAT16"; break;
+                case FS_FAT32: fs_name = "FAT32"; break;
+                case FS_EXFAT: fs_name = "exFAT"; break;
+            }
+            uint32_t cluster_kb = (uint32_t)fsp->csize / 2;
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                "  FS / cluster  : %s / %u KB\n", fs_name, (unsigned)cluster_kb);
+
+            char label[34] = {0};
+            DWORD vsn = 0;
+            if (f_getlabel("", label, &vsn) == FR_OK) {
+                pos += snprintf(buf + pos, sizeof(buf) - pos,
+                    "  Label / VSN   : '%s' / %04lX-%04lX\n",
+                    label[0] ? label : "(none)",
+                    (unsigned long)((vsn >> 16) & 0xFFFF),
+                    (unsigned long)(vsn & 0xFFFF));
+            }
         } else {
             pos += snprintf(buf + pos, sizeof(buf) - pos, " SD Card        : mounted\n");
+        }
+
+        // Card type via MMC_GET_TYPE (CT_SD1=0x02, CT_SD2=0x04, CT_MMC=0x01, CT_BLOCK=0x08)
+        BYTE ct = 0;
+        if (disk_ioctl(0, MMC_GET_TYPE, &ct) == RES_OK) {
+            const char* ct_name = "?";
+            if (ct & 0x01) ct_name = "MMCv3";
+            else if (ct & 0x02) ct_name = "SDv1";
+            else if (ct & 0x04) ct_name = (ct & 0x08) ? "SDHC/SDXC" : "SDv2";
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                "  Card type     : %s\n", ct_name);
+        }
+
+        // CID: manufacturer + product name (5 ASCII) + serial
+        BYTE cid[16];
+        if (disk_ioctl(0, MMC_GET_CID, cid) == RES_OK) {
+            char pname[6];
+            for (int i = 0; i < 5; i++) {
+                char c = (char)cid[3 + i];
+                pname[i] = (c >= 0x20 && c < 0x7F) ? c : ' ';
+            }
+            pname[5] = 0;
+            uint32_t serial = ((uint32_t)cid[9] << 24) | ((uint32_t)cid[10] << 16)
+                            | ((uint32_t)cid[11] << 8) | (uint32_t)cid[12];
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                "  CID name/sn   : '%s' / %08lX\n", pname, (unsigned long)serial);
         }
     } else {
         pos += snprintf(buf + pos, sizeof(buf) - pos, " SD Card        : not mounted\n");

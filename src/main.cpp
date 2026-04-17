@@ -1122,7 +1122,8 @@ int main() {
     #endif
 #endif
 
-#if PICO_DEFAULT_UART
+#if defined(PICO_DEFAULT_UART_TX_PIN) && PICO_DEFAULT_UART_TX_PIN >= 0
+    // UART is configured (PICO_DEFAULT_UART can be 0 = UART0, so use TX pin as gate)
     stdio_init_all();
 #endif
 
