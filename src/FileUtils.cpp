@@ -70,19 +70,20 @@ string FileUtils::ROM_Path = "/";
 string FileUtils::IMG_Path = "/";
 string FileUtils::ALL_Path = "/";
 DISK_FTYPE FileUtils::fileTypes[6] = {
+#if PICO_RP2040
+    {".sna,.SNA,.z80,.Z80,.p,.P",2,2,0,""},
+    {".tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3",2,2,0,""},
+    {".trd,.TRD,.scl,.SCL",2,2,0,""},
+    {".rom,.ROM,.bin,.BIN",2,2,0,""},
+    {".mmc,.MMC,.hdf,.HDF",2,2,0,""},
+    {".sna,.SNA,.z80,.Z80,.p,.P,.tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3,.trd,.TRD,.scl,.SCL",2,2,0,""}
+#else
     {".sna,.SNA,.z80,.Z80,.p,.P,.zip,.ZIP",2,2,0,""},
     {".tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3,.zip,.ZIP",2,2,0,""},
-#if PICO_RP2040
-    {".trd,.TRD,.scl,.SCL,.zip,.ZIP",2,2,0,""},
-#else
-    {".trd,.TRD,.scl,.SCL,.udi,.UDI,.fdi,.FDI,.zip,.ZIP",2,2,0,""},
-#endif
+    {".trd,.TRD,.scl,.SCL,.udi,.UDI,.fdi,.FDI,.mbd,.MBD,.zip,.ZIP",2,2,0,""},
     {".rom,.ROM,.bin,.BIN",2,2,0,""},
     {".mmc,.MMC,.hdf,.HDF,.zip,.ZIP",2,2,0,""},
-#if PICO_RP2040
-    {".sna,.SNA,.z80,.Z80,.p,.P,.tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3,.trd,.TRD,.scl,.SCL,.zip,.ZIP",2,2,0,""}
-#else
-    {".sna,.SNA,.z80,.Z80,.p,.P,.tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3,.trd,.TRD,.scl,.SCL,.udi,.UDI,.fdi,.FDI,.mmc,.MMC,.hdf,.HDF,.zip,.ZIP",2,2,0,""}
+    {".sna,.SNA,.z80,.Z80,.p,.P,.tap,.TAP,.tzx,.TZX,.pzx,.PZX,.wav,.WAV,.mp3,.MP3,.trd,.TRD,.scl,.SCL,.udi,.UDI,.fdi,.FDI,.mbd,.MBD,.mmc,.MMC,.hdf,.HDF,.zip,.ZIP",2,2,0,""}
 #endif
 };
 
@@ -197,70 +198,74 @@ bool FileUtils::remountSD() {
     return true;
 }
 
-bool FileUtils::hasSNAextension(string filename)
+bool FileUtils::hasSNAextension(const string& filename)
 {
-    
+
     if (filename.substr(filename.size()-4,4) == ".sna") return true;
     if (filename.substr(filename.size()-4,4) == ".SNA") return true;
     return false;
 }
 
-bool FileUtils::hasZ80extension(string filename)
+bool FileUtils::hasZ80extension(const string& filename)
 {
     if (filename.substr(filename.size()-4,4) == ".z80") return true;
     if (filename.substr(filename.size()-4,4) == ".Z80") return true;
     return false;
 }
 
-bool FileUtils::hasPextension(string filename)
+bool FileUtils::hasPextension(const string& filename)
 {
     if (filename.substr(filename.size()-2,2) == ".p") return true;
     if (filename.substr(filename.size()-2,2) == ".P") return true;
     return false;
 }
 
-bool FileUtils::hasTAPextension(string filename)
+bool FileUtils::hasTAPextension(const string& filename)
 {
     if (filename.substr(filename.size()-4,4) == ".tap") return true;
     if (filename.substr(filename.size()-4,4) == ".TAP") return true;
     return false;
 }
 
-bool FileUtils::hasTZXextension(string filename)
+bool FileUtils::hasTZXextension(const string& filename)
 {
     if (filename.substr(filename.size()-4,4) == ".tzx") return true;
     if (filename.substr(filename.size()-4,4) == ".TZX") return true;
     return false;
 }
 
-bool FileUtils::hasPZXextension(string filename)
+bool FileUtils::hasPZXextension(const string& filename)
 {
     if (filename.substr(filename.size()-4,4) == ".pzx") return true;
     if (filename.substr(filename.size()-4,4) == ".PZX") return true;
     return false;
 }
 
-bool FileUtils::hasWAVextension(string filename)
+bool FileUtils::hasWAVextension(const string& filename)
 {
     if (filename.substr(filename.size()-4,4) == ".wav") return true;
     if (filename.substr(filename.size()-4,4) == ".WAV") return true;
     return false;
 }
 
-bool FileUtils::hasMP3extension(string filename)
+bool FileUtils::hasMP3extension(const string& filename)
 {
     if (filename.substr(filename.size()-4,4) == ".mp3") return true;
     if (filename.substr(filename.size()-4,4) == ".MP3") return true;
     return false;
 }
 
-bool FileUtils::hasZIPextension(string filename)
+#if PICO_RP2040
+bool FileUtils::hasZIPextension(const string&) { return false; }
+#else
+bool FileUtils::hasZIPextension(const string& filename)
 {
     if (filename.size() < 4) return false;
     if (filename.substr(filename.size()-4,4) == ".zip") return true;
     if (filename.substr(filename.size()-4,4) == ".ZIP") return true;
     return false;
 }
+#endif
 
 void FileUtils::deleteFilesWithExtension(const char *folder_path, const char *extension) {
     DIR dir;

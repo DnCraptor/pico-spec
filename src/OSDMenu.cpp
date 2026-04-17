@@ -180,7 +180,7 @@ void OSD::WindowDraw() {
 }
 
 // Run a new menu
-unsigned short OSD::menuRun(string new_menu) {
+unsigned short OSD::menuRun(const string& new_menu) {
 
     fabgl::VirtualKeyItem Menukey;    
 
@@ -410,7 +410,7 @@ unsigned short OSD::menuRun(string new_menu) {
 }
 
 // Run a new menu
-unsigned short OSD::simpleMenuRun(string new_menu, uint16_t posx, uint16_t posy, uint8_t max_rows, uint8_t max_cols) {
+unsigned short OSD::simpleMenuRun(const string& new_menu, uint16_t posx, uint16_t posy, uint8_t max_rows, uint8_t max_cols) {
 
     fabgl::VirtualKeyItem Menukey;    
 
@@ -682,7 +682,7 @@ void OSD::PrintRow(uint8_t virtual_row_num, uint8_t line_type) {
 }
 
 // Redraw inside rows
-void OSD::tapemenuRedraw(string title) {
+void OSD::tapemenuRedraw(const string& title) {
 
     if ((focus != last_focus) || (begin_row != last_begin_row)) {
 
@@ -715,7 +715,7 @@ void OSD::tapemenuRedraw(string title) {
 }
 
 // Tape Browser Menu
-int OSD::menuTape(string title) {
+int OSD::menuTape(const string& title) {
 
     fabgl::VirtualKeyItem Menukey;
 

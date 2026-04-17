@@ -107,7 +107,7 @@ public:
   }
   void save(int16_t x, int16_t y, int16_t w, int16_t h);
   void restore_last();
-  void clear() { offsets.clear(); offsets.push_back(0); ram_buf.clear(); }
+  void clear() { offsets.clear(); offsets.push_back(0); ram_buf.clear(); f_unlink("/tmp/save_rect.tmp"); }
   void store_ram(const void* p, size_t sz);
   void restore_ram(void* p, size_t sz);
 };
@@ -150,7 +150,9 @@ public:
   static void MainScreen_Snow_Opcode(bool contended);
   
   // static void DrawBorderFast();
+#if !PICO_RP2040
   static void InitPrevBuffer();
+#endif
 
   static void Border_Blank();
 
@@ -255,7 +257,7 @@ public:
   static uint8_t ulaplus_reg;
   static uint8_t ulaplus_palette[64];
   static bool ulaplus_palette_dirty;  // deferred palette flush for HDMI sync
-  static unsigned int AluBytesUlaPlus[16][256];
+  // AluBytesUlaPlus moved to flash (AluBytesUlaPlus_flash in roms/AluBytesUlaPlus.c)
   static void regenerateUlaPlusAluBytes();
   static void ulaPlusUpdatePaletteEntry(uint8_t entry);
   static void ulaPlusFlushPalette();   // apply pending palette to hardware

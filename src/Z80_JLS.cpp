@@ -36,6 +36,7 @@
 #include "wd1793.h"
 #if !PICO_RP2040
 #include "DivMMC.h"
+#include "MB02.h"
 #endif
 
 
@@ -963,6 +964,7 @@ IRAM_ATTR void Z80::check_trdos() {
 
 #if !PICO_RP2040
     if (DivMMC::enabled) return; // DivMMC automap handled in fetchOpcode/exec_nocheck
+    if (MB02::enabled) return;   // MB-02 uses tape-compatible hooks, not 0x3Dxx trap
 #endif
 
     if (ESPectrum::trdos == true || Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) {
@@ -1109,6 +1111,10 @@ void Z80::doNMI(void) {
         DivMMC::automap = false;
         DivMMC::applyMapping();
     }
+    // MB-02+: ensure SRAM page 0 is mapped for NMI handler (BS-ROM 118 NMI menu)
+    if (MB02::enabled) {
+        MB02::writePort17(0x60); // SRAM page 0, write enable
+    }
 #endif
     nmi();
 
@@ -1244,6 +1250,8 @@ IRAM_ATTR void Z80::exec_nocheck() {
                 opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];
             }
             DivMMC::postOpcFetch();
+        } else if (pg == 0 && MemESP::divmmc_mapped) {
+            opCode = (REG_PC < 0x2000) ? MemESP::page0_lo[REG_PC] : MemESP::page0_hi[REG_PC & 0x1FFF];
         } else
 #endif
         opCode = MemESP::ramCurrent[pg][REG_PC & 0x3fff];

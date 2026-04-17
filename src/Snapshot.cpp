@@ -62,7 +62,7 @@ visit https://zxespectrum.speccy.org/contacto
 using namespace std;
 
 // Change running snapshot
-bool LoadSnapshot(string filename, string force_arch, string force_romset) {
+bool LoadSnapshot(const string& filename, const string& force_arch, const string& force_romset) {
     if (!FileUtils::fsMount) return false;
     bool res = false;
     uint8_t OSDprev = VIDEO::OSD;
@@ -84,7 +84,7 @@ bool LoadSnapshot(string filename, string force_arch, string force_romset) {
     return res;
 }
 
-bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
+bool FileSNA::load(const string& sna_fn, const string& force_arch, const string& force_romset) {
     int sna_size;
     string snapshotArch;
     FIL* file = fopen2(sna_fn.c_str(), FA_READ);
@@ -232,7 +232,7 @@ bool FileSNA::load(string sna_fn, string force_arch, string force_romset) {
 
 }
 
-bool FileSNA::isPersistAvailable(string filename) {
+bool FileSNA::isPersistAvailable(const string& filename) {
     FIL* file = fopen2(filename.c_str(), FA_READ);
     if (!file) return false;
     fclose2(file);
@@ -258,7 +258,7 @@ static bool writeMemPage(uint8_t page, FIL* file, bool blockMode)
     return true;
 }
 
-bool FileSNA::save(string sna_file) {
+bool FileSNA::save(const string& sna_file) {
     // Try to save using pages
     if (FileSNA::save(sna_file, true)) return true;
     OSD::osdCenteredMsg(OSD_PSNA_SAVE_WARN, LEVEL_WARN);
@@ -266,7 +266,7 @@ bool FileSNA::save(string sna_file) {
     return FileSNA::save(sna_file, false);
 }
 
-bool FileSNA::save(string sna_file, bool blockMode) {
+bool FileSNA::save(const string& sna_file, bool blockMode) {
     FIL* file = fopen2(sna_file.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
     if (!file) {
         printf("FileSNA: Error opening %s for writing",sna_file.c_str());
@@ -384,7 +384,7 @@ int fseek (FIL* stream, long offset, int origin) {
     return 1;
 }
 
-bool FileZ80::load(string z80_fn) {
+bool FileZ80::load(const string& z80_fn) {
     FIL* file = fopen2(z80_fn.c_str(), FA_READ);
     if (!file)
     {
@@ -1111,7 +1111,7 @@ void FileZ80::loader128() {
 
 }
 
-bool FileP::load(string p_fn) {
+bool FileP::load(const string& p_fn) {
     int p_size;
     FIL* file = fopen2(p_fn.c_str(), FA_READ);
     if (!file) {

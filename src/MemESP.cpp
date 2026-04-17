@@ -281,5 +281,6 @@ uint8_t* MemESP::page0_hi = nullptr;
 bool MemESP::divmmc_mapped = false;
 bool* MemESP::divmmc_hi_dirty = nullptr;
 bool* MemESP::divmmc_lo_dirty = nullptr;
+bool MemESP::mb02_write_gate = true; // default: allow writes (DivMMC needs this)
 #endif
 

@@ -256,11 +256,12 @@ void StopRealPlayer(void) {
 }
 
 // Load tape file (.wav, .tap, .tzx)
-void Tape::LoadTape(string mFile) {
+void Tape::LoadTape(const string& mFile_) {
     if (!FileUtils::fsMount) {
         OSD::osdCenteredMsg(OSD_TAPE_LOAD_ERR, LEVEL_WARN);
         return;
     }
+    string mFile = mFile_;
     StopRealPlayer();
     if (FileUtils::hasMP3extension(mFile)) {
         string keySel = mFile.substr(0,1);
@@ -432,7 +433,7 @@ static const info_desc_t info_descs[22] = {
 };
 
 
-void Tape::WAV_Open(string name) {
+void Tape::WAV_Open(const string& name) {
     f_close(&tape);
     tapeFileType = TAPE_FTYPE_EMPTY;
     string fname = FileUtils::TAP_Path + name;
@@ -471,13 +472,13 @@ void Tape::WAV_Open(string name) {
         size_t size;
         if (f_read(&tape, sch, wav.subchunk_size, &size) != FR_OK || size != wav.subchunk_size) {
             OSD::osdCenteredMsg("Unexpected end of file\n" + fname + "\n", LEVEL_ERROR);
-            delete sch;
+            delete[] sch;
             return;
         }
         INFO_t* ch = (INFO_t*)sch;
         if (strncmp(ch->INFO, "INFO", 4) != 0) {
             OSD::osdCenteredMsg("Unexpected LIST section in the file\n" + fname + "\n", LEVEL_ERROR);
-            delete sch;
+            delete[] sch;
             return;
         }
         delete sch;
@@ -665,7 +666,7 @@ bool updateWavHeader(FIL* fo, uint32_t num_samples, uint16_t num_channels)
     return true;
 }
 
-void Tape::MP3_Open(string name) {
+void Tape::MP3_Open(const string& name) {
     f_close(&tape);
     tapeFileType = TAPE_FTYPE_EMPTY;
     string fname = FileUtils::TAP_Path + name;
@@ -761,7 +762,7 @@ void Tape::MP3_Open(string name) {
 */
 }
 
-void Tape::TAP_Open(string name) {
+void Tape::TAP_Open(const string& name) {
     f_close(&tape);
     tapeFileType = TAPE_FTYPE_EMPTY;
     string fname = FileUtils::TAP_Path + name;

@@ -161,6 +161,9 @@ typedef struct
     bool IsFDIFile;
     uint32_t fdiTrackHdrOffsets[168]; // file offsets for each track header
     uint32_t fdiDataOffset;           // file offset of data block
+    bool IsMBDFile;
+    uint8_t mbdSectorsPerTrack;       // sectors per track (typically 11)
+    uint16_t mbdSectorSize;           // bytes per sector (typically 1024)
 #endif
 } rvmwdDisk;
 
@@ -296,6 +299,7 @@ typedef struct
     rvmwdDisk *disk[4];
 
     bool fastmode;
+    bool wd2797_mode;
 
     bool sclConverted;
     unsigned char Track0[2304]; // Store SCL translated track0
@@ -306,7 +310,7 @@ typedef struct
     uint8_t fdd_clicks;  // Pending step clicks count
 
 #if !PICO_RP2040
-    uint8_t diskTrackBuf[12500];  // MFM track buffer for UDI/FDI
+    uint8_t diskTrackBuf[12800];  // MFM track buffer for UDI/FDI/MBD
     uint16_t diskTrackLen;        // length of current track
     int diskLoadedCyl;            // loaded cylinder (-1 = none)
     int diskLoadedSide;           // loaded side
@@ -327,7 +331,7 @@ void rvmWD1793Write(rvmWD1793 *wd, uint8_t a, uint8_t v);
 uint8_t rvmWD1793Read(rvmWD1793 *wd, uint8_t a);
 void rvmWD1793Step(rvmWD1793 *wd, uint32_t steps);
 void rvmWD1793Reset(rvmWD1793 *wd);
-bool rvmWD1793InsertDisk(rvmWD1793 *wd, unsigned char UnitNum, std::string Filename);
+bool rvmWD1793InsertDisk(rvmWD1793 *wd, unsigned char UnitNum, const std::string& Filename);
 uint8_t rvmwdDiskStep(rvmWD1793 *wd, uint32_t control);
 void wdDiskEject(rvmWD1793 *wd, unsigned char UnitNum);
 void SCLtoTRD(rvmwdDisk *d, unsigned char *track0);
@@ -335,6 +339,7 @@ bool rvmWD1793CreateEmptyTRD(const char *path);
 #if !PICO_RP2040
 void udiLoadTrack(rvmWD1793 *wd, uint32_t cyl, uint8_t side);
 void fdiLoadTrack(rvmWD1793 *wd, uint32_t cyl, uint8_t side);
+void mbdLoadTrack(rvmWD1793 *wd, uint32_t cyl, uint8_t side);
 #endif
 
 BYTE* load_file_into_ram(FIL* fp, UINT* filesize_out);

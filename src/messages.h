@@ -369,12 +369,14 @@ static const char *MENU_TAPEPLAYER2[2] = { "Input (P" _PIN_XSTR(LOAD_WAV_PIO) ")
     "Tape\t>\n"\
     "Betadisk\t>\n"\
     "esxDOS\t>\n"\
+    "MB-02+\t>\n"\
     "Snapshot\t>\n"
 #define MENU_STORAGE_MAIN_ES \
     "Almacenamiento\n"\
     "Casete\t>\n"\
     "Betadisk\t>\n"\
     "esxDOS\t>\n"\
+    "MB-02+\t>\n"\
     "Snapshots\t>\n"
 static const char *MENU_STORAGE_MAIN[2] = { MENU_STORAGE_MAIN_EN, MENU_STORAGE_MAIN_ES };
 #else
@@ -865,11 +867,13 @@ static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
     "Hardware\n"\
     "Chip Info\n"\
     "Board Info\n"\
+    "Emulator Info\n"\
     "Overclock (!)\t>\n"
 #define MENU_HARDWARE_ES \
     "Hardware\n"\
     "Chip Info\n"\
     "Info placa\n"\
+    "Info emulador\n"\
     "Overclock (!)\t>\n"
 static const char *MENU_HARDWARE[2] = { MENU_HARDWARE_EN, MENU_HARDWARE_ES };
 

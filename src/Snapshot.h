@@ -43,21 +43,21 @@ visit https://zxespectrum.speccy.org/contacto
 
 using namespace std;
 
-bool LoadSnapshot(string filename, string force_arch, string force_romset);
+bool LoadSnapshot(const string& filename, const string& force_arch, const string& force_romset);
 
 class FileSNA
 {
 public:
-    static bool load(string sna_fn, string force_arch, string force_romset);
-    static bool save(string sna_fn);
-    static bool save(string sna_fn, bool blockMode);
-    static bool isPersistAvailable(string filename);
+    static bool load(const string& sna_fn, const string& force_arch, const string& force_romset);
+    static bool save(const string& sna_fn);
+    static bool save(const string& sna_fn, bool blockMode);
+    static bool isPersistAvailable(const string& filename);
 };
 
 class FileZ80
 {
 public:
-    static bool load(string z80_fn);
+    static bool load(const string& z80_fn);
     static void loader48();    
     static void loader128();        
 private:
@@ -68,7 +68,7 @@ private:
 class FileP
 {
 public:
-    static bool load(string p_fn);
+    static bool load(const string& p_fn);
 };
 
 #endif

@@ -3,6 +3,9 @@
 #include "roms.h"
 #include "FileUtils.h"
 #include "ESPectrum.h"
+#if !PICO_RP2040
+#include "MB02.h"
+#endif
 #include "fabutils.h"
 #include "messages.h"
 #include "OSDMain.h"
@@ -97,6 +100,7 @@ uint8_t  Config::trdosBios = 2; // Default: 5.05D
 uint8_t  Config::esxdos = 0;
 string   Config::esxdos_mmc_image = "";
 string   Config::esxdos_hdf_image[2] = {"", ""};
+uint8_t  Config::mb02 = 0;
 #endif
 
 uint8_t Config::scanlines = 0;
@@ -160,7 +164,7 @@ void Config::initHotkeys() {
         hotkeys[i] = defaults[i];
 }
 
-void Config::requestMachine(string newArch, string newRomSet)
+void Config::requestMachine(const string& newArch, const string& newRomSet)
 {
     arch = newArch;
     if (arch == "48K") {
@@ -341,6 +345,16 @@ void Config::load2() {
                         rvmWD1793InsertDisk(&ESPectrum::fdd, i, fn);
                     }
                 }
+#if !PICO_RP2040
+                snprintf(prefix, sizeof(prefix), "mb02d%u.file=", (unsigned)i);
+                plen = strlen(prefix);
+                if (s.length() >= plen && s.compare(0, plen, prefix) == 0) {
+                    std::string fn = s.substr(plen);
+                    if (!fn.empty() && MB02::enabled) {
+                        rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, i, fn);
+                    }
+                }
+#endif
             }
             s.clear();
         } else {
@@ -536,6 +550,7 @@ void Config::load() {
         nvs_get_str("esxdos_mmc", esxdos_mmc_image, sts);
         nvs_get_str("esxdos_hdf", esxdos_hdf_image[0], sts);
         nvs_get_str("esxdos_hd1", esxdos_hdf_image[1], sts);
+        nvs_get_u8("mb02", mb02, sts);
 #endif
         nvs_get_str("SNA_Path", FileUtils::SNA_Path, sts);
         nvs_get_str("TAP_Path", FileUtils::TAP_Path, sts);
@@ -744,6 +759,7 @@ void Config::save() {
     nvs_set_str(buf,"esxdos_mmc", esxdos_mmc_image.c_str());
     nvs_set_str(buf,"esxdos_hdf", esxdos_hdf_image[0].c_str());
     nvs_set_str(buf,"esxdos_hd1", esxdos_hdf_image[1].c_str());
+    nvs_set_u8(buf,"mb02", mb02);
 #endif
     nvs_set_str(buf,"SNA_Path",FileUtils::SNA_Path.c_str());
     nvs_set_str(buf,"TAP_Path",FileUtils::TAP_Path.c_str());
@@ -761,6 +777,10 @@ void Config::save() {
         if (i < 4) {
             s = "drive" + to_string(i);
             nvs_set_str(buf, (s + ".file").c_str(), ESPectrum::fdd.disk[i] ? ESPectrum::fdd.disk[i]->fname.c_str() : "");
+#if !PICO_RP2040
+            s = "mb02d" + to_string(i);
+            nvs_set_str(buf, (s + ".file").c_str(), ESPectrum::mb02_fdd.disk[i] ? ESPectrum::mb02_fdd.disk[i]->fname.c_str() : "");
+#endif
         }
     }
     nvs_set_u8(buf,"scanlines",Config::scanlines);

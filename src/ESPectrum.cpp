@@ -64,6 +64,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Debug.h"
 #if !PICO_RP2040
 #include "DivMMC.h"
+#include "MB02.h"
 #endif
 #include "Midi.h"
 #include "MidiSynth.h"
@@ -232,6 +233,9 @@ int ESPectrum::TapeNameScroller = 0;
 
 bool ESPectrum::trdos = false;
 rvmWD1793 ESPectrum::fdd;
+#if !PICO_RP2040
+rvmWD1793 ESPectrum::mb02_fdd;
+#endif
 
 /// @brief  Mouse support
 int32_t ESPectrum::mouseX = 0;
@@ -291,13 +295,25 @@ uint32_t ESPectrum::tstatesPerSampleFP = 0;
 uint32_t ESPectrum::beeperSampleAccum = 0;
 uint32_t ESPectrum::beeperTstatesInSample = 0;
 
-// Reciprocal LUT: recip[n] = (1<<16)/n for fast division in BeeperGetSample
-static uint16_t beeper_recip[256];
-static void init_beeper_recip() {
-    beeper_recip[0] = 0;
-    for (int i = 1; i < 256; i++)
-        beeper_recip[i] = (uint16_t)((1u << 16) / i);
-}
+// Reciprocal LUT: recip[n] = (uint16_t)((1<<16)/n) for fast division in BeeperGetSample
+static const uint16_t beeper_recip[256] = {
+        0,    0,32768,21845,16384,13107,10922, 9362, 8192, 7281, 6553, 5957, 5461, 5041, 4681, 4369,
+     4096, 3855, 3640, 3449, 3276, 3120, 2978, 2849, 2730, 2621, 2520, 2427, 2340, 2259, 2184, 2114,
+     2048, 1985, 1927, 1872, 1820, 1771, 1724, 1680, 1638, 1598, 1560, 1524, 1489, 1456, 1424, 1394,
+     1365, 1337, 1310, 1285, 1260, 1236, 1213, 1191, 1170, 1149, 1129, 1110, 1092, 1074, 1057, 1040,
+     1024, 1008,  992,  978,  963,  949,  936,  923,  910,  897,  885,  873,  862,  851,  840,  829,
+      819,  809,  799,  789,  780,  771,  762,  753,  744,  736,  728,  720,  712,  704,  697,  689,
+      682,  675,  668,  661,  655,  648,  642,  636,  630,  624,  618,  612,  606,  601,  595,  590,
+      585,  579,  574,  569,  564,  560,  555,  550,  546,  541,  537,  532,  528,  524,  520,  516,
+      512,  508,  504,  500,  496,  492,  489,  485,  481,  478,  474,  471,  468,  464,  461,  458,
+      455,  451,  448,  445,  442,  439,  436,  434,  431,  428,  425,  422,  420,  417,  414,  412,
+      409,  407,  404,  402,  399,  397,  394,  392,  390,  387,  385,  383,  381,  378,  376,  374,
+      372,  370,  368,  366,  364,  362,  360,  358,  356,  354,  352,  350,  348,  346,  344,  343,
+      341,  339,  337,  336,  334,  332,  330,  329,  327,  326,  324,  322,  321,  319,  318,  316,
+      315,  313,  312,  310,  309,  307,  306,  304,  303,  302,  300,  299,  297,  296,  295,  293,
+      292,  291,  289,  288,  287,  286,  284,  283,  282,  281,  280,  278,  277,  276,  275,  274,
+      273,  271,  270,  269,  268,  267,  266,  265,  264,  263,  262,  261,  260,  259,  258,  257
+};
 
 //=======================================================================================
 // LOGGING / TESTING
@@ -553,7 +569,6 @@ static void assign_ram(int i) {
 }
 
 void ESPectrum::setup() {
-  init_beeper_recip();
   //=======================================================================================
   // INIT FILESYSTEM
   //=======================================================================================
@@ -757,6 +772,8 @@ void ESPectrum::setup() {
 #if !PICO_RP2040
   // Always init DivMMC (load ROM) so it's ready if user enables from OSD later
   DivMMC::init();
+  // MB-02+ disk interface (allocates SRAM in butter PSRAM after DivMMC)
+  MB02::init();
 #endif
 
   //=======================================================================================
@@ -911,6 +928,14 @@ void ESPectrum::setup() {
   }
   Debug::log("setup: Config::load2 done");
 
+#if !PICO_RP2040
+  // Re-reset MB-02 after load2 so boot EPROM starts with disks already inserted
+  if (MB02::enabled && mb02_fdd.disk[0]) {
+    MB02::reset();
+    Z80::reset();
+  }
+#endif
+
   // Load snapshot if present in Config::
   Debug::log("setup: ram_file='%s'", Config::ram_file.c_str());
   if (Config::ram_file != NO_RAM_FILE) {
@@ -982,6 +1007,9 @@ void ESPectrum::reset(uint8_t romInUse) {
 
   // Init disk controller
   rvmWD1793Reset(&fdd);
+#if !PICO_RP2040
+  if (MB02::enabled) MB02::reset();
+#endif
 
   Tape::tapeFileName = "none";
   if (Tape::tape.obj.fs != NULL) {
@@ -1778,11 +1806,23 @@ void ESPectrum::loop() {
           snprintf(OSD::stats_lin1, sizeof(OSD::stats_lin1),
                    "TST: %05d / IDL: %05d ", CPU::tstates_active,
                    (int)(ESPectrum::idle));
-          snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2),
-                   "ST:%-6sTR:#%02X/SEC:#%02X ",
-                   rvmWD1793StepStateName(&ESPectrum::fdd).c_str(),
-                   ESPectrum::fdd.track, ESPectrum::fdd.sector);
-          OSD::drawStats();
+
+#if !PICO_RP2040
+          if (MB02::enabled) {
+            snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2),
+                     "MB02 TR:#%02X/SEC:#%02X/S:%d ",
+                     ESPectrum::mb02_fdd.track, ESPectrum::mb02_fdd.sector,
+                     ESPectrum::mb02_fdd.side);
+            OSD::drawStats();
+          } else
+#endif
+          {
+            snprintf(OSD::stats_lin2, sizeof(OSD::stats_lin2),
+                    "ST:%-6sTR:#%02X/SEC:#%02X ",
+                    rvmWD1793StepStateName(&ESPectrum::fdd).c_str(),
+                    ESPectrum::fdd.track, ESPectrum::fdd.sector);
+            OSD::drawStats();
+          }
         }
         totalseconds = 0;
         totalsecondsnodelay = 0;
@@ -1803,6 +1843,15 @@ void ESPectrum::loop() {
         && !DivMMC::enabled
 #endif
         ;
+#if !PICO_RP2040
+    if (MB02::enabled) {
+        if (ESPectrum::mb02_fdd.led) {
+            VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(mb02_fdd.led == 2 ? 2 : 1, 1));
+        } else {
+            VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(VIDEO::borderColor, 0));
+        }
+    } else
+#endif
     if (hasFdd && Config::trdosSoundLed) {
         if (ESPectrum::fdd.led) {
             VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(fdd.led == 2 ? 2 : 1, 1));

@@ -1,3 +1,7 @@
+#include "pico.h"
+
+#if !PICO_RP2040
+
 #include <stdio.h>
 #include <string.h>
 #include <string>
@@ -485,3 +489,5 @@ void ZipExtract::cleanup() {
         f_unlink(path);
     }
 }
+
+#endif // !PICO_RP2040

@@ -69,7 +69,8 @@ class Graphics {
 	virtual bool allocateFrameBuffers()	{
 		if(yres <= 0 || xres <= 0)
 			return false;
-		frameBuffer = allocateFrameBuffer();
+		if (!frameBuffer)  // skip if pre-allocated (shared block)
+			frameBuffer = allocateFrameBuffer();
 		return true;
 	}
 

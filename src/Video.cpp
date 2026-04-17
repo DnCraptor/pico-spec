@@ -53,6 +53,7 @@ visit https://zxespectrum.speccy.org/contacto
 extern "C" void graphics_set_palette(uint8_t i, uint32_t color888);
 extern "C" void vga_set_palette_entry_solid(uint8_t i, uint32_t color888);
 extern "C" void graphics_set_buffer(uint8_t* buffer, uint16_t width, uint16_t height);
+extern "C" void graphics_set_scanlines(bool enabled);
 extern "C" void hdmi_reinit(void);
 extern "C" void vga_reinit(void);
 // Place hot video functions in SRAM instead of XIP flash
@@ -172,7 +173,7 @@ static const uint8_t ulaplus_default_palette[64] = {
 };
 uint8_t VIDEO::ulaplus_palette[64];
 bool VIDEO::ulaplus_palette_dirty = false;
-unsigned int VIDEO::AluBytesUlaPlus[16][256] = {};
+// AluBytesUlaPlus moved to flash — see roms/AluBytesUlaPlus.c
 #endif
 
 #ifdef DIRTY_LINES
@@ -184,7 +185,7 @@ static unsigned int isFullBorder;
 static unsigned int lineptr_offset; // uint32_t offset for screen start in line buffer
 
 static uint32_t* lineptr32;
-static uint32_t* prevLineptr32;
+static uint16_t* prevLineptr16; // 4-bit packed: 1 uint16 = 4 pixels
 
 static unsigned int tstateDraw; // Drawing start point (in Tstates)
 static unsigned int linedraw_cnt;
@@ -269,7 +270,7 @@ void (*VIDEO::DrawBorder)() = &VIDEO::TopBorder_Blank;
 
 
 static uint16_t* brdptr16;
-static uint16_t* prevBrdptr16;
+static uint8_t* prevBrdptr8; // 4-bit packed: 1 byte = 2 pixels
 
 uint32_t VIDEO::lastBrdTstate;
 bool VIDEO::brdChange = false;
@@ -386,8 +387,12 @@ static const char* builtin_palette_names[] = {
     "Pulsar", "Alone", "Grayscale", "Mars", "Ocean"
 };
 
-// Custom palettes from /palette.nvs (max 11, total max 16)
+// Custom palettes from /palette.nvs
+#if PICO_RP2040
+#define MAX_CUSTOM_PALETTES 4
+#else
 #define MAX_CUSTOM_PALETTES 11
+#endif
 static PaletteDef custom_palette_defs[MAX_CUSTOM_PALETTES];
 static char custom_palette_names[MAX_CUSTOM_PALETTES][13]; // 12 chars + null
 static uint8_t custom_palette_count = 0;
@@ -587,7 +592,9 @@ static void initDefaultPalette() {
     buildSpectrumRGB(builtin_palette_defs[0], spectrum_rgb888);
 }
 
+#if !PICO_RP2040
 void initGigascreenBlendLUT();
+#endif
 
 // Apply color matrix transform to an RGB888 color
 static inline uint32_t matrixTransform(uint32_t rgb, const uint16_t *m) {
@@ -633,24 +640,10 @@ void VIDEO::regenerateUlaPlusAluBytes() {
     for (int i = 0; i < 64; i++)
         graphics_set_palette(i, paletteTransform(grb_to_rgb888(ulaplus_palette[i])));
 
-    // Build AluBytes with fixed indices 0-63 (only depends on attribute format,
-    // not palette contents — only needs to be done once at ULA+ enable)
-    for (int nibble = 0; nibble < 16; nibble++) {
-        for (int att = 0; att < 256; att++) {
-            uint8_t group = (att >> 6) & 0x03;
-            uint8_t ink_idx   = group * 16 + (att & 0x07);
-            uint8_t paper_idx = group * 16 + ((att >> 3) & 0x07) + 8;
-
-            uint8_t px[2] = { paper_idx, ink_idx };
-            AluBytesUlaPlus[nibble][att] =
-                px[(nibble >> 1) & 1]        |
-                (px[nibble & 1]       << 8)  |
-                (px[(nibble >> 3) & 1] << 16)|
-                (px[(nibble >> 2) & 1] << 24);
-        }
-    }
+    // Point AluByte to flash-resident ULA+ table (palette indices 0-63,
+    // fixed mapping that depends only on attribute format, not palette contents)
     for (int n = 0; n < 16; n++)
-        AluByte[n] = AluBytesUlaPlus[n];
+        AluByte[n] = (unsigned int*)AluBytesUlaPlus_flash[n];
 }
 
 // Fast path: update single palette entry without rebuilding AluBytes
@@ -801,6 +794,40 @@ void VIDEO::vgataskinit(void *unused) {
 
 ///TaskHandle_t VIDEO::videoTaskHandle;
 
+#if !PICO_RP2040
+// Shared framebuffer data block — allocated once at boot for max resolution (360x288).
+// Both main FB and prevFB (Gigascreen) live in the same contiguous block.
+// changeMode() reconfigures pointer arrays without any alloc/free.
+#define FB_MAX_LINES 289   // calcLines(288)
+#define FB_MAX_STRIDE 360
+#define FB_MAX_SIZE (FB_MAX_LINES * FB_MAX_STRIDE)  // 104,040 bytes per FB
+// prevFrameBuffer stores only lower 4 bits of palette index per pixel
+// (Gigascreen blendLUT only uses prev & 0x0F). Pack 2 px per byte → half size.
+#define FB_PREV_STRIDE (FB_MAX_STRIDE / 2)
+#define FB_PREV_SIZE (FB_MAX_LINES * FB_PREV_STRIDE)  // 52,020 bytes
+
+static int fbCalcLines(int count) {
+    if (count == 288) return 289;
+    if (count == 240) return 241;
+    if (count == 480) return 241;
+    if (count == 400) return 201;
+    return count;
+}
+
+static uint8_t *sharedFB_block = nullptr;
+static void **sharedFB_arr1 = nullptr;  // pointer array for frameBuffer
+static void **sharedFB_arr2 = nullptr;  // pointer array for prevFrameBuffer
+
+static void setupSharedFBPointers(Graphics<unsigned char> &vga, int lines, int stride) {
+    int prev_stride = stride / 2; // 4-bit packed
+    for (int i = 0; i < lines; i++) {
+        sharedFB_arr1[i] = sharedFB_block + i * stride;
+        sharedFB_arr2[i] = sharedFB_block + FB_MAX_SIZE + i * prev_stride;
+    }
+    vga.frameBuffer = (unsigned char **)sharedFB_arr1;
+    vga.prevFrameBuffer = (unsigned char **)sharedFB_arr2;
+}
+#endif
 
 void VIDEO::Init() {
     int Mode;
@@ -813,12 +840,40 @@ void VIDEO::Init() {
 #endif
     {
         Mode = Config::aspect_16_9 ? 2 : 0;
-        Mode += Config::scanlines;
     }
     OSD::scrW = vidmodes[Mode][vmodeproperties::hRes];
-    OSD::scrH = (vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv]) >> Config::scanlines;
+    OSD::scrH = vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv];
     vga.useInterrupt_flag = false;
+
+#if !PICO_RP2040
+    // Allocate shared data block for main + prev framebuffers at max resolution
+    // BEFORE vga.init() — while heap is still unfragmented (full MEM_REMAIN available).
+    // The block is never freed; changeMode() only reconfigures pointer arrays.
+    if (!sharedFB_block) {
+        sharedFB_block = (uint8_t *)malloc((FB_MAX_SIZE + FB_PREV_SIZE));
+        if (sharedFB_block) {
+            memset(sharedFB_block, 0, (FB_MAX_SIZE + FB_PREV_SIZE));
+            sharedFB_arr1 = (void **)malloc(FB_MAX_LINES * sizeof(void *));
+            sharedFB_arr2 = (void **)malloc(FB_MAX_LINES * sizeof(void *));
+            if (!sharedFB_arr1 || !sharedFB_arr2) {
+                free(sharedFB_block); sharedFB_block = nullptr;
+                free(sharedFB_arr1); sharedFB_arr1 = nullptr;
+                free(sharedFB_arr2); sharedFB_arr2 = nullptr;
+            }
+        }
+    }
+    if (sharedFB_block) {
+        int lines = fbCalcLines(
+            vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv]);
+        int stride = (vidmodes[Mode][vmodeproperties::hRes] + 3) & ~3;
+        setupSharedFBPointers(vga, lines, stride);
+        // frameBuffer is set — vga.init()'s allocateFrameBuffers() will skip allocation
+    }
+#endif
+
     vga.init( Mode, redPins, grePins, bluPins, HSYNC_PIN, VSYNC_PIN);
+
+    graphics_set_scanlines(Config::scanlines);
 
     // Generate AluBytes table with palette indices (no sync bits)
     initAluBytes();
@@ -830,18 +885,14 @@ void VIDEO::Init() {
     // Build and apply palette (brightness levels + color matrix)
     applyPalette();
 
-    if (Config::gigascreen_enabled)
+#if !PICO_RP2040
+    if (Config::gigascreen_enabled && vga.prevFrameBuffer)
     {
         VIDEO::gigascreen_enabled = (Config::gigascreen_onoff == 1); // On=enabled, Auto=start disabled
         VIDEO::gigascreen_auto_countdown = 0;
         initGigascreenBlendLUT(); // Pre-compute blend palette entries
-        InitPrevBuffer();   // For Gigascreen (needed for both On and Auto modes)
-        if (!vga.prevFrameBuffer) {
-            // Not enough memory — disable gigascreen
-            Config::gigascreen_enabled = false;
-            VIDEO::gigascreen_enabled = false;
-        }
     }
+#endif
 }
 
 static void freeFrameBuffer(void **fb) {
@@ -860,26 +911,43 @@ void VIDEO::changeMode() {
         Mode = 23;
     } else {
         Mode = Config::aspect_16_9 ? 2 : 0;
-        Mode += Config::scanlines;
     }
 
     int newW = vidmodes[Mode][vmodeproperties::hRes];
-    int newH = (vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv]) >> Config::scanlines;
+    int newH = vidmodes[Mode][vmodeproperties::vRes] / vidmodes[Mode][vmodeproperties::vDiv];
 
     bool sameDims = (vga.frameBuffer && vga.xres == newW && vga.yres == newH);
 
-    // 2. Free prevFrameBuffer (Gigascreen) — always freed, re-created later if needed
-    if (vga.prevFrameBuffer) {
-        auto oldPrev = vga.prevFrameBuffer;
-        vga.prevFrameBuffer = nullptr;
-        freeFrameBuffer((void**)oldPrev);
+#if !PICO_RP2040
+    // Shared block path: no alloc/free, just reconfigure pointers
+    if (sharedFB_block) {
+        if (!sameDims) {
+            vga.frameBuffer = nullptr;  // blank output while reconfiguring
+            SaveRect.clear();
+            int lines = fbCalcLines(newH);
+            int stride = (newW + 3) & ~3;
+            setupSharedFBPointers(vga, lines, stride);
+        }
+    } else
+#endif
+    {
+        // Non-shared fallback (RP2040 always; RP2350 only if shared alloc failed).
+        // prevFrameBuffer is RP2350-only (Gigascreen) — guard the cleanup.
+#if !PICO_RP2040
+        if (vga.prevFrameBuffer) {
+            auto oldPrev = vga.prevFrameBuffer;
+            vga.prevFrameBuffer = nullptr;
+            freeFrameBuffer((void**)oldPrev);
+        }
+#endif
+        // Only null FB when dims change (alloc step below will rebuild it).
+        // If sameDims, keep current FB to avoid driver reading NULL.
+        if (!sameDims) {
+            vga.frameBuffer = nullptr;
+        }
     }
 
-    // 3. Null out frameBuffer so DMA handler returns early (getLineBuffer checks null)
-    auto oldFB = vga.frameBuffer;
-    vga.frameBuffer = nullptr;
-
-    // 4. Update video_mode BEFORE reinit (hdmi_init reads it via get_video_mode())
+    // 2. Update video_mode BEFORE reinit (hdmi_init reads it via get_video_mode())
     if (SELECT_VGA) {
         switch (Config::vga_video_mode) {
             case Config::VM_640x480_50:
@@ -915,53 +983,62 @@ void VIDEO::changeMode() {
         }
     }
 
-    // 5. Update driver buffer dimensions + reinit video output
+    // 3. Update driver buffer dimensions + reinit video output
     vga.mode = Mode;
     vga.xres = newW;
     vga.yres = newH;
     OSD::scrW = newW;
     OSD::scrH = newH;
     graphics_set_buffer(NULL, newW, newH);
+    graphics_set_scanlines(Config::scanlines);
     if (SELECT_VGA) {
-        // VGA: PIO clkdiv and line_size are identical across all modes.
-        // Only vsync line numbers need updating.
         vga_reinit();
     } else {
-        // HDMI: abort DMA from core0, then signal core1 to run hdmi_init()
         hdmi_reinit();
     }
 
-    // 6. Allocate new framebuffer (HDMI DMA is now running with new mode, FB is null → blank output)
-    if (sameDims) {
-        // Same dimensions — reuse existing framebuffer
-        vga.frameBuffer = oldFB;
-    } else {
-        freeFrameBuffer((void**)oldFB);
-        vga.frameBuffer = vga.allocateFrameBuffer();
-        SaveRect.clear();
+    // 4. Allocate framebuffer (non-shared path only)
+#if !PICO_RP2040
+    if (!sharedFB_block) {
+#endif
+        if (sameDims) {
+            // frameBuffer already nulled above for non-shared; won't reach here for shared
+        } else {
+            auto oldFB = vga.frameBuffer;
+            vga.frameBuffer = nullptr;
+            freeFrameBuffer((void**)oldFB);
+            vga.frameBuffer = vga.allocateFrameBuffer();
+            SaveRect.clear();
+        }
+#if !PICO_RP2040
     }
+#endif
 
-    // 7. Recalculate border timing + precalc tables (preserve border color)
+    // 5. Recalculate border timing + precalc tables (preserve border color)
     uint8_t savedBorderColor = borderColor;
     VIDEO::Reset();
     borderColor = savedBorderColor;
     brd = border32[borderColor];
     precalcborder32();
 
-    // 8. Repaint framebuffer with current border color
+    // 6. Repaint framebuffer with current border color
     if (vga.frameBuffer) {
         int stride = (vga.xres + 3) & ~3;
         memset(vga.frameBuffer[0], zxColor(borderColor, 0), vga.yres * stride);
     }
 
-    // 9. Gigascreen: reallocate prevFrameBuffer if enabled
-    if (Config::gigascreen_enabled) {
+#if !PICO_RP2040
+    // 7. Gigascreen
+    if (Config::gigascreen_enabled && vga.prevFrameBuffer) {
+        VIDEO::gigascreen_enabled = (Config::gigascreen_onoff == 1);
+    } else if (Config::gigascreen_enabled) {
         InitPrevBuffer();
         if (!vga.prevFrameBuffer) {
             Config::gigascreen_enabled = false;
             VIDEO::gigascreen_enabled = false;
         }
     }
+#endif
 }
 #endif
 
@@ -989,6 +1066,7 @@ void VIDEO::Reset() {
     isFullBorder = 0;
 #endif
 
+    uint8_t prevOSDstats = OSD & 0x03; // Preserve stats mode across reset
     OSD = 0;
 
     bool isFullBorder240 = VIDEO::isFullBorder240();
@@ -1167,30 +1245,38 @@ void VIDEO::Reset() {
         }
     }
 #endif
+
+    // Restore stats mode that was active before reset
+    if (prevOSDstats) {
+        OSD = prevOSDstats;
+        if (Config::aspect_16_9)
+            Draw_OSD169 = MainScreen_OSD;
+        else
+            Draw_OSD43 = BottomBorder_OSD;
+    }
 }
 
 extern size_t getFreeHeap(void);
 
+#if !PICO_RP2040
 void VIDEO::InitPrevBuffer() {
     if (!vga.prevFrameBuffer) {
-        // Each line = xres bytes, need (yres+1) lines + pointer array
-        size_t needed = (size_t)(vga.yres + 1) * (vga.xres + sizeof(void*)) + 4096;
-        size_t avail = getFreeHeap();
-        if (avail < needed) {
-            Debug::log("InitPrevBuffer: not enough heap (%u < %u)", (unsigned)avail, (unsigned)needed);
-            return;
-        }
         vga.prevFrameBuffer = vga.allocateFrameBuffer();
     }
     if (!vga.prevFrameBuffer) return;
     const int h = VIDEO::vga.yres;
-    const size_t lineBytes = (size_t)VIDEO::vga.xres;
+    const int w = VIDEO::vga.xres;
     for (int y = 0; y < h; ++y) {
         uint8_t *src = VIDEO::vga.frameBuffer[y];
         uint8_t *dst = VIDEO::vga.prevFrameBuffer[y];
-        if (src && dst) std::memcpy(dst, src, lineBytes);
+        if (!src || !dst) continue;
+        // Pack 2 src pixels (8-bit palette idx) into 1 dst byte (low+high nibble).
+        for (int x = 0; x < w; x += 2) {
+            dst[x >> 1] = (src[x] & 0x0F) | ((src[x + 1] & 0x0F) << 4);
+        }
     }
 }
+#endif
 
 //  VIDEO DRAW FUNCTIONS
 IRAM_ATTR void VIDEO::MainScreen_Blank(unsigned int statestoadd, bool contended) {    
@@ -1202,7 +1288,7 @@ IRAM_ATTR void VIDEO::MainScreen_Blank(unsigned int statestoadd, bool contended)
         if (brdChange) DrawBorder(); // Needed to avoid tearing in demos like Gabba (Pentagon)
         
         lineptr32 = (uint32_t *)(vga.frameBuffer[linedraw_cnt]) + lineptr_offset;
-        prevLineptr32 = (uint32_t *)(vga.prevFrameBuffer[linedraw_cnt]) + lineptr_offset;
+        prevLineptr16 = (uint16_t *)(vga.prevFrameBuffer[linedraw_cnt]) + lineptr_offset;
 
         coldraw_cnt = 0;
 
@@ -1269,7 +1355,7 @@ IRAM_ATTR void VIDEO::MainScreen_Blank_Snow(unsigned int statestoadd, bool conte
         if (brdChange) DrawBorder();
 
         lineptr32 = (uint32_t *)(vga.frameBuffer[linedraw_cnt]) + lineptr_offset;
-        prevLineptr32 = (uint32_t *)(vga.prevFrameBuffer[linedraw_cnt]) + lineptr_offset;
+        prevLineptr16 = (uint16_t *)(vga.prevFrameBuffer[linedraw_cnt]) + lineptr_offset;
 
         coldraw_cnt = 0;
 
@@ -1333,7 +1419,7 @@ IRAM_ATTR void VIDEO::MainScreen_Blank_Snow_Opcode(bool contended) {
         if (brdChange) DrawBorder();
 
         lineptr32 = (uint32_t *)(vga.frameBuffer[linedraw_cnt]) + lineptr_offset;
-        prevLineptr32 = (uint32_t *)(vga.prevFrameBuffer[linedraw_cnt]) + lineptr_offset;
+        prevLineptr16 = (uint16_t *)(vga.prevFrameBuffer[linedraw_cnt]) + lineptr_offset;
 
         coldraw_cnt = 0;
 
@@ -1367,6 +1453,7 @@ IRAM_ATTR void VIDEO::MainScreen_Blank_Snow_Opcode(bool contended) {
 
 #ifndef DIRTY_LINES
 
+#if !PICO_RP2040
 // GigaScreen blend LUT: maps (prev_palette_idx, cur_palette_idx) → blended palette_idx
 // Supports standard 16 Spectrum colors (indices 0-15)
 // Blended colors stored in palette slots 17-239
@@ -1420,6 +1507,34 @@ inline uint32_t blendPixels32(uint32_t cur, uint32_t prev) {
         | (gigsBlendLUT[((prev >>24) & 0x0F) * 16 + ((cur >>24) & 0x0F)] << 24);
 }
 
+// Pack lower 4 bits of each of 4 cur pixels (uint32) into 2-pixel-per-byte
+// uint16 (low nibble = even pixel, high nibble = odd pixel)
+inline uint16_t packPixels32(uint32_t cur) {
+    uint32_t p0 = cur & 0x0F;
+    uint32_t p1 = (cur >> 8) & 0x0F;
+    uint32_t p2 = (cur >> 16) & 0x0F;
+    uint32_t p3 = (cur >> 24) & 0x0F;
+    return (uint16_t)(p0 | (p1 << 4) | (p2 << 8) | (p3 << 12));
+}
+
+// Blend 4 cur pixels with 4 prev pixels stored as packed uint16 (2 px per byte)
+inline uint32_t blendPixels32_packed(uint32_t cur, uint16_t prev16) {
+    uint32_t p0 = prev16 & 0x0F;
+    uint32_t p1 = (prev16 >> 4) & 0x0F;
+    uint32_t p2 = (prev16 >> 8) & 0x0F;
+    uint32_t p3 = (prev16 >> 12) & 0x0F;
+    return  gigsBlendLUT[p0 * 16 + (cur & 0x0F)]
+        | (gigsBlendLUT[p1 * 16 + ((cur >> 8) & 0x0F)] << 8)
+        | (gigsBlendLUT[p2 * 16 + ((cur >> 16) & 0x0F)] << 16)
+        | (gigsBlendLUT[p3 * 16 + ((cur >> 24) & 0x0F)] << 24);
+}
+#else
+// RP2040: gigascreen_enabled is always false, but compiler still needs the symbol
+inline uint32_t blendPixels32(uint32_t cur, uint32_t) { return cur; }
+inline uint16_t packPixels32(uint32_t) { return 0; }
+inline uint32_t blendPixels32_packed(uint32_t cur, uint16_t) { return cur; }
+#endif // !PICO_RP2040
+
 // ----------------------------------------------------------------------------------
 // Fast video emulation with no ULA cycle emulation and no snow effect support
 // ----------------------------------------------------------------------------------
@@ -1471,10 +1586,11 @@ IRAM_ATTR void VIDEO::MainScreen(unsigned int statestoadd, bool contended) {
             uint32_t newPixel1 = AluByte[bmp >> 4][att];
             uint32_t newPixel2 = AluByte[bmp & 0xF][att];
 
-            uint32_t mix1 = blendPixels32(newPixel1, *prevLineptr32);
-            uint32_t mix2 = blendPixels32(newPixel2, *(prevLineptr32 + 1));
-            *prevLineptr32++ = newPixel1;
-            *prevLineptr32++ = newPixel2;
+            uint32_t mix1 = blendPixels32_packed(newPixel1, prevLineptr16[0]);
+            uint32_t mix2 = blendPixels32_packed(newPixel2, prevLineptr16[1]);
+            prevLineptr16[0] = packPixels32(newPixel1);
+            prevLineptr16[1] = packPixels32(newPixel2);
+            prevLineptr16 += 2;
             *lineptr32++ = mix1;
             *lineptr32++ = mix2;
         }
@@ -1863,17 +1979,22 @@ IRAM_ATTR void VIDEO::EndFrame() {
     lastBrdTstate = tStatesBorder;
     brdChange = false;
 
+#if !PICO_RP2040
     if (Config::gigascreen_onoff == 2) { // Auto mode
         if (gigascreen_auto_countdown > 0) {
             gigascreen_auto_countdown--;
             if (!gigascreen_enabled) {
                 if (!gigsBlendLUTReady) initGigascreenBlendLUT();
+                // Seed prev from current FB so first blended frame matches current
+                // (otherwise stale prev from previous session causes a flash)
+                InitPrevBuffer();
                 gigascreen_enabled = true;
             }
         } else {
             if (gigascreen_enabled) gigascreen_enabled = false;
         }
     }
+#endif
 
     framecnt++;
 }
@@ -1924,10 +2045,18 @@ IRAM_ATTR static void Update_Border_Pair() {
 
 IRAM_ATTR static void Update_Border_Pair_Gig() {
     uint32_t color32 = VIDEO::brd | (VIDEO::brd << 16);
-    uint32_t old32 = ((uint32_t *)&prevBrdptr16[brdcol_cnt])[0];
-    ((uint32_t *)&prevBrdptr16[brdcol_cnt])[0] = color32;
-    ((uint32_t *)&prevBrdptr16[brdcol_cnt])[1] = color32;
-    if (old32 != color32) {
+    // Packed border prev: brdcol_cnt is in uint16-units; in packed (1 byte = 2 px)
+    // 8 px occupy 4 bytes → uint32 covers 8 px. Same nibble repeated → 0x11*nib.
+    uint8_t nib = VIDEO::brd & 0x0F;
+    uint32_t packed32 = nib * 0x11111111u;
+    uint32_t* prevWord = (uint32_t*)&prevBrdptr8[brdcol_cnt];
+    uint32_t old_packed = prevWord[0];
+    prevWord[0] = packed32;
+    if (old_packed != packed32) {
+        // Decompose old packed back to full uint32 per pair (low+high nibble identical
+        // for border since prev was filled with uniform color)
+        uint32_t old_lo_nib = old_packed & 0x0F; // single nibble suffices
+        uint32_t old32 = old_lo_nib * 0x01010101u;
         uint32_t mixed = blendPixels32(color32, old32);
         ((uint32_t *)&brdptr16[brdcol_cnt])[0] = mixed;
         ((uint32_t *)&brdptr16[brdcol_cnt])[1] = mixed;
@@ -1944,11 +2073,15 @@ IRAM_ATTR static void Update_Border_XOR() {
 }
 
 IRAM_ATTR static void Update_Border_XOR_Gig() {
-    uint32_t newColor = VIDEO::brd;
+    uint32_t newColor = VIDEO::brd; // 0xCCCCCCCC: 4 copies of palette index byte
     int idx = brdcol_cnt ^ 1;
-    uint32_t oldColor = prevBrdptr16[idx];
-    if (oldColor != newColor) {
-        prevBrdptr16[idx] = newColor;
+    uint8_t newNib = newColor & 0x0F;
+    uint8_t newPacked = newNib | (newNib << 4);
+    uint8_t oldPacked = prevBrdptr8[idx];
+    if (oldPacked != newPacked) {
+        prevBrdptr8[idx] = newPacked;
+        uint8_t oldNib = oldPacked & 0x0F;
+        uint32_t oldColor = oldNib * 0x01010101u;
         brdptr16[idx] = blendPixels32(newColor, oldColor);
         VIDEO::brdGigascreenChange = true;
     } else {
@@ -1982,7 +2115,7 @@ IRAM_ATTR void VIDEO::TopBorder_Blank() {
         brdcol_cnt = brdcol_start;
         brdlin_cnt = 0;
         brdptr16 = (uint16_t *)(vga.frameBuffer[0]);
-        prevBrdptr16 = vga.prevFrameBuffer ? (uint16_t *)(vga.prevFrameBuffer[0]) : brdptr16;
+        prevBrdptr8 = vga.prevFrameBuffer ? (uint8_t *)(vga.prevFrameBuffer[0]) : (uint8_t *)brdptr16;
         DrawBorder = &TopBorder;
         DrawBorder();
     }
@@ -1996,7 +2129,7 @@ IRAM_ATTR void VIDEO::TopBorder() {
             int lastPair = (brdcol_retrace - 1) & ~1;
             int curPair = brdcol_cnt & ~1;
             ((uint32_t *)&brdptr16[curPair])[0] = ((uint32_t *)&brdptr16[lastPair])[0];
-            if (gigascreen_enabled) ((uint32_t *)&prevBrdptr16[curPair])[0] = ((uint32_t *)&prevBrdptr16[lastPair])[0];
+            if (gigascreen_enabled) ((uint16_t *)&prevBrdptr8[curPair])[0] = ((uint16_t *)&prevBrdptr8[lastPair])[0];
         }
 
         lastBrdTstate += brdcol_step;
@@ -2005,7 +2138,7 @@ IRAM_ATTR void VIDEO::TopBorder() {
         if (brdcol_cnt >= brdcol_end) {
             brdlin_cnt++;
             brdptr16 = (uint16_t *)(vga.frameBuffer[brdlin_cnt]);
-            prevBrdptr16 = vga.prevFrameBuffer ? (uint16_t *)(vga.prevFrameBuffer[brdlin_cnt]) : brdptr16;
+            prevBrdptr8 = vga.prevFrameBuffer ? (uint8_t *)(vga.prevFrameBuffer[brdlin_cnt]) : (uint8_t *)brdptr16;
             brdcol_cnt = brdcol_start;
             lastBrdTstate += tStatesPerLine - brdcol_end;
 
@@ -2026,7 +2159,7 @@ IRAM_ATTR void VIDEO::MiddleBorder() {
             int lastPair = (brdcol_retrace - 1) & ~1;
             int curPair = brdcol_cnt & ~1;
             ((uint32_t *)&brdptr16[curPair])[0] = ((uint32_t *)&brdptr16[lastPair])[0];
-            if (gigascreen_enabled) ((uint32_t *)&prevBrdptr16[curPair])[0] = ((uint32_t *)&prevBrdptr16[lastPair])[0];
+            if (gigascreen_enabled) ((uint16_t *)&prevBrdptr8[curPair])[0] = ((uint16_t *)&prevBrdptr8[lastPair])[0];
         }
 
         lastBrdTstate += brdcol_step;
@@ -2038,7 +2171,7 @@ IRAM_ATTR void VIDEO::MiddleBorder() {
         } else if (brdcol_cnt >= brdcol_end) {
             brdlin_cnt++;
             brdptr16 = (uint16_t *)(vga.frameBuffer[brdlin_cnt]);
-            prevBrdptr16 = vga.prevFrameBuffer ? (uint16_t *)(vga.prevFrameBuffer[brdlin_cnt]) : brdptr16;
+            prevBrdptr8 = vga.prevFrameBuffer ? (uint8_t *)(vga.prevFrameBuffer[brdlin_cnt]) : (uint8_t *)brdptr16;
             brdcol_cnt = brdcol_start;
             lastBrdTstate += tStatesPerLine - brdcol_end;
             if (brdlin_cnt == lin_end2) {
@@ -2058,7 +2191,7 @@ IRAM_ATTR void VIDEO::BottomBorder() {
             int lastPair = (brdcol_retrace - 1) & ~1;
             int curPair = brdcol_cnt & ~1;
             ((uint32_t *)&brdptr16[curPair])[0] = ((uint32_t *)&brdptr16[lastPair])[0];
-            if (gigascreen_enabled) ((uint32_t *)&prevBrdptr16[curPair])[0] = ((uint32_t *)&prevBrdptr16[lastPair])[0];
+            if (gigascreen_enabled) ((uint16_t *)&prevBrdptr8[curPair])[0] = ((uint16_t *)&prevBrdptr8[lastPair])[0];
         }
 
         lastBrdTstate += brdcol_step;
@@ -2073,7 +2206,7 @@ IRAM_ATTR void VIDEO::BottomBorder() {
                 return;
             }
             brdptr16 = (uint16_t *)(vga.frameBuffer[brdlin_cnt]);
-            prevBrdptr16 = vga.prevFrameBuffer ? (uint16_t *)(vga.prevFrameBuffer[brdlin_cnt]) : brdptr16;
+            prevBrdptr8 = vga.prevFrameBuffer ? (uint8_t *)(vga.prevFrameBuffer[brdlin_cnt]) : (uint8_t *)brdptr16;
         }
     }
 }
@@ -2096,7 +2229,7 @@ IRAM_ATTR void VIDEO::BottomBorder_OSD() {
             int lastPair = (brdcol_retrace - 1) & ~1;
             int curPair = brdcol_cnt & ~1;
             ((uint32_t *)&brdptr16[curPair])[0] = ((uint32_t *)&brdptr16[lastPair])[0];
-            if (gigascreen_enabled) ((uint32_t *)&prevBrdptr16[curPair])[0] = ((uint32_t *)&prevBrdptr16[lastPair])[0];
+            if (gigascreen_enabled) ((uint16_t *)&prevBrdptr8[curPair])[0] = ((uint16_t *)&prevBrdptr8[lastPair])[0];
         }
 
         lastBrdTstate += brdcol_step;
@@ -2111,7 +2244,7 @@ IRAM_ATTR void VIDEO::BottomBorder_OSD() {
                 return;
             }
             brdptr16 = (uint16_t *)(vga.frameBuffer[brdlin_cnt]);
-            prevBrdptr16 = vga.prevFrameBuffer ? (uint16_t *)(vga.prevFrameBuffer[brdlin_cnt]) : brdptr16;
+            prevBrdptr8 = vga.prevFrameBuffer ? (uint8_t *)(vga.prevFrameBuffer[brdlin_cnt]) : (uint8_t *)brdptr16;
         }
     }
 }
@@ -2160,7 +2293,7 @@ void SaveRectT::save(int16_t x, int16_t y, int16_t w, int16_t h) {
     #endif
     if (FileUtils::fsMount) {
         FIL f;
-        f_open(&f, "/tmp/save_rect.tmp", FA_WRITE | FA_CREATE_ALWAYS);
+        f_open(&f, "/tmp/save_rect.tmp", FA_WRITE | FA_OPEN_ALWAYS);
         f_lseek(&f, off);
         UINT bw;
         f_write(&f, &x, 2, &bw);
@@ -2274,7 +2407,7 @@ void SaveRectT::store_ram(const void* p, size_t sz) {
     size_t off = offsets.back();
     UINT bw;
     FIL f;
-    f_open(&f, "/tmp/save_rect.tmp", FA_WRITE | FA_CREATE_ALWAYS);
+    f_open(&f, "/tmp/save_rect.tmp", FA_WRITE | FA_OPEN_ALWAYS);
     f_lseek(&f, off);
     f_write(&f, p, sz, &bw);
     f_close(&f);

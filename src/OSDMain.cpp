@@ -31,6 +31,7 @@ To Contact the dev team you can write to zxespectrum@gmail.com or
 visit https://zxespectrum.speccy.org/contacto
 
 */
+#include <malloc.h>
 #include <hardware/watchdog.h>
 #include <hardware/clocks.h>
 #include <hardware/flash.h>
@@ -54,14 +55,17 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Z80_JLS/z80.h"
 #include "roms.h"
 #include "ff.h"
+#include "diskio.h"
 #include "psram_spi.h"
 #include "Ports.h"
 #include "audio.h"
 #include "AySound.h"
 #include "Midi.h"
 #include "MidiSynth.h"
+extern "C" void graphics_set_scanlines(bool enabled);
 #if !PICO_RP2040
 #include "DivMMC.h"
+#include "MB02.h"
 #endif
 
 #include <malloc.h>
@@ -93,6 +97,11 @@ extern bool SELECT_VGA;
 #endif
 
 extern int ram_pages, butter_pages, psram_pages, swap_pages;
+
+// Shared buffer for HWInfo/ChipInfo/BoardInfo/EmulatorInfo (never called concurrently)
+#define OSD_INFO_BUF_SZ 1536
+static char osd_info_buf[OSD_INFO_BUF_SZ];
+
 uint8_t OSD::cols;                     // Maximum columns
 uint8_t OSD::tab_col;                  // Tab stop column
 uint8_t OSD::max_right;                // Longest right part (hotkeys only)
@@ -135,7 +144,8 @@ unsigned short OSD::scrAlignCenterY(unsigned short pixel_height) { return (scrH 
 // Draws each character individually; cursor shown as highlighted block under current char.
 // Returns entered string on Enter, "\x1B" on Escape, "" if Enter pressed with empty field.
 // Ignores VK_MENU_* synthetic events to avoid double-fires from kbdExtraMapping.
-string OSD::inlineTextEdit(int ex, int ey, int maxlen, string text) {
+string OSD::inlineTextEdit(int ex, int ey, int maxlen, const string& initial_text) {
+    string text = initial_text;
     auto Kbd = ESPectrum::PS2Controller.keyboard();
     // Drain any keys still in the queue (e.g. the Enter that triggered the save action)
     { fabgl::VirtualKeyItem drain; while (Kbd->virtualKeyAvailable()) Kbd->getNextVirtualKey(&drain); }
@@ -991,6 +1001,19 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         printf("Insert disk %s\n",fname.c_str());
                         rvmWD1793InsertDisk(&ESPectrum::fdd, 0, fname);
                     }
+#if !PICO_RP2040
+                    else if (ext == "mbd") {
+                        printf("Insert MB-02 disk %s\n",fname.c_str());
+                        if (MB02::enabled) {
+                            rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, 0, fname);
+                            ESPectrum::mb02_fdd.diskLoadedCyl = -1;
+                            ESPectrum::mb02_fdd.diskLoadedSide = -1;
+                            MB02::signalDiskChange();
+                        } else {
+                            OSD::osdCenteredMsg("Enable MB-02+ first", LEVEL_WARN);
+                        }
+                    }
+#endif
                     else
                     {
                         Debug::led_blink();
@@ -1014,8 +1037,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             if (Config::gigascreen_enabled)
             {
                 Config::gigascreen_onoff = (Config::gigascreen_onoff + 1) % 3; // Off -> On -> Auto -> Off
-                if (Config::gigascreen_onoff == 1)
+                if (Config::gigascreen_onoff == 1) {
+#if !PICO_RP2040
+                    VIDEO::InitPrevBuffer(); // seed prev from current FB to avoid stale-frame flash
+#endif
                     VIDEO::gigascreen_enabled = true;
+                }
                 else {
                     VIDEO::gigascreen_enabled = false;
                     VIDEO::gigascreen_auto_countdown = 0;
@@ -1183,6 +1210,21 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         OSD::osdCenteredMsg(OSD_DSK_NEEDS_PENTAGON[Config::lang], LEVEL_WARN);
                     }
                 }
+#if !PICO_RP2040
+                else if (ext == "mbd") {
+                    // MB-02+ disk into Drive A (no reset — user enables mode separately)
+                    if (MB02::enabled) {
+                        if (!fromZip) FileUtils::DSK_Path = FileUtils::ALL_Path;
+                        Config::save();
+                        rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, 0, fname);
+                        ESPectrum::mb02_fdd.diskLoadedCyl = -1;
+                        ESPectrum::mb02_fdd.diskLoadedSide = -1;
+                        MB02::signalDiskChange();
+                    } else {
+                        OSD::osdCenteredMsg("Enable MB-02+ first", LEVEL_WARN);
+                    }
+                }
+#endif
                 else if (ext == "sna" || ext == "z80" || ext == "p") {
                     // Snapshot
                     if (!fromZip) FileUtils::SNA_Path = FileUtils::ALL_Path;
@@ -1239,9 +1281,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             // Show / hide OnScreen Stats
             {
                 uint8_t mode = VIDEO::OSD & 0x03;
-                bool hasFdd = (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) && Tape::tapeStatus != TAPE_LOADING
+                bool hasFdd = (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)
 #if !PICO_RP2040
+                                || ((Z80Ops::is48 || Z80Ops::is128) && MB02::enabled))
+                        && Tape::tapeStatus != TAPE_LOADING
                     && !DivMMC::enabled
+#else
+                                )
+                        && Tape::tapeStatus != TAPE_LOADING
 #endif
                     ;
                 uint8_t maxMode = hasFdd ? 3 : 2;
@@ -1835,8 +1882,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                             if (opt2) {
                                 uint8_t newval = opt2 - 1;
                                 if (newval != Config::esxdos) {
+                                    // esxDOS On → MB02 off
+                                    if (newval && Config::mb02) {
+                                        Config::mb02 = 0;
+                                        MB02::init();
+                                        OSD::osdCenteredMsg("MB-02+ disabled", LEVEL_WARN, 2000);
+                                    }
                                     Config::esxdos = newval;
-                                    DivMMC::init(); // handles enable/disable, mode switch, cleanup
+                                    DivMMC::init();
                                     if (DivMMC::enabled && !DivMMC::rom_loaded) {
                                         OSD::osdCenteredMsg("ESXDOS ROM not found", LEVEL_ERROR, 2000);
                                         Config::esxdos = 0;
@@ -1855,10 +1908,91 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                             }
                         }
                     }
+                    else if (FileUtils::fsMount && stor_num == 4) { // MB-02+
+                        menu_saverect = true;
+                        menu_curopt = 1;
+                        while(1) {
+                            menu_level = 2;
+                            string mb02menu = "MB-02+\n";
+                            mb02menu += Config::mb02 ? "Mode\tOn\n" : "Mode\tOff\n";
+                            mb02menu += "Drive 01\t>\n";
+                            mb02menu += "Drive 02\t>\n";
+                            mb02menu += "Drive 03\t>\n";
+                            mb02menu += "Drive 04\t>\n";
+                            uint8_t mb02_num = menuRun(mb02menu);
+                            if (mb02_num == 1) {
+                                // Mode toggle (Enable/Disable)
+                                uint8_t newval = Config::mb02 ? 0 : 1;
+                                Config::mb02 = newval;
+                                // MB02 On → esxDOS off
+                                if (Config::mb02 && Config::esxdos) {
+                                    Config::esxdos = 0;
+                                    DivMMC::init();
+                                    OSD::osdCenteredMsg("esxDOS disabled", LEVEL_WARN, 2000);
+                                }
+                                MB02::init();
+                                if (Config::mb02 && !MB02::enabled) {
+                                    OSD::osdCenteredMsg("MB-02+: not enough memory", LEVEL_ERROR, 2000);
+                                    Config::mb02 = 0;
+                                }
+                                Config::save();
+                                ESPectrum::reset();
+                                return;
+                            }
+                            else if (mb02_num >= 2 && mb02_num <= 5) {
+                                // Drive #01-#04 submenu
+                                uint8_t drv = mb02_num - 2;
+                                char drvtitle[16];
+                                snprintf(drvtitle, sizeof(drvtitle), "Drive %02d", drv + 1);
+                                string drvmenu = string(drvtitle) + "\nInsert disk\t>\nEject disk\n";
+                                menu_saverect = true;
+                                menu_curopt = 1;
+                                while (1) {
+                                    menu_level = 3;
+                                    uint8_t opt2 = menuRun(drvmenu);
+                                    if (opt2 == 1) {
+                                        // Insert disk (no reset)
+                                        menu_saverect = true;
+                                        string mFile = fileDialog(FileUtils::DSK_Path, "MB-02+ Disk", DISK_DSKFILE, 26, 15);
+                                        if (mFile != "") {
+                                            mFile.erase(0, 1);
+                                            string fname = FileUtils::DSK_Path + "/" + mFile;
+                                            if (FileUtils::getLCaseExt(fname) == "zip") {
+                                                string zipFname = ZipExtract::extract(fname, DISK_DSKFILE);
+                                                if (zipFname.empty()) { OSD::osdCenteredMsg(OSD_ZIP_ERR[Config::lang], LEVEL_WARN); break; }
+                                                if (zipFname == "\x1b") break;
+                                                fname = zipFname;
+                                            }
+                                            rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, drv, fname);
+                                            ESPectrum::mb02_fdd.diskLoadedCyl = -1;
+                                            ESPectrum::mb02_fdd.diskLoadedSide = -1;
+                                            MB02::signalDiskChange();
+                                            Config::save();
+                                            return;
+                                        }
+                                    } else if (opt2 == 2) {
+                                        // Eject disk
+                                        wdDiskEject(&ESPectrum::mb02_fdd, drv);
+                                        MB02::signalDiskChange();
+                                        Config::save();
+                                        return;
+                                    } else {
+                                        menu_curopt = mb02_num;
+                                        break;
+                                    }
+                                }
+                            }
+                            else {
+                                menu_curopt = 4;
+                                menu_level = 1;
+                                break;
+                            }
+                        }
+                    }
 #endif
                     else if (FileUtils::fsMount &&
 #if !PICO_RP2040
-                        stor_num == 4
+                        stor_num == 5
 #else
                         stor_num == 3
 #endif
@@ -2486,21 +2620,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         Config::scanlines = 0;
 
                                     if (Config::scanlines != prev_opt) {
-                                        Config::ram_file = "none";
                                         Config::save();
-#ifdef VGA_HDMI
-                                        VIDEO::changeMode();
-                                        if (!videoModeConfirm(10)) {
-                                            Config::scanlines = prev_opt;
-                                            Config::ram_file = "none";
-                                            Config::save();
-                                            VIDEO::changeMode();
-                                        }
-                                        // Exit OSD after mode switch
-                                        return;
-#else
-                                        OSD::esp_hard_reset();
-#endif
+                                        graphics_set_scanlines(Config::scanlines);
                                     }
                                     menu_curopt = opt2;
                                     menu_saverect = false;
@@ -2570,12 +2691,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
 
                                     if (Config::gigascreen_enabled != prev_opt) {
                                         if (Config::gigascreen_enabled) {
+#if !PICO_RP2040
                                             initGigascreenBlendLUT();
                                             VIDEO::InitPrevBuffer();
                                             if (!VIDEO::vga.prevFrameBuffer) {
                                                 Config::gigascreen_enabled = false;
                                                 VIDEO::gigascreen_enabled = false;
                                             }
+#endif
                                             if (Config::gigascreen_onoff == 0)
                                                 Config::gigascreen_onoff = 1; // Off->On when enabling
                                             if (Config::gigascreen_onoff == 1)
@@ -3050,6 +3173,22 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         Config::arch = arch;
                                     }
                                 }
+                                // Mutual exclusivity
+#if !PICO_RP2040
+                                bool isByte = (romset == "48Kby" || romset == "128Kby");
+                                if (Config::mb02 && (arch == "Pentagon" || arch == "P512" || arch == "P1024" ||
+                                    isByte)) {
+                                    Config::mb02 = 0;
+                                    MB02::init();
+                                    OSD::osdCenteredMsg("MB-02+ disabled", LEVEL_WARN, 2000);
+                                }
+                                if (Config::timex_video && isByte) {
+                                    Config::timex_video = false;
+                                    VIDEO::timex_port_ff = 0;
+                                    VIDEO::timex_mode = 0;
+                                    OSD::osdCenteredMsg("Timex disabled", LEVEL_WARN, 2000);
+                                }
+#endif
                                 Config::save();
                                 Config::requestMachine(arch, romset);
                             }
@@ -4012,6 +4151,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         menu_saverect = false;
                     }
                     else if (hw_opt == 3) {
+                        // Emulator Info
+                        OSD::EmulatorInfo();
+                        menu_curopt = 3;
+                        menu_saverect = false;
+                    }
+                    else if (hw_opt == 4) {
                         // Overclock submenu — warn user
                         osdCenteredMsg(Config::lang ? "Peligroso! Puede no arrancar!" : "Dangerous! Board may not boot!", LEVEL_WARN, 2000);
                         menu_level = 2;
@@ -4494,7 +4639,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
 
 
 // Shows a red panel with error text
-void OSD::errorPanel(string errormsg) {
+void OSD::errorPanel(const string& errormsg) {
     unsigned short x = scrAlignCenterX(OSD_W);
     unsigned short y = scrAlignCenterY(OSD_H);
 
@@ -4517,7 +4662,7 @@ void OSD::errorPanel(string errormsg) {
 }
 
 // Error panel and infinite loop
-void OSD::errorHalt(string errormsg) {
+void OSD::errorHalt(const string& errormsg) {
     errorPanel(errormsg);
     while (1) {
         sleep_ms(5);
@@ -4530,11 +4675,11 @@ extern "C" void osd_printf(const char* msg, ...) {
 }
 
 // Centered message
-void OSD::osdCenteredMsg(string msg, uint8_t warn_level) {
+void OSD::osdCenteredMsg(const string& msg, uint8_t warn_level) {
     osdCenteredMsg(msg,warn_level,1000);
 }
 
-void OSD::osdCenteredMsg(string msg, uint8_t warn_level, uint16_t millispause) {
+void OSD::osdCenteredMsg(const string& msg, uint8_t warn_level, uint16_t millispause) {
 
     // Count lines and find the longest line for proper sizing
     unsigned short nlines = 1;
@@ -6583,7 +6728,7 @@ c:
 }
 
 // // Count NL chars inside a string, useful to count menu rows
-unsigned short OSD::rowCount(string menu) {
+unsigned short OSD::rowCount(const string& menu) {
     unsigned short count = 0;
     for (unsigned short i = 0; i < menu.length(); i++) {
         if (menu.at(i) == ASCII_NL) {
@@ -6594,7 +6739,7 @@ unsigned short OSD::rowCount(string menu) {
 }
 
 // // Get a row text
-string OSD::rowGet(string menu, unsigned short row) {
+string OSD::rowGet(const string& menu, unsigned short row) {
     unsigned short count = 0;
     unsigned short last = 0;
     for (unsigned short i = 0; i < menu.length(); i++) {
@@ -6624,8 +6769,12 @@ extern char __HeapLimit;
 extern "C" void *sbrk(intptr_t incr);
 
 size_t getFreeHeap(void) {
+    struct mallinfo mi = mallinfo();
+    // fordblks = free blocks in free list + sbrk headroom (total really free memory)
+    // Add remaining sbrk space that mallinfo doesn't account for
     char *brk = (char *)sbrk(0);
-    return (brk < &__HeapLimit) ? (size_t)(&__HeapLimit - brk) : 0;
+    size_t sbrk_free = (brk < &__HeapLimit) ? (size_t)(&__HeapLimit - brk) : 0;
+    return mi.fordblks + sbrk_free;
 }
 
 // Generic read-only text dialog with vertical scroll
@@ -6748,8 +6897,7 @@ void OSD::showTextDialog(const char* title, const char* text) {
 }
 
 void OSD::HWInfo() {
-    // Build hardware info text into a static buffer
-    static char hwtext[768];
+    char (&hwtext)[OSD_INFO_BUF_SZ] = osd_info_buf;
     int pos = 0;
 
     uint32_t cpu_hz = clock_get_hz(clk_sys) / MHZ;
@@ -6865,7 +7013,7 @@ void OSD::HWInfo() {
 }
 
 void OSD::ChipInfo() {
-    static char buf[512];
+    char (&buf)[OSD_INFO_BUF_SZ] = osd_info_buf;
     int pos = 0;
     uint32_t cpu_hz = clock_get_hz(clk_sys) / MHZ;
     uint32_t free_heap = getFreeHeap();
@@ -6943,20 +7091,22 @@ void OSD::ChipInfo() {
 
     // On-chip temperature sensor via ADC
     {
-        // Unreset ADC block: clear bit 0 in RESETS_RESET, wait bit 0 in RESET_DONE
-        volatile uint32_t *resets = (volatile uint32_t *)0x40020000;
-        resets[0] &= ~1u;                      // RESET: clear ADC bit
-        while (!(resets[2] & 1u)) {}            // RESET_DONE: wait ADC ready
-
+        // Register bases differ between chips
+    #if PICO_RP2350
+        volatile uint32_t *resets     = (volatile uint32_t *)0x40020000;
         volatile uint32_t *adc_cs     = (volatile uint32_t *)0x400a0000;
         volatile uint32_t *adc_result = (volatile uint32_t *)0x400a0004;
-
-        // Temp sensor channel: 4 on RP2350A/RP2040, 8 on RP2350B
-    #if PICO_RP2350
         uint32_t ts_ch = rp2350a ? 4 : 8;
-    #else
+    #else // RP2040
+        volatile uint32_t *resets     = (volatile uint32_t *)0x4000c000;
+        volatile uint32_t *adc_cs     = (volatile uint32_t *)0x4004c000;
+        volatile uint32_t *adc_result = (volatile uint32_t *)0x4004c004;
         uint32_t ts_ch = 4;
     #endif
+
+        // Unreset ADC block: clear bit 0 in RESETS_RESET, wait bit 0 in RESET_DONE
+        resets[0] &= ~1u;                      // RESET: clear ADC bit
+        while (!(resets[2] & 1u)) {}            // RESET_DONE: wait ADC ready
 
         *adc_cs = 1; // EN=1
         while (!(*adc_cs & (1 << 8))) {} // wait READY
@@ -6981,7 +7131,7 @@ void OSD::ChipInfo() {
 }
 
 void OSD::BoardInfo() {
-    static char buf[768];
+    char (&buf)[OSD_INFO_BUF_SZ] = osd_info_buf;
     int pos = 0;
 
     // SD Card
@@ -6993,8 +7143,55 @@ void OSD::BoardInfo() {
             uint32_t fre_mb = (uint32_t)(fre_clust * fsp->csize / 2048);
             pos += snprintf(buf + pos, sizeof(buf) - pos,
                 " SD Card        : %d/%d MB free\n", (int)fre_mb, (int)tot_mb);
+
+            const char* fs_name = "?";
+            switch (fsp->fs_type) {
+                case FS_FAT12: fs_name = "FAT12"; break;
+                case FS_FAT16: fs_name = "FAT16"; break;
+                case FS_FAT32: fs_name = "FAT32"; break;
+                case FS_EXFAT: fs_name = "exFAT"; break;
+            }
+            uint32_t cluster_kb = (uint32_t)fsp->csize / 2;
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                "  FS / cluster  : %s / %u KB\n", fs_name, (unsigned)cluster_kb);
+
+            char label[34] = {0};
+            DWORD vsn = 0;
+            if (f_getlabel("", label, &vsn) == FR_OK) {
+                pos += snprintf(buf + pos, sizeof(buf) - pos,
+                    "  Label / VSN   : '%s' / %04lX-%04lX\n",
+                    label[0] ? label : "(none)",
+                    (unsigned long)((vsn >> 16) & 0xFFFF),
+                    (unsigned long)(vsn & 0xFFFF));
+            }
         } else {
             pos += snprintf(buf + pos, sizeof(buf) - pos, " SD Card        : mounted\n");
+        }
+
+        // Card type via MMC_GET_TYPE (CT_SD1=0x02, CT_SD2=0x04, CT_MMC=0x01, CT_BLOCK=0x08)
+        BYTE ct = 0;
+        if (disk_ioctl(0, MMC_GET_TYPE, &ct) == RES_OK) {
+            const char* ct_name = "?";
+            if (ct & 0x01) ct_name = "MMCv3";
+            else if (ct & 0x02) ct_name = "SDv1";
+            else if (ct & 0x04) ct_name = (ct & 0x08) ? "SDHC/SDXC" : "SDv2";
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                "  Card type     : %s\n", ct_name);
+        }
+
+        // CID: manufacturer + product name (5 ASCII) + serial
+        BYTE cid[16];
+        if (disk_ioctl(0, MMC_GET_CID, cid) == RES_OK) {
+            char pname[6];
+            for (int i = 0; i < 5; i++) {
+                char c = (char)cid[3 + i];
+                pname[i] = (c >= 0x20 && c < 0x7F) ? c : ' ';
+            }
+            pname[5] = 0;
+            uint32_t serial = ((uint32_t)cid[9] << 24) | ((uint32_t)cid[10] << 16)
+                            | ((uint32_t)cid[11] << 8) | (uint32_t)cid[12];
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                "  CID name/sn   : '%s' / %08lX\n", pname, (unsigned long)serial);
         }
     } else {
         pos += snprintf(buf + pos, sizeof(buf) - pos, " SD Card        : not mounted\n");
@@ -7107,6 +7304,276 @@ void OSD::BoardInfo() {
         PICO_BUILD_NAME, __DATE__, __TIME__, PICO_GIT_BRANCH, PICO_GIT_COMMIT);
 
     showTextDialog("Board Info", buf);
+}
+
+// Helper: append just the filename part of a path, truncated to maxlen chars
+static int appendFilename(char* buf, int pos, int bufsize, const string& path, int maxlen) {
+    if (path.empty()) return snprintf(buf + pos, bufsize - pos, "(none)");
+    size_t slash = path.find_last_of("/");
+    const char* fn = (slash != string::npos) ? path.c_str() + slash + 1 : path.c_str();
+    int len = strlen(fn);
+    if (len <= maxlen)
+        return snprintf(buf + pos, bufsize - pos, "%s", fn);
+    else
+        return snprintf(buf + pos, bufsize - pos, "..%s", fn + len - (maxlen - 2));
+}
+
+void OSD::EmulatorInfo() {
+    char (&buf)[OSD_INFO_BUF_SZ] = osd_info_buf;
+    int pos = 0;
+
+    // --- Machine ---
+    pos += snprintf(buf + pos, sizeof(buf) - pos,
+        " --- Machine ---\n"
+        " Architecture   : %s\n"
+        " ROM set        : %s\n"
+        " Issue 2        : %s\n"
+        " ALU Timing     : %s\n",
+        Config::arch.c_str(),
+        Config::romSet.c_str(),
+        Config::Issue2 ? "On" : "Off",
+        Config::AluTiming == 0 ? "Early" : "Late");
+
+    // --- Video ---
+    {
+        const char* vmname;
+        uint8_t vm = VIDEO::activeVideoMode();
+        switch (vm) {
+            case Config::VM_640x480_60: vmname = "640x480@60"; break;
+            case Config::VM_640x480_50: vmname = "640x480@50"; break;
+            case Config::VM_720x480_60: vmname = "720x480@60"; break;
+            case Config::VM_720x576_60: vmname = "720x576@60"; break;
+            case Config::VM_720x576_50: vmname = "720x576@50"; break;
+            default:                    vmname = "unknown";    break;
+        }
+        pos += snprintf(buf + pos, sizeof(buf) - pos, "\n --- Video ---\n");
+#ifdef VGA_HDMI
+        extern bool SELECT_VGA;
+        pos += snprintf(buf + pos, sizeof(buf) - pos,
+            " Video output   : %s %s\n",
+            SELECT_VGA ? "VGA" : "HDMI", vmname);
+#else
+        pos += snprintf(buf + pos, sizeof(buf) - pos,
+            " Video mode     : %s\n", vmname);
+#endif
+        pos += snprintf(buf + pos, sizeof(buf) - pos,
+            " Scanlines      : %s\n"
+            " Render         : %s\n"
+            " Palette        : %s\n",
+            Config::scanlines ? "On" : "Off",
+            Config::render ? "Snow effect" : "Standard",
+            VIDEO::paletteName(Config::palette));
+#if !PICO_RP2040
+        {
+            const char* gs;
+            if (Config::gigascreen_onoff == 0) gs = "Off";
+            else if (Config::gigascreen_onoff == 1) gs = "On";
+            else gs = "Auto";
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                " Gigascreen     : %s\n"
+                " ULA+           : %s\n"
+                " Timex video    : %s\n",
+                gs,
+                Config::ulaplus ? "On" : "Off",
+                Config::timex_video ? "On (#FF)" : "Off");
+        }
+#endif
+    }
+
+    // --- Sound ---
+    {
+        pos += snprintf(buf + pos, sizeof(buf) - pos, "\n --- Sound ---\n");
+
+        // AY chip
+        if (Config::AY48) {
+            static const char* stereo[] = { "ABC", "ACB", "Mono" };
+            int si = Config::ayConfig;
+            if (si > 2) si = 0;
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                " AY-3-8912      : On (%s) #FFFD\n", stereo[si]);
+        } else {
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                " AY-3-8912      : Off\n");
+        }
+
+        // TurboSound
+        {
+            static const char* ts[] = { "Off", "NedoPC", "old-TC", "Both" };
+            int ti = Config::turbosound;
+            if (ti > 3) ti = 0;
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                " TurboSound     : %s\n", ts[ti]);
+        }
+
+        // Covox
+        if (Config::covox == 1)
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " Covox          : On (#FB)\n");
+        else if (Config::covox == 2)
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " Covox          : On (#DD)\n");
+        else
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " Covox          : Off\n");
+
+#if !PICO_RP2040
+        // SAA1099
+        pos += snprintf(buf + pos, sizeof(buf) - pos,
+            " SAA1099        : %s\n",
+            Config::SAA1099 ? "On (#FF)" : "Off");
+
+        // MIDI
+        if (Config::midi == 0) {
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " MIDI           : Off\n");
+        } else if (Config::midi == 3) {
+            static const char* presets[] = {
+                "GM", "Piano", "Chiptune", "Strings",
+                "Rock", "Organ", "MusicBox", "Synth"
+            };
+            int pi = Config::midi_synth_preset;
+            if (pi > 7) pi = 0;
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                " MIDI           : Synth (%s)\n", presets[pi]);
+        } else {
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                " MIDI           : %s\n",
+                Config::midi == 1 ? "AY bitbang" : "ShamaZX");
+        }
+#endif
+
+        // Audio driver
+        if (Config::audio_driver == 4)
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " Audio driver   : HDMI\n");
+        else if (Config::audio_driver == 3)
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " Audio driver   : AY-3-8910\n");
+        else
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " Audio driver   : %s%s\n",
+                (is_i2s_enabled ? "i2s" : "PWM"),
+                (Config::audio_driver == 0 ? " (auto)" : ""));
+    }
+
+    // --- Input ---
+    {
+        static const char* jnames[] = {
+            "Cursor", "Kempston", "Sinclair 1",
+            "Sinclair 2", "Fuller", "Custom", "None"
+        };
+        int ji = Config::joystick;
+        if (ji > 6) ji = 6;
+        pos += snprintf(buf + pos, sizeof(buf) - pos,
+            "\n --- Input ---\n");
+
+        // Joystick with port number
+        if (ji == JOY_KEMPSTON)
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                " Joystick       : Kempston (#%02X)\n", Config::kempstonPort);
+        else if (ji == JOY_FULLER)
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                " Joystick       : Fuller (#7F)\n");
+        else
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                " Joystick       : %s\n", jnames[ji]);
+
+        pos += snprintf(buf + pos, sizeof(buf) - pos,
+            " TAB as fire    : %s\n",
+            Config::TABasfire1 ? "On" : "Off");
+    }
+
+    // --- Storage ---
+    {
+        pos += snprintf(buf + pos, sizeof(buf) - pos, "\n --- Storage ---\n");
+
+#if !PICO_RP2040
+        // esxDOS
+        {
+            static const char* esx[] = { "Off", "DivMMC", "DivIDE", "DivSD" };
+            int ei = Config::esxdos;
+            if (ei > 3) ei = 0;
+            pos += snprintf(buf + pos, sizeof(buf) - pos,
+                " esxDOS         : %s\n", esx[ei]);
+
+            // Show image names depending on mode
+            if (ei == 1 || ei == 3) {
+                // DivMMC or DivSD — show MMC image
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "  MMC image     : ");
+                pos += appendFilename(buf, pos, sizeof(buf), Config::esxdos_mmc_image, 19);
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "\n");
+            } else if (ei == 2) {
+                // DivIDE — show HDF master/slave
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "  HDF master    : ");
+                pos += appendFilename(buf, pos, sizeof(buf), Config::esxdos_hdf_image[0], 19);
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "\n");
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "  HDF slave     : ");
+                pos += appendFilename(buf, pos, sizeof(buf), Config::esxdos_hdf_image[1], 19);
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "\n");
+            }
+        }
+#endif
+
+        // TR-DOS — available for Pentagon or Byte 128K
+        {
+            bool trdos_available = Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte);
+            if (trdos_available) {
+                pos += snprintf(buf + pos, sizeof(buf) - pos, " TR-DOS         : On");
+                if (Config::trdosFastMode || Config::trdosWriteProtect) {
+                    pos += snprintf(buf + pos, sizeof(buf) - pos, " (");
+                    if (Config::trdosFastMode) pos += snprintf(buf + pos, sizeof(buf) - pos, "fast");
+                    if (Config::trdosFastMode && Config::trdosWriteProtect) pos += snprintf(buf + pos, sizeof(buf) - pos, ",");
+                    if (Config::trdosWriteProtect) pos += snprintf(buf + pos, sizeof(buf) - pos, "WP");
+                    pos += snprintf(buf + pos, sizeof(buf) - pos, ")");
+                }
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "\n");
+
+                // Show disk drives A:-D:
+                static const char drive_letter[] = "ABCD";
+                for (int i = 0; i < 4; i++) {
+                    pos += snprintf(buf + pos, sizeof(buf) - pos, "  %c:            : ", drive_letter[i]);
+                    if (ESPectrum::fdd.disk[i] && !ESPectrum::fdd.disk[i]->fname.empty())
+                        pos += appendFilename(buf, pos, sizeof(buf), ESPectrum::fdd.disk[i]->fname, 19);
+                    else
+                        pos += snprintf(buf + pos, sizeof(buf) - pos, "(empty)");
+                    pos += snprintf(buf + pos, sizeof(buf) - pos, "\n");
+                }
+            } else {
+                pos += snprintf(buf + pos, sizeof(buf) - pos, " TR-DOS         : Off\n");
+            }
+        }
+
+#if !PICO_RP2040
+        // MB-02+
+        if (MB02::enabled) {
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " MB-02+         : On\n");
+            for (int i = 0; i < 4; i++) {
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "  %02d            : ", i + 1);
+                if (ESPectrum::mb02_fdd.disk[i] && !ESPectrum::mb02_fdd.disk[i]->fname.empty())
+                    pos += appendFilename(buf, pos, sizeof(buf), ESPectrum::mb02_fdd.disk[i]->fname, 19);
+                else
+                    pos += snprintf(buf + pos, sizeof(buf) - pos, "(empty)");
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "\n");
+            }
+        } else if (Config::mb02) {
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " MB-02+         : No PSRAM\n");
+        }
+#endif
+
+#if !PICO_RP2040
+        // DMA
+        if (Config::dma_mode == 1)
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " DMA            : Z80 DMA (#0B)\n");
+        else if (Config::dma_mode == 2)
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " DMA            : zxnDMA (#6B)\n");
+        else
+            pos += snprintf(buf + pos, sizeof(buf) - pos, " DMA            : Off\n");
+#endif
+
+        // Tape
+        pos += snprintf(buf + pos, sizeof(buf) - pos, " Tape           : ");
+        pos += appendFilename(buf, pos, sizeof(buf), Tape::tapeFileName, 19);
+        pos += snprintf(buf + pos, sizeof(buf) - pos, "\n");
+
+        pos += snprintf(buf + pos, sizeof(buf) - pos,
+            " Flash load     : %s\n",
+            Config::flashload ? "On" : "Off");
+    }
+
+    showTextDialog(Config::lang ? "Info emulador" : "Emulator Info", buf);
 }
 
 static void __not_in_flash_func(flash_block)(const uint8_t* buffer, size_t flash_target_offset) {
@@ -7332,6 +7799,7 @@ bool OSD::updateROM(const string& fname, uint8_t arch) {
         memset(buffer, 0, sz);
         if ( f_read(f, buffer, sz, &br) != FR_OK) {
             osdCenteredMsg(fname + " - unable to read", LEVEL_ERROR, 5000);
+            free(buffer);
             fclose2(f);
             return false;
         }
@@ -7442,7 +7910,7 @@ progressDialog(OSD_FIRMW[Config::lang],OSD_FIRMW_END[Config::lang],100,1);
     return true;
 }
 
-void OSD::progressDialog(string title, string msg, int percent, int action) {
+void OSD::progressDialog(const string& title, const string& msg, int percent, int action) {
 
     static unsigned short h;
     static unsigned short y;
@@ -7457,10 +7925,11 @@ void OSD::progressDialog(string title, string msg, int percent, int action) {
         h = (OSD_FONT_H * 6) + 2;
         y = scrAlignCenterY(h);
 
-        if (msg.length() > (scrW / 6) - 4) msg = msg.substr(0,(scrW / 6) - 4);
-        if (title.length() > (scrW / 6) - 4) title = title.substr(0,(scrW / 6) - 4);
+        size_t maxchars = (scrW / 6) - 4;
+        string tmsg = msg.length() > maxchars ? msg.substr(0, maxchars) : msg;
+        string ttitle = title.length() > maxchars ? title.substr(0, maxchars) : title;
 
-        w = (((msg.length() > title.length() + 6 ? msg.length(): title.length() + 6) + 2) * OSD_FONT_W) + 2;
+        w = (((tmsg.length() > ttitle.length() + 6 ? tmsg.length(): ttitle.length() + 6) + 2) * OSD_FONT_W) + 2;
         x = scrAlignCenterX(w);
 
         // Save backbuffer data
@@ -7478,12 +7947,12 @@ void OSD::progressDialog(string title, string msg, int percent, int action) {
         // Title
         VIDEO::vga.setTextColor(zxColor(7, 1), zxColor(0, 0));
         VIDEO::vga.setCursor(x + OSD_FONT_W + 1, y + 1);
-        VIDEO::vga.print(title.c_str());
+        VIDEO::vga.print(ttitle.c_str());
 
         // Msg
         VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 1));
-        VIDEO::vga.setCursor(scrAlignCenterX(msg.length() * OSD_FONT_W), y + 1 + (OSD_FONT_H * 2));
-        VIDEO::vga.print(msg.c_str());
+        VIDEO::vga.setCursor(scrAlignCenterX(tmsg.length() * OSD_FONT_W), y + 1 + (OSD_FONT_H * 2));
+        VIDEO::vga.print(tmsg.c_str());
 
         // Rainbow
         unsigned short rb_y = y + 8;
@@ -7520,12 +7989,13 @@ void OSD::progressDialog(string title, string msg, int percent, int action) {
     }
 }
 
-uint8_t OSD::msgDialog(string title, string msg) {
+uint8_t OSD::msgDialog(const string& title_, const string& msg_) {
 
     const unsigned short h = (OSD_FONT_H * 6) + 2;
     const unsigned short y = scrAlignCenterY(h);
     uint8_t res = DLG_NO;
 
+    string msg = msg_, title = title_;
     if (msg.length() > (scrW / 6) - 4) msg = msg.substr(0,(scrW / 6) - 4);
     if (title.length() > (scrW / 6) - 4) title = title.substr(0,(scrW / 6) - 4);
 
@@ -7752,7 +8222,7 @@ bool OSD::videoModeConfirm(int timeout_sec) {
     return confirmed;
 }
 
-string OSD::inputBox(int x, int y, string text) {
+string OSD::inputBox(int x, int y, const string& text) {
 
 return text;
 

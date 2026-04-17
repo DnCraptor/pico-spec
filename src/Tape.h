@@ -207,7 +207,7 @@ public:
     static std::vector<TapeBlock> TapeListing;
 
     static void Init();
-    static void LoadTape(string mFile);
+    static void LoadTape(const string& mFile);
     static void Play();
     static void Stop();
     static void Read();
@@ -231,17 +231,17 @@ private:
 
     static void (*GetBlock)();
 
-    static void MP3_Open(string name);
+    static void MP3_Open(const string& name);
     static void MP3_GetBlock();
-    static void WAV_Open(string name);
+    static void WAV_Open(const string& name);
     static void WAV_GetBlock();
-    static void TAP_Open(string name);
+    static void TAP_Open(const string& name);
     static void TAP_GetBlock();
-    static void TZX_Open(string name);
+    static void TZX_Open(const string& name);
     static void TZX_GetBlock();
     static void TZX_BlockLen(TZXBlock &blockdata);
 
-    static void PZX_Open(string name);
+    static void PZX_Open(const string& name);
     static void PZX_GetBlock();
     static void PZX_BlockLen(uint32_t &tag, uint32_t &size);
 

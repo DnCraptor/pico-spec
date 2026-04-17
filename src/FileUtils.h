@@ -81,19 +81,19 @@ public:
     // static void           sanitizeFilename(String filename); // in-place
     // static File           safeOpenFileRead(String filename);
     // static string getFileEntriesFromDir(string path);
-    static void DirToFile(string Dir, uint8_t ftype /*string fileExts*/);
-    static void Mergefiles(string fpath, uint8_t ftype, int chunk_cnt);
+    static void DirToFile(const string& Dir, uint8_t ftype /*string fileExts*/);
+    static void Mergefiles(const string& fpath, uint8_t ftype, int chunk_cnt);
     // static uint16_t       countFileEntriesFromDir(String path);
     // static string getSortedFileList(string fileDir);
-    static bool hasSNAextension(string filename);
-    static bool hasZ80extension(string filename);
-    static bool hasPextension(string filename);
-    static bool hasTAPextension(string filename);
-    static bool hasTZXextension(string filename);
-    static bool hasWAVextension(string filename);
-    static bool hasPZXextension(string filename);
-    static bool hasMP3extension(string filename);
-    static bool hasZIPextension(string filename);
+    static bool hasSNAextension(const string& filename);
+    static bool hasZ80extension(const string& filename);
+    static bool hasPextension(const string& filename);
+    static bool hasTAPextension(const string& filename);
+    static bool hasTZXextension(const string& filename);
+    static bool hasWAVextension(const string& filename);
+    static bool hasPZXextension(const string& filename);
+    static bool hasMP3extension(const string& filename);
+    static bool hasZIPextension(const string& filename);
 
     static void deleteFilesWithExtension(const char *folder_path, const char *extension);
     static bool deleteDirRecursive(const char *path);

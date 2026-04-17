@@ -61,6 +61,9 @@ using namespace std;
 
 extern Font Font6x8;
 
+// Sort version: bump to invalidate cached .idx files when sort order changes
+#define SORT_VERSION 1
+
 inline static size_t crc(const std::string& s) {
     size_t res = 0;
     for (size_t j = 0; j < s.size(); ++j) {
@@ -124,7 +127,7 @@ public:
         put(sz++, s);
     }
     inline size_t crc(void) {
-        size_t res = 0;
+        size_t res = SORT_VERSION;
         for (size_t i = 0; i < sz; ++i) {
             res += ::crc(get(i));
         }
@@ -140,13 +143,18 @@ public:
     inline std::string operator[](size_t i) {
         return get(i);
     }
-    inline int cmp(const std::string s1, const std::string s2) {
-        return s1.compare(s2);
+    inline int cmp(const std::string& s1, const std::string& s2) {
+        // Case-insensitive compare; DIR_MARKER (0x01) stays lowest so dirs sort first
+        size_t len = s1.size() < s2.size() ? s1.size() : s2.size();
+        for (size_t i = 0; i < len; i++) {
+            int c1 = (uint8_t)s1[i] == DIR_MARKER ? s1[i] : toupper((uint8_t)s1[i]);
+            int c2 = (uint8_t)s2[i] == DIR_MARKER ? s2[i] : toupper((uint8_t)s2[i]);
+            if (c1 != c2) return c1 - c2;
+        }
+        return (int)s1.size() - (int)s2.size();
     }
     inline int cmp(size_t i1, size_t i2) {
-        std::string s1 = get(i1);
-        std::string s2 = get(i2);
-        return s1.compare(s2);
+        return cmp(get(i1), get(i2));
     }
     inline void swap(size_t i1, size_t i2) {
         std::string s1 = get(i1);
@@ -382,7 +390,7 @@ void fgets(char* b, size_t sz, FIL& f) {
 #define feof(x) f_eof(&x)
 
 // Run a new file menu
-string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols, uint8_t mfrows) {
+string OSD::fileDialog(string &fdir, const string& title, uint8_t ftype, uint8_t mfcols, uint8_t mfrows) {
     if (Config::audio_driver == 3) send_to_595(LOW(AY_Enable));
     fd_pos_stack_top = 0;
     fd_goto_name.clear();
@@ -462,7 +470,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
         if (res) {
         
             FILINFO fileInfo;
-            size_t crc = 0;
+            size_t crc = SORT_VERSION;
             if (fdir.size() > 1) {
                 ++ndirs;
                 crc += ::crc(string(2, DIR_MARKER) + "..");
@@ -492,7 +500,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                 if (fdir.size() > 1) {
                     filenames.push(string(2, DIR_MARKER) + "..");
                 }
-                f_opendir(&f_dir, fdir.c_str());
+                if (f_opendir(&f_dir, fdir.c_str()) != FR_OK) break;
                 OSD::progressDialog(OSD_FILE_INDEXING[Config::lang], OSD_FILE_INDEXING_1[Config::lang], 5, 1);
                 size_t f_idx = 0;
                 while (f_readdir(&f_dir, &fileInfo) == FR_OK && fileInfo.fname[0] != '\0') {
@@ -615,6 +623,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             rtrim(filedir);
                             click();
                             filenames.close();
+                            string(). swap(menu); // release menu heap buffer
                             if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                             return "X" + filedir; // X prefix = extract ZIP
                         }
@@ -747,35 +756,51 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             fsearch = Menukey.vk + 75;
                         else if (Menukey.vk<=fabgl::VK_Z)
                             fsearch = Menukey.vk + 17;
+                        fsearch = toupper(fsearch);
                         {
-                            uint8_t letra = rowGet(menu,FileUtils::fileTypes[ftype].focus).at(0);
-                            if (letra != fsearch) { 
-                                // Seek first ocurrence of letter/number
-                                int cnt = 0;
-                                while (cnt < filenames.size()) {
-                                    std::string s = filenames[cnt++];
-                                    if (s.size() && s.at(0) == char(fsearch)) break;
-                                    cnt++;
-                                }
-                                if (cnt < filenames.size()) {
-                                    last_begin_row = FileUtils::fileTypes[ftype].begin_row;
-                                    last_focus = FileUtils::fileTypes[ftype].focus;                                    
-                                    if (real_rows > virtual_rows) {
-                                        int m = cnt + virtual_rows - real_rows;
-                                        if (m > 0) {
-                                            FileUtils::fileTypes[ftype].focus = m + 2;
-                                            FileUtils::fileTypes[ftype].begin_row = cnt - m + 2;
-                                        } else {
-                                            FileUtils::fileTypes[ftype].focus = 2;
-                                            FileUtils::fileTypes[ftype].begin_row = cnt + 2;
-                                        }
-                                    } else {
-                                        FileUtils::fileTypes[ftype].focus = cnt + 2;
-                                        FileUtils::fileTypes[ftype].begin_row = 2;
+                            // Current file index in filenames
+                            int cur_idx = (FileUtils::fileTypes[ftype].begin_row - 2) + (FileUtils::fileTypes[ftype].focus - 2);
+                            // Get first real char of current entry (skip DIR_MARKER)
+                            std::string cur_s = (cur_idx >= 0 && cur_idx < (int)filenames.size()) ? filenames[cur_idx] : "";
+                            uint8_t letra = 0;
+                            for (size_t ci = 0; ci < cur_s.size(); ci++) {
+                                if ((uint8_t)cur_s[ci] != DIR_MARKER) { letra = toupper(cur_s[ci]); break; }
+                            }
+                            // Start search from next entry if already on matching letter (cycle through)
+                            int start = (letra == fsearch) ? cur_idx + 1 : 0;
+                            int cnt = -1;
+                            int total = (int)filenames.size();
+                            // Search from start to end, then wrap around from 0 to start
+                            for (int i = 0; i < total; i++) {
+                                int idx = (start + i) % total;
+                                std::string s = filenames[idx];
+                                // Skip DIR_MARKER prefix to get real first char
+                                for (size_t ci = 0; ci < s.size(); ci++) {
+                                    if ((uint8_t)s[ci] != DIR_MARKER) {
+                                        if (toupper(s[ci]) == fsearch) cnt = idx;
+                                        break;
                                     }
-                                    fd_Redraw(title,fdir,ftype, filexts);
-                                    click();
                                 }
+                                if (cnt >= 0) break;
+                            }
+                            if (cnt >= 0 && cnt != cur_idx) {
+                                last_begin_row = FileUtils::fileTypes[ftype].begin_row;
+                                last_focus = FileUtils::fileTypes[ftype].focus;
+                                if (real_rows > virtual_rows) {
+                                    int m = cnt + virtual_rows - real_rows;
+                                    if (m > 0) {
+                                        FileUtils::fileTypes[ftype].focus = m + 2;
+                                        FileUtils::fileTypes[ftype].begin_row = cnt - m + 2;
+                                    } else {
+                                        FileUtils::fileTypes[ftype].focus = 2;
+                                        FileUtils::fileTypes[ftype].begin_row = cnt + 2;
+                                    }
+                                } else {
+                                    FileUtils::fileTypes[ftype].focus = cnt + 2;
+                                    FileUtils::fileTypes[ftype].begin_row = 2;
+                                }
+                                fd_Redraw(title,fdir,ftype, filexts);
+                                click();
                             }
                        }
                     } else if (Menukey.vk == fabgl::VK_F3) {
@@ -906,6 +931,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                             rtrim(filedir);
                             click();
                             filenames.close();
+                            string().swap(menu); // release menu heap buffer
                             if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                             return (is_return(Menukey.vk) ? "R" : "S") + filedir;
                         }
@@ -918,6 +944,7 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
                         // Keep current dir and position so next F5 reopens here
                         click();
                         filenames.close();
+                        string().swap(menu); // release menu heap buffer
                         if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
                         return "";
                     }
@@ -1004,12 +1031,13 @@ string OSD::fileDialog(string &fdir, string title, uint8_t ftype, uint8_t mfcols
         filenames.close();
     }
     filenames.close();
+    string().swap(menu); // release menu heap buffer
     if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
     return "";
 }
 
 // Redraw inside rows
-void OSD::fd_Redraw(string title, string fdir, uint8_t ftype, const vector<string>& filexts) {
+void OSD::fd_Redraw(const string& title, const string& fdir, uint8_t ftype, const vector<string>& filexts) {
     if ((FileUtils::fileTypes[ftype].focus != last_focus) || (FileUtils::fileTypes[ftype].begin_row != last_begin_row)) {
         // printf("fd_Redraw\n");
         // Read bunch of rows

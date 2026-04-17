@@ -200,3 +200,16 @@ void graphics_set_pio_clk_div(float div)
     for (int i = 0; i < sizeof(video_mode)/sizeof(video_mode[0]); i++)
         video_mode[i].pio_clk_div = div;
 }
+
+#ifdef VGA_HDMI
+extern void hdmi_set_scanlines(bool enabled);
+extern void vga_set_scanlines(bool enabled);
+void graphics_set_scanlines(bool enabled) {
+    hdmi_set_scanlines(enabled);
+    vga_set_scanlines(enabled);
+}
+#else
+void graphics_set_scanlines(bool enabled) {
+    (void)enabled;
+}
+#endif

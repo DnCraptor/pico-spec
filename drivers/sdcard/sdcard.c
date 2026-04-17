@@ -624,6 +624,23 @@ DRESULT disk_ioctl (
 		}
 		break;
 
+	case MMC_GET_TYPE :		/* Get card type (1 byte) */
+		*(BYTE*)buff = CardType;
+		res = RES_OK;
+		break;
+
+	case MMC_GET_CID :		/* Get CID (16 bytes) */
+		if ((send_cmd(CMD10, 0) == 0) && rcvr_datablock((BYTE*)buff, 16)) {
+			res = RES_OK;
+		}
+		break;
+
+	case MMC_GET_CSD :		/* Get CSD (16 bytes) */
+		if ((send_cmd(CMD9, 0) == 0) && rcvr_datablock((BYTE*)buff, 16)) {
+			res = RES_OK;
+		}
+		break;
+
 	default:
 		res = RES_PARERR;
 	}

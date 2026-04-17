@@ -32,7 +32,7 @@ option(ZERO2 "RP2350-PiZero" OFF)
 
 # set(TFT ON)
 # set(ILI9341 ON)
-set(SOFTTV ON) 
+# set(SOFTTV ON) 
 
 # Display output (default: VGA_HDMI; override with -D flags, e.g. cmake -DSOFTTV=ON)
 if(NOT VGA_HDMI AND NOT SOFTTV AND NOT TFT AND NOT ILI9341 AND NOT TV)
@@ -41,12 +41,12 @@ endif()
 set(NO_ALF 1)
 
 set(CPU_MHZ 378)
-set (PORT_VERSION "1.2.11")
+set (PORT_VERSION "1.2.13")
 string(LENGTH "${PORT_VERSION}" PORT_VERSION_LEN)
 
 # Target board (default: PICO_PC; override with -D flags, e.g. cmake -DMURM2=ON)
 if(NOT MURM AND NOT MURM2 AND NOT PICO_PC AND NOT PICO_DV AND NOT ZERO AND NOT ZERO2)
-    set(MURM ON)
+    set(MURM2 ON)
 endif()
 
 set(KBDUSB ON)
@@ -66,6 +66,8 @@ elseif(ZERO)
     set(PICO_BOARD pico)
     set(CPU_MHZ 252)
 elseif(MURM AND NOT MURM_P2)
+    set(PICO_BOARD pico)
+    set(PICO_PLATFORM rp2040)
 else()
     set(PICO_BOARD pico2)
     set(PICO_PLATFORM rp2350-arm-s)
@@ -214,9 +216,6 @@ target_include_directories(${PROJECT_NAME} PRIVATE
 if (PICO_CYW43_SUPPORTED)
     target_link_libraries(${PROJECT_NAME} pico_cyw43_arch_none)
 endif()
-
-##pico_enable_stdio_uart(${PROJECT_NAME} 1)
-##pico_enable_stdio_usb(${PROJECT_NAME} 1)
 
 # create map/bin/hex file etc.
 pico_add_extra_outputs(${PROJECT_NAME})
@@ -410,23 +409,34 @@ ELSEIF(PICO_PC)
         PICO_DEFAULT_LED_PIN=25
     )
 ELSEIF(PICO_DV)
+    # Optional UART for Debug Probe. Set DBG_UART_PINS=ON to enable UART1 on GP20/GP21.
+    # Note: GP20 is also LOAD_WAV_PIO default — auto-remapped to GP3 when UART enabled.
+    set(PICO_DV_DBG_UART OFF CACHE BOOL "Enable Debug Probe UART1 on GP20/GP21 (PICO_DV)")
+    if(PICO_DV_DBG_UART)
+        pico_enable_stdio_uart(${PROJECT_NAME} 1)
+        set(PICO_DV_LOAD_WAV_PIO 3)  # GP20 taken by UART → use FREE pin
+        set(MIDI_TX_PIN 3) # GP21 taken by UART → use FREE pin
+    else()
+        set(PICO_DV_LOAD_WAV_PIO 20)
+        set(MIDI_TX_PIN 21)
+    endif()
     target_compile_definitions(${PROJECT_NAME} PRIVATE
+        DEBUG=0
+
+        $<$<BOOL:${PICO_DV_DBG_UART}>:PICO_DEFAULT_UART=1>
+        $<$<BOOL:${PICO_DV_DBG_UART}>:PICO_DEFAULT_UART_TX_PIN=20>
+        $<$<BOOL:${PICO_DV_DBG_UART}>:PICO_DEFAULT_UART_RX_PIN=21>
+
         PORT_VERSION="${PORT_VERSION}" PORT_VERSION_LEN=${PORT_VERSION_LEN}
         CPU_MHZ=${CPU_MHZ}
 
         PICO_DV=1
 
-        DEBUG=0
-        # stdio UART1 TX/RX on GP20/GP21 (Debug Probe)
-        # PICO_DEFAULT_UART=1
-        # PICO_DEFAULT_UART_TX_PIN=20
-        # PICO_DEFAULT_UART_RX_PIN=21
-
         # DBG1 1/2
         KBD_CLOCK_PIN=0
         KBD_DATA_PIN=1
 
-        LOAD_WAV_PIO=20
+        LOAD_WAV_PIO=${PICO_DV_LOAD_WAV_PIO}
 
         CLK_AY_PIN1=21 # not in use
         LATCH_595_PIN=26
@@ -441,7 +451,7 @@ ELSEIF(PICO_DV)
         PWM_PIN0=26 # R
         PWM_PIN1=27 # L
         BEEPER_PIN=28 # not implemented
-        MIDI_TX_PIN=21
+        MIDI_TX_PIN=${MIDI_TX_PIN}
 
         # SDCARD
         SDCARD_SPI_BUS=spi1
@@ -478,7 +488,18 @@ ELSEIF(PICO_DV)
         PICO_DEFAULT_LED_PIN=25
 )
 ELSEIF(ZERO)
+    # Optional UART for Debug Probe. Set ZERO_DBG_UART=ON to enable UART0 on GP16(TX)/GP13(RX).
+    # Both pins are FREE on ZERO; UART0 used because UART1 has no free pins on this board.
+    set(ZERO_DBG_UART OFF CACHE BOOL "Enable Debug Probe UART0 on GP16/GP13 (ZERO)")
+    if(ZERO_DBG_UART)
+        pico_enable_stdio_uart(${PROJECT_NAME} 1)
+    endif()
     target_compile_definitions(${PROJECT_NAME} PRIVATE
+        DEBUG=0
+        $<$<BOOL:${ZERO_DBG_UART}>:PICO_DEFAULT_UART=0>
+        $<$<BOOL:${ZERO_DBG_UART}>:PICO_DEFAULT_UART_TX_PIN=16>
+        $<$<BOOL:${ZERO_DBG_UART}>:PICO_DEFAULT_UART_RX_PIN=13>
+
         PORT_VERSION="${PORT_VERSION}" PORT_VERSION_LEN=${PORT_VERSION_LEN}
         CPU_MHZ=${CPU_MHZ}
         ZERO=1
@@ -534,19 +555,21 @@ ELSEIF(ZERO)
         DEFAULT_THROTTLING=0
         PICO_RP2040=1
         PICO_DEFAULT_LED_PIN=25
-        DEBUG=0
     )
 ELSEIF(ZERO2)
+    set(ZERO2_UART OFF CACHE BOOL "Enable Debug Probe UART1 on GP20/GP21 (ZERO2)")
+    if(ZERO2_DBG_UART)
+        pico_enable_stdio_uart(${PROJECT_NAME} 1)
+    endif()
     target_compile_definitions(${PROJECT_NAME} PRIVATE
+        DEBUG=0
+        $<$<BOOL:${ZERO2_DBG_UART}>:PICO_DEFAULT_UART=1>
+        $<$<BOOL:${ZERO2_DBG_UART}>:PICO_DEFAULT_UART_TX_PIN=20>
+        $<$<BOOL:${ZERO2_DBG_UART}>:PICO_DEFAULT_UART_RX_PIN=21>
+
         PORT_VERSION="${PORT_VERSION}" PORT_VERSION_LEN=${PORT_VERSION_LEN}
         CPU_MHZ=${CPU_MHZ}
         ZERO2=1
-
-        DEBUG=0
-        # stdio UART0 TX/RX on GP20/GP21 (Debug Probe)
-        # PICO_DEFAULT_UART=1
-        # PICO_DEFAULT_UART_TX_PIN=20
-        # PICO_DEFAULT_UART_RX_PIN=21
 
         # PS2 keyboard (moved from GPIO 2/3 for PCM5122 I2C)
         KBD_CLOCK_PIN=14
@@ -674,7 +697,6 @@ ELSE()
 
         DEFAULT_THROTTLING=0
         PICO_DEFAULT_LED_PIN=25
-        DEBUG=1
     )
 ENDIF()
 

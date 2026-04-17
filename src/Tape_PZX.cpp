@@ -92,7 +92,7 @@ void Tape::PZX_BlockLen(uint32_t &tag, uint32_t &size) {
            (readByteFile(tape) << 16) | (readByteFile(tape) << 24);
 }
 
-void Tape::PZX_Open(string name) {
+void Tape::PZX_Open(const string& name) {
 
     if (tapeFileType != TAPE_FTYPE_EMPTY) {
         fclose(tape);
