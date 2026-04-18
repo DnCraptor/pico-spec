@@ -7366,7 +7366,7 @@ void OSD::EmulatorInfo() {
 #if !PICO_RP2040
         {
             const char* gs;
-            if (Config::gigascreen_onoff == 0) gs = "Off";
+            if (!Config::gigascreen_enabled || Config::gigascreen_onoff == 0) gs = "Off";
             else if (Config::gigascreen_onoff == 1) gs = "On";
             else gs = "Auto";
             pos += snprintf(buf + pos, sizeof(buf) - pos,
