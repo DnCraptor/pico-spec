@@ -16,10 +16,15 @@
 #include "MemESP.h"
 #include "Ports.h"
 #include "Video.h"
+#include "Z80_JLS/z80.h"
 
 #undef IRAM_ATTR
 #define IRAM_ATTR __not_in_flash("z80dma")
 #pragma GCC optimize("O3")
+
+#ifndef Z80DMA_LOG
+#define Z80DMA_LOG 0
+#endif
 
 // Configured state
 uint8_t  Z80DMA::transfer_dir = 0;
@@ -416,10 +421,22 @@ void Z80DMA::doContinue() {
 
 void Z80DMA::doEnable() {
     transfer_active = true;
-    // MB-02+: DMA transfer is deferred — real Z80-DMA waits for READY/DRQ
-    // from FDC before transferring each byte. Don't execute immediately;
-    // MB02 FDC step will call executeTransfer() when data is ready.
-    if (mb02_deferred) return;
+#if Z80DMA_LOG
+    static uint32_t _dma_en_cnt = 0;
+    if (_dma_en_cnt < 500) {
+        Debug::log("DMA ENABLE#%lu pc=%04X dir=%s A=%04X(%s,inc=%d) B=%04X(%s,inc=%d) len=%u deferred=%d",
+                   (unsigned long)_dma_en_cnt, Z80::getRegPC(),
+                   transfer_dir ? "A->B" : "B->A",
+                   port_a_addr, port_a_is_io ? "IO" : "MEM", (int)port_a_inc,
+                   port_b_addr, port_b_is_io ? "IO" : "MEM", (int)port_b_inc,
+                   (unsigned)block_length, mb02_deferred ? 1 : 0);
+        _dma_en_cnt++;
+    }
+#endif
+    // MB-02+: defer only if this DMA reads/writes an IO port (FDC data register).
+    // Memory↔memory transfers (spriting, blitting) have no external READY signal
+    // and must run immediately on ENABLE, just like a plain Z80-DMA load.
+    if (mb02_deferred && (port_a_is_io || port_b_is_io)) return;
     executeTransfer();
 }
 
@@ -490,6 +507,28 @@ IRAM_ATTR void Z80DMA::executeTransfer() {
     dma_in_progress = true;
 
     uint16_t dest_start = transfer_dir ? cur_port_b : cur_port_a;
+    uint16_t src_start  = transfer_dir ? cur_port_a : cur_port_b;
+
+#if Z80DMA_LOG
+    static uint32_t _dma_log_cnt = 0;
+    if (_dma_log_cnt < 500) {
+        uint16_t pc = Z80::getRegPC();
+        Debug::log("DMA #%lu pc=%04X dir=%s src=%04X(%s,inc=%d,cyc=%d) dst=%04X(%s,inc=%d,cyc=%d) len=%lu restart=%d",
+                   (unsigned long)_dma_log_cnt, pc,
+                   transfer_dir ? "A->B" : "B->A",
+                   src_start,
+                   (transfer_dir ? port_a_is_io : port_b_is_io) ? "IO" : "MEM",
+                   (int)(transfer_dir ? port_a_inc : port_b_inc),
+                   (int)(transfer_dir ? port_a_cycles : port_b_cycles),
+                   dest_start,
+                   (transfer_dir ? port_b_is_io : port_a_is_io) ? "IO" : "MEM",
+                   (int)(transfer_dir ? port_b_inc : port_a_inc),
+                   (int)(transfer_dir ? port_b_cycles : port_a_cycles),
+                   (unsigned long)byte_counter,
+                   auto_restart ? 1 : 0);
+        _dma_log_cnt++;
+    }
+#endif
 
     while (byte_counter > 0 && transfer_active) {
         transfer_started = true;
