@@ -258,7 +258,7 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
         ESPectrum_vsync();
     }
 
-    if (!hdmi_scanlines && !(line & 1)) {
+    if (!(line & 1) && (!hdmi_scanlines || line >= mode.v_active)) {
         return;
     }
     inx_buf_dma++;
