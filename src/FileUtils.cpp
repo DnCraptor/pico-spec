@@ -104,6 +104,13 @@ string FileUtils::getLCaseExt(const string& filename) {
     return toLower( extension );
 }
 
+DiskIface FileUtils::ifaceForExt(const string& lcExt) {
+    if (lcExt == "trd" || lcExt == "scl" || lcExt == "fdi" || lcExt == "udi") return IFACE_BETA;
+    if (lcExt == "mbd") return IFACE_MB02;
+    if (lcExt == "mmc" || lcExt == "hdf") return IFACE_ESX;
+    return IFACE_NONE;
+}
+
 size_t fwrite(const void* v, size_t sz1, size_t sz2, FIL* f);
 void fputs(const char* b, FIL& f) {
     size_t sz = strlen(b);

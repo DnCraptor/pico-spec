@@ -197,14 +197,17 @@ public:
     static bool StartMsg;    
 
     static bool trdosFastMode;
-    static bool trdosWriteProtect;
     static bool trdosSoundLed;
     static uint8_t trdosBios; // 0=5.03, 1=5.04TM, 2=5.05D
+    static bool driveWP[4];   // TR-DOS per-slot write protect (Drive A..D)
 #if !PICO_RP2040
     static uint8_t esxdos;   // 0=OFF 1=DivMMC 2=DivIDE 3=DivSD
-    static string esxdos_mmc_image; // Full path to .mmc image (empty = /esxdos.mmc)
-    static string esxdos_hdf_image[2]; // HDF images: [0]=master/hd0, [1]=slave/hd1
+    // Unified hd0/hd1 image slots — [0]=hd0, [1]=hd1.
+    // DivMMC uses hd0 only; DivIDE uses both.
+    static string esxdos_hdf_image[2];
     static uint8_t mb02;     // 0=OFF 1=ON (MB-02+ disk interface, mutually exclusive with TR-DOS/DivMMC)
+    static bool mb02WP[4];   // MB-02+ per-slot write protect
+    static bool mb02SoundLed;// MB-02+ disk sound & LED
 #endif
     
     static signed char aud_volume;

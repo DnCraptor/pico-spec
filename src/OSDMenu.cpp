@@ -50,6 +50,11 @@ using namespace std;
 #include <math.h>
 #include "Z80_JLS/z80.h"
 #include "Tape.h"
+#include "wd1793.h"
+#if !PICO_RP2040
+#include "MB02.h"
+#include "DivMMC.h"
+#endif
 
 #define MENU_MAX_ROWS 17
 
@@ -198,6 +203,9 @@ unsigned short OSD::menuRun(const string& new_menu) {
     max_right = 0;
     uint8_t cols_arrow = 0; // longest left part of ">" lines (no hotkey)
     for (unsigned short i = 0; i < menu.length(); i++) {
+        // Dim marker \x01 is stripped at render time — don't count it here
+        // or rows would appear 1 column wider than what is actually drawn.
+        if (menu.at(i) == '\x01') continue;
         if (menu.at(i) == ASCII_TAB) {
             // measure right part length (only for hotkey lines, not ">" or "[...]")
             unsigned short j = i + 1;
@@ -535,6 +543,269 @@ unsigned short OSD::simpleMenuRun(const string& new_menu, uint16_t posx, uint16_
                     menu_saverect = false;                        
                     click();
                     return 0;
+                }
+            }
+        }
+        sleep_ms(5);
+    }
+}
+
+// Build a slot-status row: "Label\tbasename, WP" or "Label\t<empty>".
+// For esxDOS slots (showWP=false) the ", WP" tag is omitted.
+// Basename is capped at 10 chars so the ", WP" tag always fits.
+// The right part deliberately does NOT start with '[' — that would make
+// menuPrintRow right-align the row and leave a big gap between the label
+// and the value. Without '[' it falls into the hotkey branch which aligns
+// the value at tab_col (just past the longest label).
+string OSD::formatSlotRow(const string& label, const string& fname,
+                          bool wp, bool showWP) {
+    static const size_t BASENAME_MAX = 10;
+    string right;
+    if (fname.empty()) {
+        right = OSD_DISK_EMPTY[Config::lang];
+    } else {
+        size_t slash = fname.find_last_of("/\\");
+        string base = (slash == string::npos) ? fname : fname.substr(slash + 1);
+        if (base.length() > BASENAME_MAX) base = base.substr(0, BASENAME_MAX);
+        right = base;
+        if (showWP && wp) right += OSD_DISK_WP_TAG[Config::lang];
+    }
+    return label + "\t" + right;
+}
+
+namespace {
+    // Iface-local helpers for the slot popup.
+    inline uint8_t slotCount(DiskIface iface) {
+        switch (iface) {
+            case IFACE_BETA: return 4;
+#if !PICO_RP2040
+            case IFACE_MB02: return 4;
+            case IFACE_ESX:
+                // Slots visible in popup depend on the active esxDOS interface.
+                if (Config::esxdos == 1) return 1; // DivMMC: hd0
+                if (Config::esxdos == 2) return 2; // DivIDE: hd0+hd1
+                return 0;                          // OFF / DivSD: no slots
+#endif
+            default: return 0;
+        }
+    }
+    inline bool slotHasWP(DiskIface iface) { return iface != IFACE_ESX; }
+    inline string slotLabel(DiskIface iface, uint8_t idx) {
+        if (iface == IFACE_BETA) return string("Drive ") + (char)('A' + idx);
+#if !PICO_RP2040
+        if (iface == IFACE_MB02) {
+            char b[12]; snprintf(b, sizeof(b), "Drive %u", (unsigned)(idx + 1));
+            return string(b);
+        }
+        if (iface == IFACE_ESX) {
+            char b[8]; snprintf(b, sizeof(b), "hd%u", (unsigned)idx);
+            return string(b);
+        }
+#endif
+        return "";
+    }
+    inline string slotFname(DiskIface iface, uint8_t idx) {
+        if (iface == IFACE_BETA) {
+            return ESPectrum::fdd.disk[idx] ? ESPectrum::fdd.disk[idx]->fname : "";
+        }
+#if !PICO_RP2040
+        if (iface == IFACE_MB02) {
+            return ESPectrum::mb02_fdd.disk[idx] ? ESPectrum::mb02_fdd.disk[idx]->fname : "";
+        }
+        if (iface == IFACE_ESX) return Config::esxdos_hdf_image[idx];
+#endif
+        return "";
+    }
+    inline bool slotWP(DiskIface iface, uint8_t idx) {
+        if (iface == IFACE_BETA) return Config::driveWP[idx];
+#if !PICO_RP2040
+        if (iface == IFACE_MB02) return Config::mb02WP[idx];
+#endif
+        return false;
+    }
+    // Toggle stored WP and mirror to live disk; caller persists via Config::save.
+    inline void slotToggleWP(DiskIface iface, uint8_t idx) {
+        if (iface == IFACE_BETA) {
+            Config::driveWP[idx] = !Config::driveWP[idx];
+            if (ESPectrum::fdd.disk[idx])
+                ESPectrum::fdd.disk[idx]->writeprotect = Config::driveWP[idx];
+        }
+#if !PICO_RP2040
+        else if (iface == IFACE_MB02) {
+            Config::mb02WP[idx] = !Config::mb02WP[idx];
+            if (ESPectrum::mb02_fdd.disk[idx])
+                ESPectrum::mb02_fdd.disk[idx]->writeprotect = Config::mb02WP[idx];
+        }
+#endif
+    }
+    // Eject the disk/image currently mounted in `idx`. No-op for empty slots.
+    inline void slotEject(DiskIface iface, uint8_t idx) {
+        if (iface == IFACE_BETA) {
+            if (ESPectrum::fdd.disk[idx]) wdDiskEject(&ESPectrum::fdd, idx);
+        }
+#if !PICO_RP2040
+        else if (iface == IFACE_MB02) {
+            if (ESPectrum::mb02_fdd.disk[idx]) {
+                wdDiskEject(&ESPectrum::mb02_fdd, idx);
+                MB02::signalDiskChange();
+            }
+        }
+        else if (iface == IFACE_ESX) {
+            Config::esxdos_hdf_image[idx].clear();
+            DivMMC::init();
+        }
+#endif
+    }
+    // Mount `fname` into `idx`; seed WP from the per-slot Config flag.
+    // For esxDOS this triggers DivMMC::init() but not a full emulator reset —
+    // the popup stays open so the user can see the result; the machine is only
+    // reset after the popup closes (if anything was mounted).
+    inline void slotMount(DiskIface iface, uint8_t idx, const std::string& fname) {
+        if (fname.empty()) return;
+        if (iface == IFACE_BETA) {
+            rvmWD1793InsertDisk(&ESPectrum::fdd, idx, fname);
+            if (ESPectrum::fdd.disk[idx])
+                ESPectrum::fdd.disk[idx]->writeprotect = Config::driveWP[idx];
+        }
+#if !PICO_RP2040
+        else if (iface == IFACE_MB02) {
+            rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, idx, fname);
+            if (ESPectrum::mb02_fdd.disk[idx])
+                ESPectrum::mb02_fdd.disk[idx]->writeprotect = Config::mb02WP[idx];
+            ESPectrum::mb02_fdd.diskLoadedCyl = -1;
+            ESPectrum::mb02_fdd.diskLoadedSide = -1;
+            MB02::signalDiskChange();
+        }
+        else if (iface == IFACE_ESX) {
+            Config::esxdos_hdf_image[idx] = fname;
+            DivMMC::init();
+        }
+#endif
+    }
+}
+
+// F5 slot picker. Reuses menuRun layout primitives but runs its own input loop
+// so F2 (WP toggle) / F8 (eject) / Enter (mount) can keep the popup open.
+int OSD::diskSlotDialog(DiskIface iface, uint8_t initialSlot, const string& fname) {
+    const uint8_t slots = slotCount(iface);
+    if (slots == 0) return -1;
+    if (initialSlot >= slots) initialSlot = 0;
+    const bool showWP = slotHasWP(iface);
+
+    auto buildMenu = [&]() {
+        string m = OSD_LOAD_TO_TITLE[Config::lang];
+        for (uint8_t i = 0; i < slots; i++) {
+            m += formatSlotRow(slotLabel(iface, i), slotFname(iface, i),
+                               slotWP(iface, i), showWP);
+            m += "\n";
+        }
+        return m;
+    };
+
+    menu = buildMenu();
+    menu_footer = showWP ? OSD_LOAD_HINT_WP[Config::lang]
+                         : OSD_LOAD_HINT_NOWP[Config::lang];
+
+    real_rows = rowCount(menu);
+    virtual_rows = real_rows;
+
+    // Fixed popup geometry: width is sized for the longest possible row
+    // (label + capped basename + ", WP") so the dialog does not grow/shrink
+    // as slots get filled or emptied. Any shorter row is padded on render.
+    //   label "Drive A" / "hd0"   -> longest is 7 ("Drive N" family)
+    //   right "XXXXXXXXXX, WP"    -> 14 (BASENAME_MAX=10 + tag ", WP")
+    //   extra padding for frame and margins                     -> +6
+    tab_col = 7 + 2;           // longest label + gap before value
+    max_right = 14;
+    cols = tab_col + max_right + 6;
+
+    w = (cols * OSD_FONT_W) + 2;
+    bool hasFooter = !menu_footer.empty();
+    h = (virtual_rows * OSD_FONT_H) + 2 + (hasFooter ? OSD_FONT_H : 0);
+
+    // Center on screen
+    x = ((int)scrW - (int)w) / 2; if (x < 0) x = 0;
+    y = ((int)scrH - (int)h) / 2; if (y < 0) y = 0;
+
+    // Popup always saves backing rect (F5 is called from overlay or direct).
+    bool prev_saverect = menu_saverect;
+    menu_saverect = true;
+    WindowDraw();
+    menu_saverect = prev_saverect;
+
+    if (hasFooter) {
+        int fy = y + 1 + virtual_rows * OSD_FONT_H;
+        VIDEO::vga.fillRect(x + 1, fy, w - 2, OSD_FONT_H, zxColor(5, 1));
+        VIDEO::vga.setTextColor(zxColor(0, 1), zxColor(5, 1));
+        VIDEO::vga.setCursor(x + OSD_FONT_W, fy);
+        string fs = menu_footer;
+        if ((int)fs.length() > cols - 2) fs = fs.substr(0, cols - 2);
+        while ((int)fs.length() < cols - 2) fs += ' ';
+        VIDEO::vga.print(fs.c_str());
+    }
+
+    begin_row = 1;
+    focus = initialSlot + 1; // row 0 is title, slot 0 is row 1
+    last_focus = last_begin_row = 0;
+    menuRedraw();
+
+    fabgl::VirtualKeyItem Menukey;
+    while (1) {
+        if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
+            if (ESPectrum::readKbd(&Menukey)) {
+                if (!Menukey.down) continue;
+                if (is_up(Menukey.vk)) {
+                    last_focus = focus;
+                    focus--;
+                    if (focus < 1) focus = virtual_rows - 1;
+                    menuPrintRow(focus, IS_FOCUSED);
+                    if (last_focus != focus) menuPrintRow(last_focus, IS_NORMAL);
+                    click();
+                } else if (is_down(Menukey.vk)) {
+                    last_focus = focus;
+                    focus++;
+                    if (focus >= virtual_rows) focus = 1;
+                    menuPrintRow(focus, IS_FOCUSED);
+                    if (last_focus != focus) menuPrintRow(last_focus, IS_NORMAL);
+                    click();
+                } else if (Menukey.vk == fabgl::VK_F2 && showWP) {
+                    uint8_t idx = focus - 1;
+                    slotToggleWP(iface, idx);
+                    Config::save();
+                    // Rebuild menu with fresh WP status and redraw this row.
+                    menu = buildMenu();
+                    menuPrintRow(focus, IS_FOCUSED);
+                    click();
+                } else if (Menukey.vk == fabgl::VK_F8 || Menukey.vk == fabgl::VK_DELETE) {
+                    uint8_t idx = focus - 1;
+                    slotEject(iface, idx);
+                    Config::save();
+                    menu = buildMenu();
+                    menuPrintRow(focus, IS_FOCUSED);
+                    click();
+                } else if (is_enter(Menukey.vk)) {
+                    if (!fname.empty()) {
+                        // Enter mounts the file into the focused slot and keeps the
+                        // popup open — user can now eject, toggle WP, or move to
+                        // another slot.
+                        uint8_t idx = focus - 1;
+                        slotMount(iface, idx, fname);
+                        Config::save();
+                        menu = buildMenu();
+                        menuPrintRow(focus, IS_FOCUSED);
+                        click();
+                    } else {
+                        // Legacy callers without a fname still get a slot back.
+                        VIDEO::SaveRect.restore_last();
+                        menu_footer = "";
+                        click();
+                        return focus - 1;
+                    }
+                } else if (is_back(Menukey.vk)) {
+                    VIDEO::SaveRect.restore_last();
+                    menu_footer = "";
+                    click();
+                    return -1;
                 }
             }
         }

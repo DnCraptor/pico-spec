@@ -1553,7 +1553,8 @@ bool rvmWD1793InsertDisk(rvmWD1793 *wd, unsigned char UnitNum, const std::string
         wd->disk[UnitNum]->IsFDIFile = false;
 #endif
         wd->disk[UnitNum]->fname = Filename;
-        wd->disk[UnitNum]->writeprotect = Config::trdosWriteProtect;
+        // writeprotect is seeded by the caller from the per-slot Config array.
+        wd->disk[UnitNum]->writeprotect = 0;
         wd->fastmode = Config::trdosFastMode;
         diskType = 0x16;
 
@@ -1564,7 +1565,8 @@ bool rvmWD1793InsertDisk(rvmWD1793 *wd, unsigned char UnitNum, const std::string
         wd->disk[UnitNum]->IsSCLFile = false;
         wd->disk[UnitNum]->IsUDIFile = true;
         wd->disk[UnitNum]->IsFDIFile = false;
-        wd->disk[UnitNum]->writeprotect = Config::trdosWriteProtect;
+        // writeprotect is seeded by the caller from the per-slot Config array.
+        wd->disk[UnitNum]->writeprotect = 0;
         wd->disk[UnitNum]->sclDataOffset = 0;
 
         // Read UDI header
@@ -1630,7 +1632,8 @@ bool rvmWD1793InsertDisk(rvmWD1793 *wd, unsigned char UnitNum, const std::string
 
         wd->disk[UnitNum]->tracks = cyls - 1;
         wd->disk[UnitNum]->sides = sides;
-        wd->disk[UnitNum]->writeprotect = wpFlag ? 1 : Config::trdosWriteProtect;
+        // Honor FDI hardware WP flag; otherwise defer to the caller's per-slot seed.
+        wd->disk[UnitNum]->writeprotect = wpFlag ? 1 : 0;
         wd->disk[UnitNum]->fdiDataOffset = dataOffset;
 
         // Parse track headers to record their file positions
@@ -1718,7 +1721,8 @@ bool rvmWD1793InsertDisk(rvmWD1793 *wd, unsigned char UnitNum, const std::string
         wd->disk[UnitNum]->IsFDIFile = false;
         wd->disk[UnitNum]->IsMBDFile = false;
 #endif
-        wd->disk[UnitNum]->writeprotect = Config::trdosWriteProtect;
+        // writeprotect is seeded by the caller from the per-slot Config array.
+        wd->disk[UnitNum]->writeprotect = 0;
         wd->disk[UnitNum]->sclDataOffset = 0;
         wd->fastmode = Config::trdosFastMode;
 

@@ -93,14 +93,15 @@ uint8_t  Config::kempstonPort = 0x37;
 uint8_t  Config::throtling = DEFAULT_THROTTLING;
 bool     Config::CursorAsJoy = true;
 bool     Config::trdosFastMode = false;
-bool     Config::trdosWriteProtect = true;
 bool     Config::trdosSoundLed = false;
 uint8_t  Config::trdosBios = 2; // Default: 5.05D
+bool     Config::driveWP[4] = { true, true, true, true };
 #if !PICO_RP2040
 uint8_t  Config::esxdos = 0;
-string   Config::esxdos_mmc_image = "";
 string   Config::esxdos_hdf_image[2] = {"", ""};
 uint8_t  Config::mb02 = 0;
+bool     Config::mb02WP[4] = { true, true, true, true };
+bool     Config::mb02SoundLed = false;
 #endif
 
 uint8_t Config::scanlines = 0;
@@ -343,6 +344,8 @@ void Config::load2() {
                     std::string fn = s.substr(plen);
                     if (!fn.empty()) {
                         rvmWD1793InsertDisk(&ESPectrum::fdd, i, fn);
+                        if (ESPectrum::fdd.disk[i])
+                            ESPectrum::fdd.disk[i]->writeprotect = driveWP[i];
                     }
                 }
 #if !PICO_RP2040
@@ -352,6 +355,8 @@ void Config::load2() {
                     std::string fn = s.substr(plen);
                     if (!fn.empty() && MB02::enabled) {
                         rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, i, fn);
+                        if (ESPectrum::mb02_fdd.disk[i])
+                            ESPectrum::mb02_fdd.disk[i]->writeprotect = mb02WP[i];
                     }
                 }
 #endif
@@ -540,17 +545,24 @@ void Config::load() {
 #endif
         nvs_get_b("CursorAsJoy", CursorAsJoy, sts);
         nvs_get_b("trdosFastMode", trdosFastMode, sts);
-        nvs_get_b("trdosWriteProtect", trdosWriteProtect, sts);
         nvs_get_b("trdosSoundLed", trdosSoundLed, sts);
         nvs_get_u8("trdosBios", trdosBios, sts);
+        for (int i = 0; i < 4; i++) {
+            char k[12]; snprintf(k, sizeof(k), "drive%d.wp", i);
+            nvs_get_b(k, driveWP[i], sts);
+        }
 #if !PICO_RP2040
         nvs_get_u8("esxdos", esxdos, sts);
         // Migrate old bool key
         { bool old_divmmc = false; nvs_get_b("divmmc", old_divmmc, sts); if (old_divmmc && esxdos == 0) esxdos = 1; }
-        nvs_get_str("esxdos_mmc", esxdos_mmc_image, sts);
         nvs_get_str("esxdos_hdf", esxdos_hdf_image[0], sts);
         nvs_get_str("esxdos_hd1", esxdos_hdf_image[1], sts);
         nvs_get_u8("mb02", mb02, sts);
+        for (int i = 0; i < 4; i++) {
+            char k[12]; snprintf(k, sizeof(k), "mb02d%d.wp", i);
+            nvs_get_b(k, mb02WP[i], sts);
+        }
+        nvs_get_b("mb02SoundLed", mb02SoundLed, sts);
 #endif
         nvs_get_str("SNA_Path", FileUtils::SNA_Path, sts);
         nvs_get_str("TAP_Path", FileUtils::TAP_Path, sts);
@@ -751,15 +763,22 @@ void Config::save() {
 #endif
     nvs_set_str(buf,"CursorAsJoy", CursorAsJoy ? "true" : "false");
     nvs_set_str(buf,"trdosFastMode", trdosFastMode ? "true" : "false");
-    nvs_set_str(buf,"trdosWriteProtect", trdosWriteProtect ? "true" : "false");
     nvs_set_str(buf,"trdosSoundLed", trdosSoundLed ? "true" : "false");
     nvs_set_u8(buf,"trdosBios", trdosBios);
+    for (int i = 0; i < 4; i++) {
+        char k[12]; snprintf(k, sizeof(k), "drive%d.wp", i);
+        nvs_set_str(buf, k, driveWP[i] ? "true" : "false");
+    }
 #if !PICO_RP2040
     nvs_set_u8(buf,"esxdos", esxdos);
-    nvs_set_str(buf,"esxdos_mmc", esxdos_mmc_image.c_str());
     nvs_set_str(buf,"esxdos_hdf", esxdos_hdf_image[0].c_str());
     nvs_set_str(buf,"esxdos_hd1", esxdos_hdf_image[1].c_str());
     nvs_set_u8(buf,"mb02", mb02);
+    for (int i = 0; i < 4; i++) {
+        char k[12]; snprintf(k, sizeof(k), "mb02d%d.wp", i);
+        nvs_set_str(buf, k, mb02WP[i] ? "true" : "false");
+    }
+    nvs_set_str(buf,"mb02SoundLed", mb02SoundLed ? "true" : "false");
 #endif
     nvs_set_str(buf,"SNA_Path",FileUtils::SNA_Path.c_str());
     nvs_set_str(buf,"TAP_Path",FileUtils::TAP_Path.c_str());

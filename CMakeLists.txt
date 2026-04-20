@@ -41,7 +41,7 @@ endif()
 set(NO_ALF 1)
 
 set(CPU_MHZ 378)
-set (PORT_VERSION "1.2.13")
+set (PORT_VERSION "1.2.14")
 string(LENGTH "${PORT_VERSION}" PORT_VERSION_LEN)
 
 # Target board (default: PICO_PC; override with -D flags, e.g. cmake -DMURM2=ON)
@@ -557,7 +557,7 @@ ELSEIF(ZERO)
         PICO_DEFAULT_LED_PIN=25
     )
 ELSEIF(ZERO2)
-    set(ZERO2_UART OFF CACHE BOOL "Enable Debug Probe UART1 on GP20/GP21 (ZERO2)")
+    set(ZERO2_DBG_UART OFF CACHE BOOL "Enable Debug Probe UART1 on GP20/GP21 (ZERO2)")
     if(ZERO2_DBG_UART)
         pico_enable_stdio_uart(${PROJECT_NAME} 1)
     endif()
