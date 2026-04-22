@@ -342,7 +342,26 @@ IF(MURM2)
         PICO_DEFAULT_LED_PIN=25
     )
 ELSEIF(PICO_PC)
+    # Optional UART for Debug Probe. Set PICO_PC_DBG_UART=ON to enable UART0 on the
+    # on-board DBG1 header (GP0=TX, GP1=RX) of Olimex RP2040-PICO-PC.
+    # DBG1 shares pins with KBD_CLOCK/KBD_DATA → keyboard is auto-remapped to FREE
+    # pins GP10/GP11 when DBG_UART is enabled.
+    set(PICO_PC_DBG_UART OFF CACHE BOOL "Enable Debug Probe UART0 on DBG1 header GP0/GP1 (PICO_PC)")
+    if(PICO_PC_DBG_UART)
+        pico_enable_stdio_uart(${PROJECT_NAME} 1)
+        set(PICO_PC_KBD_CLOCK 10) # GP0 taken by UART TX → move KBD to FREE pin
+        set(PICO_PC_KBD_DATA 11)  # GP1 taken by UART RX → move KBD to FREE pin
+    else()
+        set(PICO_PC_KBD_CLOCK 0)
+        set(PICO_PC_KBD_DATA 1)
+    endif()
     target_compile_definitions(${PROJECT_NAME} PRIVATE
+        DEBUG=0
+
+        $<$<BOOL:${PICO_PC_DBG_UART}>:PICO_DEFAULT_UART=0>
+        $<$<BOOL:${PICO_PC_DBG_UART}>:PICO_DEFAULT_UART_TX_PIN=0>
+        $<$<BOOL:${PICO_PC_DBG_UART}>:PICO_DEFAULT_UART_RX_PIN=1>
+
         PORT_VERSION="${PORT_VERSION}" PORT_VERSION_LEN=${PORT_VERSION_LEN}
         CPU_MHZ=${CPU_MHZ}
 
@@ -356,9 +375,9 @@ ELSEIF(PICO_PC)
 
         # QWST1 3/4 - GP2/3
 
-        # DBG1 1/2
-        KBD_CLOCK_PIN=0
-        KBD_DATA_PIN=1
+        # DBG1 1/2  (GP0=UART0_TX, GP1=UART0_RX) — used by PICO_PC_DBG_UART
+        KBD_CLOCK_PIN=${PICO_PC_KBD_CLOCK}
+        KBD_DATA_PIN=${PICO_PC_KBD_DATA}
 
         LOAD_WAV_PIO=5 # UXT1-10
 
