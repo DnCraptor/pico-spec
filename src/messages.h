@@ -507,6 +507,7 @@ static const char *MENU_ESX_EJECT[2]     = { "Eject disk\n",     "Expulsar disco
     "Options\t>\n"\
     "Debug\t>\n"\
     "Hardware\t>\n"\
+    "ZX Keyboard\n"\
     "Help\n"\
     "About\n"\
 	"TFT\t>\n"
@@ -520,6 +521,7 @@ static const char *MENU_ESX_EJECT[2]     = { "Eject disk\n",     "Expulsar disco
     "Opciones\t>\n"\
 	"Depurar\t>\n"\
     "Hardware\t>\n"\
+    "Teclado ZX\n"\
     "Ayuda\n"\
     "Acerca de\n"\
 	"TFT\t>\n"
@@ -534,6 +536,7 @@ static const char *MENU_ESX_EJECT[2]     = { "Eject disk\n",     "Expulsar disco
     "Options\t>\n"\
     "Debug\t>\n"\
     "Hardware\t>\n"\
+    "ZX Keyboard\n"\
     "Help\n"\
     "About\n"
 #define MENU_MAIN_ES \
@@ -546,6 +549,7 @@ static const char *MENU_ESX_EJECT[2]     = { "Eject disk\n",     "Expulsar disco
     "Opciones\t>\n"\
 	"Depurar\t>\n"\
     "Hardware\t>\n"\
+    "Teclado ZX\n"\
     "Ayuda\n"\
     "Acerca de\n"
 #endif
@@ -561,6 +565,7 @@ static const char *MENU_MAIN[2] = { MENU_MAIN_EN, MENU_MAIN_ES };
     "Options\t>\n"\
     "Debug\t>\n"\
     "Hardware\t>\n"\
+    "ZX Keyboard\n"\
     "Help\n"\
     "About\n"
 #define MENU_MAIN_NO_SD_ES \
@@ -573,6 +578,7 @@ static const char *MENU_MAIN[2] = { MENU_MAIN_EN, MENU_MAIN_ES };
     "Opciones\t>\n"\
     "Depurar\t>\n"\
     "Hardware\t>\n"\
+    "Teclado ZX\n"\
     "Ayuda\n"\
     "Acerca de\n"
 static const char *MENU_MAIN_NO_SD[2] = { MENU_MAIN_NO_SD_EN, MENU_MAIN_NO_SD_ES };

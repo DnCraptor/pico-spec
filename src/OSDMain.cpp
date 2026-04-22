@@ -62,6 +62,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "AySound.h"
 #include "Midi.h"
 #include "MidiSynth.h"
+#include "kbd_img.h"
 extern "C" void graphics_set_scanlines(bool enabled);
 #if !PICO_RP2040
 #include "DivMMC.h"
@@ -4498,7 +4499,59 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     }
                 }
             }
-            else if (opt == 10) { // Help — dynamic from hotkeys
+            else if (opt == 10) { // ZX Keyboard — bitmap overlay
+                // Protect OSD area from Z80 video renderer overwrite
+                bool kbd_osd_enabled = (VIDEO::OSD != 0);
+                if (!kbd_osd_enabled) {
+                    if (Config::aspect_16_9)
+                        VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
+                    else
+                        VIDEO::Draw_OSD43 = VIDEO::BottomBorder_OSD;
+                    VIDEO::OSD = 0x04;
+                }
+                // Wipe the OSD area with ZX paper colour
+                int kbd_w = 254, kbd_h = 156;
+                int kbd_x = (OSD::scrW - kbd_w) / 2;
+                int kbd_y = (OSD::scrH - kbd_h) / 2;
+                VIDEO::vga.fillRect(kbd_x - 3, kbd_y - 12, kbd_w + 6, kbd_h + 16, zxColor(0, 0));
+                VIDEO::vga.rect(kbd_x - 3, kbd_y - 12, kbd_w + 6, kbd_h + 16, zxColor(7, 0));
+                // Header
+                VIDEO::vga.fillRect(kbd_x - 2, kbd_y - 11, kbd_w + 4, 9, zxColor(7, 0));
+                VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 0));
+                VIDEO::vga.setCursor(kbd_x + 4, kbd_y - 10);
+                VIDEO::vga.print(Config::lang ? "Teclado ZX  [ESC] Salir" : "ZX Keyboard  [ESC] Exit");
+                // Draw bitmap: byte = ZX palette index (0..15), 0xFF and other non-palette values = transparent
+                for (int y = 0; y < kbd_h; y++) {
+                    for (int x = 0; x < kbd_w; x++) {
+                        uint8_t idx = kbd_img[x + y * kbd_w];
+                        if (idx >= 0x10) continue; // skip transparent and out-of-range
+                        VIDEO::vga.dotFast(kbd_x + x, kbd_y + y, zxColor(idx & 7, (idx >> 3) & 1));
+                    }
+                }
+                // The Enter used to pick this menu item may still be held — wait for the
+                // first key-up event, then accept any subsequent key-down as "close".
+                bool saw_release = false;
+                while (1) {
+                    if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
+                        if (ESPectrum::readKbd(&Nextkey)) {
+                            if (!Nextkey.down) { saw_release = true; continue; }
+                            if (saw_release) break;
+                        }
+                    }
+                    sleep_ms(20);
+                }
+                click();
+                if (!kbd_osd_enabled) {
+                    VIDEO::OSD = 0;
+                    if (Config::aspect_16_9)
+                        VIDEO::Draw_OSD169 = VIDEO::MainScreen;
+                    else
+                        VIDEO::Draw_OSD43 = VIDEO::BottomBorder;
+                }
+                if (VIDEO::OSD) OSD::drawStats();
+                return;
+            }
+            else if (opt == 11) { // Help — dynamic from hotkeys
                 // Build index of visible hotkeys (no large buffer needed)
                 auto descs = Config::lang ? hkDescES : hkDescEN;
                 const int maxCols = osdMaxCols();
@@ -4591,7 +4644,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 if (VIDEO::OSD) OSD::drawStats();
                 return;
             }
-            else if (opt == 11) { // About
+            else if (opt == 12) { // About
                 // About
                 // Protect OSD area from Z80 video renderer overwrite
                 bool about_osd_enabled = (VIDEO::OSD != 0);
@@ -4712,7 +4765,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 return;
             }
 #if TFT
-            else if (FileUtils::fsMount && opt == 12) { // TFT
+            else if (FileUtils::fsMount && opt == 13) { // TFT
                 menu_saverect = true;
                 menu_curopt = 1;
                 while(1) {
