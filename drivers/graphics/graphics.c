@@ -1,5 +1,6 @@
 #include "graphics.h"
 #include <string.h>
+#include "pico.h"
 
 uint16_t graphics_max_tft_freq_mhz = 126;
 

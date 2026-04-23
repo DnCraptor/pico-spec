@@ -1474,8 +1474,14 @@ __not_in_flash("audio") void ESPectrum::PITGetSample() {
 #endif
 
 void ESPectrum::FDDGenSound() {
-    uint8_t clicks = fdd.fdd_clicks;
-    fdd.fdd_clicks = 0;
+    // MB-02+ and Betadisk are mutually exclusive, so the active controller's
+    // click and LED state feeds the shared fddSound generator.
+    rvmWD1793 *ctrl = &fdd;
+#if !PICO_RP2040
+    if (MB02::enabled) ctrl = &mb02_fdd;
+#endif
+    uint8_t clicks = ctrl->fdd_clicks;
+    ctrl->fdd_clicks = 0;
     if (clicks > 0) {
         if (clicks > 8) clicks = 8;
         fddSound.click_count = clicks;
@@ -1484,7 +1490,7 @@ void ESPectrum::FDDGenSound() {
         for (int c = 0; c < clicks; c++) {
             fddSound.click_pos[c] = spacing * (c + 1);
         }
-    } else if (fdd.led) {
+    } else if (ctrl->led) {
         fddSound.click_count = 0;
         fddSound.motor_noise = true;
     } else {
@@ -1694,7 +1700,13 @@ void ESPectrum::loop() {
                              samplesPerFrame - faudbufcntPIT);
         }
 #endif
-        if (Config::trdosSoundLed) FDDGenSound();
+        {
+            bool fddSndEnabled = Config::trdosSoundLed;
+#if !PICO_RP2040
+            if (MB02::enabled) fddSndEnabled = Config::mb02SoundLed;
+#endif
+            if (fddSndEnabled) FDDGenSound();
+        }
         if (AY_emu && faudbufcntAY < samplesPerFrame) {
             if(Config::turbosound != 0 || AySound::selected_chip == 0) chip0.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
             if(Config::turbosound != 0 || AySound::selected_chip == 1) chip1.gen_sound(samplesPerFrame - faudbufcntAY , faudbufcntAY);
@@ -1721,7 +1733,11 @@ void ESPectrum::loop() {
         bool mix_saa = SAA_emu;
         bool mix_midi = (Midi::enabled == 3);
 #endif
-        bool mix_fdd = Config::trdosSoundLed && (fddSound.click_count > 0 || fddSound.motor_noise);
+        bool fddSndEnabledMix = Config::trdosSoundLed;
+#if !PICO_RP2040
+        if (MB02::enabled) fddSndEnabledMix = Config::mb02SoundLed;
+#endif
+        bool mix_fdd = fddSndEnabledMix && (fddSound.click_count > 0 || fddSound.motor_noise);
         for (int i = 0; i < samplesPerFrame; i++)
         {
           int beeper_L = overSamplebuf[i] + audioBufferCovox[i]
@@ -1844,9 +1860,13 @@ void ESPectrum::loop() {
 #endif
         ;
 #if !PICO_RP2040
-    if (MB02::enabled) {
-        if (ESPectrum::mb02_fdd.led) {
-            VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(mb02_fdd.led == 2 ? 2 : 1, 1));
+    if (MB02::enabled && Config::mb02SoundLed) {
+        // MB-02+ I/O skips the WD1793 command-dispatch paths that drive
+        // rvmWD1793::led, so mirror the panel LED off the port-0x13 motor state.
+        uint8_t mb02_led = ESPectrum::mb02_fdd.led;
+        if (!mb02_led && MB02::motor_state) mb02_led = 1;
+        if (mb02_led) {
+            VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(mb02_led == 2 ? 2 : 1, 1));
         } else {
             VIDEO::vga.fillRect(312, 3, 4, 4, zxColor(VIDEO::borderColor, 0));
         }

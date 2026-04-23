@@ -64,12 +64,24 @@ struct DISK_FTYPE {
     string fileSearch;
 };
 
+// Disk/image interface family inferred from file extension.
+enum DiskIface {
+    IFACE_NONE = 0,
+    IFACE_BETA = 1,  // TR-DOS: .trd .scl .fdi .udi — Drive A..D
+    IFACE_MB02 = 2,  // MB-02+: .mbd — Drive 1..4
+    IFACE_ESX  = 3,  // esxDOS: .mmc .hdf — hd0..hd1
+};
+
 class FileUtils
 {
 public:
     static bool fsMount;
 
     static string getLCaseExt(const string& filename);
+
+    // Map a lowercase extension (no leading dot) to its disk-interface family.
+    // Returns IFACE_NONE for tape/snapshot/unknown extensions.
+    static DiskIface ifaceForExt(const string& lcExt);
 
     static void initFileSystem();
     static bool mountSDCard();

@@ -22,6 +22,7 @@ public:
     static uint8_t paging_reg;     // Last value written to port #17
     static uint8_t floppy_reg;     // Last value written to port #13
     static bool write_enabled;     // Derived from bit 5 of paging_reg
+    static uint8_t motor_state;    // Bitfield: which drive motors are on (mirrors port #13 motor bits)
 
     static void init();
     static void reset();
@@ -37,7 +38,6 @@ public:
 
 private:
     static uint8_t page0_composite[0x2000]; // EPROM mode composite buffer
-    static uint8_t motor_state;
     static bool disk_changed;      // temporary flag for disk change signal
 
     // SRAM pages use MemESP::ram[ram_base_idx + page] descriptors

@@ -62,6 +62,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "AySound.h"
 #include "Midi.h"
 #include "MidiSynth.h"
+#include "kbd_img.h"
 extern "C" void graphics_set_scanlines(bool enabled);
 #if !PICO_RP2040
 #include "DivMMC.h"
@@ -291,7 +292,7 @@ void OSD::drawOSD(bool bottom_info) {
 #ifdef TV
         bottom_line = " Video mode: TV RGBI PAL   ";
 #endif
-#ifdef TVSOFT
+#ifdef SOFTTV
         bottom_line = " Video mode: TV-composite  ";
 #endif
 #ifdef TFT
@@ -890,41 +891,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         else if (zipFname != "\x1b") fname = zipFname;
                         else fname.clear();
                     }
-                    if (fname.empty()) { if (VIDEO::OSD) OSD::drawStats(); }
-                    else {
-                    // Check if selected file is .hdf — offer drive slot selection
-                    bool is_hdf = (fname.size() >= 4 &&
-                        (fname.substr(fname.size() - 4) == ".hdf" || fname.substr(fname.size() - 4) == ".HDF"));
-                    int hdf_slot = 0;
-                    if (is_hdf) {
-                        menu_level = 0;
-                        menu_curopt = 1;
-                        menu_saverect = true;
-                        string drv_menu = "Select Drive\n";
-                        drv_menu += "hd0 (master)\n";
-                        drv_menu += "hd1 (slave)\n";
-                        uint8_t drv_cols = 16;
-                        uint16_t drv_w = (drv_cols * OSD_FONT_W) + 2;
-                        uint16_t drv_h = (3 * OSD_FONT_H) + 2;
-                        uint8_t opt = simpleMenuRun(drv_menu,
-                            scrAlignCenterX(drv_w), scrAlignCenterY(drv_h), 3, drv_cols);
-                        if (opt == 0) is_hdf = false; // cancelled
-                        else hdf_slot = opt - 1; // 0=master, 1=slave
+                    if (!fname.empty()) {
+                        diskSlotDialog(IFACE_ESX, 0, fname);
+                        Config::save();
+                        ESPectrum::reset();
+                        return;
                     }
-                    if (is_hdf)
-                        Config::esxdos_hdf_image[hdf_slot] = fname;
-                    else if (!is_hdf && fname.size() >= 4 &&
-                        (fname.substr(fname.size() - 4) == ".mmc" || fname.substr(fname.size() - 4) == ".MMC"))
-                        Config::esxdos_mmc_image = fname;
-                    else if (DivMMC::divide_mode)
-                        Config::esxdos_hdf_image[0] = fname;
-                    else
-                        Config::esxdos_mmc_image = fname;
-                    DivMMC::init();
-                    Config::save();
-                    ESPectrum::reset();
-                    return;
-                    } // else (zip ok)
                 }
                 if (VIDEO::OSD) OSD::drawStats();
             } else
@@ -1153,6 +1125,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             bool fromZip = false;
 
             // Loop to allow re-opening fileDialog after ZIP cancel
+            bool forcePopup = false;
             f5_retry:
             mFile = fileDialog(FileUtils::ALL_Path, MENU_ALL_TITLE[Config::lang], DISK_ALLFILE, 52, 22);
             if (mFile != "") {
@@ -1170,6 +1143,8 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     }
                     goto f5_retry;
                 }
+                // P prefix = F5 pressed on a disk/image — force the slot picker.
+                if (mFile[0] == 'P') forcePopup = true;
                 fname = FileUtils::ALL_Path + mFile.substr(1);
                 ext = FileUtils::getLCaseExt(fname);
                 fromZip = false;
@@ -1200,26 +1175,45 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     Config::save();
                     Tape::LoadTape(mFile);
                 }
-                else if (ext == "trd" || ext == "scl" || ext == "udi" || ext == "fdi") {
-                    // Disk into Drive A — check machine compatibility
+                else if (FileUtils::ifaceForExt(ext) == IFACE_BETA) {
+                    // TR-DOS disk. Enter in the browser mounts into Drive A;
+                    // F5 in the browser opens the slot picker, where Enter mounts
+                    // into the focused slot and the popup stays open for more
+                    // operations until Esc closes it back to the file dialog.
                     if (Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte)) {
                         if (!fromZip) FileUtils::DSK_Path = FileUtils::ALL_Path;
-                        Config::save();
+                        if (forcePopup) {
+                            Config::driveWP[0] = true;
+                            diskSlotDialog(IFACE_BETA, 0, fname);
+                            forcePopup = false;
+                            goto f5_retry;
+                        }
                         rvmWD1793InsertDisk(&ESPectrum::fdd, 0, fname);
+                        if (ESPectrum::fdd.disk[0])
+                            ESPectrum::fdd.disk[0]->writeprotect = Config::driveWP[0];
+                        Config::save();
                     } else {
                         OSD::osdCenteredMsg(OSD_DSK_NEEDS_PENTAGON[Config::lang], LEVEL_WARN);
                     }
                 }
 #if !PICO_RP2040
                 else if (ext == "mbd") {
-                    // MB-02+ disk into Drive A (no reset — user enables mode separately)
+                    // MB-02+ disk — Enter mounts into Drive 1, F5 opens the popup.
                     if (MB02::enabled) {
                         if (!fromZip) FileUtils::DSK_Path = FileUtils::ALL_Path;
-                        Config::save();
+                        if (forcePopup) {
+                            Config::mb02WP[0] = true;
+                            diskSlotDialog(IFACE_MB02, 0, fname);
+                            forcePopup = false;
+                            goto f5_retry;
+                        }
                         rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, 0, fname);
+                        if (ESPectrum::mb02_fdd.disk[0])
+                            ESPectrum::mb02_fdd.disk[0]->writeprotect = Config::mb02WP[0];
                         ESPectrum::mb02_fdd.diskLoadedCyl = -1;
                         ESPectrum::mb02_fdd.diskLoadedSide = -1;
                         MB02::signalDiskChange();
+                        Config::save();
                     } else {
                         OSD::osdCenteredMsg("Enable MB-02+ first", LEVEL_WARN);
                     }
@@ -1238,13 +1232,19 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 }
 #if !PICO_RP2040
                 else if (ext == "mmc" || ext == "hdf") {
-                    // DivMMC/DivIDE image
+                    // DivMMC/DivIDE image — Enter loads into hd0 (slot 0); F5 opens
+                    // the slot popup which mounts in-place and keeps the popup open.
+                    // A full ESPectrum::reset() runs after everything is settled.
                     if (DivMMC::enabled) {
                         FileUtils::IMG_Path = FileUtils::ALL_Path;
-                        if (ext == "hdf")
-                            Config::esxdos_hdf_image[0] = fname; // master (hd0)
-                        else
-                            Config::esxdos_mmc_image = fname;
+                        if (forcePopup) {
+                            diskSlotDialog(IFACE_ESX, 0, fname);
+                            Config::save();
+                            ESPectrum::reset();
+                            forcePopup = false;
+                            return;
+                        }
+                        Config::esxdos_hdf_image[0] = fname;
                         DivMMC::init();
                         Config::save();
                         ESPectrum::reset();
@@ -1681,42 +1681,88 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     else if (FileUtils::fsMount && stor_num == 2) { // Betadisk
                         menu_saverect = true;
                         menu_curopt = 1;
+                        bool betaFirstDraw = true;
                         while(1) {
                             menu_level = 2;
-                            uint8_t dsk_num = menuRun(MENU_BETADISK[Config::lang]);
+                            // Build Betadisk root menu dynamically so drive status refreshes.
+                            string betamenu = MENU_BETADISK_TITLE[Config::lang];
+                            for (uint8_t i = 0; i < 4; i++) {
+                                string label = string("Drive ") + MENU_BETA_DRIVE_LETTERS[i];
+                                string fname = ESPectrum::fdd.disk[i] ? ESPectrum::fdd.disk[i]->fname : "";
+                                betamenu += formatSlotRow(label, fname, Config::driveWP[i], true);
+                                betamenu += "\n";
+                            }
+                            betamenu += MENU_BETADISK_TAIL[Config::lang];
+
+                            // Save the backing rect only on the very first draw so the
+                            // stack has exactly one entry to pop on Esc (otherwise the
+                            // extra save'd fragment would show through). Repeat draws
+                            // paint over the previous menu — it has fixed height, so
+                            // no stale pixels remain.
+                            menu_saverect = betaFirstDraw;
+                            uint8_t dsk_num = menuRun(betamenu);
+                            betaFirstDraw = false;
                             if (dsk_num > 0 && dsk_num < 5) {
-                                string drvmenu = MENU_BETADRIVE[Config::lang];
-                                drvmenu.replace(drvmenu.find("#",0),1,(string)" " + char(64 + dsk_num));
+                                // Per-drive submenu: Insert / Eject / Write Protect.
+                                uint8_t slot = dsk_num - 1;
                                 menu_saverect = true;
                                 menu_curopt = 1;
                                 while (1) {
                                     menu_level = 3;
+                                    string drvmenu = MENU_BETADRIVE[Config::lang];
+                                    drvmenu.replace(drvmenu.find("#",0),1,(string)" " + char(64 + dsk_num));
+                                    // Fill WP toggle marker.
+                                    size_t wpPos = drvmenu.rfind("[ ]");
+                                    if (wpPos != string::npos && Config::driveWP[slot]) {
+                                        drvmenu.replace(wpPos, 3, "[*]");
+                                    }
                                     uint8_t opt2 = menuRun(drvmenu);
-                                    if (opt2 > 0) {
-                                        if (opt2 == 1) {
-                                            menu_saverect = true;
-                                            string mFile = fileDialog(FileUtils::DSK_Path, MENU_DSK_TITLE[Config::lang], DISK_DSKFILE, 26, 15);
-                                            if (mFile != "") {
-                                                mFile.erase(0, 1);
-                                                string fname = FileUtils::DSK_Path + "/" + mFile;
-                                                if (FileUtils::getLCaseExt(fname) == "zip") {
-                                                    string zipFname = ZipExtract::extract(fname, DISK_DSKFILE);
-                                                    if (zipFname.empty()) { OSD::osdCenteredMsg(OSD_ZIP_ERR[Config::lang], LEVEL_WARN); break; }
-                                                    if (zipFname == "\x1b") break;
-                                                    fname = zipFname;
-                                                }
-                                                rvmWD1793InsertDisk(&ESPectrum::fdd, dsk_num - 1, fname);
-                                                Config::save();
-                                                return;
+                                    if (opt2 == 1) {
+                                        // Insert disk — no F5-style slot popup; slot is already chosen.
+                                        menu_saverect = true;
+                                        string mFile = fileDialog(FileUtils::DSK_Path, MENU_DSK_TITLE[Config::lang], DISK_DSKFILE, 26, 15);
+                                        if (mFile != "") {
+                                            mFile.erase(0, 1);
+                                            string fname = FileUtils::DSK_Path + "/" + mFile;
+                                            if (FileUtils::getLCaseExt(fname) == "zip") {
+                                                string zipFname = ZipExtract::extract(fname, DISK_DSKFILE);
+                                                if (zipFname.empty()) { OSD::osdCenteredMsg(OSD_ZIP_ERR[Config::lang], LEVEL_WARN); break; }
+                                                if (zipFname == "\x1b") break;
+                                                fname = zipFname;
                                             }
-                                        } else
-                                        if (opt2 == 2) {
-                                            wdDiskEject(&ESPectrum::fdd, dsk_num - 1);
+                                            rvmWD1793InsertDisk(&ESPectrum::fdd, slot, fname);
+                                            if (ESPectrum::fdd.disk[slot])
+                                                ESPectrum::fdd.disk[slot]->writeprotect = Config::driveWP[slot];
                                             Config::save();
-                                            return;
                                         }
-                                    } else {
+                                        // Mirror menuRun's Esc path so the drive submenu
+                                        // rect is popped here and the next betamenu redraw
+                                        // starts from a clean stack.
+                                        VIDEO::SaveRect.restore_last();
+                                        menu_saverect = false;
                                         menu_curopt = dsk_num;
+                                        break;
+                                    } else if (opt2 == 2) {
+                                        wdDiskEject(&ESPectrum::fdd, slot);
+                                        Config::save();
+                                        VIDEO::SaveRect.restore_last();
+                                        menu_saverect = false;
+                                        menu_curopt = dsk_num;
+                                        break;
+                                    } else if (opt2 == 3) {
+                                        // Toggle per-slot Write Protect.
+                                        Config::driveWP[slot] = !Config::driveWP[slot];
+                                        if (ESPectrum::fdd.disk[slot])
+                                            ESPectrum::fdd.disk[slot]->writeprotect = Config::driveWP[slot];
+                                        Config::save();
+                                        menu_curopt = 3;
+                                        menu_saverect = false;
+                                    } else {
+                                        // Esc from drive submenu — menuRun already restored
+                                        // its backing rect. Reuse prev_y on next betamenu
+                                        // redraw so the menu stays in place.
+                                        menu_curopt = dsk_num;
+                                        menu_saverect = false;
                                         break;
                                     }
                                 }
@@ -1738,11 +1784,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     }
                                     uint8_t opt2 = menuRun(menu);
                                     if (opt2) {
-                                        if (opt2 == 1)
-                                            Config::trdosFastMode = true;
-                                        else
-                                            Config::trdosFastMode = false;
-
+                                        Config::trdosFastMode = (opt2 == 1);
                                         if (Config::trdosFastMode != prev) {
                                             ESPectrum::fdd.fastmode = Config::trdosFastMode;
                                             Config::save();
@@ -1752,48 +1794,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     } else {
                                         menu_curopt = 5;
                                         menu_level = 2;
+                                        menu_saverect = false;
                                         break;
                                     }
                                 }
                             }
                             else if (dsk_num == 6) {
-                                menu_level = 3;
-                                menu_curopt = 1;
-                                menu_saverect = true;
-                                while (1) {
-                                    string menu = MENU_WRITEPROTECT[Config::lang];
-                                    menu += MENU_YESNO[Config::lang];
-                                    uint8_t prev = Config::trdosWriteProtect;
-                                    if (prev) {
-                                        menu.replace(menu.find("[Y",0),2,"[*");
-                                        menu.replace(menu.find("[N",0),2,"[ ");
-                                    } else {
-                                        menu.replace(menu.find("[Y",0),2,"[ ");
-                                        menu.replace(menu.find("[N",0),2,"[*");
-                                    }
-                                    uint8_t opt2 = menuRun(menu);
-                                    if (opt2) {
-                                        if (opt2 == 1)
-                                            Config::trdosWriteProtect = true;
-                                        else
-                                            Config::trdosWriteProtect = false;
-
-                                        if (Config::trdosWriteProtect != prev) {
-                                            for (int i = 0; i < 4; i++)
-                                                if (ESPectrum::fdd.disk[i])
-                                                    ESPectrum::fdd.disk[i]->writeprotect = Config::trdosWriteProtect;
-                                            Config::save();
-                                        }
-                                        menu_curopt = opt2;
-                                        menu_saverect = false;
-                                    } else {
-                                        menu_curopt = 6;
-                                        menu_level = 2;
-                                        break;
-                                    }
-                                }
-                            }
-                            else if (dsk_num == 7) {
+                                // Disk Sound & LED
                                 menu_level = 3;
                                 menu_curopt = 1;
                                 menu_saverect = true;
@@ -1816,20 +1823,21 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         menu_curopt = opt2;
                                         menu_saverect = false;
                                     } else {
-                                        menu_curopt = 7;
+                                        menu_curopt = 6;
                                         menu_level = 2;
+                                        menu_saverect = false;
                                         break;
                                     }
                                 }
                             }
-                            else if (dsk_num == 8) {
+                            else if (dsk_num == 7) {
+                                // TR-DOS ROM selector
                                 menu_level = 3;
                                 menu_curopt = 1;
                                 menu_saverect = true;
                                 while (1) {
                                     string menu = MENU_TRDOS_ROM_TITLE[Config::lang];
                                     menu += MENU_TRDOS_ROM_SEL[Config::lang];
-                                    // Mark current selection with [*]
                                     int mpos = -1;
                                     int idx = 0;
                                     while ((mpos = menu.find("[ ]", mpos + 1)) != (int)string::npos) {
@@ -1852,8 +1860,9 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         menu_curopt = opt2;
                                         menu_saverect = false;
                                     } else {
-                                        menu_curopt = 8;
+                                        menu_curopt = 7;
                                         menu_level = 2;
+                                        menu_saverect = false;
                                         break;
                                     }
                                 }
@@ -1867,40 +1876,108 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     }
 #if !PICO_RP2040
                     else if (FileUtils::fsMount && stor_num == 3) { // esxDOS
-                        menu_level = 2;
-                        menu_curopt = 1;
+                        static const char* mode_names[] = { "OFF", "DivMMC", "DivIDE", "DivSD" };
                         menu_saverect = true;
+                        menu_curopt = 1;
                         while (1) {
+                            menu_level = 2;
+                            // Root menu: Interface row + optional hd0/hd1 rows.
                             string menu = MENU_ESXDOS_TITLE[Config::lang];
-                            const char* mode_names[] = { "OFF", "DivMMC", "DivIDE", "DivSD" };
-                            for (int i = 0; i < 4; i++) {
-                                menu += (i == Config::esxdos) ? "[*] " : "[ ] ";
-                                menu += mode_names[i];
+                            menu += string(MENU_ESX_INTERFACE[Config::lang]) + "\t" + mode_names[Config::esxdos] + "\n";
+                            bool showHd0 = (Config::esxdos == 1 || Config::esxdos == 2);
+                            bool showHd1 = (Config::esxdos == 2);
+                            if (showHd0) {
+                                menu += formatSlotRow("hd0", Config::esxdos_hdf_image[0], false, false);
                                 menu += "\n";
                             }
-                            uint8_t opt2 = menuRun(menu);
-                            if (opt2) {
-                                uint8_t newval = opt2 - 1;
-                                if (newval != Config::esxdos) {
-                                    // esxDOS On → MB02 off
-                                    if (newval && Config::mb02) {
-                                        Config::mb02 = 0;
-                                        MB02::init();
-                                        OSD::osdCenteredMsg("MB-02+ disabled", LEVEL_WARN, 2000);
+                            if (showHd1) {
+                                menu += formatSlotRow("hd1", Config::esxdos_hdf_image[1], false, false);
+                                menu += "\n";
+                            }
+                            uint8_t opt = menuRun(menu);
+                            if (opt == 1) {
+                                // Interface submenu.
+                                menu_level = 3;
+                                menu_curopt = Config::esxdos + 1;
+                                menu_saverect = true;
+                                while (1) {
+                                    string smenu = MENU_ESXDOS_TITLE[Config::lang];
+                                    for (int i = 0; i < 4; i++) {
+                                        smenu += (i == Config::esxdos) ? "[*] " : "[ ] ";
+                                        smenu += mode_names[i];
+                                        smenu += "\n";
                                     }
-                                    Config::esxdos = newval;
-                                    DivMMC::init();
-                                    if (DivMMC::enabled && !DivMMC::rom_loaded) {
-                                        OSD::osdCenteredMsg("ESXDOS ROM not found", LEVEL_ERROR, 2000);
-                                        Config::esxdos = 0;
-                                        DivMMC::init(); // disable
+                                    uint8_t sub = menuRun(smenu);
+                                    if (sub) {
+                                        uint8_t newval = sub - 1;
+                                        if (newval != Config::esxdos) {
+                                            if (newval && Config::mb02) {
+                                                Config::mb02 = 0;
+                                                MB02::init();
+                                                OSD::osdCenteredMsg("MB-02+ disabled", LEVEL_WARN, 2000);
+                                            }
+                                            Config::esxdos = newval;
+                                            DivMMC::init();
+                                            if (DivMMC::enabled && !DivMMC::rom_loaded) {
+                                                OSD::osdCenteredMsg("ESXDOS ROM not found", LEVEL_ERROR, 2000);
+                                                Config::esxdos = 0;
+                                                DivMMC::init();
+                                            }
+                                            Config::save();
+                                            ESPectrum::reset();
+                                            return;
+                                        }
+                                        menu_curopt = sub;
+                                        menu_saverect = false;
+                                    } else {
+                                        menu_curopt = 1;
+                                        break;
                                     }
-                                    Config::save();
-                                    ESPectrum::reset();
-                                    return;
                                 }
-                                menu_curopt = opt2;
-                                menu_saverect = false;
+                            } else if (opt >= 2) {
+                                // hd0 / hd1 submenu (Insert / Eject).
+                                uint8_t slot = (opt == 2) ? 0 : 1;
+                                if (!(slot == 0 && showHd0) && !(slot == 1 && showHd1)) {
+                                    menu_curopt = opt;
+                                    continue;
+                                }
+                                menu_saverect = true;
+                                menu_curopt = 1;
+                                while (1) {
+                                    menu_level = 3;
+                                    char title[8]; snprintf(title, sizeof(title), "hd%u\n", (unsigned)slot);
+                                    string drvmenu = title;
+                                    drvmenu += MENU_ESX_INSERT[Config::lang];
+                                    drvmenu += MENU_ESX_EJECT[Config::lang];
+                                    uint8_t opt2 = menuRun(drvmenu);
+                                    if (opt2 == 1) {
+                                        menu_saverect = true;
+                                        string mFile = fileDialog(FileUtils::IMG_Path, MENU_IMG_TITLE[Config::lang], DISK_IMGFILE, 51, 22);
+                                        if (mFile != "") {
+                                            string fname = FileUtils::IMG_Path + mFile.substr(1);
+                                            if (FileUtils::getLCaseExt(fname) == "zip") {
+                                                string zipFname = ZipExtract::extract(fname, DISK_IMGFILE);
+                                                if (zipFname.empty()) { OSD::osdCenteredMsg(OSD_ZIP_ERR[Config::lang], LEVEL_WARN); break; }
+                                                if (zipFname == "\x1b") break;
+                                                fname = zipFname;
+                                            }
+                                            Config::esxdos_hdf_image[slot] = fname;
+                                            DivMMC::init();
+                                            Config::save();
+                                            ESPectrum::reset();
+                                            return;
+                                        }
+                                    } else if (opt2 == 2) {
+                                        Config::esxdos_hdf_image[slot].clear();
+                                        DivMMC::init();
+                                        Config::save();
+                                        ESPectrum::reset();
+                                        return;
+                                    } else {
+                                        menu_curopt = opt;
+                                        break;
+                                    }
+                                }
                             } else {
                                 menu_curopt = 3;
                                 menu_level = 1;
@@ -1911,20 +1988,39 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     else if (FileUtils::fsMount && stor_num == 4) { // MB-02+
                         menu_saverect = true;
                         menu_curopt = 1;
+                        bool mb02FirstDraw = true;
                         while(1) {
                             menu_level = 2;
-                            string mb02menu = "MB-02+\n";
-                            mb02menu += Config::mb02 ? "Mode\tOn\n" : "Mode\tOff\n";
-                            mb02menu += "Drive 01\t>\n";
-                            mb02menu += "Drive 02\t>\n";
-                            mb02menu += "Drive 03\t>\n";
-                            mb02menu += "Drive 04\t>\n";
+                            // Menu has a fixed row count (Mode + 4 drives + Sound & LED)
+                            // so the backing-rect size never changes across Mode
+                            // toggles. Drive / Sound & LED rows are dimmed (via \x01
+                            // prefix) and non-selectable when Mode=Off.
+                            string mb02menu = MENU_MB02_TITLE[Config::lang];
+                            mb02menu += string(MENU_MB02_MODE[Config::lang]) + "\t"
+                                      + (Config::mb02 ? "On" : "Off") + "\n";
+                            for (int i = 0; i < 4; i++) {
+                                char lab[16]; snprintf(lab, sizeof(lab), "%s %u",
+                                    MENU_MB02_DRIVE[Config::lang], (unsigned)(i + 1));
+                                string fname = ESPectrum::mb02_fdd.disk[i] ? ESPectrum::mb02_fdd.disk[i]->fname : "";
+                                string row = formatSlotRow(lab, fname, Config::mb02WP[i], true);
+                                if (!Config::mb02) row = "\x01" + row;
+                                mb02menu += row + "\n";
+                            }
+                            {
+                                string snd = MENU_MB02_SNDLED[Config::lang];
+                                if (!Config::mb02) snd = "\x01" + snd;
+                                mb02menu += snd;
+                            }
+                            // Save backing rect only on the first draw; repeat draws
+                            // paint over the previous fixed-height menu in place.
+                            menu_saverect = mb02FirstDraw;
                             uint8_t mb02_num = menuRun(mb02menu);
+                            mb02FirstDraw = false;
                             if (mb02_num == 1) {
-                                // Mode toggle (Enable/Disable)
+                                // Mode toggle — stay in the MB-02+ menu so drive rows
+                                // show up / disappear in place when the user flips Mode.
                                 uint8_t newval = Config::mb02 ? 0 : 1;
                                 Config::mb02 = newval;
-                                // MB02 On → esxDOS off
                                 if (Config::mb02 && Config::esxdos) {
                                     Config::esxdos = 0;
                                     DivMMC::init();
@@ -1937,21 +2033,31 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 }
                                 Config::save();
                                 ESPectrum::reset();
-                                return;
+                                menu_curopt = 1;
+                                continue;
                             }
-                            else if (mb02_num >= 2 && mb02_num <= 5) {
-                                // Drive #01-#04 submenu
-                                uint8_t drv = mb02_num - 2;
-                                char drvtitle[16];
-                                snprintf(drvtitle, sizeof(drvtitle), "Drive %02d", drv + 1);
-                                string drvmenu = string(drvtitle) + "\nInsert disk\t>\nEject disk\n";
+                            else if (!Config::mb02 && mb02_num >= 2 && mb02_num <= 6) {
+                                // Disabled rows — ignore the press and redraw same menu.
+                                menu_curopt = mb02_num;
+                                continue;
+                            }
+                            else if (Config::mb02 && mb02_num >= 2 && mb02_num <= 5) {
+                                // Per-drive submenu: Insert / Eject / Write Protect.
+                                uint8_t slot = mb02_num - 2;
                                 menu_saverect = true;
                                 menu_curopt = 1;
                                 while (1) {
                                     menu_level = 3;
+                                    char drvtitle[16];
+                                    snprintf(drvtitle, sizeof(drvtitle), "%s %u\n",
+                                        MENU_MB02_DRIVE[Config::lang], (unsigned)(slot + 1));
+                                    string drvmenu = drvtitle;
+                                    drvmenu += MENU_MB02_INSERT[Config::lang];
+                                    drvmenu += MENU_MB02_EJECT[Config::lang];
+                                    drvmenu += string(MENU_MB02_WP[Config::lang]) + "\t"
+                                             + (Config::mb02WP[slot] ? "[*]" : "[ ]") + "\n";
                                     uint8_t opt2 = menuRun(drvmenu);
                                     if (opt2 == 1) {
-                                        // Insert disk (no reset)
                                         menu_saverect = true;
                                         string mFile = fileDialog(FileUtils::DSK_Path, "MB-02+ Disk", DISK_DSKFILE, 26, 15);
                                         if (mFile != "") {
@@ -1963,21 +2069,66 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                                 if (zipFname == "\x1b") break;
                                                 fname = zipFname;
                                             }
-                                            rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, drv, fname);
+                                            rvmWD1793InsertDisk(&ESPectrum::mb02_fdd, slot, fname);
+                                            if (ESPectrum::mb02_fdd.disk[slot])
+                                                ESPectrum::mb02_fdd.disk[slot]->writeprotect = Config::mb02WP[slot];
                                             ESPectrum::mb02_fdd.diskLoadedCyl = -1;
                                             ESPectrum::mb02_fdd.diskLoadedSide = -1;
                                             MB02::signalDiskChange();
                                             Config::save();
-                                            return;
                                         }
+                                        // Pop drive submenu rect here (mirror Esc path).
+                                        VIDEO::SaveRect.restore_last();
+                                        menu_saverect = false;
+                                        menu_curopt = mb02_num;
+                                        break;
                                     } else if (opt2 == 2) {
-                                        // Eject disk
-                                        wdDiskEject(&ESPectrum::mb02_fdd, drv);
+                                        wdDiskEject(&ESPectrum::mb02_fdd, slot);
                                         MB02::signalDiskChange();
                                         Config::save();
-                                        return;
+                                        VIDEO::SaveRect.restore_last();
+                                        menu_saverect = false;
+                                        menu_curopt = mb02_num;
+                                        break;
+                                    } else if (opt2 == 3) {
+                                        Config::mb02WP[slot] = !Config::mb02WP[slot];
+                                        if (ESPectrum::mb02_fdd.disk[slot])
+                                            ESPectrum::mb02_fdd.disk[slot]->writeprotect = Config::mb02WP[slot];
+                                        Config::save();
+                                        menu_curopt = 3;
+                                        menu_saverect = false;
                                     } else {
                                         menu_curopt = mb02_num;
+                                        break;
+                                    }
+                                }
+                            }
+                            else if (Config::mb02 && mb02_num == 6) {
+                                // Sound & LED toggle.
+                                menu_level = 3;
+                                menu_curopt = 1;
+                                menu_saverect = true;
+                                while (1) {
+                                    string menu = MENU_SOUNDLED[Config::lang];
+                                    menu += MENU_YESNO[Config::lang];
+                                    uint8_t prev = Config::mb02SoundLed;
+                                    if (prev) {
+                                        menu.replace(menu.find("[Y",0),2,"[*");
+                                        menu.replace(menu.find("[N",0),2,"[ ");
+                                    } else {
+                                        menu.replace(menu.find("[Y",0),2,"[ ");
+                                        menu.replace(menu.find("[N",0),2,"[*");
+                                    }
+                                    uint8_t opt2 = menuRun(menu);
+                                    if (opt2) {
+                                        Config::mb02SoundLed = (opt2 == 1);
+                                        if (Config::mb02SoundLed != prev)
+                                            Config::save();
+                                        menu_curopt = opt2;
+                                        menu_saverect = false;
+                                    } else {
+                                        menu_curopt = 6;
+                                        menu_level = 2;
                                         break;
                                     }
                                 }
@@ -3850,6 +4001,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
 
                                             if (Config::AluTiming != prev_AluTiming) {
                                                 CPU::latetiming = Config::AluTiming;
+                                                CPU::updateStatesInFrame();
                                                 Config::save();
                                             }
                                             menu_curopt = opt2;
@@ -4348,7 +4500,59 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     }
                 }
             }
-            else if (opt == 10) { // Help — dynamic from hotkeys
+            else if (opt == 10) { // ZX Keyboard — bitmap overlay
+                // Protect OSD area from Z80 video renderer overwrite
+                bool kbd_osd_enabled = (VIDEO::OSD != 0);
+                if (!kbd_osd_enabled) {
+                    if (Config::aspect_16_9)
+                        VIDEO::Draw_OSD169 = VIDEO::MainScreen_OSD;
+                    else
+                        VIDEO::Draw_OSD43 = VIDEO::BottomBorder_OSD;
+                    VIDEO::OSD = 0x04;
+                }
+                // Wipe the OSD area with ZX paper colour
+                int kbd_w = 254, kbd_h = 156;
+                int kbd_x = (OSD::scrW - kbd_w) / 2;
+                int kbd_y = (OSD::scrH - kbd_h) / 2;
+                VIDEO::vga.fillRect(kbd_x - 3, kbd_y - 12, kbd_w + 6, kbd_h + 16, zxColor(0, 0));
+                VIDEO::vga.rect(kbd_x - 3, kbd_y - 12, kbd_w + 6, kbd_h + 16, zxColor(7, 0));
+                // Header
+                VIDEO::vga.fillRect(kbd_x - 2, kbd_y - 11, kbd_w + 4, 9, zxColor(7, 0));
+                VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 0));
+                VIDEO::vga.setCursor(kbd_x + 4, kbd_y - 10);
+                VIDEO::vga.print(Config::lang ? "Teclado ZX" : "ZX Keyboard");
+                // Draw bitmap: byte = ZX palette index (0..15), 0xFF and other non-palette values = transparent
+                for (int y = 0; y < kbd_h; y++) {
+                    for (int x = 0; x < kbd_w; x++) {
+                        uint8_t idx = kbd_img[x + y * kbd_w];
+                        if (idx >= 0x10) continue; // skip transparent and out-of-range
+                        VIDEO::vga.dotFast(kbd_x + x, kbd_y + y, zxColor(idx & 7, (idx >> 3) & 1));
+                    }
+                }
+                // The Enter used to pick this menu item may still be held — wait for the
+                // first key-up event, then accept any subsequent key-down as "close".
+                bool saw_release = false;
+                while (1) {
+                    if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
+                        if (ESPectrum::readKbd(&Nextkey)) {
+                            if (!Nextkey.down) { saw_release = true; continue; }
+                            if (saw_release) break;
+                        }
+                    }
+                    sleep_ms(20);
+                }
+                click();
+                if (!kbd_osd_enabled) {
+                    VIDEO::OSD = 0;
+                    if (Config::aspect_16_9)
+                        VIDEO::Draw_OSD169 = VIDEO::MainScreen;
+                    else
+                        VIDEO::Draw_OSD43 = VIDEO::BottomBorder;
+                }
+                if (VIDEO::OSD) OSD::drawStats();
+                return;
+            }
+            else if (opt == 11) { // Help — dynamic from hotkeys
                 // Build index of visible hotkeys (no large buffer needed)
                 auto descs = Config::lang ? hkDescES : hkDescEN;
                 const int maxCols = osdMaxCols();
@@ -4441,7 +4645,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 if (VIDEO::OSD) OSD::drawStats();
                 return;
             }
-            else if (opt == 11) { // About
+            else if (opt == 12) { // About
                 // About
                 // Protect OSD area from Z80 video renderer overwrite
                 bool about_osd_enabled = (VIDEO::OSD != 0);
@@ -4562,7 +4766,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 return;
             }
 #if TFT
-            else if (FileUtils::fsMount && opt == 12) { // TFT
+            else if (FileUtils::fsMount && opt == 13) { // TFT
                 menu_saverect = true;
                 menu_curopt = 1;
                 while(1) {
@@ -5587,9 +5791,10 @@ static void saveDumpToFile(uint16_t addr_from, uint16_t addr_to) {
     // TR-DOS / WD1793 state
     f_write(f, "--- TR-DOS / WD1793 ---\n", 24, &bw);
     rvmWD1793 &wd = ESPectrum::fdd;
-    snprintf(line, sizeof(line), "TR-DOS: %s  BIOS: %d  fastmode: %d  writeprotect: %d\n",
+    snprintf(line, sizeof(line), "TR-DOS: %s  BIOS: %d  fastmode: %d  WP: A=%d B=%d C=%d D=%d\n",
         ESPectrum::trdos ? "on" : "off", Config::trdosBios,
-        Config::trdosFastMode, Config::trdosWriteProtect);
+        Config::trdosFastMode,
+        Config::driveWP[0], Config::driveWP[1], Config::driveWP[2], Config::driveWP[3]);
     f_write(f, line, strlen(line), &bw);
 
     snprintf(line, sizeof(line), "WD1793: cmd=%02X status=%04X track=%d sector=%d data=%02X\n",
@@ -7366,7 +7571,7 @@ void OSD::EmulatorInfo() {
 #if !PICO_RP2040
         {
             const char* gs;
-            if (Config::gigascreen_onoff == 0) gs = "Off";
+            if (!Config::gigascreen_enabled || Config::gigascreen_onoff == 0) gs = "Off";
             else if (Config::gigascreen_onoff == 1) gs = "On";
             else gs = "Auto";
             pos += snprintf(buf + pos, sizeof(buf) - pos,
@@ -7489,18 +7694,18 @@ void OSD::EmulatorInfo() {
             pos += snprintf(buf + pos, sizeof(buf) - pos,
                 " esxDOS         : %s\n", esx[ei]);
 
-            // Show image names depending on mode
-            if (ei == 1 || ei == 3) {
-                // DivMMC or DivSD — show MMC image
-                pos += snprintf(buf + pos, sizeof(buf) - pos, "  MMC image     : ");
-                pos += appendFilename(buf, pos, sizeof(buf), Config::esxdos_mmc_image, 19);
-                pos += snprintf(buf + pos, sizeof(buf) - pos, "\n");
-            } else if (ei == 2) {
-                // DivIDE — show HDF master/slave
-                pos += snprintf(buf + pos, sizeof(buf) - pos, "  HDF master    : ");
+            // Show image names depending on mode (hd0/hd1 are shared slots).
+            if (ei == 1) {
+                // DivMMC — shows hd0 only.
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "  hd0           : ");
                 pos += appendFilename(buf, pos, sizeof(buf), Config::esxdos_hdf_image[0], 19);
                 pos += snprintf(buf + pos, sizeof(buf) - pos, "\n");
-                pos += snprintf(buf + pos, sizeof(buf) - pos, "  HDF slave     : ");
+            } else if (ei == 2) {
+                // DivIDE — both slots.
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "  hd0           : ");
+                pos += appendFilename(buf, pos, sizeof(buf), Config::esxdos_hdf_image[0], 19);
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "\n");
+                pos += snprintf(buf + pos, sizeof(buf) - pos, "  hd1           : ");
                 pos += appendFilename(buf, pos, sizeof(buf), Config::esxdos_hdf_image[1], 19);
                 pos += snprintf(buf + pos, sizeof(buf) - pos, "\n");
             }
@@ -7512,12 +7717,8 @@ void OSD::EmulatorInfo() {
             bool trdos_available = Z80Ops::isPentagon || (Z80Ops::is128 && Z80Ops::isByte);
             if (trdos_available) {
                 pos += snprintf(buf + pos, sizeof(buf) - pos, " TR-DOS         : On");
-                if (Config::trdosFastMode || Config::trdosWriteProtect) {
-                    pos += snprintf(buf + pos, sizeof(buf) - pos, " (");
-                    if (Config::trdosFastMode) pos += snprintf(buf + pos, sizeof(buf) - pos, "fast");
-                    if (Config::trdosFastMode && Config::trdosWriteProtect) pos += snprintf(buf + pos, sizeof(buf) - pos, ",");
-                    if (Config::trdosWriteProtect) pos += snprintf(buf + pos, sizeof(buf) - pos, "WP");
-                    pos += snprintf(buf + pos, sizeof(buf) - pos, ")");
+                if (Config::trdosFastMode) {
+                    pos += snprintf(buf + pos, sizeof(buf) - pos, " (fast)");
                 }
                 pos += snprintf(buf + pos, sizeof(buf) - pos, "\n");
 
@@ -7525,9 +7726,11 @@ void OSD::EmulatorInfo() {
                 static const char drive_letter[] = "ABCD";
                 for (int i = 0; i < 4; i++) {
                     pos += snprintf(buf + pos, sizeof(buf) - pos, "  %c:            : ", drive_letter[i]);
-                    if (ESPectrum::fdd.disk[i] && !ESPectrum::fdd.disk[i]->fname.empty())
+                    if (ESPectrum::fdd.disk[i] && !ESPectrum::fdd.disk[i]->fname.empty()) {
                         pos += appendFilename(buf, pos, sizeof(buf), ESPectrum::fdd.disk[i]->fname, 19);
-                    else
+                        if (Config::driveWP[i])
+                            pos += snprintf(buf + pos, sizeof(buf) - pos, " WP");
+                    } else
                         pos += snprintf(buf + pos, sizeof(buf) - pos, "(empty)");
                     pos += snprintf(buf + pos, sizeof(buf) - pos, "\n");
                 }
@@ -7542,9 +7745,11 @@ void OSD::EmulatorInfo() {
             pos += snprintf(buf + pos, sizeof(buf) - pos, " MB-02+         : On\n");
             for (int i = 0; i < 4; i++) {
                 pos += snprintf(buf + pos, sizeof(buf) - pos, "  %02d            : ", i + 1);
-                if (ESPectrum::mb02_fdd.disk[i] && !ESPectrum::mb02_fdd.disk[i]->fname.empty())
+                if (ESPectrum::mb02_fdd.disk[i] && !ESPectrum::mb02_fdd.disk[i]->fname.empty()) {
                     pos += appendFilename(buf, pos, sizeof(buf), ESPectrum::mb02_fdd.disk[i]->fname, 19);
-                else
+                    if (Config::mb02WP[i])
+                        pos += snprintf(buf + pos, sizeof(buf) - pos, " WP");
+                } else
                     pos += snprintf(buf + pos, sizeof(buf) - pos, "(empty)");
                 pos += snprintf(buf + pos, sizeof(buf) - pos, "\n");
             }

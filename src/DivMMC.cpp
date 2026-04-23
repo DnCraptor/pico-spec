@@ -246,9 +246,9 @@ void DivMMC::init() {
         // Reset OCR to standard capacity (non-SDHC) — DivSD sets CCS=1 which
         // would confuse ESXDOS into using sector addressing for .mmc images
         mmc_ocr[0] = 5; mmc_ocr[1] = 0; mmc_ocr[2] = 0; mmc_ocr[3] = 0; mmc_ocr[4] = 0;
-        // DivMMC: open .mmc image
+        // DivMMC: open .mmc image (shared hd0 slot with DivIDE).
         const char* default_path = "/esxdos.mmc";
-        const char* image_path = Config::esxdos_mmc_image.empty() ? default_path : Config::esxdos_mmc_image.c_str();
+        const char* image_path = Config::esxdos_hdf_image[0].empty() ? default_path : Config::esxdos_hdf_image[0].c_str();
         FRESULT fr = f_open(&mmc_file[0], image_path, FA_READ | FA_WRITE);
         if (fr == FR_OK) {
             mmc_file_open[0] = true;
@@ -306,7 +306,9 @@ void DivMMC::reopenFiles() {
                 const char* defaults[] = {"/esxdos.hdf", ""};
                 path = Config::esxdos_hdf_image[d].empty() ? defaults[d] : Config::esxdos_hdf_image[d].c_str();
             } else {
-                path = Config::esxdos_mmc_image.empty() ? "/esxdos.mmc" : Config::esxdos_mmc_image.c_str();
+                // DivMMC: only hd0 is used.
+                if (d != 0) continue;
+                path = Config::esxdos_hdf_image[0].empty() ? "/esxdos.mmc" : Config::esxdos_hdf_image[0].c_str();
             }
             if (path[0] && f_open(&mmc_file[d], path, FA_READ | FA_WRITE) == FR_OK) {
                 f_lseek(&mmc_file[d], pos);

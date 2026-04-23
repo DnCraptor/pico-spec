@@ -305,12 +305,13 @@ static const struct { fabgl::VirtualKey vk; const char *label; } fd_sidebar_item
     { fabgl::VK_F1, "F1 Info   " },
     { fabgl::VK_F3, "F3 Find   " },
     { fabgl::VK_F4, "F4 Unzip  " },
+    { fabgl::VK_F5, "F5 Slot   " },
     { fabgl::VK_F6, "F6 Rename " },
     { fabgl::VK_F7, "F7 MkDir  " },
     { fabgl::VK_F8, "F8 Del    " },
     { fabgl::VK_F9, "F9 TRD    " },
 };
-static const int FDLG_SIDE_ITEMS = 7;
+static const int FDLG_SIDE_ITEMS = 8;
 
 // Draw the sidebar panel (right of vertical separator).
 // activeKey: if nonzero, that item is highlighted (action in progress).
@@ -903,6 +904,34 @@ string OSD::fileDialog(string &fdir, const string& title, uint8_t ftype, uint8_t
                                 break;
                             }
                         }
+                    } else if (Menukey.vk == fabgl::VK_F5 && ftype == DISK_ALLFILE) {
+                        // F5 on a disk/image file forces the slot-picker popup
+                        // (same-file F5 twice). Ignored on directories or
+                        // non-disk extensions.
+                        string filedir = rowGet(menu, FileUtils::fileTypes[ftype].focus);
+                        if (filedir[0] != DIR_MARKER) {
+                            string fn = filedir;
+                            rtrim(fn);
+                            string lcext;
+                            size_t dot = fn.rfind('.');
+                            if (dot != string::npos) {
+                                lcext = fn.substr(dot + 1);
+                                for (auto &c : lcext) c = tolower(c);
+                            }
+                            if (FileUtils::ifaceForExt(lcext) != IFACE_NONE) {
+                                if (menu_saverect) {
+                                    VIDEO::SaveRect.restore_last();
+                                    menu_saverect = false;
+                                }
+                                click();
+                                filenames.close();
+                                string().swap(menu);
+                                if (Config::audio_driver == 3) send_to_595(HIGH(AY_Enable));
+                                return "P" + fn;
+                            }
+                        }
+                        click();
+                        continue;
                     } else if (is_enter_fd(Menukey.vk)) {
                         string filedir = rowGet(menu, FileUtils::fileTypes[ftype].focus);
                         if (filedir[0] == DIR_MARKER) {

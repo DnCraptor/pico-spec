@@ -258,7 +258,7 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
         ESPectrum_vsync();
     }
 
-    if (!hdmi_scanlines && !(line & 1)) {
+    if (!(line & 1) && (!hdmi_scanlines || line >= mode.v_active)) {
         return;
     }
     inx_buf_dma++;
@@ -273,7 +273,7 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
 
     if (line < mode.v_active ) {
         uint8_t* output_buffer = activ_buf + h_sync + h_bp;
-        if (hdmi_scanlines && !(line & 1)) { // gray_line
+        if (hdmi_scanlines && (line & 1)) { // gray_line
             nf_memset(output_buffer, IDX_SCANLINE, scr_w);
             goto ex;
         }

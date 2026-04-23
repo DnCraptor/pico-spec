@@ -28,7 +28,10 @@ void MB02::init() {
     MemESP::divmmc_mapped = false;
     MemESP::recoverPage0();
 
-    if (!Config::mb02) return;
+    if (!Config::mb02) {
+        Config::dma_mode = 0;
+        return;
+    }
 
     // Use MemESP::ram[] pages for MB-02 SRAM.
     // Spectrum 128K uses pages 0-7, +2 hidden ROM pages = 10 pages.

@@ -401,34 +401,30 @@ static const char *MENU_STORAGE_MAIN[2] = { MENU_STORAGE_MAIN_EN, MENU_STORAGE_M
     "Casete\t>\n"
 static const char *MENU_STORAGE_MAIN_NO_SD[2] = { MENU_STORAGE_MAIN_NO_SD_EN, MENU_STORAGE_MAIN_NO_SD_ES };
 
-#define MENU_BETADISK_EN \
-    "Drives\n"\
-    "Drive A\t>\n"\
-    "Drive B\t>\n"\
-    "Drive C\t>\n"\
-    "Drive D\t>\n"\
+// Betadisk root menu — Drive A..D rows are built dynamically at runtime
+// (inline status shown after the drive label), so only static tail rows live here.
+#define MENU_BETADISK_TITLE_EN "Drives\n"
+#define MENU_BETADISK_TITLE_ES "Unidades\n"
+static const char *MENU_BETADISK_TITLE[2] = { MENU_BETADISK_TITLE_EN, MENU_BETADISK_TITLE_ES };
+
+#define MENU_BETADISK_TAIL_EN \
 	"Fast Mode\t>\n"\
-	"Write Protect\t>\n"\
 	"Disk Sound & LED\t>\n"\
 	"ROM\t>\n"
-#define MENU_BETADISK_ES \
-    "Unidades\n"\
-    "Unidad A\t>\n"\
-    "Unidad B\t>\n"\
-    "Unidad C\t>\n"\
-    "Unidad D\t>\n"\
+#define MENU_BETADISK_TAIL_ES \
 	"Modo rápido\t>\n"\
-	"Protección contra escritura\t>\n"\
 	"Sonido y LED del disco\t>\n"\
 	"ROM\t>\n"
-static const char *MENU_BETADISK[2] = { MENU_BETADISK_EN,MENU_BETADISK_ES };
+static const char *MENU_BETADISK_TAIL[2] = { MENU_BETADISK_TAIL_EN, MENU_BETADISK_TAIL_ES };
+
+// Drive labels used by the dynamic menu builder.
+static const char *MENU_BETA_DRIVE_LETTERS[4] = { "A", "B", "C", "D" };
 #if !PICO_RP2040
 static const char *MENU_ESXDOS_TITLE[2] = { "esxDOS\n", "esxDOS\n" };
 static const char *MENU_IMG_TITLE[2] = { "esxDOS Image\n", "Imagen esxDOS\n" };
 #endif
 
 static const char *MENU_FASTMODE[2] = { "Fast Mode\n", "Modo rápido\n" };
-static const char *MENU_WRITEPROTECT[2] = { "Write Protect\n", "MProtección contra escritura\n" };
 static const char *MENU_SOUNDLED[2] = { "Sound & LED\n", "Sonido y LED\n" };
 static const char *MENU_NMI_TITLE[2] = { "NMI\n", "NMI\n" };
 #define MENU_NMI_EN "NMI\n" "Magic Button\n"
@@ -462,15 +458,43 @@ static const char *MENU_TRDOS_ROM_TITLE[2] = { "TR-DOS ROM\n", "TR-DOS ROM\n" };
     "5.05D\t[ ]\n"
 static const char *MENU_TRDOS_ROM_SEL[2] = { MENU_TRDOS_ROM_SEL_EN, MENU_TRDOS_ROM_SEL_ES };
 
+// Drive submenu — the Write Protect row is filled in (toggle marker) at runtime.
 #define MENU_BETADRIVE_EN \
     "Drive#\n"\
 	"Insert disk\t>\n"\
-    "Eject disk\n"
+    "Eject disk\n"\
+    "Write Protect\t[ ]\n"
 #define MENU_BETADRIVE_ES \
     "Unidad#\n"\
     "Insertar disco\t>\n"\
-    "Expulsar disco\n"
+    "Expulsar disco\n"\
+    "Protección contra escritura\t[ ]\n"
 static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
+
+// Shared labels for the dynamic disk menus and F5 slot-picker popup.
+static const char *OSD_DISK_EMPTY[2]   = { "<empty>",   "<vacío>" };
+static const char *OSD_DISK_WP_TAG[2]  = { ", WP",      ", WP" };
+static const char *OSD_LOAD_TO_TITLE[2]= { "Load to\n", "Cargar en\n" };
+static const char *OSD_LOAD_HINT_WP[2] = { "F2 toggle WP  F8 eject",
+                                            "F2 WP  F8 expulsar" };
+static const char *OSD_LOAD_HINT_NOWP[2]={ "F8 eject",
+                                            "F8 expulsar" };
+
+#if !PICO_RP2040
+// MB-02+ menu title + dynamic rows are built at runtime.
+static const char *MENU_MB02_TITLE[2]  = { "MB-02+\n", "MB-02+\n" };
+static const char *MENU_MB02_MODE[2]   = { "Mode",     "Modo" };
+static const char *MENU_MB02_DRIVE[2]  = { "Drive",    "Unidad" };
+static const char *MENU_MB02_INSERT[2] = { "Insert disk\t>\n",  "Insertar disco\t>\n" };
+static const char *MENU_MB02_EJECT[2]  = { "Eject disk\n",       "Expulsar disco\n" };
+static const char *MENU_MB02_WP[2]     = { "Write Protect",      "Protección contra escritura" };
+static const char *MENU_MB02_SNDLED[2] = { "Sound & LED\t>\n",   "Sonido y LED\t>\n" };
+
+// esxDOS menu labels.
+static const char *MENU_ESX_INTERFACE[2] = { "Interface",  "Interfaz" };
+static const char *MENU_ESX_INSERT[2]    = { "Insert disk\t>\n", "Insertar disco\t>\n" };
+static const char *MENU_ESX_EJECT[2]     = { "Eject disk\n",     "Expulsar disco\n" };
+#endif
 
 #if TFT
 #define MENU_MAIN_EN \
@@ -483,6 +507,7 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
     "Options\t>\n"\
     "Debug\t>\n"\
     "Hardware\t>\n"\
+    "ZX Keyboard\n"\
     "Help\n"\
     "About\n"\
 	"TFT\t>\n"
@@ -496,6 +521,7 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
     "Opciones\t>\n"\
 	"Depurar\t>\n"\
     "Hardware\t>\n"\
+    "Teclado ZX\n"\
     "Ayuda\n"\
     "Acerca de\n"\
 	"TFT\t>\n"
@@ -510,6 +536,7 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
     "Options\t>\n"\
     "Debug\t>\n"\
     "Hardware\t>\n"\
+    "ZX Keyboard\n"\
     "Help\n"\
     "About\n"
 #define MENU_MAIN_ES \
@@ -522,6 +549,7 @@ static const char *MENU_BETADRIVE[2] = { MENU_BETADRIVE_EN,MENU_BETADRIVE_ES };
     "Opciones\t>\n"\
 	"Depurar\t>\n"\
     "Hardware\t>\n"\
+    "Teclado ZX\n"\
     "Ayuda\n"\
     "Acerca de\n"
 #endif
@@ -537,6 +565,7 @@ static const char *MENU_MAIN[2] = { MENU_MAIN_EN, MENU_MAIN_ES };
     "Options\t>\n"\
     "Debug\t>\n"\
     "Hardware\t>\n"\
+    "ZX Keyboard\n"\
     "Help\n"\
     "About\n"
 #define MENU_MAIN_NO_SD_ES \
@@ -549,6 +578,7 @@ static const char *MENU_MAIN[2] = { MENU_MAIN_EN, MENU_MAIN_ES };
     "Opciones\t>\n"\
     "Depurar\t>\n"\
     "Hardware\t>\n"\
+    "Teclado ZX\n"\
     "Ayuda\n"\
     "Acerca de\n"
 static const char *MENU_MAIN_NO_SD[2] = { MENU_MAIN_NO_SD_EN, MENU_MAIN_NO_SD_ES };
