@@ -292,7 +292,7 @@ void OSD::drawOSD(bool bottom_info) {
 #ifdef TV
         bottom_line = " Video mode: TV RGBI PAL   ";
 #endif
-#ifdef TVSOFT
+#ifdef SOFTTV
         bottom_line = " Video mode: TV-composite  ";
 #endif
 #ifdef TFT
