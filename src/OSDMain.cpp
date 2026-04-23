@@ -4001,6 +4001,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
 
                                             if (Config::AluTiming != prev_AluTiming) {
                                                 CPU::latetiming = Config::AluTiming;
+                                                CPU::updateStatesInFrame();
                                                 Config::save();
                                             }
                                             menu_curopt = opt2;

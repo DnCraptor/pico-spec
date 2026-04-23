@@ -449,13 +449,11 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     int delay = MemESP::getByteContention(address);
     VIDEO::Draw(delay, true);
   } else {
-    // // Early contention depends on ADDRESS (contended memory?), not port type
-    // VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
-    
-    // ULA ports (A0=0): ULA always applies contention during display area
-    // Non-ULA ports (A0=1): contention only if port address maps to contended memory
-    bool earlyContend = ((address & 0x0001) == 0) ? !Z80Ops::isPentagon : MemESP::ramContended[rambank];
-    VIDEO::Draw(1, earlyContend);
+    // Early contention depends on ADDRESS only (contended memory?), not port type.
+    // Wiki: ULA port non-contended addr = N:1,C:3; contended addr = C:1,C:3
+    //       Non-ULA contended addr = C:1,C:1,C:1,C:1; non-contended = N:4
+    // Matches Ports::input behavior for symmetry.
+    VIDEO::Draw(1, MemESP::ramContended[rambank]); // I/O Contention (Early)
   }
   uint8_t a8 = (address & 0xFF);
   p_states = CPU::tstates;

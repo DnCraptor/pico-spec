@@ -92,8 +92,8 @@ public:
     static uint8_t latetiming;
 
     // INT signal lenght
-    static uint8_t IntStart;
-    static uint8_t IntEnd;
+    static int32_t IntStart;
+    static int32_t IntEnd;
 
     // CPU Tstates in frame - IntEnd
     static uint32_t stFrame;
