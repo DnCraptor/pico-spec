@@ -51,6 +51,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Tape.h"
 #include "wd1793.h"
 #include "sdcard.h"
+#include "diskio.h"
 #if !PICO_RP2040
 #include "DivMMC.h"
 #endif
@@ -141,6 +142,10 @@ void FileUtils::initFileSystem() {
 static FATFS fs;
 bool FileUtils::fsMount = false;
 bool FileUtils::mountSDCard() {
+    // f_mount with opt=1 is delayed mount — always succeeds without touching the card.
+    // Probe the physical drive up front so absence of a card is detected here instead of
+    // blocking the first FatFS call later (e.g. OSD SaveRect.clear → f_unlink → 500 ms SPI stall per op).
+    if (disk_initialize(0) & STA_NOINIT) { fsMount = false; return false; }
     fsMount = f_mount(&fs, "SD", 1) == FR_OK;
     return fsMount;
 }

@@ -160,7 +160,10 @@ void init_spi(void)
     gpio_set_dir(SDCARD_PIN_SPI0_MISO, GPIO_OUT);
     gpio_set_dir(SDCARD_PIN_SPI0_MOSI, GPIO_OUT);
 
-	float clkdiv = 3.0f;
+	// PIO program is 4 cycles per SPI bit (out/mov+[1]/in). Keep SCK ≤ 20 MHz
+	// so it works across 125–504 MHz clk_sys (SD SPI spec max is 25 MHz).
+	float clkdiv = (float)clock_get_hz(clk_sys) / (4.0f * 20000000.0f);
+	if (clkdiv < 1.0f) clkdiv = 1.0f;
 	int cpol = 0;
 	int cpha = 0;
 	uint cpha0_prog_offs = pio_add_program(pio_spi.pio, &spi_cpha0_program);
