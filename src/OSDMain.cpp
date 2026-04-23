@@ -4519,7 +4519,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 VIDEO::vga.fillRect(kbd_x - 2, kbd_y - 11, kbd_w + 4, 9, zxColor(7, 0));
                 VIDEO::vga.setTextColor(zxColor(0, 0), zxColor(7, 0));
                 VIDEO::vga.setCursor(kbd_x + 4, kbd_y - 10);
-                VIDEO::vga.print(Config::lang ? "Teclado ZX  [ESC] Salir" : "ZX Keyboard  [ESC] Exit");
+                VIDEO::vga.print(Config::lang ? "Teclado ZX" : "ZX Keyboard");
                 // Draw bitmap: byte = ZX palette index (0..15), 0xFF and other non-palette values = transparent
                 for (int y = 0; y < kbd_h; y++) {
                     for (int x = 0; x < kbd_w; x++) {
