@@ -87,6 +87,8 @@ uint8_t  Config::turbosound = 3; // BOTH
 uint8_t  Config::turbosound = 0; // OFF
 #endif
 uint8_t  Config::covox = 0; // NONE
+uint8_t  Config::gs_enabled = 0;  // 0=OFF, 1=ON
+uint8_t  Config::gs_ram_size = 2; // 0=512K, 1=1M, 2=2M
 uint8_t  Config::joy2cursor = true;
 uint8_t  Config::secondJoy = 2; // NPAD#2
 uint8_t  Config::kempstonPort = 0x37;
@@ -538,6 +540,8 @@ void Config::load() {
         nvs_get_u8("ayConfig", Config::ayConfig, sts);
         nvs_get_u8("turbosound", Config::turbosound, sts);
         nvs_get_u8("covox", Config::covox, sts);
+        nvs_get_u8("gs_enabled", Config::gs_enabled, sts);
+        nvs_get_u8("gs_ram_size", Config::gs_ram_size, sts);
 #if !defined(PICO_RP2040)
         nvs_get_u8("throtling2", Config::throtling, sts);
 #else
@@ -730,6 +734,8 @@ void Config::save() {
     nvs_set_u8(buf,"ayConfig", Config::ayConfig);
     nvs_set_u8(buf,"turbosound", Config::turbosound);
     nvs_set_u8(buf,"covox", Config::covox);
+    nvs_set_u8(buf,"gs_enabled", Config::gs_enabled);
+    nvs_set_u8(buf,"gs_ram_size", Config::gs_ram_size);
     nvs_set_str(buf,"Issue2", Issue2 ? "true" : "false");
     nvs_set_str(buf,"flashload", flashload ? "true" : "false");
     nvs_set_str(buf,"tape_player", tape_player ? "true" : "false");

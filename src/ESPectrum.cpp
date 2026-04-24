@@ -69,6 +69,9 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Midi.h"
 #include "MidiSynth.h"
 #include "Z80DMA.h"
+#ifdef USE_GS
+#include "GS/GS.h"
+#endif
 
 using namespace std;
 
@@ -781,6 +784,14 @@ void ESPectrum::setup() {
   DivMMC::init();
   // MB-02+ disk interface (allocates SRAM in butter PSRAM after DivMMC)
   MB02::init();
+#endif
+#ifdef USE_GS
+  if (Config::gs_enabled) {
+    uint32_t gs_ram = 2u << 20;
+    if (Config::gs_ram_size == 0) gs_ram = 512u << 10;
+    else if (Config::gs_ram_size == 1) gs_ram = 1u << 20;
+    GS::init(gs_ram);
+  }
 #endif
 
   //=======================================================================================
@@ -1618,6 +1629,7 @@ void ESPectrum::loop() {
 
     CPU::loop();
 
+    // GS-Z80 runs on core1 alongside pcm_call(); core0 only reads the ring.
 
     // Профилирование AY (только для отладки - закомментируйте после)
     // static uint64_t ay_total = 0, ay_count = 0;
@@ -1772,8 +1784,10 @@ void ESPectrum::loop() {
             beeper_R += audioBufferMIDI_R[i];
           }
 #endif
-          audioBuffer_L[i] = beeper_L > 255 ? 255 : beeper_L;
-          audioBuffer_R[i] = beeper_R > 255 ? 255 : beeper_R;
+          // GS is mixed live in the audio timer IRQ (pcm_call_inner),
+          // not here — burst-sampling on core0 would time-compress it.
+          audioBuffer_L[i] = beeper_L > 255 ? 255 : (beeper_L < 0 ? 0 : beeper_L);
+          audioBuffer_R[i] = beeper_R > 255 ? 255 : (beeper_R < 0 ? 0 : beeper_R);
         }
       }
     }

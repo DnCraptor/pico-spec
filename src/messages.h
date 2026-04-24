@@ -861,6 +861,8 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
     "Controlador de audio\t>\n"
 #endif
 static const char *MENU_AUDIO[2] = { MENU_AUDIO_EN, MENU_AUDIO_ES };
+static const char *MENU_AUDIO_GS_ITEM[2] = { "General Sound\t>\n", "General Sound\t>\n" };
+static const char *MENU_GS[2] = { "Turned on?\n", "Turned on?\n" };
 
 #define MENU_OTHER_EN "Other\n"\
     "ALU Timing\t>\n"\

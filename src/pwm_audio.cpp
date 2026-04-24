@@ -7,6 +7,9 @@
 #include "pwm_audio.h"
 #include "Config.h"
 #include "Debug.h"
+#ifdef USE_GS
+#include "GS/GS.h"
+#endif
 #include "LoadWavStream.h"
 #include "PinSerialData_595.h"
 #if !PICO_RP2040 && defined(VGA_HDMI)
@@ -390,13 +393,29 @@ void pcm_audio_in_stop(void) {
 #endif
 
 static void __not_in_flash_func(pcm_call_inner)() {
+    // Live GS contribution (signed offset around silence=128 × vol8).
+    // Sampled here at the audio output rate (31.25 kHz) so playback tracks
+    // the GS-Z80 DAC state in real time, not a pre-rendered frame buffer.
+    int32_t gs_offL = 0, gs_offR = 0;
+#ifdef USE_GS
+    if (GS::enabled) {
+        uint8_t gL, gR;
+        GS::getLiveLR(gL, gR);
+        uint32_t vol8 = (uint32_t)vol << 3;
+        gs_offL = ((int32_t)gL - 128) * (int32_t)vol8;
+        gs_offR = ((int32_t)gR - 128) * (int32_t)vol8;
+    }
+#endif
 #if !PICO_RP2040  && defined(VGA_HDMI)
     if (Config::audio_driver == 4) {
         if (m_off < m_size) {
-            hdmi_audio_write_sample(buff_L[m_off], buff_R[m_off]);
+            int32_t sL = (int32_t)buff_L[m_off] + gs_offL;
+            int32_t sR = (int32_t)buff_R[m_off] + gs_offR;
+            if (sL < -32768) sL = -32768; else if (sL > 32767) sL = 32767;
+            if (sR < -32768) sR = -32768; else if (sR > 32767) sR = 32767;
+            hdmi_audio_write_sample((int16_t)sL, (int16_t)sR);
             m_off++;
         } else if (m_size > 0) {
-            // Repeat last sample to avoid click on frame boundary
             hdmi_audio_write_sample(buff_L[m_size - 1], buff_R[m_size - 1]);
         } else {
             hdmi_audio_write_sample(0, 0);
@@ -410,12 +429,14 @@ static void __not_in_flash_func(pcm_call_inner)() {
     else if (is_i2s_enabled) {
         static int16_t v32[2];
         if (m_off < m_size) {
-            v32[0] = buff_R[m_off];
-            v32[1] = buff_L[m_off];
+            int32_t sL = (int32_t)buff_L[m_off] + gs_offL;
+            int32_t sR = (int32_t)buff_R[m_off] + gs_offR;
+            if (sL < -32768) sL = -32768; else if (sL > 32767) sL = 32767;
+            if (sR < -32768) sR = -32768; else if (sR > 32767) sR = 32767;
+            v32[0] = (int16_t)sR;
+            v32[1] = (int16_t)sL;
             ++m_off;
         }
-        // When buffer exhausted, v32 retains last sample (static) — no click
-        // Non-blocking: skip if PIO FIFO full (avoids stalling in IRQ context)
         if (!pio_sm_is_tx_fifo_full(i2s_config.pio, i2s_config.sm)) {
             uint32_t w = ((uint32_t)(uint16_t)v32[0] << 16) | (uint16_t)v32[1];
             pio_sm_put(i2s_config.pio, i2s_config.sm, w);
@@ -424,27 +445,23 @@ static void __not_in_flash_func(pcm_call_inner)() {
         uint16_t outL = 0;
         uint16_t outR = 0;
         if (m_off < m_size) {
-            // First-order error diffusion (noise shaping):
-            // quantization error from previous sample is fed forward,
-            // pushing PWM quantization noise to ultrasonic frequencies
             static int16_t err_L = 0, err_R = 0;
             int16_t* b_L = buff_L + m_off;
             int16_t* b_R = buff_R + m_off;
             ++m_off;
-            int32_t xL = ((int32_t)*b_L) + 0x8000 + err_L;
+            int32_t xL = ((int32_t)*b_L) + gs_offL + 0x8000 + err_L;
             if (xL < 0) xL = 0; else if (xL > 0xFFFF) xL = 0xFFFF;
             outL = (uint16_t)xL >> 8;
             err_L = (int16_t)(xL - ((int32_t)outL << 8));
-            int32_t xR = ((int32_t)*b_R) + 0x8000 + err_R;
+            int32_t xR = ((int32_t)*b_R) + gs_offR + 0x8000 + err_R;
             if (xR < 0) xR = 0; else if (xR > 0xFFFF) xR = 0xFFFF;
             outR = (uint16_t)xR >> 8;
             err_R = (int16_t)(xR - ((int32_t)outR << 8));
         } else {
-            // Buffer exhausted — hold last PWM level (like de8d8d9 did with return)
             return;
         }
-        pwm_set_gpio_level(PWM_PIN0, outR); // Право
-        pwm_set_gpio_level(PWM_PIN1, outL); // Лево
+        pwm_set_gpio_level(PWM_PIN0, outR);
+        pwm_set_gpio_level(PWM_PIN1, outL);
     }
     return;
 }

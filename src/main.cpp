@@ -22,6 +22,9 @@
 
 #include "ESPectrum.h"
 #include "Config.h"
+#ifdef USE_GS
+#include "GS/GS.h"
+#endif
 #include "MemESP.h"
 #include "pwm_audio.h"
 #include "messages.h"
@@ -868,6 +871,10 @@ void __scratch_x("render") render_core() {
         refresh_lcd();
 #endif
         pcm_call();
+#ifdef USE_GS
+        // Wall-clock-locked: runs GS-Z80 at exactly 12 MHz off core0.
+        GS::pump();
+#endif
         tight_loop_contents();
     }
     __unreachable();
