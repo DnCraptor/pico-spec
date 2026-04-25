@@ -23,6 +23,7 @@ public:
     // at exactly 12 MHz regardless of how fast the emulator could go.
     static void pump();
 
+
     // Top up the GS-Z80 tstates budget. Call once per Spectrum frame with the
     // frame duration × GS clock ratio (e.g. 240000 for 20 ms @ 12 MHz). step()
     // calls consume the budget; when budget runs out, step() is a no-op, which
@@ -44,10 +45,12 @@ public:
 
     static uint32_t gs_ram_size;
 
-    static uint8_t  reg_command;
-    static uint8_t  reg_data_zx;
-    static uint8_t  reg_data_gs;
-    static uint8_t  reg_status;
+    // Shared between core0 (host) and core1 (GS-Z80): must be volatile.
+    // All |= / &= on reg_status use LDREX/STREX via gs_status_or/and().
+    static volatile uint8_t  reg_command;
+    static volatile uint8_t  reg_data_zx;
+    static volatile uint8_t  reg_data_gs;
+    static volatile uint8_t  reg_status;
 
     static uint8_t  reg_page;
     static uint8_t  reg_vol[4];

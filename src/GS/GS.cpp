@@ -10,7 +10,19 @@ extern "C" {
 
 #include "pico.h"
 #include "pico/time.h"
+#include "hardware/sync.h"
 #include <string.h>
+
+// Atomic byte OR/AND via GCC __atomic builtins — compile to LDREXB/STREXB on
+// ARM Cortex-M33, which is safe across both RP2350 cores sharing the AHB bus.
+// reg_status is shared between core0 (host) and core1 (GS-Z80 emulation);
+// plain |= / &= are non-atomic RMW and can silently lose bits under concurrent access.
+static inline void gs_status_or(volatile uint8_t* p, uint8_t bits) {
+    __atomic_fetch_or(p, bits, __ATOMIC_SEQ_CST);
+}
+static inline void gs_status_and(volatile uint8_t* p, uint8_t mask) {
+    __atomic_fetch_and(p, mask, __ATOMIC_SEQ_CST);
+}
 
 extern uint8_t* PSRAM_DATA;
 extern uint32_t butter_psram_size();
@@ -24,10 +36,10 @@ extern int butter_pages;
 
 bool     GS::enabled       = false;
 uint32_t GS::gs_ram_size   = 0;
-uint8_t  GS::reg_command   = 0;
-uint8_t  GS::reg_data_zx   = 0;
-uint8_t  GS::reg_data_gs   = 0;
-uint8_t  GS::reg_status    = 0;
+volatile uint8_t  GS::reg_command   = 0;
+volatile uint8_t  GS::reg_data_zx   = 0;
+volatile uint8_t  GS::reg_data_gs   = 0;
+volatile uint8_t  GS::reg_status    = 0;
 uint8_t  GS::reg_page      = 0;
 uint8_t  GS::reg_vol[4]    = {0,0,0,0};
 uint8_t  GS::reg_ch[4]     = {0x80,0x80,0x80,0x80};
@@ -37,6 +49,9 @@ static Z80      s_cpu;
 static uint8_t* s_gs_ram      = nullptr;
 static uint32_t s_gs_ram_mask = 0;
 static uint32_t s_int_timer_ts = 0;
+static bool     s_int_pending  = false;
+
+
 
 // 16 KB work-RAM (CPU 0x4000-0x7FFF: stack, variables, DAC mirrors) kept in
 // SRAM to avoid PSRAM latency on every stack push/pop and tight-loop variable
@@ -157,25 +172,34 @@ static zuint8 __not_in_flash_func(gs_cb_in)(void* ctx, zuint16 port) {
             break;
         case 0x02:
             v = GS::reg_data_zx;
-            GS::reg_status &= ~0x80;
+            // DMB: ensure we read reg_data_zx before clearing the "data ready" flag
+            // so the host (core0) cannot overwrite it before we've consumed it.
+            __dmb();
+            gs_status_and(&GS::reg_status, ~0x80u);
             break;
         case 0x03:
-            GS::reg_status |= 0x80;
+            // Per UnrealSpeccy gsz80.cpp: also stores 0xFF into reg_data_gs.
+            // Otherwise a stale prior response would be returned to ZX on
+            // next hostReadB3, breaking GS→ZX protocol state.
+            GS::reg_data_gs = 0xFF;
+            gs_status_or(&GS::reg_status, 0x80u);
             v = 0xFF;
             break;
         case 0x04:
             v = GS::reg_status; break;
         case 0x05:
-            GS::reg_status &= ~0x01;
+            gs_status_and(&GS::reg_status, ~0x01u);
             v = 0xFF;
             break;
         case 0x0A:
             v = GS::reg_status;
-            GS::reg_status = (GS::reg_status & 0x7F) | ((GS::reg_page & 0x01) ? 0x80 : 0x00);
+            gs_status_and(&GS::reg_status, 0x7Fu);
+            if (GS::reg_page & 0x01) gs_status_or(&GS::reg_status, 0x80u);
             break;
         case 0x0B:
             v = GS::reg_status;
-            GS::reg_status = (GS::reg_status & 0xFE) | ((GS::reg_vol[0] >> 5) & 0x01);
+            gs_status_and(&GS::reg_status, 0xFEu);
+            if ((GS::reg_vol[0] >> 5) & 0x01) gs_status_or(&GS::reg_status, 0x01u);
             break;
         default:
             v = 0xFF; break;
@@ -194,14 +218,15 @@ static void __not_in_flash_func(gs_cb_out)(void* ctx, zuint16 port, zuint8 value
             GS::reg_page = value & 0x3F;
             return;
         case 0x02:
-            GS::reg_status &= ~0x80;
+            gs_status_and(&GS::reg_status, ~0x80u);
             return;
         case 0x03:
             GS::reg_data_gs = value;
-            GS::reg_status |= 0x80;
+            __dmb();  // data must be visible to core0 before setting D7
+            gs_status_or(&GS::reg_status, 0x80u);
             return;
         case 0x05:
-            GS::reg_status &= ~0x01;  // command-ack: clear D0
+            gs_status_and(&GS::reg_status, ~0x01u);  // command-ack: clear D0
             return;
         case 0x06: GS::reg_vol[0] = value & 0x3F; return;
         case 0x07: GS::reg_vol[1] = value & 0x3F; return;
@@ -210,6 +235,18 @@ static void __not_in_flash_func(gs_cb_out)(void* ctx, zuint16 port, zuint8 value
         default:
             return;
     }
+}
+
+// Called by redcode for all three INT modes (IM0/IM1/IM2) at the INTA
+// M-cycle — the moment the Z80 acknowledges the interrupt. We deassert
+// INT_LINE here instead of after a blind 32T window; this implements the
+// level-triggered model: INT stays asserted until acknowledged, so
+// firmware running DI for >32T no longer silently drops the interrupt.
+static zuint8 __not_in_flash_func(gs_cb_inta)(void* ctx, zuint16 pc) {
+    (void)ctx; (void)pc;
+    s_int_pending = false;
+    z80_int(&s_cpu, Z_FALSE);
+    return 0xFF;  // IM0: RST 38h  |  IM2: vector at (I<<8)|0xFF = 0x17FF → ISR
 }
 
 static zuint8 __not_in_flash_func(gs_cb_fetch_opcode)(void* ctx, zuint16 address) {
@@ -271,7 +308,7 @@ bool GS::init(uint32_t ram_size_bytes) {
     s_cpu.halt         = nullptr;
     s_cpu.nop          = gs_cb_nop;
     s_cpu.nmia         = nullptr;
-    s_cpu.inta         = nullptr;
+    s_cpu.inta         = gs_cb_inta;
     s_cpu.int_fetch    = nullptr;
     s_cpu.ld_i_a       = nullptr;
     s_cpu.ld_r_a       = nullptr;
@@ -307,6 +344,7 @@ void GS::reset() {
     for (int i = 0; i < 4; i++) { reg_vol[i] = 0; reg_ch[i] = 0x80; }
     int_count = 0;
     s_int_timer_ts = 0;
+    s_int_pending = false;
     s_ring_wpos = 0;
     s_ring_rpos = 0;
     s_drain_frac = 0;
@@ -355,10 +393,17 @@ int __not_in_flash_func(GS::step)(int tstates) {
         if (s_int_timer_ts >= GS_INT_PERIOD) {
             s_int_timer_ts -= GS_INT_PERIOD;
             int_count++;
-            z80_int(&s_cpu, Z_TRUE);
+            // Level-triggered INT: assert only once per period; gs_cb_inta
+            // deasserts when the Z80 acknowledges it. If firmware is in DI
+            // when the period fires, INT_LINE stays high until EI executes
+            // (redcode's EI: if (INT_LINE) REQUEST |= Z80_REQUEST_INT).
+            // This matches real GS hardware and Unreal Speccy's int_pend model.
+            if (!s_int_pending) {
+                s_int_pending = true;
+                z80_int(&s_cpu, Z_TRUE);
+            }
             zusize ran_int = z80_run(&s_cpu, 32);
             if (ran_int == 0) ran_int = 32;
-            z80_int(&s_cpu, Z_FALSE);
             s_int_timer_ts += ran_int;
             remaining -= (int)ran_int;
             total_ran += (int)ran_int;
@@ -374,24 +419,13 @@ int __not_in_flash_func(GS::step)(int tstates) {
             uint32_t w = s_ring_wpos;
             s_ring_L[w & GS_RING_MASK] = (int16_t)((l + (r >> 1)) >> 1);
             s_ring_R[w & GS_RING_MASK] = (int16_t)((r + (l >> 1)) >> 1);
+            // DMB: ring data must be written before wpos is visible to the
+            // consumer on core0 (pcm_call_inner timer IRQ).
+            __dmb();
             s_ring_wpos = w + 1;
 
-            // Periodic diagnostic: every ~1 second at target rate (37500 Hz),
-            // log actual IRQ rate. Target 37500; anything lower means we're
-            // falling behind wall clock.
-            if ((int_count & 0x7FFF) == 0) {
-                static uint32_t s_last_log_us = 0;
-                static uint32_t s_last_int_count = 0;
-                uint32_t now = time_us_32();
-                uint32_t dt_us = now - s_last_log_us;
-                if (s_last_log_us && dt_us > 500000) {
-                    uint32_t di = int_count - s_last_int_count;
-                    uint32_t rate = (uint32_t)((uint64_t)di * 1000000u / dt_us);
-                    Debug::log("GS: IRQ rate = %u Hz (target 37500)", rate);
-                }
-                s_last_log_us = now;
-                s_last_int_count = int_count;
-            }
+            // (Periodic IRQ-rate log disabled: Debug::log on core1 itself
+            //  caused ~4ms blocking that confused jitter measurement.)
         }
     }
     return total_ran;
@@ -399,7 +433,8 @@ int __not_in_flash_func(GS::step)(int tstates) {
 
 uint8_t GS::hostReadB3() {
     uint8_t v = reg_data_gs;
-    reg_status &= ~0x80;
+    __dmb();  // consume data before clearing the flag
+    gs_status_and(&reg_status, ~0x80u);
     return v;
 }
 
@@ -407,14 +442,29 @@ uint8_t GS::hostReadBB() {
     return reg_status | 0x7E;  // bits 1-6 always set (hardware signature)
 }
 
+// Backpressure: spin while D7 is still set (GS-Z80 hasn't read the previous
+// byte yet). Without this, ZPlayer's bulk module load (16384 bytes/sec,
+// ~60 µs interval) loses 1-6 bytes per second because core0 (host Z80)
+// retires IO writes faster than core1 (GS-Z80 @ 12 MHz) can drain them. A
+// lost byte shifts every following byte one slot down in PSRAM, leaving the
+// loaded sample bank corrupt and causing channels to play garbage at random
+// points in the module.
 void GS::hostWriteB3(uint8_t data) {
+    if (reg_status & 0x80u) {
+        uint32_t spin_t0 = time_us_32();
+        while ((reg_status & 0x80u) && (time_us_32() - spin_t0) < 1000) {
+            __dmb();
+        }
+    }
     reg_data_zx = data;
-    reg_status |= 0x80;
+    __dmb();  // data must be visible to core1 before D7 is set
+    gs_status_or(&reg_status, 0x80u);
 }
 
 void GS::hostWriteBB(uint8_t data) {
     reg_command = data;
-    reg_status |= 0x01;
+    __dmb();  // command must be visible to core1 before D0 is set
+    gs_status_or(&reg_status, 0x01u);
 }
 
 int16_t __not_in_flash_func(GS::getSampleLeft)() {
@@ -443,6 +493,9 @@ void __not_in_flash_func(GS::getLiveLR)(uint8_t& L, uint8_t& R) {
     // Consumer rate: 31250 Hz (audio IRQ). Producer: 37500 Hz avg (INT).
     // Each call consumes 37500/31250 = 1.2 ring entries on average.
     uint32_t w = s_ring_wpos;
+    // DMB: ensures we see the ring data that was written before wpos was
+    // incremented by the producer on core1 (matched by dmb in step()).
+    __dmb();
     uint32_t r = s_ring_rpos;
     uint32_t avail = w - r;
 
