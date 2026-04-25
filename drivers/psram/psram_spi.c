@@ -35,13 +35,20 @@ uint32_t init_psram() {
     PIO psram_pio = pio0;
 #endif
     psram_spi = psram_spi_init_clkdiv(psram_pio, -1, 2.0, false);
+    __psram_sz = _psram_size();
 #ifndef PSRAM_NO_FUGE
-    if ( !_psram_size() ) {
+    if ( !__psram_sz ) {
+        psram_spi_uninit(psram_spi, false);
         psram_spi = psram_spi_init_clkdiv(psram_pio, -1, 2.0, true);
+        __psram_sz = _psram_size();
+        if ( !__psram_sz ) {
+            psram_spi_uninit(psram_spi, true);
+        }
     }
 #endif
+#else
+    __psram_sz = 0;
 #endif
-    __psram_sz = _psram_size();
     return __psram_sz;
 }
 

@@ -1125,6 +1125,19 @@ static const char *MENU_ISSUE2[2] = { "48K Issue 2\n", "48K Issue 2\n"};
 #endif
 static const char *MENU_ARCH[2] = { MENU_ARCH_EN MENU_ARCHS, MENU_ARCH_ES MENU_ARCHS };
 
+#if PICO_RP2040
+// RP2040 without SD/PSRAM/butter has no backing for ram[0], ram[4], ram[6] —
+// 48K boots by luck (writes to 0xC000-0xFFFF silently drop, reads from bootrom).
+// 128K/Pentagon do real paging → NULL deref → Z80 loops on junk → hang.
+#if NO_ALF
+#define MENU_ARCHS_NO_SD \
+    "Spectrum 48K\t>\n"
+#else
+#define MENU_ARCHS_NO_SD \
+    "Spectrum 48K\t>\n"\
+	"ALF TV GAME\n"
+#endif
+#else
 #if NO_ALF
 #define MENU_ARCHS_NO_SD \
     "Spectrum 48K\t>\n"\
@@ -1136,6 +1149,7 @@ static const char *MENU_ARCH[2] = { MENU_ARCH_EN MENU_ARCHS, MENU_ARCH_ES MENU_A
     "Spectrum 128K\t>\n"\
 	"Pentagon 128K\t>\n"\
 	"ALF TV GAME\n"
+#endif
 #endif
 static const char *MENU_ARCH_NO_SD[2] = { MENU_ARCH_EN MENU_ARCHS_NO_SD, MENU_ARCH_ES MENU_ARCHS_NO_SD };
 

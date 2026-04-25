@@ -1257,6 +1257,7 @@ void VIDEO::Reset() {
 }
 
 extern size_t getFreeHeap(void);
+extern size_t getContiguousHeap(void);
 
 #if !PICO_RP2040
 void VIDEO::InitPrevBuffer() {
@@ -2249,7 +2250,14 @@ IRAM_ATTR void VIDEO::BottomBorder_OSD() {
     }
 }
 
-#define PSRAM_SHIFT_RAM (2ul << 20)
+// SaveRect starts in PSRAM past the region reserved for MemESP pages. Dynamic so
+// it moves up if MEM_PG_CNT is raised. +64 KB gap as a safety margin.
+static inline size_t saveRectShift() {
+    size_t memesp_end = ((size_t)MEM_PG_CNT + 2) * MEM_PG_SZ + (64ul << 10);
+    return memesp_end < (2ul << 20) ? (2ul << 20) : memesp_end;
+}
+// Reserve up to this much SaveRect space; abort save if offset exceeds it.
+#define SAVE_RECT_PSRAM_MAX (256ul << 10)
 
 void SaveRectT::save(int16_t x, int16_t y, int16_t w, int16_t h) {
     if (offsets.empty()) {
@@ -2258,39 +2266,27 @@ void SaveRectT::save(int16_t x, int16_t y, int16_t w, int16_t h) {
     x -= 2; if (x < 0) x = 0; // W/A
     w += 4; // W/A
     size_t off = offsets.back();
-    #if 0
-    if (butter_psram_size() >= PSRAM_SHIFT_RAM) {
-        off += PSRAM_SHIFT_RAM;
-        *(int16_t*)(PSRAM_DATA + off) = x; off += 2;
-        *(int16_t*)(PSRAM_DATA + off) = y; off += 2;
-        *(int16_t*)(PSRAM_DATA + off) = w; off += 2;
-        *(int16_t*)(PSRAM_DATA + off) = h; off += 2;
-        for (size_t line = y; line < y + h; ++line) {
-            uint8_t *backbuffer = VIDEO::vga.frameBuffer[line];
-            memcpy((void*)(PSRAM_DATA + off), backbuffer, w);
-            for (int i = 0; i < w; ++i) {
-                PSRAM_DATA[off + i] = VIDEO::vga.frameBuffer[line][x + i];
-            }
-            off += w;
+    size_t shift = saveRectShift();
+    // Without SD, prefer SPI PSRAM over heap/RAM — std::vector on tight heap panics
+    // (check_alloc → panic) when fragmentation beats mallinfo()'s fordblks view.
+    if (!FileUtils::fsMount && psram_size() >= shift + SAVE_RECT_PSRAM_MAX) {
+        size_t need = 8 + (size_t)w * h;
+        if (off + need > SAVE_RECT_PSRAM_MAX) {
+            offsets.push_back(off); // out of room — dummy, restore will redraw
+            return;
         }
-        offsets.push_back(off - PSRAM_SHIFT_RAM);
+        size_t pos = off + shift;
+        write16psram(pos, (uint16_t)x); pos += 2;
+        write16psram(pos, (uint16_t)y); pos += 2;
+        write16psram(pos, (uint16_t)w); pos += 2;
+        write16psram(pos, (uint16_t)h); pos += 2;
+        for (size_t line = y; line < (size_t)y + h; ++line) {
+            writepsram(pos, VIDEO::vga.frameBuffer[line] + x, w);
+            pos += w;
+        }
+        offsets.push_back(off + need);
         return;
     }
-    if (psram_size() >= PSRAM_SHIFT_RAM) {
-        off += PSRAM_SHIFT_RAM;
-        write16psram(off, x); off += 2;
-        write16psram(off, y); off += 2;
-        write16psram(off, w); off += 2;
-        write16psram(off, h); off += 2;
-        for (size_t line = y; line < y + h; ++line) {
-            uint8_t *backbuffer = VIDEO::vga.frameBuffer[line];
-            writepsram(off, backbuffer + x, w);
-            off += w;
-        }
-        offsets.push_back(off - PSRAM_SHIFT_RAM);
-        return;
-    }
-    #endif
     if (FileUtils::fsMount) {
         FIL f;
         f_open(&f, "/tmp/save_rect.tmp", FA_WRITE | FA_OPEN_ALWAYS);
@@ -2309,61 +2305,67 @@ void SaveRectT::save(int16_t x, int16_t y, int16_t w, int16_t h) {
         f_close(&f);
         offsets.push_back(off);
     } else {
-        // RAM fallback when no SD card — skip if not enough heap
+        // RAM fallback when no SD card — skip if not enough contiguous heap.
+        // SDK's malloc wraps with check_alloc → panic on OOM, so we must reject
+        // before the allocation. getContiguousHeap() (sbrk headroom) is the only
+        // size we can trust to succeed; fordblks may be fragmented.
         size_t need = 8 + (size_t)w * h;
-        if (getFreeHeap() > need + 1024) {
-            ram_buf.resize(off + need);
-            uint8_t *p = ram_buf.data() + off;
-            memcpy(p, &x, 2); p += 2;
-            memcpy(p, &y, 2); p += 2;
-            memcpy(p, &w, 2); p += 2;
-            memcpy(p, &h, 2); p += 2;
-            for (size_t line = y; line < y + h; ++line) {
-                memcpy(p, VIDEO::vga.frameBuffer[line] + x, w);
-                p += w;
+        size_t new_size = off + need;
+        size_t cur_cap = ram_buf.capacity();
+        if (new_size > cur_cap) {
+            // Need to allocate a new buffer of at least new_size, while the old
+            // cur_cap buffer is still held. Peak contiguous need = new_size.
+            if (getContiguousHeap() < new_size + 1024) {
+                offsets.push_back(off); // dummy — restore will redraw
+                return;
             }
-            offsets.push_back(off + need);
-        } else {
-            // Not enough RAM — push dummy (restore will trigger redraw)
-            offsets.push_back(off);
+            std::vector<uint8_t> tmp;
+            tmp.reserve(new_size);
+            tmp.resize(off);
+            if (off) memcpy(tmp.data(), ram_buf.data(), off);
+            ram_buf.swap(tmp);
         }
+        ram_buf.resize(new_size);
+        uint8_t *p = ram_buf.data() + off;
+        memcpy(p, &x, 2); p += 2;
+        memcpy(p, &y, 2); p += 2;
+        memcpy(p, &w, 2); p += 2;
+        memcpy(p, &h, 2); p += 2;
+        for (size_t line = y; line < y + h; ++line) {
+            memcpy(p, VIDEO::vga.frameBuffer[line] + x, w);
+            p += w;
+        }
+        offsets.push_back(new_size);
     }
 }
 void SaveRectT::restore_last() {
     if (offsets.size() <= 1) return; // nothing saved to restore
+    size_t saved_end = offsets.back();
     offsets.pop_back();
     size_t off = offsets.back();
     uint16_t x;
     uint16_t y;
     uint16_t w;
     uint16_t h;
-    #if 0
-    if (butter_psram_size() >= PSRAM_SHIFT_RAM) {
-        off += PSRAM_SHIFT_RAM;
-        x = *(int16_t*)(PSRAM_DATA + off); off += 2;
-        y = *(int16_t*)(PSRAM_DATA + off); off += 2;
-        w = *(int16_t*)(PSRAM_DATA + off); off += 2;
-        h = *(int16_t*)(PSRAM_DATA + off); off += 2;
-        if (!w || !h) return;
-        for (size_t line = y; line < y + h; ++line) {
-            for (int i = 0; i < w; ++i) {
-                VIDEO::vga.frameBuffer[line][x + i] = PSRAM_DATA[off + i];
-            }
-            off += w;
+    size_t shift = saveRectShift();
+    if (!FileUtils::fsMount && psram_size() >= shift + SAVE_RECT_PSRAM_MAX) {
+        if (saved_end == off) {
+            if (offsets.empty()) offsets.push_back(0);
+            return; // dummy save — nothing to restore
         }
-    } else if (psram_size() >= PSRAM_SHIFT_RAM) {
-        off += PSRAM_SHIFT_RAM;
-        x = read16psram(off); off += 2;
-        y = read16psram(off); off += 2;
-        w = read16psram(off); off += 2;
-        h = read16psram(off); off += 2;
+        size_t pos = off + shift;
+        x = read16psram(pos); pos += 2;
+        y = read16psram(pos); pos += 2;
+        w = read16psram(pos); pos += 2;
+        h = read16psram(pos); pos += 2;
         if (!w || !h) return;
-        for (size_t line = y; line < y + h; ++line) {
-            readpsram(VIDEO::vga.frameBuffer[line] + x, off, w);
-            off += w;
+        for (size_t line = y; line < (size_t)y + h; ++line) {
+            readpsram(VIDEO::vga.frameBuffer[line] + x, pos, w);
+            pos += w;
         }
-    } else
-    #endif
+        if (offsets.empty()) offsets.push_back(0);
+        return;
+    }
     if (FileUtils::fsMount) {
         FIL f;
         f_open(&f, "/tmp/save_rect.tmp", FA_READ);

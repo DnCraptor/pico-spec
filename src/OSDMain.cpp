@@ -6982,6 +6982,14 @@ size_t getFreeHeap(void) {
     return mi.fordblks + sbrk_free;
 }
 
+// Upper bound on a single contiguous allocation that will succeed without
+// tripping SDK's check_alloc panic. Ignores fordblks (may be fragmented);
+// trusts only sbrk headroom, which is always contiguous.
+size_t getContiguousHeap(void) {
+    char *brk = (char *)sbrk(0);
+    return (brk < &__HeapLimit) ? (size_t)(&__HeapLimit - brk) : 0;
+}
+
 // Generic read-only text dialog with vertical scroll
 void OSD::showTextDialog(const char* title, const char* text) {
     click();

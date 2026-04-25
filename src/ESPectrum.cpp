@@ -672,9 +672,16 @@ void ESPectrum::setup() {
     memcpy(MemESP::ram, temp, sizeof(mem_desc_t) * 8);
     Debug::log("setup: after memcpy: ram5=%p ram7=%p", MemESP::ram[5].direct(), MemESP::ram[7].direct());
 #if PICO_RP2040
-    // RP2040: page 0 not essential for 48K — always swap to save heap for framebuffer
-    MemESP::ram[0].assign_vram(0, mem_type_t::SWAP);
-    ++swap_pages;
+    // RP2040: page 0 goes to external backing to save heap for framebuffer.
+    // Actual data location at access time is chosen by psram_size() check in
+    // mem_desc_t ops, so label the page with its real backing for honest stats.
+    if (psram_size() >= MEM_PG_SZ) {
+        MemESP::ram[0].assign_vram(0, mem_type_t::PSRAM_SPI);
+        ++psram_pages;
+    } else {
+        MemESP::ram[0].assign_vram(0, mem_type_t::SWAP);
+        ++swap_pages;
+    }
     MemESP::ram[1].assign_ram(new unsigned char[MEM_PG_SZ], 1, false);
     MemESP::ram[2].assign_ram(new unsigned char[MEM_PG_SZ], 2, false);
     MemESP::ram[3].assign_ram(new unsigned char[MEM_PG_SZ], 3, false);
