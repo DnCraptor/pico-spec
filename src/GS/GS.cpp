@@ -50,6 +50,40 @@ static uint8_t* s_gs_ram      = nullptr;
 static uint32_t s_gs_ram_mask = 0;
 static uint32_t s_int_timer_ts = 0;
 static bool     s_int_pending  = false;
+// Wall-clock anchor for pump(). 0 means "uninitialized — sample on next
+// pump call"; reset() clears it so a paused/restarted GS doesn't try to
+// catch up time spent paused.
+static uint32_t s_pump_last_us = 0;
+
+// Cache stats: hit/miss counts per second to gauge how often gs_pc_read
+// has to fetch a fresh 64-byte line from PSRAM (vs hitting in SRAM cache).
+// High miss count during slow seconds = GS-Z80 thrashing PSRAM and
+// fighting core0 for the bus.
+static volatile uint32_t s_perf_pc_hit  = 0;
+static volatile uint32_t s_perf_pc_miss = 0;
+
+// Performance counters polled once per second by pollPerf() from core0.
+// Collected on core1 in pump()/step()/gs_cb_in to give a snapshot of how
+// busy GS-Z80 is and where its time goes; cross-correlated with core0's
+// per-frame IDL minimum to spot stalls.
+static volatile uint32_t s_perf_pump_calls = 0;     // total pump() entries
+static volatile uint32_t s_perf_pump_skip  = 0;     // pump() returned early (ring full)
+static volatile uint32_t s_perf_tstates    = 0;     // GS-Z80 T-states executed
+static volatile uint32_t s_perf_p04_total  = 0;     // total IN port 04 reads
+static volatile uint32_t s_perf_p04_spin   = 0;     // IN port 04 reads where PC == prev PC (spinwait)
+static volatile uint16_t s_perf_p04_pc     = 0;     // last PC of port-04 read (for spinwait detection)
+
+// Core0-side counters updated from ESPectrum.cpp main frame loop. extern
+// so the cross-module reference stays simple.
+volatile int32_t  gs_perf_idle_min        = 0x7FFFFFFF;
+volatile uint32_t gs_perf_idle_neg_frames = 0;
+volatile uint32_t gs_perf_frames          = 0;
+// Core0-side host IO counters
+static volatile uint32_t s_perf_h_b3w   = 0;
+static volatile uint32_t s_perf_h_b3r   = 0;
+static volatile uint32_t s_perf_h_bbw   = 0;
+static volatile uint32_t s_perf_h_bbr   = 0;
+static volatile uint32_t s_perf_h_spin_us = 0;     // total spinwait µs/sec in hostWriteB3
 
 
 
@@ -104,26 +138,43 @@ static uint8_t  s_pc_data[GS_PC_SETS][GS_PC_WAYS][GS_PC_LINE_SZ];  // 4 KB
 static uint32_t s_pc_tag[GS_PC_SETS][GS_PC_WAYS];   // ~0u = invalid
 static uint8_t  s_pc_next[GS_PC_SETS];               // FIFO victim pointer
 
+// Last-hit memo: when the firmware streams a sample, 64 consecutive byte
+// reads land on the same cache line. A one-entry memo skips the 4-way
+// associative scan on the dominant case. Set by every line that gets
+// touched (hit or fill), invalidated when its line is evicted.
+static uint32_t       s_pc_last_line = ~0u;
+static const uint8_t* s_pc_last_buf  = nullptr;
+
 static inline void __not_in_flash_func(gs_pc_invalidate_line)(uint32_t psram_off) {
     uint32_t line = psram_off >> GS_PC_LINE_BITS;
     uint32_t set  = line & GS_PC_SETS_MASK;
     for (int w = 0; w < GS_PC_WAYS; w++) {
-        if (s_pc_tag[set][w] == line) { s_pc_tag[set][w] = ~0u; return; }
+        if (s_pc_tag[set][w] == line) { s_pc_tag[set][w] = ~0u; break; }
     }
+    if (s_pc_last_line == line) { s_pc_last_line = ~0u; s_pc_last_buf = nullptr; }
 }
 
 static inline zuint8 __not_in_flash_func(gs_pc_read)(uint32_t psram_off) {
     uint32_t line = psram_off >> GS_PC_LINE_BITS;
-    uint32_t set  = line & GS_PC_SETS_MASK;
     uint32_t col  = psram_off & GS_PC_LINE_MASK;
+    if (line == s_pc_last_line) { s_perf_pc_hit++; return s_pc_last_buf[col]; }
+    uint32_t set  = line & GS_PC_SETS_MASK;
     for (int w = 0; w < GS_PC_WAYS; w++) {
-        if (s_pc_tag[set][w] == line) return s_pc_data[set][w][col];   // hit
+        if (s_pc_tag[set][w] == line) {
+            s_pc_last_line = line;
+            s_pc_last_buf  = s_pc_data[set][w];
+            s_perf_pc_hit++;
+            return s_pc_data[set][w][col];
+        }
     }
     // Miss — FIFO eviction, bulk-copy 64 bytes from PSRAM (XIP burst friendly).
+    s_perf_pc_miss++;
     uint8_t v = s_pc_next[set];
     s_pc_next[set] = (v + 1) & (GS_PC_WAYS - 1);
     memcpy(s_pc_data[set][v], &s_gs_ram[line << GS_PC_LINE_BITS], GS_PC_LINE_SZ);
     s_pc_tag[set][v] = line;
+    s_pc_last_line = line;
+    s_pc_last_buf  = s_pc_data[set][v];
     return s_pc_data[set][v][col];
 }
 
@@ -136,16 +187,37 @@ static inline zuint8 __not_in_flash_func(gs_mem_raw_read)(zuint16 address) {
     return gs_pc_read(off);
 }
 
+// Page table for fast fetch/read of non-banked address space (0x0000-0x7FFF).
+// Populated by gs_init_fetch_pages() from GS::init.
+static const uint8_t* s_fetch_page[8];
+
+// Hot data-read path. Layout of the GS-Z80 address space for reads:
+//   0x0000-0x3FFF: ROM (one of two firmware images)
+//   0x4000-0x5FFF: work_ram low half — vars/stack
+//   0x6000-0x7FFF: work_ram high half AND DAC latch sink (writes into
+//                  reg_ch[(addr>>8)&3] on every read here, by which the
+//                  firmware streams samples to the DAC).
+//   0x8000-0xFFFF: banked PSRAM page (sample data) — goes through cache
+//
+// Use the same fetch_page table for non-banked reads (single load, no
+// branches). For 0x6000-0x7FFF the cheap DAC update is folded into the
+// fast path. Banked region falls through to gs_pc_read.
 static zuint8 __not_in_flash_func(gs_cb_read)(void* ctx, zuint16 address) {
     (void)ctx;
-    zuint8 v = gs_mem_raw_read(address);
-    // DAC latch: any DATA read from 0x6000-0x7FFF feeds the fetched byte to
-    // channel (addr>>8)&3. Standard firmware streams samples via LD A,(HL).
-    // Opcode/operand fetches are NOT counted (different callback below).
-    if ((address & 0xE000) == 0x6000) {
-        GS::reg_ch[(address >> 8) & 3] = v;
+    if (address < 0x8000) {
+        const uint8_t* base = s_fetch_page[address >> 13];
+        zuint8 v = base[address & 0x1FFF];
+        // DAC latch — only for the 0x6000-0x7FFF page. Cheap test: page-id
+        // bits 110 == 3, so check (address >> 13) == 3.
+        if ((address >> 13) == 3) {
+            GS::reg_ch[(address >> 8) & 3] = v;
+        }
+        return v;
     }
-    return v;
+    // Banked PSRAM (sample data) — cache-backed.
+    if (GS::reg_page == 0) return ROM_GS_M[address - 0x8000];
+    uint32_t off = (gs_map_addr(address) + 0x4000) & s_gs_ram_mask;
+    return gs_pc_read(off);
 }
 
 static void __not_in_flash_func(gs_cb_write)(void* ctx, zuint16 address, zuint8 value) {
@@ -185,8 +257,14 @@ static zuint8 __not_in_flash_func(gs_cb_in)(void* ctx, zuint16 port) {
             gs_status_or(&GS::reg_status, 0x80u);
             v = 0xFF;
             break;
-        case 0x04:
-            v = GS::reg_status; break;
+        case 0x04: {
+            v = GS::reg_status;
+            uint16_t pc = Z80_PC(s_cpu);
+            s_perf_p04_total++;
+            if (pc == s_perf_p04_pc) s_perf_p04_spin++;
+            s_perf_p04_pc = pc;
+            break;
+        }
         case 0x05:
             gs_status_and(&GS::reg_status, ~0x01u);
             v = 0xFF;
@@ -249,17 +327,58 @@ static zuint8 __not_in_flash_func(gs_cb_inta)(void* ctx, zuint16 pc) {
     return 0xFF;  // IM0: RST 38h  |  IM2: vector at (I<<8)|0xFF = 0x17FF → ISR
 }
 
+
+// Hot path: fetch_opcode/fetch run on every Z80 instruction. GS firmware
+// code lives entirely in 0x0000-0x7FFF (ROM + work_ram); banked PSRAM
+// pages at 0x8000-0xFFFF hold sample data only and are never executed.
+//
+// We keep an 8-entry page table (one slot per 8 KB of address space, indexed
+// by address >> 13). Each slot points to the base of a contiguous SRAM-/
+// flash-resident buffer, so a fetch turns into a single load + offset add
+// — no branches. Slot 0 (ROM page 0) is set at init; slot for the banked
+// region (>=0x8000) is left null so the fallback handles it.
+// (Forward-declaration of s_fetch_page is above gs_cb_read.)
+
+static inline void gs_init_fetch_pages(void) {
+    s_fetch_page[0] = ROM_GS_M + 0x0000;        // 0x0000-0x1FFF
+    s_fetch_page[1] = ROM_GS_M + 0x2000;        // 0x2000-0x3FFF
+    s_fetch_page[2] = s_gs_work_ram + 0x0000;   // 0x4000-0x5FFF
+    s_fetch_page[3] = s_gs_work_ram + 0x2000;   // 0x6000-0x7FFF
+    // Slots 4-7 stay null; firmware never executes from there.
+    for (int i = 4; i < 8; i++) s_fetch_page[i] = nullptr;
+}
+
 static zuint8 __not_in_flash_func(gs_cb_fetch_opcode)(void* ctx, zuint16 address) {
     (void)ctx;
+    const uint8_t* base = s_fetch_page[address >> 13];
+    if (base) return base[address & 0x1FFF];
+    // Defensive fallback if firmware ever jumps into banked PSRAM.
     return gs_mem_raw_read(address);
 }
 static zuint8 __not_in_flash_func(gs_cb_fetch)(void* ctx, zuint16 address) {
     (void)ctx;
+    const uint8_t* base = s_fetch_page[address >> 13];
+    if (base) return base[address & 0x1FFF];
     return gs_mem_raw_read(address);
 }
 static zuint8 __not_in_flash_func(gs_cb_nop)(void* ctx, zuint16 address) {
     (void)ctx; (void)address;
     return 0;
+}
+
+// Direct-call entry points used by Z80_redcode.c when GS_Z80_DIRECT_CALLBACKS
+// is defined. Each is a thin wrapper around the gs_cb_* function the static
+// callback table would dispatch to anyway, but reached via a normal direct
+// call so the M33 branch predictor doesn't get clobbered on every Z80
+// instruction. Marked __not_in_flash_func so they live with the redcode in
+// SRAM (.time_critical) and don't introduce a flash hop on the hot path.
+extern "C" {
+zuint8 __not_in_flash_func(gs_direct_fetch_opcode)(zuint16 address) { return gs_cb_fetch_opcode(nullptr, address); }
+zuint8 __not_in_flash_func(gs_direct_fetch       )(zuint16 address) { return gs_cb_fetch       (nullptr, address); }
+zuint8 __not_in_flash_func(gs_direct_read        )(zuint16 address) { return gs_cb_read        (nullptr, address); }
+void   __not_in_flash_func(gs_direct_write       )(zuint16 address, zuint8 value) { gs_cb_write(nullptr, address, value); }
+zuint8 __not_in_flash_func(gs_direct_in          )(zuint16 port)    { return gs_cb_in          (nullptr, port); }
+void   __not_in_flash_func(gs_direct_out         )(zuint16 port, zuint8 value) { gs_cb_out     (nullptr, port, value); }
 }
 
 bool GS::init(uint32_t ram_size_bytes) {
@@ -292,6 +411,7 @@ bool GS::init(uint32_t ram_size_bytes) {
     gs_ram_size   = ram_size_bytes;
 
     memset(s_gs_work_ram, 0, sizeof(s_gs_work_ram));
+    gs_init_fetch_pages();   // hot-path fetch table: see gs_cb_fetch_opcode
     for (int i = 0; i < GS_PC_SETS; i++) {
         for (int w = 0; w < GS_PC_WAYS; w++) s_pc_tag[i][w] = ~0u;
         s_pc_next[i] = 0;
@@ -345,6 +465,7 @@ void GS::reset() {
     int_count = 0;
     s_int_timer_ts = 0;
     s_int_pending = false;
+    s_pump_last_us = 0;
     s_ring_wpos = 0;
     s_ring_rpos = 0;
     s_drain_frac = 0;
@@ -353,6 +474,8 @@ void GS::reset() {
         for (int w = 0; w < GS_PC_WAYS; w++) s_pc_tag[i][w] = ~0u;
         s_pc_next[i] = 0;
     }
+    s_pc_last_line = ~0u;
+    s_pc_last_buf  = nullptr;
     if (enabled) {
         z80_instant_reset(&s_cpu);
     }
@@ -364,18 +487,129 @@ void __not_in_flash_func(GS::topUpBudget)(int tstates) {
     // by how often the emulator gets called; we don't need an explicit cap.
 }
 
+void GS::pollPerf() {
+    static uint32_t s_last_us = 0;
+    uint32_t now = time_us_32();
+    if ((now - s_last_us) < 1000000) return;
+    uint32_t dt = now - s_last_us;
+    s_last_us = now;
+    if (!enabled) {
+        gs_perf_idle_min        = 0x7FFFFFFF;
+        gs_perf_idle_neg_frames = 0;
+        gs_perf_frames          = 0;
+        return;
+    }
+
+    // Snapshot + reset core1 counters
+    uint32_t pc_calls = s_perf_pump_calls;
+    uint32_t pc_skip  = s_perf_pump_skip;
+    uint32_t tst      = s_perf_tstates;
+    uint32_t p04t     = s_perf_p04_total;
+    uint32_t p04s     = s_perf_p04_spin;
+    s_perf_pump_calls = 0;
+    s_perf_pump_skip  = 0;
+    s_perf_tstates    = 0;
+    s_perf_p04_total  = 0;
+    s_perf_p04_spin   = 0;
+
+    // Host counters
+    uint32_t b3w  = s_perf_h_b3w;
+    uint32_t b3r  = s_perf_h_b3r;
+    uint32_t bbw  = s_perf_h_bbw;
+    uint32_t bbr  = s_perf_h_bbr;
+    uint32_t hsw  = s_perf_h_spin_us;
+    s_perf_h_b3w = 0;
+    s_perf_h_b3r = 0;
+    s_perf_h_bbw = 0;
+    s_perf_h_bbr = 0;
+    s_perf_h_spin_us = 0;
+
+    // Core0 IDL stats
+    int32_t  idle_min = gs_perf_idle_min;
+    uint32_t neg      = gs_perf_idle_neg_frames;
+    uint32_t fr       = gs_perf_frames;
+    gs_perf_idle_min        = 0x7FFFFFFF;
+    gs_perf_idle_neg_frames = 0;
+    gs_perf_frames          = 0;
+
+    uint32_t pc_h = s_perf_pc_hit;
+    uint32_t pc_m = s_perf_pc_miss;
+    s_perf_pc_hit = 0;
+    s_perf_pc_miss = 0;
+
+    // GS-Z80 effective MHz (12 MHz target)
+    uint32_t gs_khz = (uint32_t)((uint64_t)tst * 1000u / dt);  // = T-states/ms
+
+    // Skip first probe-only burst — only log if there's work or interesting stalls
+    if (tst == 0 && b3w == 0 && b3r == 0 && fr == 0) return;
+
+    // PSRAM cache miss rate as a percentage (0-100). Useful to spot bus
+    // contention vs internal emulator work.
+    uint32_t pc_miss_pct = (pc_h + pc_m) ? (pc_m * 100u / (pc_h + pc_m)) : 0;
+
+    // Debug::log on core0 over UART is a blocking operation (~1.5-2 ms for
+    // 200+ char line at 115200 baud). When run from pollPerf each second
+    // this self-induces an exactly-once-per-second IDL stall of ~-2000 µs
+    // that masquerades as a real perf problem. Suppress here unless you
+    // really need the trace; flip to 1 when actively diagnosing.
+#if 0
+    Debug::log("PERF: fr=%u IDL_min=%d neg=%u | GS:%uMhz pump=%u/%u p04=%u(spin=%u) pc_miss=%u/%u(%u%%) | host: B3=%uw/%ur BB=%uw/%ur spin=%uus",
+               (unsigned)fr,
+               (int)idle_min,
+               (unsigned)neg,
+               (unsigned)(gs_khz / 1000),
+               (unsigned)(pc_calls - pc_skip),
+               (unsigned)pc_calls,
+               (unsigned)p04t,
+               (unsigned)p04s,
+               (unsigned)pc_m,
+               (unsigned)(pc_h + pc_m),
+               (unsigned)pc_miss_pct,
+               (unsigned)b3w,
+               (unsigned)b3r,
+               (unsigned)bbw,
+               (unsigned)bbr,
+               (unsigned)hsw);
+#else
+    (void)fr; (void)idle_min; (void)neg; (void)gs_khz;
+    (void)pc_calls; (void)pc_skip; (void)p04t; (void)p04s;
+    (void)pc_m; (void)pc_h; (void)pc_miss_pct;
+    (void)b3w; (void)b3r; (void)bbw; (void)bbr; (void)hsw;
+#endif
+}
+
 void __not_in_flash_func(GS::pump)() {
     if (!enabled) return;
-    // Ring-fill feedback pacing. Consumer (audio IRQ + fractional decimation)
-    // drains at rock-steady 37500 entries/sec regardless of core1 jitter, so
-    // producer auto-paces to match it via this check. Pitch = consumer rate
-    // exactly. Wall-clock variance is absorbed by the ring (13 ms depth).
+    s_perf_pump_calls++;
+    // Wall-clock-locked pacing. Independent of how fast the emulator can
+    // crunch instructions — we always advance GS-Z80 time at exactly
+    // GS_CLOCK_HZ T-states per real second. With INSN handlers placed in
+    // SRAM, the emulator runs faster than 12 MHz wall-clock; without this
+    // gate the producer overshoots ring writes and audio glitches.
+    //
+    // s_pump_last_us holds the last wall-time we actually advanced from.
+    // Each call computes elapsed_us, converts to T-states (12 T/µs), and
+    // hands that to step(). Cap the chunk so a single huge pause (e.g.
+    // OSD overlay, debug log) doesn't make us run thousands of INTs in
+    // one batch — clamp to 1 ms = 12000 T-states.
+    uint32_t now = time_us_32();
+    if (s_pump_last_us == 0) s_pump_last_us = now;
+    uint32_t dt_us = now - s_pump_last_us;
+    if (dt_us == 0) return;
+    if (dt_us > 1000) dt_us = 1000;          // clamp: max 1 ms per pump
+    int budget_t = (int)(dt_us * 12);         // 12 T-states per µs at 12 MHz
+    s_pump_last_us = now;
+
+    // Ring-fill safety: if consumer fell badly behind (shouldn't happen
+    // when wall-clock paced), don't push more or we'll overrun.
     uint32_t used = s_ring_wpos - s_ring_rpos;
-    if (used >= (GS_RING_SIZE * 7 / 8)) return;   // ring near full: pause
-    // Larger batch reduces per-call overhead (time_us, ring check, step setup).
-    // 16 INTs ≈ 5120 T ≈ 280 µs — fine for core1 since tight loop has nothing
-    // else time-critical (HDMI DMA/audio IRQ are hardware-driven, not polled).
-    step((int)GS_INT_PERIOD * 16);
+    if (used >= (GS_RING_SIZE * 7 / 8)) {
+        s_perf_pump_skip++;
+        return;
+    }
+
+    int ran = step(budget_t);
+    s_perf_tstates += (uint32_t)ran;
 }
 
 int __not_in_flash_func(GS::step)(int tstates) {
@@ -432,6 +666,7 @@ int __not_in_flash_func(GS::step)(int tstates) {
 }
 
 uint8_t GS::hostReadB3() {
+    s_perf_h_b3r++;
     uint8_t v = reg_data_gs;
     __dmb();  // consume data before clearing the flag
     gs_status_and(&reg_status, ~0x80u);
@@ -439,6 +674,7 @@ uint8_t GS::hostReadB3() {
 }
 
 uint8_t GS::hostReadBB() {
+    s_perf_h_bbr++;
     return reg_status | 0x7E;  // bits 1-6 always set (hardware signature)
 }
 
@@ -450,11 +686,13 @@ uint8_t GS::hostReadBB() {
 // loaded sample bank corrupt and causing channels to play garbage at random
 // points in the module.
 void GS::hostWriteB3(uint8_t data) {
+    s_perf_h_b3w++;
     if (reg_status & 0x80u) {
         uint32_t spin_t0 = time_us_32();
         while ((reg_status & 0x80u) && (time_us_32() - spin_t0) < 1000) {
             __dmb();
         }
+        s_perf_h_spin_us += time_us_32() - spin_t0;
     }
     reg_data_zx = data;
     __dmb();  // data must be visible to core1 before D7 is set
@@ -462,6 +700,7 @@ void GS::hostWriteB3(uint8_t data) {
 }
 
 void GS::hostWriteBB(uint8_t data) {
+    s_perf_h_bbw++;
     reg_command = data;
     __dmb();  // command must be visible to core1 before D0 is set
     gs_status_or(&reg_status, 0x01u);

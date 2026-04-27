@@ -289,7 +289,7 @@ endif()
 
 # redcode/Z80 build configuration for GS (LGPLv3 library vendored in src/GS/)
 set_source_files_properties(src/GS/Z80_redcode.c PROPERTIES
-    COMPILE_FLAGS "-O3 -funroll-loops -DZ80_STATIC -DZ80_EXTERNAL_HEADER=\\\"Z80_compat.h\\\"")
+    COMPILE_FLAGS "-O3 -funroll-loops -DZ80_STATIC -DGS_Z80_INSN_IN_SRAM -DZ80_EXTERNAL_HEADER=\\\"Z80_compat.h\\\"")
 set_source_files_properties(src/GS/GS.cpp PROPERTIES
     COMPILE_FLAGS "-O3 -funroll-loops -DZ80_STATIC -DZ80_EXTERNAL_HEADER=\\\"Z80_compat.h\\\"")
 

@@ -23,6 +23,11 @@ public:
     // at exactly 12 MHz regardless of how fast the emulator could go.
     static void pump();
 
+    // Polled from core0 once per second; emits one perf-line that combines
+    // core0 (per-frame IDL min) and core1 (GS-Z80 t-states, port-04 spin)
+    // counters. Useful to spot when host stalls correlate with GS activity.
+    static void pollPerf();
+
 
     // Top up the GS-Z80 tstates budget. Call once per Spectrum frame with the
     // frame duration × GS clock ratio (e.g. 240000 for 20 ms @ 12 MHz). step()

@@ -294,12 +294,24 @@ typedef zuint8 (* Insn)(Z80 *self);
 #define OPTIONS	  self->options
 #define CONTEXT	  self->context
 
-#define FETCH_OPCODE(address) self->fetch_opcode(CONTEXT, address)
-#define FETCH(address)	      self->fetch	(CONTEXT, address)
-#define READ(address)	      self->read	(CONTEXT, address)
-#define WRITE(address, value) self->write	(CONTEXT, address, value)
-#define IN(port)	      self->in		(CONTEXT, port)
-#define OUT(port, value)      self->out		(CONTEXT, port, value)
+#if defined(GS_Z80_DIRECT_CALLBACKS)
+/* Direct-call shortcut — see Z80_compat.h. Removes the indirect call on the
+ * hottest path of the emulator. We still pass `self` and CONTEXT to keep the
+ * macro signature matching original code; arguments are unused here. */
+#  define FETCH_OPCODE(address) gs_direct_fetch_opcode(address)
+#  define FETCH(address)        gs_direct_fetch       (address)
+#  define READ(address)         gs_direct_read        (address)
+#  define WRITE(address, value) gs_direct_write       (address, value)
+#  define IN(port)              gs_direct_in          (port)
+#  define OUT(port, value)      gs_direct_out         (port, value)
+#else
+#  define FETCH_OPCODE(address) self->fetch_opcode(CONTEXT, address)
+#  define FETCH(address)	  self->fetch	  (CONTEXT, address)
+#  define READ(address)	          self->read	  (CONTEXT, address)
+#  define WRITE(address, value)   self->write	  (CONTEXT, address, value)
+#  define IN(port)	          self->in	  (CONTEXT, port)
+#  define OUT(port, value)        self->out	  (CONTEXT, port, value)
+#endif
 #define NOTIFY(callback)      if (self->callback != Z_NULL) self->callback(CONTEXT)
 
 
@@ -898,7 +910,17 @@ static Z_ALWAYS_INLINE zuint8 m(Z80 *self, zuint8 offset, zuint8 value)
 
 /* MARK: - Function Shortcuts and Reusable Code */
 
-#define INSN(name)	     static zuint8 name(Z80 *self)
+/* On RP2350, place every Z80 instruction handler in SRAM (.time_critical
+ * section) so the redcode emulator's per-instruction `insn_table[op](self)`
+ * indirect call doesn't fault into XIP/flash on every dispatch.
+ * All handlers go into one shared section so they end up packed
+ * contiguously in SRAM next to z80_run (which uses Z80_API → same section
+ * prefix) — keeps the branch predictor happy. */
+#if defined(GS_Z80_INSN_IN_SRAM)
+#  define INSN(name)	     static __attribute__((section(".time_critical.gs_z80_insn"))) zuint8 name(Z80 *self)
+#else
+#  define INSN(name)	     static zuint8 name(Z80 *self)
+#endif
 #define N(offset)	     ((DATA[offset] >> 3) & 7)
 #define Z(mask)		     zzz(self, mask)
 #define U0(value)	     uuu(self, 0, value)

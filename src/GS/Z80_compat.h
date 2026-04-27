@@ -110,4 +110,26 @@ typedef union {
 #   define Z_MICROSOFT_STD_CALL
 #endif
 
+/* Direct-callback override: bypass Z80::fetch_opcode/fetch/read/write/in/out
+ * function-pointer indirect calls in the redcode hot loop. We have a single
+ * Z80 instance (GS-Z80 on core1) and stable callback identities, so calling
+ * them directly lets the compiler inline (where possible) and avoids the
+ * indirect-branch penalty that flushes the M33 branch predictor on every
+ * Z80 instruction. Defined when Z80_redcode.c is built as part of the GS
+ * core1 emulator. The actual implementations live in src/GS/GS.cpp. */
+#if defined(GS_Z80_DIRECT_CALLBACKS)
+#  ifdef __cplusplus
+extern "C" {
+#  endif
+zuint8 gs_direct_fetch_opcode(zuint16 address);
+zuint8 gs_direct_fetch       (zuint16 address);
+zuint8 gs_direct_read        (zuint16 address);
+void   gs_direct_write       (zuint16 address, zuint8 value);
+zuint8 gs_direct_in          (zuint16 port);
+void   gs_direct_out         (zuint16 port, zuint8 value);
+#  ifdef __cplusplus
+}
+#  endif
+#endif
+
 #endif /* Z80_COMPAT_H */

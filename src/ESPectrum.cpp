@@ -1028,6 +1028,12 @@ void ESPectrum::reset(uint8_t romInUse) {
 #if !PICO_RP2040
   if (MB02::enabled) MB02::reset();
 #endif
+#ifdef USE_GS
+  // Without this, GS-Z80 keeps running (still streaming previous module's
+  // samples from PSRAM) when ZX side reboots — leftover state collides with
+  // the new player's load, producing random garbled audio.
+  if (GS::enabled) GS::reset();
+#endif
 
   Tape::tapeFileName = "none";
   if (Tape::tape.obj.fs != NULL) {
@@ -1792,6 +1798,9 @@ void ESPectrum::loop() {
       }
     }
     processKeyboard();
+#ifdef USE_GS
+    GS::pollPerf();
+#endif
     // Update stats every 50 frames
     if (VIDEO::OSD && VIDEO::framecnt >= 10) {
       if (VIDEO::OSD & 0x04) {
@@ -1903,6 +1912,18 @@ void ESPectrum::loop() {
 
     elapsed = time_us_64() - ts_start;
     idle = target - elapsed;
+
+#ifdef USE_GS
+    // Track min per-frame IDL across the current pollPerf interval — lets
+    // us correlate worst-case host stalls with concurrent GS-side activity.
+    extern volatile int32_t gs_perf_idle_min;
+    extern volatile uint32_t gs_perf_idle_neg_frames;
+    extern volatile uint32_t gs_perf_frames;
+    int32_t i32 = (int32_t)idle;
+    if (i32 < gs_perf_idle_min) gs_perf_idle_min = i32;
+    if (i32 < 0) gs_perf_idle_neg_frames++;
+    gs_perf_frames++;
+#endif
 
     totalsecondsnodelay += elapsed;
 
