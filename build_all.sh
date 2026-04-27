@@ -28,7 +28,7 @@ while [ $# -gt 0 ]; do
 Usage: $0 [--clean] [-j JOBS_PER_BUILD] [-p MAX_PARALLEL] [TARGETS...]
 
 Env vars: BUILD_TYPE, MAX_PARALLEL, JOBS_PER_BUILD, CMAKE_GENERATOR
-Targets:  MURM_P1 MURM_P2 MURM2 PICO_PC PICO_DV ZERO ZERO2 (default: all)
+Targets:  MURM_P1 MURM_P2 MURM2_P1 MURM2_P2 PICO_PC PICO_DV ZERO ZERO2 (default: all)
 EOF
             exit 0 ;;
         *) POSITIONAL+=("$1"); shift ;;
@@ -69,13 +69,16 @@ else
 fi
 
 # All available targets
-ALL_TARGETS="MURM_P1 MURM_P2 MURM2 PICO_PC PICO_DV ZERO ZERO2"
+ALL_TARGETS="MURM_P1 MURM_P2 MURM2_P2 PICO_PC PICO_DV ZERO ZERO2"
 
 # Targets that support TFT+ILI9341 display variant
-TFT_TARGETS="MURM_P1 MURM_P2 MURM2"
+TFT_TARGETS="MURM_P1 MURM_P2 MURM2_P2"
+
+# Targets that support TFT+ST7789 display variant
+TFT_ST_TARGETS="MURM2_P1"
 
 # Targets that support SOFTTV display variant
-SOFTTV_TARGETS="MURM_P1 MURM_P2 MURM2"
+SOFTTV_TARGETS="MURM_P1 MURM_P2 MURM2_P2"
 
 # Parse arguments: pass target names to build specific ones, or nothing for all
 if [ $# -gt 0 ]; then
@@ -91,6 +94,12 @@ for TARGET in $TARGETS; do
     for TFT_T in $TFT_TARGETS; do
         if [ "$TARGET" = "$TFT_T" ]; then
             BUILD_PAIRS+=("${TARGET}:TFT_ILI9341")
+            break
+        fi
+    done
+    for TFT_ST_T in $TFT_ST_TARGETS; do
+        if [ "$TARGET" = "$TFT_ST_T" ]; then
+            BUILD_PAIRS+=("${TARGET}:TFT_ST7789")
             break
         fi
     done
@@ -170,7 +179,7 @@ build_one() {
             fi
             if [ -n "$cached_platform" ]; then
                 case "$target" in
-                    MURM_P1|ZERO) expected_platform="rp2040" ;;
+                    MURM_P1|MURM2_P1|ZERO) expected_platform="rp2040" ;;
                     *) expected_platform="rp2350-arm-s" ;;
                 esac
                 if [ "$cached_platform" != "$expected_platform" ]; then
@@ -187,12 +196,16 @@ build_one() {
 
         local target_flags=()
         case "$target" in
-            MURM_P1) target_flags=(-DMURM=ON) ;;
-            MURM_P2) target_flags=(-DMURM=ON -DMURM_P2=ON) ;;
-            *)       target_flags=(-D"${target}"=ON) ;;
+            MURM_P1)  target_flags=(-DMURM=ON) ;;
+            MURM_P2)  target_flags=(-DMURM=ON -DMURM_P2=ON) ;;
+            MURM2_P1) target_flags=(-DMURM2=ON) ;;
+            MURM2_P2) target_flags=(-DMURM2=ON -DMURM2_P2=ON) ;;
+            *)        target_flags=(-D"${target}"=ON) ;;
         esac
         if [ "$display" = "TFT_ILI9341" ]; then
             target_flags+=(-DTFT=ON -DILI9341=ON -DVGA_HDMI=OFF)
+        elif [ "$display" = "TFT_ST7789" ]; then
+            target_flags+=(-DTFT=ON -DST7789=ON -DVGA_HDMI=OFF)
         elif [ "$display" = "SOFTTV" ]; then
             target_flags+=(-DSOFTTV=ON -DVGA_HDMI=OFF)
         fi
