@@ -87,10 +87,39 @@ static volatile uint32_t s_perf_h_spin_us = 0;     // total spinwait µs/sec in 
 
 
 
+
 // 16 KB work-RAM (CPU 0x4000-0x7FFF: stack, variables, DAC mirrors) kept in
 // SRAM to avoid PSRAM latency on every stack push/pop and tight-loop variable
 // access.  Banked sample pages (CPU 0x8000-0xFFFF, page>0) stay in PSRAM.
 static uint8_t s_gs_work_ram[0x4000];
+
+// Host→GS FIFO. Some loaders (e.g. FH1_GS_TZ.scl) stream samples into port
+// 0xB3 in a tight LD A,(HL) / OUT (B3),A loop with no IN (BB) handshake,
+// running ~50000 bytes/sec — faster than the GS firmware's IN A,(2) per-INT
+// drain rate (~37500/sec). Without buffering, every host OUT would race
+// reg_data_zx and either stall core0 in hostWriteB3's 1 ms spinwait
+// (FPS→1) or silently drop a byte (sample bank shifts → no audio after
+// load). The FIFO absorbs the burst at host speed and GS-Z80 drains at its
+// own pace.
+//
+// Single-producer (core0 host) / single-consumer (core1 GS-Z80). Power-of-2
+// size with mask wrapping; volatile uint32_t pos atomic on ARM.
+#define GS_HOST_FIFO_SIZE 512
+#define GS_HOST_FIFO_MASK (GS_HOST_FIFO_SIZE - 1)
+static uint8_t s_host_fifo[GS_HOST_FIFO_SIZE];
+static volatile uint32_t s_host_fifo_w = 0;
+static volatile uint32_t s_host_fifo_r = 0;
+
+// Same FIFO for command port BB. FH1_GS_TZ.scl streams interleaved
+// CMD/DATA pairs (OUT BB,A; OUT B3,A; ...) at thousands per second; the
+// scalar reg_command was getting overwritten before firmware could read
+// it via IN A,(1), so only the LAST of each burst survived. With a FIFO
+// the firmware sees every command in order.
+#define GS_CMD_FIFO_SIZE 256
+#define GS_CMD_FIFO_MASK (GS_CMD_FIFO_SIZE - 1)
+static uint8_t s_cmd_fifo[GS_CMD_FIFO_SIZE];
+static volatile uint32_t s_cmd_fifo_w = 0;
+static volatile uint32_t s_cmd_fifo_r = 0;
 
 // DAC snapshot ring buffer. Producer: step() pushes at each INT (37500 Hz
 // avg, jittery during core1 stalls). Consumer: pcm_call_inner timer IRQ at
@@ -111,7 +140,7 @@ static uint32_t s_drain_frac = 0;
 // RAM caps at ~18 T/µs effective, so 24 MHz target under-delivers (measured
 // ~77% → 29 kHz IRQ, pitch shifted ~25% low). 12 MHz + 320 T is well within
 // capacity and matches native GS firmware timing exactly.
-static constexpr uint32_t GS_CLOCK_HZ    = 12000000;
+static constexpr uint32_t GS_CLOCK_HZ    = 13125000;
 static constexpr uint32_t GS_INT_HZ      = 37500;
 static constexpr uint32_t GS_INT_PERIOD  = GS_CLOCK_HZ / GS_INT_HZ;  // 320
 
@@ -238,17 +267,46 @@ static zuint8 __not_in_flash_func(gs_cb_in)(void* ctx, zuint16 port) {
     uint8_t p = port & 0x0F;
     uint8_t v;
     switch (p) {
-        case 0x01:
-            v = GS::reg_command;
-            // D0 stays set until GS explicitly acks via IN/OUT 0x05
-            break;
-        case 0x02:
-            v = GS::reg_data_zx;
-            // DMB: ensure we read reg_data_zx before clearing the "data ready" flag
-            // so the host (core0) cannot overwrite it before we've consumed it.
+        case 0x01: {
+            // Drain one command from cmd FIFO. Falls back to scalar
+            // reg_command if FIFO empty.
+            uint32_t r = s_cmd_fifo_r;
+            uint32_t w = s_cmd_fifo_w;
             __dmb();
-            gs_status_and(&GS::reg_status, ~0x80u);
+            if (r != w) {
+                v = s_cmd_fifo[r & GS_CMD_FIFO_MASK];
+                s_cmd_fifo_r = r + 1;
+                if ((r + 1) == w) {
+                    gs_status_and(&GS::reg_status, ~0x01u);
+                }
+            } else {
+                v = GS::reg_command;
+                // D0 stays set until GS explicitly acks via IN/OUT 0x05
+            }
             break;
+        }
+        case 0x02: {
+            // Drain one byte from the host FIFO. D7 reflects "FIFO non-empty":
+            // it stays set as long as there's data, and clears as soon as the
+            // last byte is consumed. We do NOT fall back to a legacy single-
+            // byte slot — mixing two channels (FIFO + reg_data_zx) breaks
+            // ordering when host bursts after a quiet period.
+            uint32_t r = s_host_fifo_r;
+            uint32_t w = s_host_fifo_w;
+            __dmb();
+            if (r != w) {
+                v = s_host_fifo[r & GS_HOST_FIFO_MASK];
+                s_host_fifo_r = r + 1;
+                if ((r + 1) == w) {
+                    gs_status_and(&GS::reg_status, ~0x80u);
+                }
+            } else {
+                // FIFO empty (D7 should already be 0; double-clear is safe).
+                v = 0xFF;
+                gs_status_and(&GS::reg_status, ~0x80u);
+            }
+            break;
+        }
         case 0x03:
             // Per UnrealSpeccy gsz80.cpp: also stores 0xFF into reg_data_gs.
             // Otherwise a stale prior response would be returned to ZX on
@@ -266,7 +324,12 @@ static zuint8 __not_in_flash_func(gs_cb_in)(void* ctx, zuint16 port) {
             break;
         }
         case 0x05:
-            gs_status_and(&GS::reg_status, ~0x01u);
+            // Command ack — clear D0 only if cmd FIFO is empty. If there
+            // are more pending commands, leave D0 set so firmware loops
+            // back to read the next one.
+            if (s_cmd_fifo_r == s_cmd_fifo_w) {
+                gs_status_and(&GS::reg_status, ~0x01u);
+            }
             v = 0xFF;
             break;
         case 0x0A:
@@ -296,7 +359,10 @@ static void __not_in_flash_func(gs_cb_out)(void* ctx, zuint16 port, zuint8 value
             GS::reg_page = value & 0x3F;
             return;
         case 0x02:
-            gs_status_and(&GS::reg_status, ~0x80u);
+            // Data-port ack — only clear D7 if data FIFO empty.
+            if (s_host_fifo_r == s_host_fifo_w) {
+                gs_status_and(&GS::reg_status, ~0x80u);
+            }
             return;
         case 0x03:
             GS::reg_data_gs = value;
@@ -304,7 +370,10 @@ static void __not_in_flash_func(gs_cb_out)(void* ctx, zuint16 port, zuint8 value
             gs_status_or(&GS::reg_status, 0x80u);
             return;
         case 0x05:
-            gs_status_and(&GS::reg_status, ~0x01u);  // command-ack: clear D0
+            // Command ack — only clear D0 if cmd FIFO empty.
+            if (s_cmd_fifo_r == s_cmd_fifo_w) {
+                gs_status_and(&GS::reg_status, ~0x01u);
+            }
             return;
         case 0x06: GS::reg_vol[0] = value & 0x3F; return;
         case 0x07: GS::reg_vol[1] = value & 0x3F; return;
@@ -476,6 +545,10 @@ void GS::reset() {
     }
     s_pc_last_line = ~0u;
     s_pc_last_buf  = nullptr;
+    s_host_fifo_w = 0;
+    s_host_fifo_r = 0;
+    s_cmd_fifo_w = 0;
+    s_cmd_fifo_r = 0;
     if (enabled) {
         z80_instant_reset(&s_cpu);
     }
@@ -553,7 +626,8 @@ void GS::pollPerf() {
     // that masquerades as a real perf problem. Suppress here unless you
     // really need the trace; flip to 1 when actively diagnosing.
 #if 0
-    Debug::log("PERF: fr=%u IDL_min=%d neg=%u | GS:%uMhz pump=%u/%u p04=%u(spin=%u) pc_miss=%u/%u(%u%%) | host: B3=%uw/%ur BB=%uw/%ur spin=%uus",
+    uint32_t fifo_used = s_host_fifo_w - s_host_fifo_r;
+    Debug::log("PERF: fr=%u IDL_min=%d neg=%u | GS:%uMhz pump=%u/%u p04=%u(spin=%u) pc_miss=%u/%u(%u%%) fifo=%u | host: B3=%uw/%ur BB=%uw/%ur spin=%uus",
                (unsigned)fr,
                (int)idle_min,
                (unsigned)neg,
@@ -565,6 +639,7 @@ void GS::pollPerf() {
                (unsigned)pc_m,
                (unsigned)(pc_h + pc_m),
                (unsigned)pc_miss_pct,
+               (unsigned)fifo_used,
                (unsigned)b3w,
                (unsigned)b3r,
                (unsigned)bbw,
@@ -669,7 +744,14 @@ uint8_t GS::hostReadB3() {
     s_perf_h_b3r++;
     uint8_t v = reg_data_gs;
     __dmb();  // consume data before clearing the flag
-    gs_status_and(&reg_status, ~0x80u);
+    uint32_t fifo_used = s_host_fifo_w - s_host_fifo_r;
+    // D7 is multiplexed: "GS→host response ready" (set by firmware OUT 03)
+    // AND "host→GS FIFO non-empty" (set by hostWriteB3). Only clear if the
+    // FIFO is empty — otherwise firmware loses the FIFO indicator and never
+    // drains. Z-Player's tight OUT B3/IN B3 pattern hits this race.
+    if (fifo_used == 0) {
+        gs_status_and(&reg_status, ~0x80u);
+    }
     return v;
 }
 
@@ -678,32 +760,51 @@ uint8_t GS::hostReadBB() {
     return reg_status | 0x7E;  // bits 1-6 always set (hardware signature)
 }
 
-// Backpressure: spin while D7 is still set (GS-Z80 hasn't read the previous
-// byte yet). Without this, ZPlayer's bulk module load (16384 bytes/sec,
-// ~60 µs interval) loses 1-6 bytes per second because core0 (host Z80)
-// retires IO writes faster than core1 (GS-Z80 @ 12 MHz) can drain them. A
-// lost byte shifts every following byte one slot down in PSRAM, leaving the
-// loaded sample bank corrupt and causing channels to play garbage at random
-// points in the module.
+// Push host byte into the FIFO. Returns immediately while there's room
+// (typical case: SCL/MOD bulk loads). Spins only when FIFO is full;
+// after a short bound, drops the oldest byte to keep moving — preferable
+// to a long stall on core0 or to overwriting reg_data_zx mid-stream
+// (which would cascade-corrupt the sample bank).
+//
+// FIFO size is 512 bytes; at 37500 bytes/sec drain rate that's ~14 ms
+// buffer — enough to absorb a full SCL sector (256 B) plus a margin.
 void GS::hostWriteB3(uint8_t data) {
     s_perf_h_b3w++;
-    if (reg_status & 0x80u) {
+    uint32_t w = s_host_fifo_w;
+    uint32_t used = w - s_host_fifo_r;
+    if (used >= GS_HOST_FIFO_SIZE) {
         uint32_t spin_t0 = time_us_32();
-        while ((reg_status & 0x80u) && (time_us_32() - spin_t0) < 1000) {
+        while ((s_host_fifo_w - s_host_fifo_r) >= GS_HOST_FIFO_SIZE
+               && (time_us_32() - spin_t0) < 500) {
             __dmb();
         }
         s_perf_h_spin_us += time_us_32() - spin_t0;
+        if ((s_host_fifo_w - s_host_fifo_r) >= GS_HOST_FIFO_SIZE) {
+            s_host_fifo_r = s_host_fifo_w - GS_HOST_FIFO_SIZE + 1;
+        }
+        w = s_host_fifo_w;
     }
-    reg_data_zx = data;
-    __dmb();  // data must be visible to core1 before D7 is set
-    gs_status_or(&reg_status, 0x80u);
+    s_host_fifo[w & GS_HOST_FIFO_MASK] = data;
+    __dmb();
+    s_host_fifo_w = w + 1;
+    __dmb();
+    gs_status_or(&reg_status, 0x80u);  // D7=1: FIFO non-empty
 }
 
 void GS::hostWriteBB(uint8_t data) {
     s_perf_h_bbw++;
-    reg_command = data;
-    __dmb();  // command must be visible to core1 before D0 is set
-    gs_status_or(&reg_status, 0x01u);
+    // Push into command FIFO (drop-oldest if full — same policy as B3).
+    uint32_t w = s_cmd_fifo_w;
+    uint32_t used = w - s_cmd_fifo_r;
+    if (used >= GS_CMD_FIFO_SIZE) {
+        s_cmd_fifo_r = s_cmd_fifo_w - GS_CMD_FIFO_SIZE + 1;
+    }
+    s_cmd_fifo[w & GS_CMD_FIFO_MASK] = data;
+    __dmb();
+    s_cmd_fifo_w = w + 1;
+    reg_command = data;  // mirror to scalar for any direct-readers
+    __dmb();
+    gs_status_or(&reg_status, 0x01u);  // D0=1: command available
 }
 
 int16_t __not_in_flash_func(GS::getSampleLeft)() {

@@ -278,6 +278,12 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     }
 #ifdef USE_GS
     // General Sound — host-side status/data ports
+    // {
+    //   uint8_t a8 = address & 0xFF;
+    //   if (a8 == 0xB3 || a8 == 0xBB) {
+    //     Debug::log("IN %04X (a8=%02X) GS.en=%d", address, a8, GS::enabled);
+    //   }
+    // }
     if (GS::enabled) {
       uint8_t a8 = address & 0xFF;
       if (a8 == 0xB3 || a8 == 0xBB) {
