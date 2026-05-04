@@ -45,7 +45,13 @@ static int dma_chan_pal_conv;
 //DMA буферы
 //основные строчные данные
 static uint32_t* __scratch_x("hdmi_ptr_3") dma_lines[2] = { NULL,NULL };
-static uint32_t* __scratch_x("hdmi_ptr_4") DMA_BUF_ADDR[2];
+static uint32_t* __scratch_x("hdmi_ptr_4") DMA_BUF_ADDR[3];
+
+// Pre-filled scanline buffer (dark line with valid HDMI sync), used as a
+// third "virtual" ping-pong slot when scanlines mode is on. DMA reads it
+// directly — no per-IRQ rendering. Why: prevents h-sync jitter on strict
+// receivers that rejected the v1.2.13/14 dynamic approaches.
+static uint8_t hdmi_scanline_buf[400];
 
 //ДМА палитра для конвертации
 //в хвосте этой памяти выделяется dma_data
@@ -243,7 +249,20 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
     irq_inx++;
 
     dma_hw->ints0 = 1u << dma_chan_ctrl;
-    dma_channel_set_read_addr(dma_chan_ctrl, &DMA_BUF_ADDR[inx_buf_dma & 1], false);
+
+    // Решаем источник для следующей строки (line+1) до её начала, чтобы
+    // ctrl-канал был перезаряжен ровно один раз. Подмена адреса задним
+    // числом, как в v1.2.13, давала срыв синхры на чувствительных приёмниках.
+    uint next_line = (line >= mode.v_total) ? 1 : (line + 1);
+    bool next_is_scanline = hdmi_scanlines
+                         && (next_line <= mode.v_active)
+                         && !(next_line & 1);
+    if (next_is_scanline) {
+        // scanline-строка играет из статичного буфера, ping-pong не трогаем
+        dma_channel_set_read_addr(dma_chan_ctrl, &DMA_BUF_ADDR[2], false);
+    } else {
+        dma_channel_set_read_addr(dma_chan_ctrl, &DMA_BUF_ADDR[inx_buf_dma & 1], false);
+    }
 
     if (line >= mode.v_total ) {
         line = 0;
@@ -258,8 +277,20 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
         ESPectrum_vsync();
     }
 
-    if (!(line & 1) && (!hdmi_scanlines || line >= mode.v_active)) {
-        return;
+    // Pixel-doubling: рендерим один раз на пару строк.
+    // Без scanlines — рендер на нечётных (исторически).
+    // Со scanlines — нечётная активная строка играет статический серый
+    // буфер (адрес уже перезаряжен на прошлом IRQ), чётная — рендерится из FB.
+    // Граничная line == v_active (чётная) — это первая строка blanking;
+    // её надо пропустить, иначе получаем лишнюю активную строку (482).
+    if (line < mode.v_active) {
+        if (hdmi_scanlines) {
+            if (line & 1) return;            // нечётные = серая, ничего не пишем
+        } else {
+            if (!(line & 1)) return;         // чётные пропускаются (доигрывают пред. буфер)
+        }
+    } else {
+        if (!(line & 1)) return;             // в blanking пропускаем чётные (включая v_active)
     }
     inx_buf_dma++;
 
@@ -273,10 +304,6 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
 
     if (line < mode.v_active ) {
         uint8_t* output_buffer = activ_buf + h_sync + h_bp;
-        if (hdmi_scanlines && (line & 1)) { // gray_line
-            nf_memset(output_buffer, IDX_SCANLINE, scr_w);
-            goto ex;
-        }
         int y = (line >> 1) + mode.v_offset;
         //область изображения
         uint8_t* input_buffer = getLineBuffer(y);
@@ -532,6 +559,22 @@ static inline bool hdmi_init() {
 
     DMA_BUF_ADDR[0] = &dma_lines[0][0];
     DMA_BUF_ADDR[1] = &dma_lines[1][0];
+    DMA_BUF_ADDR[2] = (uint32_t*)hdmi_scanline_buf;
+
+    // Pre-fill scanline buffer: dark gray content + valid HDMI sync.
+    // DMA reads this directly on every scanline-affected line; no per-line
+    // rendering in the IRQ.
+    {
+        const int ls = hdmi_mode.line_bytes;
+        const int hs = hdmi_mode.h_sync_bytes;
+        const int bp = hdmi_mode.h_bp_bytes;
+        const int fp = hdmi_mode.h_fp_bytes;
+        const int sw = hdmi_mode.screen_width;
+        nf_memset(hdmi_scanline_buf, BASE_HDMI_CTRL_INX + 1, hs);          // hsync
+        nf_memset(hdmi_scanline_buf + hs, BASE_HDMI_CTRL_INX, bp);         // back porch
+        nf_memset(hdmi_scanline_buf + hs + bp, IDX_SCANLINE, sw);          // dark gray content
+        nf_memset(hdmi_scanline_buf + ls - fp, BASE_HDMI_CTRL_INX, fp);    // front porch
+    }
 
     dma_channel_configure(
         dma_chan_ctrl,
