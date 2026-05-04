@@ -642,11 +642,11 @@ ELSEIF(ZERO2)
         PSRAM_PIN_MISO=0
 
         # NES Gamepad
-        # USE_NESPAD
-        # NES_GPIO_CLK=4
-        # NES_GPIO_LAT=5
-        # NES_GPIO_DATA=7
-        # NES_GPIO_DATA2=8
+        USE_NESPAD
+        NES_GPIO_CLK=4
+        NES_GPIO_LAT=5
+        NES_GPIO_DATA=7
+        NES_GPIO_DATA2=8
 
         # VGA 8 pins starts from pin:
         VGA_BASE_PIN=32
