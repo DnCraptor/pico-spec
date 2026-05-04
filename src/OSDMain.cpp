@@ -2435,6 +2435,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
 
                                     if (Config::SAA1099 != prev_saa) {
                                         ESPectrum::SAA_emu = Config::SAA1099;
+                                        if (Config::SAA1099 && Config::timex_video) {
+                                            Config::timex_video = false;
+                                            VIDEO::timex_port_ff = 0;
+                                            VIDEO::timex_mode = 0;
+                                            VIDEO::timex_hires_ink = 0;
+                                            OSD::osdCenteredMsg("Timex disabled", LEVEL_WARN, 2000);
+                                        }
                                         Config::save();
                                     }
                                     menu_curopt = opt2;
@@ -2937,8 +2944,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         VIDEO::timex_mode = 0;
                                         VIDEO::timex_hires_ink = 0;
                                     }
-                                    if (Config::timex_video != prev)
+                                    if (Config::timex_video != prev) {
+                                        if (Config::timex_video && Config::SAA1099) {
+                                            Config::SAA1099 = false;
+                                            ESPectrum::SAA_emu = false;
+                                            OSD::osdCenteredMsg("SAA1099 disabled", LEVEL_WARN, 2000);
+                                        }
                                         Config::save();
+                                    }
                                     menu_curopt = opt2;
                                     menu_saverect = false;
                                 } else {
