@@ -37,6 +37,10 @@ typedef struct video_mode_t{
   int line_bytes;
   int v_offset;
   float pio_clk_div; // PIO divider = sys_clk / TMDS_clk, must be integer or half-integer (n/2)
+  // VGA-only overrides for fields above. If 0/zero, VGA uses the main fields.
+  // HDMI never reads these — its timing is unaffected.
+  int vga_v_total;
+  int vga_pixel_clk;
 };
 
 enum graphics_mode_t {

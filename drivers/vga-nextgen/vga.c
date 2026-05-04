@@ -87,8 +87,9 @@ void __time_critical_func() dma_handler_VGA() {
     screen_line++;
 
     struct video_mode_t mode = graphics_get_video_mode(get_video_mode());
+    int v_total = mode.vga_v_total ? mode.vga_v_total : mode.v_total;
 
-    if (screen_line == mode.v_total) {
+    if (screen_line == v_total) {
         ESPectrum_vsync();
         screen_line = 0;
         frame_number++;
@@ -315,8 +316,9 @@ void graphics_set_mode(enum graphics_mode_t mode) {
             // N_lines_visible = 480;
             line_VS_begin = 490;
             line_VS_end = 491;
-            struct video_mode_t vMode = graphics_get_video_mode(get_video_mode());            
-            fdiv = clock_get_hz(clk_sys) / vMode.pixel_clk; //частота пиксельклока
+            struct video_mode_t vMode = graphics_get_video_mode(get_video_mode());
+            int vga_px = vMode.vga_pixel_clk ? vMode.vga_pixel_clk : vMode.pixel_clk;
+            fdiv = clock_get_hz(clk_sys) / vga_px; //частота пиксельклока
             break;
         default:
             return;
@@ -373,12 +375,17 @@ void graphics_set_mode(enum graphics_mode_t mode) {
 }
 
 void vga_reinit() {
-    // Update VGA sync parameters from current video_mode.
-    // PIO clkdiv and DMA line_size are identical across all VGA modes,
-    // so only vsync line numbers need updating.
+    // Update VGA sync parameters and PIO pixel clock from current video_mode.
+    // 50Hz modes use vga_pixel_clk override (lower clock + smaller v_total) so
+    // monitors detect the signal as 640x480@50, not PAL 720x576@50.
+    // HDMI ignores vga_* fields and keeps standard 25.175MHz / v_total=628..644.
     struct video_mode_t mode = graphics_get_video_mode(get_video_mode());
     line_VS_begin = mode.vsync_start;
     line_VS_end = mode.vsync_end;
+    int pixel_clk = mode.vga_pixel_clk ? mode.vga_pixel_clk : mode.pixel_clk;
+    double fdiv = (double)clock_get_hz(clk_sys) / (double)pixel_clk;
+    const uint32_t div32 = (uint32_t)(fdiv * (1 << 16) + 0.0);
+    PIO_VGA->sm[_SM_VGA].clkdiv = div32 & 0xfffff000;  // integer div only — fractional causes jitter
 }
 
 void graphics_set_buffer(uint8_t* buffer, const uint16_t width, const uint16_t height) {

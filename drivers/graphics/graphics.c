@@ -33,7 +33,6 @@ static struct video_mode_t video_mode[] = {
         .v_total = 644,
         .v_active = 480,
         .freq = 50,
-        .pixel_clk = 25175000,
         .vsync_start = 490,
         .vsync_end = 492,
         .screen_width = 320,
@@ -42,13 +41,15 @@ static struct video_mode_t video_mode[] = {
         .h_fp_bytes = 8,
         .line_bytes = 400,
         .v_offset = 0,
-        .pio_clk_div = PIO_DIV
+        .pio_clk_div = PIO_DIV,
+        // VGA: pixel_clk=19.89MHz (div=19@378MHz), v_total=511 → Pentagon-like
+        .vga_v_total = 511,
+        .vga_pixel_clk = 19894737
     },
     { // [2] 640x480 50Hz 48K 50.08Hz
         .v_total = 628,
         .v_active = 480,
         .freq = 50,
-        .pixel_clk = 25175000,
         .vsync_start = 490,
         .vsync_end = 492,
         .screen_width = 320,
@@ -57,13 +58,15 @@ static struct video_mode_t video_mode[] = {
         .h_fp_bytes = 8,
         .line_bytes = 400,
         .v_offset = 0,
-        .pio_clk_div = PIO_DIV
+        .pio_clk_div = PIO_DIV,
+        // VGA: pixel_clk=19.89MHz (div=19@378MHz)
+        .vga_v_total = 499,
+        .vga_pixel_clk = 19894737
     },
     { // [3] 640x480 50Hz 128K 50.02Hz
         .v_total = 629,
         .v_active = 480,
         .freq = 50,
-        .pixel_clk = 25175000,
         .vsync_start = 490,
         .vsync_end = 492,
         .screen_width = 320,
@@ -72,7 +75,10 @@ static struct video_mode_t video_mode[] = {
         .h_fp_bytes = 8,
         .line_bytes = 400,
         .v_offset = 0,
-        .pio_clk_div = PIO_DIV
+        .pio_clk_div = PIO_DIV,
+        // VGA: pixel_clk=19.89MHz (div=19@378MHz)
+        .vga_v_total = 498,
+        .vga_pixel_clk = 19894737
     },
     { // [4] 720x576 50Hz Pentagon full border — 25.2MHz pixel (sys_clk=378MHz, div=1.5)
         .v_total = 644,   // 25.2MHz/800/644 = 48.91Hz (Pentagon 48.83Hz)
