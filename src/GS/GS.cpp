@@ -41,15 +41,83 @@ extern uint32_t butter_psram_size();
 static bool     s_gs_use_spi  = false;
 static uint32_t s_gs_ram_base = 0;
 
-static volatile uint32_t s_gs_diag_count = 0;
-#define GS_DIAG(fmt, ...) do { \
-    if (s_gs_diag_count < 400) { s_gs_diag_count++; Debug::log("GS z80: " fmt, ##__VA_ARGS__); } \
-} while(0)
+// Legacy GS_DIAG / GS_DIAG_HOST removed — replaced by the gs_trace ring buffer.
+#define GS_DIAG(fmt, ...) do {} while(0)
 #define GS_DIAG_HOST(fmt, ...) do {} while(0)
 extern int butter_pages;
 
 #include "MemESP.h"
 #include "DivMMC.h"
+
+// Host Z80 PC proxy. Defined in Ports.cpp where Z80_JLS/z80.h is included.
+// We can't pull that header in here because Z80_redcode.h already defines
+// a different `struct Z80`, so the two TUs must stay disjoint.
+extern "C" uint16_t gs_host_z80_pc(void);
+
+// =================================================================
+// GS port-IO trace ring buffer (debug-only)
+// =================================================================
+// Compile-time gated: define GS_DEBUG_TRACE to enable the 48 KB ring +
+// auto-dump triggers + work_ram dump. Off by default — these tools cost
+// ~50 KB SRAM and are only useful when debugging GS protocol issues like
+// the ZP4/ZPlayer4 port 0x02 latch fix. When disabled, all trace calls
+// compile to no-ops and traceDump/dumpWorkRam stub out.
+
+// Trace event kinds (used in TR_* constants below).
+enum {
+    TR_BBw    = 1,  TR_B3w    = 2,  TR_BBr    = 3,  TR_B3r    = 4,
+    TR_IN01   = 5,  TR_IN02   = 6,  TR_OUT03  = 7,  TR_OUT05  = 8,
+    TR_IN05   = 9,  TR_BOOT   = 10, TR_MAIN   = 11, TR_OUT02  = 12,
+    TR_RESET  = 13,
+};
+
+#ifdef GS_DEBUG_TRACE
+
+struct GsTraceEntry {
+    uint32_t us;
+    uint16_t pc_zx;
+    uint16_t pc_gs;
+    uint8_t  kind;
+    uint8_t  data;
+    uint8_t  st;
+    uint8_t  pad;
+};
+
+#define GS_TRACE_SIZE 4096
+#define GS_TRACE_MASK (GS_TRACE_SIZE - 1)
+static GsTraceEntry s_trace[GS_TRACE_SIZE];
+static volatile uint32_t s_trace_pos = 0;
+static volatile bool s_trace_dump_pending = false;
+static volatile bool s_trace_dumped_on_reset = false;
+
+static const char* gs_trace_kind_name(uint8_t k) {
+    switch (k) {
+        case TR_BBw:   return "BBw  ";
+        case TR_B3w:   return "B3w  ";
+        case TR_BBr:   return "BBr  ";
+        case TR_B3r:   return "B3r  ";
+        case TR_IN01:  return "IN01 ";
+        case TR_IN02:  return "IN02 ";
+        case TR_OUT03: return "OUT03";
+        case TR_OUT05: return "OUT05";
+        case TR_IN05:  return "IN05 ";
+        case TR_BOOT:  return "BOOT ";
+        case TR_MAIN:  return "MAIN ";
+        case TR_OUT02: return "OUT02";
+        case TR_RESET: return "RESET";
+        default:       return "?    ";
+    }
+}
+
+#else  // !GS_DEBUG_TRACE — stubs
+
+#define gs_trace_host(kind, data, st)  do { (void)(data); (void)(st); } while (0)
+#define gs_trace_gs(kind, data, st)    do { (void)(data); (void)(st); } while (0)
+
+#endif
+
+// gs_trace_host / gs_trace_gs (debug build) are defined further down (after
+// s_cpu and the host PC accessor are both in scope).
 
 bool     GS::enabled       = false;
 uint32_t GS::gs_ram_size   = 0;
@@ -77,6 +145,50 @@ static uint32_t s_pump_last_us = 0;
 // hostWriteBB spinwaits on s_gs_main_loop before asserting D0.
 static volatile bool s_gs_booted    = false;
 static volatile bool s_gs_main_loop = false;
+
+#ifdef GS_DEBUG_TRACE
+// Dedup: status-poll reads (BBr) repeat tens of thousands of times in tight
+// loops while ZP4 waits for D0/D7 transitions — useless noise that blows out
+// the ring. Same kind + same PC = same call site, dedup ignoring data/st
+// changes. We require the slot to currently hold an entry of this kind (no
+// slot reuse) to avoid hijacking unrelated entries.
+//
+// The ring is single-producer-per-core but two cores write — that's fine for
+// dedup correctness, since each kind is touched mostly from one side
+// (BBr/B3r/BBw/B3w from host=core0; IN01/IN02/OUT03/OUT05/IN05/OUT02 from
+// gs=core1). Cross-side races just result in occasional missed dedup.
+static volatile uint32_t s_trace_last_idx[16];
+
+static inline bool __not_in_flash_func(gs_trace_dedup)(uint8_t kind, uint16_t pc_zx, uint16_t pc_gs) {
+    if (kind >= 16) return false;
+    uint32_t idx = s_trace_last_idx[kind];
+    GsTraceEntry& e = s_trace[idx & GS_TRACE_MASK];
+    if (e.kind == kind && e.pc_zx == pc_zx && e.pc_gs == pc_gs) {
+        if (e.pad < 255) e.pad++;
+        return true;
+    }
+    return false;
+}
+
+static inline void __not_in_flash_func(gs_trace_host)(uint8_t kind, uint8_t data, uint8_t st) {
+    uint16_t pc = gs_host_z80_pc();
+    if (gs_trace_dedup(kind, pc, 0)) return;
+    uint32_t pos = __atomic_fetch_add(&s_trace_pos, 1, __ATOMIC_RELAXED);
+    GsTraceEntry& e = s_trace[pos & GS_TRACE_MASK];
+    e.us = time_us_32(); e.pc_zx = pc; e.pc_gs = 0;
+    e.kind = kind; e.data = data; e.st = st; e.pad = 0;
+    if (kind < 16) s_trace_last_idx[kind] = pos;
+}
+static inline void __not_in_flash_func(gs_trace_gs)(uint8_t kind, uint8_t data, uint8_t st) {
+    uint16_t pc = Z80_PC(s_cpu);
+    if (gs_trace_dedup(kind, 0, pc)) return;
+    uint32_t pos = __atomic_fetch_add(&s_trace_pos, 1, __ATOMIC_RELAXED);
+    GsTraceEntry& e = s_trace[pos & GS_TRACE_MASK];
+    e.us = time_us_32(); e.pc_zx = 0; e.pc_gs = pc;
+    e.kind = kind; e.data = data; e.st = st; e.pad = 0;
+    if (kind < 16) s_trace_last_idx[kind] = pos;
+}
+#endif  // GS_DEBUG_TRACE
 
 // Cache stats: hit/miss counts per second to gauge how often gs_pc_read
 // has to fetch a fresh 64-byte line from PSRAM (vs hitting in SRAM cache).
@@ -313,28 +425,46 @@ static zuint8 __not_in_flash_func(gs_cb_in)(void* ctx, zuint16 port) {
             } else {
                 v = GS::reg_command;
             }
+            gs_trace_gs(TR_IN01, v, GS::reg_status);
             break;
         }
         case 0x02: {
-            // Drain one byte from the host FIFO. D7 reflects "FIFO non-empty":
-            // it stays set as long as there's data, and clears as soon as the
-            // last byte is consumed. We do NOT fall back to a legacy single-
-            // byte slot — mixing two channels (FIFO + reg_data_zx) breaks
-            // ordering when host bursts after a quiet period.
-            uint32_t r = s_host_fifo_r;
-            uint32_t w = s_host_fifo_w;
-            __dmb();
-            if (r != w) {
-                v = s_host_fifo[r & GS_HOST_FIFO_MASK];
-                s_host_fifo_r = r + 1;
-                if ((r + 1) == w) {
+            // Real GS port 0x02 is a single-byte latch, not a stream. ROM's
+            // idle/drain at 0x02C2 reads it unconditionally even when only
+            // D0 (CMD) is pending, then uses S flag from the prior status
+            // AND-mask to decide whether the read was valid data or just a
+            // stale latch peek. So: drain (advance read pointer) ONLY when
+            // D7=1 (host actually wrote something). When D7=0, return the
+            // last value (or 0xFF) WITHOUT consuming — matches hardware
+            // latch behavior and prevents losing the byte that the next
+            // CMD handler is about to read.
+            //
+            // Without this, ZP4's "B3w X; BBw CMD" pattern loses X to the
+            // idle-drain IN(02) at 0x02C2, and the CMD handler reads stale
+            // FIFO content, scrambling write addresses (CMD 0x18/0x19/0x1B).
+            static uint8_t s_p02_latch = 0xFF;
+            if (GS::reg_status & 0x80u) {
+                uint32_t r = s_host_fifo_r;
+                uint32_t w = s_host_fifo_w;
+                __dmb();
+                if (r != w) {
+                    v = s_host_fifo[r & GS_HOST_FIFO_MASK];
+                    s_host_fifo_r = r + 1;
+                    s_p02_latch = v;
+                    if ((r + 1) == w) {
+                        gs_status_and(&GS::reg_status, ~0x80u);
+                    }
+                } else {
+                    // D7 said data ready but FIFO empty — race; hold latch.
+                    v = s_p02_latch;
                     gs_status_and(&GS::reg_status, ~0x80u);
                 }
             } else {
-                // FIFO empty (D7 should already be 0; double-clear is safe).
-                v = 0xFF;
-                gs_status_and(&GS::reg_status, ~0x80u);
+                // D7=0: idle drain peek. Return last latched byte without
+                // consuming. ROM's 0x02C2 will discard via JP P,0x0295.
+                v = s_p02_latch;
             }
+            gs_trace_gs(TR_IN02, v, GS::reg_status);
             break;
         }
         case 0x03:
@@ -355,7 +485,13 @@ static zuint8 __not_in_flash_func(gs_cb_in)(void* ctx, zuint16 port) {
             // 0x026E → PC=0x0270 (early-exit path when work_ram[0x4084]=0)
             // 0x027F → PC=0x0281 (steady-state path, always reached after C000)
             // Either means C000 init is done and work_ram dispatch table ready.
-            if (!s_gs_main_loop && (pc == 0x0270 || pc == 0x0281)) s_gs_main_loop = true;
+            if (!s_gs_main_loop && (pc == 0x0270 || pc == 0x0281)) {
+                s_gs_main_loop = true;
+                gs_trace_gs(TR_MAIN, 0, GS::reg_status);
+#ifdef GS_DEBUG_TRACE
+                s_trace_dump_pending = true;
+#endif
+            }
             break;
         }
         case 0x05:
@@ -370,6 +506,7 @@ static zuint8 __not_in_flash_func(gs_cb_in)(void* ctx, zuint16 port) {
                 gs_status_or(&GS::reg_status, 0x01u);
             }
             v = 0xFF;
+            gs_trace_gs(TR_IN05, 0, GS::reg_status);
             break;
         case 0x0A:
             v = GS::reg_status;
@@ -384,15 +521,12 @@ static zuint8 __not_in_flash_func(gs_cb_in)(void* ctx, zuint16 port) {
         default:
             v = 0xFF; break;
     }
-    if (p <= 0x0B) GS_DIAG("gsZ80 IN  %02X = %02X", p, v);
     return v;
 }
 
 static void __not_in_flash_func(gs_cb_out)(void* ctx, zuint16 port, zuint8 value) {
     (void)ctx;
     uint8_t p = port & 0x0F;
-    // Skip page register (0x00) to avoid drowning the log during RAM test
-    if (p > 0x00 && p <= 0x0B) GS_DIAG("gsZ80 OUT %02X <- %02X", p, value);
     switch (p) {
         case 0x00:
             GS::reg_page = value & 0x3F;
@@ -402,17 +536,30 @@ static void __not_in_flash_func(gs_cb_out)(void* ctx, zuint16 port, zuint8 value
             if (s_host_fifo_r == s_host_fifo_w) {
                 gs_status_and(&GS::reg_status, ~0x80u);
             }
+            gs_trace_gs(TR_OUT02, value, GS::reg_status);
             return;
-        case 0x03:
+        case 0x03: {
             GS::reg_data_gs = value;
             __dmb();  // data must be visible to core0 before setting D7
             gs_status_or(&GS::reg_status, 0x80u);
-            if (s_gs_booted) {
+            bool first_main = false;
+            if (s_gs_booted && !s_gs_main_loop) {
                 // Second OUT(03) = C000 init done, command dispatch ready.
                 s_gs_main_loop = true;
+                first_main = true;
             }
+            bool first_boot = !s_gs_booted;
             s_gs_booted = true;
+            gs_trace_gs(TR_OUT03, value, GS::reg_status);
+            if (first_boot) gs_trace_gs(TR_BOOT, 0, GS::reg_status);
+            if (first_main) {
+                gs_trace_gs(TR_MAIN, 0, GS::reg_status);
+#ifdef GS_DEBUG_TRACE
+                s_trace_dump_pending = true;  // auto-dump on first MAIN
+#endif
+            }
             return;
+        }
         case 0x05:
             // CMD ACK: clear D0 only. D7 left untouched — same as IN(05).
             // D7 = "response ready for host" must not be cleared here;
@@ -421,6 +568,7 @@ static void __not_in_flash_func(gs_cb_out)(void* ctx, zuint16 port, zuint8 value
             if (s_cmd_fifo_r != s_cmd_fifo_w) {
                 gs_status_or(&GS::reg_status, 0x01u);
             }
+            gs_trace_gs(TR_OUT05, 0, GS::reg_status);
             return;
         case 0x06: GS::reg_vol[0] = value & 0x3F; return;
         case 0x07: GS::reg_vol[1] = value & 0x3F; return;
@@ -597,6 +745,16 @@ void GS::deinit() {
 }
 
 void GS::reset() {
+#ifdef GS_DEBUG_TRACE
+    // If we have trace data from before this reset and never dumped it (the
+    // host reboot path that calls us from ESPectrum.cpp gets here BEFORE
+    // pollPerf can fire its 3-second sticky-reset trigger), flush it now so
+    // the post-mortem isn't lost. Skip if traceDump() already ran.
+    if (s_trace_pos > 0 && !s_trace_dumped_on_reset) {
+        Debug::log("GS::reset: trace flush before reset");
+        traceDump();
+    }
+#endif
     reg_command = 0;
     reg_data_zx = 0;
     reg_data_gs = 0;
@@ -623,8 +781,15 @@ void GS::reset() {
     s_cmd_fifo_r = 0;
     s_gs_booted    = false;
     s_gs_main_loop = false;
+#ifdef GS_DEBUG_TRACE
+    s_trace_pos    = 0;
+    s_trace_dump_pending = false;
+    s_trace_dumped_on_reset = false;
+    for (int i = 0; i < 16; i++) s_trace_last_idx[i] = 0;
+#endif
     if (enabled) {
         z80_instant_reset(&s_cpu);
+        gs_trace_gs(TR_RESET, 0, reg_status);
     }
 }
 
@@ -635,6 +800,61 @@ void __not_in_flash_func(GS::topUpBudget)(int tstates) {
 }
 
 void GS::pollPerf() {
+#ifdef GS_DEBUG_TRACE
+    if (s_trace_dump_pending) {
+        s_trace_dump_pending = false;
+        traceDump();
+    }
+    // Auto-triggers (only after GS finished init; one-shot per session):
+    //
+    // 1. Sticky reset/halt: host PC stays <0x100 for 3 consecutive samples
+    //    (~3s with this 1Hz poll). One sample isn't enough — IM1 ISR vector
+    //    is at 0x0038 and ZP4 spends much of its time in interrupt handlers,
+    //    so a single hit is a false positive.
+    //
+    // 2. No-GS-activity stall: trace ring hasn't grown in 5+ samples. ZP4
+    //    is alive (or at least not crashed to ROM) but GS comms have stopped
+    //    — typically means a deadlock between host and GS, or ZP4 entered
+    //    a passive state waiting for something that never happens.
+    if (enabled && s_gs_main_loop && !s_trace_dumped_on_reset) {
+        static uint8_t  s_low_pc_count = 0;
+        static uint32_t s_last_trace_pos = 0;
+        static uint8_t  s_no_activity_count = 0;
+        uint16_t pc = gs_host_z80_pc();
+        if (pc < 0x0100) {
+            if (s_low_pc_count < 255) s_low_pc_count++;
+        } else {
+            s_low_pc_count = 0;
+        }
+        uint32_t pos = s_trace_pos;
+        if (pos == s_last_trace_pos) {
+            if (s_no_activity_count < 255) s_no_activity_count++;
+        } else {
+            s_no_activity_count = 0;
+            s_last_trace_pos = pos;
+        }
+        if (s_low_pc_count >= 3 || s_no_activity_count >= 5) {
+            s_trace_dumped_on_reset = true;
+            const char* why = (s_low_pc_count >= 3)
+                ? "host reset (PC<0x100 for 3s)"
+                : "no GS activity for 5s";
+            Debug::log("GS: %s, ZX_PC=%04X. Dumping state.", why, (unsigned)pc);
+            // Snapshot GS-Z80 state — sometimes the GS is the one stuck.
+            Debug::log("GS Z80: PC=%04X SP=%04X AF=%04X BC=%04X DE=%04X HL=%04X "
+                       "IX=%04X IY=%04X page=%02X st=%02X",
+                       (unsigned)Z80_PC(s_cpu), (unsigned)Z80_SP(s_cpu),
+                       (unsigned)Z80_AF(s_cpu), (unsigned)Z80_BC(s_cpu),
+                       (unsigned)Z80_DE(s_cpu), (unsigned)Z80_HL(s_cpu),
+                       (unsigned)Z80_IX(s_cpu), (unsigned)Z80_IY(s_cpu),
+                       (unsigned)reg_page, (unsigned)reg_status);
+            traceDump();
+            // Dump GS work_ram too — that's where ZP4 loads its CMD 0x13
+            // jump-target handler. Knowing the actual loaded code lets us
+            // diagnose whether the handler returned/halted correctly.
+            dumpWorkRam(0x4000, 0x4000);
+        }
+    }
+#endif  // GS_DEBUG_TRACE
     static uint32_t s_last_us = 0;
     uint32_t now = time_us_32();
     if ((now - s_last_us) < 1000000) return;
@@ -759,8 +979,6 @@ void __not_in_flash_func(GS::pump)() {
 
     int ran = step(budget_t);
     s_perf_tstates += (uint32_t)ran;
-    static uint32_t s_pump_log = 0;
-    if (s_pump_log < 3) { s_pump_log++; Debug::log("GS pump: ran=%d int_count=%u st=%02X pc=%04X", ran, (unsigned)int_count, (unsigned)reg_status, (unsigned)Z80_PC(s_cpu)); }
 }
 
 int __not_in_flash_func(GS::step)(int tstates) {
@@ -828,22 +1046,14 @@ uint8_t GS::hostReadB3() {
     if (fifo_used == 0) {
         gs_status_and(&reg_status, ~0x80u);
     }
-    static uint32_t s_b3r_log = 0;
-    if (s_b3r_log < 200) {
-        s_b3r_log++;
-        Debug::log("GS B3_r st=%02X ret=%02X", (unsigned)reg_status, (unsigned)v);
-    }
+    gs_trace_host(TR_B3r, v, reg_status);
     return v;
 }
 
 uint8_t GS::hostReadBB() {
     s_perf_h_bbr++;
     uint8_t v = reg_status | 0x7E;
-    static uint32_t s_bb_log = 0;
-    if (s_bb_log < 200) {
-        s_bb_log++;
-        Debug::log("GS BB_r st=%02X ret=%02X", (unsigned)reg_status, (unsigned)v);
-    }
+    gs_trace_host(TR_BBr, v, reg_status);
     return v;
 }
 
@@ -857,13 +1067,7 @@ uint8_t GS::hostReadBB() {
 // buffer — enough to absorb a full SCL sector (256 B) plus a margin.
 void GS::hostWriteB3(uint8_t data) {
     s_perf_h_b3w++;
-    {
-        static uint32_t s_b3w_log = 0;
-        if (s_b3w_log < 200) {
-            s_b3w_log++;
-            Debug::log("GS B3_w %02X st=%02X", (unsigned)data, (unsigned)reg_status);
-        }
-    }
+    gs_trace_host(TR_B3w, data, reg_status);
     uint32_t w = s_host_fifo_w;
     uint32_t used = w - s_host_fifo_r;
     if (used >= GS_HOST_FIFO_SIZE) {
@@ -887,13 +1091,14 @@ void GS::hostWriteB3(uint8_t data) {
 
 void GS::hostWriteBB(uint8_t data) {
     s_perf_h_bbw++;
-    {
-        static uint32_t s_bbw_log = 0;
-        if (s_bbw_log < 80) {
-            s_bbw_log++;
-            Debug::log("GS BB_w %02X st=%02X booted=%d", (unsigned)data, (unsigned)reg_status, (int)s_gs_booted);
-        }
+    gs_trace_host(TR_BBw, data, reg_status);
+#ifdef GS_DEBUG_TRACE
+    // Auto-dump trigger: ZP4 GS-detection sequence starts with CMD 0xD2 →
+    // CMD 0x20. Schedule a dump so we can see the full handshake on UART.
+    if (data == 0xD2) {
+        s_trace_dump_pending = true;
     }
+#endif
     // Wait for GS to complete initialization before delivering commands.
     // GS-Z80 runs its C000 init (populates work_ram dispatch table) after
     // the RAM test. Commands arriving before this completes jump into
@@ -996,6 +1201,109 @@ void __not_in_flash_func(GS::getLiveLR)(uint8_t& L, uint8_t& R) {
     L = gs_to_u8(sumL / (int32_t)n);
     R = gs_to_u8(sumR / (int32_t)n);
     s_ring_rpos = r + n;
+}
+
+// =================================================================
+// traceDump — flush the ring buffer to Debug::log
+// =================================================================
+// Walks entries in chronological order (oldest first). Time is rendered
+// relative to the first emitted entry so values are short and easy to
+// eyeball. Each line is one event:
+//
+//   GS@   123 KIND   data=DD st=SS  ZX=PPPP  GS=PPPP
+//
+// Buffer is cleared after dump so the next event window starts fresh.
+// Caller (pollPerf, OSD entry, etc.) decides when to invoke. When trace is
+// compiled out (GS_DEBUG_TRACE not defined), this is a no-op stub.
+#ifdef GS_DEBUG_TRACE
+void GS::traceDump() {
+    uint32_t end = s_trace_pos;
+    if (end == 0) {
+        Debug::log("GS trace: empty");
+        return;
+    }
+    uint32_t total = (end > GS_TRACE_SIZE) ? GS_TRACE_SIZE : end;
+    uint32_t start = end - total;  // oldest entry index (mod GS_TRACE_SIZE)
+
+    Debug::log("GS trace: %u entries (pos=%u)", (unsigned)total, (unsigned)end);
+    uint32_t base_us = s_trace[start & GS_TRACE_MASK].us;
+    for (uint32_t i = 0; i < total; i++) {
+        const GsTraceEntry& e = s_trace[(start + i) & GS_TRACE_MASK];
+        uint32_t rel = e.us - base_us;
+        if (e.pad > 0) {
+            Debug::log("GS@%7u %s data=%02X st=%02X ZX=%04X GS=%04X x%u",
+                       (unsigned)rel,
+                       gs_trace_kind_name(e.kind),
+                       (unsigned)e.data, (unsigned)e.st,
+                       (unsigned)e.pc_zx, (unsigned)e.pc_gs,
+                       (unsigned)(e.pad + 1));
+        } else {
+            Debug::log("GS@%7u %s data=%02X st=%02X ZX=%04X GS=%04X",
+                       (unsigned)rel,
+                       gs_trace_kind_name(e.kind),
+                       (unsigned)e.data, (unsigned)e.st,
+                       (unsigned)e.pc_zx, (unsigned)e.pc_gs);
+        }
+    }
+    Debug::log("GS trace: end");
+    s_trace_pos = 0;
+    for (int i = 0; i < 16; i++) s_trace_last_idx[i] = 0;
+}
+#else
+void GS::traceDump() {
+    Debug::log("GS trace: disabled (build with -DGS_DEBUG_TRACE)");
+}
+#endif
+
+// Hex + ASCII dump of GS work-RAM (CPU 0x4000-0x7FFF). 16 bytes per line:
+//   GSwr 5B00 00 00 00 .. 00 |.................|
+// Skips runs of identical lines, printing "* (NNN bytes same)" as in `xxd`.
+void GS::dumpWorkRam(uint16_t start, uint16_t len) {
+    if (start < 0x4000 || start >= 0x8000) {
+        Debug::log("GS dumpWorkRam: bad start %04X", (unsigned)start);
+        return;
+    }
+    uint32_t end = (uint32_t)start + len;
+    if (end > 0x8000) end = 0x8000;
+    Debug::log("GS work_ram dump: %04X..%04X", (unsigned)start, (unsigned)(end - 1));
+
+    char asc[17];
+    asc[16] = 0;
+    uint8_t prev_line[16];
+    bool have_prev = false;
+    bool in_run   = false;
+    uint32_t run_bytes = 0;
+    for (uint32_t addr = start; addr < end; addr += 16) {
+        const uint8_t* row = &s_gs_work_ram[addr - 0x4000];
+        if (have_prev && memcmp(prev_line, row, 16) == 0) {
+            if (!in_run) in_run = true;
+            run_bytes += 16;
+            continue;
+        }
+        if (in_run) {
+            Debug::log("GSwr   * (%u bytes same)", (unsigned)run_bytes);
+            in_run = false;
+            run_bytes = 0;
+        }
+        for (int i = 0; i < 16; i++) {
+            uint8_t b = row[i];
+            asc[i] = (b >= 0x20 && b < 0x7F) ? (char)b : '.';
+        }
+        Debug::log("GSwr %04X %02X %02X %02X %02X %02X %02X %02X %02X "
+                   "%02X %02X %02X %02X %02X %02X %02X %02X |%s|",
+                   (unsigned)addr,
+                   row[0], row[1], row[2], row[3],
+                   row[4], row[5], row[6], row[7],
+                   row[8], row[9], row[10], row[11],
+                   row[12], row[13], row[14], row[15],
+                   asc);
+        memcpy(prev_line, row, 16);
+        have_prev = true;
+    }
+    if (in_run) {
+        Debug::log("GSwr   * (%u bytes same)", (unsigned)run_bytes);
+    }
+    Debug::log("GS work_ram dump: end");
 }
 
 #endif // USE_GS

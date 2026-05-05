@@ -40,6 +40,16 @@ public:
     static void    hostWriteB3(uint8_t data);
     static void    hostWriteBB(uint8_t data);
 
+    // Dump host/guest port-IO trace ring buffer to Debug::log. Triggered
+    // automatically on key handshake events; can also be called manually
+    // from a key binding or OSD entry.
+    static void    traceDump();
+
+    // Dump GS-Z80 work-RAM (CPU 0x4000-0x7FFF) to Debug::log as a hex+ASCII
+    // canonical 16-bytes-per-line view. start/len are GS CPU addresses;
+    // start must be >= 0x4000 and start+len <= 0x8000.
+    static void    dumpWorkRam(uint16_t start, uint16_t len);
+
     static int16_t getSampleLeft();
     static int16_t getSampleRight();
 

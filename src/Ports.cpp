@@ -162,6 +162,12 @@ uint8_t nes_pad2_for_alf(void);
 static uint8_t newAlfBit = 0;
 
 extern int ram_pages, butter_pages, psram_pages, swap_pages;
+
+#ifdef USE_GS
+// Proxy for GS.cpp — that TU includes Z80_redcode.h which clashes with
+// Z80_JLS/z80.h, so it can't query the host PC directly.
+extern "C" uint16_t gs_host_z80_pc(void) { return Z80::getRegPC(); }
+#endif
 inline static size_t extendedZxRamPages() {
   if (Z80Ops::is1024)
     return 64;
