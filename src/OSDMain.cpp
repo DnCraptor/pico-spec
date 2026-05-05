@@ -64,6 +64,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "MidiSynth.h"
 #include "kbd_img.h"
 extern "C" void graphics_set_scanlines(bool enabled);
+extern "C" void graphics_set_dither(bool enabled);
 #if !PICO_RP2040
 #include "DivMMC.h"
 #include "MB02.h"
@@ -3039,6 +3040,47 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_curopt = 10;
                                     menu_level = 1;
                                     break;
+                                }
+                            }
+                        }
+                        // HDMI Dither (visible only on HDMI builds — palette has no extra bits on VGA)
+                        else if (options_num == 11) {
+#ifdef VGA_HDMI
+                            if (SELECT_VGA) {
+                                OSD::osdCenteredMsg("HDMI only", LEVEL_WARN, 1500);
+                            } else
+#endif
+                            {
+                                menu_level = 2;
+                                menu_curopt = 1;
+                                menu_saverect = true;
+                                while (1) {
+                                    string dith_menu = MENU_HDMI_DITHER[Config::lang];
+                                    dith_menu += MENU_YESNO[Config::lang];
+                                    bool prev = Config::hdmi_dither;
+                                    if (prev) {
+                                        dith_menu.replace(dith_menu.find("[Y",0),2,"[*");
+                                        dith_menu.replace(dith_menu.find("[N",0),2,"[ ");
+                                    } else {
+                                        dith_menu.replace(dith_menu.find("[Y",0),2,"[ ");
+                                        dith_menu.replace(dith_menu.find("[N",0),2,"[*");
+                                    }
+                                    uint8_t opt2 = menuRun(dith_menu);
+                                    if (opt2) {
+                                        Config::hdmi_dither = (opt2 == 1);
+                                        if (Config::hdmi_dither != prev) {
+                                            // Only takes effect when ULA+ is active; the HDMI ISR
+                                            // OR-masks indices 0..63 with 0x40 to sample palette[64..127].
+                                            graphics_set_dither(Config::hdmi_dither && VIDEO::ulaplus_enabled);
+                                            Config::save();
+                                        }
+                                        menu_curopt = opt2;
+                                        menu_saverect = false;
+                                    } else {
+                                        menu_curopt = 11;
+                                        menu_level = 1;
+                                        break;
+                                    }
                                 }
                             }
                         }

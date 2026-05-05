@@ -231,6 +231,7 @@ public:
     static uint8_t gigascreen_onoff; // 0=Off, 1=On, 2=Auto
 #if !PICO_RP2040
     static bool ulaplus;
+    static bool hdmi_dither;
 #endif
     // Palette: 0=Default, 1=Grayscale
     static uint8_t palette;

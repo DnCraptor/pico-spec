@@ -647,7 +647,8 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 		"Gigascreen (No Flick)\t>\n"\
 		"ULA+\t>\n"\
 		"Timex Gfx Mode\t>\n"\
-		"DMA\t>\n"
+		"DMA\t>\n"\
+		"HDMI Dither (ULA+)\t>\n"
 	#define MENU_VIDEO_ES \
 		"Video\n"\
 		"Modo\t>\n"\
@@ -659,7 +660,8 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 		"Gigascreen (No Flick)\t>\n"\
 		"ULA+\t>\n"\
 		"Timex Gfx Mode\t>\n"\
-		"DMA\t>\n"
+		"DMA\t>\n"\
+		"Tramado HDMI (ULA+)\t>\n"
 #else
 	#define MENU_VIDEO_EN \
 		"Video\n"\
@@ -1005,6 +1007,7 @@ static const char *MSG_MIDI_PIN_CONFLICT[2] = {
 
 #if !PICO_RP2040
 static const char *MENU_ULAPLUS[2] = { "ULA+\n", "ULA+\n"};
+static const char *MENU_HDMI_DITHER[2] = { "HDMI Dither (ULA+)\n", "Tramado HDMI (ULA+)\n"};
 static const char *MENU_TIMEX[2] = { "Timex Gfx Mode\n", "Timex Gfx Mode\n"};
 #define MENU_DMA_EN "DMA\n"\
     "OFF            \t[O]\n"\

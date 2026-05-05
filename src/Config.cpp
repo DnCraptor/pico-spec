@@ -120,6 +120,7 @@ bool     Config::gigascreen_enabled = false;
 uint8_t  Config::gigascreen_onoff = 0;
 #if !PICO_RP2040
 bool     Config::ulaplus = false;
+bool     Config::hdmi_dither = false;
 bool     Config::timex_video = false;
 uint8_t  Config::dma_mode = 0;
 #endif
@@ -615,6 +616,7 @@ void Config::load() {
         #endif
         #if !PICO_RP2040
         nvs_get_b("ulaplus", ulaplus, sts);
+        nvs_get_b("hdmi_dither", hdmi_dither, sts);
         nvs_get_b("timex_video", timex_video, sts);
         nvs_get_u8("dma_mode", dma_mode, sts);
         #endif
@@ -820,6 +822,7 @@ void Config::save() {
     nvs_set_u8(buf,"gigascreen_onoff", Config::gigascreen_onoff);
     #if !PICO_RP2040
     nvs_set_str(buf,"ulaplus", Config::ulaplus ? "true" : "false");
+    nvs_set_str(buf,"hdmi_dither", Config::hdmi_dither ? "true" : "false");
     nvs_set_str(buf,"timex_video", Config::timex_video ? "true" : "false");
     nvs_set_u8(buf,"dma_mode",Config::dma_mode);
     #endif

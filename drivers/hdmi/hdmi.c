@@ -23,6 +23,12 @@ extern enum graphics_mode_t graphics_mode;
 // Scanlines mode: when enabled, every other physical line is dark
 static bool hdmi_scanlines = false;
 
+// Bayer 2x2 dither: when enabled, alternates each pixel's palette index between
+// idx and idx|0x40 according to (y^x) parity. Only safe when active palette
+// indices are within [0..63] (ULA+ range) and palette[64..127] hold dither
+// neighbours populated by Video.cpp.
+static bool hdmi_dither = false;
+
 //буфер  палитры 256 цветов в формате R8G8B8
 static uint32_t palette[256];
 
@@ -326,13 +332,28 @@ static void __scratch_x("hdmi_driver") dma_handler_HDMI() {
         const uint8_t* input_buffer_end = input_buffer + graphics_buffer_width;
         if (graphics_buffer_shift_x < 0) input_buffer -= graphics_buffer_shift_x;
         register size_t x = 0;
-        while (activ_buf_end > output_buffer) {
-            if (input_buffer < input_buffer_end) {
-                // Direct 8-bit palette index — no mask or lookup needed
-                *output_buffer++ = input_buffer[(x++) ^ 2];
+        if (hdmi_dither) {
+            // Bayer 2x2: pixel at (x,y) takes idx | (((y^x)&1) << 6)
+            // palette[idx | 0x40] holds the dither neighbour (Video.cpp)
+            const uint8_t row_xor = (y & 1) ? 0x40 : 0x00;
+            while (activ_buf_end > output_buffer) {
+                if (input_buffer < input_buffer_end) {
+                    uint8_t idx = input_buffer[(x) ^ 2];
+                    *output_buffer++ = idx | (row_xor ^ ((x & 1) ? 0x40 : 0x00));
+                    x++;
+                } else {
+                    *output_buffer++ = 255;
+                }
             }
-            else
-                *output_buffer++ = 255;
+        } else {
+            while (activ_buf_end > output_buffer) {
+                if (input_buffer < input_buffer_end) {
+                    // Direct 8-bit palette index — no mask or lookup needed
+                    *output_buffer++ = input_buffer[(x++) ^ 2];
+                }
+                else
+                    *output_buffer++ = 255;
+            }
         }
 ex:
 
@@ -734,6 +755,10 @@ void graphics_set_bgcolor_hdmi(uint32_t color888) //определяем зар�
 
 void hdmi_set_scanlines(bool enabled) {
     hdmi_scanlines = enabled;
+}
+
+void hdmi_set_dither(bool enabled) {
+    hdmi_dither = enabled;
 }
 
 // ============================================================

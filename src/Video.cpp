@@ -54,6 +54,7 @@ extern "C" void graphics_set_palette(uint8_t i, uint32_t color888);
 extern "C" void vga_set_palette_entry_solid(uint8_t i, uint32_t color888);
 extern "C" void graphics_set_buffer(uint8_t* buffer, uint16_t width, uint16_t height);
 extern "C" void graphics_set_scanlines(bool enabled);
+extern "C" void graphics_set_dither(bool enabled);
 extern "C" void hdmi_reinit(void);
 extern "C" void vga_reinit(void);
 // Place hot video functions in SRAM instead of XIP flash
@@ -634,16 +635,35 @@ static inline uint32_t grb_to_rgb888(uint8_t grb) {
     return (R << 16) | (G << 8) | B;
 }
 
+// Bayer dither neighbour: brighten each channel by ~1 VGA-step (saturating).
+// Used only by HDMI dither path; mimics the visual look of VGA Bayer.
+static inline uint32_t dither_neighbour(uint32_t rgb) {
+    int R = ((rgb >> 16) & 0xFF) + 8; if (R > 255) R = 255;
+    int G = ((rgb >> 8) & 0xFF) + 8; if (G > 255) G = 255;
+    int B = (rgb & 0xFF) + 8; if (B > 255) B = 255;
+    return (R << 16) | (G << 8) | B;
+}
+
 #if !PICO_RP2040
+// Apply ULA+ palette entry i (and Bayer-dither neighbour at i|0x40 for HDMI)
+static inline void applyUlaPlusPalette(int i) {
+    uint32_t base = paletteTransform(grb_to_rgb888(VIDEO::ulaplus_palette[i]));
+    graphics_set_palette(i, base);
+    // Always populate the dither slot so toggling Config::hdmi_dither at runtime
+    // does not require a palette rebuild. When dither is off, hdmi.c does not
+    // read palette[i|0x40], so the cost is just an extra LUT write per entry.
+    graphics_set_palette(i | 0x40, dither_neighbour(base));
+}
+
 void VIDEO::regenerateUlaPlusAluBytes() {
-    // Set palette colors for all 64 ULA+ entries
-    for (int i = 0; i < 64; i++)
-        graphics_set_palette(i, paletteTransform(grb_to_rgb888(ulaplus_palette[i])));
+    for (int i = 0; i < 64; i++) applyUlaPlusPalette(i);
 
     // Point AluByte to flash-resident ULA+ table (palette indices 0-63,
     // fixed mapping that depends only on attribute format, not palette contents)
     for (int n = 0; n < 16; n++)
         AluByte[n] = (unsigned int*)AluBytesUlaPlus_flash[n];
+
+    graphics_set_dither(Config::hdmi_dither);
 }
 
 // Fast path: update single palette entry without rebuilding AluBytes
@@ -658,8 +678,7 @@ void VIDEO::ulaPlusUpdatePaletteEntry(uint8_t entry) {
 void VIDEO::ulaPlusFlushPalette() {
     if (!ulaplus_palette_dirty) return;
     ulaplus_palette_dirty = false;
-    for (int i = 0; i < 64; i++)
-        graphics_set_palette(i, paletteTransform(grb_to_rgb888(ulaplus_palette[i])));
+    for (int i = 0; i < 64; i++) applyUlaPlusPalette(i);
 }
 
 void VIDEO::ulaPlusUpdateBorder() {
@@ -674,6 +693,10 @@ void VIDEO::ulaPlusDisable() {
     ulaplus_enabled = false;
     ulaplus_palette_dirty = false;
     flashing = 0;
+    // Dither is meaningful only with ULA+; force it off so palette[64..127]
+    // (which now hold default G3R3B2 values, not Bayer neighbours) won't be
+    // sampled by the HDMI ISR.
+    graphics_set_dither(false);
     // Restore palette: indices 0-63 back to G3R3B2 defaults, then 0-15 to Spectrum (solid)
     for (int i = 0; i < 64; i++)
         graphics_set_palette(i, paletteTransform(grb_to_rgb888(i)));

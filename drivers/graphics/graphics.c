@@ -256,8 +256,22 @@ void graphics_set_scanlines(bool enabled) {
     hdmi_set_scanlines(enabled);
     vga_set_scanlines(enabled);
 }
+extern void hdmi_set_dither(bool enabled);
+void graphics_set_dither(bool enabled) {
+    hdmi_set_dither(enabled);
+}
 #else
 void graphics_set_scanlines(bool enabled) {
     (void)enabled;
 }
+#ifdef HDMI
+extern void hdmi_set_dither(bool enabled);
+void graphics_set_dither(bool enabled) {
+    hdmi_set_dither(enabled);
+}
+#else
+void graphics_set_dither(bool enabled) {
+    (void)enabled;
+}
+#endif
 #endif
