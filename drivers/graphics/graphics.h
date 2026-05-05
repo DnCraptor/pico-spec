@@ -40,7 +40,14 @@ typedef struct video_mode_t{
   // VGA-only overrides for fields above. If 0/zero, VGA uses the main fields.
   // HDMI never reads these — its timing is unaffected.
   int vga_v_total;
+  int vga_v_active;
   int vga_pixel_clk;
+  int vga_vsync_start;
+  int vga_vsync_end;
+  int vga_h_sync_bytes;
+  int vga_h_bp_bytes;
+  int vga_h_fp_bytes;
+  int vga_screen_width;
 };
 
 enum graphics_mode_t {
