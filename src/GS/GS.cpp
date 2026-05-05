@@ -27,6 +27,20 @@ static inline void gs_status_and(volatile uint8_t* p, uint8_t mask) {
 extern uint8_t* PSRAM_DATA;
 extern uint32_t butter_psram_size();
 
+// SPI PSRAM (non-butter) backend — used when butter XIP isn't available
+// (e.g. MURM PCB on RP2350 has plain SPI PSRAM on GP18-21, not dedicated
+// chip-select). Access is ~30× slower than XIP (~1.4 MB/s vs ~50 MB/s),
+// every transaction goes through one PIO state machine shared with core0.
+// Audio quality on this path is best-effort — simple AY/PT3 may work,
+// MOD playback will likely glitch when core0 is busy with PSRAM.
+#include "psram_spi.h"
+
+// Backend selection: when true, s_gs_ram_base is an offset into SPI PSRAM
+// (use read*/write*psram); when false, s_gs_ram is a direct pointer
+// (butter XIP @ 0x11000000).
+static bool     s_gs_use_spi  = false;
+static uint32_t s_gs_ram_base = 0;
+
 static volatile uint32_t s_gs_diag_count = 0;
 #define GS_DIAG(fmt, ...) do { \
     if (s_gs_diag_count < 400) { s_gs_diag_count++; Debug::log("GS z80: " fmt, ##__VA_ARGS__); } \
@@ -209,7 +223,11 @@ static inline zuint8 __not_in_flash_func(gs_pc_read)(uint32_t psram_off) {
     s_perf_pc_miss++;
     uint8_t v = s_pc_next[set];
     s_pc_next[set] = (v + 1) & (GS_PC_WAYS - 1);
-    memcpy(s_pc_data[set][v], &s_gs_ram[line << GS_PC_LINE_BITS], GS_PC_LINE_SZ);
+    if (s_gs_use_spi) {
+        readpsram(s_pc_data[set][v], s_gs_ram_base + (line << GS_PC_LINE_BITS), GS_PC_LINE_SZ);
+    } else {
+        memcpy(s_pc_data[set][v], &s_gs_ram[line << GS_PC_LINE_BITS], GS_PC_LINE_SZ);
+    }
     s_pc_tag[set][v] = line;
     s_pc_last_line = line;
     s_pc_last_buf  = s_pc_data[set][v];
@@ -267,7 +285,11 @@ static void __not_in_flash_func(gs_cb_write)(void* ctx, zuint16 address, zuint8 
     }
     if (GS::reg_page == 0) return;
     uint32_t off = (gs_map_addr(address) + 0x4000) & s_gs_ram_mask;
-    s_gs_ram[off] = value;  // PSRAM — banked sample pages
+    if (s_gs_use_spi) {
+        write8psram(s_gs_ram_base + off, value);
+    } else {
+        s_gs_ram[off] = value;  // PSRAM — banked sample pages
+    }
     gs_pc_invalidate_line(off);  // keep SRAM cache coherent
 }
 
@@ -483,24 +505,47 @@ bool GS::init(uint32_t ram_size_bytes) {
     ram_size_bytes = rounded;
 
     uint32_t psram = butter_psram_size();
-    if (psram == 0) {
-        Debug::log("GS::init: no butter PSRAM");
-        return false;
+    if (psram > 0) {
+        // Butter XIP path — fast, direct SRAM pointer at 0x11000000.
+        size_t butter_used  = (size_t)butter_pages * MEM_PG_SZ;
+        size_t divmmc_total = DivMMC::use_psram
+            ? (size_t)DIVMMC_NUM_BANKS * DIVMMC_BANK_SIZE
+            : 0;
+        size_t reserved_below = butter_used + divmmc_total;
+
+        if ((size_t)psram < reserved_below + ram_size_bytes) {
+            Debug::log("GS::init: not enough butter PSRAM (need %u, have %u free)",
+                       (unsigned)ram_size_bytes, (unsigned)(psram - reserved_below));
+            return false;
+        }
+
+        s_gs_use_spi  = false;
+        s_gs_ram      = PSRAM_DATA + (psram - ram_size_bytes);
+        s_gs_ram_base = 0;
+    } else {
+        // SPI PSRAM fallback — MURM v1.4 (RP2350 on PCB with plain SPI PSRAM).
+        // ~30× slower than XIP. MemESP places swap pages bottom-up at offset
+        // i*16KB, so we reserve the top of PSRAM and place GS RAM there.
+        // Memory map: [0 .. gs_base) = MemESP swap pool,
+        //             [gs_base .. spi_size) = GS RAM.
+        uint32_t spi = psram_size();
+        if (spi == 0) {
+            Debug::log("GS::init: no PSRAM (butter or SPI)");
+            return false;
+        }
+        // Make sure MemESP swap pool fits below GS RAM (worst case = MEM_PG_CNT pages).
+        size_t memesp_max = (size_t)MEM_PG_CNT * MEM_PG_SZ;
+        if ((size_t)spi < memesp_max + ram_size_bytes) {
+            Debug::log("GS::init: SPI PSRAM too small (%u, need %u + %u memesp)",
+                       (unsigned)spi, (unsigned)ram_size_bytes, (unsigned)memesp_max);
+            return false;
+        }
+        s_gs_use_spi  = true;
+        s_gs_ram      = nullptr;
+        s_gs_ram_base = spi - ram_size_bytes;
+        Debug::log("GS::init: SPI PSRAM @ +%u MB (slow path, expect MOD glitches)",
+                   (unsigned)(s_gs_ram_base >> 20));
     }
-
-    size_t butter_used  = (size_t)butter_pages * MEM_PG_SZ;
-    size_t divmmc_total = DivMMC::use_psram
-        ? (size_t)DIVMMC_NUM_BANKS * DIVMMC_BANK_SIZE
-        : 0;
-    size_t reserved_below = butter_used + divmmc_total;
-
-    if ((size_t)psram < reserved_below + ram_size_bytes) {
-        Debug::log("GS::init: not enough PSRAM (need %u, have %u free)",
-                   (unsigned)ram_size_bytes, (unsigned)(psram - reserved_below));
-        return false;
-    }
-
-    s_gs_ram      = PSRAM_DATA + (psram - ram_size_bytes);
     s_gs_ram_mask = ram_size_bytes - 1;
     gs_ram_size   = ram_size_bytes;
 
@@ -536,15 +581,17 @@ bool GS::init(uint32_t ram_size_bytes) {
 
     reset();
     enabled = true;
-    Debug::log("GS::init: OK, ram=%u KB at +%u MB",
+    Debug::log("GS::init: OK, ram=%u KB, backend=%s",
                (unsigned)(ram_size_bytes >> 10),
-               (unsigned)((psram - ram_size_bytes) >> 20));
+               s_gs_use_spi ? "SPI" : "XIP");
     return true;
 }
 
 void GS::deinit() {
     enabled = false;
     s_gs_ram = nullptr;
+    s_gs_ram_base = 0;
+    s_gs_use_spi = false;
     s_gs_ram_mask = 0;
     gs_ram_size = 0;
 }

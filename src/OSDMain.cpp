@@ -2262,7 +2262,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     // Audio: insert General Sound item between MIDI and Audio Driver when GS is available
                     string audio_menu = MENU_AUDIO[Config::lang];
 #ifdef USE_GS
-                    bool gs_avail = (butter_psram_size() > 0);
+                    // GS works on butter XIP (fast) or, as a fallback, on plain SPI PSRAM
+                    // (slow path, ~30× slower — best-effort, may glitch on MOD playback).
+                    // For SPI fallback, need room for MemESP swap pool + 2 MB GS RAM.
+                    bool gs_avail = (butter_psram_size() > 0)
+                                    || (psram_size() >= (size_t)MEM_PG_CNT * MEM_PG_SZ + (2u << 20));
                     if (gs_avail) {
                         // Find the last item ("Audio Driver") and insert GS before it
                         size_t last_nl = audio_menu.rfind('\n', audio_menu.size() - 2);
