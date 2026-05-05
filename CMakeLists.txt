@@ -43,7 +43,7 @@ endif()
 set(NO_ALF 1)
 
 set(CPU_MHZ 378)
-set (PORT_VERSION "1.2.14")
+set (PORT_VERSION "1.2.15")
 string(LENGTH "${PORT_VERSION}" PORT_VERSION_LEN)
 
 # Target board (default: PICO_PC; override with -D flags, e.g. cmake -DMURM2=ON)
@@ -365,7 +365,7 @@ ELSEIF(PICO_PC)
     # on-board DBG1 header (GP0=TX, GP1=RX) of Olimex RP2040-PICO-PC.
     # DBG1 shares pins with KBD_CLOCK/KBD_DATA → keyboard is auto-remapped to FREE
     # pins GP10/GP11 when DBG_UART is enabled.
-    set(PICO_PC_DBG_UART ON CACHE BOOL "Enable Debug Probe UART0 on DBG1 header GP0/GP1 (PICO_PC)")
+    set(PICO_PC_DBG_UART OFF CACHE BOOL "Enable Debug Probe UART0 on DBG1 header GP0/GP1 (PICO_PC)")
     if(PICO_PC_DBG_UART)
         pico_enable_stdio_uart(${PROJECT_NAME} 1)
         set(PICO_PC_KBD_CLOCK 10) # GP0 taken by UART TX → move KBD to FREE pin
@@ -449,7 +449,7 @@ ELSEIF(PICO_PC)
 ELSEIF(PICO_DV)
     # Optional UART for Debug Probe. Set DBG_UART_PINS=ON to enable UART1 on GP20/GP21.
     # Note: GP20 is also LOAD_WAV_PIO default — auto-remapped to GP3 when UART enabled.
-    set(PICO_DV_DBG_UART ON CACHE BOOL "Enable Debug Probe UART1 on GP20/GP21 (PICO_DV)")
+    set(PICO_DV_DBG_UART OFF CACHE BOOL "Enable Debug Probe UART1 on GP20/GP21 (PICO_DV)")
     if(PICO_DV_DBG_UART)
         pico_enable_stdio_uart(${PROJECT_NAME} 1)
         set(PICO_DV_LOAD_WAV_PIO 3)  # GP20 taken by UART → use FREE pin
@@ -528,7 +528,7 @@ ELSEIF(PICO_DV)
 ELSEIF(ZERO)
     # Optional UART for Debug Probe. Set ZERO_DBG_UART=ON to enable UART0 on GP16(TX)/GP13(RX).
     # Both pins are FREE on ZERO; UART0 used because UART1 has no free pins on this board.
-    set(ZERO_DBG_UART ON CACHE BOOL "Enable Debug Probe UART0 on GP16/GP13 (ZERO)")
+    set(ZERO_DBG_UART OFF CACHE BOOL "Enable Debug Probe UART0 on GP16/GP13 (ZERO)")
     if(ZERO_DBG_UART)
         pico_enable_stdio_uart(${PROJECT_NAME} 1)
     endif()
