@@ -46,6 +46,7 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - Contended memory and contended I/O emulation.
 - AY-3-8912 / TurboSound emulation.
 - SAA1099 sound chip emulation (https://en.wikipedia.org/wiki/Philips_SAA1099).
+- General Sound (GS) emulation: dedicated Z80 @ 12 MHz on core1 with 2 MB sample RAM, ring-buffered DAC, host→GS FIFO for no-handshake loaders. Auto-enabled on RP2350 boards with butter PSRAM.
 - MIDI support: external UART output (AY bit-bang, ShamaZX) and built-in software synthesizer (RP2350 only).
 - Beeper & Mic emulation (Cobra’s Arc).
 - Dual keyboard support: you can connect two devices: first using PS/2 protocol and second using USB at the same time.
@@ -220,6 +221,7 @@ Your filesystem tree must be look like:
 | `-DTFT=ON` | TFT display output |
 | `-DILI9341=ON` | ILI9341 TFT display output |
 | `-DPICO_PC_DBG_UART=ON` | PICO_PC: enable UART0 on DBG1 header (GP0=TX, GP1=RX) for Debug Probe. Auto-remaps PS/2 keyboard to GP10/GP11 to free the pins. |
+| `-DTFT_ST7789=ON` | ST7789 TFT display variant |
 
 #### Multi-target build script
 
@@ -229,7 +231,7 @@ To build firmware for all supported boards and display variants at once, use the
 ./build_all.sh [--clean] [-j JOBS_PER_BUILD] [-p MAX_PARALLEL] [TARGETS...]
 ```
 
-- Targets: `MURM_P1 MURM_P2 MURM2 PICO_PC PICO_DV ZERO ZERO2` (default: all)
+- Targets: `MURM_P1 MURM_P2 MURM2_P1 MURM2_P2 PICO_PC PICO_DV ZERO ZERO2` (default: all)
 - `--clean` — wipe build dirs first (default: incremental rebuild)
 - `-j` — threads per target build (default: `nproc / MAX_PARALLEL`)
 - `-p` — max number of targets built concurrently (default: 3)

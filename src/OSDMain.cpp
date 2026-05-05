@@ -127,6 +127,7 @@ unsigned short OSD::menu_curopt = 1;
 bool OSD::menu_del_pressed = false;
 bool OSD::menu_rename_pressed = false;
 bool OSD::menu_quicksave_pressed = false;
+bool OSD::menu_quickload_pressed = false;
 string OSD::menu_footer = "";
 
 unsigned short OSD::scrW = 320;
@@ -1061,7 +1062,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             menu_curopt = Config::persist_slot;
             // Persist Load
             while (1) {
-                menu_footer = Config::lang ? "F6:Renombrar  F8:Borrar" : "F6:Rename  F8:Remove";
+                menu_footer = Config::lang ? "F3:Cargar  F6:Renombrar  F8:Borrar" : "F3:Load  F6:Rename  F8:Remove";
                 uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_LOAD[Config::lang], 40));
                 if (opt2) {
                     Config::persist_slot = opt2;
@@ -2182,7 +2183,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_curopt = 1;
                                     menu_saverect = true;
                                     while (1) {
-                                        menu_footer = Config::lang ? "F6: Renombrar  F8: Borrar" : "F6: Rename  F8: Remove";
+                                        menu_footer = Config::lang ? "F3: Cargar  F6: Renombrar  F8: Borrar" : "F3: Load  F6: Rename  F8: Remove";
                 uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_LOAD[Config::lang], 10));
                                         if (opt2) {
                                             if (menu_del_pressed) {
@@ -6652,7 +6653,7 @@ c:
             if (FileUtils::fsMount && Nextkey.vk == fabgl::VK_F11) {
                 // Persist Load
                 while (1) {
-                    menu_footer = Config::lang ? "F6: Renombrar  F8: Borrar" : "F6: Rename  F8: Remove";
+                    menu_footer = Config::lang ? "F3: Cargar  F6: Renombrar  F8: Borrar" : "F3: Load  F6: Rename  F8: Remove";
                 uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_LOAD[Config::lang], 40));
                     if (opt2) {
                         if (menu_del_pressed) {
