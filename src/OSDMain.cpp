@@ -2259,8 +2259,25 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 menu_curopt = 1;
                 while (1) {
                     menu_level = 1;
-                    // Audio
-                    uint8_t options_num = menuRun(MENU_AUDIO[Config::lang]);
+                    // Audio: insert General Sound item between MIDI and Audio Driver when GS is available
+                    string audio_menu = MENU_AUDIO[Config::lang];
+#ifdef USE_GS
+                    // GS works on butter XIP (fast) or, as a fallback, on plain SPI PSRAM
+                    // (slow path, ~30× slower — best-effort, may glitch on MOD playback).
+                    // For SPI fallback, need room for MemESP swap pool + 2 MB GS RAM.
+                    bool gs_avail = (butter_psram_size() > 0)
+                                    || (psram_size() >= (size_t)MEM_PG_CNT * MEM_PG_SZ + (2u << 20));
+                    if (gs_avail) {
+                        // Find the last item ("Audio Driver") and insert GS before it
+                        size_t last_nl = audio_menu.rfind('\n', audio_menu.size() - 2);
+                        if (last_nl != string::npos) {
+                            audio_menu.insert(last_nl + 1, MENU_AUDIO_GS_ITEM[Config::lang]);
+                        }
+                    }
+#else
+                    bool gs_avail = false;
+#endif
+                    uint8_t options_num = menuRun(audio_menu);
                     if (options_num > 0) {
                         if (options_num == 1) {
                             menu_level = 2;
@@ -2512,10 +2529,47 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 }
                             }
                         }
+#ifdef USE_GS
+                        else if (gs_avail && options_num == 7) { // General Sound
+                            menu_level = 2;
+                            menu_curopt = 1;
+                            menu_saverect = true;
+                            while (1) {
+                                string gs_menu = MENU_GS[Config::lang];
+                                gs_menu += MENU_YESNO[Config::lang];
+                                uint8_t prev_gs = Config::gs_enabled;
+                                if (prev_gs) {
+                                    gs_menu.replace(gs_menu.find("[Y",0),2,"[*");
+                                    gs_menu.replace(gs_menu.find("[N",0),2,"[ ");
+                                } else {
+                                    gs_menu.replace(gs_menu.find("[Y",0),2,"[ ");
+                                    gs_menu.replace(gs_menu.find("[N",0),2,"[*");
+                                }
+                                uint8_t opt2 = menuRun(gs_menu);
+                                if (opt2) {
+                                    Config::gs_enabled = (opt2 == 1) ? 1 : 0;
+                                    if (Config::gs_enabled != prev_gs) {
+                                        if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
+                                            Config::save();
+                                            esp_hard_reset();
+                                        } else {
+                                            Config::gs_enabled = prev_gs;
+                                        }
+                                    }
+                                    menu_curopt = opt2;
+                                    menu_saverect = false;
+                                } else {
+                                    menu_curopt = 7;
+                                    menu_level = 1;
+                                    break;
+                                }
+                            }
+                        }
+#endif
 #endif
                         else if (options_num ==
 #if !PICO_RP2040
-                            7
+                            (gs_avail ? 8 : 7)
 #else
                             5
 #endif
@@ -2561,7 +2615,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 } else {
                                     menu_curopt =
 #if !PICO_RP2040
-                                        7;
+                                        (gs_avail ? 8 : 7);
 #else
                                         5;
 #endif
@@ -4543,13 +4597,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     }
                 }
                 // The Enter used to pick this menu item may still be held — wait for the
-                // first key-up event, then accept any subsequent key-down as "close".
+                // first key-up event, then accept ESC or Enter as "close".
                 bool saw_release = false;
                 while (1) {
                     if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
                         if (ESPectrum::readKbd(&Nextkey)) {
                             if (!Nextkey.down) { saw_release = true; continue; }
-                            if (saw_release) break;
+                            if (saw_release && (is_enter(Nextkey.vk) || is_back(Nextkey.vk))) break;
                         }
                     }
                     sleep_ms(20);

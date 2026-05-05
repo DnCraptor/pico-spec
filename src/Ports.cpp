@@ -53,6 +53,9 @@ visit https://zxespectrum.speccy.org/contacto
 
 #include "Midi.h"
 #include "Z80DMA.h"
+#ifdef USE_GS
+#include "GS/GS.h"
+#endif
 #if !PICO_RP2040
 #include "DivMMC.h"
 #include "MB02.h"
@@ -159,6 +162,12 @@ uint8_t nes_pad2_for_alf(void);
 static uint8_t newAlfBit = 0;
 
 extern int ram_pages, butter_pages, psram_pages, swap_pages;
+
+#ifdef USE_GS
+// Proxy for GS.cpp — that TU includes Z80_redcode.h which clashes with
+// Z80_JLS/z80.h, so it can't query the host PC directly.
+extern "C" uint16_t gs_host_z80_pc(void) { return Z80::getRegPC(); }
+#endif
 inline static size_t extendedZxRamPages() {
   if (Z80Ops::is1024)
     return 64;
@@ -273,6 +282,22 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     if (Midi::enabled >= 2 && address == 0xA0CF) {
       return 0x00;
     }
+#ifdef USE_GS
+    // General Sound — host-side status/data ports
+    // {
+    //   uint8_t a8 = address & 0xFF;
+    //   if (a8 == 0xB3 || a8 == 0xBB) {
+    //     Debug::log("IN %04X (a8=%02X) GS.en=%d", address, a8, GS::enabled);
+    //   }
+    // }
+    if (GS::enabled) {
+      uint8_t a8 = address & 0xFF;
+      if (a8 == 0xB3 || a8 == 0xBB) {
+        ioContentionLate(MemESP::ramContended[rambank]);
+        return (a8 == 0xB3) ? GS::hostReadB3() : GS::hostReadBB();
+      }
+    }
+#endif
     // Timex SCLD port read (port 0x00FF) — skip when TR-DOS is active (port conflict)
     if (Config::timex_video && !ESPectrum::trdos && address == 0x00FF) {
       ioContentionLate(MemESP::ramContended[rambank]);
@@ -626,6 +651,17 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
       Midi::send(data);
       return;
     }
+#ifdef USE_GS
+    // General Sound — host-side data/command ports
+    if (GS::enabled) {
+      if (a8 == 0xB3 || a8 == 0xBB) {
+        if (a8 == 0xB3) GS::hostWriteB3(data);
+        else            GS::hostWriteBB(data);
+        ioContentionLate(MemESP::ramContended[rambank]);
+        return;
+      }
+    }
+#endif
     // Z80 DMA / zxnDMA port write: listen on both 0x0B and 0x6B
     if (Config::dma_mode && (a8 == 0x0B || a8 == 0x6B)) {
       Z80DMA::writePort(data);

@@ -144,6 +144,8 @@ file(GLOB_RECURSE SRC
     "src/roms/*.cpp"
     "src/roms/*.c"
     "src/miniz/*.c"
+    "src/GS/*.cpp"
+    "src/GS/*.c"
 )
 
 message(STATUS "Add source files:")
@@ -278,6 +280,18 @@ ENDIF()
 if (BUTTER_PSRAM_GPIO)
     target_compile_definitions(${PROJECT_NAME} PRIVATE BUTTER_PSRAM_GPIO=${BUTTER_PSRAM_GPIO})
 endif()
+# General Sound — needs butter PSRAM (XIP @ 0x11000000) for 2 MB of GS RAM plus
+# a second Z80 instance. butter PSRAM is RP2350-only; on RP2040 BUTTER_PSRAM_GPIO
+# maps to plain SPI PSRAM which has different semantics. Restrict accordingly.
+if (BUTTER_PSRAM_GPIO AND NOT PICO_PLATFORM STREQUAL "rp2040")
+    target_compile_definitions(${PROJECT_NAME} PRIVATE USE_GS=1)
+endif()
+
+# redcode/Z80 build configuration for GS (LGPLv3 library vendored in src/GS/)
+set_source_files_properties(src/GS/Z80_redcode.c PROPERTIES
+    COMPILE_FLAGS "-O3 -funroll-loops -DZ80_STATIC -DGS_Z80_INSN_IN_SRAM -DZ80_EXTERNAL_HEADER=\\\"Z80_compat.h\\\"")
+set_source_files_properties(src/GS/GS.cpp PROPERTIES
+    COMPILE_FLAGS "-O3 -funroll-loops -DZ80_STATIC -DZ80_EXTERNAL_HEADER=\\\"Z80_compat.h\\\"")
 
 IF(MURM2)
     target_compile_definitions(${PROJECT_NAME} PRIVATE
@@ -351,7 +365,7 @@ ELSEIF(PICO_PC)
     # on-board DBG1 header (GP0=TX, GP1=RX) of Olimex RP2040-PICO-PC.
     # DBG1 shares pins with KBD_CLOCK/KBD_DATA → keyboard is auto-remapped to FREE
     # pins GP10/GP11 when DBG_UART is enabled.
-    set(PICO_PC_DBG_UART OFF CACHE BOOL "Enable Debug Probe UART0 on DBG1 header GP0/GP1 (PICO_PC)")
+    set(PICO_PC_DBG_UART ON CACHE BOOL "Enable Debug Probe UART0 on DBG1 header GP0/GP1 (PICO_PC)")
     if(PICO_PC_DBG_UART)
         pico_enable_stdio_uart(${PROJECT_NAME} 1)
         set(PICO_PC_KBD_CLOCK 10) # GP0 taken by UART TX → move KBD to FREE pin
@@ -435,7 +449,7 @@ ELSEIF(PICO_PC)
 ELSEIF(PICO_DV)
     # Optional UART for Debug Probe. Set DBG_UART_PINS=ON to enable UART1 on GP20/GP21.
     # Note: GP20 is also LOAD_WAV_PIO default — auto-remapped to GP3 when UART enabled.
-    set(PICO_DV_DBG_UART OFF CACHE BOOL "Enable Debug Probe UART1 on GP20/GP21 (PICO_DV)")
+    set(PICO_DV_DBG_UART ON CACHE BOOL "Enable Debug Probe UART1 on GP20/GP21 (PICO_DV)")
     if(PICO_DV_DBG_UART)
         pico_enable_stdio_uart(${PROJECT_NAME} 1)
         set(PICO_DV_LOAD_WAV_PIO 3)  # GP20 taken by UART → use FREE pin
@@ -514,7 +528,7 @@ ELSEIF(PICO_DV)
 ELSEIF(ZERO)
     # Optional UART for Debug Probe. Set ZERO_DBG_UART=ON to enable UART0 on GP16(TX)/GP13(RX).
     # Both pins are FREE on ZERO; UART0 used because UART1 has no free pins on this board.
-    set(ZERO_DBG_UART OFF CACHE BOOL "Enable Debug Probe UART0 on GP16/GP13 (ZERO)")
+    set(ZERO_DBG_UART ON CACHE BOOL "Enable Debug Probe UART0 on GP16/GP13 (ZERO)")
     if(ZERO_DBG_UART)
         pico_enable_stdio_uart(${PROJECT_NAME} 1)
     endif()

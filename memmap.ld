@@ -27,7 +27,18 @@ MEMORY
     FLASH(rx) : ORIGIN = 0x10000000, LENGTH = 4096k
     */
     FLASH(rx) : ORIGIN = 0x10010000, LENGTH = (4096k-128k)
-    RAM(rwx) : ORIGIN =  0x20000000, LENGTH = 512k
+    /* On RP2350, SRAM0-3 is word-striped across 4 banks (4-byte rotation),
+     * SRAM4-7 are 4 independent 64 KB banks. Atomic ops from core1 on a
+     * striped byte can stall when core0 is hammering the same bank. To
+     * keep GS-Z80 (core1) flowing while core0 runs long batched Z80
+     * emulator runs, we carve out SRAM4 as a private bank for GS hot data
+     * via the GS_HOT region. RAM stays one contiguous region but we cut
+     * SRAM4 out of it: RAM_LO = SRAM0-3 (256 KB), RAM_HI = SRAM5-7 (192 KB).
+     * General .bss/.data goes to RAM_LO first, overflows to RAM_HI.
+     */
+    RAM(rwx)       : ORIGIN = 0x20000000, LENGTH = 256k    /* SRAM0-3 striped */
+    GS_HOT(rwx)    : ORIGIN = 0x20040000, LENGTH = 64k     /* SRAM4 GS only  */
+    RAM_HI(rwx)    : ORIGIN = 0x20050000, LENGTH = 192k    /* SRAM5-7 spill  */
     SCRATCH_X(rwx) : ORIGIN = 0x20080000, LENGTH = 4k
     SCRATCH_Y(rwx) : ORIGIN = 0x20081000, LENGTH = 4k
 }
@@ -159,6 +170,19 @@ SECTIONS
         *(.ram_vector_table)
     } > RAM
 
+    /* GS hot data — goes into SRAM4 (private bank). NOLOAD because GS::init
+     * explicitly writes valid initial values (s_pc_tag = ~0, etc) before
+     * core1 starts using the bank, and SRAM contents are don't-care at
+     * power-on for these arrays.
+     */
+    .gs_hot (NOLOAD) : {
+        __gs_hot_start__ = .;
+        . = ALIGN(64);
+        KEEP(*(.gs_hot .gs_hot.*))
+        . = ALIGN(4);
+        __gs_hot_end__ = .;
+    } > GS_HOT
+
     .uninitialized_data (NOLOAD): {
         . = ALIGN(4);
         *(.uninitialized_data*)
@@ -225,15 +249,15 @@ SECTIONS
         __bss_end__ = .;
     } > RAM
 
+    /* Heap continues into RAM_HI (SRAM5-7) so we still have the full
+     * 512 KB minus the 64 KB GS_HOT carve-out for general allocations. */
     .heap (NOLOAD):
     {
         __end__ = .;
         end = __end__;
         KEEP(*(.heap*))
-    } > RAM
-    /* historically on GCC sbrk was growing past __HeapLimit to __StackLimit, however
-       to be more compatible, we now set __HeapLimit explicitly to where the end of the heap is */
-    __HeapLimit = ORIGIN(RAM) + LENGTH(RAM);
+    } > RAM_HI
+    __HeapLimit = ORIGIN(RAM_HI) + LENGTH(RAM_HI);
 
     /* Start and end symbols must be word-aligned */
     .scratch_x : {
@@ -275,8 +299,9 @@ SECTIONS
         PROVIDE(__flash_binary_end = .);
     } > FLASH =0xaa
 
-    /* stack limit is poorly named, but historically is maximum heap ptr */
-    __StackLimit = ORIGIN(RAM) + LENGTH(RAM);
+    /* stack limit is poorly named, but historically is maximum heap ptr.
+     * Set to the top of RAM_HI since heap spills there. */
+    __StackLimit = ORIGIN(RAM_HI) + LENGTH(RAM_HI);
     __StackOneTop = ORIGIN(SCRATCH_X) + LENGTH(SCRATCH_X);
     __StackTop = ORIGIN(SCRATCH_Y) + LENGTH(SCRATCH_Y);
     __StackOneBottom = __StackOneTop - SIZEOF(.stack1_dummy);
