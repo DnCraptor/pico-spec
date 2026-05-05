@@ -27,3 +27,7 @@ ${CMAKE_CURRENT_LIST_DIR}/ps2kbd_mrmltr14.pio
 pico_generate_pio_header(ps2kbd
 ${CMAKE_CURRENT_LIST_DIR}/ps2kbd_mrmltr10.pio
 )
+
+pico_generate_pio_header(ps2kbd
+${CMAKE_CURRENT_LIST_DIR}/ps2kbd_mrmltr16.pio
+)

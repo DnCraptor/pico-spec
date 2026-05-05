@@ -658,12 +658,26 @@ ELSEIF(ZERO2)
         DEFAULT_THROTTLING=0
     )
 ELSE()
+    set(MURM1_DBG_UART OFF CACHE BOOL "Enable Debug Probe UART0 on GP0/GP1 (MURM1) — moves KBD to GP16/GP17, disables NESPAD")
+    if(MURM1_DBG_UART)
+        pico_enable_stdio_uart(${PROJECT_NAME} 1)
+        set(MURM1_KBD_CLOCK_PIN 16)
+        set(MURM1_KBD_DATA_PIN  17)
+    else()
+        set(MURM1_KBD_CLOCK_PIN 0)
+        set(MURM1_KBD_DATA_PIN  1)
+    endif()
     target_compile_definitions(${PROJECT_NAME} PRIVATE
+        DEBUG=0
+        $<$<BOOL:${MURM1_DBG_UART}>:PICO_DEFAULT_UART=0>
+        $<$<BOOL:${MURM1_DBG_UART}>:PICO_DEFAULT_UART_TX_PIN=0>
+        $<$<BOOL:${MURM1_DBG_UART}>:PICO_DEFAULT_UART_RX_PIN=1>
+
         PORT_VERSION="${PORT_VERSION}" PORT_VERSION_LEN=${PORT_VERSION_LEN}
         CPU_MHZ=${CPU_MHZ}
 
-        KBD_CLOCK_PIN=0
-        KBD_DATA_PIN=1
+        KBD_CLOCK_PIN=${MURM1_KBD_CLOCK_PIN}
+        KBD_DATA_PIN=${MURM1_KBD_DATA_PIN}
 
         LOAD_WAV_PIO=22
 
@@ -698,8 +712,8 @@ ELSE()
         PSRAM_PIN_MOSI=20
         PSRAM_PIN_MISO=21
 
-        # NES Gamepad
-        USE_NESPAD
+        # NES Gamepad — disabled when MURM1_DBG_UART=ON (KBD moves to GP16/GP17, conflicts with NES_GPIO_DATA=16)
+        $<$<NOT:$<BOOL:${MURM1_DBG_UART}>>:USE_NESPAD>
         NES_GPIO_CLK=14
         NES_GPIO_DATA=16
         NES_GPIO_LAT=15
