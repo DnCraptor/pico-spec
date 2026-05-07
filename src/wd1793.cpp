@@ -37,6 +37,21 @@ THE SOFTWARE.
 
 static bool sclConvertToTRD(rvmWD1793 *wd);
 
+// Shared SCL-translated track-0 buffer (was per-fdd Track0[2304], 2 copies).
+// SCL conversion happens lazily once per SCL disk; only one fdd can own the
+// buffer at a time. When a different fdd asks for its track 0, the previous
+// owner's sclConverted flag is cleared so the buffer is regenerated.
+static unsigned char s_scl_track0[2304];
+static rvmWD1793 *s_scl_track0_owner = nullptr;
+
+static unsigned char* claim_scl_track0(rvmWD1793 *wd) {
+    if (s_scl_track0_owner && s_scl_track0_owner != wd) {
+        s_scl_track0_owner->sclConverted = false;
+    }
+    s_scl_track0_owner = wd;
+    return s_scl_track0;
+}
+
 // #pragma GCC optimize("O3")
 
 //Step rates
@@ -2404,14 +2419,15 @@ IRAM_ATTR uint8_t rvmwdDiskStep(rvmWD1793 *wd, uint32_t control) {
         if ((disk->IsSCLFile) && (!disk->t) && (!wd->side)) {
 
           // Create track0 from SCL file if not already done
+          unsigned char* t0 = claim_scl_track0(wd);
           if (!wd->sclConverted) {
-              SCLtoTRD(disk, wd->Track0);
+              SCLtoTRD(disk, t0);
               wd->sclConverted = true;
           }
 
           // SCL disk -> Read sector to cache from created Track0
           if (cursect < 9)
-            memcpy(disk->cursectbuf, wd->Track0 + (cursect << 8), 0x100);
+            memcpy(disk->cursectbuf, t0 + (cursect << 8), 0x100);
           else
             memset(disk->cursectbuf, 0, 0x100);
 
@@ -2607,8 +2623,9 @@ static bool sclConvertToTRD(rvmWD1793 *wd) {
     if (!disk || !disk->IsSCLFile || !disk->Diskfile) return false;
 
     // Ensure Track0 is populated
+    unsigned char* t0 = claim_scl_track0(wd);
     if (!wd->sclConverted) {
-        SCLtoTRD(disk, wd->Track0);
+        SCLtoTRD(disk, t0);
         wd->sclConverted = true;
     }
 
@@ -2632,7 +2649,7 @@ static bool sclConvertToTRD(rvmWD1793 *wd) {
     memset(zeroBuf, 0, 256);
 
     // Write track 0 side 0: 16 sectors from Track0 (first 4096 bytes = 16 * 256)
-    f_write(trdFile, wd->Track0, 2304, &bw);
+    f_write(trdFile, t0, 2304, &bw);
     // Pad remaining sectors of track 0 (sectors 9..15 are already in Track0 as zeros,
     // but Track0 is only 2304 bytes = 9 sectors; pad to 16 sectors = 4096 bytes)
     for (int s = 9; s < 16; s++)

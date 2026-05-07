@@ -24,6 +24,10 @@ extern Font Font6x8;
 
 #define ZIP_BUF_SIZE 512
 
+// Shared filename scratch buffer — extract/extractAll/viewInfo each used a
+// 252-byte static; only one zip operation runs at a time.
+static char s_zip_fnBuf[252];
+
 const char* ZipExtract::TEMP_FILE = "/tmp/.zip_extract";
 
 // Static FIL to avoid ~560 bytes on stack (FIL contains 512-byte sector buffer)
@@ -100,9 +104,8 @@ string ZipExtract::extract(const string& zipPath, uint8_t fileType) {
         if (hdr.nameLen == 0 || hdr.nameLen > 250) break;
 
         // Read filename — use static buffer to save stack
-        static char fnBuf[252];
-        if (f_read(&zipFile, fnBuf, hdr.nameLen, &br) != FR_OK || br != hdr.nameLen) break;
-        fnBuf[hdr.nameLen] = 0;
+        if (f_read(&zipFile, s_zip_fnBuf, hdr.nameLen, &br) != FR_OK || br != hdr.nameLen) break;
+        s_zip_fnBuf[hdr.nameLen] = 0;
 
         // Skip extra field
         if (hdr.extraLen > 0)
@@ -111,9 +114,9 @@ string ZipExtract::extract(const string& zipPath, uint8_t fileType) {
         FSIZE_t dataStart = f_tell(&zipFile);
 
         // Check: not a directory, has matching extension
-        if (fnBuf[hdr.nameLen - 1] != '/' && hasMatchingExt(fnBuf, fileType)) {
+        if (s_zip_fnBuf[hdr.nameLen - 1] != '/' && hasMatchingExt(s_zip_fnBuf, fileType)) {
             ZipEntry& e = entries[entryCount];
-            const char* base = getBaseName(fnBuf);
+            const char* base = getBaseName(s_zip_fnBuf);
             strncpy(e.name, base, sizeof(e.name) - 1);
             e.name[sizeof(e.name) - 1] = 0;
             e.dataOffset = dataStart;
@@ -314,7 +317,6 @@ void ZipExtract::viewInfo(const string& zipPath) {
     FSIZE_t zipSize = f_size(&zipFile);
     LocalFileHeader hdr;
     UINT br;
-    static char fnBuf[252];
 
     // Build info string for simpleMenuRun
     // First line = title (archive name + size)
@@ -337,8 +339,8 @@ void ZipExtract::viewInfo(const string& zipPath) {
         if (hdr.signature != ZIP_LOCAL_SIGNATURE) break;
         if (hdr.nameLen == 0 || hdr.nameLen > 250) break;
 
-        if (f_read(&zipFile, fnBuf, hdr.nameLen, &br) != FR_OK || br != hdr.nameLen) break;
-        fnBuf[hdr.nameLen] = 0;
+        if (f_read(&zipFile, s_zip_fnBuf, hdr.nameLen, &br) != FR_OK || br != hdr.nameLen) break;
+        s_zip_fnBuf[hdr.nameLen] = 0;
 
         if (hdr.extraLen > 0)
             f_lseek(&zipFile, f_tell(&zipFile) + hdr.extraLen);
@@ -346,8 +348,8 @@ void ZipExtract::viewInfo(const string& zipPath) {
         FSIZE_t dataStart = f_tell(&zipFile);
 
         // Skip directories
-        if (fnBuf[hdr.nameLen - 1] != '/') {
-            const char* base = getBaseName(fnBuf);
+        if (s_zip_fnBuf[hdr.nameLen - 1] != '/') {
+            const char* base = getBaseName(s_zip_fnBuf);
             char line[48];
             if (hdr.uncompressedSize >= 1024 * 1024)
                 snprintf(line, sizeof(line), "%.30s %luMB", base, (unsigned long)(hdr.uncompressedSize / (1024 * 1024)));
@@ -429,7 +431,6 @@ int ZipExtract::extractAll(const string& zipPath, const string& destDir) {
     FSIZE_t zipSize = f_size(&zipFile);
     LocalFileHeader hdr;
     UINT br;
-    static char fnBuf[252];
     int extracted = 0;
 
     while (true) {
@@ -439,8 +440,8 @@ int ZipExtract::extractAll(const string& zipPath, const string& destDir) {
         if (hdr.signature != ZIP_LOCAL_SIGNATURE) break;
         if (hdr.nameLen == 0 || hdr.nameLen > 250) break;
 
-        if (f_read(&zipFile, fnBuf, hdr.nameLen, &br) != FR_OK || br != hdr.nameLen) break;
-        fnBuf[hdr.nameLen] = 0;
+        if (f_read(&zipFile, s_zip_fnBuf, hdr.nameLen, &br) != FR_OK || br != hdr.nameLen) break;
+        s_zip_fnBuf[hdr.nameLen] = 0;
 
         if (hdr.extraLen > 0)
             f_lseek(&zipFile, f_tell(&zipFile) + hdr.extraLen);
@@ -448,9 +449,9 @@ int ZipExtract::extractAll(const string& zipPath, const string& destDir) {
         FSIZE_t dataStart = f_tell(&zipFile);
 
         // Skip directories
-        if (fnBuf[hdr.nameLen - 1] != '/' && (hdr.compression == 0 || hdr.compression == 8)) {
+        if (s_zip_fnBuf[hdr.nameLen - 1] != '/' && (hdr.compression == 0 || hdr.compression == 8)) {
             // Build destination path: destDir + basename
-            const char* base = getBaseName(fnBuf);
+            const char* base = getBaseName(s_zip_fnBuf);
 
             // Extract to TEMP_FILE first, then rename to dest
             // Use extractFile which writes to TEMP_FILE

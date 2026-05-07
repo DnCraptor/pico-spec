@@ -7249,7 +7249,7 @@ FRESULT f_setcp (
 
 
 
-#define FOPEN2_POOL_SIZE 4
+#define FOPEN2_POOL_SIZE 2
 static FIL fopen2_pool[FOPEN2_POOL_SIZE];
 static BYTE fopen2_used[FOPEN2_POOL_SIZE];
 

@@ -5541,7 +5541,7 @@ const char* mnemED(uint8_t b) {
     return "???";
 }
 
-const char* mnemCB[256] = {
+const char* const mnemCB[256] = {
     "RLC B", // 00
     "RLC C", // 01
     "RLC D", // 02
