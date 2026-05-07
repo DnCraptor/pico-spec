@@ -290,7 +290,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     //     Debug::log("IN %04X (a8=%02X) GS.en=%d", address, a8, GS::enabled);
     //   }
     // }
-    if (GS::enabled) {
+    if (GS::enabled && !DivMMC::divide_mode) {
       uint8_t a8 = address & 0xFF;
       if (a8 == 0xB3 || a8 == 0xBB) {
         ioContentionLate(MemESP::ramContended[rambank]);
@@ -333,17 +333,14 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     if (DivMMC::enabled) {
       uint8_t lo = address & 0xFF;
       if (lo == 0xE3) {
-        // Control register read
         return (DivMMC::conmem ? 0x80 : 0) | (DivMMC::mapram ? 0x40 : 0) | DivMMC::bank;
       }
       if (DivMMC::divide_mode) {
-        // DivIDE: IDE/ATA ports
         if ((lo & 0xE3) == 0xA3) {
           uint8_t reg = (lo >> 2) & 0x07;
           return DivMMC::ide_read(reg);
         }
       } else {
-        // DivMMC/DivSD: SPI ports
         if (lo == 0xEB) {
           return DivMMC::mmc_read();
         }
@@ -351,6 +348,12 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
           return 0xFF;
         }
       }
+    }
+
+    if (DivMMC::zc_enabled) {
+      uint8_t lo = address & 0xFF;
+      if (lo == 0x77) return DivMMC::zc_read_status();
+      if (lo == 0x57) return DivMMC::zc_read_data();
     }
 #endif
 
@@ -653,7 +656,7 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     }
 #ifdef USE_GS
     // General Sound — host-side data/command ports
-    if (GS::enabled) {
+    if (GS::enabled && !DivMMC::divide_mode) {
       if (a8 == 0xB3 || a8 == 0xBB) {
         if (a8 == 0xB3) GS::hostWriteB3(data);
         else            GS::hostWriteBB(data);
@@ -751,22 +754,19 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     if (DivMMC::enabled) {
       uint8_t lo = address & 0xFF;
       if (lo == 0xE3) {
-        // Control register write
         DivMMC::bank = data & (DIVMMC_NUM_BANKS - 1);
-        if (data & 0x40) DivMMC::mapram = true; // Sticky!
+        if (data & 0x40) DivMMC::mapram = true;
         DivMMC::conmem = (data & 0x80) != 0;
         DivMMC::applyMapping();
         return;
       }
       if (DivMMC::divide_mode) {
-        // DivIDE: IDE/ATA ports (mask 0xE3 = xxxx xxxx 101r rr11)
         if ((lo & 0xE3) == 0xA3) {
-          uint8_t reg = (lo >> 2) & 0x07; // extract rrr bits
+          uint8_t reg = (lo >> 2) & 0x07;
           DivMMC::ide_write(reg, data);
           return;
         }
       } else {
-        // DivMMC/DivSD: SPI ports
         if (lo == 0xEB) {
           DivMMC::mmc_write(data);
           return;
@@ -776,6 +776,12 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
           return;
         }
       }
+    }
+
+    if (DivMMC::zc_enabled) {
+      uint8_t lo = address & 0xFF;
+      if (lo == 0x77) { DivMMC::zc_write_config(data); return; }
+      if (lo == 0x57) { DivMMC::zc_write_data(data); return; }
     }
 #endif
 

@@ -104,6 +104,7 @@ string   Config::esxdos_hdf_image[2] = {"", ""};
 uint8_t  Config::mb02 = 0;
 bool     Config::mb02WP[4] = { true, true, true, true };
 bool     Config::mb02SoundLed = false;
+bool     Config::zcontroller = false;
 #endif
 
 uint8_t Config::scanlines = 0;
@@ -568,6 +569,7 @@ void Config::load() {
             nvs_get_b(k, mb02WP[i], sts);
         }
         nvs_get_b("mb02SoundLed", mb02SoundLed, sts);
+        nvs_get_b("zcontroller", zcontroller, sts);
 #endif
         nvs_get_str("SNA_Path", FileUtils::SNA_Path, sts);
         nvs_get_str("TAP_Path", FileUtils::TAP_Path, sts);
@@ -787,6 +789,7 @@ void Config::save() {
         nvs_set_str(buf, k, mb02WP[i] ? "true" : "false");
     }
     nvs_set_str(buf,"mb02SoundLed", mb02SoundLed ? "true" : "false");
+    nvs_set_str(buf,"zcontroller", zcontroller ? "true" : "false");
 #endif
     nvs_set_str(buf,"SNA_Path",FileUtils::SNA_Path.c_str());
     nvs_set_str(buf,"TAP_Path",FileUtils::TAP_Path.c_str());

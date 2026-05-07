@@ -784,6 +784,10 @@ void ESPectrum::setup() {
   DivMMC::init();
   // MB-02+ disk interface (allocates SRAM in butter PSRAM after DivMMC)
   MB02::init();
+  // Z-Controller raw SD on ports 0x77/0x57 (mutually exclusive with esxDOS)
+  if (Config::zcontroller && !Config::esxdos && !Config::mb02) {
+    DivMMC::zc_init();
+  }
 #endif
 #ifdef USE_GS
   if (Config::gs_enabled) {

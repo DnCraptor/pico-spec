@@ -210,6 +210,7 @@ public:
     static uint8_t mb02;     // 0=OFF 1=ON (MB-02+ disk interface, mutually exclusive with TR-DOS/DivMMC)
     static bool mb02WP[4];   // MB-02+ per-slot write protect
     static bool mb02SoundLed;// MB-02+ disk sound & LED
+    static bool zcontroller; // Z-Controller SD on ports 0x77/0x57 (mutually exclusive with esxDOS/MB-02+)
 #endif
     
     static signed char aud_volume;

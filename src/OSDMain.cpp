@@ -1918,6 +1918,20 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                                 MB02::init();
                                                 OSD::osdCenteredMsg("MB-02+ disabled", LEVEL_WARN, 2000);
                                             }
+#if !PICO_RP2040
+                                            if (newval && Config::zcontroller) {
+                                                Config::zcontroller = false;
+                                                DivMMC::zc_shutdown();
+                                                OSD::osdCenteredMsg("Z-Controller disabled", LEVEL_WARN, 2000);
+                                            }
+#ifdef USE_GS
+                                            // DivIDE conflicts with General Sound on ports 0xB3/0xBB
+                                            if (newval == 2 && Config::gs_enabled) {
+                                                Config::gs_enabled = 0;
+                                                OSD::osdCenteredMsg("General Sound disabled", LEVEL_WARN, 2000);
+                                            }
+#endif
+#endif
                                             Config::esxdos = newval;
                                             DivMMC::init();
                                             if (DivMMC::enabled && !DivMMC::rom_loaded) {
@@ -2028,6 +2042,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     DivMMC::init();
                                     OSD::osdCenteredMsg("esxDOS disabled", LEVEL_WARN, 2000);
                                 }
+#if !PICO_RP2040
+                                if (Config::mb02 && Config::zcontroller) {
+                                    Config::zcontroller = false;
+                                    DivMMC::zc_shutdown();
+                                    OSD::osdCenteredMsg("Z-Controller disabled", LEVEL_WARN, 2000);
+                                }
+#endif
                                 MB02::init();
                                 if (Config::mb02 && !MB02::enabled) {
                                     OSD::osdCenteredMsg("MB-02+: not enough memory", LEVEL_ERROR, 2000);
@@ -2143,13 +2164,58 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         }
                     }
 #endif
-                    else if (FileUtils::fsMount &&
 #if !PICO_RP2040
-                        stor_num == 5
+                    else if (FileUtils::fsMount && stor_num == 5) { // Z-Controller
+                        menu_saverect = true;
+                        menu_curopt = 1;
+                        while (1) {
+                            menu_level = 2;
+                            string zmenu = "Z-Controller\n";
+                            zmenu += string(MENU_YESNO[Config::lang]);
+                            if (Config::zcontroller) {
+                                zmenu.replace(zmenu.find("[Y",0),2,"[*");
+                                zmenu.replace(zmenu.find("[N",0),2,"[ ");
+                            } else {
+                                zmenu.replace(zmenu.find("[Y",0),2,"[ ");
+                                zmenu.replace(zmenu.find("[N",0),2,"[*");
+                            }
+                            uint8_t opt = menuRun(zmenu);
+                            if (opt == 0) {
+                                menu_curopt = 5;
+                                menu_level = 1;
+                                break;
+                            }
+                            bool newval = (opt == 1);
+                            if (newval == Config::zcontroller) {
+                                menu_curopt = opt;
+                                menu_saverect = false;
+                                continue;
+                            }
+                            Config::zcontroller = newval;
+                            if (newval) {
+                                if (Config::esxdos) {
+                                    Config::esxdos = 0;
+                                    DivMMC::init();
+                                    OSD::osdCenteredMsg("esxDOS disabled", LEVEL_WARN, 2000);
+                                }
+                                if (Config::mb02) {
+                                    Config::mb02 = 0;
+                                    MB02::init();
+                                    OSD::osdCenteredMsg("MB-02+ disabled", LEVEL_WARN, 2000);
+                                }
+                                DivMMC::zc_init();
+                            } else {
+                                DivMMC::zc_shutdown();
+                            }
+                            Config::save();
+                            ESPectrum::reset();
+                            return;
+                        }
+                    }
+                    else if (FileUtils::fsMount && stor_num == 6) { // Snapshot
 #else
-                        stor_num == 3
+                    else if (FileUtils::fsMount && stor_num == 3) { // Snapshot
 #endif
-                    ) { // Snapshot
                         menu_saverect = true;
                         menu_curopt = 1;
                         while(1) {
@@ -2551,7 +2617,16 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 if (opt2) {
                                     Config::gs_enabled = (opt2 == 1) ? 1 : 0;
                                     if (Config::gs_enabled != prev_gs) {
-                                        if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
+                                        // GS conflicts with DivIDE on ports 0xB3/0xBB
+                                        if (Config::gs_enabled && Config::esxdos == 2) {
+                                            if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
+                                                Config::esxdos = 0;
+                                                Config::save();
+                                                esp_hard_reset();
+                                            } else {
+                                                Config::gs_enabled = prev_gs;
+                                            }
+                                        } else if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
                                             Config::save();
                                             esp_hard_reset();
                                         } else {
