@@ -1541,16 +1541,17 @@ inline uint16_t packPixels32(uint32_t cur) {
     return (uint16_t)(p0 | (p1 << 4) | (p2 << 8) | (p3 << 12));
 }
 
-// Blend 4 cur pixels with 4 prev pixels stored as packed uint16 (2 px per byte)
+// Blend 4 cur pixels with 4 prev pixels stored as packed uint16 (2 px per byte).
+// Per-pixel: if low nibble of cur matches prev nibble, return cur byte unchanged
+// (preserves ULA+ upper bits — palette indices 0..63 alias by low nibble in blendLUT).
 inline uint32_t blendPixels32_packed(uint32_t cur, uint16_t prev16) {
-    uint32_t p0 = prev16 & 0x0F;
-    uint32_t p1 = (prev16 >> 4) & 0x0F;
-    uint32_t p2 = (prev16 >> 8) & 0x0F;
-    uint32_t p3 = (prev16 >> 12) & 0x0F;
-    return  gigsBlendLUT[p0 * 16 + (cur & 0x0F)]
-        | (gigsBlendLUT[p1 * 16 + ((cur >> 8) & 0x0F)] << 8)
-        | (gigsBlendLUT[p2 * 16 + ((cur >> 16) & 0x0F)] << 16)
-        | (gigsBlendLUT[p3 * 16 + ((cur >> 24) & 0x0F)] << 24);
+    uint8_t c0 = cur & 0xFF, c1 = (cur >> 8) & 0xFF, c2 = (cur >> 16) & 0xFF, c3 = (cur >> 24) & 0xFF;
+    uint8_t p0 = prev16 & 0x0F, p1 = (prev16 >> 4) & 0x0F, p2 = (prev16 >> 8) & 0x0F, p3 = (prev16 >> 12) & 0x0F;
+    uint8_t r0 = ((c0 & 0x0F) == p0) ? c0 : gigsBlendLUT[p0 * 16 + (c0 & 0x0F)];
+    uint8_t r1 = ((c1 & 0x0F) == p1) ? c1 : gigsBlendLUT[p1 * 16 + (c1 & 0x0F)];
+    uint8_t r2 = ((c2 & 0x0F) == p2) ? c2 : gigsBlendLUT[p2 * 16 + (c2 & 0x0F)];
+    uint8_t r3 = ((c3 & 0x0F) == p3) ? c3 : gigsBlendLUT[p3 * 16 + (c3 & 0x0F)];
+    return r0 | (r1 << 8) | (r2 << 16) | (r3 << 24);
 }
 #else
 // RP2040: gigascreen_enabled is always false, but compiler still needs the symbol
