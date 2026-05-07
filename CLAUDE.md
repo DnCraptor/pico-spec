@@ -74,12 +74,12 @@ Flattened from CSAAFreq, CSAANoise, CSAAEnv, CSAAAmp, CSAADevice into a single c
 
 - **ALWAYS test new features on ZERO** — any static array or large struct can break it
 - **No heap-heavy operations after VIDEO::Init** — only ~5KB free
-  - `vector<string>` parsing of storage.nvs caused OOM in `Config::load2()` (fixed: parse line-by-line)
+  - `vector<string>` parsing of storage.nvs caused OOM in `Config::loadDiskMounts()` (fixed: parse line-by-line)
 - **Guard large RAM features with `#if !PICO_RP2040`**:
   - ULA+ (`AluBytesUlaPlus[16][256]` = 16KB) — disabled for RP2040
   - Gigascreen — already guarded
 - **New static buffers**: consider `#if !PICO_RP2040` or make conditional
-- **`Config::load()` is safe** (runs at 148KB free), `Config::load2()` runs at ~5KB free
+- **`Config::load()` is safe** (runs at 148KB free), `Config::loadDiskMounts()` runs at ~5KB free
 
 ## GPIO Map (all boards)
 

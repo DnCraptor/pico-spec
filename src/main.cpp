@@ -22,6 +22,7 @@
 
 #include "ESPectrum.h"
 #include "Config.h"
+#include "FileUtils.h"
 #ifdef USE_GS
 #include "GS/GS.h"
 #endif
@@ -1202,7 +1203,7 @@ int main() {
     #ifdef VGA_HDMI
     {
         FIL f;
-        f_open(&f, "/spec/video_detect.code", FA_WRITE | FA_CREATE_ALWAYS);
+        f_open(&f, CONFIG_DIR "/video_detect.code", FA_WRITE | FA_CREATE_ALWAYS);
         char buf[16] = {0};
         snprintf(buf, 16, "%02Xh\n", linkVGA01);
         UINT bw;

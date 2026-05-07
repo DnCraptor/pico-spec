@@ -737,7 +737,7 @@ void Tape::TZX_GetBlock() {
                 if (CSW_CompressionType == 0x2) { // Z-RLE compression
 
                     // printf("Reading CSW Z-RLE block from SD Card!\n");
-                    // printf(MOUNT_POINT_SD "/.csw%04d.tmp\n",tapeCurBlock);
+                    // printf(CONFIG_DIR "/.csw%04d.tmp\n",tapeCurBlock);
 
                     // Open csw file
                     sprintf(cswFileName, "/tmp/.csw%04d.tmp",tapeCurBlock);

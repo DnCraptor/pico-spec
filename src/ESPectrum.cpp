@@ -944,14 +944,14 @@ void ESPectrum::setup() {
 #endif
 
   Debug::log("setup: CPU reset done");
-  Debug::log("setup: Config::load2 begin");
+  Debug::log("setup: Config::loadDiskMounts begin");
   if (FileUtils::fsMount) {
-    Config::load2();
+    Config::loadDiskMounts();
   }
-  Debug::log("setup: Config::load2 done");
+  Debug::log("setup: Config::loadDiskMounts done");
 
 #if !PICO_RP2040
-  // Re-reset MB-02 after load2 so boot EPROM starts with disks already inserted
+  // Re-reset MB-02 after disk mounts so boot EPROM starts with disks already inserted
   if (MB02::enabled && mb02_fdd.disk[0]) {
     MB02::reset();
     Z80::reset();

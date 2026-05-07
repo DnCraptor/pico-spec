@@ -55,8 +55,8 @@ class Config
 {
 public:
 
-    static void load();  // load before initialized
-    static void load2(); // load after initialized
+    static void load();           // load main settings before emulator init
+    static void loadDiskMounts(); // mount disks from storage.nvs after FDD/MB02 init
     static void save();
     static bool loaded;  // true after successful load() from file/RAM
 

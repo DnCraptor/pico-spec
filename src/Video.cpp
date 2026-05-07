@@ -447,9 +447,10 @@ void VIDEO::loadCustomPalettes() {
     // Create default palette.nvs if it doesn't exist
     {
         FILINFO fi;
-        if (f_stat(MOUNT_POINT_SD "/palette.nvs", &fi) != FR_OK) {
+        if (f_stat(PALETTE_NVS, &fi) != FR_OK) {
+            FileUtils::mkdirParents(CONFIG_DIR);
             FIL cf;
-            if (f_open(&cf, MOUNT_POINT_SD "/palette.nvs", FA_WRITE | FA_CREATE_NEW) == FR_OK) {
+            if (f_open(&cf, PALETTE_NVS, FA_WRITE | FA_CREATE_NEW) == FR_OK) {
                 static const char tmpl[] =
                     "// Custom palettes for ZX Spectrum emulator\n"
                     "//\n"
@@ -480,7 +481,7 @@ void VIDEO::loadCustomPalettes() {
     }
 
     FIL fil;
-    if (f_open(&fil, MOUNT_POINT_SD "/palette.nvs", FA_READ) != FR_OK)
+    if (f_open(&fil, PALETTE_NVS, FA_READ) != FR_OK)
         return;
 
     char line[256];

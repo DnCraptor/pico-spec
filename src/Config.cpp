@@ -322,8 +322,8 @@ static void nvs_get_sc(const char* key, signed char& v, const vector<string>& st
     }
 }
 
-void Config::load2() {
-    string nvs = MOUNT_POINT_SD STORAGE_NVS;
+void Config::loadDiskMounts() {
+    string nvs = STORAGE_NVS;
     FIL* handle = fopen2(nvs.c_str(), FA_READ);
     if (!handle) {
         return;
@@ -397,7 +397,7 @@ void Config::load() {
     initHotkeys(); // fill defaults before overriding from NVS
     vector<string> sts;
     if (FileUtils::fsMount) {
-        string nvs = MOUNT_POINT_SD STORAGE_NVS;
+        string nvs = STORAGE_NVS;
         FIL* handle = fopen2(nvs.c_str(), FA_READ);
         if (!handle) {
             return;
@@ -853,14 +853,16 @@ void Config::save() {
             // Config was never loaded from file — refuse to overwrite
             // existing storage.nvs with defaults
             FILINFO fi;
-            if (f_stat(MOUNT_POINT_SD STORAGE_NVS, &fi) == FR_OK) {
+            if (f_stat(STORAGE_NVS, &fi) == FR_OK) {
                 Debug::log("Config::save BLOCKED — not loaded, file exists (%u bytes)", fi.fsize);
                 return;
             }
         }
+        // Make sure /.config/pico-spec/<ver>/<board>/ exists before writing.
+        FileUtils::mkdirParents(CONFIG_DIR_BOARD);
         // Atomic write: write to .tmp, then rename over the original
-        static const char* nvs_tmp = MOUNT_POINT_SD STORAGE_NVS ".tmp";
-        static const char* nvs_path = MOUNT_POINT_SD STORAGE_NVS;
+        static const char* nvs_tmp = STORAGE_NVS ".tmp";
+        static const char* nvs_path = STORAGE_NVS;
         FIL* handle = fopen2(nvs_tmp, FA_WRITE | FA_CREATE_ALWAYS);
         if (handle) {
             UINT bw;
@@ -880,7 +882,7 @@ void Config::save() {
     nvs_ram_buf = std::move(buf);
 }
 
-#define VMODE_PENDING_FILE MOUNT_POINT_SD "/vmode_pending.nvs"
+#define VMODE_PENDING_FILE CONFIG_DIR "/vmode_pending.nvs"
 
 void Config::savePendingVideoMode() {
     if (!FileUtils::fsMount) return;

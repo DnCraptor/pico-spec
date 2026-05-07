@@ -60,7 +60,7 @@ extern "C" void mem_swap_reopen(void);
 
 using namespace std;
 
-string FileUtils::MountPoint = MOUNT_POINT_SD; // Start with SD
+string FileUtils::MountPoint = CONFIG_DIR; // Start with SD
 bool FileUtils::SDReady = false;
 ///sdmmc_card_t *FileUtils::card;
 
@@ -125,17 +125,38 @@ inline void fclose(FIL& f) {
     f_close(&f);
 }
 
+// Create every directory along an absolute path (intermediate components
+// included). Existing directories are tolerated; this matches the behaviour
+// of `mkdir -p` against FatFs.
+void FileUtils::mkdirParents(const char* path) {
+    if (!path || !*path) return;
+    char buf[128];
+    size_t len = strlen(path);
+    if (len >= sizeof(buf)) len = sizeof(buf) - 1;
+    memcpy(buf, path, len);
+    buf[len] = 0;
+    for (size_t i = 1; i < len; ++i) {
+        if (buf[i] == '/') {
+            buf[i] = 0;
+            f_mkdir(buf);
+            buf[i] = '/';
+        }
+    }
+    f_mkdir(buf);
+}
+
 void FileUtils::initFileSystem() {
     SDReady = mountSDCard();
     if (SDReady) {
         f_mkdir("/tmp");
-        f_mkdir(MOUNT_POINT_SD);
-        f_mkdir(MOUNT_POINT_SD DISK_ROM_DIR);
-        f_mkdir(MOUNT_POINT_SD DISK_SNA_DIR);
-        f_mkdir(MOUNT_POINT_SD DISK_TAP_DIR);
-        f_mkdir(MOUNT_POINT_SD DISK_DSK_DIR);
-        f_mkdir(MOUNT_POINT_SD DISK_SCR_DIR);
-        f_mkdir(MOUNT_POINT_SD DISK_PSNA_DIR);
+        mkdirParents(CONFIG_DIR);
+        f_mkdir(CONFIG_DIR DISK_ROM_DIR);
+        f_mkdir(CONFIG_DIR DISK_SNA_DIR);
+        f_mkdir(CONFIG_DIR DISK_TAP_DIR);
+        f_mkdir(CONFIG_DIR DISK_DSK_DIR);
+        f_mkdir(CONFIG_DIR DISK_SCR_DIR);
+        f_mkdir(CONFIG_DIR DISK_PSNA_DIR);
+        mkdirParents(CONFIG_DIR_BOARD);
     }
 }
 
@@ -157,7 +178,7 @@ void FileUtils::unmountSDCard() {
 bool FileUtils::checkSDCard() {
     if (!fsMount) return false;
     FILINFO fno;
-    return f_stat(MOUNT_POINT_SD, &fno) == FR_OK;
+    return f_stat(CONFIG_DIR, &fno) == FR_OK;
 }
 
 bool FileUtils::remountSD() {

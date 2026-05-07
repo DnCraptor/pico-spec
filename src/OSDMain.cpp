@@ -3587,7 +3587,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         }
                     } else if ((mos && opt2 == 5) || (!mos && opt2 == 4)) {
                         if (confirmReboot(OSD_DLG_LOADDEFAULTS)) {
-                            f_unlink(MOUNT_POINT_SD STORAGE_NVS);
+                            f_unlink(STORAGE_NVS);
                             esp_hard_reset();
                         }
                     } else {
@@ -5896,9 +5896,13 @@ const char* const mnemCB[256] = {
 static uint16_t dump_pc = 0;
 
 static void saveDumpToFile(uint16_t addr_from, uint16_t addr_to) {
-    string fname = string(MOUNT_POINT_SD) + "/dump.log";
-    FIL* f = fopen2(fname.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
-    if (!f) return;
+    static const char* fname = DUMP_LOG_PATH;
+    FIL* f = fopen2(fname, FA_WRITE | FA_CREATE_ALWAYS);
+    if (!f) {
+        FileUtils::mkdirParents(CONFIG_DIR);
+        f = fopen2(fname, FA_WRITE | FA_CREATE_ALWAYS);
+        if (!f) return;
+    }
 
     char line[128];
     UINT bw;
