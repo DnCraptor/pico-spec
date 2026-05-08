@@ -59,6 +59,14 @@ static inline bool is_dualshock4(uint16_t vid, uint16_t pid)
   return vid == 0x054C && (pid == 0x05C4 || pid == 0x09CC);
 }
 
+// Sony DualSense (PS5): VID=054C, PID=0CE6. Same descriptor-overflow
+// problem as DS4; layout differs (L2/R2 analog moved to bytes 4-5,
+// face/dpad to byte 7, shoulders to byte 8).
+static inline bool is_dualsense(uint16_t vid, uint16_t pid)
+{
+  return vid == 0x054C && pid == 0x0CE6;
+}
+
 struct input_bits_t {
   bool a: true;
   bool b: true;
@@ -81,6 +89,7 @@ static void process_mouse_report(hid_mouse_report_t const * report);
 static void process_generic_report(uint8_t dev_addr, uint8_t instance, uint8_t const* report, uint16_t len);
 static void process_hid_gamepad(uint8_t const* report, uint16_t len);
 static void process_ds4_gamepad(uint8_t const* report, uint16_t len);
+static void process_ds5_gamepad(uint8_t const* report, uint16_t len);
 
 //--------------------------------------------------------------------+
 // TinyUSB Callbacks
@@ -449,6 +458,107 @@ static void process_ds4_gamepad(uint8_t const* report, uint16_t len)
 }
 
 //--------------------------------------------------------------------+
+// DualSense (Sony PS5) — VID 054C, PID 0CE6
+//--------------------------------------------------------------------+
+// Report layout after stripping id=0x01 (USB mode, ~63 bytes total):
+//   [0..3] LX, LY, RX, RY (0x80 center)
+//   [4]    L2 analog
+//   [5]    R2 analog
+//   [6]    counter
+//   [7]    low nibble = D-pad hat (0..7, 8=neutral)
+//          high nibble = Square 0x10, Cross 0x20, Circle 0x40, Triangle 0x80
+//   [8]    L1 0x01, R1 0x02, L2btn 0x04, R2btn 0x08,
+//          Create 0x10, Options 0x20, L3 0x40, R3 0x80
+//   [9]    PS 0x01, TouchClick 0x02, Mute 0x04
+// Same emulator mapping as DS4: Cross=Fire, Circle=AltFire,
+// Options=Start/F1, Create=Select/Backspace, Square/Triangle/L1/R1
+// → VK_JOY_X/Y/Z/C.
+static void process_ds5_gamepad(uint8_t const* report, uint16_t len)
+{
+    if (len < 9) return;
+
+    uint8_t lx = report[0];
+    uint8_t ly = report[1];
+    uint8_t b7 = report[7];
+    uint8_t b8 = report[8];
+    uint8_t dpad_hat = b7 & 0x0F;
+    uint8_t face = b7 & 0xF0;
+
+    bool stick_left  = lx < 0x40;
+    bool stick_right = lx > 0xC0;
+    bool stick_up    = ly < 0x40;
+    bool stick_down  = ly > 0xC0;
+
+    bool hat_up    = (dpad_hat == 7 || dpad_hat == 0 || dpad_hat == 1);
+    bool hat_right = (dpad_hat == 1 || dpad_hat == 2 || dpad_hat == 3);
+    bool hat_down  = (dpad_hat == 3 || dpad_hat == 4 || dpad_hat == 5);
+    bool hat_left  = (dpad_hat == 5 || dpad_hat == 6 || dpad_hat == 7);
+    if (dpad_hat >= 8) { hat_up = hat_down = hat_left = hat_right = false; }
+
+    bool up    = stick_up    || hat_up;
+    bool down  = stick_down  || hat_down;
+    bool left  = stick_left  || hat_left;
+    bool right = stick_right || hat_right;
+
+    bool btn_square   = (face & 0x10) != 0;
+    bool btn_cross    = (face & 0x20) != 0;
+    bool btn_circle   = (face & 0x40) != 0;
+    bool btn_triangle = (face & 0x80) != 0;
+    bool btn_l1       = (b8 & 0x01) != 0;
+    bool btn_r1       = (b8 & 0x02) != 0;
+    bool btn_create   = (b8 & 0x10) != 0;
+    bool btn_options  = (b8 & 0x20) != 0;
+
+    if (up != gamepad1_bits.up) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_UP, up);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_UP, up);
+    }
+    if (down != gamepad1_bits.down) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_DOWN, down);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_DOWN, down);
+    }
+    if (left != gamepad1_bits.left) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_LEFT, left);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_LEFT, left);
+    }
+    if (right != gamepad1_bits.right) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_RIGHT, right);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_RIGHT, right);
+    }
+
+    if (btn_cross != gamepad1_bits.b) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_ENTER, btn_cross);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_FIRE, btn_cross);
+    }
+    if (btn_circle != gamepad1_bits.a) {
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_ALTFIRE, btn_circle);
+    }
+    if (btn_options != gamepad1_bits.start) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_HOME, btn_options);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_START, btn_options);
+    }
+    if (btn_create != gamepad1_bits.select) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_BS, btn_create);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_SELECT, btn_create);
+    }
+
+    static bool prev_sq = false, prev_tr = false, prev_l1 = false, prev_r1 = false;
+    if (btn_square   != prev_sq) { kbdPushData(fabgl::VirtualKey::VK_JOY_X, btn_square);   prev_sq = btn_square; }
+    if (btn_triangle != prev_tr) { kbdPushData(fabgl::VirtualKey::VK_JOY_Y, btn_triangle); prev_tr = btn_triangle; }
+    if (btn_l1       != prev_l1) { kbdPushData(fabgl::VirtualKey::VK_JOY_Z, btn_l1);       prev_l1 = btn_l1; }
+    if (btn_r1       != prev_r1) { kbdPushData(fabgl::VirtualKey::VK_JOY_C, btn_r1);       prev_r1 = btn_r1; }
+
+    gamepad1_bits.up = up;
+    gamepad1_bits.down = down;
+    gamepad1_bits.left = left;
+    gamepad1_bits.right = right;
+    gamepad1_bits.a = btn_circle;
+    gamepad1_bits.b = btn_cross;
+    gamepad1_bits.start = btn_options;
+    gamepad1_bits.select = btn_create;
+}
+
+//--------------------------------------------------------------------+
 // Consumer Control (multimedia keys)
 //--------------------------------------------------------------------+
 
@@ -494,6 +604,11 @@ static void process_generic_report(uint8_t dev_addr, uint8_t instance, uint8_t c
   if (is_dualshock4(hid_info[instance].vid, hid_info[instance].pid)
       && len >= 10 && report[0] == 0x01) {
     process_ds4_gamepad(report + 1, len - 1);
+    return;
+  }
+  if (is_dualsense(hid_info[instance].vid, hid_info[instance].pid)
+      && len >= 11 && report[0] == 0x01) {
+    process_ds5_gamepad(report + 1, len - 1);
     return;
   }
 
