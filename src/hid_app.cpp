@@ -25,6 +25,9 @@
 
 #include "bsp/board_api.h"
 #include "tusb.h"
+#include "Debug.h"
+#include "Config.h"
+#include "ESPectrum.h"
 
 //--------------------------------------------------------------------+
 // MACRO TYPEDEF CONSTANT ENUM DECLARATION
@@ -65,6 +68,7 @@ void process_kbd_report(
 
 static void process_mouse_report(hid_mouse_report_t const * report);
 static void process_generic_report(uint8_t dev_addr, uint8_t instance, uint8_t const* report, uint16_t len);
+static void process_hid_gamepad(uint8_t const* report, uint16_t len);
 
 //--------------------------------------------------------------------+
 // TinyUSB Callbacks
@@ -85,12 +89,25 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* desc_re
 
   printf("HID Interface Protocol = %s\r\n", protocol_str[itf_protocol]);
 
+  uint16_t vid = 0, pid = 0;
+  tuh_vid_pid_get(dev_addr, &vid, &pid);
+  Debug::log("HID mount: addr=%u inst=%u VID=%04X PID=%04X proto=%u desc_len=%u",
+             dev_addr, instance, vid, pid, itf_protocol, desc_len);
+
   // By default host stack will use activate boot protocol on supported interface.
   // Therefore for this simple example, we only need to parse generic report descriptor (with built-in parser)
   if ( itf_protocol == HID_ITF_PROTOCOL_NONE )
   {
     hid_info[instance].report_count = tuh_hid_parse_report_descriptor(hid_info[instance].report_info, MAX_REPORT, desc_report, desc_len);
     printf("HID has %u reports \r\n", hid_info[instance].report_count);
+    Debug::log("HID generic: %u reports", hid_info[instance].report_count);
+    for (uint8_t i = 0; i < hid_info[instance].report_count; i++) {
+      Debug::log("  rpt[%u]: id=%u usage_page=%04X usage=%04X",
+                 i,
+                 hid_info[instance].report_info[i].report_id,
+                 hid_info[instance].report_info[i].usage_page,
+                 hid_info[instance].report_info[i].usage);
+    }
   }
 
   // request to receive report
@@ -236,6 +253,92 @@ static void process_mouse_report(hid_mouse_report_t const * report)
 }
 
 //--------------------------------------------------------------------+
+// HID Gamepad / Joystick
+//--------------------------------------------------------------------+
+// Decoded layout for cheap SNES-style USB pads (e.g. VID=081F PID=E401).
+// 8-byte report:
+//   [0] X axis  : 0x00=Left, 0x7F=center, 0xFF=Right
+//   [1] Y axis  : 0x00=Up,   0x7F=center, 0xFF=Down
+//   [5] high nibble = face buttons : 0x10=X, 0x20=A, 0x40=B, 0x80=Y
+//   [6] shoulders/system           : 0x01=L, 0x02=R, 0x10=Select, 0x20=Start
+// Mapping to emulator: D-pad and B (fire) feed Kempston via VK_DPAD_*; A is
+// alt-fire; Start opens OSD (F1); Select is Backspace in menu.
+static void process_hid_gamepad(uint8_t const* report, uint16_t len)
+{
+    if (len < 7) return;
+
+    bool left  = report[0] < 0x40;
+    bool right = report[0] > 0xC0;
+    bool up    = report[1] < 0x40;
+    bool down  = report[1] > 0xC0;
+
+    uint8_t b5 = report[5];
+    uint8_t b6 = report[6];
+    bool btn_a     = (b5 & 0x20) != 0;
+    bool btn_b     = (b5 & 0x40) != 0;
+    bool btn_x     = (b5 & 0x10) != 0;
+    bool btn_y     = (b5 & 0x80) != 0;
+    bool btn_l     = (b6 & 0x01) != 0;
+    bool btn_r     = (b6 & 0x02) != 0;
+    bool btn_sel   = (b6 & 0x10) != 0;
+    bool btn_start = (b6 & 0x20) != 0;
+
+    // D-pad (edge-detected, drives Kempston via VK_DPAD_*)
+    if (up != gamepad1_bits.up) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_UP, up);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_UP, up);
+    }
+    if (down != gamepad1_bits.down) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_DOWN, down);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_DOWN, down);
+    }
+    if (left != gamepad1_bits.left) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_LEFT, left);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_LEFT, left);
+    }
+    if (right != gamepad1_bits.right) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_RIGHT, right);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_RIGHT, right);
+    }
+
+    // B = fire (yellow bottom button — most ergonomic on SNES-style pad)
+    if (btn_b != gamepad1_bits.b) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_ENTER, btn_b);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_FIRE, btn_b);
+    }
+    // A = alt-fire
+    if (btn_a != gamepad1_bits.a) {
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_ALTFIRE, btn_a);
+    }
+    // Start → OSD menu (F1), also DPAD_START for joydef
+    if (btn_start != gamepad1_bits.start) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_HOME, btn_start);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_START, btn_start);
+    }
+    // Select → backspace in menu / DPAD_SELECT
+    if (btn_sel != gamepad1_bits.select) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_BS, btn_sel);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_SELECT, btn_sel);
+    }
+    // X / Y / L / R — fed to joydef via VK_JOY_X/Y/Z/C-style dropdowns. Use the
+    // remaining DPAD slots so users can rebind in the joystick definition menu.
+    static bool prev_x = false, prev_y = false, prev_l = false, prev_r = false;
+    if (btn_x != prev_x) { kbdPushData(fabgl::VirtualKey::VK_JOY_X, btn_x); prev_x = btn_x; }
+    if (btn_y != prev_y) { kbdPushData(fabgl::VirtualKey::VK_JOY_Y, btn_y); prev_y = btn_y; }
+    if (btn_l != prev_l) { kbdPushData(fabgl::VirtualKey::VK_JOY_Z, btn_l); prev_l = btn_l; }
+    if (btn_r != prev_r) { kbdPushData(fabgl::VirtualKey::VK_JOY_C, btn_r); prev_r = btn_r; }
+
+    gamepad1_bits.up = up;
+    gamepad1_bits.down = down;
+    gamepad1_bits.left = left;
+    gamepad1_bits.right = right;
+    gamepad1_bits.a = btn_a;
+    gamepad1_bits.b = btn_b;
+    gamepad1_bits.start = btn_start;
+    gamepad1_bits.select = btn_sel;
+}
+
+//--------------------------------------------------------------------+
 // Consumer Control (multimedia keys)
 //--------------------------------------------------------------------+
 
@@ -333,6 +436,11 @@ static void process_generic_report(uint8_t dev_addr, uint8_t instance, uint8_t c
         TU_LOG1("HID receive mouse report\r\n");
         // Assume mouse follow boot report layout
         process_mouse_report( (hid_mouse_report_t const*) report );
+      break;
+
+      case HID_USAGE_DESKTOP_GAMEPAD:
+      case HID_USAGE_DESKTOP_JOYSTICK:
+        process_hid_gamepad(report, len);
       break;
 
       default: break;
