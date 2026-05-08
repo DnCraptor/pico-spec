@@ -728,6 +728,21 @@ void VIDEO::ulaPlusDisable() {
 // (#C000/#E000 when bank=4). Pixel order in the 8-pixel byte-column: planes
 // are sourced for pixel pairs in the order described by UnrealSpeccy
 // dxr_4bpp.cpp p4bpp_ofs[] — column-pair i mod 4 selects the plane.
+// Precomputed LUT: IiGRBgrb byte -> uint16_t with two 4-bit palette indices.
+// Low byte = LEFT pixel  = (bit6 << 3) | (bits 2..0)  = (i, grb)
+// High byte = RIGHT pixel = (bit7 << 3) | (bits 5..3) = (I, GRB)
+// 512 bytes in SRAM, hot in cache. Reading one byte from a Pentagon plane
+// becomes a single LDRH from this table — no shift/mask in the inner loop.
+static uint16_t mode16col_decode_lut[256] __attribute__((aligned(4)));
+
+static void init_mode16col_decode_lut() {
+    for (int x = 0; x < 256; x++) {
+        uint8_t L = (uint8_t)((((x) >> 3) & 0x08) | ((x) & 0x07));
+        uint8_t R = (uint8_t)((((x) >> 4) & 0x08) | (((x) >> 3) & 0x07));
+        mode16col_decode_lut[x] = (uint16_t)L | ((uint16_t)R << 8);
+    }
+}
+
 void VIDEO::mode16colUpdatePlanes() {
     uint8_t pLow = MemESP::videoLatch ? 6 : 4;   // #C000/#E000 area (when bank=4)
     uint8_t pHi  = MemESP::videoLatch ? 7 : 5;   // #4000/#6000 area
@@ -922,6 +937,9 @@ void VIDEO::Init() {
 
     // Generate AluBytes table with palette indices (no sync bits)
     initAluBytes();
+
+    // Precompute 16col byte->2-pixel LUT (used by 16col rasterizer hot loop)
+    init_mode16col_decode_lut();
 
     precalcULASWAP();   // precalculate ULA SWAP values
 
@@ -1625,37 +1643,26 @@ IRAM_ATTR void VIDEO::MainScreen(unsigned int statestoadd, bool contended) {
         }
     } else if (VIDEO::mode16col_enabled) {
         // 16col (Pentagon, Alone Coder, ZXPress Inferno #08).
-        // Byte layout: %IiGRBgrb. Per the article, IGRB = RIGHT pixel,
-        // igrb = LEFT pixel (lowercase letters are the left half of the byte).
-        // Palette index = (intensity << 3) | colour_3bit (standard ZX 16-col).
+        // Byte layout: %IiGRBgrb. mode16col_decode_lut[] precomputes
+        // (left_pixel | right_pixel<<8) for every input byte.
         // Plane order per pixel-pair: A,B,C,D = #C000, #4000, #E000, #6000.
-        //
-        // Frame buffer pixel ordering inside a uint32_t follows AluByte
-        // convention: byte0=p2, byte1=p3, byte2=p0, byte3=p1 — the HDMI
-        // scanout ISR reads via `input_buffer[(x++) ^ 2]` which inverts the
-        // top/bottom halves of every 4-pixel group. We must write in that
-        // swapped order so pixels appear correctly on screen.
+        // Frame buffer order is byte-swapped (^2) per AluByte convention so
+        // HDMI scanout ISR reads pixels in correct visual order.
         const uint8_t* pA = VIDEO::mode16col_planes[0];
         const uint8_t* pB = VIDEO::mode16col_planes[1];
         const uint8_t* pC = VIDEO::mode16col_planes[2];
         const uint8_t* pD = VIDEO::mode16col_planes[3];
+        const uint16_t* lut = mode16col_decode_lut;
         for (; loopCount--; ) {
             uint16_t off = bmpOffset++;
-            uint8_t a = pA[off];
-            uint8_t b = pB[off];
-            uint8_t c = pC[off];
-            uint8_t d = pD[off];
-            // Decode IiGRBgrb -> palette indices for left and right pixels.
-            #define M16C_L(x) (uint32_t)((((x) >> 3) & 0x08) | ((x) & 0x07))
-            #define M16C_R(x) (uint32_t)((((x) >> 4) & 0x08) | (((x) >> 3) & 0x07))
+            uint32_t la = lut[pA[off]];
+            uint32_t lb = lut[pB[off]];
+            uint32_t lc = lut[pC[off]];
+            uint32_t ld = lut[pD[off]];
             // pixels 0..3 = L(a), R(a), L(b), R(b) — written as bytes [2,3,0,1]
-            *lineptr32++ = M16C_L(b) | (M16C_R(b) << 8)
-                         | (M16C_L(a) << 16) | (M16C_R(a) << 24);
+            *lineptr32++ = lb | (la << 16);
             // pixels 4..7 = L(c), R(c), L(d), R(d) — same swap
-            *lineptr32++ = M16C_L(d) | (M16C_R(d) << 8)
-                         | (M16C_L(c) << 16) | (M16C_R(c) << 24);
-            #undef M16C_L
-            #undef M16C_R
+            *lineptr32++ = ld | (lc << 16);
         }
     } else
 #endif

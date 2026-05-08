@@ -249,20 +249,32 @@ void mem_desc_t::cleanup() {
 }
 
 mem_desc_t MemESP::rom[64];
-// Pages 4-7 always in static BSS (32+32 = 64 KB) — predictable POINTER
-// backing on every board, never in butter/PSRAM/swap. Required by 16col
-// rasterizer which reads pages 4-7 via direct() in the HDMI/VGA ISR.
-static uint8_t pages46[MEM_PG_SZ * 2] = { 0 };
-static uint8_t pages57[MEM_PG_SZ * 2] = { 0 };
+// Pages 4-7 always in static SRAM — predictable POINTER backing on every
+// board, never in butter/PSRAM/swap. Required by 16col rasterizer which
+// reads pages 4-7 via direct() in the HDMI/VGA ISR.
+//
+// Placed in .uninitialized_data section to land in SRAM0/SRAM1 banks —
+// adjacent to the .time_critical CPU code. This separates them from the
+// framebuffer (heap-allocated, lands in SRAM3-5) so HDMI DMA reading the
+// framebuffer doesn't compete with Z80 reads/writes to these pages on the
+// same SRAM bank's AHB port.
+//
+// .uninitialized_data is NOLOAD (no init from flash) and pages 4-7 are
+// explicitly cleared at runtime in MemESP::reset() / Pentagon boot anyway.
+// alignas(4) keeps each page boundary 32-bit-aligned.
+#define M16C_PAGE_ATTR __attribute__((section(".uninitialized_data.m16c_pages"), aligned(4)))
+M16C_PAGE_ATTR static uint8_t pages46[MEM_PG_SZ * 2];
+M16C_PAGE_ATTR static uint8_t pages57[MEM_PG_SZ * 2];
 #if !PICO_RP2040
-// On RP2350 also keep pages 0-3 in BSS (64 KB more) so the entire base
-// Pentagon/128K 128 KB RAM is in fast SRAM, freeing ~64 KB of heap that
-// would otherwise hold them via `new[]`.
+// On RP2350 also keep pages 0-3 in same uninitialized_data SRAM region
+// (64 KB more), freeing ~64 KB of heap that would otherwise hold them via
+// `new[]`.
 // On RP2040 heap is too tight (~148 KB total) to afford this, and page 0
 // is explicitly placed in PSRAM/swap in setup() to save heap for the
 // framebuffer — leave that path intact.
-static uint8_t pages0123[MEM_PG_SZ * 4] = { 0 };
+M16C_PAGE_ATTR static uint8_t pages0123[MEM_PG_SZ * 4];
 #endif
+#undef M16C_PAGE_ATTR
 static mem_desc_t temp[8] = {
 #if !PICO_RP2040
     { pages0123 + MEM_PG_SZ * 0, 0 },
