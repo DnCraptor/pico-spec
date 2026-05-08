@@ -249,16 +249,36 @@ void mem_desc_t::cleanup() {
 }
 
 mem_desc_t MemESP::rom[64];
+// Pages 4-7 always in static BSS (32+32 = 64 KB) — predictable POINTER
+// backing on every board, never in butter/PSRAM/swap. Required by 16col
+// rasterizer which reads pages 4-7 via direct() in the HDMI/VGA ISR.
+static uint8_t pages46[MEM_PG_SZ * 2] = { 0 };
 static uint8_t pages57[MEM_PG_SZ * 2] = { 0 };
+#if !PICO_RP2040
+// On RP2350 also keep pages 0-3 in BSS (64 KB more) so the entire base
+// Pentagon/128K 128 KB RAM is in fast SRAM, freeing ~64 KB of heap that
+// would otherwise hold them via `new[]`.
+// On RP2040 heap is too tight (~148 KB total) to afford this, and page 0
+// is explicitly placed in PSRAM/swap in setup() to save heap for the
+// framebuffer — leave that path intact.
+static uint8_t pages0123[MEM_PG_SZ * 4] = { 0 };
+#endif
 static mem_desc_t temp[8] = {
+#if !PICO_RP2040
+    { pages0123 + MEM_PG_SZ * 0, 0 },
+    { pages0123 + MEM_PG_SZ * 1, 1 },
+    { pages0123 + MEM_PG_SZ * 2, 2 },
+    { pages0123 + MEM_PG_SZ * 3, 3 },
+#else
     { 0, 0 },
-    { 0, 1},
+    { 0, 1 },
     { 0, 2 },
-    { 0, 3},
-    { 0, 4 },
-    { pages57, 5},
-    { 0, 6 },
-    { pages57 + MEM_PG_SZ, 7},
+    { 0, 3 },
+#endif
+    { pages46   + MEM_PG_SZ * 0, 4 },
+    { pages57   + MEM_PG_SZ * 0, 5 },
+    { pages46   + MEM_PG_SZ * 1, 6 },
+    { pages57   + MEM_PG_SZ * 1, 7 },
 };
 mem_desc_t* MemESP::ram = temp;
 bool MemESP::newSRAM = false;

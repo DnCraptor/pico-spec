@@ -690,17 +690,17 @@ void ESPectrum::setup() {
     MemESP::ram[3].assign_ram(new unsigned char[MEM_PG_SZ], 3, false);
     ram_pages += 3;
 #else
-    MemESP::ram[0].assign_ram(new unsigned char[MEM_PG_SZ], 0, false);
-    MemESP::ram[1].assign_ram(new unsigned char[MEM_PG_SZ], 1, false);
-    MemESP::ram[2].assign_ram(new unsigned char[MEM_PG_SZ], 2, false);
-    MemESP::ram[3].assign_ram(new unsigned char[MEM_PG_SZ], 3, false);
+    // RP2350: pages 0-3 are pre-bound to static `pages0123` SRAM buffer
+    // (MemESP.cpp). Skip assign_ram so we don't overwrite the static buffer.
     ram_pages += 4;
 #endif
-    // pages 4 and 6 — use assign_ram for MEM_REMAIN check
-    // 5 and 7 - static (video RAM)
-    assign_ram(4);
-    assign_ram(6);
-    Debug::log("setup: ext_ram: pages 0-6 done, freeHeap=%u", getFreeHeap());
+    // pages 4, 5, 6, 7 are now all in static SRAM buffers (pages46/pages57)
+    // for guaranteed POINTER backing — see MemESP.cpp temp[] init.
+    // Pages 4,6 historically counted in ram_pages via assign_ram; keep that
+    // behaviour so MEM_PG_CNT-aware page-bound checks treat them as RAM.
+    // Pages 5,7 historically not counted — leave them untracked.
+    ram_pages += 2;
+    Debug::log("setup: ext_ram: pages 4-7 in static SRAM, freeHeap=%u", getFreeHeap());
     for (size_t i = 8; i < (MEM_PG_CNT + 2); ++i) {
       assign_ram(i);
     }
@@ -710,29 +710,18 @@ void ESPectrum::setup() {
   } else {
     Debug::log("setup: no ext_ram path, freeHeap=%u", getFreeHeap());
 #if PICO_RP2350
-    // TODO: real number of supported pages: +256/16=16? or just +8 and support
-    // Pentagon 256? or 512-128...
-    MemESP::ram[0].assign_ram(new unsigned char[MEM_PG_SZ], 0, false);
-    ++ram_pages;
+    // RP2350: pages 0-3 are pre-bound to static `pages0123` (MemESP.cpp).
+    ram_pages += 4;
 #else
-// page 0 is not supported without virtual memory on RP2040
-#endif
-    // Pages 1-3 are essential (minimum for 48K)
+    // RP2040: page 0 not supported without virtual memory; pages 1-3 essential.
     MemESP::ram[1].assign_ram(new unsigned char[MEM_PG_SZ], 1, false);
     MemESP::ram[2].assign_ram(new unsigned char[MEM_PG_SZ], 2, false);
     MemESP::ram[3].assign_ram(new unsigned char[MEM_PG_SZ], 3, false);
     ram_pages += 3;
-    // Pages 4,6 only if enough heap remains for framebuffer
-    if (getFreeHeap() >= MEM_PG_SZ + MEM_REMAIN) {
-        MemESP::ram[4].assign_ram(new unsigned char[MEM_PG_SZ], 4, false);
-        ++ram_pages;
-    }
-    // 5 - static (video RAM)
-    if (getFreeHeap() >= MEM_PG_SZ + MEM_REMAIN) {
-        MemESP::ram[6].assign_ram(new unsigned char[MEM_PG_SZ], 6, false);
-        ++ram_pages;
-    }
-    // 7 - static (video RAM)
+#endif
+    // Pages 4 and 6 — pre-bound to static `pages46` (MemESP.cpp).
+    // Pages 5,7 historically not counted — leave them untracked.
+    ram_pages += 2;
     Debug::log("setup: no ext_ram: pages done, freeHeap=%u", getFreeHeap());
   }
   // Load romset
