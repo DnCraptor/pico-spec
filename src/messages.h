@@ -275,6 +275,10 @@ static const char *MENU_ALL_TITLE[2] = { MENU_ALL_TITLE_EN,MENU_ALL_TITLE_ES };
 #define OSD_DSK_NEEDS_PENTAGON_ES " Disco requiere modo Pentagon "
 static const char *OSD_DSK_NEEDS_PENTAGON[2] = { OSD_DSK_NEEDS_PENTAGON_EN,OSD_DSK_NEEDS_PENTAGON_ES };
 
+#define OSD_16COL_NEEDS_PENTAGON_EN "  16col is Pentagon only  "
+#define OSD_16COL_NEEDS_PENTAGON_ES "  16col solo en Pentagon  "
+static const char *OSD_16COL_NEEDS_PENTAGON[2] = { OSD_16COL_NEEDS_PENTAGON_EN,OSD_16COL_NEEDS_PENTAGON_ES };
+
 #define OSD_IMG_NEEDS_ESXDOS_EN "  Enable esxDOS first  "
 #define OSD_IMG_NEEDS_ESXDOS_ES " Active esxDOS primero "
 static const char *OSD_IMG_NEEDS_ESXDOS[2] = { OSD_IMG_NEEDS_ESXDOS_EN,OSD_IMG_NEEDS_ESXDOS_ES };
@@ -650,7 +654,8 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 		"ULA+\t>\n"\
 		"Timex Gfx Mode\t>\n"\
 		"DMA\t>\n"\
-		"HDMI Dither (ULA+)\t>\n"
+		"HDMI Dither (ULA+)\t>\n"\
+		"16col (Pentagon)\t>\n"
 	#define MENU_VIDEO_ES \
 		"Video\n"\
 		"Modo\t>\n"\
@@ -663,7 +668,8 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 		"ULA+\t>\n"\
 		"Timex Gfx Mode\t>\n"\
 		"DMA\t>\n"\
-		"Tramado HDMI (ULA+)\t>\n"
+		"Tramado HDMI (ULA+)\t>\n"\
+		"16col (Pentagon)\t>\n"
 #else
 	#define MENU_VIDEO_EN \
 		"Video\n"\
@@ -1011,6 +1017,7 @@ static const char *MSG_MIDI_PIN_CONFLICT[2] = {
 static const char *MENU_ULAPLUS[2] = { "ULA+\n", "ULA+\n"};
 static const char *MENU_HDMI_DITHER[2] = { "HDMI Dither (ULA+)\n", "Tramado HDMI (ULA+)\n"};
 static const char *MENU_TIMEX[2] = { "Timex Gfx Mode\n", "Timex Gfx Mode\n"};
+static const char *MENU_16COL[2] = { "16col (Pentagon)\n", "16col (Pentagon)\n"};
 #define MENU_DMA_EN "DMA\n"\
     "OFF            \t[O]\n"\
     "Port #0B (MB02+) \t[B]\n"\

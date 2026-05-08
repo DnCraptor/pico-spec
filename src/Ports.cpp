@@ -452,6 +452,9 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
             VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct()
                                               : MemESP::ram[5].direct();
             if (Config::gigascreen_onoff == 2) VIDEO::gigascreen_auto_countdown = 3;
+#if !PICO_RP2040
+            if (VIDEO::mode16col_enabled) VIDEO::mode16colUpdatePlanes();
+#endif
           }
           MemESP::romLatch = bitRead(data, 4);
           if (!ESPectrum::trdos) {
@@ -504,6 +507,18 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
       }
     }
   }
+
+#if !PICO_RP2040
+  // Port #EFF7 D0 enables Pentagon 16col video mode (Alone Coder).
+  // Other bits historically reserved (D1=hardware multicolor stub, etc.) — ignored.
+  if (Z80Ops::isPentagon && Config::mode16col_onoff && address == 0xEFF7) {
+    bool want = (data & 0x01) != 0;
+    if (want != VIDEO::mode16col_enabled) {
+      VIDEO::mode16col_enabled = want;
+      if (want) VIDEO::mode16colUpdatePlanes();
+    }
+  }
+#endif
 
   bool ia = Z80Ops::isALF;
 #ifndef NO_ALF
@@ -899,6 +914,9 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct()
                                           : MemESP::ram[5].direct();
         if (Config::gigascreen_onoff == 2) VIDEO::gigascreen_auto_countdown = 3;
+#if !PICO_RP2040
+        if (VIDEO::mode16col_enabled) VIDEO::mode16colUpdatePlanes();
+#endif
       }
     }
   }

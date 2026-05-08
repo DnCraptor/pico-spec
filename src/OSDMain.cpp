@@ -3159,6 +3159,44 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 }
                             }
                         }
+                        // 16col (Pentagon)
+                        else if (options_num == 12) {
+                            menu_level = 2;
+                            menu_curopt = 1;
+                            menu_saverect = true;
+                            while (1) {
+                                string mc_menu = MENU_16COL[Config::lang];
+                                mc_menu += MENU_YESNO[Config::lang];
+                                bool prev = Config::mode16col_onoff;
+                                if (prev) {
+                                    mc_menu.replace(mc_menu.find("[Y",0),2,"[*");
+                                    mc_menu.replace(mc_menu.find("[N",0),2,"[ ");
+                                } else {
+                                    mc_menu.replace(mc_menu.find("[Y",0),2,"[ ");
+                                    mc_menu.replace(mc_menu.find("[N",0),2,"[*");
+                                }
+                                uint8_t opt2 = menuRun(mc_menu);
+                                if (opt2) {
+                                    bool want = (opt2 == 1);
+                                    if (want && !Z80Ops::isPentagon) {
+                                        OSD::osdCenteredMsg(OSD_16COL_NEEDS_PENTAGON[Config::lang], LEVEL_WARN, 1500);
+                                    } else {
+                                        Config::mode16col_onoff = want;
+                                        if (!Config::mode16col_onoff && VIDEO::mode16col_enabled) {
+                                            // Disabling globally also drops the runtime latch.
+                                            VIDEO::mode16col_enabled = false;
+                                        }
+                                        if (Config::mode16col_onoff != prev) Config::save();
+                                    }
+                                    menu_curopt = opt2;
+                                    menu_saverect = false;
+                                } else {
+                                    menu_curopt = 12;
+                                    menu_level = 1;
+                                    break;
+                                }
+                            }
+                        }
                         #endif
                     } else {
                         menu_curopt = 4;

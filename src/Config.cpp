@@ -124,6 +124,7 @@ bool     Config::ulaplus = false;
 bool     Config::hdmi_dither = false;
 bool     Config::timex_video = false;
 uint8_t  Config::dma_mode = 0;
+bool     Config::mode16col_onoff = false;
 #endif
 uint8_t  Config::palette = 0;
 uint8_t  Config::audio_driver = 0;
@@ -621,6 +622,7 @@ void Config::load() {
         nvs_get_b("hdmi_dither", hdmi_dither, sts);
         nvs_get_b("timex_video", timex_video, sts);
         nvs_get_u8("dma_mode", dma_mode, sts);
+        nvs_get_b("mode16col_onoff", mode16col_onoff, sts);
         #endif
         nvs_get_u8("palette", palette, sts);
         std::string v;
@@ -828,6 +830,7 @@ void Config::save() {
     nvs_set_str(buf,"hdmi_dither", Config::hdmi_dither ? "true" : "false");
     nvs_set_str(buf,"timex_video", Config::timex_video ? "true" : "false");
     nvs_set_u8(buf,"dma_mode",Config::dma_mode);
+    nvs_set_str(buf,"mode16col_onoff", Config::mode16col_onoff ? "true" : "false");
     #endif
     nvs_set_u8(buf,"palette", Config::palette);
     nvs_set_str(buf,"audio_driver", Config::audio_driver == 0 ? "auto" :

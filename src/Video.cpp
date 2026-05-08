@@ -175,6 +175,10 @@ static const uint8_t ulaplus_default_palette[64] = {
 uint8_t VIDEO::ulaplus_palette[64];
 bool VIDEO::ulaplus_palette_dirty = false;
 // AluBytesUlaPlus moved to flash — see roms/AluBytesUlaPlus.c
+
+// 16col mode (Pentagon, Alone Coder)
+bool VIDEO::mode16col_enabled = false;
+const uint8_t* VIDEO::mode16col_planes[4] = { nullptr, nullptr, nullptr, nullptr };
 #endif
 
 #ifdef DIRTY_LINES
@@ -717,6 +721,23 @@ void VIDEO::ulaPlusDisable() {
     brd = border32[borderColor];
     brdChange = true;
 }
+
+// 16col (Alone Coder, Pentagon): 4bpp packed pixels, no attributes. Each byte
+// = 2 horizontally-adjacent pixels (hi nibble = left/even, lo = right/odd).
+// Per speccy.info: 4 6144-byte planes living in pages 5 (#4000/#6000) and 4
+// (#C000/#E000 when bank=4). Pixel order in the 8-pixel byte-column: planes
+// are sourced for pixel pairs in the order described by UnrealSpeccy
+// dxr_4bpp.cpp p4bpp_ofs[] — column-pair i mod 4 selects the plane.
+void VIDEO::mode16colUpdatePlanes() {
+    uint8_t pLow = MemESP::videoLatch ? 6 : 4;   // #C000/#E000 area (when bank=4)
+    uint8_t pHi  = MemESP::videoLatch ? 7 : 5;   // #4000/#6000 area
+    uint8_t* baseLow = MemESP::ram[pLow].direct();
+    uint8_t* baseHi  = MemESP::ram[pHi].direct();
+    mode16col_planes[0] = baseLow;            // page 4/6, +0x0000  (#C000)
+    mode16col_planes[1] = baseHi;             // page 5/7, +0x0000  (#4000)
+    mode16col_planes[2] = baseLow + 0x2000;   // page 4/6, +0x2000  (#E000)
+    mode16col_planes[3] = baseHi  + 0x2000;   // page 5/7, +0x2000  (#6000)
+}
 #endif
 
 // Apply palette: rebuild spectrum_rgb888 from current palette's brightness levels,
@@ -1081,6 +1102,10 @@ void VIDEO::Reset() {
     if (ulaplus_enabled) ulaPlusDisable();
     ulaplus_reg = 0;
     memcpy(ulaplus_palette, ulaplus_default_palette, 64);
+
+    // Reset 16col state
+    mode16col_enabled = false;
+    mode16colUpdatePlanes();
 #endif
 
     is169 = Config::aspect_16_9 ? 1 : 0;
@@ -1597,6 +1622,40 @@ IRAM_ATTR void VIDEO::MainScreen(unsigned int statestoadd, bool contended) {
             uint8_t combined = grmem[bmpOffset++] | grmem[attOffset++];
             *lineptr32++ = AluByte[combined >> 4][hires_att];
             *lineptr32++ = AluByte[combined & 0xF][hires_att];
+        }
+    } else if (VIDEO::mode16col_enabled) {
+        // 16col (Pentagon, Alone Coder, ZXPress Inferno #08).
+        // Byte layout: %IiGRBgrb. Per the article, IGRB = RIGHT pixel,
+        // igrb = LEFT pixel (lowercase letters are the left half of the byte).
+        // Palette index = (intensity << 3) | colour_3bit (standard ZX 16-col).
+        // Plane order per pixel-pair: A,B,C,D = #C000, #4000, #E000, #6000.
+        //
+        // Frame buffer pixel ordering inside a uint32_t follows AluByte
+        // convention: byte0=p2, byte1=p3, byte2=p0, byte3=p1 — the HDMI
+        // scanout ISR reads via `input_buffer[(x++) ^ 2]` which inverts the
+        // top/bottom halves of every 4-pixel group. We must write in that
+        // swapped order so pixels appear correctly on screen.
+        const uint8_t* pA = VIDEO::mode16col_planes[0];
+        const uint8_t* pB = VIDEO::mode16col_planes[1];
+        const uint8_t* pC = VIDEO::mode16col_planes[2];
+        const uint8_t* pD = VIDEO::mode16col_planes[3];
+        for (; loopCount--; ) {
+            uint16_t off = bmpOffset++;
+            uint8_t a = pA[off];
+            uint8_t b = pB[off];
+            uint8_t c = pC[off];
+            uint8_t d = pD[off];
+            // Decode IiGRBgrb -> palette indices for left and right pixels.
+            #define M16C_L(x) (uint32_t)((((x) >> 3) & 0x08) | ((x) & 0x07))
+            #define M16C_R(x) (uint32_t)((((x) >> 4) & 0x08) | (((x) >> 3) & 0x07))
+            // pixels 0..3 = L(a), R(a), L(b), R(b) — written as bytes [2,3,0,1]
+            *lineptr32++ = M16C_L(b) | (M16C_R(b) << 8)
+                         | (M16C_L(a) << 16) | (M16C_R(a) << 24);
+            // pixels 4..7 = L(c), R(c), L(d), R(d) — same swap
+            *lineptr32++ = M16C_L(d) | (M16C_R(d) << 8)
+                         | (M16C_L(c) << 16) | (M16C_R(c) << 24);
+            #undef M16C_L
+            #undef M16C_R
         }
     } else
 #endif
