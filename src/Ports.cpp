@@ -406,9 +406,16 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     }
 
     // Kempston Joystick
-    if ((Config::joystick == JOY_KEMPSTON) &&
-        ((address & 0x00E0) == 0 || p8 == 0xDF || p8 == Config::kempstonPort))
-      return ia ? (port[0x1F] ^ 0xA0) : port[Config::kempstonPort];
+    // Standard Kempston decodes A5=0 (so port 0x1F catches 0x00..0x1F).
+    // Non-standard kempstonPort values (0x37, 0x5F) use exact low-byte match.
+    if (Config::joystick == JOY_KEMPSTON) {
+      bool kempston_hit = (Config::kempstonPort == 0x1F)
+                              ? ((p8 & 0x20) == 0)
+                              : (p8 == Config::kempstonPort);
+      if (kempston_hit)
+        return ia ? (port[Config::kempstonPort] ^ 0xA0)
+                  : port[Config::kempstonPort];
+    }
 
     // Fuller Joystick
     if (Config::joystick == JOY_FULLER && p8 == 0x7F)

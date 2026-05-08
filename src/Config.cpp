@@ -91,7 +91,7 @@ uint8_t  Config::gs_enabled = 0;  // 0=OFF, 1=ON
 uint8_t  Config::gs_ram_size = 2; // 0=512K, 1=1M, 2=2M
 uint8_t  Config::joy2cursor = true;
 uint8_t  Config::secondJoy = 2; // NPAD#2
-uint8_t  Config::kempstonPort = 0x37;
+uint8_t  Config::kempstonPort = 0x1F;
 uint8_t  Config::throtling = DEFAULT_THROTTLING;
 bool     Config::CursorAsJoy = true;
 bool     Config::trdosFastMode = false;
