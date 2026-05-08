@@ -1,16 +1,22 @@
 #!/usr/bin/env python3
 """
 memdump.py — convert picospec GDB memory dumps to dump.log format.
-Reads /tmp/picospec_mem{0-3}.bin (4×16KB pages) and /tmp/picospec_regs.txt.
+Reads /tmp/picospec_mem{0-3}.bin (4×16KB Z80 windows),
+      /tmp/picospec_ram{0-7}.bin (8×16KB physical RAM pages, 128K),
+      /tmp/picospec_regs.txt.
 Writes /tmp/picospec_dump.log in the same format as OSD::saveDumpToFile().
+The 8 physical RAM pages are appended after the logical Z80 dump.
 """
 
 import sys
 import os
 
 MEM_FILES = [f"/tmp/picospec_mem{i}.bin" for i in range(4)]
+RAM_FILES = [f"/tmp/picospec_ram{i}.bin" for i in range(8)]
 REGS_FILE = "/tmp/picospec_regs.txt"
 OUT_FILE  = "/tmp/picospec_dump.log"
+
+MEM_TYPE_NAME = {0: "SRAM", 1: "PSRAM_SPI", 2: "SWAP"}
 
 
 def load_mem():
@@ -24,11 +30,34 @@ def load_mem():
     return b"".join(pages)  # 65536 bytes, 0x0000-0xFFFF
 
 
+def load_ram_pages():
+    """Return list of 8 16K page bytes, or None for any page that's missing."""
+    out = []
+    for f in RAM_FILES:
+        if not os.path.exists(f):
+            out.append(None)
+            continue
+        with open(f, "rb") as fh:
+            data = fh.read()
+        if len(data) != 16384:
+            raise ValueError(f"{f}: expected 16384 bytes, got {len(data)}")
+        out.append(data)
+    return out
+
+
 def load_regs():
     regs = {}
     with open(REGS_FILE) as fh:
         for line in fh:
             line = line.strip()
+            # Strip GDB/MI console-stream wrapping: ~"AF=7E2C\n"
+            if line.startswith('~"') and line.endswith('"'):
+                line = line[2:-1]
+                line = line.replace("\\n", "").replace("\\r", "").replace('\\"', '"')
+                line = line.strip()
+            # Skip MI result/async records (start with =, *, ^, &, @)
+            if not line or line[0] in '=*^&@':
+                continue
             if "=" in line:
                 k, v = line.split("=", 1)
                 regs[k.strip()] = v.strip()
@@ -64,6 +93,7 @@ def main():
             sys.exit(1)
 
     mem  = load_mem()
+    ram_pages = load_ram_pages()
     regs = load_regs()
 
     af   = r16(regs, "AF");  af_lo = af & 0xFF
@@ -104,6 +134,20 @@ def main():
         for a in range(0, 0x10000, 16):
             out.write(hex_line(a, mem))
 
+        out.write("\n")
+
+        # 128K physical RAM pages 0..7 (raw page contents, independent of mapping)
+        out.write("=" * 40 + "\n")
+        out.write("Physical RAM pages (128K)\n")
+        for n, page in enumerate(ram_pages):
+            type_id = ri(regs, f"ram{n}_type")
+            type_name = MEM_TYPE_NAME.get(type_id, f"?{type_id}")
+            if page is None:
+                out.write(f"--- RAM page {n} ({type_name}) [missing] ---\n")
+                continue
+            out.write(f"--- RAM page {n} ({type_name}) ---\n")
+            for a in range(0, 0x4000, 16):
+                out.write(hex_line(a, page))
         out.write("\n")
 
     print(f"Dump written to {OUT_FILE}")
