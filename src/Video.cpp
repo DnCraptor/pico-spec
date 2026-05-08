@@ -938,8 +938,10 @@ void VIDEO::Init() {
     // Generate AluBytes table with palette indices (no sync bits)
     initAluBytes();
 
+#if !PICO_RP2040
     // Precompute 16col byte->2-pixel LUT (used by 16col rasterizer hot loop)
     init_mode16col_decode_lut();
+#endif
 
     precalcULASWAP();   // precalculate ULA SWAP values
 
