@@ -46,7 +46,18 @@ static struct
 {
   uint8_t report_count;
   tuh_hid_report_info_t report_info[MAX_REPORT];
+  uint16_t vid;
+  uint16_t pid;
 }hid_info[CFG_TUH_HID];
+
+// Sony DualShock 4 (PS4 wired): VID=054C, PID=05C4 (v1) / 09CC (v2).
+// 507-byte report descriptor with vendor-page reports overflows TinyUSB's
+// parser, so we bypass the rpt_info table for these and decode the 64-byte
+// input report (id=0x01) by hand.
+static inline bool is_dualshock4(uint16_t vid, uint16_t pid)
+{
+  return vid == 0x054C && (pid == 0x05C4 || pid == 0x09CC);
+}
 
 struct input_bits_t {
   bool a: true;
@@ -69,6 +80,7 @@ void process_kbd_report(
 static void process_mouse_report(hid_mouse_report_t const * report);
 static void process_generic_report(uint8_t dev_addr, uint8_t instance, uint8_t const* report, uint16_t len);
 static void process_hid_gamepad(uint8_t const* report, uint16_t len);
+static void process_ds4_gamepad(uint8_t const* report, uint16_t len);
 
 //--------------------------------------------------------------------+
 // TinyUSB Callbacks
@@ -91,6 +103,8 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* desc_re
 
   uint16_t vid = 0, pid = 0;
   tuh_vid_pid_get(dev_addr, &vid, &pid);
+  hid_info[instance].vid = vid;
+  hid_info[instance].pid = pid;
   Debug::log("HID mount: addr=%u inst=%u VID=%04X PID=%04X proto=%u desc_len=%u",
              dev_addr, instance, vid, pid, itf_protocol, desc_len);
 
@@ -339,6 +353,102 @@ static void process_hid_gamepad(uint8_t const* report, uint16_t len)
 }
 
 //--------------------------------------------------------------------+
+// DualShock 4 (Sony PS4) — VID 054C, PID 05C4/09CC
+//--------------------------------------------------------------------+
+// Report layout after stripping the leading id=0x01 byte (USB mode):
+//   [0..3] LX, LY, RX, RY (0x80 = center)
+//   [4]    low nibble = D-pad (0=N..7=NW, 8=neutral)
+//          high nibble = Square 0x10, Cross 0x20, Circle 0x40, Triangle 0x80
+//   [5]    L1 0x01, R1 0x02, L2 0x04, R2 0x08, Share 0x10,
+//          Options 0x20, L3 0x40, R3 0x80
+//   [6]    PS 0x01, TouchClick 0x02, plus 6-bit counter
+// Mapping mirrors process_hid_gamepad(): D-pad+Cross drive Kempston,
+// Circle = alt-fire, Square/Triangle/L1/R1 → VK_JOY_X/Y/Z/C for joydef.
+static void process_ds4_gamepad(uint8_t const* report, uint16_t len)
+{
+    if (len < 7) return;
+
+    uint8_t lx = report[0];
+    uint8_t ly = report[1];
+    uint8_t dpad_hat = report[4] & 0x0F;
+    uint8_t face = report[4] & 0xF0;
+    uint8_t b5 = report[5];
+
+    bool stick_left  = lx < 0x40;
+    bool stick_right = lx > 0xC0;
+    bool stick_up    = ly < 0x40;
+    bool stick_down  = ly > 0xC0;
+
+    bool hat_up    = (dpad_hat == 7 || dpad_hat == 0 || dpad_hat == 1);
+    bool hat_right = (dpad_hat == 1 || dpad_hat == 2 || dpad_hat == 3);
+    bool hat_down  = (dpad_hat == 3 || dpad_hat == 4 || dpad_hat == 5);
+    bool hat_left  = (dpad_hat == 5 || dpad_hat == 6 || dpad_hat == 7);
+    if (dpad_hat >= 8) { hat_up = hat_down = hat_left = hat_right = false; }
+
+    bool up    = stick_up    || hat_up;
+    bool down  = stick_down  || hat_down;
+    bool left  = stick_left  || hat_left;
+    bool right = stick_right || hat_right;
+
+    bool btn_square   = (face & 0x10) != 0;
+    bool btn_cross    = (face & 0x20) != 0;
+    bool btn_circle   = (face & 0x40) != 0;
+    bool btn_triangle = (face & 0x80) != 0;
+    bool btn_l1       = (b5 & 0x01) != 0;
+    bool btn_r1       = (b5 & 0x02) != 0;
+    bool btn_share    = (b5 & 0x10) != 0;
+    bool btn_options  = (b5 & 0x20) != 0;
+
+    if (up != gamepad1_bits.up) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_UP, up);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_UP, up);
+    }
+    if (down != gamepad1_bits.down) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_DOWN, down);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_DOWN, down);
+    }
+    if (left != gamepad1_bits.left) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_LEFT, left);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_LEFT, left);
+    }
+    if (right != gamepad1_bits.right) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_RIGHT, right);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_RIGHT, right);
+    }
+
+    if (btn_cross != gamepad1_bits.b) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_ENTER, btn_cross);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_FIRE, btn_cross);
+    }
+    if (btn_circle != gamepad1_bits.a) {
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_ALTFIRE, btn_circle);
+    }
+    if (btn_options != gamepad1_bits.start) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_HOME, btn_options);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_START, btn_options);
+    }
+    if (btn_share != gamepad1_bits.select) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_BS, btn_share);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_SELECT, btn_share);
+    }
+
+    static bool prev_sq = false, prev_tr = false, prev_l1 = false, prev_r1 = false;
+    if (btn_square   != prev_sq) { kbdPushData(fabgl::VirtualKey::VK_JOY_X, btn_square);   prev_sq = btn_square; }
+    if (btn_triangle != prev_tr) { kbdPushData(fabgl::VirtualKey::VK_JOY_Y, btn_triangle); prev_tr = btn_triangle; }
+    if (btn_l1       != prev_l1) { kbdPushData(fabgl::VirtualKey::VK_JOY_Z, btn_l1);       prev_l1 = btn_l1; }
+    if (btn_r1       != prev_r1) { kbdPushData(fabgl::VirtualKey::VK_JOY_C, btn_r1);       prev_r1 = btn_r1; }
+
+    gamepad1_bits.up = up;
+    gamepad1_bits.down = down;
+    gamepad1_bits.left = left;
+    gamepad1_bits.right = right;
+    gamepad1_bits.a = btn_circle;
+    gamepad1_bits.b = btn_cross;
+    gamepad1_bits.start = btn_options;
+    gamepad1_bits.select = btn_share;
+}
+
+//--------------------------------------------------------------------+
 // Consumer Control (multimedia keys)
 //--------------------------------------------------------------------+
 
@@ -380,6 +490,12 @@ static void process_consumer_report(uint8_t const* report, uint16_t len)
 static void process_generic_report(uint8_t dev_addr, uint8_t instance, uint8_t const* report, uint16_t len)
 {
   (void) dev_addr;
+
+  if (is_dualshock4(hid_info[instance].vid, hid_info[instance].pid)
+      && len >= 10 && report[0] == 0x01) {
+    process_ds4_gamepad(report + 1, len - 1);
+    return;
+  }
 
   uint8_t const rpt_count = hid_info[instance].report_count;
   tuh_hid_report_info_t* rpt_info_arr = hid_info[instance].report_info;
