@@ -98,12 +98,12 @@
 #define CFG_TUH_XINPUT                 1 //
 #define CFG_TUH_HUB                 1 // number of supported hubs
 #define CFG_TUH_CDC                 0
-#define CFG_TUH_HID                 4 // typical keyboard + mouse device can have 3-4 HID interfaces
+#define CFG_TUH_HID                 8 // composite devices (kbd + pad + extra ifs) can need many slots
 #define CFG_TUH_MSC                 0
 #define CFG_TUH_VENDOR              0
 
 // max device support (excluding hub device)
-#define CFG_TUH_DEVICE_MAX          (CFG_TUH_HUB ? 4 : 1) // hub typically has 4 ports
+#define CFG_TUH_DEVICE_MAX          5 // hub + keyboard + mouse + 2 gamepads
 
 //------------- HID -------------//
 #define CFG_TUH_HID_EPIN_BUFSIZE    64

@@ -28,6 +28,7 @@
 #include "Debug.h"
 #include "Config.h"
 #include "ESPectrum.h"
+#include "hid_rip.h"
 
 //--------------------------------------------------------------------+
 // MACRO TYPEDEF CONSTANT ENUM DECLARATION
@@ -161,6 +162,24 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* desc_re
     hid_info[instance].report_count = tuh_hid_parse_report_descriptor(hid_info[instance].report_info, MAX_REPORT, desc_report, desc_len);
     printf("HID has %u reports \r\n", hid_info[instance].report_count);
     Debug::log("HID generic: %u reports", hid_info[instance].report_count);
+
+    // Fallback: some pads (DS4/DS5, long composite descriptors) trip the
+    // stock tinyusb parser and return 0 reports. Re-parse with the RIP
+    // parser ported from fruit-bat/pico-hid-host (via frank-nes).
+    if (hid_info[instance].report_count == 0 && desc_report && desc_len) {
+      tuh_hid_report_info_plus_t rip_info[MAX_REPORT];
+      uint8_t n = tuh_hid_parse_report_descriptor_plus(rip_info, MAX_REPORT, desc_report, desc_len);
+      if (n > 0 && n <= MAX_REPORT) {
+        for (uint8_t i = 0; i < n; i++) {
+          hid_info[instance].report_info[i].report_id  = rip_info[i].report_id;
+          hid_info[instance].report_info[i].usage      = (uint8_t)rip_info[i].usage;
+          hid_info[instance].report_info[i].usage_page = rip_info[i].usage_page;
+        }
+        hid_info[instance].report_count = n;
+        Debug::log("HID RIP fallback: recovered %u reports", n);
+      }
+    }
+
     for (uint8_t i = 0; i < hid_info[instance].report_count; i++) {
       Debug::log("  rpt[%u]: id=%u usage_page=%04X usage=%04X",
                  i,
@@ -800,8 +819,5 @@ extern "C" int hid_app_format_devices_info(char* buf, int bufsz)
     if (pos >= bufsz - 64) break;
   }
 
-  if (!found) {
-    pos += snprintf(buf, bufsz, "No HID devices connected.\n\nPlug in a USB HID device\nand reopen this dialog.\n");
-  }
   return pos;
 }

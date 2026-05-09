@@ -1,5 +1,8 @@
 #include <host/usbh.h>
+#include <string.h>
+#include <stdio.h>
 #include "xinput_host.h"
+#include "tusb.h"
 
 struct input_bits_t {
     bool a: true;
@@ -20,6 +23,23 @@ usbh_class_driver_t const* usbh_app_driver_get_cb(uint8_t* driver_count) {
     return &usbh_xinput_driver;
 }
 
+// Snapshot for OSD "HID devices" dialog (XInput side).
+#ifndef CFG_TUH_XINPUT
+#define CFG_TUH_XINPUT 1
+#endif
+struct xinput_snap_t {
+    bool     mounted;
+    uint8_t  dev_addr;
+    uint8_t  type;
+    uint8_t  connected;
+    uint16_t vid;
+    uint16_t pid;
+    uint32_t report_total;
+    uint16_t last_pad_size;
+    uint8_t  last_pad[16]; // raw xinput_gamepad_t bytes
+};
+static xinput_snap_t xinput_snap[CFG_TUH_XINPUT];
+
 #include "Config.h"
 #include "ESPectrum.h"
 #include "Video.h"
@@ -32,6 +52,15 @@ usbh_class_driver_t const* usbh_app_driver_get_cb(uint8_t* driver_count) {
 void tuh_xinput_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* report, uint16_t len) {
     auto xid_itf = (xinputh_interface_t *)report;
     const xinput_gamepad_t* p = &xid_itf->pad;
+
+    if (instance < CFG_TUH_XINPUT) {
+        xinput_snap_t& s = xinput_snap[instance];
+        s.report_total++;
+        s.connected = xid_itf->connected;
+        uint16_t n = sizeof(s.last_pad) < sizeof(xinput_gamepad_t) ? sizeof(s.last_pad) : sizeof(xinput_gamepad_t);
+        memcpy(s.last_pad, p, n);
+        s.last_pad_size = n;
+    }
 
     const uint16_t btns = p->wButtons;
 
@@ -113,6 +142,20 @@ void tuh_xinput_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t c
 
 void tuh_xinput_mount_cb(uint8_t dev_addr, uint8_t instance, const xinputh_interface_t* xinput_itf) {
     TU_LOG1("XINPUT MOUNTED %02x %d\n", dev_addr, instance);
+
+    if (instance < CFG_TUH_XINPUT) {
+        xinput_snap_t& s = xinput_snap[instance];
+        s.mounted = true;
+        s.dev_addr = dev_addr;
+        s.type = xinput_itf->type;
+        s.connected = xinput_itf->connected;
+        s.vid = 0;
+        s.pid = 0;
+        tuh_vid_pid_get(dev_addr, &s.vid, &s.pid);
+        s.report_total = 0;
+        s.last_pad_size = 0;
+    }
+
     // If this is a Xbox 360 Wireless controller we need to wait for a connection packet
     // on the in pipe before setting LEDs etc. So just start getting data until a controller is connected.
     if (xinput_itf->type == XBOX360_WIRELESS && xinput_itf->connected == false) {
@@ -128,4 +171,40 @@ void tuh_xinput_mount_cb(uint8_t dev_addr, uint8_t instance, const xinputh_inter
 
 void tuh_xinput_umount_cb(uint8_t dev_addr, uint8_t instance) {
     TU_LOG1("XINPUT UNMOUNTED %02x %d\n", dev_addr, instance);
+    if (instance < CFG_TUH_XINPUT) {
+        xinput_snap[instance].mounted = false;
+    }
+}
+
+extern "C" int xinput_app_format_devices_info(char* buf, int bufsz)
+{
+    static const char* type_name[] = { "Unknown", "XboxOne", "X360Wireless", "X360Wired", "XboxOG" };
+    int pos = 0;
+    if (bufsz > 0) buf[0] = '\0';
+
+    for (uint8_t inst = 0; inst < CFG_TUH_XINPUT; inst++) {
+        const xinput_snap_t& s = xinput_snap[inst];
+        if (!s.mounted) continue;
+        const char* tname = (s.type < 5) ? type_name[s.type] : "?";
+        pos += snprintf(buf + pos, bufsz - pos,
+            "XInput %u  addr=%u  %s\n"
+            " VID:PID = %04X:%04X\n"
+            " connected = %u\n"
+            " reports rx = %lu\n",
+            inst, s.dev_addr, tname,
+            s.vid, s.pid,
+            s.connected,
+            (unsigned long)s.report_total);
+        if (s.last_pad_size) {
+            pos += snprintf(buf + pos, bufsz - pos, " last pad:\n ");
+            for (uint16_t i = 0; i < s.last_pad_size && pos < bufsz - 8; i++) {
+                pos += snprintf(buf + pos, bufsz - pos, "%02X ", s.last_pad[i]);
+                if ((i & 0x07) == 0x07 && i + 1 < s.last_pad_size)
+                    pos += snprintf(buf + pos, bufsz - pos, "\n ");
+            }
+            pos += snprintf(buf + pos, bufsz - pos, "\n");
+        }
+        pos += snprintf(buf + pos, bufsz - pos, "\n");
+    }
+    return pos;
 }

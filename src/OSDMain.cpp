@@ -8023,10 +8023,23 @@ void OSD::EmulatorInfo() {
 }
 
 extern "C" int hid_app_format_devices_info(char* buf, int bufsz);
+extern "C" int xinput_app_format_devices_info(char* buf, int bufsz);
 
 void OSD::HIDDevices() {
     char (&buf)[OSD_INFO_BUF_SZ] = osd_info_buf;
-    hid_app_format_devices_info(buf, sizeof(buf));
+    buf[0] = '\0';
+    int xpos = xinput_app_format_devices_info(buf, sizeof(buf));
+    if (xpos < 0) xpos = 0;
+    if (xpos >= (int)sizeof(buf)) xpos = sizeof(buf) - 1;
+    buf[xpos] = '\0';
+    int hpos = hid_app_format_devices_info(buf + xpos, sizeof(buf) - xpos);
+    if (hpos < 0) hpos = 0;
+    if (xpos + hpos >= (int)sizeof(buf)) hpos = sizeof(buf) - xpos - 1;
+    buf[xpos + hpos] = '\0';
+    if (xpos == 0 && hpos == 0) {
+        snprintf(buf, sizeof(buf),
+            "No HID/XInput devices.\n\nPlug in a USB device\nand reopen this dialog.\n");
+    }
     showTextDialog(Config::lang ? "Disp. HID" : "HID devices", buf);
 }
 
