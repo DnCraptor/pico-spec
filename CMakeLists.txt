@@ -43,7 +43,7 @@ endif()
 set(NO_ALF 1)
 
 set(CPU_MHZ 378)
-set (PORT_VERSION "1.2.15")
+set (PORT_VERSION "1.2.16")
 string(LENGTH "${PORT_VERSION}" PORT_VERSION_LEN)
 
 # Target board (default: PICO_PC; override with -D flags, e.g. cmake -DMURM2=ON)
@@ -239,6 +239,14 @@ pico_add_extra_outputs(${PROJECT_NAME})
 
 if (m1p2launcher)
     pico_set_linker_script(${PROJECT_NAME} "${CMAKE_SOURCE_DIR}/memmap.ld")
+elseif (NOT PICO_PLATFORM STREQUAL "rp2040")
+    # Custom linker script reserves a fixed 128K region (RAM_PAGES01234567) for
+    # the 8 Z80 RAM pages backing pages 0-7 (m16c_pages: pages0123/pages46/57).
+    # All other code/data and the heap (which holds the framebuffer) live in a
+    # separate RAM region. The two regions sit in different SRAM banks with
+    # independent AHB ports — HDMI DMA reading the framebuffer cannot stall
+    # CPU access to Z80 RAM and vice versa.
+    pico_set_linker_script(${PROJECT_NAME} "${CMAKE_SOURCE_DIR}/rp2350-memmap.ld")
 endif ()
 
 target_link_options(${PROJECT_NAME} PRIVATE -Xlinker --print-memory-usage --data-sections)

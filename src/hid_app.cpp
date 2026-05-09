@@ -50,6 +50,24 @@ static struct
   uint16_t pid;
 }hid_info[CFG_TUH_HID];
 
+#define HID_SNAP_DESC_BYTES   48
+#define HID_SNAP_REPORT_BYTES 32
+struct hid_snap_t {
+  bool     mounted;
+  uint8_t  dev_addr;
+  uint8_t  itf_protocol;
+  uint16_t vid;
+  uint16_t pid;
+  uint16_t desc_len;
+  uint8_t  desc_saved;
+  uint8_t  desc[HID_SNAP_DESC_BYTES];
+  uint16_t last_report_len;
+  uint8_t  last_report_saved;
+  uint8_t  last_report[HID_SNAP_REPORT_BYTES];
+  uint32_t report_total;
+};
+static hid_snap_t hid_snap[CFG_TUH_HID];
+
 // Sony DualShock 4 (PS4 wired): VID=054C, PID=05C4 (v1) / 09CC (v2).
 // 507-byte report descriptor with vendor-page reports overflows TinyUSB's
 // parser, so we bypass the rpt_info table for these and decode the 64-byte
@@ -117,6 +135,25 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* desc_re
   Debug::log("HID mount: addr=%u inst=%u VID=%04X PID=%04X proto=%u desc_len=%u",
              dev_addr, instance, vid, pid, itf_protocol, desc_len);
 
+  if (instance < CFG_TUH_HID) {
+    hid_snap_t& s = hid_snap[instance];
+    s.mounted = true;
+    s.dev_addr = dev_addr;
+    s.itf_protocol = itf_protocol;
+    s.vid = vid;
+    s.pid = pid;
+    s.desc_len = desc_len;
+    s.desc_saved = 0;
+    s.last_report_len = 0;
+    s.last_report_saved = 0;
+    s.report_total = 0;
+    if (desc_report && desc_len) {
+      uint16_t n = desc_len < HID_SNAP_DESC_BYTES ? desc_len : HID_SNAP_DESC_BYTES;
+      memcpy(s.desc, desc_report, n);
+      s.desc_saved = (uint8_t)n;
+    }
+  }
+
   // By default host stack will use activate boot protocol on supported interface.
   // Therefore for this simple example, we only need to parse generic report descriptor (with built-in parser)
   if ( itf_protocol == HID_ITF_PROTOCOL_NONE )
@@ -145,6 +182,9 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* desc_re
 void tuh_hid_umount_cb(uint8_t dev_addr, uint8_t instance)
 {
   printf("HID device address = %d, instance = %d is unmounted\r\n", dev_addr, instance);
+  if (instance < CFG_TUH_HID) {
+    hid_snap[instance].mounted = false;
+  }
 }
 
 static hid_keyboard_report_t prev_report = { 0 , 0 , {0}};
@@ -155,6 +195,15 @@ static hid_keyboard_report_t prev_report = { 0 , 0 , {0}};
 void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* report, uint16_t len)
 {
   uint8_t const itf_protocol = tuh_hid_interface_protocol(dev_addr, instance);
+
+  if (instance < CFG_TUH_HID && report && len) {
+    hid_snap_t& s = hid_snap[instance];
+    s.report_total++;
+    s.last_report_len = len;
+    uint16_t n = len < HID_SNAP_REPORT_BYTES ? len : HID_SNAP_REPORT_BYTES;
+    memcpy(s.last_report, report, n);
+    s.last_report_saved = (uint8_t)n;
+  }
 /*
   FIL f;
   f_open(&f, "1.log", FA_OPEN_APPEND | FA_WRITE);
@@ -681,4 +730,78 @@ static void process_generic_report(uint8_t dev_addr, uint8_t instance, uint8_t c
   {
     process_consumer_report(report, len);
   }
+}
+
+//--------------------------------------------------------------------+
+// HID devices info dump (for OSD "HID devices" dialog)
+//--------------------------------------------------------------------+
+extern "C" int hid_app_format_devices_info(char* buf, int bufsz)
+{
+  static const char* proto_name[] = { "Generic", "Keyboard", "Mouse" };
+  int pos = 0;
+  int found = 0;
+
+  for (uint8_t inst = 0; inst < CFG_TUH_HID; inst++) {
+    const hid_snap_t& s = hid_snap[inst];
+    if (!s.mounted) continue;
+    found++;
+
+    const char* pname = (s.itf_protocol < 3) ? proto_name[s.itf_protocol] : "?";
+    const char* known = "";
+    if (is_dualshock4(s.vid, s.pid)) known = " (DualShock 4)";
+    else if (is_dualsense(s.vid, s.pid)) known = " (DualSense)";
+
+    pos += snprintf(buf + pos, bufsz - pos,
+      "Inst %u  addr=%u  %s%s\n"
+      " VID:PID = %04X:%04X\n"
+      " desc len = %u\n",
+      inst, s.dev_addr, pname, known,
+      s.vid, s.pid, s.desc_len);
+
+    if (s.desc_saved) {
+      pos += snprintf(buf + pos, bufsz - pos, " desc[0..%u]:\n ", s.desc_saved - 1);
+      for (uint8_t i = 0; i < s.desc_saved && pos < bufsz - 8; i++) {
+        pos += snprintf(buf + pos, bufsz - pos, "%02X ", s.desc[i]);
+        if ((i & 0x07) == 0x07 && i + 1 < s.desc_saved) {
+          pos += snprintf(buf + pos, bufsz - pos, "\n ");
+        }
+      }
+      pos += snprintf(buf + pos, bufsz - pos, "\n");
+    }
+
+    if (s.itf_protocol == HID_ITF_PROTOCOL_NONE) {
+      pos += snprintf(buf + pos, bufsz - pos, " parsed reports: %u\n", hid_info[inst].report_count);
+      for (uint8_t i = 0; i < hid_info[inst].report_count; i++) {
+        pos += snprintf(buf + pos, bufsz - pos,
+          "  rpt[%u] id=%u page=%04X usage=%04X\n",
+          i,
+          hid_info[inst].report_info[i].report_id,
+          hid_info[inst].report_info[i].usage_page,
+          hid_info[inst].report_info[i].usage);
+      }
+    }
+
+    pos += snprintf(buf + pos, bufsz - pos,
+      " reports rx = %lu  last len = %u\n",
+      (unsigned long)s.report_total, s.last_report_len);
+
+    if (s.last_report_saved) {
+      pos += snprintf(buf + pos, bufsz - pos, " last[0..%u]:\n ", s.last_report_saved - 1);
+      for (uint8_t i = 0; i < s.last_report_saved && pos < bufsz - 8; i++) {
+        pos += snprintf(buf + pos, bufsz - pos, "%02X ", s.last_report[i]);
+        if ((i & 0x07) == 0x07 && i + 1 < s.last_report_saved) {
+          pos += snprintf(buf + pos, bufsz - pos, "\n ");
+        }
+      }
+      pos += snprintf(buf + pos, bufsz - pos, "\n");
+    }
+
+    pos += snprintf(buf + pos, bufsz - pos, "\n");
+    if (pos >= bufsz - 64) break;
+  }
+
+  if (!found) {
+    pos += snprintf(buf, bufsz, "No HID devices connected.\n\nPlug in a USB HID device\nand reopen this dialog.\n");
+  }
+  return pos;
 }

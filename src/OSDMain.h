@@ -93,6 +93,7 @@ public:
     static void ChipInfo();
     static void BoardInfo();
     static void EmulatorInfo();
+    static void HIDDevices();
     static void showTextDialog(const char* title, const char* text);
 
     // Error

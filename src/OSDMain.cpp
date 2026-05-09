@@ -4532,6 +4532,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         menu_saverect = false;
                     }
                     else if (hw_opt == 4) {
+                        // HID devices
+                        OSD::HIDDevices();
+                        menu_curopt = 4;
+                        menu_saverect = false;
+                    }
+                    else if (hw_opt == 5) {
                         // Overclock submenu — warn user
                         osdCenteredMsg(Config::lang ? "Peligroso! Puede no arrancar!" : "Dangerous! Board may not boot!", LEVEL_WARN, 2000);
                         menu_level = 2;
@@ -8014,6 +8020,14 @@ void OSD::EmulatorInfo() {
     }
 
     showTextDialog(Config::lang ? "Info emulador" : "Emulator Info", buf);
+}
+
+extern "C" int hid_app_format_devices_info(char* buf, int bufsz);
+
+void OSD::HIDDevices() {
+    char (&buf)[OSD_INFO_BUF_SZ] = osd_info_buf;
+    hid_app_format_devices_info(buf, sizeof(buf));
+    showTextDialog(Config::lang ? "Disp. HID" : "HID devices", buf);
 }
 
 static void __not_in_flash_func(flash_block)(const uint8_t* buffer, size_t flash_target_offset) {
