@@ -43,6 +43,20 @@ static int line_VS_end = 491;
 static int shift_picture = 0;
 
 static int visible_line_size = 320;
+static int line_size = 800;
+static int HS_SIZE = 96;
+static int HS_SHIFT = 656;
+
+// Maximum DMA buffer size for any supported VGA mode (e.g. 720x576 needs ~880).
+// lines_pattern_data is allocated to this size, smaller modes use only part of it.
+#define VGA_MAX_LINE_SIZE 1024
+
+// Sync byte templates set during init. Stored to allow re-rendering line patterns
+// when the mode (and thus HS_SIZE / line_size) changes at runtime.
+static uint8_t TMPL_LINE8_g = 0b11000000;
+static uint8_t TMPL_HS8_g   = 0b10000000;
+static uint8_t TMPL_VS8_g   = 0b01000000;
+static uint8_t TMPL_VHS8_g  = 0b00000000;
 
 
 static int dma_chan_ctrl;
@@ -87,17 +101,25 @@ void __time_critical_func() dma_handler_VGA() {
     screen_line++;
 
     struct video_mode_t mode = graphics_get_video_mode(get_video_mode());
+    int v_total = mode.vga_v_total ? mode.vga_v_total : mode.v_total;
+    int v_active = mode.vga_v_active ? mode.vga_v_active : mode.v_active;
 
-    if (screen_line == mode.v_total) {
-        ESPectrum_vsync();
+    if (screen_line == v_total) {
         screen_line = 0;
         frame_number++;
         input_buffer = getLineBuffer(screen_line);
     }
 
-    if (screen_line >= mode.v_active) {
+    // Signal vsync at start of blanking (after last visible line), so emulator
+    // renders the next frame during blanking while VGA isn't reading frameBuffer —
+    // prevents tearing at the top of the screen.
+    if (screen_line == v_active) {
+        ESPectrum_vsync();
+    }
+
+    if (screen_line >= v_active) {
         //заполнение цветом фона
-        if (screen_line == mode.v_active | screen_line == mode.v_active + 3) {
+        if (screen_line == v_active | screen_line == v_active + 3) {
             uint32_t* output_buffer_32bit = lines_pattern[2 + (screen_line & 1)];
             output_buffer_32bit += shift_picture / 4;
             uint32_t p_i = (screen_line & is_flash_line) + (frame_number & is_flash_frame) & 1;
@@ -279,10 +301,8 @@ void graphics_set_mode(enum graphics_mode_t mode) {
     uint8_t TMPL_HS8 = 0;
     uint8_t TMPL_LINE8 = 0;
 
-    int line_size;
     double fdiv = 100;
-    int HS_SIZE = 4;
-    int HS_SHIFT = 100;
+    // line_size, HS_SIZE, HS_SHIFT are now globals — assigned from video_mode below
 
     switch (graphics_mode) {
         case TEXTMODE_DEFAULT:
@@ -303,21 +323,30 @@ void graphics_set_mode(enum graphics_mode_t mode) {
                     txt_palette_fast[i * 4 + 3] = c1 | c1 << 8;
                 }
             }
-        case GRAPHICSMODE_DEFAULT:
+        case GRAPHICSMODE_DEFAULT: {
             TMPL_LINE8 = 0b11000000;
-            HS_SHIFT = 328 * 2;
-            HS_SIZE = 48 * 2;
-            line_size = 400 * 2;
-            shift_picture = line_size - HS_SHIFT;
             palette16_mask = 0xc0c0;
-            visible_line_size = 320;
-            // N_lines_total = 525;
-            // N_lines_visible = 480;
             line_VS_begin = 490;
             line_VS_end = 491;
-            struct video_mode_t vMode = graphics_get_video_mode(get_video_mode());            
-            fdiv = clock_get_hz(clk_sys) / vMode.pixel_clk; //частота пиксельклока
+            struct video_mode_t vMode = graphics_get_video_mode(get_video_mode());
+            int vga_px = vMode.vga_pixel_clk ? vMode.vga_pixel_clk : vMode.pixel_clk;
+            fdiv = clock_get_hz(clk_sys) / vga_px; //частота пиксельклока
+            // Compute line layout from video_mode fields (×2 because VGA byte=pixel
+            // and HDMI table values are in HDMI-bytes which encode 2 pixels each).
+            int hs_b = vMode.vga_h_sync_bytes ? vMode.vga_h_sync_bytes : vMode.h_sync_bytes;
+            int bp_b = vMode.vga_h_bp_bytes   ? vMode.vga_h_bp_bytes   : vMode.h_bp_bytes;
+            int fp_b = vMode.vga_h_fp_bytes   ? vMode.vga_h_fp_bytes   : vMode.h_fp_bytes;
+            int sw_b = vMode.vga_screen_width ? vMode.vga_screen_width : vMode.screen_width;
+            HS_SIZE          = hs_b * 2;
+            int bp           = bp_b * 2;
+            visible_line_size = sw_b;
+            int active_bytes = visible_line_size * 2;
+            int fp           = fp_b * 2;
+            line_size        = HS_SIZE + bp + active_bytes + fp;
+            shift_picture    = HS_SIZE + bp;              // offset where active picture starts in line buffer
+            HS_SHIFT         = line_size - shift_picture; // legacy unused
             break;
+        }
         default:
             return;
     }
@@ -333,6 +362,15 @@ void graphics_set_mode(enum graphics_mode_t mode) {
         palette_vga16_scanline[i] = (palette_vga16_scanline[i] & 0x3f3f) | palette16_mask;
     }
 
+    // Save sync byte templates as globals so vga_reinit() can re-render line patterns
+    TMPL_LINE8_g = TMPL_LINE8;
+    TMPL_HS8_g   = TMPL_LINE8 ^ 0b01000000;
+    TMPL_VS8_g   = TMPL_LINE8 ^ 0b10000000;
+    TMPL_VHS8_g  = TMPL_LINE8 ^ 0b11000000;
+    TMPL_VHS8 = TMPL_VHS8_g;
+    TMPL_VS8  = TMPL_VS8_g;
+    TMPL_HS8  = TMPL_HS8_g;
+
     //инициализация шаблонов строк и синхросигнала
     if (!lines_pattern_data) //выделение памяти, если не выделено
     {
@@ -340,45 +378,80 @@ void graphics_set_mode(enum graphics_mode_t mode) {
         PIO_VGA->sm[_SM_VGA].clkdiv = div32 & 0xfffff000; //делитель для конкретной sm
         dma_channel_set_trans_count(dma_chan, line_size / 4, false);
 
-        lines_pattern_data = (uint32_t *)calloc(line_size * 4 / 4, sizeof(uint32_t));
+        // Allocate to max possible line_size so re-renders during mode switches don't overrun.
+        lines_pattern_data = (uint32_t *)calloc(VGA_MAX_LINE_SIZE * 4 / 4, sizeof(uint32_t));
 
         for (int i = 0; i < 4; i++) {
-            lines_pattern[i] = &lines_pattern_data[i * (line_size / 4)];
+            lines_pattern[i] = &lines_pattern_data[i * (VGA_MAX_LINE_SIZE / 4)];
         }
-        // memset(lines_pattern_data,N_TMPLS*1200,0);
-        TMPL_VHS8 = TMPL_LINE8 ^ 0b11000000;
-        TMPL_VS8 = TMPL_LINE8 ^ 0b10000000;
-        TMPL_HS8 = TMPL_LINE8 ^ 0b01000000;
-
-        uint8_t* base_ptr = (uint8_t *)lines_pattern[0];
-        //пустая строка
-        memset(base_ptr, TMPL_LINE8, line_size);
-        //memset(base_ptr+HS_SHIFT,TMPL_HS8,HS_SIZE);
-        //выровненная синхра вначале
-        memset(base_ptr, TMPL_HS8, HS_SIZE);
-
-        // кадровая синхра
-        base_ptr = (uint8_t *)lines_pattern[1];
-        memset(base_ptr, TMPL_VS8, line_size);
-        //memset(base_ptr+HS_SHIFT,TMPL_VHS8,HS_SIZE);
-        //выровненная синхра вначале
-        memset(base_ptr, TMPL_VHS8, HS_SIZE);
-
-        //заготовки для строк с изображением
-        base_ptr = (uint8_t *)lines_pattern[2];
-        memcpy(base_ptr, lines_pattern[0], line_size);
-        base_ptr = (uint8_t *)lines_pattern[3];
-        memcpy(base_ptr, lines_pattern[0], line_size);
     }
+
+    // (Re-)render line templates for current line_size / HS_SIZE
+    uint8_t* base_ptr = (uint8_t *)lines_pattern[0];
+    memset(base_ptr, TMPL_LINE8, line_size);     // empty line: idle level
+    memset(base_ptr, TMPL_HS8, HS_SIZE);         // hsync pulse at start
+
+    base_ptr = (uint8_t *)lines_pattern[1];
+    memset(base_ptr, TMPL_VS8, line_size);       // vsync line: vsync level
+    memset(base_ptr, TMPL_VHS8, HS_SIZE);        // with hsync pulse at start
+
+    // image line templates start as a copy of the empty line
+    memcpy((uint8_t *)lines_pattern[2], lines_pattern[0], line_size);
+    memcpy((uint8_t *)lines_pattern[3], lines_pattern[0], line_size);
 }
 
 void vga_reinit() {
-    // Update VGA sync parameters from current video_mode.
-    // PIO clkdiv and DMA line_size are identical across all VGA modes,
-    // so only vsync line numbers need updating.
+    // Update VGA sync parameters, horizontal layout, and PIO pixel clock from current video_mode.
+    // 50Hz modes use vga_pixel_clk override (lower clock + smaller v_total) so
+    // monitors detect the signal as 640x480@50, not PAL 720x576@50.
+    // HDMI ignores vga_* fields and keeps standard 25.175MHz / v_total=628..644.
     struct video_mode_t mode = graphics_get_video_mode(get_video_mode());
-    line_VS_begin = mode.vsync_start;
-    line_VS_end = mode.vsync_end;
+    line_VS_begin = mode.vga_vsync_start ? mode.vga_vsync_start : mode.vsync_start;
+    line_VS_end = mode.vga_vsync_end ? mode.vga_vsync_end : mode.vsync_end;
+    int pixel_clk = mode.vga_pixel_clk ? mode.vga_pixel_clk : mode.pixel_clk;
+    double fdiv = (double)clock_get_hz(clk_sys) / (double)pixel_clk;
+    const uint32_t div32 = (uint32_t)(fdiv * (1 << 16) + 0.0);
+    PIO_VGA->sm[_SM_VGA].clkdiv = div32 & 0xfffff000;  // integer div only — fractional causes jitter
+
+    // Recompute horizontal layout from video_mode and re-render line templates.
+    // VGA byte=pixel; HDMI table values encode 2 pixels per byte, so multiply by 2.
+    int hs_b = mode.vga_h_sync_bytes ? mode.vga_h_sync_bytes : mode.h_sync_bytes;
+    int bp_b = mode.vga_h_bp_bytes   ? mode.vga_h_bp_bytes   : mode.h_bp_bytes;
+    int fp_b = mode.vga_h_fp_bytes   ? mode.vga_h_fp_bytes   : mode.h_fp_bytes;
+    int sw_b = mode.vga_screen_width ? mode.vga_screen_width : mode.screen_width;
+    int new_HS_SIZE   = hs_b * 2;
+    int new_bp        = bp_b * 2;
+    int new_visible   = sw_b;
+    int new_active    = new_visible * 2;
+    int new_fp        = fp_b * 2;
+    int new_line_size = new_HS_SIZE + new_bp + new_active + new_fp;
+
+    if (new_line_size > VGA_MAX_LINE_SIZE) return;  // safety: don't overflow buffer
+
+    bool layout_changed = (new_line_size != line_size) || (new_HS_SIZE != HS_SIZE)
+                          || (new_visible != visible_line_size);
+
+    HS_SIZE           = new_HS_SIZE;
+    visible_line_size = new_visible;
+    line_size         = new_line_size;
+    shift_picture     = new_HS_SIZE + new_bp;
+    HS_SHIFT          = line_size - shift_picture;
+
+    if (layout_changed && lines_pattern_data) {
+        // Re-render line templates with new HS_SIZE / line_size
+        uint8_t* base_ptr = (uint8_t *)lines_pattern[0];
+        memset(base_ptr, TMPL_LINE8_g, line_size);
+        memset(base_ptr, TMPL_HS8_g, HS_SIZE);
+
+        base_ptr = (uint8_t *)lines_pattern[1];
+        memset(base_ptr, TMPL_VS8_g, line_size);
+        memset(base_ptr, TMPL_VHS8_g, HS_SIZE);
+
+        memcpy((uint8_t *)lines_pattern[2], lines_pattern[0], line_size);
+        memcpy((uint8_t *)lines_pattern[3], lines_pattern[0], line_size);
+
+        dma_channel_set_trans_count(dma_chan, line_size / 4, false);
+    }
 }
 
 void graphics_set_buffer(uint8_t* buffer, const uint16_t width, const uint16_t height) {

@@ -31,7 +31,9 @@ option(ZERO2 "RP2350-PiZero" OFF)
 #set(m1p2launcher ON)
 
 # set(TFT ON)
+# set(TFT_INV ON)
 # set(ILI9341 ON)
+# set(ST7789 ON)
 # set(SOFTTV ON) 
 
 # Display output (default: VGA_HDMI; override with -D flags, e.g. cmake -DSOFTTV=ON)
@@ -41,7 +43,7 @@ endif()
 set(NO_ALF 1)
 
 set(CPU_MHZ 378)
-set (PORT_VERSION "1.2.14")
+set (PORT_VERSION "1.2.16")
 string(LENGTH "${PORT_VERSION}" PORT_VERSION_LEN)
 
 # Target board (default: PICO_PC; override with -D flags, e.g. cmake -DMURM2=ON)
@@ -68,6 +70,9 @@ elseif(ZERO)
 elseif(MURM AND NOT MURM_P2)
     set(PICO_BOARD pico CACHE STRING "Board type" FORCE)
     set(PICO_PLATFORM rp2040)
+elseif(MURM2 AND NOT MURM2_P2)
+    set(PICO_BOARD pico CACHE STRING "Board type" FORCE)
+    set(PICO_PLATFORM rp2040)
 else()
     set(PICO_BOARD pico2 CACHE STRING "Board type" FORCE)
     set(PICO_PLATFORM rp2350-arm-s)
@@ -79,30 +84,38 @@ include(pico_sdk_import.cmake)
 
 if (PICO_BOARD STREQUAL "pico")
     SET(PROJECT_NAME p1-spec)
+    set(BOARD_CHIP_TAG p1)
     set(FLASH_SIZE 2048)
     # light .uf2 (reduced number of ROMs)
     set(FLASH_SIZE_GREEN ON)
 else ()
     SET(PROJECT_NAME p2-spec)
+    set(BOARD_CHIP_TAG p2)
     set(FLASH_SIZE 4096)
 endif()
 
 IF(MURM2)
     SET(BUILD_NAME "m2${PROJECT_NAME}")
+    set(CONFIG_BOARD_TAG "m2${BOARD_CHIP_TAG}")
     set (BUTTER_PSRAM_GPIO 8)
 ELSEIF(PICO_PC)
     SET(BUILD_NAME "PC${PROJECT_NAME}")
+    set(CONFIG_BOARD_TAG "PC${BOARD_CHIP_TAG}")
     set (BUTTER_PSRAM_GPIO 8)
 ELSEIF(PICO_DV)
     SET(BUILD_NAME "DV${PROJECT_NAME}")
+    set(CONFIG_BOARD_TAG "DV${BOARD_CHIP_TAG}")
     set (BUTTER_PSRAM_GPIO 47)
 ELSEIF(ZERO)
     SET(BUILD_NAME "z0${PROJECT_NAME}")
+    set(CONFIG_BOARD_TAG "z0${BOARD_CHIP_TAG}")
 ELSEIF(ZERO2)
     SET(BUILD_NAME "z0${PROJECT_NAME}")
+    set(CONFIG_BOARD_TAG "z0${BOARD_CHIP_TAG}")
     set (BUTTER_PSRAM_GPIO 47)
 ELSE()
     SET(BUILD_NAME "m1${PROJECT_NAME}")
+    set(CONFIG_BOARD_TAG "m1${BOARD_CHIP_TAG}")
     set (BUTTER_PSRAM_GPIO 19)
 ENDIF()
 
@@ -139,6 +152,8 @@ file(GLOB_RECURSE SRC
     "src/roms/*.cpp"
     "src/roms/*.c"
     "src/miniz/*.c"
+    "src/GS/*.cpp"
+    "src/GS/*.c"
 )
 
 message(STATUS "Add source files:")
@@ -224,10 +239,19 @@ pico_add_extra_outputs(${PROJECT_NAME})
 
 if (m1p2launcher)
     pico_set_linker_script(${PROJECT_NAME} "${CMAKE_SOURCE_DIR}/memmap.ld")
+elseif (NOT PICO_PLATFORM STREQUAL "rp2040")
+    # Custom linker script reserves a fixed 128K region (RAM_PAGES01234567) for
+    # the 8 Z80 RAM pages backing pages 0-7 (m16c_pages: pages0123/pages46/57).
+    # All other code/data and the heap (which holds the framebuffer) live in a
+    # separate RAM region. The two regions sit in different SRAM banks with
+    # independent AHB ports — HDMI DMA reading the framebuffer cannot stall
+    # CPU access to Z80 RAM and vice versa.
+    pico_set_linker_script(${PROJECT_NAME} "${CMAKE_SOURCE_DIR}/rp2350-memmap.ld")
 endif ()
 
 target_link_options(${PROJECT_NAME} PRIVATE -Xlinker --print-memory-usage --data-sections)
 target_compile_definitions(${PROJECT_NAME} PRIVATE FLASH_SIZE=${FLASH_SIZE})
+target_compile_definitions(${PROJECT_NAME} PRIVATE CONFIG_BOARD_TAG="${CONFIG_BOARD_TAG}")
 
 if (CMAKE_C_COMPILER_ID STREQUAL "GNU")
 target_compile_options(${PROJECT_NAME} PUBLIC
@@ -273,6 +297,18 @@ ENDIF()
 if (BUTTER_PSRAM_GPIO)
     target_compile_definitions(${PROJECT_NAME} PRIVATE BUTTER_PSRAM_GPIO=${BUTTER_PSRAM_GPIO})
 endif()
+# General Sound — needs butter PSRAM (XIP @ 0x11000000) for 2 MB of GS RAM plus
+# a second Z80 instance. butter PSRAM is RP2350-only; on RP2040 BUTTER_PSRAM_GPIO
+# maps to plain SPI PSRAM which has different semantics. Restrict accordingly.
+if (BUTTER_PSRAM_GPIO AND NOT PICO_PLATFORM STREQUAL "rp2040")
+    target_compile_definitions(${PROJECT_NAME} PRIVATE USE_GS=1)
+endif()
+
+# redcode/Z80 build configuration for GS (LGPLv3 library vendored in src/GS/)
+set_source_files_properties(src/GS/Z80_redcode.c PROPERTIES
+    COMPILE_FLAGS "-O3 -funroll-loops -DZ80_STATIC -DGS_Z80_INSN_IN_SRAM -DZ80_EXTERNAL_HEADER=\\\"Z80_compat.h\\\"")
+set_source_files_properties(src/GS/GS.cpp PROPERTIES
+    COMPILE_FLAGS "-O3 -funroll-loops -DZ80_STATIC -DZ80_EXTERNAL_HEADER=\\\"Z80_compat.h\\\"")
 
 IF(MURM2)
     target_compile_definitions(${PROJECT_NAME} PRIVATE
@@ -637,11 +673,11 @@ ELSEIF(ZERO2)
         PSRAM_PIN_MISO=0
 
         # NES Gamepad
-        # USE_NESPAD
-        # NES_GPIO_CLK=4
-        # NES_GPIO_LAT=5
-        # NES_GPIO_DATA=7
-        # NES_GPIO_DATA2=8
+        USE_NESPAD
+        NES_GPIO_CLK=4
+        NES_GPIO_LAT=5
+        NES_GPIO_DATA=7
+        NES_GPIO_DATA2=8
 
         # VGA 8 pins starts from pin:
         VGA_BASE_PIN=32
@@ -653,12 +689,26 @@ ELSEIF(ZERO2)
         DEFAULT_THROTTLING=0
     )
 ELSE()
+    set(MURM1_DBG_UART OFF CACHE BOOL "Enable Debug Probe UART0 on GP0/GP1 (MURM1) — moves KBD to GP16/GP17, disables NESPAD")
+    if(MURM1_DBG_UART)
+        pico_enable_stdio_uart(${PROJECT_NAME} 1)
+        set(MURM1_KBD_CLOCK_PIN 16)
+        set(MURM1_KBD_DATA_PIN  17)
+    else()
+        set(MURM1_KBD_CLOCK_PIN 0)
+        set(MURM1_KBD_DATA_PIN  1)
+    endif()
     target_compile_definitions(${PROJECT_NAME} PRIVATE
+        DEBUG=0
+        $<$<BOOL:${MURM1_DBG_UART}>:PICO_DEFAULT_UART=0>
+        $<$<BOOL:${MURM1_DBG_UART}>:PICO_DEFAULT_UART_TX_PIN=0>
+        $<$<BOOL:${MURM1_DBG_UART}>:PICO_DEFAULT_UART_RX_PIN=1>
+
         PORT_VERSION="${PORT_VERSION}" PORT_VERSION_LEN=${PORT_VERSION_LEN}
         CPU_MHZ=${CPU_MHZ}
 
-        KBD_CLOCK_PIN=0
-        KBD_DATA_PIN=1
+        KBD_CLOCK_PIN=${MURM1_KBD_CLOCK_PIN}
+        KBD_DATA_PIN=${MURM1_KBD_DATA_PIN}
 
         LOAD_WAV_PIO=22
 
@@ -693,8 +743,8 @@ ELSE()
         PSRAM_PIN_MOSI=20
         PSRAM_PIN_MISO=21
 
-        # NES Gamepad
-        USE_NESPAD
+        # NES Gamepad — disabled when MURM1_DBG_UART=ON (KBD moves to GP16/GP17, conflicts with NES_GPIO_DATA=16)
+        $<$<NOT:$<BOOL:${MURM1_DBG_UART}>>:USE_NESPAD>
         NES_GPIO_CLK=14
         NES_GPIO_DATA=16
         NES_GPIO_LAT=15

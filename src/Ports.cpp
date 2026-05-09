@@ -53,6 +53,9 @@ visit https://zxespectrum.speccy.org/contacto
 
 #include "Midi.h"
 #include "Z80DMA.h"
+#ifdef USE_GS
+#include "GS/GS.h"
+#endif
 #if !PICO_RP2040
 #include "DivMMC.h"
 #include "MB02.h"
@@ -159,6 +162,12 @@ uint8_t nes_pad2_for_alf(void);
 static uint8_t newAlfBit = 0;
 
 extern int ram_pages, butter_pages, psram_pages, swap_pages;
+
+#ifdef USE_GS
+// Proxy for GS.cpp — that TU includes Z80_redcode.h which clashes with
+// Z80_JLS/z80.h, so it can't query the host PC directly.
+extern "C" uint16_t gs_host_z80_pc(void) { return Z80::getRegPC(); }
+#endif
 inline static size_t extendedZxRamPages() {
   if (Z80Ops::is1024)
     return 64;
@@ -273,6 +282,22 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     if (Midi::enabled >= 2 && address == 0xA0CF) {
       return 0x00;
     }
+#ifdef USE_GS
+    // General Sound — host-side status/data ports
+    // {
+    //   uint8_t a8 = address & 0xFF;
+    //   if (a8 == 0xB3 || a8 == 0xBB) {
+    //     Debug::log("IN %04X (a8=%02X) GS.en=%d", address, a8, GS::enabled);
+    //   }
+    // }
+    if (GS::enabled && !DivMMC::divide_mode) {
+      uint8_t a8 = address & 0xFF;
+      if (a8 == 0xB3 || a8 == 0xBB) {
+        ioContentionLate(MemESP::ramContended[rambank]);
+        return (a8 == 0xB3) ? GS::hostReadB3() : GS::hostReadBB();
+      }
+    }
+#endif
     // Timex SCLD port read (port 0x00FF) — skip when TR-DOS is active (port conflict)
     if (Config::timex_video && !ESPectrum::trdos && address == 0x00FF) {
       ioContentionLate(MemESP::ramContended[rambank]);
@@ -308,17 +333,14 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     if (DivMMC::enabled) {
       uint8_t lo = address & 0xFF;
       if (lo == 0xE3) {
-        // Control register read
         return (DivMMC::conmem ? 0x80 : 0) | (DivMMC::mapram ? 0x40 : 0) | DivMMC::bank;
       }
       if (DivMMC::divide_mode) {
-        // DivIDE: IDE/ATA ports
         if ((lo & 0xE3) == 0xA3) {
           uint8_t reg = (lo >> 2) & 0x07;
           return DivMMC::ide_read(reg);
         }
       } else {
-        // DivMMC/DivSD: SPI ports
         if (lo == 0xEB) {
           return DivMMC::mmc_read();
         }
@@ -326,6 +348,12 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
           return 0xFF;
         }
       }
+    }
+
+    if (DivMMC::zc_enabled) {
+      uint8_t lo = address & 0xFF;
+      if (lo == 0x77) return DivMMC::zc_read_status();
+      if (lo == 0x57) return DivMMC::zc_read_data();
     }
 #endif
 
@@ -378,9 +406,16 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     }
 
     // Kempston Joystick
-    if ((Config::joystick == JOY_KEMPSTON) &&
-        ((address & 0x00E0) == 0 || p8 == 0xDF || p8 == Config::kempstonPort))
-      return ia ? (port[0x1F] ^ 0xA0) : port[Config::kempstonPort];
+    // Standard Kempston decodes A5=0 (so port 0x1F catches 0x00..0x1F).
+    // Non-standard kempstonPort values (0x37, 0x5F) use exact low-byte match.
+    if (Config::joystick == JOY_KEMPSTON) {
+      bool kempston_hit = (Config::kempstonPort == 0x1F)
+                              ? ((p8 & 0x20) == 0)
+                              : (p8 == Config::kempstonPort);
+      if (kempston_hit)
+        return ia ? (port[Config::kempstonPort] ^ 0xA0)
+                  : port[Config::kempstonPort];
+    }
 
     // Fuller Joystick
     if (Config::joystick == JOY_FULLER && p8 == 0x7F)
@@ -397,7 +432,7 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
     }
     if (!Z80Ops::isPentagon) {
       data = getFloatBusData();
-      if ((!Z80Ops::is48) && ((address & 0x8002) == 0)) {
+      if ((!Z80Ops::is48) && !Z80Ops::isALF && ((address & 0x8002) == 0)) {
         // //  Solo en el modelo 128K, pero no en los +2/+2A/+3, si se lee el
         // puerto
         // //  0x7ffd, el valor leído es reescrito en el puerto 0x7ffd.
@@ -424,6 +459,9 @@ IRAM_ATTR uint8_t Ports::input(uint16_t address) {
             VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct()
                                               : MemESP::ram[5].direct();
             if (Config::gigascreen_onoff == 2) VIDEO::gigascreen_auto_countdown = 3;
+#if !PICO_RP2040
+            if (VIDEO::mode16col_enabled) VIDEO::mode16colUpdatePlanes();
+#endif
           }
           MemESP::romLatch = bitRead(data, 4);
           if (!ESPectrum::trdos) {
@@ -477,6 +515,18 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     }
   }
 
+#if !PICO_RP2040
+  // Port #EFF7 D0 enables Pentagon 16col video mode (Alone Coder).
+  // Other bits historically reserved (D1=hardware multicolor stub, etc.) — ignored.
+  if (Z80Ops::isPentagon && Config::mode16col_onoff && address == 0xEFF7) {
+    bool want = (data & 0x01) != 0;
+    if (want != VIDEO::mode16col_enabled) {
+      VIDEO::mode16col_enabled = want;
+      if (want) VIDEO::mode16colUpdatePlanes();
+    }
+  }
+#endif
+
   bool ia = Z80Ops::isALF;
 #ifndef NO_ALF
   if (ia) {
@@ -497,6 +547,11 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
       while (MemESP::romInUse >= 64)
         MemESP::romInUse -= 64; // rolling ROM
       MemESP::recoverPage0();
+      // ALF uses incomplete decoding (A7=0, A0=1) for the bank latch, so the
+      // same OUT also hits MB-02 FDC (#0F/#2F/#4F/#6F), DMA (#0B/#6B), Beta-128
+      // and other A7=0 odd-port peripherals. Take the bank-select exclusively.
+      ioContentionLate(MemESP::ramContended[rambank]);
+      return;
     }
   }
 #endif
@@ -621,6 +676,17 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
       Midi::send(data);
       return;
     }
+#ifdef USE_GS
+    // General Sound — host-side data/command ports
+    if (GS::enabled && !DivMMC::divide_mode) {
+      if (a8 == 0xB3 || a8 == 0xBB) {
+        if (a8 == 0xB3) GS::hostWriteB3(data);
+        else            GS::hostWriteBB(data);
+        ioContentionLate(MemESP::ramContended[rambank]);
+        return;
+      }
+    }
+#endif
     // Z80 DMA / zxnDMA port write: listen on both 0x0B and 0x6B
     if (Config::dma_mode && (a8 == 0x0B || a8 == 0x6B)) {
       Z80DMA::writePort(data);
@@ -710,22 +776,19 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
     if (DivMMC::enabled) {
       uint8_t lo = address & 0xFF;
       if (lo == 0xE3) {
-        // Control register write
         DivMMC::bank = data & (DIVMMC_NUM_BANKS - 1);
-        if (data & 0x40) DivMMC::mapram = true; // Sticky!
+        if (data & 0x40) DivMMC::mapram = true;
         DivMMC::conmem = (data & 0x80) != 0;
         DivMMC::applyMapping();
         return;
       }
       if (DivMMC::divide_mode) {
-        // DivIDE: IDE/ATA ports (mask 0xE3 = xxxx xxxx 101r rr11)
         if ((lo & 0xE3) == 0xA3) {
-          uint8_t reg = (lo >> 2) & 0x07; // extract rrr bits
+          uint8_t reg = (lo >> 2) & 0x07;
           DivMMC::ide_write(reg, data);
           return;
         }
       } else {
-        // DivMMC/DivSD: SPI ports
         if (lo == 0xEB) {
           DivMMC::mmc_write(data);
           return;
@@ -735,6 +798,12 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
           return;
         }
       }
+    }
+
+    if (DivMMC::zc_enabled) {
+      uint8_t lo = address & 0xFF;
+      if (lo == 0x77) { DivMMC::zc_write_config(data); return; }
+      if (lo == 0x57) { DivMMC::zc_write_data(data); return; }
     }
 #endif
 
@@ -805,7 +874,10 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
   }
   // 128K, Pentagon
   // ==================================================================
-  if ((!Z80Ops::is48) && ((address & 0x8002) == 0)) { // 8002 !-> 7FFD
+  // ALF excluded: it shares the 128K codepath in CPU.cpp but uses port #5F
+  // for banking, not #7FFD. Letting #7FFD writes through here corrupts
+  // videoLatch/pagingLock and produces a black screen on ALF.
+  if ((!Z80Ops::is48) && !Z80Ops::isALF && ((address & 0x8002) == 0)) { // 8002 !-> 7FFD
     if (!MemESP::pagingLock) {
       uint8_t D5 = bitRead(data, 5);
       if (Z80Ops::is1024) {
@@ -849,6 +921,9 @@ IRAM_ATTR void Ports::output(uint16_t address, uint8_t data) {
         VIDEO::grmem = MemESP::videoLatch ? MemESP::ram[7].direct()
                                           : MemESP::ram[5].direct();
         if (Config::gigascreen_onoff == 2) VIDEO::gigascreen_auto_countdown = 3;
+#if !PICO_RP2040
+        if (VIDEO::mode16col_enabled) VIDEO::mode16colUpdatePlanes();
+#endif
       }
     }
   }

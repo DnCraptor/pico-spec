@@ -86,6 +86,7 @@ public:
     static void initFileSystem();
     static bool mountSDCard();
     static void unmountSDCard();
+    static void mkdirParents(const char* path);
     static bool checkSDCard();
     static bool remountSD();
     // static String         getAllFilesFrom(const String path);
@@ -127,22 +128,19 @@ private:
 ///    static sdmmc_card_t *card;    
 };
 
-#define STORAGE_NVS "/storage.nvs"
+// Config files live under /.config/pico-spec/<port-version>/<board-tag>/
+// (per-version + per-board), with palette.nvs and logs shared in CONFIG_DIR.
+#define CONFIG_DIR_ROOT "/.config"
+#define CONFIG_DIR      CONFIG_DIR_ROOT "/pico-spec"
+#define CONFIG_DIR_VER  CONFIG_DIR "/" PORT_VERSION
+#define CONFIG_DIR_BOARD CONFIG_DIR_VER "/" CONFIG_BOARD_TAG
+#define STORAGE_NVS     CONFIG_DIR_BOARD "/storage.nvs"
+#define PALETTE_NVS     CONFIG_DIR "/palette.nvs"
+#define DEBUG_LOG_PATH  CONFIG_DIR "/debug.log"
+#define DUMP_LOG_PATH   CONFIG_DIR "/dump.log"
 
-#ifndef ESP32_SDL2_WRAPPER
-#define MOUNT_POINT_SPIFFS "/spec"
-#define MOUNT_POINT_SD "/spec"
-#else
-#define MOUNT_POINT_SPIFFS "./spec"
-#define MOUNT_POINT_SD "./spec"
-#endif
-
-// Use internal spiffs first
-#ifndef ESP32_SDL2_WRAPPER
-#define DISK_BOOT_FILENAME "/spec/boot.cfg"
-#else
-#define DISK_BOOT_FILENAME "./spec/boot.cfg"
-#endif
+// Single root for everything on the SD card (data + configs + logs) is CONFIG_DIR.
+#define DISK_BOOT_FILENAME CONFIG_DIR "/boot.cfg"
 #define DISK_ROM_DIR "/r"
 #define DISK_SNA_DIR "/s"
 #define DISK_TAP_DIR "/t"

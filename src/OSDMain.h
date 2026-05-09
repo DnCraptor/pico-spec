@@ -93,6 +93,7 @@ public:
     static void ChipInfo();
     static void BoardInfo();
     static void EmulatorInfo();
+    static void HIDDevices();
     static void showTextDialog(const char* title, const char* text);
 
     // Error
@@ -188,6 +189,7 @@ public:
     static bool menu_del_pressed;         // Set by menuRun when Del pressed on a row
     static bool menu_rename_pressed;      // Set by menuRun when R pressed on a row
     static bool menu_quicksave_pressed;   // Set by menuRun when F4 pressed on a row
+    static bool menu_quickload_pressed;   // Set by menuRun when F3 pressed on a row
     static string menu_footer;            // Optional hint line drawn below menu (cleared after each menuRun)
     static string menu;                   // Menu string
     static unsigned short begin_row;      // First real displayed row

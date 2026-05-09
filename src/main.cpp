@@ -22,6 +22,10 @@
 
 #include "ESPectrum.h"
 #include "Config.h"
+#include "FileUtils.h"
+#ifdef USE_GS
+#include "GS/GS.h"
+#endif
 #include "MemESP.h"
 #include "pwm_audio.h"
 #include "messages.h"
@@ -356,108 +360,104 @@ extern "C" bool handleScancode(const uint32_t ps2scancode) {
 
 #if USE_NESPAD
 
+// NESPAD edge-detection uses its own prev-state instead of gamepad1_bits.
+// Otherwise USB HID/XInput gamepad handlers (DS4, XInput) which also write
+// gamepad1_bits would race the NESPAD tick — every NESPAD tick would see
+// gamepad1_bits.X set by the USB pad, decide it's a release, and push a
+// ghost release. The USB pad next callback would then see gamepad1_bits.X
+// reset and push a duplicate press → button stuck.
+static uint8_t nespad_prev_state = 0;
+
 static void nespad_tick1(void) {
     nespad_read();
+    uint8_t cur = nespad_state;
+    uint8_t prev = nespad_prev_state;
+    uint8_t pressed  = cur & ~prev;   // 0->1 transitions
+    uint8_t released = ~cur & prev;   // 1->0 transitions
+    nespad_prev_state = cur;
+    if (!pressed && !released) return;
 
-    { // secondJoy == 1 - first joy is in use by other (as second)
+    bool sel = (cur & DPAD_SELECT) != 0;
 
-        if ((nespad_state & DPAD_SELECT) && !gamepad1_bits.select) {
-            joyPushData(fabgl::VirtualKey::VK_MENU_BS, true);
-            if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_SELECT, true);
-        }
-        else if (!(nespad_state & DPAD_SELECT) && gamepad1_bits.select) {
-            joyPushData(fabgl::VirtualKey::VK_MENU_BS, false);
-            if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_SELECT, false);
-        }
-        gamepad1_bits.select = (nespad_state & DPAD_SELECT) != 0;
-
-        if ((nespad_state & DPAD_A) && !gamepad1_bits.a) {
-            joyPushData(fabgl::VirtualKey::VK_MENU_ENTER, true);
-            if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_FIRE, true);
-            if (Config::joy2cursor) joyPushData(gamepad1_bits.select ? fabgl::VirtualKey::VK_0 : fabgl::VirtualKey::VK_RETURN, true);
-        }
-        else if (!(nespad_state & DPAD_A) && gamepad1_bits.a) {
-            joyPushData(fabgl::VirtualKey::VK_MENU_ENTER, false);
-            if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_FIRE, false);
-            if (Config::joy2cursor) joyPushData(gamepad1_bits.select ? fabgl::VirtualKey::VK_0 : fabgl::VirtualKey::VK_RETURN, false);
-        }
-
-        if ((nespad_state & DPAD_B) && !gamepad1_bits.b) {
-            joyPushData(fabgl::VirtualKey::VK_MENU_ENTER, true);
-            if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_ALTFIRE, true);
-            if (Config::joy2cursor) joyPushData(gamepad1_bits.select ? fabgl::VirtualKey::VK_1 : fabgl::VirtualKey::VK_SPACE, true);
-        }
-        else if (!(nespad_state & DPAD_B) && gamepad1_bits.b) {
-            joyPushData(fabgl::VirtualKey::VK_MENU_ENTER, false);
-            if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_ALTFIRE, false);
-            if (Config::joy2cursor) joyPushData(gamepad1_bits.select ? fabgl::VirtualKey::VK_1 : fabgl::VirtualKey::VK_SPACE, false);
-        }
-
-        if ((nespad_state & DPAD_START) && !gamepad1_bits.start) {
-            joyPushData(fabgl::VirtualKey::VK_MENU_HOME, true);
-            if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_START, true);
-            if (gamepad1_bits.select || Config::joy2cursor)
-                joyPushData(gamepad1_bits.select ? fabgl::VirtualKey::VK_F1 : fabgl::VirtualKey::VK_R, true);
-        }
-        else if (!(nespad_state & DPAD_START) && gamepad1_bits.start) {
-            joyPushData(fabgl::VirtualKey::VK_MENU_HOME, false);
-            if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_START, false);
-            if (gamepad1_bits.select || Config::joy2cursor)
-                joyPushData(gamepad1_bits.select ? fabgl::VirtualKey::VK_F1 : fabgl::VirtualKey::VK_R, false);
-        }
-
-        if ((nespad_state & DPAD_UP) && !gamepad1_bits.up) {
-            joyPushData(fabgl::VirtualKey::VK_MENU_UP, true);
-            if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_UP, true);
-            if (Config::joy2cursor) joyPushData(gamepad1_bits.select ? fabgl::VirtualKey::VK_PAGEUP : fabgl::VirtualKey::VK_UP, true);
-        }
-        else if (!(nespad_state & DPAD_UP) && gamepad1_bits.up) {
-            joyPushData(fabgl::VirtualKey::VK_MENU_UP, false);
-            if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_UP, false);
-            if (Config::joy2cursor) joyPushData(gamepad1_bits.select ? fabgl::VirtualKey::VK_PAGEUP : fabgl::VirtualKey::VK_UP, false);
-        }
-
-        if ((nespad_state & DPAD_DOWN) && !gamepad1_bits.down) {
-            joyPushData(fabgl::VirtualKey::VK_MENU_DOWN, true);
-            if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_DOWN, true);
-            if (Config::joy2cursor) joyPushData(gamepad1_bits.select ? fabgl::VirtualKey::VK_PAGEDOWN : fabgl::VirtualKey::VK_DOWN, true);
-        }
-        else if (!(nespad_state & DPAD_DOWN) && gamepad1_bits.down) {
-            joyPushData(fabgl::VirtualKey::VK_MENU_DOWN, false);
-            if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_DOWN, false);
-            if (Config::joy2cursor) joyPushData(gamepad1_bits.select ? fabgl::VirtualKey::VK_PAGEDOWN : fabgl::VirtualKey::VK_DOWN, false);
-        }
-
-        if ((nespad_state & DPAD_LEFT) && !gamepad1_bits.left) {
-            joyPushData(VIDEO::OSD & 0x04 ? fabgl::VirtualKey::VK_F9 : fabgl::VirtualKey::VK_MENU_LEFT, true);
-            if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_LEFT, true);
-            if (Config::joy2cursor) joyPushData(gamepad1_bits.select ? fabgl::VirtualKey::VK_BACKSPACE : fabgl::VirtualKey::VK_LEFT, true);
-        }
-        else if (!(nespad_state & DPAD_LEFT) && gamepad1_bits.left) {
-            joyPushData(VIDEO::OSD & 0x04 ? fabgl::VirtualKey::VK_F9 : fabgl::VirtualKey::VK_MENU_LEFT, false);
-            if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_LEFT, false);
-            if (Config::joy2cursor) joyPushData(gamepad1_bits.select ? fabgl::VirtualKey::VK_BACKSPACE : fabgl::VirtualKey::VK_LEFT, false);
-        }
-
-        if ((nespad_state & DPAD_RIGHT) && !gamepad1_bits.right) {
-            joyPushData(VIDEO::OSD & 0x04 ? fabgl::VirtualKey::VK_F10 : fabgl::VirtualKey::VK_MENU_RIGHT, true);
-            if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_RIGHT, true);
-            if (Config::joy2cursor) joyPushData(gamepad1_bits.select ? fabgl::VirtualKey::VK_K : fabgl::VirtualKey::VK_RIGHT, true);
-        }
-        else if (!(nespad_state & DPAD_RIGHT) && gamepad1_bits.right) {
-            joyPushData(VIDEO::OSD & 0x04 ? fabgl::VirtualKey::VK_F10 : fabgl::VirtualKey::VK_MENU_RIGHT, false);
-            if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_RIGHT, false);
-            if (Config::joy2cursor) joyPushData(gamepad1_bits.select ? fabgl::VirtualKey::VK_K : fabgl::VirtualKey::VK_RIGHT, false);
-        }
+    if (pressed & DPAD_SELECT) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_BS, true);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_SELECT, true);
+    } else if (released & DPAD_SELECT) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_BS, false);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_SELECT, false);
     }
 
-    gamepad1_bits.a = (nespad_state & DPAD_A) != 0;
-    gamepad1_bits.b = (nespad_state & DPAD_B) != 0;
-    gamepad1_bits.start = (nespad_state & DPAD_START) != 0;
-    gamepad1_bits.up = (nespad_state & DPAD_UP) != 0;
-    gamepad1_bits.down = (nespad_state & DPAD_DOWN) != 0;
-    gamepad1_bits.left = (nespad_state & DPAD_LEFT) != 0;
-    gamepad1_bits.right = (nespad_state & DPAD_RIGHT) != 0;
+    if (pressed & DPAD_A) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_ENTER, true);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_FIRE, true);
+        if (Config::joy2cursor) joyPushData(sel ? fabgl::VirtualKey::VK_0 : fabgl::VirtualKey::VK_RETURN, true);
+    } else if (released & DPAD_A) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_ENTER, false);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_FIRE, false);
+        if (Config::joy2cursor) joyPushData(sel ? fabgl::VirtualKey::VK_0 : fabgl::VirtualKey::VK_RETURN, false);
+    }
+
+    if (pressed & DPAD_B) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_ENTER, true);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_ALTFIRE, true);
+        if (Config::joy2cursor) joyPushData(sel ? fabgl::VirtualKey::VK_1 : fabgl::VirtualKey::VK_SPACE, true);
+    } else if (released & DPAD_B) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_ENTER, false);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_ALTFIRE, false);
+        if (Config::joy2cursor) joyPushData(sel ? fabgl::VirtualKey::VK_1 : fabgl::VirtualKey::VK_SPACE, false);
+    }
+
+    if (pressed & DPAD_START) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_HOME, true);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_START, true);
+        if (sel || Config::joy2cursor)
+            joyPushData(sel ? fabgl::VirtualKey::VK_F1 : fabgl::VirtualKey::VK_R, true);
+    } else if (released & DPAD_START) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_HOME, false);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_START, false);
+        if (sel || Config::joy2cursor)
+            joyPushData(sel ? fabgl::VirtualKey::VK_F1 : fabgl::VirtualKey::VK_R, false);
+    }
+
+    if (pressed & DPAD_UP) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_UP, true);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_UP, true);
+        if (Config::joy2cursor) joyPushData(sel ? fabgl::VirtualKey::VK_PAGEUP : fabgl::VirtualKey::VK_UP, true);
+    } else if (released & DPAD_UP) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_UP, false);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_UP, false);
+        if (Config::joy2cursor) joyPushData(sel ? fabgl::VirtualKey::VK_PAGEUP : fabgl::VirtualKey::VK_UP, false);
+    }
+
+    if (pressed & DPAD_DOWN) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_DOWN, true);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_DOWN, true);
+        if (Config::joy2cursor) joyPushData(sel ? fabgl::VirtualKey::VK_PAGEDOWN : fabgl::VirtualKey::VK_DOWN, true);
+    } else if (released & DPAD_DOWN) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_DOWN, false);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_DOWN, false);
+        if (Config::joy2cursor) joyPushData(sel ? fabgl::VirtualKey::VK_PAGEDOWN : fabgl::VirtualKey::VK_DOWN, false);
+    }
+
+    if (pressed & DPAD_LEFT) {
+        joyPushData(VIDEO::OSD & 0x04 ? fabgl::VirtualKey::VK_F9 : fabgl::VirtualKey::VK_MENU_LEFT, true);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_LEFT, true);
+        if (Config::joy2cursor) joyPushData(sel ? fabgl::VirtualKey::VK_BACKSPACE : fabgl::VirtualKey::VK_LEFT, true);
+    } else if (released & DPAD_LEFT) {
+        joyPushData(VIDEO::OSD & 0x04 ? fabgl::VirtualKey::VK_F9 : fabgl::VirtualKey::VK_MENU_LEFT, false);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_LEFT, false);
+        if (Config::joy2cursor) joyPushData(sel ? fabgl::VirtualKey::VK_BACKSPACE : fabgl::VirtualKey::VK_LEFT, false);
+    }
+
+    if (pressed & DPAD_RIGHT) {
+        joyPushData(VIDEO::OSD & 0x04 ? fabgl::VirtualKey::VK_F10 : fabgl::VirtualKey::VK_MENU_RIGHT, true);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_RIGHT, true);
+        if (Config::joy2cursor) joyPushData(sel ? fabgl::VirtualKey::VK_K : fabgl::VirtualKey::VK_RIGHT, true);
+    } else if (released & DPAD_RIGHT) {
+        joyPushData(VIDEO::OSD & 0x04 ? fabgl::VirtualKey::VK_F10 : fabgl::VirtualKey::VK_MENU_RIGHT, false);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_RIGHT, false);
+        if (Config::joy2cursor) joyPushData(sel ? fabgl::VirtualKey::VK_K : fabgl::VirtualKey::VK_RIGHT, false);
+    }
 }
 
 static void nespad_tick2(void) {
@@ -868,6 +868,10 @@ void __scratch_x("render") render_core() {
         refresh_lcd();
 #endif
         pcm_call();
+#ifdef USE_GS
+        // Wall-clock-locked: runs GS-Z80 at exactly 12 MHz off core0.
+        GS::pump();
+#endif
         tight_loop_contents();
     }
     __unreachable();
@@ -1195,7 +1199,7 @@ int main() {
     #ifdef VGA_HDMI
     {
         FIL f;
-        f_open(&f, "/spec/video_detect.code", FA_WRITE | FA_CREATE_ALWAYS);
+        f_open(&f, CONFIG_DIR "/video_detect.code", FA_WRITE | FA_CREATE_ALWAYS);
         char buf[16] = {0};
         snprintf(buf, 16, "%02Xh\n", linkVGA01);
         UINT bw;

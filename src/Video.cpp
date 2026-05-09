@@ -54,6 +54,7 @@ extern "C" void graphics_set_palette(uint8_t i, uint32_t color888);
 extern "C" void vga_set_palette_entry_solid(uint8_t i, uint32_t color888);
 extern "C" void graphics_set_buffer(uint8_t* buffer, uint16_t width, uint16_t height);
 extern "C" void graphics_set_scanlines(bool enabled);
+extern "C" void graphics_set_dither(bool enabled);
 extern "C" void hdmi_reinit(void);
 extern "C" void vga_reinit(void);
 // Place hot video functions in SRAM instead of XIP flash
@@ -174,6 +175,10 @@ static const uint8_t ulaplus_default_palette[64] = {
 uint8_t VIDEO::ulaplus_palette[64];
 bool VIDEO::ulaplus_palette_dirty = false;
 // AluBytesUlaPlus moved to flash — see roms/AluBytesUlaPlus.c
+
+// 16col mode (Pentagon, Alone Coder)
+bool VIDEO::mode16col_enabled = false;
+const uint8_t* VIDEO::mode16col_planes[4] = { nullptr, nullptr, nullptr, nullptr };
 #endif
 
 #ifdef DIRTY_LINES
@@ -446,9 +451,10 @@ void VIDEO::loadCustomPalettes() {
     // Create default palette.nvs if it doesn't exist
     {
         FILINFO fi;
-        if (f_stat(MOUNT_POINT_SD "/palette.nvs", &fi) != FR_OK) {
+        if (f_stat(PALETTE_NVS, &fi) != FR_OK) {
+            FileUtils::mkdirParents(CONFIG_DIR);
             FIL cf;
-            if (f_open(&cf, MOUNT_POINT_SD "/palette.nvs", FA_WRITE | FA_CREATE_NEW) == FR_OK) {
+            if (f_open(&cf, PALETTE_NVS, FA_WRITE | FA_CREATE_NEW) == FR_OK) {
                 static const char tmpl[] =
                     "// Custom palettes for ZX Spectrum emulator\n"
                     "//\n"
@@ -479,7 +485,7 @@ void VIDEO::loadCustomPalettes() {
     }
 
     FIL fil;
-    if (f_open(&fil, MOUNT_POINT_SD "/palette.nvs", FA_READ) != FR_OK)
+    if (f_open(&fil, PALETTE_NVS, FA_READ) != FR_OK)
         return;
 
     char line[256];
@@ -634,16 +640,35 @@ static inline uint32_t grb_to_rgb888(uint8_t grb) {
     return (R << 16) | (G << 8) | B;
 }
 
+// Bayer dither neighbour: brighten each channel by ~1 VGA-step (saturating).
+// Used only by HDMI dither path; mimics the visual look of VGA Bayer.
+static inline uint32_t dither_neighbour(uint32_t rgb) {
+    int R = ((rgb >> 16) & 0xFF) + 8; if (R > 255) R = 255;
+    int G = ((rgb >> 8) & 0xFF) + 8; if (G > 255) G = 255;
+    int B = (rgb & 0xFF) + 8; if (B > 255) B = 255;
+    return (R << 16) | (G << 8) | B;
+}
+
 #if !PICO_RP2040
+// Apply ULA+ palette entry i (and Bayer-dither neighbour at i|0x40 for HDMI)
+static inline void applyUlaPlusPalette(int i) {
+    uint32_t base = paletteTransform(grb_to_rgb888(VIDEO::ulaplus_palette[i]));
+    graphics_set_palette(i, base);
+    // Always populate the dither slot so toggling Config::hdmi_dither at runtime
+    // does not require a palette rebuild. When dither is off, hdmi.c does not
+    // read palette[i|0x40], so the cost is just an extra LUT write per entry.
+    graphics_set_palette(i | 0x40, dither_neighbour(base));
+}
+
 void VIDEO::regenerateUlaPlusAluBytes() {
-    // Set palette colors for all 64 ULA+ entries
-    for (int i = 0; i < 64; i++)
-        graphics_set_palette(i, paletteTransform(grb_to_rgb888(ulaplus_palette[i])));
+    for (int i = 0; i < 64; i++) applyUlaPlusPalette(i);
 
     // Point AluByte to flash-resident ULA+ table (palette indices 0-63,
     // fixed mapping that depends only on attribute format, not palette contents)
     for (int n = 0; n < 16; n++)
         AluByte[n] = (unsigned int*)AluBytesUlaPlus_flash[n];
+
+    graphics_set_dither(Config::hdmi_dither);
 }
 
 // Fast path: update single palette entry without rebuilding AluBytes
@@ -658,8 +683,7 @@ void VIDEO::ulaPlusUpdatePaletteEntry(uint8_t entry) {
 void VIDEO::ulaPlusFlushPalette() {
     if (!ulaplus_palette_dirty) return;
     ulaplus_palette_dirty = false;
-    for (int i = 0; i < 64; i++)
-        graphics_set_palette(i, paletteTransform(grb_to_rgb888(ulaplus_palette[i])));
+    for (int i = 0; i < 64; i++) applyUlaPlusPalette(i);
 }
 
 void VIDEO::ulaPlusUpdateBorder() {
@@ -674,6 +698,10 @@ void VIDEO::ulaPlusDisable() {
     ulaplus_enabled = false;
     ulaplus_palette_dirty = false;
     flashing = 0;
+    // Dither is meaningful only with ULA+; force it off so palette[64..127]
+    // (which now hold default G3R3B2 values, not Bayer neighbours) won't be
+    // sampled by the HDMI ISR.
+    graphics_set_dither(false);
     // Restore palette: indices 0-63 back to G3R3B2 defaults, then 0-15 to Spectrum (solid)
     for (int i = 0; i < 64; i++)
         graphics_set_palette(i, paletteTransform(grb_to_rgb888(i)));
@@ -692,6 +720,38 @@ void VIDEO::ulaPlusDisable() {
         AluByte[n] = (unsigned int*)AluBytesStd_flash[n];
     brd = border32[borderColor];
     brdChange = true;
+}
+
+// 16col (Alone Coder, Pentagon): 4bpp packed pixels, no attributes. Each byte
+// = 2 horizontally-adjacent pixels (hi nibble = left/even, lo = right/odd).
+// Per speccy.info: 4 6144-byte planes living in pages 5 (#4000/#6000) and 4
+// (#C000/#E000 when bank=4). Pixel order in the 8-pixel byte-column: planes
+// are sourced for pixel pairs in the order described by UnrealSpeccy
+// dxr_4bpp.cpp p4bpp_ofs[] — column-pair i mod 4 selects the plane.
+// Precomputed LUT: IiGRBgrb byte -> uint16_t with two 4-bit palette indices.
+// Low byte = LEFT pixel  = (bit6 << 3) | (bits 2..0)  = (i, grb)
+// High byte = RIGHT pixel = (bit7 << 3) | (bits 5..3) = (I, GRB)
+// 512 bytes in SRAM, hot in cache. Reading one byte from a Pentagon plane
+// becomes a single LDRH from this table — no shift/mask in the inner loop.
+static uint16_t mode16col_decode_lut[256] __attribute__((aligned(4)));
+
+static void init_mode16col_decode_lut() {
+    for (int x = 0; x < 256; x++) {
+        uint8_t L = (uint8_t)((((x) >> 3) & 0x08) | ((x) & 0x07));
+        uint8_t R = (uint8_t)((((x) >> 4) & 0x08) | (((x) >> 3) & 0x07));
+        mode16col_decode_lut[x] = (uint16_t)L | ((uint16_t)R << 8);
+    }
+}
+
+void VIDEO::mode16colUpdatePlanes() {
+    uint8_t pLow = MemESP::videoLatch ? 6 : 4;   // #C000/#E000 area (when bank=4)
+    uint8_t pHi  = MemESP::videoLatch ? 7 : 5;   // #4000/#6000 area
+    uint8_t* baseLow = MemESP::ram[pLow].direct();
+    uint8_t* baseHi  = MemESP::ram[pHi].direct();
+    mode16col_planes[0] = baseLow;            // page 4/6, +0x0000  (#C000)
+    mode16col_planes[1] = baseHi;             // page 5/7, +0x0000  (#4000)
+    mode16col_planes[2] = baseLow + 0x2000;   // page 4/6, +0x2000  (#E000)
+    mode16col_planes[3] = baseHi  + 0x2000;   // page 5/7, +0x2000  (#6000)
 }
 #endif
 
@@ -878,6 +938,11 @@ void VIDEO::Init() {
     // Generate AluBytes table with palette indices (no sync bits)
     initAluBytes();
 
+#if !PICO_RP2040
+    // Precompute 16col byte->2-pixel LUT (used by 16col rasterizer hot loop)
+    init_mode16col_decode_lut();
+#endif
+
     precalcULASWAP();   // precalculate ULA SWAP values
 
     precalcborder32();  // Precalc border 32 bits values
@@ -1057,6 +1122,10 @@ void VIDEO::Reset() {
     if (ulaplus_enabled) ulaPlusDisable();
     ulaplus_reg = 0;
     memcpy(ulaplus_palette, ulaplus_default_palette, 64);
+
+    // Reset 16col state
+    mode16col_enabled = false;
+    mode16colUpdatePlanes();
 #endif
 
     is169 = Config::aspect_16_9 ? 1 : 0;
@@ -1518,16 +1587,17 @@ inline uint16_t packPixels32(uint32_t cur) {
     return (uint16_t)(p0 | (p1 << 4) | (p2 << 8) | (p3 << 12));
 }
 
-// Blend 4 cur pixels with 4 prev pixels stored as packed uint16 (2 px per byte)
+// Blend 4 cur pixels with 4 prev pixels stored as packed uint16 (2 px per byte).
+// Per-pixel: if low nibble of cur matches prev nibble, return cur byte unchanged
+// (preserves ULA+ upper bits — palette indices 0..63 alias by low nibble in blendLUT).
 inline uint32_t blendPixels32_packed(uint32_t cur, uint16_t prev16) {
-    uint32_t p0 = prev16 & 0x0F;
-    uint32_t p1 = (prev16 >> 4) & 0x0F;
-    uint32_t p2 = (prev16 >> 8) & 0x0F;
-    uint32_t p3 = (prev16 >> 12) & 0x0F;
-    return  gigsBlendLUT[p0 * 16 + (cur & 0x0F)]
-        | (gigsBlendLUT[p1 * 16 + ((cur >> 8) & 0x0F)] << 8)
-        | (gigsBlendLUT[p2 * 16 + ((cur >> 16) & 0x0F)] << 16)
-        | (gigsBlendLUT[p3 * 16 + ((cur >> 24) & 0x0F)] << 24);
+    uint8_t c0 = cur & 0xFF, c1 = (cur >> 8) & 0xFF, c2 = (cur >> 16) & 0xFF, c3 = (cur >> 24) & 0xFF;
+    uint8_t p0 = prev16 & 0x0F, p1 = (prev16 >> 4) & 0x0F, p2 = (prev16 >> 8) & 0x0F, p3 = (prev16 >> 12) & 0x0F;
+    uint8_t r0 = ((c0 & 0x0F) == p0) ? c0 : gigsBlendLUT[p0 * 16 + (c0 & 0x0F)];
+    uint8_t r1 = ((c1 & 0x0F) == p1) ? c1 : gigsBlendLUT[p1 * 16 + (c1 & 0x0F)];
+    uint8_t r2 = ((c2 & 0x0F) == p2) ? c2 : gigsBlendLUT[p2 * 16 + (c2 & 0x0F)];
+    uint8_t r3 = ((c3 & 0x0F) == p3) ? c3 : gigsBlendLUT[p3 * 16 + (c3 & 0x0F)];
+    return r0 | (r1 << 8) | (r2 << 16) | (r3 << 24);
 }
 #else
 // RP2040: gigascreen_enabled is always false, but compiler still needs the symbol
@@ -1572,6 +1642,29 @@ IRAM_ATTR void VIDEO::MainScreen(unsigned int statestoadd, bool contended) {
             uint8_t combined = grmem[bmpOffset++] | grmem[attOffset++];
             *lineptr32++ = AluByte[combined >> 4][hires_att];
             *lineptr32++ = AluByte[combined & 0xF][hires_att];
+        }
+    } else if (VIDEO::mode16col_enabled) {
+        // 16col (Pentagon, Alone Coder, ZXPress Inferno #08).
+        // Byte layout: %IiGRBgrb. mode16col_decode_lut[] precomputes
+        // (left_pixel | right_pixel<<8) for every input byte.
+        // Plane order per pixel-pair: A,B,C,D = #C000, #4000, #E000, #6000.
+        // Frame buffer order is byte-swapped (^2) per AluByte convention so
+        // HDMI scanout ISR reads pixels in correct visual order.
+        const uint8_t* pA = VIDEO::mode16col_planes[0];
+        const uint8_t* pB = VIDEO::mode16col_planes[1];
+        const uint8_t* pC = VIDEO::mode16col_planes[2];
+        const uint8_t* pD = VIDEO::mode16col_planes[3];
+        const uint16_t* lut = mode16col_decode_lut;
+        for (; loopCount--; ) {
+            uint16_t off = bmpOffset++;
+            uint32_t la = lut[pA[off]];
+            uint32_t lb = lut[pB[off]];
+            uint32_t lc = lut[pC[off]];
+            uint32_t ld = lut[pD[off]];
+            // pixels 0..3 = L(a), R(a), L(b), R(b) — written as bytes [2,3,0,1]
+            *lineptr32++ = lb | (la << 16);
+            // pixels 4..7 = L(c), R(c), L(d), R(d) — same swap
+            *lineptr32++ = ld | (lc << 16);
         }
     } else
 #endif

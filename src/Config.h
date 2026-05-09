@@ -55,8 +55,8 @@ class Config
 {
 public:
 
-    static void load();  // load before initialized
-    static void load2(); // load after initialized
+    static void load();           // load main settings before emulator init
+    static void loadDiskMounts(); // mount disks from storage.nvs after FDD/MB02 init
     static void save();
     static bool loaded;  // true after successful load() from file/RAM
 
@@ -90,6 +90,7 @@ public:
     static uint8_t  midi_synth_preset; // 0=GM,1=Piano,2=Chiptune,3=Strings,4=Rock,5=Organ,6=MusicBox,7=Synth
     static bool     timex_video;  // Timex SCLD video modes (port 0xFF)
     static uint8_t  dma_mode;     // 0=Off, 1=Port #0B (Z80 DMA), 2=Port #6B (zxnDMA)
+    static bool     mode16col_onoff; // Pentagon 16col video mode (port #EFF7 D0)
 #endif
     static uint16_t cpu_mhz;   // 252, 378 (RP2040/RP2350), 504 (RP2350 only)
     static uint16_t max_flash_freq; // MHz, default 66
@@ -183,6 +184,8 @@ public:
     static uint8_t  ayConfig;
     static uint8_t  turbosound;
     static uint8_t  covox;
+    static uint8_t  gs_enabled;
+    static uint8_t  gs_ram_size;
     static uint8_t  joy2cursor;
     static uint8_t  secondJoy;
     static uint8_t  kempstonPort;
@@ -208,6 +211,7 @@ public:
     static uint8_t mb02;     // 0=OFF 1=ON (MB-02+ disk interface, mutually exclusive with TR-DOS/DivMMC)
     static bool mb02WP[4];   // MB-02+ per-slot write protect
     static bool mb02SoundLed;// MB-02+ disk sound & LED
+    static bool zcontroller; // Z-Controller SD on ports 0x77/0x57 (mutually exclusive with esxDOS/MB-02+)
 #endif
     
     static signed char aud_volume;
@@ -229,6 +233,7 @@ public:
     static uint8_t gigascreen_onoff; // 0=Off, 1=On, 2=Auto
 #if !PICO_RP2040
     static bool ulaplus;
+    static bool hdmi_dither;
 #endif
     // Palette: 0=Default, 1=Grayscale
     static uint8_t palette;

@@ -177,6 +177,18 @@ void CPU::reset() {
         // Set emulation loop sync target
         ESPectrum::target = MICROS_PER_FRAME_PENTAGON;
     }
+
+#if !PICO_RP2040
+    // 16col is Pentagon-only — auto-disable when switching to non-Pentagon arch.
+    if (!Z80Ops::isPentagon) {
+        if (Config::mode16col_onoff) {
+            Config::mode16col_onoff = false;
+            Config::save();
+        }
+        VIDEO::mode16col_enabled = false;
+    }
+#endif
+
     updateStatesInFrame();
 
     tstates = 0;

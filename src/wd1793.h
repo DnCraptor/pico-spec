@@ -302,7 +302,6 @@ typedef struct
     bool wd2797_mode;
 
     bool sclConverted;
-    unsigned char Track0[2304]; // Store SCL translated track0
 
     int wtrackmark, wtracksector;
 

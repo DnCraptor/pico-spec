@@ -52,9 +52,10 @@ if (Get-Command ccache -ErrorAction SilentlyContinue) {
     $HaveCCache = $true
 }
 
-$AllTargets    = @("MURM_P1", "MURM_P2", "MURM2", "PICO_PC", "PICO_DV", "ZERO", "ZERO2")
-$TftTargets    = @("MURM_P1", "MURM_P2", "MURM2")
-$SofttvTargets = @("MURM_P1", "MURM_P2", "MURM2")
+$AllTargets    = @("MURM_P1", "MURM_P2", "MURM2_P2", "PICO_PC", "PICO_DV", "ZERO", "ZERO2")
+$TftTargets    = @("MURM_P1", "MURM_P2", "MURM2_P2")
+$TftStTargets  = @("MURM2_P1")
+$SofttvTargets = @("MURM_P1", "MURM_P2", "MURM2_P2")
 
 if (-not $Targets -or $Targets.Count -eq 0) { $Targets = $AllTargets }
 
@@ -64,6 +65,9 @@ foreach ($Target in $Targets) {
     $BuildPairs += ,@{ Target = $Target; Display = "VGA_HDMI" }
     if ($TftTargets -contains $Target) {
         $BuildPairs += ,@{ Target = $Target; Display = "TFT_ILI9341" }
+    }
+    if ($TftStTargets -contains $Target) {
+        $BuildPairs += ,@{ Target = $Target; Display = "TFT_ST7789" }
     }
     if ($SofttvTargets -contains $Target) {
         $BuildPairs += ,@{ Target = $Target; Display = "SOFTTV" }
@@ -139,7 +143,7 @@ $Worker = {
             }
             $CachedPlatform = (Select-String -Path $CacheFile -Pattern "^PICO_PLATFORM:.*=(.*)" |
                 Select-Object -First 1).Matches.Groups[1].Value
-            $ExpectedPlatform = if ($Target -in @("MURM_P1","ZERO")) { "rp2040" } else { "rp2350-arm-s" }
+            $ExpectedPlatform = if ($Target -in @("MURM_P1","MURM2_P1","ZERO")) { "rp2040" } else { "rp2350-arm-s" }
             if ($CachedPlatform -and $CachedPlatform -ne $ExpectedPlatform) {
                 "  Platform changed ($CachedPlatform -> $ExpectedPlatform), cleaning cache..." | Out-File $LogFile -Append
                 $NeedClean = $true
@@ -154,12 +158,16 @@ $Worker = {
         if (-not (Test-Path $BuildDir)) { New-Item -ItemType Directory -Path $BuildDir | Out-Null }
 
         switch ($Target) {
-            "MURM_P1" { $TargetFlags = @("-DMURM=ON") }
-            "MURM_P2" { $TargetFlags = @("-DMURM=ON", "-DMURM_P2=ON") }
-            default    { $TargetFlags = @("-D${Target}=ON") }
+            "MURM_P1"  { $TargetFlags = @("-DMURM=ON") }
+            "MURM_P2"  { $TargetFlags = @("-DMURM=ON", "-DMURM_P2=ON") }
+            "MURM2_P1" { $TargetFlags = @("-DMURM2=ON") }
+            "MURM2_P2" { $TargetFlags = @("-DMURM2=ON", "-DMURM2_P2=ON") }
+            default     { $TargetFlags = @("-D${Target}=ON") }
         }
         if ($Display -eq "TFT_ILI9341") {
             $TargetFlags += @("-DTFT=ON", "-DILI9341=ON", "-DVGA_HDMI=OFF")
+        } elseif ($Display -eq "TFT_ST7789") {
+            $TargetFlags += @("-DTFT=ON", "-DST7789=ON", "-DVGA_HDMI=OFF")
         } elseif ($Display -eq "SOFTTV") {
             $TargetFlags += @("-DSOFTTV=ON", "-DVGA_HDMI=OFF")
         }

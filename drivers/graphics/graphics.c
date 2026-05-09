@@ -33,7 +33,6 @@ static struct video_mode_t video_mode[] = {
         .v_total = 644,
         .v_active = 480,
         .freq = 50,
-        .pixel_clk = 25175000,
         .vsync_start = 490,
         .vsync_end = 492,
         .screen_width = 320,
@@ -42,13 +41,15 @@ static struct video_mode_t video_mode[] = {
         .h_fp_bytes = 8,
         .line_bytes = 400,
         .v_offset = 0,
-        .pio_clk_div = PIO_DIV
+        .pio_clk_div = PIO_DIV,
+        // VGA: pixel_clk=19.89MHz (div=19@378MHz), v_total=511 → Pentagon-like
+        .vga_v_total = 511,
+        .vga_pixel_clk = 19894737
     },
     { // [2] 640x480 50Hz 48K 50.08Hz
         .v_total = 628,
         .v_active = 480,
         .freq = 50,
-        .pixel_clk = 25175000,
         .vsync_start = 490,
         .vsync_end = 492,
         .screen_width = 320,
@@ -57,13 +58,15 @@ static struct video_mode_t video_mode[] = {
         .h_fp_bytes = 8,
         .line_bytes = 400,
         .v_offset = 0,
-        .pio_clk_div = PIO_DIV
+        .pio_clk_div = PIO_DIV,
+        // VGA: pixel_clk=19.89MHz (div=19@378MHz)
+        .vga_v_total = 499,
+        .vga_pixel_clk = 19894737
     },
     { // [3] 640x480 50Hz 128K 50.02Hz
         .v_total = 629,
         .v_active = 480,
         .freq = 50,
-        .pixel_clk = 25175000,
         .vsync_start = 490,
         .vsync_end = 492,
         .screen_width = 320,
@@ -72,7 +75,10 @@ static struct video_mode_t video_mode[] = {
         .h_fp_bytes = 8,
         .line_bytes = 400,
         .v_offset = 0,
-        .pio_clk_div = PIO_DIV
+        .pio_clk_div = PIO_DIV,
+        // VGA: pixel_clk=19.89MHz (div=19@378MHz)
+        .vga_v_total = 498,
+        .vga_pixel_clk = 19894737
     },
     { // [4] 720x576 50Hz Pentagon full border — 25.2MHz pixel (sys_clk=378MHz, div=1.5)
         .v_total = 644,   // 25.2MHz/800/644 = 48.91Hz (Pentagon 48.83Hz)
@@ -87,7 +93,18 @@ static struct video_mode_t video_mode[] = {
         .h_fp_bytes = 8,
         .line_bytes = 400,
         .v_offset = 0,
-        .pio_clk_div = PIO_DIV
+        .pio_clk_div = PIO_DIV,
+        // VGA: pixel_clk=27MHz (div=14@378), line_size=864 (HS=48, BP=96, active=720, FP=0)
+        // → active/h_total = 720/864 = 83.3% PAL aspect
+        // v_total empirically tuned to 628 for 48.83Hz Pentagon on actual HW
+        .vga_v_total = 628,
+        .vga_pixel_clk = 27000000,
+        .vga_vsync_start = 580,
+        .vga_vsync_end = 586,
+        .vga_h_sync_bytes = 24,
+        .vga_h_bp_bytes = 48,
+        .vga_h_fp_bytes = 0,
+        .vga_screen_width = 360
     },
     { // [5] 720x576 50Hz 48K full border — 25.2MHz pixel
         .v_total = 628,   // 25.2MHz/800/628 = 50.09Hz (48K 50.08Hz)
@@ -102,7 +119,17 @@ static struct video_mode_t video_mode[] = {
         .h_fp_bytes = 8,
         .line_bytes = 400,
         .v_offset = 0,
-        .pio_clk_div = PIO_DIV
+        .pio_clk_div = PIO_DIV,
+        // VGA: pixel_clk=27MHz (div=14@378), line_size=864 → 720/864=83.3% PAL aspect
+        // v_total empirically tuned to 613 for 50.08Hz 48K on actual HW
+        .vga_v_total = 614,
+        .vga_pixel_clk = 27000000,
+        .vga_vsync_start = 580,
+        .vga_vsync_end = 586,
+        .vga_h_sync_bytes = 24,
+        .vga_h_bp_bytes = 48,
+        .vga_h_fp_bytes = 0,
+        .vga_screen_width = 360
     },
     { // [6] 720x576 50Hz 128K full border — 25.2MHz pixel
         .v_total = 629,   // 25.2MHz/800/629 = 50.00Hz (128K 50.02Hz)
@@ -117,7 +144,17 @@ static struct video_mode_t video_mode[] = {
         .h_fp_bytes = 8,
         .line_bytes = 400,
         .v_offset = 0,
-        .pio_clk_div = PIO_DIV
+        .pio_clk_div = PIO_DIV,
+        // VGA: pixel_clk=27MHz (div=14@378), line_size=864 → 720/864=83.3% PAL aspect
+        // v_total empirically tuned to 613 for 50.02Hz 128K on actual HW
+        .vga_v_total = 612,
+        .vga_pixel_clk = 27000000,
+        .vga_vsync_start = 580,
+        .vga_vsync_end = 586,
+        .vga_h_sync_bytes = 24,
+        .vga_h_bp_bytes = 48,
+        .vga_h_fp_bytes = 0,
+        .vga_screen_width = 360
     },
     { // [7] 720x480 60Hz half border
         .v_total = 524,
@@ -132,7 +169,17 @@ static struct video_mode_t video_mode[] = {
         .h_fp_bytes = 8,
         .line_bytes = 400,
         .v_offset = 0,
-        .pio_clk_div = PIO_DIV
+        .pio_clk_div = PIO_DIV,
+        // VGA: pixel_clk=27MHz (div=14@378), line_size=864 (HS=48, BP=96, active=720, FP=0)
+        // → 720/864 = 83.3% PAL aspect, h_freq=31.25kHz, v_total=521 → 60.00Hz
+        .vga_v_total = 521,
+        .vga_pixel_clk = 27000000,
+        .vga_vsync_start = 500,
+        .vga_vsync_end = 502,
+        .vga_h_sync_bytes = 24,
+        .vga_h_bp_bytes = 48,
+        .vga_h_fp_bytes = 0,
+        .vga_screen_width = 360
     },
     { // [8] 720x576 60Hz full border — 25.2MHz pixel (non-standard: v_active>v_total)
         .v_total = 524,   // 25.2MHz/800/524 ≈ 60.1Hz; v_active=576>524 so all lines are active
@@ -209,8 +256,22 @@ void graphics_set_scanlines(bool enabled) {
     hdmi_set_scanlines(enabled);
     vga_set_scanlines(enabled);
 }
+extern void hdmi_set_dither(bool enabled);
+void graphics_set_dither(bool enabled) {
+    hdmi_set_dither(enabled);
+}
 #else
 void graphics_set_scanlines(bool enabled) {
     (void)enabled;
 }
+#ifdef HDMI
+extern void hdmi_set_dither(bool enabled);
+void graphics_set_dither(bool enabled) {
+    hdmi_set_dither(enabled);
+}
+#else
+void graphics_set_dither(bool enabled) {
+    (void)enabled;
+}
+#endif
 #endif

@@ -43,6 +43,8 @@ public:
     static bool divsd_mode;       // true = raw SD access (Config::esxdos == 3)
     static bool divide_mode;      // true = DivIDE (IDE/ATA, Config::esxdos == 2)
     static bool sdhc_mode;        // true = SDHC (sector-addressed), false = standard (byte-addressed)
+    static bool zc_enabled;       // true = Z-Controller raw SD on ports 0x77/0x57 (no ROM/banking)
+    static uint8_t zc_config;     // Z-Controller port 0x77 latched config (bit0=power, bit1=CS)
 
     static void init();           // Load ROM, open .mmc/.hdf image
     static void reset();          // Reset state
@@ -54,6 +56,16 @@ public:
     static void mmc_cs(uint8_t value);    // Port 0xE7 write: chip select
     static void mmc_write(uint8_t value); // Port 0xEB write: send command/data byte
     static uint8_t mmc_read();            // Port 0xEB read: receive response/data byte
+
+    // Z-Controller raw SD on ports 0x77 (config/status) / 0x57 (SPI data).
+    // Reuses the DivMMC SPI state machine in DivSD/SDHC mode without ROM
+    // or memory banking. Mutually exclusive with esxDOS modes.
+    static void zc_init();                // Initialize raw SD access (called when Config::zcontroller toggles)
+    static void zc_shutdown();            // Tear down raw SD access
+    static void zc_write_config(uint8_t value); // Port 0x77 write: power + CS
+    static uint8_t zc_read_status();      // Port 0x77 read: card detect / WP
+    static void zc_write_data(uint8_t value);   // Port 0x57 write: SPI byte out
+    static uint8_t zc_read_data();        // Port 0x57 read: SPI byte in
 
     // IDE/ATA emulation (DivIDE)
     static void ide_write(uint8_t reg, uint8_t value);  // ATA register write
@@ -104,6 +116,11 @@ private:
     static void flushWriteBuffer();
     static void buildCSD();
     static void buildCSD_real(uint32_t sector_count);
+
+    // For DivMMC superfloppy images: synthesize an MBR at sector 0 so the
+    // host sees a partition table; sectors >=1 are read from .mmc with offset.
+    static void loadSector(uint32_t sector);
+    static void storeSector(uint32_t sector);
 
     // Bank memory management (butter PSRAM or swap)
     static uint8_t* active_buf[DIVMMC_CACHE_SLOTS];

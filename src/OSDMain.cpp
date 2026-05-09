@@ -64,6 +64,7 @@ visit https://zxespectrum.speccy.org/contacto
 #include "MidiSynth.h"
 #include "kbd_img.h"
 extern "C" void graphics_set_scanlines(bool enabled);
+extern "C" void graphics_set_dither(bool enabled);
 #if !PICO_RP2040
 #include "DivMMC.h"
 #include "MB02.h"
@@ -127,6 +128,7 @@ unsigned short OSD::menu_curopt = 1;
 bool OSD::menu_del_pressed = false;
 bool OSD::menu_rename_pressed = false;
 bool OSD::menu_quicksave_pressed = false;
+bool OSD::menu_quickload_pressed = false;
 string OSD::menu_footer = "";
 
 unsigned short OSD::scrW = 320;
@@ -1061,7 +1063,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
             menu_curopt = Config::persist_slot;
             // Persist Load
             while (1) {
-                menu_footer = Config::lang ? "F6:Renombrar  F8:Borrar" : "F6:Rename  F8:Remove";
+                menu_footer = Config::lang ? "F3:Cargar  F6:Renombrar  F8:Borrar" : "F3:Load  F6:Rename  F8:Remove";
                 uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_LOAD[Config::lang], 40));
                 if (opt2) {
                     Config::persist_slot = opt2;
@@ -1916,6 +1918,20 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                                 MB02::init();
                                                 OSD::osdCenteredMsg("MB-02+ disabled", LEVEL_WARN, 2000);
                                             }
+#if !PICO_RP2040
+                                            if (newval && Config::zcontroller) {
+                                                Config::zcontroller = false;
+                                                DivMMC::zc_shutdown();
+                                                OSD::osdCenteredMsg("Z-Controller disabled", LEVEL_WARN, 2000);
+                                            }
+#ifdef USE_GS
+                                            // DivIDE conflicts with General Sound on ports 0xB3/0xBB
+                                            if (newval == 2 && Config::gs_enabled) {
+                                                Config::gs_enabled = 0;
+                                                OSD::osdCenteredMsg("General Sound disabled", LEVEL_WARN, 2000);
+                                            }
+#endif
+#endif
                                             Config::esxdos = newval;
                                             DivMMC::init();
                                             if (DivMMC::enabled && !DivMMC::rom_loaded) {
@@ -2026,6 +2042,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     DivMMC::init();
                                     OSD::osdCenteredMsg("esxDOS disabled", LEVEL_WARN, 2000);
                                 }
+#if !PICO_RP2040
+                                if (Config::mb02 && Config::zcontroller) {
+                                    Config::zcontroller = false;
+                                    DivMMC::zc_shutdown();
+                                    OSD::osdCenteredMsg("Z-Controller disabled", LEVEL_WARN, 2000);
+                                }
+#endif
                                 MB02::init();
                                 if (Config::mb02 && !MB02::enabled) {
                                     OSD::osdCenteredMsg("MB-02+: not enough memory", LEVEL_ERROR, 2000);
@@ -2141,13 +2164,58 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         }
                     }
 #endif
-                    else if (FileUtils::fsMount &&
 #if !PICO_RP2040
-                        stor_num == 5
+                    else if (FileUtils::fsMount && stor_num == 5) { // Z-Controller
+                        menu_saverect = true;
+                        menu_curopt = 1;
+                        while (1) {
+                            menu_level = 2;
+                            string zmenu = "Z-Controller\n";
+                            zmenu += string(MENU_YESNO[Config::lang]);
+                            if (Config::zcontroller) {
+                                zmenu.replace(zmenu.find("[Y",0),2,"[*");
+                                zmenu.replace(zmenu.find("[N",0),2,"[ ");
+                            } else {
+                                zmenu.replace(zmenu.find("[Y",0),2,"[ ");
+                                zmenu.replace(zmenu.find("[N",0),2,"[*");
+                            }
+                            uint8_t opt = menuRun(zmenu);
+                            if (opt == 0) {
+                                menu_curopt = 5;
+                                menu_level = 1;
+                                break;
+                            }
+                            bool newval = (opt == 1);
+                            if (newval == Config::zcontroller) {
+                                menu_curopt = opt;
+                                menu_saverect = false;
+                                continue;
+                            }
+                            Config::zcontroller = newval;
+                            if (newval) {
+                                if (Config::esxdos) {
+                                    Config::esxdos = 0;
+                                    DivMMC::init();
+                                    OSD::osdCenteredMsg("esxDOS disabled", LEVEL_WARN, 2000);
+                                }
+                                if (Config::mb02) {
+                                    Config::mb02 = 0;
+                                    MB02::init();
+                                    OSD::osdCenteredMsg("MB-02+ disabled", LEVEL_WARN, 2000);
+                                }
+                                DivMMC::zc_init();
+                            } else {
+                                DivMMC::zc_shutdown();
+                            }
+                            Config::save();
+                            ESPectrum::reset();
+                            return;
+                        }
+                    }
+                    else if (FileUtils::fsMount && stor_num == 6) { // Snapshot
 #else
-                        stor_num == 3
+                    else if (FileUtils::fsMount && stor_num == 3) { // Snapshot
 #endif
-                    ) { // Snapshot
                         menu_saverect = true;
                         menu_curopt = 1;
                         while(1) {
@@ -2182,7 +2250,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_curopt = 1;
                                     menu_saverect = true;
                                     while (1) {
-                                        menu_footer = Config::lang ? "F6: Renombrar  F8: Borrar" : "F6: Rename  F8: Remove";
+                                        menu_footer = Config::lang ? "F3: Cargar  F6: Renombrar  F8: Borrar" : "F3: Load  F6: Rename  F8: Remove";
                 uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_LOAD[Config::lang], 10));
                                         if (opt2) {
                                             if (menu_del_pressed) {
@@ -2259,8 +2327,25 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                 menu_curopt = 1;
                 while (1) {
                     menu_level = 1;
-                    // Audio
-                    uint8_t options_num = menuRun(MENU_AUDIO[Config::lang]);
+                    // Audio: insert General Sound item between MIDI and Audio Driver when GS is available
+                    string audio_menu = MENU_AUDIO[Config::lang];
+#ifdef USE_GS
+                    // GS works on butter XIP (fast) or, as a fallback, on plain SPI PSRAM
+                    // (slow path, ~30× slower — best-effort, may glitch on MOD playback).
+                    // For SPI fallback, need room for MemESP swap pool + 2 MB GS RAM.
+                    bool gs_avail = (butter_psram_size() > 0)
+                                    || (psram_size() >= (size_t)MEM_PG_CNT * MEM_PG_SZ + (2u << 20));
+                    if (gs_avail) {
+                        // Find the last item ("Audio Driver") and insert GS before it
+                        size_t last_nl = audio_menu.rfind('\n', audio_menu.size() - 2);
+                        if (last_nl != string::npos) {
+                            audio_menu.insert(last_nl + 1, MENU_AUDIO_GS_ITEM[Config::lang]);
+                        }
+                    }
+#else
+                    bool gs_avail = false;
+#endif
+                    uint8_t options_num = menuRun(audio_menu);
                     if (options_num > 0) {
                         if (options_num == 1) {
                             menu_level = 2;
@@ -2435,6 +2520,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
 
                                     if (Config::SAA1099 != prev_saa) {
                                         ESPectrum::SAA_emu = Config::SAA1099;
+                                        if (Config::SAA1099 && Config::timex_video) {
+                                            Config::timex_video = false;
+                                            VIDEO::timex_port_ff = 0;
+                                            VIDEO::timex_mode = 0;
+                                            VIDEO::timex_hires_ink = 0;
+                                            OSD::osdCenteredMsg("Timex disabled", LEVEL_WARN, 2000);
+                                        }
                                         Config::save();
                                     }
                                     menu_curopt = opt2;
@@ -2505,10 +2597,56 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 }
                             }
                         }
+#ifdef USE_GS
+                        else if (gs_avail && options_num == 7) { // General Sound
+                            menu_level = 2;
+                            menu_curopt = 1;
+                            menu_saverect = true;
+                            while (1) {
+                                string gs_menu = MENU_GS[Config::lang];
+                                gs_menu += MENU_YESNO[Config::lang];
+                                uint8_t prev_gs = Config::gs_enabled;
+                                if (prev_gs) {
+                                    gs_menu.replace(gs_menu.find("[Y",0),2,"[*");
+                                    gs_menu.replace(gs_menu.find("[N",0),2,"[ ");
+                                } else {
+                                    gs_menu.replace(gs_menu.find("[Y",0),2,"[ ");
+                                    gs_menu.replace(gs_menu.find("[N",0),2,"[*");
+                                }
+                                uint8_t opt2 = menuRun(gs_menu);
+                                if (opt2) {
+                                    Config::gs_enabled = (opt2 == 1) ? 1 : 0;
+                                    if (Config::gs_enabled != prev_gs) {
+                                        // GS conflicts with DivIDE on ports 0xB3/0xBB
+                                        if (Config::gs_enabled && Config::esxdos == 2) {
+                                            if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
+                                                Config::esxdos = 0;
+                                                Config::save();
+                                                esp_hard_reset();
+                                            } else {
+                                                Config::gs_enabled = prev_gs;
+                                            }
+                                        } else if (confirmReboot(OSD_DLG_APPLYREBOOT)) {
+                                            Config::save();
+                                            esp_hard_reset();
+                                        } else {
+                                            Config::gs_enabled = prev_gs;
+                                        }
+                                    }
+                                    menu_curopt = opt2;
+                                    menu_saverect = false;
+                                } else {
+                                    menu_curopt = 7;
+                                    menu_level = 1;
+                                    break;
+                                }
+                            }
+                        }
+#endif
 #endif
                         else if (options_num ==
 #if !PICO_RP2040
-                            7
+                            (gs_avail ? 8 : 7)
 #else
                             5
 #endif
@@ -2554,7 +2692,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                 } else {
                                     menu_curopt =
 #if !PICO_RP2040
-                                        7;
+                                        (gs_avail ? 8 : 7);
 #else
                                         5;
 #endif
@@ -2937,8 +3075,14 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                         VIDEO::timex_mode = 0;
                                         VIDEO::timex_hires_ink = 0;
                                     }
-                                    if (Config::timex_video != prev)
+                                    if (Config::timex_video != prev) {
+                                        if (Config::timex_video && Config::SAA1099) {
+                                            Config::SAA1099 = false;
+                                            ESPectrum::SAA_emu = false;
+                                            OSD::osdCenteredMsg("SAA1099 disabled", LEVEL_WARN, 2000);
+                                        }
                                         Config::save();
+                                    }
                                     menu_curopt = opt2;
                                     menu_saverect = false;
                                 } else {
@@ -2969,6 +3113,85 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                                     menu_saverect = false;
                                 } else {
                                     menu_curopt = 10;
+                                    menu_level = 1;
+                                    break;
+                                }
+                            }
+                        }
+                        // HDMI Dither (visible only on HDMI builds — palette has no extra bits on VGA)
+                        else if (options_num == 11) {
+#ifdef VGA_HDMI
+                            if (SELECT_VGA) {
+                                OSD::osdCenteredMsg("HDMI only", LEVEL_WARN, 1500);
+                            } else
+#endif
+                            {
+                                menu_level = 2;
+                                menu_curopt = 1;
+                                menu_saverect = true;
+                                while (1) {
+                                    string dith_menu = MENU_HDMI_DITHER[Config::lang];
+                                    dith_menu += MENU_YESNO[Config::lang];
+                                    bool prev = Config::hdmi_dither;
+                                    if (prev) {
+                                        dith_menu.replace(dith_menu.find("[Y",0),2,"[*");
+                                        dith_menu.replace(dith_menu.find("[N",0),2,"[ ");
+                                    } else {
+                                        dith_menu.replace(dith_menu.find("[Y",0),2,"[ ");
+                                        dith_menu.replace(dith_menu.find("[N",0),2,"[*");
+                                    }
+                                    uint8_t opt2 = menuRun(dith_menu);
+                                    if (opt2) {
+                                        Config::hdmi_dither = (opt2 == 1);
+                                        if (Config::hdmi_dither != prev) {
+                                            // Only takes effect when ULA+ is active; the HDMI ISR
+                                            // OR-masks indices 0..63 with 0x40 to sample palette[64..127].
+                                            graphics_set_dither(Config::hdmi_dither && VIDEO::ulaplus_enabled);
+                                            Config::save();
+                                        }
+                                        menu_curopt = opt2;
+                                        menu_saverect = false;
+                                    } else {
+                                        menu_curopt = 11;
+                                        menu_level = 1;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                        // 16col (Pentagon)
+                        else if (options_num == 12) {
+                            menu_level = 2;
+                            menu_curopt = 1;
+                            menu_saverect = true;
+                            while (1) {
+                                string mc_menu = MENU_16COL[Config::lang];
+                                mc_menu += MENU_YESNO[Config::lang];
+                                bool prev = Config::mode16col_onoff;
+                                if (prev) {
+                                    mc_menu.replace(mc_menu.find("[Y",0),2,"[*");
+                                    mc_menu.replace(mc_menu.find("[N",0),2,"[ ");
+                                } else {
+                                    mc_menu.replace(mc_menu.find("[Y",0),2,"[ ");
+                                    mc_menu.replace(mc_menu.find("[N",0),2,"[*");
+                                }
+                                uint8_t opt2 = menuRun(mc_menu);
+                                if (opt2) {
+                                    bool want = (opt2 == 1);
+                                    if (want && !Z80Ops::isPentagon) {
+                                        OSD::osdCenteredMsg(OSD_16COL_NEEDS_PENTAGON[Config::lang], LEVEL_WARN, 1500);
+                                    } else {
+                                        Config::mode16col_onoff = want;
+                                        if (!Config::mode16col_onoff && VIDEO::mode16col_enabled) {
+                                            // Disabling globally also drops the runtime latch.
+                                            VIDEO::mode16col_enabled = false;
+                                        }
+                                        if (Config::mode16col_onoff != prev) Config::save();
+                                    }
+                                    menu_curopt = opt2;
+                                    menu_saverect = false;
+                                } else {
+                                    menu_curopt = 12;
                                     menu_level = 1;
                                     break;
                                 }
@@ -3402,7 +3625,7 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         }
                     } else if ((mos && opt2 == 5) || (!mos && opt2 == 4)) {
                         if (confirmReboot(OSD_DLG_LOADDEFAULTS)) {
-                            f_unlink(MOUNT_POINT_SD STORAGE_NVS);
+                            f_unlink(STORAGE_NVS);
                             esp_hard_reset();
                         }
                     } else {
@@ -4309,6 +4532,12 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                         menu_saverect = false;
                     }
                     else if (hw_opt == 4) {
+                        // HID devices
+                        OSD::HIDDevices();
+                        menu_curopt = 4;
+                        menu_saverect = false;
+                    }
+                    else if (hw_opt == 5) {
                         // Overclock submenu — warn user
                         osdCenteredMsg(Config::lang ? "Peligroso! Puede no arrancar!" : "Dangerous! Board may not boot!", LEVEL_WARN, 2000);
                         menu_level = 2;
@@ -4530,13 +4759,13 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                     }
                 }
                 // The Enter used to pick this menu item may still be held — wait for the
-                // first key-up event, then accept any subsequent key-down as "close".
+                // first key-up event, then accept ESC or Enter as "close".
                 bool saw_release = false;
                 while (1) {
                     if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
                         if (ESPectrum::readKbd(&Nextkey)) {
                             if (!Nextkey.down) { saw_release = true; continue; }
-                            if (saw_release) break;
+                            if (saw_release && (is_enter(Nextkey.vk) || is_back(Nextkey.vk))) break;
                         }
                     }
                     sleep_ms(20);
@@ -5431,7 +5660,7 @@ const char* mnemED(uint8_t b) {
     return "???";
 }
 
-const char* mnemCB[256] = {
+const char* const mnemCB[256] = {
     "RLC B", // 00
     "RLC C", // 01
     "RLC D", // 02
@@ -5711,9 +5940,13 @@ const char* mnemCB[256] = {
 static uint16_t dump_pc = 0;
 
 static void saveDumpToFile(uint16_t addr_from, uint16_t addr_to) {
-    string fname = string(MOUNT_POINT_SD) + "/dump.log";
-    FIL* f = fopen2(fname.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
-    if (!f) return;
+    static const char* fname = DUMP_LOG_PATH;
+    FIL* f = fopen2(fname, FA_WRITE | FA_CREATE_ALWAYS);
+    if (!f) {
+        FileUtils::mkdirParents(CONFIG_DIR);
+        f = fopen2(fname, FA_WRITE | FA_CREATE_ALWAYS);
+        if (!f) return;
+    }
 
     char line[128];
     UINT bw;
@@ -6585,7 +6818,7 @@ c:
             if (FileUtils::fsMount && Nextkey.vk == fabgl::VK_F11) {
                 // Persist Load
                 while (1) {
-                    menu_footer = Config::lang ? "F6: Renombrar  F8: Borrar" : "F6: Rename  F8: Remove";
+                    menu_footer = Config::lang ? "F3: Cargar  F6: Renombrar  F8: Borrar" : "F3: Load  F6: Rename  F8: Remove";
                 uint8_t opt2 = menuRun(buildSlotMenu(MENU_PERSIST_LOAD[Config::lang], 40));
                     if (opt2) {
                         if (menu_del_pressed) {
@@ -7787,6 +8020,27 @@ void OSD::EmulatorInfo() {
     }
 
     showTextDialog(Config::lang ? "Info emulador" : "Emulator Info", buf);
+}
+
+extern "C" int hid_app_format_devices_info(char* buf, int bufsz);
+extern "C" int xinput_app_format_devices_info(char* buf, int bufsz);
+
+void OSD::HIDDevices() {
+    char (&buf)[OSD_INFO_BUF_SZ] = osd_info_buf;
+    buf[0] = '\0';
+    int xpos = xinput_app_format_devices_info(buf, sizeof(buf));
+    if (xpos < 0) xpos = 0;
+    if (xpos >= (int)sizeof(buf)) xpos = sizeof(buf) - 1;
+    buf[xpos] = '\0';
+    int hpos = hid_app_format_devices_info(buf + xpos, sizeof(buf) - xpos);
+    if (hpos < 0) hpos = 0;
+    if (xpos + hpos >= (int)sizeof(buf)) hpos = sizeof(buf) - xpos - 1;
+    buf[xpos + hpos] = '\0';
+    if (xpos == 0 && hpos == 0) {
+        snprintf(buf, sizeof(buf),
+            "No HID/XInput devices.\n\nPlug in a USB device\nand reopen this dialog.\n");
+    }
+    showTextDialog(Config::lang ? "Disp. HID" : "HID devices", buf);
 }
 
 static void __not_in_flash_func(flash_block)(const uint8_t* buffer, size_t flash_target_offset) {

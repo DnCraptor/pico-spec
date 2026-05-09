@@ -87,9 +87,11 @@ uint8_t  Config::turbosound = 3; // BOTH
 uint8_t  Config::turbosound = 0; // OFF
 #endif
 uint8_t  Config::covox = 0; // NONE
+uint8_t  Config::gs_enabled = 0;  // 0=OFF, 1=ON
+uint8_t  Config::gs_ram_size = 2; // 0=512K, 1=1M, 2=2M
 uint8_t  Config::joy2cursor = true;
 uint8_t  Config::secondJoy = 2; // NPAD#2
-uint8_t  Config::kempstonPort = 0x37;
+uint8_t  Config::kempstonPort = 0x1F;
 uint8_t  Config::throtling = DEFAULT_THROTTLING;
 bool     Config::CursorAsJoy = true;
 bool     Config::trdosFastMode = false;
@@ -102,6 +104,7 @@ string   Config::esxdos_hdf_image[2] = {"", ""};
 uint8_t  Config::mb02 = 0;
 bool     Config::mb02WP[4] = { true, true, true, true };
 bool     Config::mb02SoundLed = false;
+bool     Config::zcontroller = false;
 #endif
 
 uint8_t Config::scanlines = 0;
@@ -118,8 +121,10 @@ bool     Config::gigascreen_enabled = false;
 uint8_t  Config::gigascreen_onoff = 0;
 #if !PICO_RP2040
 bool     Config::ulaplus = false;
+bool     Config::hdmi_dither = false;
 bool     Config::timex_video = false;
 uint8_t  Config::dma_mode = 0;
+bool     Config::mode16col_onoff = false;
 #endif
 uint8_t  Config::palette = 0;
 uint8_t  Config::audio_driver = 0;
@@ -318,8 +323,8 @@ static void nvs_get_sc(const char* key, signed char& v, const vector<string>& st
     }
 }
 
-void Config::load2() {
-    string nvs = MOUNT_POINT_SD STORAGE_NVS;
+void Config::loadDiskMounts() {
+    string nvs = STORAGE_NVS;
     FIL* handle = fopen2(nvs.c_str(), FA_READ);
     if (!handle) {
         return;
@@ -393,7 +398,7 @@ void Config::load() {
     initHotkeys(); // fill defaults before overriding from NVS
     vector<string> sts;
     if (FileUtils::fsMount) {
-        string nvs = MOUNT_POINT_SD STORAGE_NVS;
+        string nvs = STORAGE_NVS;
         FIL* handle = fopen2(nvs.c_str(), FA_READ);
         if (!handle) {
             return;
@@ -538,6 +543,8 @@ void Config::load() {
         nvs_get_u8("ayConfig", Config::ayConfig, sts);
         nvs_get_u8("turbosound", Config::turbosound, sts);
         nvs_get_u8("covox", Config::covox, sts);
+        nvs_get_u8("gs_enabled", Config::gs_enabled, sts);
+        nvs_get_u8("gs_ram_size", Config::gs_ram_size, sts);
 #if !defined(PICO_RP2040)
         nvs_get_u8("throtling2", Config::throtling, sts);
 #else
@@ -563,6 +570,7 @@ void Config::load() {
             nvs_get_b(k, mb02WP[i], sts);
         }
         nvs_get_b("mb02SoundLed", mb02SoundLed, sts);
+        nvs_get_b("zcontroller", zcontroller, sts);
 #endif
         nvs_get_str("SNA_Path", FileUtils::SNA_Path, sts);
         nvs_get_str("TAP_Path", FileUtils::TAP_Path, sts);
@@ -611,8 +619,10 @@ void Config::load() {
         #endif
         #if !PICO_RP2040
         nvs_get_b("ulaplus", ulaplus, sts);
+        nvs_get_b("hdmi_dither", hdmi_dither, sts);
         nvs_get_b("timex_video", timex_video, sts);
         nvs_get_u8("dma_mode", dma_mode, sts);
+        nvs_get_b("mode16col_onoff", mode16col_onoff, sts);
         #endif
         nvs_get_u8("palette", palette, sts);
         std::string v;
@@ -730,6 +740,8 @@ void Config::save() {
     nvs_set_u8(buf,"ayConfig", Config::ayConfig);
     nvs_set_u8(buf,"turbosound", Config::turbosound);
     nvs_set_u8(buf,"covox", Config::covox);
+    nvs_set_u8(buf,"gs_enabled", Config::gs_enabled);
+    nvs_set_u8(buf,"gs_ram_size", Config::gs_ram_size);
     nvs_set_str(buf,"Issue2", Issue2 ? "true" : "false");
     nvs_set_str(buf,"flashload", flashload ? "true" : "false");
     nvs_set_str(buf,"tape_player", tape_player ? "true" : "false");
@@ -779,6 +791,7 @@ void Config::save() {
         nvs_set_str(buf, k, mb02WP[i] ? "true" : "false");
     }
     nvs_set_str(buf,"mb02SoundLed", mb02SoundLed ? "true" : "false");
+    nvs_set_str(buf,"zcontroller", zcontroller ? "true" : "false");
 #endif
     nvs_set_str(buf,"SNA_Path",FileUtils::SNA_Path.c_str());
     nvs_set_str(buf,"TAP_Path",FileUtils::TAP_Path.c_str());
@@ -814,8 +827,10 @@ void Config::save() {
     nvs_set_u8(buf,"gigascreen_onoff", Config::gigascreen_onoff);
     #if !PICO_RP2040
     nvs_set_str(buf,"ulaplus", Config::ulaplus ? "true" : "false");
+    nvs_set_str(buf,"hdmi_dither", Config::hdmi_dither ? "true" : "false");
     nvs_set_str(buf,"timex_video", Config::timex_video ? "true" : "false");
     nvs_set_u8(buf,"dma_mode",Config::dma_mode);
+    nvs_set_str(buf,"mode16col_onoff", Config::mode16col_onoff ? "true" : "false");
     #endif
     nvs_set_u8(buf,"palette", Config::palette);
     nvs_set_str(buf,"audio_driver", Config::audio_driver == 0 ? "auto" :
@@ -841,14 +856,16 @@ void Config::save() {
             // Config was never loaded from file — refuse to overwrite
             // existing storage.nvs with defaults
             FILINFO fi;
-            if (f_stat(MOUNT_POINT_SD STORAGE_NVS, &fi) == FR_OK) {
+            if (f_stat(STORAGE_NVS, &fi) == FR_OK) {
                 Debug::log("Config::save BLOCKED — not loaded, file exists (%u bytes)", fi.fsize);
                 return;
             }
         }
+        // Make sure /.config/pico-spec/<ver>/<board>/ exists before writing.
+        FileUtils::mkdirParents(CONFIG_DIR_BOARD);
         // Atomic write: write to .tmp, then rename over the original
-        static const char* nvs_tmp = MOUNT_POINT_SD STORAGE_NVS ".tmp";
-        static const char* nvs_path = MOUNT_POINT_SD STORAGE_NVS;
+        static const char* nvs_tmp = STORAGE_NVS ".tmp";
+        static const char* nvs_path = STORAGE_NVS;
         FIL* handle = fopen2(nvs_tmp, FA_WRITE | FA_CREATE_ALWAYS);
         if (handle) {
             UINT bw;
@@ -868,7 +885,7 @@ void Config::save() {
     nvs_ram_buf = std::move(buf);
 }
 
-#define VMODE_PENDING_FILE MOUNT_POINT_SD "/vmode_pending.nvs"
+#define VMODE_PENDING_FILE CONFIG_DIR "/vmode_pending.nvs"
 
 void Config::savePendingVideoMode() {
     if (!FileUtils::fsMount) return;

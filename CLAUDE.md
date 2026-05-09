@@ -74,12 +74,12 @@ Flattened from CSAAFreq, CSAANoise, CSAAEnv, CSAAAmp, CSAADevice into a single c
 
 - **ALWAYS test new features on ZERO** — any static array or large struct can break it
 - **No heap-heavy operations after VIDEO::Init** — only ~5KB free
-  - `vector<string>` parsing of storage.nvs caused OOM in `Config::load2()` (fixed: parse line-by-line)
+  - `vector<string>` parsing of storage.nvs caused OOM in `Config::loadDiskMounts()` (fixed: parse line-by-line)
 - **Guard large RAM features with `#if !PICO_RP2040`**:
   - ULA+ (`AluBytesUlaPlus[16][256]` = 16KB) — disabled for RP2040
   - Gigascreen — already guarded
 - **New static buffers**: consider `#if !PICO_RP2040` or make conditional
-- **`Config::load()` is safe** (runs at 148KB free), `Config::load2()` runs at ~5KB free
+- **`Config::load()` is safe** (runs at 148KB free), `Config::loadDiskMounts()` runs at ~5KB free
 
 ## GPIO Map (all boards)
 
@@ -242,14 +242,14 @@ On RP2350, UART TX available via two funcsel:
 
 | GPIO | Function | Cat | Notes |
 |------|----------|-----|-------|
-| 0 | KBD_CLOCK | REASSIGN | |
-| 1 | KBD_DATA | REASSIGN | |
+| 0 | KBD_CLOCK / DBG_UART0_TX | REASSIGN | DBG_UART=ON → UART0_TX (J6 header), KBD moves to GP16/17 |
+| 1 | KBD_DATA / DBG_UART0_RX | REASSIGN | DBG_UART=ON → UART0_RX |
 | 2-5 | SD SPI (SCK/MOSI/MISO/CS) | FIXED | SPI0 PCB |
 | 6-13 | VGA/HDMI (8 pins) | FIXED | Display base=6 |
-| 14 | NES_CLK | REASSIGN | |
-| 15 | NES_LAT | REASSIGN | |
-| 16 | NES_DATA | REASSIGN | |
-| 17 | NES_DATA+1 (implicit) | REASSIGN | PIO reads DATA+1 |
+| 14 | NES_CLK | REASSIGN | DBG_UART=ON → NESPAD disabled |
+| 15 | NES_LAT | REASSIGN | DBG_UART=ON → NESPAD disabled |
+| 16 | NES_DATA / KBD_CLOCK (DBG_UART=ON) | REASSIGN | when DBG_UART=ON: KBD moves here |
+| 17 | NES_DATA+1 / KBD_DATA (DBG_UART=ON) | REASSIGN | when DBG_UART=ON: KBD moves here |
 | 18-21 | PSRAM SPI (CS/SCK/MOSI/MISO) | FIXED | Onboard PSRAM; BUTTER=19 |
 | 22 | MIDI_TX / LOAD_WAV_PIO | REASSIGN | RP2040: WAV only. RP2350(MURM_P2): UART1 TX works |
 | 23 | — | FIXED(RP2040) | SMPS power on standard Pico |

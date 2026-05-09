@@ -47,7 +47,7 @@ visit https://zxespectrum.speccy.org/contacto
 #define MEM_PG_SZ 0x4000
 #if PICO_RP2350
 // with gigascreen
-#define MEM_REMAIN (14*16*1024)
+#define MEM_REMAIN (12*16*1024)
 #else
 #define MEM_REMAIN (6*16*1024)
 #endif

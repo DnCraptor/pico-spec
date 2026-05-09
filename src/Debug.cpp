@@ -46,7 +46,7 @@ void Debug::log2SD(const string& data)
 {
 #if DEBUG
     if (!FileUtils::fsMount) return;
-    std::string nvs = std::string(MOUNT_POINT_SD) + STORAGE_LOG;
+    static const char* nvs = STORAGE_LOG;
 
     // Заголовок сессии при первой записи
     bool first = (log_counter == 0);
@@ -65,11 +65,15 @@ void Debug::log2SD(const string& data)
     logEntry += std::string(prefix) + data + "\n";
 
     // Лимит 10KB — перезаписываем с начала при переполнении
-    FIL* handle = fopen2(nvs.c_str(), FA_WRITE | FA_OPEN_APPEND);
+    FIL* handle = fopen2(nvs, FA_WRITE | FA_OPEN_APPEND);
+    if (!handle) {
+        FileUtils::mkdirParents(CONFIG_DIR);
+        handle = fopen2(nvs, FA_WRITE | FA_OPEN_APPEND);
+    }
     if (handle) {
         if (f_size(handle) >= 204800) {
             fclose2(handle);
-            handle = fopen2(nvs.c_str(), FA_WRITE | FA_CREATE_ALWAYS);
+            handle = fopen2(nvs, FA_WRITE | FA_CREATE_ALWAYS);
             if (!handle) return;
         }
         UINT btw;

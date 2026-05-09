@@ -249,16 +249,48 @@ void mem_desc_t::cleanup() {
 }
 
 mem_desc_t MemESP::rom[64];
-static uint8_t pages57[MEM_PG_SZ * 2] = { 0 };
+// 8 Z80 RAM pages (the full 128 KB Spectrum 128 RAM) live in static SRAM —
+// predictable POINTER backing on every board, never in butter/PSRAM/swap.
+// Required by the 16col rasterizer which reads pages 4-7 via direct() in
+// the HDMI/VGA ISR.
+//
+// Placed in the .ram_pages01234567 section, which the RP2350 linker script
+// pins to SRAM banks 0-1 (a dedicated 128 KB region). The framebuffer ends
+// up in heap which lands in banks 2-7, so HDMI DMA reading the framebuffer
+// travels through different AHB ports than CPU access to Z80 RAM pages —
+// no bus contention.
+//
+// .ram_pages01234567 is NOLOAD (no init from flash) and pages are cleared
+// at runtime in MemESP::reset() / Pentagon boot anyway.
+// alignas(4) keeps each page boundary 32-bit-aligned.
+#define Z80_RAM_PAGE_ATTR __attribute__((section(".ram_128k"), aligned(4)))
+Z80_RAM_PAGE_ATTR static uint8_t pages46[MEM_PG_SZ * 2];
+Z80_RAM_PAGE_ATTR static uint8_t pages57[MEM_PG_SZ * 2];
+#if !PICO_RP2040
+// On RP2350 also keep pages 0-3 in the same SRAM region (64 KB more),
+// freeing ~64 KB of heap that would otherwise hold them via `new[]`.
+// On RP2040 heap is too tight (~148 KB total) to afford this, and page 0
+// is explicitly placed in PSRAM/swap in setup() to save heap for the
+// framebuffer — leave that path intact.
+Z80_RAM_PAGE_ATTR static uint8_t pages0123[MEM_PG_SZ * 4];
+#endif
+#undef Z80_RAM_PAGE_ATTR
 static mem_desc_t temp[8] = {
+#if !PICO_RP2040
+    { pages0123 + MEM_PG_SZ * 0, 0 },
+    { pages0123 + MEM_PG_SZ * 1, 1 },
+    { pages0123 + MEM_PG_SZ * 2, 2 },
+    { pages0123 + MEM_PG_SZ * 3, 3 },
+#else
     { 0, 0 },
-    { 0, 1},
+    { 0, 1 },
     { 0, 2 },
-    { 0, 3},
-    { 0, 4 },
-    { pages57, 5},
-    { 0, 6 },
-    { pages57 + MEM_PG_SZ, 7},
+    { 0, 3 },
+#endif
+    { pages46   + MEM_PG_SZ * 0, 4 },
+    { pages57   + MEM_PG_SZ * 0, 5 },
+    { pages46   + MEM_PG_SZ * 1, 6 },
+    { pages57   + MEM_PG_SZ * 1, 7 },
 };
 mem_desc_t* MemESP::ram = temp;
 bool MemESP::newSRAM = false;

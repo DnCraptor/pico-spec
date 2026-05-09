@@ -61,9 +61,10 @@ if !errorlevel! equ 0 (
 )
 
 :: All available targets
-set "ALL_TARGETS=MURM_P1 MURM_P2 MURM2 PICO_PC PICO_DV ZERO ZERO2"
-set "TFT_TARGETS=MURM_P1 MURM_P2 MURM2"
-set "SOFTTV_TARGETS=MURM_P1 MURM_P2 MURM2"
+set "ALL_TARGETS=MURM_P1 MURM_P2 MURM2_P2 PICO_PC PICO_DV ZERO ZERO2"
+set "TFT_TARGETS=MURM_P1 MURM_P2 MURM2_P2"
+set "TFT_ST_TARGETS=MURM2_P1"
+set "SOFTTV_TARGETS=MURM_P1 MURM_P2 MURM2_P2"
 
 if "%POSARGS%"=="" (
     set "TARGETS=%ALL_TARGETS%"
@@ -76,6 +77,7 @@ set "PAIRS="
 for %%T in (%TARGETS%) do (
     set "PAIRS=!PAIRS! %%T:VGA_HDMI"
     for %%M in (%TFT_TARGETS%) do ( if "%%T"=="%%M" set "PAIRS=!PAIRS! %%T:TFT_ILI9341" )
+    for %%M in (%TFT_ST_TARGETS%) do ( if "%%T"=="%%M" set "PAIRS=!PAIRS! %%T:TFT_ST7789" )
     for %%M in (%SOFTTV_TARGETS%) do ( if "%%T"=="%%M" set "PAIRS=!PAIRS! %%T:SOFTTV" )
 )
 
@@ -216,7 +218,7 @@ goto :eof
 echo Usage: %~nx0 [--clean] [-j JOBS_PER_BUILD] [-p MAX_PARALLEL] [TARGETS...]
 echo.
 echo Env vars: BUILD_TYPE, MAX_PARALLEL, JOBS_PER_BUILD, CMAKE_GENERATOR
-echo Targets:  MURM_P1 MURM_P2 MURM2 PICO_PC PICO_DV ZERO ZERO2 (default: all)
+echo Targets:  MURM_P1 MURM_P2 MURM2_P1 MURM2_P2 PICO_PC PICO_DV ZERO ZERO2 (default: all)
 exit /b 0
 
 :::::::::::::::::::::::::::::::::::::::::::::::::::::
@@ -251,7 +253,7 @@ if exist "%W_BUILD_DIR%\CMakeCache.txt" (
             set "W_NEED_CLEAN=1"
         )
     )
-    if "%W_TARGET%"=="MURM_P1" ( set "W_EXPECTED=rp2040" ) else if "%W_TARGET%"=="ZERO" ( set "W_EXPECTED=rp2040" ) else ( set "W_EXPECTED=rp2350-arm-s" )
+    if "%W_TARGET%"=="MURM_P1" ( set "W_EXPECTED=rp2040" ) else if "%W_TARGET%"=="MURM2_P1" ( set "W_EXPECTED=rp2040" ) else if "%W_TARGET%"=="ZERO" ( set "W_EXPECTED=rp2040" ) else ( set "W_EXPECTED=rp2350-arm-s" )
     for /f "tokens=2 delims==" %%G in ('findstr /b "PICO_PLATFORM:" "%W_BUILD_DIR%\CMakeCache.txt" 2^>nul') do (
         if not "%%G"=="!W_EXPECTED!" (
             echo   Platform changed (%%G -^> !W_EXPECTED!), cleaning cache...
@@ -270,11 +272,16 @@ if "%W_TARGET%"=="MURM_P1" (
     set "W_FLAGS=-DMURM=ON"
 ) else if "%W_TARGET%"=="MURM_P2" (
     set "W_FLAGS=-DMURM=ON -DMURM_P2=ON"
+) else if "%W_TARGET%"=="MURM2_P1" (
+    set "W_FLAGS=-DMURM2=ON"
+) else if "%W_TARGET%"=="MURM2_P2" (
+    set "W_FLAGS=-DMURM2=ON -DMURM2_P2=ON"
 ) else (
     set "W_FLAGS=-D%W_TARGET%=ON"
 )
 
 if "%W_DISPLAY%"=="TFT_ILI9341" set "W_FLAGS=!W_FLAGS! -DTFT=ON -DILI9341=ON -DVGA_HDMI=OFF"
+if "%W_DISPLAY%"=="TFT_ST7789"  set "W_FLAGS=!W_FLAGS! -DTFT=ON -DST7789=ON -DVGA_HDMI=OFF"
 if "%W_DISPLAY%"=="SOFTTV"      set "W_FLAGS=!W_FLAGS! -DSOFTTV=ON -DVGA_HDMI=OFF"
 
 set "W_ARGS=-B "%W_BUILD_DIR%" -S "%SCRIPT_DIR%" -G "%CMAKE_GENERATOR%" !W_FLAGS! %CCACHE_ARGS% -DCMAKE_BUILD_TYPE=%BUILD_TYPE%"

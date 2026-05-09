@@ -69,7 +69,7 @@ void CaptureToBmp()
         return;
     }
 
-    static const char scrdir[] = MOUNT_POINT_SD DISK_SCR_DIR;
+    static const char scrdir[] = CONFIG_DIR DISK_SCR_DIR;
 
     // Create dir if it doesn't exist
     FILINFO stat_buf;

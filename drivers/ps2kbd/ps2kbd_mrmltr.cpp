@@ -15,6 +15,8 @@
 #include "ps2kbd_mrmltr10.pio.h"
 #elif KBD_CLOCK_PIN == 14
 #include "ps2kbd_mrmltr14.pio.h"
+#elif KBD_CLOCK_PIN == 16
+#include "ps2kbd_mrmltr16.pio.h"
 #else
 #include "ps2kbd_mrmltr.pio.h"
 #endif
@@ -413,6 +415,8 @@ void Ps2Kbd_Mrmltr::init_gpio() {
     uint offset = pio_add_program(_pio, &m10ps2kbd_program);
 #elif KBD_CLOCK_PIN == 14
     uint offset = pio_add_program(_pio, &m14ps2kbd_program);
+#elif KBD_CLOCK_PIN == 16
+    uint offset = pio_add_program(_pio, &m16ps2kbd_program);
 #else
     uint offset = pio_add_program(_pio, &ps2kbd_program);
 #endif
@@ -425,6 +429,8 @@ void Ps2Kbd_Mrmltr::init_gpio() {
     pio_sm_config c = m10ps2kbd_program_get_default_config(offset);
 #elif KBD_CLOCK_PIN == 14
     pio_sm_config c = m14ps2kbd_program_get_default_config(offset);
+#elif KBD_CLOCK_PIN == 16
+    pio_sm_config c = m16ps2kbd_program_get_default_config(offset);
 #else
     pio_sm_config c = ps2kbd_program_get_default_config(offset);
 #endif

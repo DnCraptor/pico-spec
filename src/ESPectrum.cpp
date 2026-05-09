@@ -69,6 +69,9 @@ visit https://zxespectrum.speccy.org/contacto
 #include "Midi.h"
 #include "MidiSynth.h"
 #include "Z80DMA.h"
+#ifdef USE_GS
+#include "GS/GS.h"
+#endif
 
 using namespace std;
 
@@ -687,17 +690,17 @@ void ESPectrum::setup() {
     MemESP::ram[3].assign_ram(new unsigned char[MEM_PG_SZ], 3, false);
     ram_pages += 3;
 #else
-    MemESP::ram[0].assign_ram(new unsigned char[MEM_PG_SZ], 0, false);
-    MemESP::ram[1].assign_ram(new unsigned char[MEM_PG_SZ], 1, false);
-    MemESP::ram[2].assign_ram(new unsigned char[MEM_PG_SZ], 2, false);
-    MemESP::ram[3].assign_ram(new unsigned char[MEM_PG_SZ], 3, false);
+    // RP2350: pages 0-3 are pre-bound to static `pages0123` SRAM buffer
+    // (MemESP.cpp). Skip assign_ram so we don't overwrite the static buffer.
     ram_pages += 4;
 #endif
-    // pages 4 and 6 — use assign_ram for MEM_REMAIN check
-    // 5 and 7 - static (video RAM)
-    assign_ram(4);
-    assign_ram(6);
-    Debug::log("setup: ext_ram: pages 0-6 done, freeHeap=%u", getFreeHeap());
+    // pages 4, 5, 6, 7 are now all in static SRAM buffers (pages46/pages57)
+    // for guaranteed POINTER backing — see MemESP.cpp temp[] init.
+    // Pages 4,6 historically counted in ram_pages via assign_ram; keep that
+    // behaviour so MEM_PG_CNT-aware page-bound checks treat them as RAM.
+    // Pages 5,7 historically not counted — leave them untracked.
+    ram_pages += 2;
+    Debug::log("setup: ext_ram: pages 4-7 in static SRAM, freeHeap=%u", getFreeHeap());
     for (size_t i = 8; i < (MEM_PG_CNT + 2); ++i) {
       assign_ram(i);
     }
@@ -707,29 +710,18 @@ void ESPectrum::setup() {
   } else {
     Debug::log("setup: no ext_ram path, freeHeap=%u", getFreeHeap());
 #if PICO_RP2350
-    // TODO: real number of supported pages: +256/16=16? or just +8 and support
-    // Pentagon 256? or 512-128...
-    MemESP::ram[0].assign_ram(new unsigned char[MEM_PG_SZ], 0, false);
-    ++ram_pages;
+    // RP2350: pages 0-3 are pre-bound to static `pages0123` (MemESP.cpp).
+    ram_pages += 4;
 #else
-// page 0 is not supported without virtual memory on RP2040
-#endif
-    // Pages 1-3 are essential (minimum for 48K)
+    // RP2040: page 0 not supported without virtual memory; pages 1-3 essential.
     MemESP::ram[1].assign_ram(new unsigned char[MEM_PG_SZ], 1, false);
     MemESP::ram[2].assign_ram(new unsigned char[MEM_PG_SZ], 2, false);
     MemESP::ram[3].assign_ram(new unsigned char[MEM_PG_SZ], 3, false);
     ram_pages += 3;
-    // Pages 4,6 only if enough heap remains for framebuffer
-    if (getFreeHeap() >= MEM_PG_SZ + MEM_REMAIN) {
-        MemESP::ram[4].assign_ram(new unsigned char[MEM_PG_SZ], 4, false);
-        ++ram_pages;
-    }
-    // 5 - static (video RAM)
-    if (getFreeHeap() >= MEM_PG_SZ + MEM_REMAIN) {
-        MemESP::ram[6].assign_ram(new unsigned char[MEM_PG_SZ], 6, false);
-        ++ram_pages;
-    }
-    // 7 - static (video RAM)
+#endif
+    // Pages 4 and 6 — pre-bound to static `pages46` (MemESP.cpp).
+    // Pages 5,7 historically not counted — leave them untracked.
+    ram_pages += 2;
     Debug::log("setup: no ext_ram: pages done, freeHeap=%u", getFreeHeap());
   }
   // Load romset
@@ -781,6 +773,18 @@ void ESPectrum::setup() {
   DivMMC::init();
   // MB-02+ disk interface (allocates SRAM in butter PSRAM after DivMMC)
   MB02::init();
+  // Z-Controller raw SD on ports 0x77/0x57 (mutually exclusive with esxDOS)
+  if (Config::zcontroller && !Config::esxdos && !Config::mb02) {
+    DivMMC::zc_init();
+  }
+#endif
+#ifdef USE_GS
+  if (Config::gs_enabled) {
+    uint32_t gs_ram = 2u << 20;
+    if (Config::gs_ram_size == 0) gs_ram = 512u << 10;
+    else if (Config::gs_ram_size == 1) gs_ram = 1u << 20;
+    GS::init(gs_ram);
+  }
 #endif
 
   //=======================================================================================
@@ -929,14 +933,14 @@ void ESPectrum::setup() {
 #endif
 
   Debug::log("setup: CPU reset done");
-  Debug::log("setup: Config::load2 begin");
+  Debug::log("setup: Config::loadDiskMounts begin");
   if (FileUtils::fsMount) {
-    Config::load2();
+    Config::loadDiskMounts();
   }
-  Debug::log("setup: Config::load2 done");
+  Debug::log("setup: Config::loadDiskMounts done");
 
 #if !PICO_RP2040
-  // Re-reset MB-02 after load2 so boot EPROM starts with disks already inserted
+  // Re-reset MB-02 after disk mounts so boot EPROM starts with disks already inserted
   if (MB02::enabled && mb02_fdd.disk[0]) {
     MB02::reset();
     Z80::reset();
@@ -1016,6 +1020,12 @@ void ESPectrum::reset(uint8_t romInUse) {
   rvmWD1793Reset(&fdd);
 #if !PICO_RP2040
   if (MB02::enabled) MB02::reset();
+#endif
+#ifdef USE_GS
+  // Without this, GS-Z80 keeps running (still streaming previous module's
+  // samples from PSRAM) when ZX side reboots — leftover state collides with
+  // the new player's load, producing random garbled audio.
+  if (GS::enabled) GS::reset();
 #endif
 
   Tape::tapeFileName = "none";
@@ -1618,6 +1628,7 @@ void ESPectrum::loop() {
 
     CPU::loop();
 
+    // GS-Z80 runs on core1 alongside pcm_call(); core0 only reads the ring.
 
     // Профилирование AY (только для отладки - закомментируйте после)
     // static uint64_t ay_total = 0, ay_count = 0;
@@ -1772,12 +1783,17 @@ void ESPectrum::loop() {
             beeper_R += audioBufferMIDI_R[i];
           }
 #endif
-          audioBuffer_L[i] = beeper_L > 255 ? 255 : beeper_L;
-          audioBuffer_R[i] = beeper_R > 255 ? 255 : beeper_R;
+          // GS is mixed live in the audio timer IRQ (pcm_call_inner),
+          // not here — burst-sampling on core0 would time-compress it.
+          audioBuffer_L[i] = beeper_L > 255 ? 255 : (beeper_L < 0 ? 0 : beeper_L);
+          audioBuffer_R[i] = beeper_R > 255 ? 255 : (beeper_R < 0 ? 0 : beeper_R);
         }
       }
     }
     processKeyboard();
+#ifdef USE_GS
+    GS::pollPerf();
+#endif
     // Update stats every 50 frames
     if (VIDEO::OSD && VIDEO::framecnt >= 10) {
       if (VIDEO::OSD & 0x04) {
@@ -1889,6 +1905,18 @@ void ESPectrum::loop() {
 
     elapsed = time_us_64() - ts_start;
     idle = target - elapsed;
+
+#ifdef USE_GS
+    // Track min per-frame IDL across the current pollPerf interval — lets
+    // us correlate worst-case host stalls with concurrent GS-side activity.
+    extern volatile int32_t gs_perf_idle_min;
+    extern volatile uint32_t gs_perf_idle_neg_frames;
+    extern volatile uint32_t gs_perf_frames;
+    int32_t i32 = (int32_t)idle;
+    if (i32 < gs_perf_idle_min) gs_perf_idle_min = i32;
+    if (i32 < 0) gs_perf_idle_neg_frames++;
+    gs_perf_frames++;
+#endif
 
     totalsecondsnodelay += elapsed;
 

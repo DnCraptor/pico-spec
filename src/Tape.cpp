@@ -152,7 +152,7 @@ int Tape::inflateCSW(int blocknumber, long startPos, long data_length) {
     FIL pOutfile;
     z_stream stream;
 
-    // printf(MOUNT_POINT_SD "/.csw%04d.tmp\n",blocknumber);
+    // printf(CONFIG_DIR "/.csw%04d.tmp\n",blocknumber);
 
     sprintf(destFileName, "/tmp/.csw%04d.tmp", blocknumber);
 

@@ -275,6 +275,10 @@ static const char *MENU_ALL_TITLE[2] = { MENU_ALL_TITLE_EN,MENU_ALL_TITLE_ES };
 #define OSD_DSK_NEEDS_PENTAGON_ES " Disco requiere modo Pentagon "
 static const char *OSD_DSK_NEEDS_PENTAGON[2] = { OSD_DSK_NEEDS_PENTAGON_EN,OSD_DSK_NEEDS_PENTAGON_ES };
 
+#define OSD_16COL_NEEDS_PENTAGON_EN "  16col is Pentagon only  "
+#define OSD_16COL_NEEDS_PENTAGON_ES "  16col solo en Pentagon  "
+static const char *OSD_16COL_NEEDS_PENTAGON[2] = { OSD_16COL_NEEDS_PENTAGON_EN,OSD_16COL_NEEDS_PENTAGON_ES };
+
 #define OSD_IMG_NEEDS_ESXDOS_EN "  Enable esxDOS first  "
 #define OSD_IMG_NEEDS_ESXDOS_ES " Active esxDOS primero "
 static const char *OSD_IMG_NEEDS_ESXDOS[2] = { OSD_IMG_NEEDS_ESXDOS_EN,OSD_IMG_NEEDS_ESXDOS_ES };
@@ -370,6 +374,7 @@ static const char *MENU_TAPEPLAYER2[2] = { "Input (P" _PIN_XSTR(LOAD_WAV_PIO) ")
     "Betadisk\t>\n"\
     "esxDOS\t>\n"\
     "MB-02+\t>\n"\
+    "Z-Controller\t>\n"\
     "Snapshot\t>\n"
 #define MENU_STORAGE_MAIN_ES \
     "Almacenamiento\n"\
@@ -377,6 +382,7 @@ static const char *MENU_TAPEPLAYER2[2] = { "Input (P" _PIN_XSTR(LOAD_WAV_PIO) ")
     "Betadisk\t>\n"\
     "esxDOS\t>\n"\
     "MB-02+\t>\n"\
+    "Z-Controller\t>\n"\
     "Snapshots\t>\n"
 static const char *MENU_STORAGE_MAIN[2] = { MENU_STORAGE_MAIN_EN, MENU_STORAGE_MAIN_ES };
 #else
@@ -647,7 +653,9 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 		"Gigascreen (No Flick)\t>\n"\
 		"ULA+\t>\n"\
 		"Timex Gfx Mode\t>\n"\
-		"DMA\t>\n"
+		"DMA\t>\n"\
+		"HDMI Dither (ULA+)\t>\n"\
+		"16col (Pentagon)\t>\n"
 	#define MENU_VIDEO_ES \
 		"Video\n"\
 		"Modo\t>\n"\
@@ -659,7 +667,9 @@ static const char *MENU_UPDATE_FW_NO_SD[2] = { MENU_UPDATE_NO_SD_EN, MENU_UPDATE
 		"Gigascreen (No Flick)\t>\n"\
 		"ULA+\t>\n"\
 		"Timex Gfx Mode\t>\n"\
-		"DMA\t>\n"
+		"DMA\t>\n"\
+		"Tramado HDMI (ULA+)\t>\n"\
+		"16col (Pentagon)\t>\n"
 #else
 	#define MENU_VIDEO_EN \
 		"Video\n"\
@@ -861,6 +871,8 @@ static const char *MENU_RGTIMINGS[2] = { "R.G. Timings\n" , "Timings R.G.\n"};
     "Controlador de audio\t>\n"
 #endif
 static const char *MENU_AUDIO[2] = { MENU_AUDIO_EN, MENU_AUDIO_ES };
+static const char *MENU_AUDIO_GS_ITEM[2] = { "General Sound\t>\n", "General Sound\t>\n" };
+static const char *MENU_GS[2] = { "Turned on?\n", "Turned on?\n" };
 
 #define MENU_OTHER_EN "Other\n"\
     "ALU Timing\t>\n"\
@@ -898,12 +910,14 @@ static const char *MENU_OTHER[2] = { MENU_OTHER_EN, MENU_OTHER_ES };
     "Chip Info\n"\
     "Board Info\n"\
     "Emulator Info\n"\
+    "HID devices\n"\
     "Overclock (!)\t>\n"
 #define MENU_HARDWARE_ES \
     "Hardware\n"\
     "Chip Info\n"\
     "Info placa\n"\
     "Info emulador\n"\
+    "Disp. HID\n"\
     "Overclock (!)\t>\n"
 static const char *MENU_HARDWARE[2] = { MENU_HARDWARE_EN, MENU_HARDWARE_ES };
 
@@ -1003,7 +1017,9 @@ static const char *MSG_MIDI_PIN_CONFLICT[2] = {
 
 #if !PICO_RP2040
 static const char *MENU_ULAPLUS[2] = { "ULA+\n", "ULA+\n"};
+static const char *MENU_HDMI_DITHER[2] = { "HDMI Dither (ULA+)\n", "Tramado HDMI (ULA+)\n"};
 static const char *MENU_TIMEX[2] = { "Timex Gfx Mode\n", "Timex Gfx Mode\n"};
+static const char *MENU_16COL[2] = { "16col (Pentagon)\n", "16col (Pentagon)\n"};
 #define MENU_DMA_EN "DMA\n"\
     "OFF            \t[O]\n"\
     "Port #0B (MB02+) \t[B]\n"\

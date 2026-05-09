@@ -10,7 +10,9 @@ using namespace std;
 
 #define DEFAULT_BLINK_COUNT 5
 
-#define STORAGE_LOG "/debug.log"
+// Mirror of DEBUG_LOG_PATH from FileUtils.h. Kept as a literal here so Debug.h
+// stays a leaf header (FileUtils.h pulls MemESP.h which depends on Config).
+#define STORAGE_LOG "/.config/pico-spec/debug.log"
 
 class Debug
 {

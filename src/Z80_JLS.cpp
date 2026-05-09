@@ -974,7 +974,8 @@ IRAM_ATTR void Z80::check_trdos() {
             if (REG_PCh == 0x3D) {
 
                 // TR-DOS Rom can be accessed from 48K machines and from Spectrum 128/+2 and Pentagon if the currently mapped ROM is bank 1.
-                if ((Z80Ops::is48 && MemESP::romInUse == 0) || (!Z80Ops::is48 && MemESP::romInUse == 1)) {
+                // newSRAM=true means slot 0 is a RAM page (Pentagon Hidden RAM), not the stock 48K ROM — skip TR-DOS automap.
+                if ((Z80Ops::is48 && MemESP::romInUse == 0) || (!Z80Ops::is48 && MemESP::romInUse == 1 && !MemESP::newSRAM)) {
                     MemESP::romInUse = 4;
                     MemESP::ramCurrent[0] = MemESP::rom[4].direct();
                     ESPectrum::trdos = true;

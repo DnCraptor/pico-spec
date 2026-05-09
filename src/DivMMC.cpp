@@ -26,6 +26,8 @@ bool DivMMC::rom_loaded = false;
 bool DivMMC::divsd_mode = false;
 bool DivMMC::divide_mode = false;
 bool DivMMC::sdhc_mode = false;
+bool DivMMC::zc_enabled = false;
+uint8_t DivMMC::zc_config = 0;
 
 // Bank memory management
 bool DivMMC::use_psram = false;
@@ -113,16 +115,20 @@ void DivMMC::init() {
             }
         }
 
-        // Cleanup bank memory
+        // Bank cache slots are intentionally NOT freed: re-allocating 3 × 8 KB
+        // contiguous blocks after a toggle cycle (DivSD→MB02→DivSD) fails on
+        // tight-heap boards (ZERO2 without PSRAM, ~17 KB free) due to
+        // fragmentation. Keep the slots and the swap file open across toggles —
+        // they are reused on next enable. Slot bookkeeping is reset so the
+        // cache acts empty.
         if (!use_psram) {
-            if (swap_open) { f_close(&swap_file); f_unlink("/tmp/divmmc-pico-spec.swap"); swap_open = false; }
             for (int i = 0; i < DIVMMC_CACHE_SLOTS; i++) {
-                free(active_buf[i]); active_buf[i] = nullptr;
                 active_bank[i] = -1;
+                slot_dirty[i] = false;
+                slot_lru[i] = 0;
             }
         }
         memset(bank_ptr, 0, sizeof(bank_ptr));
-        use_psram = false;
         esxdos_rom = nullptr;
         rom_loaded = false;
         return;
@@ -242,10 +248,10 @@ void DivMMC::init() {
         }
         if (mmc_file_open[0]) buildCSD();
     } else if (enabled) {
-        sdhc_mode = false;
-        // Reset OCR to standard capacity (non-SDHC) — DivSD sets CCS=1 which
-        // would confuse ESXDOS into using sector addressing for .mmc images
-        mmc_ocr[0] = 5; mmc_ocr[1] = 0; mmc_ocr[2] = 0; mmc_ocr[3] = 0; mmc_ocr[4] = 0;
+        // DivMMC: report SDHC (CCS=1) so ZP4 uses sector-addressing.
+        // ESXDOS itself adapts to either; .mmc file is read by sector either way.
+        sdhc_mode = true;
+        mmc_ocr[0] = 0xC0; mmc_ocr[1] = 0xFF; mmc_ocr[2] = 0x80; mmc_ocr[3] = 0x00; mmc_ocr[4] = 0x00;
         // DivMMC: open .mmc image (shared hd0 slot with DivIDE).
         const char* default_path = "/esxdos.mmc";
         const char* image_path = Config::esxdos_hdf_image[0].empty() ? default_path : Config::esxdos_hdf_image[0].c_str();
@@ -253,15 +259,15 @@ void DivMMC::init() {
         if (fr == FR_OK) {
             mmc_file_open[0] = true;
             mmc_file_size[0] = f_size(&mmc_file[0]);
-            buildCSD();
-            Debug::log("%s: opened %s (%u bytes)", mode_name, image_path, mmc_file_size[0]);
+            buildCSD_real(mmc_file_size[0] / 512);
+            Debug::log("%s: opened %s (%u bytes, SDHC)", mode_name, image_path, mmc_file_size[0]);
         } else {
             fr = f_open(&mmc_file[0], image_path, FA_READ);
             if (fr == FR_OK) {
                 mmc_file_open[0] = true;
                 mmc_file_size[0] = f_size(&mmc_file[0]);
-                buildCSD();
-                Debug::log("%s: opened %s read-only (%u bytes)", mode_name, image_path, mmc_file_size[0]);
+                buildCSD_real(mmc_file_size[0] / 512);
+                Debug::log("%s: opened %s read-only (%u bytes, SDHC)", mode_name, image_path, mmc_file_size[0]);
             } else {
                 Debug::log("%s: %s not found (err=%d)", mode_name, image_path, fr);
             }
@@ -551,13 +557,7 @@ uint8_t DivMMC::readByte(uint32_t address) {
 
     if (sector != mmc_sector_buf_addr) {
         flushWriteBuffer();
-        if (divsd_mode) {
-            disk_read(0, mmc_sector_buf, sector, 1);
-        } else {
-            UINT br;
-            f_lseek(&mmc_file[0], (FSIZE_t)sector * 512);
-            f_read(&mmc_file[0], mmc_sector_buf, 512, &br);
-        }
+        loadSector(sector);
         mmc_sector_buf_addr = sector;
     }
 
@@ -573,13 +573,7 @@ void DivMMC::writeByte(uint32_t address, uint8_t value) {
 
     if (sector != mmc_sector_buf_addr) {
         flushWriteBuffer();
-        if (divsd_mode) {
-            disk_read(0, mmc_sector_buf, sector, 1);
-        } else {
-            UINT br;
-            f_lseek(&mmc_file[0], (FSIZE_t)sector * 512);
-            f_read(&mmc_file[0], mmc_sector_buf, 512, &br);
-        }
+        loadSector(sector);
         mmc_sector_buf_addr = sector;
     }
 
@@ -590,19 +584,48 @@ void DivMMC::writeByte(uint32_t address, uint8_t value) {
 // Flush dirty sector buffer
 void DivMMC::flushWriteBuffer() {
     if (!mmc_sector_dirty || mmc_sector_buf_addr == 0xFFFFFFFF) return;
-    if (divsd_mode) {
-        disk_write(0, mmc_sector_buf, mmc_sector_buf_addr, 1);
-    } else {
-        if (!mmc_file_open[0]) return;
-        UINT bw;
-        f_lseek(&mmc_file[0], (FSIZE_t)mmc_sector_buf_addr * 512);
-        f_write(&mmc_file[0], mmc_sector_buf, 512, &bw);
-        f_sync(&mmc_file[0]);
-    }
+    storeSector(mmc_sector_buf_addr);
     mmc_sector_dirty = false;
 }
 
+// Read one sector into mmc_sector_buf, with synthetic MBR for DivMMC images.
+// In DivMMC mode the .mmc file is "superfloppy" formatted (FAT16 starts at
+// sector 0). ZP4 expects an MBR with a partition table at sector 0, so we
+// synthesize one and shift the .mmc data by +1 sector.
+void DivMMC::loadSector(uint32_t sector) {
+    if (divsd_mode) {
+        disk_read(0, mmc_sector_buf, sector, 1);
+        return;
+    }
+    if (!mmc_file_open[0]) {
+        memset(mmc_sector_buf, 0, 512);
+        return;
+    }
+    // Read the sector directly from the .mmc file. The image is presented
+    // byte-for-byte: sector 0 holds the FAT16 BPB (superfloppy), there is no MBR.
+    UINT br;
+    f_lseek(&mmc_file[0], (FSIZE_t)sector * 512);
+    f_read(&mmc_file[0], mmc_sector_buf, 512, &br);
+    if (br < 512) memset(mmc_sector_buf + br, 0, 512 - br);
+}
+
+void DivMMC::storeSector(uint32_t sector) {
+    if (divsd_mode) {
+        disk_write(0, mmc_sector_buf, sector, 1);
+        return;
+    }
+    if (!mmc_file_open[0]) return;
+    UINT bw;
+    f_lseek(&mmc_file[0], (FSIZE_t)sector * 512);
+    f_write(&mmc_file[0], mmc_sector_buf, 512, &bw);
+    f_sync(&mmc_file[0]);
+}
+
 // Port 0xE7 write — chip select
+// Different DivMMC clones drive CS via different bits:
+//   Standard DivMMC: bit 0 (active-low)
+//   Some clones (ZP4-style): bit 1 (active-low)
+// Treat CS as active if EITHER bit 0 or bit 1 is 0.
 void DivMMC::mmc_cs(uint8_t value) {
     bool was_active = mmc_cs_active;
     mmc_cs_active = (value & 0x01) == 0;  // Active low
@@ -632,14 +655,25 @@ uint8_t DivMMC::mmc_read() {
 
     switch (mmc_last_command) {
         case 0x00:
-            // After CS — no command yet
-            return 0;
+            // After CS — no command yet, idle bus = 0xFF
+            return 0xFF;
 
-        case 0x40: // CMD0 GO_IDLE_STATE
+        case 0x40: // CMD0 GO_IDLE_STATE — return R1=01 once, then idle
+            mmc_last_command = 0;
             return 1;
 
         case 0x48: // CMD8 SEND_IF_COND
-            return 0; // Accept (not error)
+            // R7 response: R1 + 4-byte echo of command argument (voltage + check pattern).
+            // SDv2 host expects: 0x01, 0x00, 0x00, 0x01, 0xAA — then FF until next command.
+            switch (mmc_index_command) {
+                case 0:  mmc_index_command = 1; return 0x01;             // R1 = idle
+                case 1:  mmc_index_command = 2; return mmc_params[0];
+                case 2:  mmc_index_command = 3; return mmc_params[1];
+                case 3:  mmc_index_command = 4; return mmc_params[2];
+                case 4:  mmc_index_command = 0; mmc_last_command = 0;
+                         return mmc_params[3];                            // last byte → reset
+                default: return 0xFF;
+            }
 
         case 0x49: // CMD9 SEND_CSD
             if (mmc_csd_index >= 0) {
@@ -671,8 +705,10 @@ uint8_t DivMMC::mmc_read() {
             }
             return 0xFF;
 
-        case 0x4C: // CMD12 STOP_TRANSMISSION
-            return 1;
+        case 0x4C: // CMD12 STOP_TRANSMISSION — card is in transmission state,
+                   // not idle; return R1=00 (ready, not idle)
+            mmc_last_command = 0;
+            return 0;
 
         case 0x51: // CMD17 READ_SINGLE_BLOCK
             if (mmc_read_index >= 0) {
@@ -711,7 +747,7 @@ uint8_t DivMMC::mmc_read() {
                     mmc_read_index = 0;
                     mmc_read_address += sdhc_mode ? 1 : 512;
                     if (sdhc_mode) {
-                        disk_read(0, mmc_sector_buf, mmc_read_address, 1);
+                        loadSector(mmc_read_address);
                         mmc_sector_buf_addr = mmc_read_address;
                     }
                 }
@@ -731,11 +767,13 @@ uint8_t DivMMC::mmc_read() {
             }
             return 0xFF;
 
-        case 0x77: // CMD55 APP_CMD (prefix for ACMD)
-            return 0; // R1 = ready
+        case 0x77: // CMD55 APP_CMD (prefix for ACMD) — R1=00 once
+            mmc_last_command = 0;
+            return 0;
 
-        case 0x69: // ACMD41 SD_SEND_OP_COND
-            return 0; // R1 = ready (card initialized)
+        case 0x69: // ACMD41 SD_SEND_OP_COND — R1=00 (init complete) once
+            mmc_last_command = 0;
+            return 0;
 
         case 0x7A: // CMD58 READ_OCR
             if (mmc_ocr_index >= 0) {
@@ -752,10 +790,12 @@ uint8_t DivMMC::mmc_read() {
             return 0xFF;
 
         default:
-            break;
+            // Unknown command — idle bus
+            mmc_last_command = 0;
+            return 0xFF;
     }
 
-    return 0;
+    return 0xFF;
 }
 
 // Port 0xEB write — SD protocol command/data
@@ -764,6 +804,9 @@ void DivMMC::mmc_write(uint8_t value) {
     if (!mmc_cs_active) return;
 
     if (mmc_index_command == 0) {
+        // SD command frame: bits 7:6 must be 01b. Anything else is a fill /
+        // wake-up byte (typically 0xFF) that the card silently discards.
+        if ((value & 0xC0) != 0x40) return;
         // Receive command byte
         mmc_last_command = value;
         mmc_index_command++;
@@ -782,6 +825,9 @@ void DivMMC::mmc_write(uint8_t value) {
             break;
 
         case 0x48: // CMD8 SEND_IF_COND
+            if (mmc_index_command >= 1 && mmc_index_command <= 4) {
+                mmc_params[mmc_index_command - 1] = value; // echo back in R7
+            }
             if (mmc_index_command == 5) {
                 mmc_index_command = 0;
             } else {
@@ -825,10 +871,9 @@ void DivMMC::mmc_write(uint8_t value) {
                                    ((uint32_t)mmc_params[1] << 16) |
                                    ((uint32_t)mmc_params[2] << 8) |
                                    mmc_params[3];
-                // SDHC: address is sector number; pre-read sector into cache
                 if (sdhc_mode) {
                     flushWriteBuffer();
-                    disk_read(0, mmc_sector_buf, mmc_read_address, 1);
+                    loadSector(mmc_read_address);
                     mmc_sector_buf_addr = mmc_read_address;
                 }
                 mmc_read_index = 0;
@@ -846,7 +891,7 @@ void DivMMC::mmc_write(uint8_t value) {
                                    mmc_params[3];
                 if (sdhc_mode) {
                     flushWriteBuffer();
-                    disk_read(0, mmc_sector_buf, mmc_read_address, 1);
+                    loadSector(mmc_read_address);
                     mmc_sector_buf_addr = mmc_read_address;
                 }
                 mmc_read_index = 0;
@@ -866,7 +911,7 @@ void DivMMC::mmc_write(uint8_t value) {
                 mmc_write_index = 0;
                 if (sdhc_mode) {
                     // Pre-read sector for partial writes; sector_buf_addr = sector number
-                    disk_read(0, mmc_sector_buf, mmc_write_address, 1);
+                    loadSector(mmc_write_address);
                     mmc_sector_buf_addr = mmc_write_address;
                 }
             }
@@ -884,8 +929,7 @@ void DivMMC::mmc_write(uint8_t value) {
             mmc_index_command++;
             if (mmc_index_command == WRITE_BLOCK_OFFSET + 2 + 512) {
                 if (sdhc_mode) {
-                    // Write whole sector to SD
-                    disk_write(0, mmc_sector_buf, mmc_write_address, 1);
+                    storeSector(mmc_write_address);
                     mmc_sector_dirty = false;
                 } else {
                     flushWriteBuffer();
@@ -1141,6 +1185,77 @@ void DivMMC::ide_write(uint8_t reg, uint8_t value) {
         case 6: ide_head = value; break;          // Drive/Head (0xBB)
         case 7: ide_execute_command(value); break; // Command (0xBF)
     }
+}
+
+// ============================================================
+// Z-Controller raw SD on ZX-BUS ports 0x77 (config) / 0x57 (data)
+// Reuses the DivSD SPI state machine; mutually exclusive with esxDOS.
+// ============================================================
+
+void DivMMC::zc_init() {
+    if (zc_enabled) return;
+    // Real SD card in SDHC sector-addressed mode.
+    divsd_mode = true;
+    sdhc_mode = true;
+    DWORD sector_count = 0;
+    disk_ioctl(0, GET_SECTOR_COUNT, &sector_count);
+    mmc_file_size[0] = (uint32_t)((uint64_t)sector_count * 512 > 0xFFFFFFFF ? 0xFFFFFFFF : sector_count * 512);
+    buildCSD_real(sector_count);
+    mmc_ocr[0] = 0xC0;
+    mmc_ocr[1] = 0xFF;
+    mmc_ocr[2] = 0x80;
+    mmc_ocr[3] = 0x00;
+    mmc_ocr[4] = 0x00;
+
+    mmc_last_command = 0;
+    mmc_index_command = 0;
+    mmc_r1 = 1;
+    mmc_cs_active = false;
+    mmc_read_index = -1;
+    mmc_write_index = -1;
+    mmc_csd_index = -1;
+    mmc_cid_index = -1;
+    mmc_ocr_index = -1;
+    mmc_sector_buf_addr = 0xFFFFFFFF;
+    mmc_sector_dirty = false;
+    zc_config = 0;
+    zc_enabled = true;
+    Debug::log("Z-Controller: raw SD, %lu sectors, SDHC mode", (unsigned long)sector_count);
+}
+
+void DivMMC::zc_shutdown() {
+    if (!zc_enabled) return;
+    flushWriteBuffer();
+    zc_enabled = false;
+    zc_config = 0;
+    mmc_cs_active = false;
+    // Leave divsd_mode/sdhc_mode as-is — DivMMC::init() owns these and will
+    // reset them on the next mode change.
+}
+
+void DivMMC::zc_write_config(uint8_t value) {
+    zc_config = value;
+    // Port 0x77 bit1 drives the SD CS pin directly; CS is active-low, so
+    // bit1=0 means card selected. bit0 is SD power and is ignored here.
+    bool new_cs = (value & 0x02) == 0;
+    if (new_cs != mmc_cs_active) {
+        mmc_cs(new_cs ? 0x00 : 0x01); // mmc_cs treats bit0==0 as active
+    }
+}
+
+uint8_t DivMMC::zc_read_status() {
+    // bit0=0 → SD card present; bit1=0 → not read-only.
+    return 0x00;
+}
+
+void DivMMC::zc_write_data(uint8_t value) {
+    if (!mmc_cs_active) return;
+    mmc_write(value);
+}
+
+uint8_t DivMMC::zc_read_data() {
+    if (!mmc_cs_active) return 0xFF;
+    return mmc_read();
 }
 
 #endif // !PICO_RP2040

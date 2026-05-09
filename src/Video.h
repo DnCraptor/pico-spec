@@ -263,6 +263,12 @@ public:
   static void ulaPlusFlushPalette();   // apply pending palette to hardware
   static void ulaPlusUpdateBorder();
   static void ulaPlusDisable();
+
+  // 16col mode (Pentagon, Alone Coder): 4bpp packed, no attributes.
+  // Enabled via port #EFF7 bit D0.
+  static bool mode16col_enabled;
+  static const uint8_t* mode16col_planes[4]; // base ptrs to 4 6144-byte planes
+  static void mode16colUpdatePlanes();
 #endif
 
   // Palette transform (Default, Grayscale, etc.)

@@ -27,9 +27,11 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - Possibility of using custom ROM with easy flashing procedure from SD card.
 - ZX81+ IF2 ROM by courtesy Paul Farrow with .P file loading from SD card.
 - Timex SCLD video modes emulation (hi-res 512->256 OR-merge, hi-color, dual-screen).
+- Pentagon 16-color video mode (Pentagon only): per-pixel 16-color attribute mode toggleable from the OSD Video menu.
 - VGA/HDMI output with 5 selectable video modes: 640x480@60Hz, 640x480@50Hz, 720x480@60Hz, 720x576@60Hz, 720x576@50Hz.
 - Hot video mode switching without reboot (VGA/HDMI).
 - VGA/HDMI scanlines effect.
+- HDMI dither effect for ULA+ (RP2350 only): optional Bayer-look palette dithering applied via ISR.
 - HDMI audio output (RP2350 only).
 - TV-composite video out.
 - PCM5122 I2S audio DAC support (Waveshare PiZero boards - https://www.waveshare.com/wiki/PCM5122-Audio-Board-A).
@@ -46,6 +48,7 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - Contended memory and contended I/O emulation.
 - AY-3-8912 / TurboSound emulation.
 - SAA1099 sound chip emulation (https://en.wikipedia.org/wiki/Philips_SAA1099).
+- General Sound (GS) emulation: dedicated Z80 @ 12 MHz on core1 with 2 MB sample RAM, ring-buffered DAC, host→GS FIFO for no-handshake loaders. Auto-enabled on RP2350 boards with butter PSRAM.
 - MIDI support: external UART output (AY bit-bang, ShamaZX) and built-in software synthesizer (RP2350 only).
 - Beeper & Mic emulation (Cobra’s Arc).
 - Dual keyboard support: you can connect two devices: first using PS/2 protocol and second using USB at the same time.
@@ -54,6 +57,7 @@ Best performance for case Pimoroni "Pico Plus 2" is used.
 - Emulation of Betadisk interface with four drives and TRD, SCL, UDI and FDI (read and write) support. Fast and realtime modes. Per-drive Write Protect, inline drive status in the Drives menu, F5 slot-picker popup (F2 toggle WP, F8 eject) when mounting from the file browser.
 - MB-02+ disk interface emulation: WD2797 FDC, Z80-DMA, 512KB SRAM paging, BS-DOS 308, MBD disk images, 4 drives, NMI menu (RP2350 only).
 - esxDOS support (DivMMC, DivIDE, DivSD) — [esxdos.org](https://esxdos.org/index.html).
+- Z-Controller emulation: raw SD card access via ports #57/#77, mutually exclusive with esxDOS and MB-02+ (RP2350 only).
 - FDD activity LED indicator and mechanical head click/seek sound emulation (optional, toggled via Betadisk menu).
 - Realtime (with OSD) TZX, TAP and PZX file loading.
 - Flashload of TZX/TAP/PZX files (standard loaders only).
@@ -220,6 +224,7 @@ Your filesystem tree must be look like:
 | `-DTFT=ON` | TFT display output |
 | `-DILI9341=ON` | ILI9341 TFT display output |
 | `-DPICO_PC_DBG_UART=ON` | PICO_PC: enable UART0 on DBG1 header (GP0=TX, GP1=RX) for Debug Probe. Auto-remaps PS/2 keyboard to GP10/GP11 to free the pins. |
+| `-DTFT_ST7789=ON` | ST7789 TFT display variant |
 
 #### Multi-target build script
 
@@ -229,7 +234,7 @@ To build firmware for all supported boards and display variants at once, use the
 ./build_all.sh [--clean] [-j JOBS_PER_BUILD] [-p MAX_PARALLEL] [TARGETS...]
 ```
 
-- Targets: `MURM_P1 MURM_P2 MURM2 PICO_PC PICO_DV ZERO ZERO2` (default: all)
+- Targets: `MURM_P1 MURM_P2 MURM2_P1 MURM2_P2 PICO_PC PICO_DV ZERO ZERO2` (default: all)
 - `--clean` — wipe build dirs first (default: incremental rebuild)
 - `-j` — threads per target build (default: `nproc / MAX_PARALLEL`)
 - `-p` — max number of targets built concurrently (default: 3)
