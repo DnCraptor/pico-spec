@@ -53,6 +53,37 @@ static struct
 
 #define HID_SNAP_DESC_BYTES   48
 #define HID_SNAP_REPORT_BYTES 32
+
+// Handler markers — what code path actually got the report.
+enum hid_handler_t : uint8_t {
+  HID_HANDLER_NONE = 0,        // no report received yet
+  HID_HANDLER_KBD,             // boot keyboard
+  HID_HANDLER_MOUSE,           // boot mouse
+  HID_HANDLER_DS4,             // Sony DualShock 4 vendor handler
+  HID_HANDLER_DS5,             // Sony DualSense vendor handler
+  HID_HANDLER_F710_DINPUT,     // Logitech F710 D-input vendor handler
+  HID_HANDLER_GP_2563_0575,    // 2563:0575 vendor handler
+  HID_HANDLER_GP_FEED_2320,    // FEED:2320 vendor handler
+  HID_HANDLER_GENERIC_GAMEPAD, // tinyusb-parsed Joystick/Gamepad
+  HID_HANDLER_GENERIC_CONS,    // Consumer control
+  HID_HANDLER_NO_RPT_INFO,     // composite report id not found
+  HID_HANDLER_UNKNOWN_USAGE,   // parsed report info but page/usage not handled
+};
+
+// Decoded gamepad state bits (set by vendor handlers, read by OSD dialog).
+#define HID_DEC_UP     0x0001
+#define HID_DEC_DOWN   0x0002
+#define HID_DEC_LEFT   0x0004
+#define HID_DEC_RIGHT  0x0008
+#define HID_DEC_A      0x0010
+#define HID_DEC_B      0x0020
+#define HID_DEC_X      0x0040
+#define HID_DEC_Y      0x0080
+#define HID_DEC_L      0x0100
+#define HID_DEC_R      0x0200
+#define HID_DEC_START  0x0400
+#define HID_DEC_SELECT 0x0800
+
 struct hid_snap_t {
   bool     mounted;
   uint8_t  dev_addr;
@@ -66,8 +97,23 @@ struct hid_snap_t {
   uint8_t  last_report_saved;
   uint8_t  last_report[HID_SNAP_REPORT_BYTES];
   uint32_t report_total;
+  uint8_t  last_handler;     // hid_handler_t
+  uint16_t decoded;          // HID_DEC_* bitmask, only valid for vendor handlers
+  bool     decoded_valid;
 };
 static hid_snap_t hid_snap[CFG_TUH_HID];
+
+// Helper for vendor handlers to publish their decoded state to the OSD.
+static inline void hid_snap_set_handler(uint8_t instance, uint8_t h) {
+  if (instance < CFG_TUH_HID) hid_snap[instance].last_handler = h;
+}
+static inline void hid_snap_set_decoded(uint8_t instance, uint8_t h, uint16_t bits) {
+  if (instance < CFG_TUH_HID) {
+    hid_snap[instance].last_handler = h;
+    hid_snap[instance].decoded = bits;
+    hid_snap[instance].decoded_valid = true;
+  }
+}
 
 // Sony DualShock 4 (PS4 wired): VID=054C, PID=05C4 (v1) / 09CC (v2).
 // 507-byte report descriptor with vendor-page reports overflows TinyUSB's
@@ -84,6 +130,51 @@ static inline bool is_dualshock4(uint16_t vid, uint16_t pid)
 static inline bool is_dualsense(uint16_t vid, uint16_t pid)
 {
   return vid == 0x054C && pid == 0x0CE6;
+}
+
+// "FEED:2320" — clone gamepad / arcade stick.
+// Composite report id=0x07 (page=Desktop usage=Joystick), 8 bytes total.
+// Tinyusb parses 4 reports for this device but stock generic HID parser
+// reads bytes wrong. Layout AFTER stripping report id 0x07 (7 bytes):
+//   [0..3] LX, LY, RX, RY (8-bit, 0x80 center)
+//   [4]    hat low-nibble (0=U, 2=R, 4=D, 6=L, 8=neutral)
+//   [5]    A 0x01, B 0x02, Y 0x04, X 0x08, L 0x10, R 0x20
+//   [6]    SELECT 0x04, START 0x08
+// Adapted from frank-nes known_hid_maps[gamepad_FEED_2320] (which has
+// dpad_x=5 because frank-nes counts byte 0 as report id; our masks shift
+// down by 1 since process_generic_report already stripped it).
+static inline bool is_gp_feed_2320(uint16_t vid, uint16_t pid)
+{
+  return vid == 0xFEED && pid == 0x2320;
+}
+
+// Generic Bluetooth gamepad clone (VID 2563 PID 0575 — 8BitDo / cheap clones):
+// Simple HID report (no report-id prefix), layout (verified on real device):
+//   [0]    Y 0x01, B 0x02, A 0x04, X 0x08, L 0x10, R 0x20
+//   [1]    SELECT 0x01, START 0x02
+//   [2]    hat low-nibble (0=U, 2=R, 4=D, 6=L, 8=neutral; 1/3/5/7 diagonals)
+//   [3..6] LX, LY, RX, RY (8-bit, 0x80 center)
+// Layout taken from frank-nes known_hid_maps[] (gamepad_2563_0575).
+static inline bool is_gp_2563_0575(uint16_t vid, uint16_t pid)
+{
+  return vid == 0x2563 && pid == 0x0575;
+}
+
+// Logitech F710 / Cordless RumblePad 2 in DirectInput mode (slide
+// switch on back set to "D"): VID=046D, PID=C219. Report id 0x01 +
+// 7-byte payload after strip. Layout from SDL_gamecontrollerdb +
+// OSX HID plist + verified empirically (Start=byte5 0x20, Back=0x10):
+//   [0..3] LX, LY, RX, RY (8-bit, 0x80 center)
+//   [4] low-nibble  hat (0=U, 2=R, 4=D, 6=L, 8=neutral; 1/3/5/7 diagonals)
+//   [4] high-nibble X=0x10, A=0x20, B=0x40, Y=0x80
+//   [5] LB=0x01 RB=0x02 LT=0x04 RT=0x08 BACK=0x10 START=0x20 L3=0x40 R3=0x80
+//   [6] vendor byte (~0x74 idle)
+// In D-mode triggers are digital (no analog axis) per Logitech.
+// In XInput mode (slide switch "X") it enumerates as 046D:C21F and is
+// handled by xinput_host as XBOX360_WIRED.
+static inline bool is_logitech_f710_dinput(uint16_t vid, uint16_t pid)
+{
+  return vid == 0x046D && pid == 0xC219;
 }
 
 struct input_bits_t {
@@ -107,8 +198,11 @@ void process_kbd_report(
 static void process_mouse_report(hid_mouse_report_t const * report);
 static void process_generic_report(uint8_t dev_addr, uint8_t instance, uint8_t const* report, uint16_t len);
 static void process_hid_gamepad(uint8_t const* report, uint16_t len);
-static void process_ds4_gamepad(uint8_t const* report, uint16_t len);
-static void process_ds5_gamepad(uint8_t const* report, uint16_t len);
+static void process_ds4_gamepad(uint8_t instance, uint8_t const* report, uint16_t len);
+static void process_ds5_gamepad(uint8_t instance, uint8_t const* report, uint16_t len);
+static void process_f710_dinput(uint8_t instance, uint8_t const* report, uint16_t len);
+static void process_gp_2563_0575(uint8_t instance, uint8_t const* report, uint16_t len);
+static void process_gp_feed_2320(uint8_t instance, uint8_t const* report, uint16_t len);
 
 //--------------------------------------------------------------------+
 // TinyUSB Callbacks
@@ -148,6 +242,9 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* desc_re
     s.last_report_len = 0;
     s.last_report_saved = 0;
     s.report_total = 0;
+    s.last_handler = HID_HANDLER_NONE;
+    s.decoded = 0;
+    s.decoded_valid = false;
     if (desc_report && desc_len) {
       uint16_t n = desc_len < HID_SNAP_DESC_BYTES ? desc_len : HID_SNAP_DESC_BYTES;
       memcpy(s.desc, desc_report, n);
@@ -241,12 +338,14 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
   {
     case HID_ITF_PROTOCOL_KEYBOARD:
       TU_LOG2("HID receive boot keyboard report\r\n");
+      hid_snap_set_handler(instance, HID_HANDLER_KBD);
       process_kbd_report( (hid_keyboard_report_t const*) report, &prev_report );
       prev_report = *(hid_keyboard_report_t const*)report;
     break;
 
     case HID_ITF_PROTOCOL_MOUSE:
       TU_LOG2("HID receive boot mouse report\r\n");
+      hid_snap_set_handler(instance, HID_HANDLER_MOUSE);
       process_mouse_report( (hid_mouse_report_t const*) report );
     break;
 
@@ -441,7 +540,7 @@ static void process_hid_gamepad(uint8_t const* report, uint16_t len)
 //   [6]    PS 0x01, TouchClick 0x02, plus 6-bit counter
 // Mapping mirrors process_hid_gamepad(): D-pad+Cross drive Kempston,
 // Circle = alt-fire, Square/Triangle/L1/R1 → VK_JOY_X/Y/Z/C for joydef.
-static void process_ds4_gamepad(uint8_t const* report, uint16_t len)
+static void process_ds4_gamepad(uint8_t instance, uint8_t const* report, uint16_t len)
 {
     if (len < 7) return;
 
@@ -523,6 +622,15 @@ static void process_ds4_gamepad(uint8_t const* report, uint16_t len)
     gamepad1_bits.b = btn_cross;
     gamepad1_bits.start = btn_options;
     gamepad1_bits.select = btn_share;
+
+    uint16_t dec = 0;
+    if (up) dec |= HID_DEC_UP;       if (down) dec |= HID_DEC_DOWN;
+    if (left) dec |= HID_DEC_LEFT;   if (right) dec |= HID_DEC_RIGHT;
+    if (btn_cross) dec |= HID_DEC_A;     if (btn_circle) dec |= HID_DEC_B;
+    if (btn_square) dec |= HID_DEC_X;    if (btn_triangle) dec |= HID_DEC_Y;
+    if (btn_l1) dec |= HID_DEC_L;        if (btn_r1) dec |= HID_DEC_R;
+    if (btn_options) dec |= HID_DEC_START;  if (btn_share) dec |= HID_DEC_SELECT;
+    hid_snap_set_decoded(instance, HID_HANDLER_DS4, dec);
 }
 
 //--------------------------------------------------------------------+
@@ -541,7 +649,7 @@ static void process_ds4_gamepad(uint8_t const* report, uint16_t len)
 // Same emulator mapping as DS4: Cross=Fire, Circle=AltFire,
 // Options=Start/F1, Create=Select/Backspace, Square/Triangle/L1/R1
 // → VK_JOY_X/Y/Z/C.
-static void process_ds5_gamepad(uint8_t const* report, uint16_t len)
+static void process_ds5_gamepad(uint8_t instance, uint8_t const* report, uint16_t len)
 {
     if (len < 9) return;
 
@@ -624,6 +732,313 @@ static void process_ds5_gamepad(uint8_t const* report, uint16_t len)
     gamepad1_bits.b = btn_cross;
     gamepad1_bits.start = btn_options;
     gamepad1_bits.select = btn_create;
+
+    uint16_t dec = 0;
+    if (up) dec |= HID_DEC_UP;       if (down) dec |= HID_DEC_DOWN;
+    if (left) dec |= HID_DEC_LEFT;   if (right) dec |= HID_DEC_RIGHT;
+    if (btn_cross) dec |= HID_DEC_A;     if (btn_circle) dec |= HID_DEC_B;
+    if (btn_square) dec |= HID_DEC_X;    if (btn_triangle) dec |= HID_DEC_Y;
+    if (btn_l1) dec |= HID_DEC_L;        if (btn_r1) dec |= HID_DEC_R;
+    if (btn_options) dec |= HID_DEC_START;  if (btn_create) dec |= HID_DEC_SELECT;
+    hid_snap_set_decoded(instance, HID_HANDLER_DS5, dec);
+}
+
+//--------------------------------------------------------------------+
+// Logitech F710 — DirectInput mode (slide switch on back set to "D")
+//--------------------------------------------------------------------+
+// Layout after stripping report id 0x01 (7+ usable bytes):
+//   [0..3] LX, LY, RX, RY (8-bit, 0x80 center)
+//   [4]    hat low-nibble (0=U, 2=R, 4=D, 6=L, 8=neutral; 1/3/5/7 diagonals)
+//   [5]    high nibble = X 0x10, A 0x20, B 0x40, Y 0x80
+//   [6]    LB 0x01, RB 0x02, LT 0x04, RT 0x08, BACK 0x10, START 0x20, L3 0x40, R3 0x80
+// Logitech labels are inverted vs PS-style: A=south(green), B=east(red),
+// X=west(blue), Y=north(yellow). Map A=Fire (b/cross-equivalent),
+// B=AltFire, Start/Back same as DS4.
+static void process_f710_dinput(uint8_t instance, uint8_t const* report, uint16_t len)
+{
+    if (len < 7) return;
+
+    uint8_t lx   = report[0];
+    uint8_t ly   = report[1];
+    uint8_t b4   = report[4];
+    uint8_t hat  = b4 & 0x0F;
+    uint8_t face = b4 & 0xF0;
+    uint8_t b5   = report[5];
+
+    bool stick_left  = lx < 0x40;
+    bool stick_right = lx > 0xC0;
+    bool stick_up    = ly < 0x40;
+    bool stick_down  = ly > 0xC0;
+
+    bool hat_up    = (hat == 7 || hat == 0 || hat == 1);
+    bool hat_right = (hat == 1 || hat == 2 || hat == 3);
+    bool hat_down  = (hat == 3 || hat == 4 || hat == 5);
+    bool hat_left  = (hat == 5 || hat == 6 || hat == 7);
+    if (hat >= 8) { hat_up = hat_down = hat_left = hat_right = false; }
+
+    bool up    = stick_up    || hat_up;
+    bool down  = stick_down  || hat_down;
+    bool left  = stick_left  || hat_left;
+    bool right = stick_right || hat_right;
+
+    bool btn_x     = (face & 0x10) != 0;
+    bool btn_a     = (face & 0x20) != 0;
+    bool btn_b     = (face & 0x40) != 0;
+    bool btn_y     = (face & 0x80) != 0;
+    bool btn_lb    = (b5 & 0x01) != 0;
+    bool btn_rb    = (b5 & 0x02) != 0;
+    bool btn_back  = (b5 & 0x10) != 0;
+    bool btn_start = (b5 & 0x20) != 0;
+
+    if (up != gamepad1_bits.up) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_UP, up);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_UP, up);
+    }
+    if (down != gamepad1_bits.down) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_DOWN, down);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_DOWN, down);
+    }
+    if (left != gamepad1_bits.left) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_LEFT, left);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_LEFT, left);
+    }
+    if (right != gamepad1_bits.right) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_RIGHT, right);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_RIGHT, right);
+    }
+
+    if (btn_a != gamepad1_bits.b) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_ENTER, btn_a);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_FIRE, btn_a);
+    }
+    if (btn_b != gamepad1_bits.a) {
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_ALTFIRE, btn_b);
+    }
+    if (btn_start != gamepad1_bits.start) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_HOME, btn_start);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_START, btn_start);
+    }
+    if (btn_back != gamepad1_bits.select) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_BS, btn_back);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_SELECT, btn_back);
+    }
+
+    static bool prev_x = false, prev_y = false, prev_lb = false, prev_rb = false;
+    if (btn_x  != prev_x)  { kbdPushData(fabgl::VirtualKey::VK_JOY_X, btn_x);  prev_x  = btn_x; }
+    if (btn_y  != prev_y)  { kbdPushData(fabgl::VirtualKey::VK_JOY_Y, btn_y);  prev_y  = btn_y; }
+    if (btn_lb != prev_lb) { kbdPushData(fabgl::VirtualKey::VK_JOY_Z, btn_lb); prev_lb = btn_lb; }
+    if (btn_rb != prev_rb) { kbdPushData(fabgl::VirtualKey::VK_JOY_C, btn_rb); prev_rb = btn_rb; }
+
+    gamepad1_bits.up     = up;
+    gamepad1_bits.down   = down;
+    gamepad1_bits.left   = left;
+    gamepad1_bits.right  = right;
+    gamepad1_bits.a      = btn_b;
+    gamepad1_bits.b      = btn_a;
+    gamepad1_bits.start  = btn_start;
+    gamepad1_bits.select = btn_back;
+
+    uint16_t dec = 0;
+    if (up) dec |= HID_DEC_UP;       if (down) dec |= HID_DEC_DOWN;
+    if (left) dec |= HID_DEC_LEFT;   if (right) dec |= HID_DEC_RIGHT;
+    if (btn_a) dec |= HID_DEC_A;         if (btn_b) dec |= HID_DEC_B;
+    if (btn_x) dec |= HID_DEC_X;         if (btn_y) dec |= HID_DEC_Y;
+    if (btn_lb) dec |= HID_DEC_L;        if (btn_rb) dec |= HID_DEC_R;
+    if (btn_start) dec |= HID_DEC_START; if (btn_back) dec |= HID_DEC_SELECT;
+    hid_snap_set_decoded(instance, HID_HANDLER_F710_DINPUT, dec);
+}
+
+//--------------------------------------------------------------------+
+// Generic clone gamepad (VID 2563 PID 0575) — DirectInput-style 7-byte
+// simple report (no id prefix). Layout from frank-nes known_hid_maps.
+//--------------------------------------------------------------------+
+static void process_gp_2563_0575(uint8_t instance, uint8_t const* report, uint16_t len)
+{
+    if (len < 7) return;
+
+    uint8_t b0  = report[0];
+    uint8_t b1  = report[1];
+    uint8_t hat = report[2] & 0x0F;
+    uint8_t lx  = report[3];
+    uint8_t ly  = report[4];
+
+    bool stick_left  = lx < 0x40;
+    bool stick_right = lx > 0xC0;
+    bool stick_up    = ly < 0x40;
+    bool stick_down  = ly > 0xC0;
+
+    bool hat_up    = (hat == 7 || hat == 0 || hat == 1);
+    bool hat_right = (hat == 1 || hat == 2 || hat == 3);
+    bool hat_down  = (hat == 3 || hat == 4 || hat == 5);
+    bool hat_left  = (hat == 5 || hat == 6 || hat == 7);
+    if (hat >= 8) { hat_up = hat_down = hat_left = hat_right = false; }
+
+    bool up    = stick_up    || hat_up;
+    bool down  = stick_down  || hat_down;
+    bool left  = stick_left  || hat_left;
+    bool right = stick_right || hat_right;
+
+    bool btn_y     = (b0 & 0x01) != 0;
+    bool btn_b     = (b0 & 0x02) != 0;
+    bool btn_a     = (b0 & 0x04) != 0;
+    bool btn_x     = (b0 & 0x08) != 0;
+    bool btn_l     = (b0 & 0x10) != 0;
+    bool btn_r     = (b0 & 0x20) != 0;
+    bool btn_select = (b1 & 0x01) != 0;
+    bool btn_start  = (b1 & 0x02) != 0;
+
+    if (up != gamepad1_bits.up) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_UP, up);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_UP, up);
+    }
+    if (down != gamepad1_bits.down) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_DOWN, down);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_DOWN, down);
+    }
+    if (left != gamepad1_bits.left) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_LEFT, left);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_LEFT, left);
+    }
+    if (right != gamepad1_bits.right) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_RIGHT, right);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_RIGHT, right);
+    }
+
+    if (btn_a != gamepad1_bits.b) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_ENTER, btn_a);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_FIRE, btn_a);
+    }
+    if (btn_b != gamepad1_bits.a) {
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_ALTFIRE, btn_b);
+    }
+    if (btn_start != gamepad1_bits.start) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_HOME, btn_start);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_START, btn_start);
+    }
+    if (btn_select != gamepad1_bits.select) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_BS, btn_select);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_SELECT, btn_select);
+    }
+
+    static bool prev_x = false, prev_y = false, prev_l = false, prev_r = false;
+    if (btn_x != prev_x) { kbdPushData(fabgl::VirtualKey::VK_JOY_X, btn_x); prev_x = btn_x; }
+    if (btn_y != prev_y) { kbdPushData(fabgl::VirtualKey::VK_JOY_Y, btn_y); prev_y = btn_y; }
+    if (btn_l != prev_l) { kbdPushData(fabgl::VirtualKey::VK_JOY_Z, btn_l); prev_l = btn_l; }
+    if (btn_r != prev_r) { kbdPushData(fabgl::VirtualKey::VK_JOY_C, btn_r); prev_r = btn_r; }
+
+    gamepad1_bits.up     = up;
+    gamepad1_bits.down   = down;
+    gamepad1_bits.left   = left;
+    gamepad1_bits.right  = right;
+    gamepad1_bits.a      = btn_b;
+    gamepad1_bits.b      = btn_a;
+    gamepad1_bits.start  = btn_start;
+    gamepad1_bits.select = btn_select;
+
+    uint16_t dec = 0;
+    if (up) dec |= HID_DEC_UP;       if (down) dec |= HID_DEC_DOWN;
+    if (left) dec |= HID_DEC_LEFT;   if (right) dec |= HID_DEC_RIGHT;
+    if (btn_a) dec |= HID_DEC_A;         if (btn_b) dec |= HID_DEC_B;
+    if (btn_x) dec |= HID_DEC_X;         if (btn_y) dec |= HID_DEC_Y;
+    if (btn_l) dec |= HID_DEC_L;         if (btn_r) dec |= HID_DEC_R;
+    if (btn_start) dec |= HID_DEC_START; if (btn_select) dec |= HID_DEC_SELECT;
+    hid_snap_set_decoded(instance, HID_HANDLER_GP_2563_0575, dec);
+}
+
+//--------------------------------------------------------------------+
+// "FEED:2320" — clone gamepad. Composite report id=0x07 already stripped.
+//--------------------------------------------------------------------+
+static void process_gp_feed_2320(uint8_t instance, uint8_t const* report, uint16_t len)
+{
+    if (len < 7) return;
+
+    uint8_t lx  = report[0];
+    uint8_t ly  = report[1];
+    uint8_t hat = report[4] & 0x0F;
+    uint8_t b5  = report[5];
+    uint8_t b6  = report[6];
+
+    bool stick_left  = lx < 0x40;
+    bool stick_right = lx > 0xC0;
+    bool stick_up    = ly < 0x40;
+    bool stick_down  = ly > 0xC0;
+
+    bool hat_up    = (hat == 7 || hat == 0 || hat == 1);
+    bool hat_right = (hat == 1 || hat == 2 || hat == 3);
+    bool hat_down  = (hat == 3 || hat == 4 || hat == 5);
+    bool hat_left  = (hat == 5 || hat == 6 || hat == 7);
+    if (hat >= 8) { hat_up = hat_down = hat_left = hat_right = false; }
+
+    bool up    = stick_up    || hat_up;
+    bool down  = stick_down  || hat_down;
+    bool left  = stick_left  || hat_left;
+    bool right = stick_right || hat_right;
+
+    bool btn_a     = (b5 & 0x01) != 0;
+    bool btn_b     = (b5 & 0x02) != 0;
+    bool btn_y     = (b5 & 0x04) != 0;
+    bool btn_x     = (b5 & 0x08) != 0;
+    bool btn_l     = (b5 & 0x10) != 0;
+    bool btn_r     = (b5 & 0x20) != 0;
+    bool btn_select = (b6 & 0x04) != 0;
+    bool btn_start  = (b6 & 0x08) != 0;
+
+    if (up != gamepad1_bits.up) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_UP, up);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_UP, up);
+    }
+    if (down != gamepad1_bits.down) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_DOWN, down);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_DOWN, down);
+    }
+    if (left != gamepad1_bits.left) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_LEFT, left);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_LEFT, left);
+    }
+    if (right != gamepad1_bits.right) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_RIGHT, right);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_RIGHT, right);
+    }
+
+    if (btn_a != gamepad1_bits.b) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_ENTER, btn_a);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_FIRE, btn_a);
+    }
+    if (btn_b != gamepad1_bits.a) {
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_ALTFIRE, btn_b);
+    }
+    if (btn_start != gamepad1_bits.start) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_HOME, btn_start);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_START, btn_start);
+    }
+    if (btn_select != gamepad1_bits.select) {
+        joyPushData(fabgl::VirtualKey::VK_MENU_BS, btn_select);
+        if (Config::secondJoy != 1) joyPushData(fabgl::VirtualKey::VK_DPAD_SELECT, btn_select);
+    }
+
+    static bool prev_x = false, prev_y = false, prev_l = false, prev_r = false;
+    if (btn_x != prev_x) { kbdPushData(fabgl::VirtualKey::VK_JOY_X, btn_x); prev_x = btn_x; }
+    if (btn_y != prev_y) { kbdPushData(fabgl::VirtualKey::VK_JOY_Y, btn_y); prev_y = btn_y; }
+    if (btn_l != prev_l) { kbdPushData(fabgl::VirtualKey::VK_JOY_Z, btn_l); prev_l = btn_l; }
+    if (btn_r != prev_r) { kbdPushData(fabgl::VirtualKey::VK_JOY_C, btn_r); prev_r = btn_r; }
+
+    gamepad1_bits.up     = up;
+    gamepad1_bits.down   = down;
+    gamepad1_bits.left   = left;
+    gamepad1_bits.right  = right;
+    gamepad1_bits.a      = btn_b;
+    gamepad1_bits.b      = btn_a;
+    gamepad1_bits.start  = btn_start;
+    gamepad1_bits.select = btn_select;
+
+    uint16_t dec = 0;
+    if (up) dec |= HID_DEC_UP;       if (down) dec |= HID_DEC_DOWN;
+    if (left) dec |= HID_DEC_LEFT;   if (right) dec |= HID_DEC_RIGHT;
+    if (btn_a) dec |= HID_DEC_A;         if (btn_b) dec |= HID_DEC_B;
+    if (btn_x) dec |= HID_DEC_X;         if (btn_y) dec |= HID_DEC_Y;
+    if (btn_l) dec |= HID_DEC_L;         if (btn_r) dec |= HID_DEC_R;
+    if (btn_start) dec |= HID_DEC_START; if (btn_select) dec |= HID_DEC_SELECT;
+    hid_snap_set_decoded(instance, HID_HANDLER_GP_FEED_2320, dec);
 }
 
 //--------------------------------------------------------------------+
@@ -671,12 +1086,30 @@ static void process_generic_report(uint8_t dev_addr, uint8_t instance, uint8_t c
 
   if (is_dualshock4(hid_info[instance].vid, hid_info[instance].pid)
       && len >= 10 && report[0] == 0x01) {
-    process_ds4_gamepad(report + 1, len - 1);
+    process_ds4_gamepad(instance, report + 1, len - 1);
     return;
   }
   if (is_dualsense(hid_info[instance].vid, hid_info[instance].pid)
       && len >= 11 && report[0] == 0x01) {
-    process_ds5_gamepad(report + 1, len - 1);
+    process_ds5_gamepad(instance, report + 1, len - 1);
+    return;
+  }
+
+  if (is_logitech_f710_dinput(hid_info[instance].vid, hid_info[instance].pid)
+      && len >= 8 && report[0] == 0x01) {
+    process_f710_dinput(instance, report + 1, len - 1);
+    return;
+  }
+
+  if (is_gp_2563_0575(hid_info[instance].vid, hid_info[instance].pid)
+      && len >= 7) {
+    process_gp_2563_0575(instance, report, len);
+    return;
+  }
+
+  if (is_gp_feed_2320(hid_info[instance].vid, hid_info[instance].pid)
+      && len >= 8 && report[0] == 0x07) {
+    process_gp_feed_2320(instance, report + 1, len - 1);
     return;
   }
 
@@ -710,6 +1143,7 @@ static void process_generic_report(uint8_t dev_addr, uint8_t instance, uint8_t c
   if (!rpt_info)
   {
     printf("Couldn't find the report info for this report !\r\n");
+    hid_snap_set_handler(instance, HID_HANDLER_NO_RPT_INFO);
     return;
   }
 
@@ -726,6 +1160,7 @@ static void process_generic_report(uint8_t dev_addr, uint8_t instance, uint8_t c
     {
       case HID_USAGE_DESKTOP_KEYBOARD:
         TU_LOG1("HID receive keyboard report\r\n");
+        hid_snap_set_handler(instance, HID_HANDLER_KBD);
         // Assume keyboard follow boot report layout
         process_kbd_report( (hid_keyboard_report_t const*) report, &prev_report );
         prev_report = *(hid_keyboard_report_t const*)report;
@@ -733,21 +1168,30 @@ static void process_generic_report(uint8_t dev_addr, uint8_t instance, uint8_t c
 
       case HID_USAGE_DESKTOP_MOUSE:
         TU_LOG1("HID receive mouse report\r\n");
+        hid_snap_set_handler(instance, HID_HANDLER_MOUSE);
         // Assume mouse follow boot report layout
         process_mouse_report( (hid_mouse_report_t const*) report );
       break;
 
       case HID_USAGE_DESKTOP_GAMEPAD:
       case HID_USAGE_DESKTOP_JOYSTICK:
+        hid_snap_set_handler(instance, HID_HANDLER_GENERIC_GAMEPAD);
         process_hid_gamepad(report, len);
       break;
 
-      default: break;
+      default:
+        hid_snap_set_handler(instance, HID_HANDLER_UNKNOWN_USAGE);
+        break;
     }
   }
   else if ( rpt_info->usage_page == HID_USAGE_PAGE_CONSUMER && rpt_info->usage == HID_USAGE_CONSUMER_CONTROL )
   {
+    hid_snap_set_handler(instance, HID_HANDLER_GENERIC_CONS);
     process_consumer_report(report, len);
+  }
+  else
+  {
+    hid_snap_set_handler(instance, HID_HANDLER_UNKNOWN_USAGE);
   }
 }
 
@@ -766,16 +1210,45 @@ extern "C" int hid_app_format_devices_info(char* buf, int bufsz)
     found++;
 
     const char* pname = (s.itf_protocol < 3) ? proto_name[s.itf_protocol] : "?";
-    const char* known = "";
-    if (is_dualshock4(s.vid, s.pid)) known = " (DualShock 4)";
-    else if (is_dualsense(s.vid, s.pid)) known = " (DualSense)";
+
+    static const char* handler_name[] = {
+      "(no rpt yet)",   // HID_HANDLER_NONE
+      "kbd",            // KBD
+      "mouse",          // MOUSE
+      "DS4",            // DS4
+      "DS5",            // DS5
+      "F710 D-input",   // F710_DINPUT
+      "GP 2563:0575",   // GP_2563_0575
+      "GP FEED:2320",   // GP_FEED_2320
+      "generic gamepad",// GENERIC_GAMEPAD
+      "consumer ctrl",  // GENERIC_CONS
+      "no rpt info!",   // NO_RPT_INFO
+      "unknown usage",  // UNKNOWN_USAGE
+    };
+    const char* hname = (s.last_handler < (sizeof(handler_name)/sizeof(handler_name[0])))
+                       ? handler_name[s.last_handler] : "?";
 
     pos += snprintf(buf + pos, bufsz - pos,
-      "Inst %u  addr=%u  %s%s\n"
+      "Inst %u  addr=%u  %s\n"
       " VID:PID = %04X:%04X\n"
+      " handler = %s\n"
       " desc len = %u\n",
-      inst, s.dev_addr, pname, known,
-      s.vid, s.pid, s.desc_len);
+      inst, s.dev_addr, pname,
+      s.vid, s.pid, hname, s.desc_len);
+
+    if (s.decoded_valid) {
+      uint16_t d = s.decoded;
+      pos += snprintf(buf + pos, bufsz - pos,
+        " dec: U%u D%u L%u R%u\n"
+        "      A%u B%u X%u Y%u\n"
+        "      LB%u RB%u ST%u SE%u\n",
+        !!(d & HID_DEC_UP), !!(d & HID_DEC_DOWN),
+        !!(d & HID_DEC_LEFT), !!(d & HID_DEC_RIGHT),
+        !!(d & HID_DEC_A), !!(d & HID_DEC_B),
+        !!(d & HID_DEC_X), !!(d & HID_DEC_Y),
+        !!(d & HID_DEC_L), !!(d & HID_DEC_R),
+        !!(d & HID_DEC_START), !!(d & HID_DEC_SELECT));
+    }
 
     if (s.desc_saved) {
       pos += snprintf(buf + pos, bufsz - pos, " desc[0..%u]:\n ", s.desc_saved - 1);
