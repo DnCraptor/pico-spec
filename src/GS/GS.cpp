@@ -226,7 +226,12 @@ static volatile uint32_t s_perf_h_spin_us = 0;     // total spinwait µs/sec in 
 // 16 KB work-RAM (CPU 0x4000-0x7FFF: stack, variables, DAC mirrors) kept in
 // SRAM to avoid PSRAM latency on every stack push/pop and tight-loop variable
 // access.  Banked sample pages (CPU 0x8000-0xFFFF, page>0) stay in PSRAM.
-static uint8_t s_gs_work_ram[0x4000];
+// Heap-allocated in GS::init() only when PSRAM is actually present at runtime.
+// Boards with BUTTER_PSRAM_GPIO defined but no PSRAM populated (e.g. ZERO2
+// without the optional PCM5122/PSRAM module) skip the allocation — saving
+// ~24 KB SRAM on configurations where GS cannot run anyway.
+#define GS_WORK_RAM_SIZE 0x4000
+static uint8_t* s_gs_work_ram = nullptr;
 
 // Host→GS FIFO. Some loaders (e.g. FH1_GS_TZ.scl) stream samples into port
 // 0xB3 in a tight LD A,(HL) / OUT (B3),A loop with no IN (BB) handshake,
@@ -264,8 +269,8 @@ static volatile uint32_t s_cmd_fifo_r = 0;
 // single-reader (core1 IRQ preempts main) — volatile wpos/rpos atomic on ARM.
 #define GS_RING_SIZE 1024
 #define GS_RING_MASK (GS_RING_SIZE - 1)
-static int16_t s_ring_L[GS_RING_SIZE];
-static int16_t s_ring_R[GS_RING_SIZE];
+static int16_t* s_ring_L = nullptr;
+static int16_t* s_ring_R = nullptr;
 static volatile uint32_t s_ring_wpos = 0;
 static volatile uint32_t s_ring_rpos = 0;
 static uint32_t s_drain_frac = 0;
@@ -298,9 +303,9 @@ static inline uint32_t __not_in_flash_func(gs_map_addr)(uint16_t address) {
 #define GS_PC_SETS       16
 #define GS_PC_WAYS       4
 #define GS_PC_SETS_MASK  (GS_PC_SETS - 1)
-static uint8_t  s_pc_data[GS_PC_SETS][GS_PC_WAYS][GS_PC_LINE_SZ];  // 4 KB
-static uint32_t s_pc_tag[GS_PC_SETS][GS_PC_WAYS];   // ~0u = invalid
-static uint8_t  s_pc_next[GS_PC_SETS];               // FIFO victim pointer
+static uint8_t  (*s_pc_data)[GS_PC_WAYS][GS_PC_LINE_SZ] = nullptr;  // 4 KB
+static uint32_t (*s_pc_tag)[GS_PC_WAYS] = nullptr;   // ~0u = invalid
+static uint8_t  *s_pc_next = nullptr;                 // FIFO victim pointer (size GS_PC_SETS)
 
 // Last-hit memo: when the firmware streams a sample, 64 consecutive byte
 // reads land on the same cache line. A one-entry memo skips the 4-way
@@ -697,7 +702,14 @@ bool GS::init(uint32_t ram_size_bytes) {
     s_gs_ram_mask = ram_size_bytes - 1;
     gs_ram_size   = ram_size_bytes;
 
-    memset(s_gs_work_ram, 0, sizeof(s_gs_work_ram));
+    if (!s_gs_work_ram) s_gs_work_ram = new uint8_t[GS_WORK_RAM_SIZE];
+    if (!s_pc_data)     s_pc_data     = new uint8_t[GS_PC_SETS][GS_PC_WAYS][GS_PC_LINE_SZ];
+    if (!s_pc_tag)      s_pc_tag      = new uint32_t[GS_PC_SETS][GS_PC_WAYS];
+    if (!s_pc_next)     s_pc_next     = new uint8_t[GS_PC_SETS];
+    if (!s_ring_L)      s_ring_L      = new int16_t[GS_RING_SIZE];
+    if (!s_ring_R)      s_ring_R      = new int16_t[GS_RING_SIZE];
+
+    memset(s_gs_work_ram, 0, GS_WORK_RAM_SIZE);
     gs_init_fetch_pages();   // hot-path fetch table: see gs_cb_fetch_opcode
     for (int i = 0; i < GS_PC_SETS; i++) {
         for (int w = 0; w < GS_PC_WAYS; w++) s_pc_tag[i][w] = ~0u;
@@ -742,6 +754,12 @@ void GS::deinit() {
     s_gs_use_spi = false;
     s_gs_ram_mask = 0;
     gs_ram_size = 0;
+    delete[] s_gs_work_ram; s_gs_work_ram = nullptr;
+    delete[] s_pc_data;     s_pc_data     = nullptr;
+    delete[] s_pc_tag;      s_pc_tag      = nullptr;
+    delete[] s_pc_next;     s_pc_next     = nullptr;
+    delete[] s_ring_L;      s_ring_L      = nullptr;
+    delete[] s_ring_R;      s_ring_R      = nullptr;
 }
 
 void GS::reset() {

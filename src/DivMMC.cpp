@@ -115,16 +115,20 @@ void DivMMC::init() {
             }
         }
 
-        // Cleanup bank memory
+        // Bank cache slots are intentionally NOT freed: re-allocating 3 × 8 KB
+        // contiguous blocks after a toggle cycle (DivSD→MB02→DivSD) fails on
+        // tight-heap boards (ZERO2 without PSRAM, ~17 KB free) due to
+        // fragmentation. Keep the slots and the swap file open across toggles —
+        // they are reused on next enable. Slot bookkeeping is reset so the
+        // cache acts empty.
         if (!use_psram) {
-            if (swap_open) { f_close(&swap_file); f_unlink("/tmp/divmmc-pico-spec.swap"); swap_open = false; }
             for (int i = 0; i < DIVMMC_CACHE_SLOTS; i++) {
-                free(active_buf[i]); active_buf[i] = nullptr;
                 active_bank[i] = -1;
+                slot_dirty[i] = false;
+                slot_lru[i] = 0;
             }
         }
         memset(bank_ptr, 0, sizeof(bank_ptr));
-        use_psram = false;
         esxdos_rom = nullptr;
         rom_loaded = false;
         return;
