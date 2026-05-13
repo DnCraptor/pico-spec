@@ -331,6 +331,17 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
 {
   uint8_t const itf_protocol = tuh_hid_interface_protocol(dev_addr, instance);
 
+  // 0810:0001 registers with boot kbd/mouse protocol but sends joystick
+  // reports — intercept before the boot-protocol switch.
+  if (is_gp_0810_0001(hid_info[instance].vid, hid_info[instance].pid)) {
+    if (len >= 8 && (report[0] == 0x01 || report[0] == 0x02)) {
+      process_gp_0810_0001(instance, report + 1, len - 1);
+    }
+    if (!tuh_hid_receive_report(dev_addr, instance))
+      printf("Error: cannot request to receive report\r\n");
+    return;
+  }
+  
   if (instance < CFG_TUH_HID && report && len) {
     hid_snap_t& s = hid_snap[instance];
     s.report_total++;

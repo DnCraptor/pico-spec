@@ -43,12 +43,13 @@ endif()
 set(NO_ALF 1)
 
 set(CPU_MHZ 378)
-set (PORT_VERSION "1.2.16")
+set (PORT_VERSION "1.2.17")
 string(LENGTH "${PORT_VERSION}" PORT_VERSION_LEN)
 
 # Target board (default: PICO_PC; override with -D flags, e.g. cmake -DMURM2=ON)
 if(NOT MURM AND NOT MURM2 AND NOT PICO_PC AND NOT PICO_DV AND NOT ZERO AND NOT ZERO2)
-    set(MURM ON)
+    set(MURM2 ON)
+    set(MURM2_P2 ON)
 endif()
 
 set(KBDUSB ON)
