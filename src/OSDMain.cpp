@@ -7242,12 +7242,13 @@ size_t getContiguousHeap(void) {
 }
 
 // Generic read-only text dialog with vertical scroll
-void OSD::showTextDialog(const char* title, const char* text) {
-    click();
-
-    unsigned short sx = scrAlignCenterX(OSD_W);
-    unsigned short sy = scrAlignCenterY(OSD_H);
-    VIDEO::SaveRect.save(sx, sy, OSD_W, OSD_H);
+void OSD::showTextDialog(const char* title, const char* text, bool blocking, int* scroll_state) {
+    if (blocking) {
+        click();
+        unsigned short sx = scrAlignCenterX(OSD_W);
+        unsigned short sy = scrAlignCenterY(OSD_H);
+        VIDEO::SaveRect.save(sx, sy, OSD_W, OSD_H);
+    }
 
     // Parse text into line pointers (zero-copy: index into original text)
     const int MAX_DLGLINES = 64;
@@ -7268,7 +7269,8 @@ void OSD::showTextDialog(const char* title, const char* text) {
     const int visCols = osdMaxCols();
     // rows: 0=OSD_TITLE, 1=title, 2=separator, ... last=OSD_BOTTOM → content rows = maxRows-4
     const int visRows = osdMaxRows() - 4;
-    int scroll = 0;
+    int scroll_local = 0;
+    int& scroll = scroll_state ? *scroll_state : scroll_local;
     bool needRedraw = true;
 
     auto drawContent = [&]() {
@@ -7328,19 +7330,17 @@ void OSD::showTextDialog(const char* title, const char* text) {
     };
 
     fabgl::VirtualKeyItem Nextkey;
-
-    while (1) {
+    do {
         if (needRedraw) {
             drawContent();
             needRedraw = false;
         }
-
-        while (!ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable())
-            sleep_ms(5);
-
+        if (!ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
+            if (blocking) { sleep_ms(5); continue; }
+            else break;  // очередь пуста — выходим, caller сам перерисует позже
+        }
         ESPectrum::PS2Controller.keyboard()->getNextVirtualKey(&Nextkey);
         if (!Nextkey.down) continue;
-
         if (is_enter(Nextkey.vk) || is_back(Nextkey.vk)) {
             click();
             break;
@@ -7355,9 +7355,8 @@ void OSD::showTextDialog(const char* title, const char* text) {
         } else if (Nextkey.vk == fabgl::VK_PAGEDOWN) {
             scroll += visRows; if (scroll > maxScroll) scroll = maxScroll; needRedraw = true;
         }
-    }
-
-    VIDEO::SaveRect.restore_last();
+    } while(blocking);
+    if (blocking) VIDEO::SaveRect.restore_last();
 }
 
 void OSD::HWInfo() {
@@ -8051,24 +8050,32 @@ void OSD::HIDDevices() {
 
     unsigned short sx = scrAlignCenterX(OSD_W);
     unsigned short sy = scrAlignCenterY(OSD_H);
-//    VIDEO::SaveRect.save(sx, sy, OSD_W, OSD_H);
+    VIDEO::SaveRect.save(sx, sy, OSD_W, OSD_H);
 
     fabgl::VirtualKeyItem Nextkey;
     uint32_t last_draw = 0;
+    int hid_scroll = 0;
 
+    bool down = false;
     while (true) {
         // Non-blocking key check
         if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
             ESPectrum::PS2Controller.keyboard()->getNextVirtualKey(&Nextkey);
-            if (Nextkey.down && (is_enter(Nextkey.vk) || is_back(Nextkey.vk))) {
+            if (down && !Nextkey.down && (is_enter(Nextkey.vk) || is_back(Nextkey.vk))) {
                 click();
                 break;
             }
+            if (Nextkey.down) {
+                down = (is_enter(Nextkey.vk) || is_back(Nextkey.vk));
+                if (Nextkey.vk == fabgl::VK_UP || Nextkey.vk == fabgl::VK_DOWN || Nextkey.vk == fabgl::VK_PAGEUP || Nextkey.vk == fabgl::VK_PAGEDOWN) {
+                    ESPectrum::PS2Controller.keyboard()->injectVirtualKey(Nextkey.vk, true);
+                }
+                last_draw = 0; // forse redraw
+            }
         }
 
-        // Redraw at ~10 Hz
         uint32_t now = to_ms_since_boot(get_absolute_time());
-        if (now - last_draw < 100) {
+        if (now - last_draw < 1000) {
             sleep_ms(5);
             continue;
         }
@@ -8128,32 +8135,12 @@ void OSD::HIDDevices() {
             (int)gamepad2_bits.start, (int)gamepad2_bits.select
         );
 
-        showTextDialog(Config::lang ? "Disp. HID live" : "HID devices (live)", buf);
-        // showTextDialog сохраняет/восстанавливает SaveRect — восстанавливаем нашу область
-//        VIDEO::SaveRect.save(sx, sy, OSD_W, OSD_H);
+        showTextDialog(Config::lang ? "Disp. HID live" : "HID devices (live)", buf, false, &hid_scroll);
     }
 
-//    VIDEO::SaveRect.restore_last();
+    VIDEO::SaveRect.restore_last();
 }
-/* static
-void OSD::HIDDevices() {
-    char (&buf)[OSD_INFO_BUF_SZ] = osd_info_buf;
-    buf[0] = '\0';
-    int xpos = xinput_app_format_devices_info(buf, sizeof(buf));
-    if (xpos < 0) xpos = 0;
-    if (xpos >= (int)sizeof(buf)) xpos = sizeof(buf) - 1;
-    buf[xpos] = '\0';
-    int hpos = hid_app_format_devices_info(buf + xpos, sizeof(buf) - xpos);
-    if (hpos < 0) hpos = 0;
-    if (xpos + hpos >= (int)sizeof(buf)) hpos = sizeof(buf) - xpos - 1;
-    buf[xpos + hpos] = '\0';
-    if (xpos == 0 && hpos == 0) {
-        snprintf(buf, sizeof(buf),
-            "No HID/XInput devices.\n\nPlug in a USB device\nand reopen this dialog.\n");
-    }
-    showTextDialog(Config::lang ? "Disp. HID" : "HID devices", buf);
-}
-*/
+
 static void __not_in_flash_func(flash_block)(const uint8_t* buffer, size_t flash_target_offset) {
     // ensure it is required to write block (may be, it is already the same)
     for (size_t i = 0; i < 512; ++i) {

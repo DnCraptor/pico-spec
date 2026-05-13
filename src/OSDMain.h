@@ -94,7 +94,7 @@ public:
     static void BoardInfo();
     static void EmulatorInfo();
     static void HIDDevices();
-    static void showTextDialog(const char* title, const char* text);
+    static void showTextDialog(const char* title, const char* text, bool blocking = true, int* scroll_state = nullptr);
 
     // Error
     static void errorPanel(const string& errormsg);
