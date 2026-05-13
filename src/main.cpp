@@ -73,7 +73,7 @@ struct input_bits_t {
 };
 
 input_bits_t gamepad1_bits = { false, false, false, false, false, false, false, false };
-static input_bits_t gamepad2_bits = { false, false, false, false, false, false, false, false };
+input_bits_t gamepad2_bits = { false, false, false, false, false, false, false, false };
 
 uint8_t nes_pad2_for_alf(void) {
     input_bits_t& bits = Config::secondJoy != 1 ? gamepad2_bits : gamepad1_bits;

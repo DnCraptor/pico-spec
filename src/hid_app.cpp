@@ -305,6 +305,17 @@ void tuh_hid_mount_cb(uint8_t dev_addr, uint8_t instance, uint8_t const* desc_re
     }
   }
 
+  // 0810:0001 announces boot kbd/mouse protocol but is a gamepad dongle.
+  // TinyUSB sends SET_PROTOCOL(BOOT) which makes the dongle go silent.
+  // Switch to report protocol so it starts sending HID reports.
+  if (is_gp_0810_0001(vid, pid)) {
+    if (itf_protocol != HID_ITF_PROTOCOL_NONE) {
+      tuh_hid_set_protocol(dev_addr, instance, HID_PROTOCOL_REPORT);
+      // tuh_hid_receive_report will be called below — that's fine,
+      // it will re-arm after set_protocol completes asynchronously.
+    }
+  }
+  
   // request to receive report
   // tuh_hid_report_received_cb() will be invoked when report is available
   if ( !tuh_hid_receive_report(dev_addr, instance) )
@@ -334,6 +345,15 @@ void tuh_hid_report_received_cb(uint8_t dev_addr, uint8_t instance, uint8_t cons
   // 0810:0001 registers with boot kbd/mouse protocol but sends joystick
   // reports — intercept before the boot-protocol switch.
   if (is_gp_0810_0001(hid_info[instance].vid, hid_info[instance].pid)) {
+    // Update snap so OSD can show reports rx / last bytes
+    if (instance < CFG_TUH_HID && report && len) {
+      hid_snap_t& s = hid_snap[instance];
+      s.report_total++;
+      s.last_report_len = len;
+      uint16_t n = len < HID_SNAP_REPORT_BYTES ? len : HID_SNAP_REPORT_BYTES;
+      memcpy(s.last_report, report, n);
+      s.last_report_saved = (uint8_t)n;
+    }
     if (len >= 8 && (report[0] == 0x01 || report[0] == 0x02)) {
       process_gp_0810_0001(instance, report + 1, len - 1);
     }

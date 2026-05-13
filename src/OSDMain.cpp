@@ -77,6 +77,24 @@ extern "C" void graphics_set_dither(bool enabled);
 #include <string>
 #include <cstdio>
 
+#if USE_NESPAD
+#include "nespad.h"
+#else
+static const uint32_t nespad_state = 0, nespad_state2 = 0;
+#endif
+struct input_bits_t {
+  bool a: true;
+  bool b: true;
+  bool select: true;
+  bool start: true;
+  bool right: true;
+  bool left: true;
+  bool up: true;
+  bool down: true;
+};
+extern input_bits_t gamepad1_bits;
+extern input_bits_t gamepad2_bits;
+
 extern "C" uint8_t TFT_FLAGS;
 extern "C" uint8_t TFT_INVERSION;
 
@@ -8026,6 +8044,99 @@ extern "C" int hid_app_format_devices_info(char* buf, int bufsz);
 extern "C" int xinput_app_format_devices_info(char* buf, int bufsz);
 
 void OSD::HIDDevices() {
+    extern int hid_app_format_devices_info(char* buf, int bufsz);
+    extern int xinput_app_format_devices_info(char* buf, int bufsz);
+
+    char (&buf)[OSD_INFO_BUF_SZ] = osd_info_buf;
+
+    unsigned short sx = scrAlignCenterX(OSD_W);
+    unsigned short sy = scrAlignCenterY(OSD_H);
+//    VIDEO::SaveRect.save(sx, sy, OSD_W, OSD_H);
+
+    fabgl::VirtualKeyItem Nextkey;
+    uint32_t last_draw = 0;
+
+    while (true) {
+        // Non-blocking key check
+        if (ESPectrum::PS2Controller.keyboard()->virtualKeyAvailable()) {
+            ESPectrum::PS2Controller.keyboard()->getNextVirtualKey(&Nextkey);
+            if (Nextkey.down && (is_enter(Nextkey.vk) || is_back(Nextkey.vk))) {
+                click();
+                break;
+            }
+        }
+
+        // Redraw at ~10 Hz
+        uint32_t now = to_ms_since_boot(get_absolute_time());
+        if (now - last_draw < 100) {
+            sleep_ms(5);
+            continue;
+        }
+        last_draw = now;
+
+        buf[0] = '\0';
+        int xpos = xinput_app_format_devices_info(buf, sizeof(buf));
+        if (xpos < 0) xpos = 0;
+        buf[xpos] = '\0';
+        int hpos = hid_app_format_devices_info(buf + xpos, sizeof(buf) - xpos);
+        if (hpos < 0) hpos = 0;
+        buf[xpos + hpos] = '\0';
+        if (xpos == 0 && hpos == 0)
+            snprintf(buf, sizeof(buf), "No HID/XInput devices.\n");
+
+        int used = (xpos + hpos > 0) ? xpos + hpos : (int)strlen(buf);
+        snprintf(buf + used, sizeof(buf) - used,
+            "NES1: %c%c%c%c %c%c%c%c %c%c%c%c\n"
+            "NES2: %c%c%c%c %c%c%c%c %c%c%c%c\n"
+            "joy1: U%d D%d L%d R%d  A%d B%d St%d Se%d\n"
+            "joy2: U%d D%d L%d R%d  A%d B%d St%d Se%d\n",
+            // NES1
+            (nespad_state & DPAD_UP)     ? 'U' : '.',
+            (nespad_state & DPAD_DOWN)   ? 'D' : '.',
+            (nespad_state & DPAD_LEFT)   ? 'L' : '.',
+            (nespad_state & DPAD_RIGHT)  ? 'R' : '.',
+            (nespad_state & DPAD_A)      ? 'A' : '.',
+            (nespad_state & DPAD_B)      ? 'B' : '.',
+            (nespad_state & DPAD_X)      ? 'X' : '.',
+            (nespad_state & DPAD_Y)      ? 'Y' : '.',
+            (nespad_state & DPAD_LT)     ? '<' : '.',
+            (nespad_state & DPAD_RT)     ? '>' : '.',
+            (nespad_state & DPAD_START)  ? 'S' : '.',
+            (nespad_state & DPAD_SELECT) ? 's' : '.',
+            // NES2
+            (nespad_state2 & DPAD_UP)     ? 'U' : '.',
+            (nespad_state2 & DPAD_DOWN)   ? 'D' : '.',
+            (nespad_state2 & DPAD_LEFT)   ? 'L' : '.',
+            (nespad_state2 & DPAD_RIGHT)  ? 'R' : '.',
+            (nespad_state2 & DPAD_A)      ? 'A' : '.',
+            (nespad_state2 & DPAD_B)      ? 'B' : '.',
+            (nespad_state2 & DPAD_X)      ? 'X' : '.',
+            (nespad_state2 & DPAD_Y)      ? 'Y' : '.',
+            (nespad_state2 & DPAD_LT)     ? '<' : '.',
+            (nespad_state2 & DPAD_RT)     ? '>' : '.',
+            (nespad_state2 & DPAD_START)  ? 'S' : '.',
+            (nespad_state2 & DPAD_SELECT) ? 's' : '.',
+            // gamepad1_bits
+            (int)gamepad1_bits.up,    (int)gamepad1_bits.down,
+            (int)gamepad1_bits.left,  (int)gamepad1_bits.right,
+            (int)gamepad1_bits.a,     (int)gamepad1_bits.b,
+            (int)gamepad1_bits.start, (int)gamepad1_bits.select,
+            // gamepad2_bits
+            (int)gamepad2_bits.up,    (int)gamepad2_bits.down,
+            (int)gamepad2_bits.left,  (int)gamepad2_bits.right,
+            (int)gamepad2_bits.a,     (int)gamepad2_bits.b,
+            (int)gamepad2_bits.start, (int)gamepad2_bits.select
+        );
+
+        showTextDialog(Config::lang ? "Disp. HID live" : "HID devices (live)", buf);
+        // showTextDialog сохраняет/восстанавливает SaveRect — восстанавливаем нашу область
+//        VIDEO::SaveRect.save(sx, sy, OSD_W, OSD_H);
+    }
+
+//    VIDEO::SaveRect.restore_last();
+}
+/* static
+void OSD::HIDDevices() {
     char (&buf)[OSD_INFO_BUF_SZ] = osd_info_buf;
     buf[0] = '\0';
     int xpos = xinput_app_format_devices_info(buf, sizeof(buf));
@@ -8042,7 +8153,7 @@ void OSD::HIDDevices() {
     }
     showTextDialog(Config::lang ? "Disp. HID" : "HID devices", buf);
 }
-
+*/
 static void __not_in_flash_func(flash_block)(const uint8_t* buffer, size_t flash_target_offset) {
     // ensure it is required to write block (may be, it is already the same)
     for (size_t i = 0; i < 512; ++i) {
