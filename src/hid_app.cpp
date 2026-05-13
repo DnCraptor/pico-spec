@@ -64,11 +64,11 @@ enum hid_handler_t : uint8_t {
   HID_HANDLER_F710_DINPUT,     // Logitech F710 D-input vendor handler
   HID_HANDLER_GP_2563_0575,    // 2563:0575 vendor handler
   HID_HANDLER_GP_FEED_2320,    // FEED:2320 vendor handler
+  HID_HANDLER_GP_0810_0001,    // 0810:0001 DragonRise/GameStick wireless
   HID_HANDLER_GENERIC_GAMEPAD, // tinyusb-parsed Joystick/Gamepad
   HID_HANDLER_GENERIC_CONS,    // Consumer control
   HID_HANDLER_NO_RPT_INFO,     // composite report id not found
   HID_HANDLER_UNKNOWN_USAGE,   // parsed report info but page/usage not handled
-  HID_HANDLER_GP_0810_0001,    // 0810:0001 DragonRise/GameStick wireless
 };
 
 // Decoded gamepad state bits (set by vendor handlers, read by OSD dialog).
@@ -1370,6 +1370,7 @@ extern "C" int hid_app_format_devices_info(char* buf, int bufsz)
       "F710 D-input",   // F710_DINPUT
       "GP 2563:0575",   // GP_2563_0575
       "GP FEED:2320",   // GP_FEED_2320
+      "GP 0810:0001",   // GP_0810_0001
       "generic gamepad",// GENERIC_GAMEPAD
       "consumer ctrl",  // GENERIC_CONS
       "no rpt info!",   // NO_RPT_INFO
