@@ -8090,7 +8090,7 @@ void OSD::HIDDevices() {
         buf[xpos + hpos] = '\0';
         if (xpos == 0 && hpos == 0)
             snprintf(buf, sizeof(buf), "No HID/XInput devices.\n");
-
+#ifdef USE_NESPAD
         int used = (xpos + hpos > 0) ? xpos + hpos : (int)strlen(buf);
         snprintf(buf + used, sizeof(buf) - used,
             "NES1: %c%c%c%c %c%c%c%c %c%c%c%c\n"
@@ -8134,7 +8134,7 @@ void OSD::HIDDevices() {
             (int)gamepad2_bits.a,     (int)gamepad2_bits.b,
             (int)gamepad2_bits.start, (int)gamepad2_bits.select
         );
-
+#endif
         showTextDialog(Config::lang ? "Disp. HID live" : "HID devices (live)", buf, false, &hid_scroll);
     }
 
