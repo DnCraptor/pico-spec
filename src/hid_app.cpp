@@ -1097,46 +1097,38 @@ static void process_gp_feed_2320(uint8_t instance, uint8_t const* report, uint16
 //--------------------------------------------------------------------+
 static void process_gp_0810_0001(uint8_t instance, uint8_t const* report, uint16_t len)
 {
+    // Report layout (Report ID stripped, 7 bytes follow):
+    // [0] unused (0x80)
+    // [1] unused (0x80)
+    // [2] LX / crosspad X: 0x00=left, 0x80=center, 0xFF=right
+    // [3] LY / crosspad Y: 0x00=up,   0x80=center, 0xFF=down
+    // [4] high-nibble: R-stick+face (0x1=up/Y, 0x2=right/B, 0x4=down/A, 0x8=left/X)
+    //     low-nibble:  hat (0xF=neutral, unused since sticks cover directions)
+    // [5] LB=0x01, RB=0x02, LT=0x04, RT=0x08, Select=0x10, Start=0x20
+    // [6] reserved
     if (len < 7) return;
 
-    // Analog axes (0x80 = center)
-    uint8_t lx = report[0];
-    uint8_t ly = report[1];
-    // uint8_t rx = report[2];  // available if needed
-    // uint8_t ry = report[3];
-
-    // Hat switch: low nibble of byte 4
-    uint8_t hat = report[4] & 0x0F;
+    uint8_t lx  = report[2];
+    uint8_t ly  = report[3];
     uint8_t b4  = report[4];
     uint8_t b5  = report[5];
 
-    // Stick: ~25% deflection threshold
-    bool stick_left  = lx < 0x40;
-    bool stick_right = lx > 0xC0;
-    bool stick_up    = ly < 0x40;
-    bool stick_down  = ly > 0xC0;
+    // Left stick / crosspad directions
+    bool up    = ly < 0x40;
+    bool down  = ly > 0xC0;
+    bool left  = lx < 0x40;
+    bool right = lx > 0xC0;
 
-    // Hat (8-way; 0xF = neutral)
-    bool hat_up    = (hat == 7 || hat == 0 || hat == 1);
-    bool hat_right = (hat == 1 || hat == 2 || hat == 3);
-    bool hat_down  = (hat == 3 || hat == 4 || hat == 5);
-    bool hat_left  = (hat == 5 || hat == 6 || hat == 7);
-    if (hat >= 8) { hat_up = hat_down = hat_left = hat_right = false; }
+    // Face buttons (high nibble of byte[4])
+    // Per user report: Y=0x10, B=0x20, A=0x40, X=0x80
+    bool btn_y      = (b4 & 0x10) != 0;
+    bool btn_b      = (b4 & 0x20) != 0;
+    bool btn_a      = (b4 & 0x40) != 0;
+    bool btn_x      = (b4 & 0x80) != 0;
 
-    bool up    = stick_up    || hat_up;
-    bool down  = stick_down  || hat_down;
-    bool left  = stick_left  || hat_left;
-    bool right = stick_right || hat_right;
-
-    // Face buttons (high nibble byte 4)
-    bool btn_x      = (b4 & 0x10) != 0;
-    bool btn_a      = (b4 & 0x20) != 0;
-    bool btn_b      = (b4 & 0x40) != 0;
-    bool btn_y      = (b4 & 0x80) != 0;
-
-    // Shoulder / system (byte 5)
-    bool btn_l      = (b5 & 0x01) != 0;
-    bool btn_r      = (b5 & 0x02) != 0;
+    // Shoulder buttons and system
+    bool btn_lb     = (b5 & 0x01) != 0;
+    bool btn_rb     = (b5 & 0x02) != 0;
     bool btn_lt     = (b5 & 0x04) != 0;
     bool btn_rt     = (b5 & 0x08) != 0;
     bool btn_select = (b5 & 0x10) != 0;
@@ -1183,15 +1175,15 @@ static void process_gp_0810_0001(uint8_t instance, uint8_t const* report, uint16
     static bool prev_x = false, prev_y = false, prev_l = false, prev_r = false;
     if (btn_x != prev_x) { kbdPushData(fabgl::VirtualKey::VK_JOY_X, btn_x); prev_x = btn_x; }
     if (btn_y != prev_y) { kbdPushData(fabgl::VirtualKey::VK_JOY_Y, btn_y); prev_y = btn_y; }
-    if (btn_l != prev_l) { kbdPushData(fabgl::VirtualKey::VK_JOY_Z, btn_l); prev_l = btn_l; }
-    if (btn_r != prev_r) { kbdPushData(fabgl::VirtualKey::VK_JOY_C, btn_r); prev_r = btn_r; }
+    if (btn_lb != prev_l) { kbdPushData(fabgl::VirtualKey::VK_JOY_Z, btn_lb); prev_l = btn_lb; }
+    if (btn_rb != prev_r) { kbdPushData(fabgl::VirtualKey::VK_JOY_C, btn_rb); prev_r = btn_rb; }
 
     gamepad1_bits.up     = up;
     gamepad1_bits.down   = down;
     gamepad1_bits.left   = left;
     gamepad1_bits.right  = right;
-    gamepad1_bits.a      = btn_b;
-    gamepad1_bits.b      = btn_a;
+    gamepad1_bits.a      = btn_a;
+    gamepad1_bits.b      = btn_b;
     gamepad1_bits.start  = btn_start;
     gamepad1_bits.select = btn_select;
 
@@ -1200,7 +1192,7 @@ static void process_gp_0810_0001(uint8_t instance, uint8_t const* report, uint16
     if (left)       dec |= HID_DEC_LEFT;   if (right)      dec |= HID_DEC_RIGHT;
     if (btn_a)      dec |= HID_DEC_A;      if (btn_b)      dec |= HID_DEC_B;
     if (btn_x)      dec |= HID_DEC_X;      if (btn_y)      dec |= HID_DEC_Y;
-    if (btn_l)      dec |= HID_DEC_L;      if (btn_r)      dec |= HID_DEC_R;
+    if (btn_lb)     dec |= HID_DEC_L;      if (btn_rb)     dec |= HID_DEC_R;
     if (btn_start)  dec |= HID_DEC_START;  if (btn_select) dec |= HID_DEC_SELECT;
     hid_snap_set_decoded(instance, HID_HANDLER_GP_0810_0001, dec);
 }
