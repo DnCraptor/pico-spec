@@ -933,7 +933,7 @@ static inline bool hdmi_init() {
 };
 
 // In VGA_HDMI mode, also update the VGA palette LUT
-#ifdef VGA_HDMI
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
 extern void vga_set_palette_entry(uint8_t i, uint32_t color888);
 #endif
 
@@ -972,7 +972,7 @@ void hdmi_poll_reinit() {
 void graphics_set_palette(uint8_t i, uint32_t color888) {
     palette[i] = color888 & 0x00ffffff;
 
-#ifdef VGA_HDMI
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
     // Update VGA palette LUT in parallel
     vga_set_palette_entry(i, color888);
 #endif

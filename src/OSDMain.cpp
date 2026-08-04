@@ -192,7 +192,7 @@ using namespace std;
 
 extern Font Font6x8;
 extern Font Font6x8Cyr;   // CP1251 Cyrillic face (online-catalog names)
-#ifdef VGA_HDMI
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
 extern bool SELECT_VGA;
 #endif
 
@@ -1330,7 +1330,11 @@ void OSD::drawOSD(bool bottom_info) {
         string bottom_line;
 #ifdef VGA_HDMI
     {
-        uint8_t vm = SELECT_VGA ? Config::vga_video_mode : Config::hdmi_video_mode;
+        uint8_t vm = 
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
+        SELECT_VGA ? Config::vga_video_mode :
+#endif
+         Config::hdmi_video_mode;
         const char* vmname;
         switch (vm) {
             case Config::VM_640x480_60: vmname = "640x480@60Hz"; break;
@@ -1341,7 +1345,10 @@ void OSD::drawOSD(bool bottom_info) {
         }
         char buf2[41];
         snprintf(buf2, sizeof(buf2), " Video: %s %s  ",
-                 (SELECT_VGA ? "VGA" : "HDMI"), vmname);
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
+                SELECT_VGA ? "VGA" : 
+#endif
+                "HDMI", vmname);
         bottom_line = buf2;
     }
 #else
@@ -1934,7 +1941,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
     // framebuffer grow. Save the *old* vm to pending (loaded after reboot for
     // the rollback confirmation), write the new vm to main config, then reset.
     if (hkIdx == Config::HK_VIDMODE_60) { // HDMI 60Hz
-        uint8_t &vm = SELECT_VGA ? Config::vga_video_mode : Config::hdmi_video_mode;
+        uint8_t &vm = 
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
+        SELECT_VGA ? Config::vga_video_mode : 
+#endif
+        Config::hdmi_video_mode;
         if (vm == Config::VM_640x480_60) return;
         Config::savePendingVideoMode(); // captures old vm
         vm = Config::VM_640x480_60;
@@ -1942,7 +1953,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
         esp_hard_reset();
     } else
     if (hkIdx == Config::HK_VIDMODE_50) { // HDMI 50Hz
-        uint8_t &vm = SELECT_VGA ? Config::vga_video_mode : Config::hdmi_video_mode;
+        uint8_t &vm =
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
+         SELECT_VGA ? Config::vga_video_mode :
+#endif
+         Config::hdmi_video_mode;
         if (vm == Config::VM_640x480_50) return;
         Config::savePendingVideoMode(); // captures old vm
         vm = Config::VM_640x480_50;
@@ -4698,7 +4713,11 @@ void OSD::do_OSD(fabgl::VirtualKey KeytoESP, bool ALT, bool CTRL) {
                             while (1) {
                                 string opt_menu = MENU_VIDEO_MODE[Config::lang];
 #ifdef VGA_HDMI
-                                uint8_t &curVideoMode = SELECT_VGA ? Config::vga_video_mode : Config::hdmi_video_mode;
+                                uint8_t &curVideoMode = 
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
+                                SELECT_VGA ? Config::vga_video_mode :
+#endif
+                                 Config::hdmi_video_mode;
 #else
                                 uint8_t dummy_vm = 0;
                                 uint8_t &curVideoMode = dummy_vm;
@@ -10233,7 +10252,9 @@ string OSD::rowGet(const string& menu, unsigned short row) {
 //     get_cpu_flash_jedec_id(rx);
 //     return 1u << rx[3];
 // }
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
 extern "C" uint8_t linkVGA01;
+#endif
 extern "C" uint8_t link_i2s_code;
 extern bool is_i2s_enabled;
 
@@ -10507,7 +10528,7 @@ static void buildHWInfoText() {
             (is_i2s_enabled ? "i2s" : "PWM"), link_i2s_code,
             (Config::audio_driver == 0 ? " (auto)" : "(overriden)"));
 
-#ifdef VGA_HDMI
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
     pos += snprintf(hwtext + pos, sizeof(hwtext) - pos, " VGA/HDMI detect: %02Xh\n", linkVGA01);
 #endif
 
@@ -10822,7 +10843,7 @@ void OSD::BoardInfo() {
             (is_i2s_enabled ? "i2s" : "PWM"), link_i2s_code,
             (Config::audio_driver == 0 ? " auto" : ""));
 
-#ifdef VGA_HDMI
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
     pos += snprintf(buf + pos, sizeof(buf) - pos, " VGA/HDMI detect: %02Xh\n", linkVGA01);
 #endif
 

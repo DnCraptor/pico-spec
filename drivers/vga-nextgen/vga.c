@@ -1,3 +1,4 @@
+
 #include "graphics.h"
 #include "hardware/clocks.h"
 #include "stdbool.h"
@@ -11,6 +12,8 @@
 #include "hardware/pio.h"
 #include "pico/stdlib.h"
 #include "stdlib.h"
+
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
 
 /// TODO: .h
 bool SELECT_VGA = false;
@@ -62,6 +65,8 @@ static uint8_t TMPL_VHS8_g  = 0b00000000;
 static int dma_chan_ctrl;
 static int dma_chan;
 
+#endif
+
 /// TODO:
 int graphics_buffer_width = 0;
 int graphics_buffer_height = 0;
@@ -70,6 +75,13 @@ int graphics_buffer_shift_y = 0;
 
 static bool is_flash_line = false;
 static bool is_flash_frame = false;
+
+// Unified DS80-active flag: set by both vga_set_profi_ds80_mode and hdmi_set_profi_ds80_mode.
+// Kept on all platforms (1 byte) — stays false on RP2040.
+volatile bool profi_ds80_active = false;
+
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
+
 bool vga_scanlines = false;
 // Scanline brightness level: 0=off, 1=darkest .. 4=lightest. Level 2 is the
 // legacy ~50% look and the default. Drives dim_rgb888() when (re)building the
@@ -139,9 +151,6 @@ static inline bool vga_buffers_ready(void) {
     vga_alloc_buffers();
     return vga_color888 != (uint32_t *) 0;
 }
-// Unified DS80-active flag: set by both vga_set_profi_ds80_mode and hdmi_set_profi_ds80_mode.
-// Kept on all platforms (1 byte) — stays false on RP2040.
-volatile bool profi_ds80_active = false;
 
 static uint text_buffer_width = 0;
 static uint text_buffer_height = 0;
@@ -538,6 +547,7 @@ void vga_reinit() {
         dma_channel_set_trans_count(dma_chan, line_size / 4, false);
     }
 }
+#endif // #if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
 
 void graphics_set_buffer(uint8_t* buffer, const uint16_t width, const uint16_t height) {
     graphics_buffer_width = width;
@@ -555,6 +565,7 @@ void graphics_set_flashmode(const bool flash_line, const bool flash_frame) {
     is_flash_line = flash_line;
 }
 
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
 // Bayer 2×2 ordered dithering: /21 → 13 levels/channel → 2197 perceived colors
 // Threshold matrix: [0 2]  Fill order per sub-level: (0,0), (1,1), (0,1), (1,0)
 //                   [3 1]
@@ -617,7 +628,11 @@ void vga_set_palette_entry(uint8_t i, uint32_t color888) {
     // Scanline: dithered at the current brightness level (odd pair for single-line rendering)
     vga_build_scanline_entry(i);
 }
+#else
+void vga_set_palette_entry_solid(uint8_t i, uint32_t color888) {}
+#endif
 
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
 // Update a VGA palette entry WITHOUT dithering (both palettes get identical solid color)
 // Use for the 16 standard Spectrum colors to avoid visible dithering artifacts
 void vga_set_palette_entry_solid(uint8_t i, uint32_t color888) {
@@ -692,6 +707,14 @@ void vga_set_profi_ds80_mode(bool active,
 #endif // !PICO_RP2040
 }
 
+#else
+void graphics_set_bgcolor_hdmi(uint32_t color888);
+void graphics_set_bgcolor(const uint32_t color888) {
+    graphics_set_bgcolor_hdmi(color888);
+}
+#endif // #if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
+
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
 void graphics_set_bgcolor_hdmi(uint32_t color888);
 void graphics_set_bgcolor(const uint32_t color888) {
     if (!SELECT_VGA) {
@@ -729,6 +752,14 @@ void graphics_set_scanlines(uint8_t level) {
 }
 #endif
 
+#else 
+void graphics_init_hdmi();
+void graphics_init() {
+    graphics_init_hdmi();
+}
+#endif // defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
+
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
 uint8_t linkVGA01;
 void graphics_init_hdmi();
 void graphics_init() {
@@ -827,3 +858,5 @@ void graphics_init() {
     irq_set_enabled(VGA_DMA_IRQ, true);
     dma_start_channel_mask(1u << dma_chan);
 }
+
+#endif // defined(VGA_HDMI) && !defined(SUPPRESS_VGA)

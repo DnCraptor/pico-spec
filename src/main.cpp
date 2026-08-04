@@ -886,7 +886,9 @@ void repeat_me_for_input() {
 
 #ifdef VGA_HDMI
 extern "C" void hdmi_poll_reinit(void);
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
 extern "C" void vga_reinit(void);
+#endif
 #endif
 #ifdef TFT
 extern "C" void refresh_lcd(void);
@@ -900,7 +902,7 @@ void __scratch_x("render") render_core() {
 #if SOFTTV
     sem_release(&graphics_init_done_semaphore);
 #endif
-#ifdef VGA_HDMI
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
     // graphics_init() hardcodes line_VS_begin/end for 640x480 (490/491).
     // For 720x modes video_mode is already set by VIDEO::Reset() on core0,
     // so update vsync line numbers from the mode table now.
@@ -1481,7 +1483,7 @@ void __not_in_flash_func(board_set_clock_and_timing)(uint32_t mhz) {
 }
 #endif
 
-#ifdef VGA_HDMI
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
 extern "C" uint8_t linkVGA01;
 #endif
 extern "C" int testPins(uint32_t pin0, uint32_t pin1);
@@ -1617,7 +1619,7 @@ int main() {
     keyboard_send(0xFF);
 #endif
 
-    #ifdef VGA_HDMI
+    #if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
     Debug::log("main: testPins begin");
     linkVGA01 = testPins(VGA_BASE_PIN, VGA_BASE_PIN + 1);
     Debug::log("main: testPins=%02X", linkVGA01);
@@ -1659,7 +1661,7 @@ int main() {
         gpio_put(PICO_DEFAULT_LED_PIN, false);
     }
     #endif
-    #ifdef VGA_HDMI
+    #if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
     {
         FIL f;
         f_open(&f, CONFIG_DIR "/video_detect.code", FA_WRITE | FA_CREATE_ALWAYS);

@@ -339,7 +339,7 @@ public:
 
   // Video mode helper methods
   static uint8_t activeVideoMode() {
-#ifdef VGA_HDMI
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
     extern bool SELECT_VGA;
     return SELECT_VGA ? Config::vga_video_mode : Config::hdmi_video_mode;
 #else

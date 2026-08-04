@@ -63,7 +63,9 @@ extern "C" void graphics_set_buffer(uint8_t* buffer, uint16_t width, uint16_t he
 extern "C" void graphics_set_scanlines(uint8_t level);
 extern "C" void graphics_set_dither(bool enabled);
 extern "C" void hdmi_reinit(void);
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
 extern "C" void vga_reinit(void);
+#endif
 #if !PICO_RP2040
 extern "C" void hdmi_set_profi_ds80_mode(bool active, const uint32_t *palette16, const uint8_t *pair_lut);
 extern "C" void vga_set_profi_ds80_mode(bool active, const uint32_t *palette16, const uint8_t *pair_lut);
@@ -115,7 +117,9 @@ extern "C" int get_framebuffer_height() {
 // }
 
 #ifdef VGA_HDMI
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
 extern bool SELECT_VGA;
+#endif
 int VIDEO::video_mode = 0;
 #endif
 
@@ -2080,6 +2084,7 @@ void VIDEO::changeMode() {
     }
 
     // 2. Update video_mode BEFORE reinit (hdmi_init reads it via get_video_mode())
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
     if (SELECT_VGA) {
         switch (Config::vga_video_mode) {
             case Config::VM_640x480_50:
@@ -2095,7 +2100,9 @@ void VIDEO::changeMode() {
                 break;
             default: video_mode = 0; break;
         }
-    } else {
+    } else
+#endif
+    {
         switch (Config::hdmi_video_mode) {
             case Config::VM_640x480_60: video_mode = 0; break;
             case Config::VM_640x480_50:
@@ -2121,9 +2128,12 @@ void VIDEO::changeMode() {
     OSD::scrH = newH;
     graphics_set_buffer(NULL, newW, newH);
     graphics_set_scanlines(Config::scanlines);
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
     if (SELECT_VGA) {
         vga_reinit();
-    } else {
+    } else 
+#endif
+    {
         hdmi_reinit();
     }
 
@@ -2387,6 +2397,7 @@ void VIDEO::Reset() {
     brdcol_cnt = brdcol_start;
     brdlin_cnt = 0;
 #ifdef VGA_HDMI
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
     if (SELECT_VGA)
     {
         switch (Config::vga_video_mode) {
@@ -2409,6 +2420,7 @@ void VIDEO::Reset() {
         }
     }
     else
+#endif
     {
         // HDMI: map Config enum to graphics.c video_mode index
         switch (Config::hdmi_video_mode) {

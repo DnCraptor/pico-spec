@@ -254,7 +254,9 @@ extern void hdmi_set_scanlines(uint8_t level);
 extern void vga_set_scanlines(uint8_t level);
 void graphics_set_scanlines(uint8_t level) {
     hdmi_set_scanlines(level);
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
     vga_set_scanlines(level);
+#endif
 }
 extern void hdmi_set_dither(bool enabled);
 void graphics_set_dither(bool enabled) {

@@ -1026,7 +1026,7 @@ void ESPectrum::setup() {
   //=======================================================================================
   // VIDEO
   //=======================================================================================
-#ifdef VGA_HDMI
+#if defined(VGA_HDMI) && !defined(SUPPRESS_VGA)
   {
     extern bool SELECT_VGA;
     extern uint8_t linkVGA01;
